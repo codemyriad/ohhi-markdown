@@ -1,0 +1,40 @@
+# Dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# Secrets
+**/.env
+**/.env.local
+**/.env.*.local
+**/.envrc
+**/.direnv
+
+# Obsidian (test vaults may carry config we don't want versioned)
+**/.obsidian
+
+# Logs
+**/npm-debug.log*
+**/.pnpm-debug.log*
+**/*.log
+
+# Cache
+**/tsconfig.tsbuildinfo
+**/.eslintcache
+**/.svelte-kit
+**/dist
+**/build
+
+# Rush temp files
+common/temp
+common/autoinstallers/*/node_modules
+
+# Test artifacts
+**/playwright-report
+**/test-results
+
+# IDE / OS
+**/.vscode/**/*
+!.vscode/settings.json
+**/.DS_Store
+*.pem
