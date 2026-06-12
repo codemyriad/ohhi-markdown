@@ -51,6 +51,22 @@ async function typeAtTop(page: Page, text: string): Promise<void> {
   await page.keyboard.type(text)
 }
 
+test('a bad token fails fast with a real message, not eternal connecting', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const params = new URLSearchParams({
+    mode: 'memory',
+    role: 'join',
+    relay: RELAY,
+    room: ROOM,
+    token: 'wrong-token',
+    user: 'Mallory',
+  })
+  await page.goto(`/?${params.toString()}`)
+  await expect(page.getByTestId('boot-error')).toContainText('rejected', { timeout: 15_000 })
+  await context.close()
+})
+
 test('seed + join: edits propagate both ways and pills are honest', async ({ browser }) => {
   const alice = await openPeer(browser, 'seed', 'Alice')
   const bob = await openPeer(browser, 'join', 'Bob')

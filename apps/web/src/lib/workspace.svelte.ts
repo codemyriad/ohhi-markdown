@@ -218,6 +218,7 @@ export async function setupWorkspace(cfg: MemoryModeConfig): Promise<Workspace> 
       doc,
       user,
       record: recordForPath(path),
+      onAuthFailed: reportAuthFailure,
     })
     conns.set(guid, conn)
     engine.onUpdate(doc, (_update, origin) => routeDocUpdate(guid, origin))
@@ -311,6 +312,12 @@ export async function setupWorkspace(cfg: MemoryModeConfig): Promise<Workspace> 
 
   // ---- folder doc provider + presence ----
 
+  let authFailure: string | null = null
+  const reportAuthFailure = (reason: string): void => {
+    authFailure = `relay rejected this token (${reason}) — check that the share exists on the relay (share CLI / SEED_SHARE) and that the room/token URL params match it`
+    ui.error = authFailure
+  }
+
   const folderConn = connectDoc({
     relay: cfg.relay,
     name: `${cfg.room}/folder`,
@@ -318,6 +325,7 @@ export async function setupWorkspace(cfg: MemoryModeConfig): Promise<Workspace> 
     doc: folderDoc,
     user,
     record: recordForPath(FOLDER_RECORD_KEY),
+    onAuthFailed: reportAuthFailure,
   })
 
   const updatePresence = (): void => {
@@ -347,16 +355,23 @@ export async function setupWorkspace(cfg: MemoryModeConfig): Promise<Workspace> 
     // the pills just say so.
   } else {
     // Joiner: folder doc first; "synced" alone is not enough — the seeder may
-    // arrive later, so also wait for the map to be non-empty.
-    await whenSynced(folderConn.provider, () =>
-      folderDoc
-        .getMap()
-        .entries()
-        .some(([, e]) => !e.deleted)
+    // arrive later, so also wait for the map to be non-empty. Auth rejection
+    // fails fast with a real message instead of timing out as "connecting…".
+    await whenSynced(
+      folderConn.provider,
+      () =>
+        folderDoc
+          .getMap()
+          .entries()
+          .some(([, e]) => !e.deleted),
+      60_000,
+      () => authFailure
     )
     adoptionEnabled = true
     await queueMapScan() // creates per-file docs + providers
-    await Promise.all([...conns.values()].map((c) => whenSynced(c.provider)))
+    await Promise.all(
+      [...conns.values()].map((c) => whenSynced(c.provider, undefined, 60_000, () => authFailure))
+    )
     const { problems } = await joinFolder(engine, adapter, folderDoc, docs, lcaStore)
     if (problems.length > 0) {
       pushError(new Error(`join problems: ${problems.map((p) => `${p.path} (${p.reason})`).join(', ')}`))

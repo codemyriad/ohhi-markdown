@@ -34,6 +34,8 @@ export interface ConnectDocOptions {
   user: CollabUser
   /** Reactive record this provider keeps honest. */
   record: SyncRecord
+  /** Auth rejection is permanent — surface it instead of retrying silently. */
+  onAuthFailed?: (reason: string) => void
 }
 
 export function connectDoc(opts: ConnectDocOptions): DocConnection {
@@ -59,6 +61,11 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
     onUnsyncedChanges: ({ number }) => {
       opts.record.pendingLocal = number > 0
     },
+    onAuthenticationFailed: ({ reason }) => {
+      opts.record.connected = false
+      opts.record.synced = false
+      opts.onAuthFailed?.(reason)
+    },
   })
 
   return {
@@ -77,11 +84,14 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
 export function whenSynced(
   provider: HocuspocusProvider,
   ready: () => boolean = () => true,
-  timeoutMs = 60_000
+  timeoutMs = 60_000,
+  failed: () => string | null = () => null
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const started = Date.now()
     const tick = () => {
+      const failure = failed()
+      if (failure) return reject(new Error(failure))
       if (provider.synced && ready()) return resolve()
       if (Date.now() - started > timeoutMs) {
         return reject(new Error(`relay sync timed out after ${timeoutMs}ms (${provider.configuration.name})`))
