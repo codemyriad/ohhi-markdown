@@ -1,0 +1,26 @@
+{
+  "name": "@editor/editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@editor/sync": "workspace:*",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/commands": "^6.8.0",
+    "@codemirror/lang-markdown": "^6.3.0",
+    "y-codemirror.next": "^0.3.5",
+    "yjs": "^13.6.27",
+    "y-protocols": "^1.0.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "svelte": "^5.0.0"
+  }
+}

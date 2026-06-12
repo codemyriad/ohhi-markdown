@@ -1,8 +1,8 @@
-# Quire
+# Editor
 
 A collaborative, agent-native markdown editor — a drop-in replacement for Obsidian over a plain-markdown vault, with CRDT-based sharing, views over notes, and agents as first-class collaborators.
 
-> **quire** /kwʌɪə/ — a gathering of folded sheets sewn together into a book; four sheets folded once. Homophone of *choir*: many voices, one piece.
+> "Editor" is a deliberately plain working name — the real name is still being chosen.
 
 ## Why
 

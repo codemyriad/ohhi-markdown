@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# This script is invoked by cloudflare pages to build the menu viewer app
+
+echo "Running build"
+
+echo "Installing packages (running rush update)"
+./common/scripts/rush update
+
+echo "Building dependencies (running rush build)"
+./common/scripts/rush build
+
+echo "Building diet profiles app"
+cd apps/diet-profiles
+../../common/scripts/rushx build:prod
+
+echo "Output from the Cloudflare adapter:"
+find .svelte-kit/cloudflare

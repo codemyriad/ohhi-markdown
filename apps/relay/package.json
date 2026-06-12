@@ -1,0 +1,20 @@
+{
+  "name": "@editor/relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "node --experimental-strip-types src/main.ts", "test": "vitest run", "check": "tsc --noEmit" },
+  "dependencies": {
+    "@hocuspocus/server": "^4.0.0",
+    "better-sqlite3": "^12.0.0",
+    "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "@hocuspocus/provider": "^4.0.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0",
+    "ws": "^8.18.0"
+  }
+}

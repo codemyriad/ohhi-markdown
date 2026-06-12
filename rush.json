@@ -336,6 +336,13 @@
    * 3. It's useful to have a centralized inventory of all projects and their important metadata.
    */
   "projects": [
+    { "packageName": "@editor/sync", "projectFolder": "libs/sync" },
+    { "packageName": "@editor/testkit", "projectFolder": "libs/testkit" },
+    { "packageName": "@editor/vault", "projectFolder": "libs/vault" },
+    { "packageName": "@editor/editor", "projectFolder": "libs/editor" },
+    { "packageName": "@editor/relay", "projectFolder": "apps/relay" },
+    { "packageName": "@editor/web", "projectFolder": "apps/web" },
+    { "packageName": "@editor/desktop", "projectFolder": "apps/desktop" }
     // {
     //   /**
     //    * The NPM package name of the project (must match package.json)

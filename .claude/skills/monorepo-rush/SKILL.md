@@ -1,15 +1,15 @@
 ---
 name: monorepo-rush
-description: Monorepo and Rush workflow for the Quire repo, including layout, installing dependencies with rush install (preferred) or rush update when bumping deps, and running package scripts with rushx. Use this skill when managing dependencies, scripts, CI, or when an agent needs to understand the workspace structure.
+description: Monorepo and Rush workflow for the Editor repo, including layout, installing dependencies with rush install (preferred) or rush update when bumping deps, and running package scripts with rushx. Use this skill when managing dependencies, scripts, CI, or when an agent needs to understand the workspace structure.
 metadata:
-  repo: quire
+  repo: editor
 ---
 
 ## When to use this skill
 
 Use this skill whenever you need to:
 
-- Understand how the **Quire monorepo** is laid out.
+- Understand how the **Editor monorepo** is laid out.
 - Install or update dependencies with **Rush**.
 - Run **package scripts** (formatting, linting, typechecking, testing) with **rushx**.
 - Reason about CI pipelines that rely on Rush commands.
@@ -31,7 +31,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
   - **`apps/`** – Application packages.
   - **`libs/`** – Shared libraries.
   - **Rush config** – Lives at the repo root (`rush.json`, `common/config/**`).
-- **Package naming**: `@quire/<name>` (for example `@quire/sync`, `@quire/vault`).
+- **Package naming**: `@editor/<name>` (for example `@editor/sync`, `@editor/vault`).
 
 ### V1 packages (per `plans/shaping.md` D10)
 

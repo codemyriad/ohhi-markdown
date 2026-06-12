@@ -1,8 +1,8 @@
 ---
 name: ui-development
-description: Svelte 5, Tailwind, and CodeMirror 6 UI patterns for the Quire repo (collaborative markdown editor). Use this skill when building or updating UI components, the editor wrapper, sync-state indicators, or styles.
+description: Svelte 5, Tailwind, and CodeMirror 6 UI patterns for the Editor repo (collaborative markdown editor). Use this skill when building or updating UI components, the editor wrapper, sync-state indicators, or styles.
 metadata:
-  repo: quire
+  repo: editor
 ---
 
 ## When to use this skill
@@ -27,7 +27,7 @@ This project uses:
 - **Tailwind CSS v4** – utility-first CSS, CSS-first configuration (`@theme` and other modern features).
 - **CodeMirror 6** – the editor surface (see the integration pattern below).
 
-**DaisyUI and Melt UI are not yet dependencies.** Quire follows the same conventions as Edible — DaisyUI for standard CSS components, Melt UI for complex headless/accessible primitives — and will adopt them when a slice actually needs them. Don't add either speculatively; if a task seems to call for one, confirm first.
+**DaisyUI and Melt UI are not yet dependencies.** Editor follows the same conventions as Edible — DaisyUI for standard CSS components, Melt UI for complex headless/accessible primitives — and will adopt them when a slice actually needs them. Don't add either speculatively; if a task seems to call for one, confirm first.
 
 Storybook is not set up; add it later if needed.
 

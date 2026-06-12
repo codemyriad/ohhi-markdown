@@ -1,0 +1,11 @@
+{
+  "name": "@editor/sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": { "test": "vitest run", "check": "tsc --noEmit" },
+  "dependencies": { "yjs": "^13.6.27", "y-protocols": "^1.0.6" },
+  "devDependencies": { "typescript": "^5.8.0", "vitest": "^3.0.0" }
+}

@@ -1,8 +1,8 @@
 ---
 name: testing
-description: Testing patterns for the Quire repo, including the three-tier collab-correctness harness (fast-check model tests, reconciler fuzz, Playwright two-context smoke), unit tests with Vitest and Svelte Testing Library, and e2e tests with Playwright. Use this skill when writing, updating, or diagnosing tests.
+description: Testing patterns for the Editor repo, including the three-tier collab-correctness harness (fast-check model tests, reconciler fuzz, Playwright two-context smoke), unit tests with Vitest and Svelte Testing Library, and e2e tests with Playwright. Use this skill when writing, updating, or diagnosing tests.
 metadata:
-  repo: quire
+  repo: editor
 ---
 
 ## When to use this skill
@@ -36,7 +36,7 @@ If a task mentions tests (property, fuzz, unit, integration, or e2e), start here
 
 ## Architectural rule: injected clock/scheduler (lint-enforced)
 
-All Quire-owned sync and reconciler code (`libs/sync`, `libs/vault`) takes an **injected clock/scheduler** — no direct `Date.now()`, `setTimeout`, `setInterval`, or ambient timers. This is enforced by a lint rule; third-party providers (Hocuspocus, y-* internals) are exempt.
+All Editor-owned sync and reconciler code (`libs/sync`, `libs/vault`) takes an **injected clock/scheduler** — no direct `Date.now()`, `setTimeout`, `setInterval`, or ambient timers. This is enforced by a lint rule; third-party providers (Hocuspocus, y-* internals) are exempt.
 
 Why: the harness must run thousands of simulated interleavings deterministically. If your change needs time or scheduling, thread it through the injected abstraction so L0/L1 can drive it.
 
@@ -187,7 +187,7 @@ When adding new tests or patterns:
   - Checking shrunk counterexamples into `fuzz-crashers/` with a descriptive name.
 - **Avoid**:
   - Adding per-PR Playwright specs for collab paths (the one-smoke rule).
-  - Real timers or ambient time in Quire-owned sync/reconciler code (lint will reject it).
+  - Real timers or ambient time in Editor-owned sync/reconciler code (lint will reject it).
   - Asserting convergence on rendered text instead of encoded CRDT state.
 
 When the harness evolves (spike results landing — S1 join/re-seed, S3 frontmatter policy, S6 stale-echo interlock — or new lanes unlocking), update this SKILL to capture the new expectations.

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: typecheck + L0/L1 + relay integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+      - name: Typecheck all packages
+        run: |
+          for pkg in libs/sync libs/testkit libs/vault libs/editor apps/relay apps/web; do
+            echo "::group::check $pkg"
+            (cd "$pkg" && node ../../common/scripts/install-run-rushx.js check)
+            echo "::endgroup::"
+          done
+      - name: Unit + property tests (L0, L1 bounded, relay integration)
+        run: |
+          for pkg in libs/sync libs/testkit libs/vault apps/relay apps/web; do
+            echo "::group::test $pkg"
+            (cd "$pkg" && node ../../common/scripts/install-run-rushx.js test)
+            echo "::endgroup::"
+          done
+      - name: Build web app
+        run: cd apps/web && node ../../common/scripts/install-run-rushx.js build
+
+  e2e:
+    name: L2 two-context smoke (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+      - name: Install Chromium for Playwright
+        run: cd apps/web && ./node_modules/.bin/playwright install --with-deps chromium
+      - name: Run L2 smoke
+        run: cd apps/web && node ../../common/scripts/install-run-rushx.js e2e
+
+  # Nightly depth lane (100x L1 runs on a real tmpdir) — added with the
+  # nightly fuzz driver; see docs/architecture/testing.md.
