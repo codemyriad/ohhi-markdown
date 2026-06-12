@@ -58,7 +58,7 @@ export class NodeVaultAdapter implements VaultAdapter {
   async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
     const full = this.abs(path)
     await mkdir(dirname(full), { recursive: true })
-    const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}`
+    const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
     const handle = await open(tmp, 'w')
     try {
       await handle.writeFile(bytes)

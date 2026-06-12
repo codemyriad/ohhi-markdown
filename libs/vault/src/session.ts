@@ -99,7 +99,7 @@ export class VaultSession {
     this.subscriptions.push(this.adapter.watch((ev) => this.onWatch(ev)))
     this.subscriptions.push(
       this.folderDoc.getMap().observe((origin) => {
-        if (origin === 'remote') void this.onRemoteMapChange()
+        if (isForeignOrigin(origin)) void this.onRemoteMapChange()
       })
     )
     for (const [guid, doc] of this.docs) this.subscribeDoc(guid, doc)
@@ -108,7 +108,7 @@ export class VaultSession {
   private subscribeDoc(guid: string, doc: EngineDoc): void {
     this.subscriptions.push(
       this.engine.onUpdate(doc, (_update, origin) => {
-        if (origin === 'remote') this.scheduleReconcile(guid)
+        if (isForeignOrigin(origin)) this.scheduleReconcile(guid)
       })
     )
   }
@@ -125,15 +125,15 @@ export class VaultSession {
     await this.reconcile(guid)
   }
 
-  /** Debounced flush-on-idle entry point for open docs. */
+  /** Debounced flush-on-idle entry point; safe for open and closed docs. */
   async flush(guid: string): Promise<void> {
     const path = this.pathOf(guid)
     if (!path) return
-    this.ctx.openPaths.delete(path)
+    const wasOpen = this.ctx.openPaths.delete(path)
     try {
       await this.reconcile(guid)
     } finally {
-      this.ctx.openPaths.add(path)
+      if (wasOpen) this.ctx.openPaths.add(path)
     }
   }
 
@@ -316,6 +316,16 @@ export class VaultSession {
     const lca = await this.lcaStore.get(guid)
     if (lca) await this.lcaStore.put({ ...lca, path: to })
   }
+}
+
+/**
+ * Anything our own code didn't tag is an external change. Real network
+ * providers (e.g. Hocuspocus) apply remote updates with the provider
+ * instance as the transaction origin — never the seam's 'remote' string —
+ * so "not one of ours" is the correct remote test.
+ */
+function isForeignOrigin(origin: unknown): boolean {
+  return origin !== 'local' && origin !== 'disk' && origin !== 'seed'
 }
 
 function emptyHeads(engine: import('@editor/sync').SyncEngine) {

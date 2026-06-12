@@ -16,6 +16,8 @@ jobs:
           node-version-file: .nvmrc
       - name: Rush install
         run: node common/scripts/install-run-rush.js install
+      - name: Clock-injection guard
+        run: ./scripts/check-clock-injection.sh
       - name: Typecheck all packages
         run: |
           for pkg in libs/sync libs/testkit libs/vault libs/editor apps/relay apps/web; do
