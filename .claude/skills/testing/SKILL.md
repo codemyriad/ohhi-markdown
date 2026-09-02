@@ -74,6 +74,11 @@ Scenario matrix includes: two-bridge double-ingestion, relay kill-9/restore, del
 - **Checkbox count and order** preserved.
 - **Idempotence** — re-running the reconciler over a settled state changes nothing.
 
+**Lighter two-session fixture pattern**: for folder-map behaviors (dir ops,
+renames, tombstones) that don't need the full fuzz world,
+`libs/vault/test/dir-ops.test.ts` establishes a TestNetwork-on-folder-docs-only
+two-session fixture — prefer extending it over spinning up the whole L1 driver.
+
 **`fuzz-crashers/` regression corpus**: every counterexample the fuzzer finds is shrunk and checked in as a permanent fixture, replayed on every CI run forever. Never delete entries; if one becomes obsolete, that is a design discussion, not a cleanup commit.
 
 ```bash
