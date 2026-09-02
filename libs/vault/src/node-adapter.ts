@@ -15,6 +15,8 @@ import {
 } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import type { FileStat, VaultAdapter, WatchEvent } from './types.js'
+import type { StoreIo } from './stores.js'
+import type { StoreDir } from './store-dir.js'
 
 const IGNORED = new Set(['.git', '.obsidian', '.editor-cache', 'node_modules'])
 
@@ -88,5 +90,75 @@ export class NodeVaultAdapter implements VaultAdapter {
       cb({ paths: [path] })
     })
     return () => watcher.close()
+  }
+}
+
+/**
+ * Node StoreDir (spike S8 durable-store layout) for the headless peer and the
+ * nightly real-filesystem lane. Same temp+fsync+rename write discipline as
+ * NodeVaultAdapter above.
+ */
+export class NodeStoreDir implements StoreDir {
+  constructor(private root: string) {}
+
+  private abs(name: string): string {
+    const full = join(this.root, name)
+    if (relative(this.root, full).startsWith('..')) {
+      throw new Error(`name escapes store dir: ${name}`)
+    }
+    return full
+  }
+
+  io(name: string): StoreIo {
+    const full = this.abs(name)
+    return {
+      read: async () => {
+        try {
+          return new Uint8Array(await readFile(full))
+        } catch (err: unknown) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
+          throw err
+        }
+      },
+      writeAtomic: async (bytes) => {
+        await mkdir(dirname(full), { recursive: true })
+        const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
+        const handle = await open(tmp, 'w')
+        try {
+          await handle.writeFile(bytes)
+          await handle.sync()
+        } finally {
+          await handle.close()
+        }
+        await fsRename(tmp, full)
+      },
+    }
+  }
+
+  async remove(name: string): Promise<void> {
+    await rm(this.abs(name), { force: true })
+  }
+
+  async list(prefix?: string): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (dir: string): Promise<void> => {
+      let entries
+      try {
+        entries = await readdir(dir, { withFileTypes: true })
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+        throw err
+      }
+      for (const entry of entries) {
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) await walk(full)
+        else if (!entry.name.includes('.editor-tmp-')) {
+          out.push(relative(this.root, full).split(sep).join('/'))
+        }
+      }
+    }
+    await walk(this.root)
+    const names = prefix ? out.filter((n) => n.startsWith(prefix)) : out
+    return names.sort()
   }
 }

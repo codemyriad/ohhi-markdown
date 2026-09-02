@@ -29,3 +29,18 @@ export {
   type SessionEvents,
   type VaultSessionOptions,
 } from './session.js'
+export { MemStoreDir, scopedStoreDir, type StoreDir } from './store-dir.js'
+export {
+  BlobDocStore,
+  FOLDER_DOC_KEY,
+  lcaGuard,
+  type DocStore,
+} from './doc-store.js'
+export { FileJournal } from './file-journal.js'
+export {
+  MountsFile,
+  type MountDesc,
+  type MountProvenance,
+  type MountRecovery,
+  type MountStatus,
+} from './mounts-file.js'
