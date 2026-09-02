@@ -226,19 +226,32 @@ Your `.md` files on disk are the source of truth; edits save back atomically.
 This needs no relay — it works fully offline. Reopening the same folder later
 resumes the same vault entry (same room, same durable stores).
 
-**Share a folder (O2).** Sharing is two steps because token minting is a relay
-operation (onboarding Fork 1 — the app doesn't mint tokens itself yet):
+**Share — minted in-app, zero terminal (M4).** One-time setup: start the relay
+with an operator secret and store the same secret in the app —
 
-1. Mint a token on the relay for your vault's folder GUID:
-   ```sh
-   cd apps/relay && node --experimental-strip-types src/cli.ts share-add <folderGuid>
-   ```
-   (The folder GUID is minted when you first open the folder; a future slice will
-   surface it in the UI. For now, any agreed GUID works if you open with it.)
-2. In the app header, **Share this folder** → paste the relay URL and the token →
-   **Create share link**. The header now shows **Copy share link** — an opaque
-   `editor1:…` string that carries relay + folder + token (the token is *not* in
-   the address bar; R5). Send it to the other device/person.
+```sh
+OPERATOR_SECRET=my-secret SEED_SHARE=demo:demo-token rushx dev   # apps/relay
+```
+
+then in the app: **⚙ Settings** → set the default relay URL and the operator
+secret. From there:
+
+- **Share one folder** *(the unit of sharing — dogfood-shaping R3)*: click the
+  folder in the tree → **share** → **Share this folder**. The app mints a
+  token, carves the folder into its own synced space (spike S8 Q1 — no files
+  are moved or changed), and hands you the copyable `editor1:…` link. Green
+  pills appear **only inside the shared folder**; the rest of the vault stays
+  local. The folder shows a `shared` badge, and the tree's All/Local/Shared
+  filter splits the view by provenance.
+- **Share the whole vault**: header → **Share this vault** → **Create share
+  link** (one click, same minting path).
+- **Manage tokens**: in either share dialog — list a share's tokens (label,
+  read-only), mint extra labeled tokens (one per person/device), revoke.
+  Revoking blocks *new* connections; connected peers persist until they
+  reconnect (R4.3 is deliberately deferred).
+- The relay CLI (`share-add`/`share-list`/`share-rm`) still works and is the
+  only path when `OPERATOR_SECRET` is unset — the admin HTTP API answers 404
+  without it (see `apps/relay/README.md`).
 
 **Join a share (desktop O2 / browser O3).** Manager → **Join a share** → paste
 the `editor1:…` link — it opens as a new vault in your list. On the browser the

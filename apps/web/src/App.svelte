@@ -10,6 +10,7 @@
   import VaultManager from './lib/components/VaultManager.svelte'
   import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
   import { configForMemory, configForSession, newFolderGuid } from './lib/boot.js'
+  import FolderShareDialog from './lib/components/FolderShareDialog.svelte'
   import {
     addShare,
     defaultRelay,
@@ -19,13 +20,16 @@
     listVaults,
     loadShares,
     loadUser,
+    operatorSecret,
     removeVault,
     saveUser,
+    setRoomToken,
     setVaultRelay,
     touchVault,
     upsertVault,
     type VaultEntry,
   } from './lib/config.js'
+  import { mintShare } from './lib/relay-admin.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { dirPaths, type TreeOp } from './lib/tree-model.js'
@@ -45,6 +49,7 @@
   let vaults = $state(listVaults())
   let shares = $state(loadShares())
   let relayDefault = $state(defaultRelay())
+  let opSecret = $state(operatorSecret())
   const prefillLink = url.get('share') ?? ''
 
   /**
@@ -58,6 +63,7 @@
     vaults = listVaults()
     shares = loadShares()
     relayDefault = defaultRelay()
+    opSecret = operatorSecret()
   }
 
   function userName(): string {
@@ -239,18 +245,41 @@
     refreshLists()
   }
 
-  // ---- in-workspace sharing ----
-  function shareFolder(relay: string, token: string): void {
+  // ---- in-workspace sharing (M4: minted in-app, zero terminal) ----
+
+  /** One-click whole-vault share: mint a token, attach the relay, remember it. */
+  async function createVaultShare(): Promise<void> {
     if (!workspace) return
-    try {
-      const { link } = workspace.enableSharing({ url: relay, token })
-      setVaultRelay(workspace.room, { url: relay, token })
-      const label = getVault(workspace.room)?.name ?? 'This vault'
-      addShare({ link, room: workspace.room, label })
-      refreshLists()
-    } catch (err) {
-      workspace.ui.error = err instanceof Error ? err.message : String(err)
+    const secret = operatorSecret()
+    if (!secret) throw new Error('set the relay operator secret in Settings first')
+    const relayUrl = defaultRelay()
+    const label = getVault(workspace.room)?.name ?? 'This vault'
+    const minted = await mintShare(relayUrl, secret, { folderGuid: workspace.room, label })
+    setRoomToken(workspace.room, minted.token)
+    const { link } = workspace.enableSharing({ url: relayUrl, token: minted.token })
+    setVaultRelay(workspace.room, { url: relayUrl, token: minted.token })
+    addShare({ link, room: workspace.room, label })
+    refreshLists()
+  }
+
+  /** Folder being shared/managed via the tree's share action, else null. */
+  let folderSharePath = $state<string | null>(null)
+  const folderShareMount = $derived(
+    folderSharePath && workspace
+      ? (workspace.ui.mounts.find((m) => m.path === folderSharePath) ?? null)
+      : null
+  )
+
+  async function carveFolderShare(): Promise<string> {
+    if (!workspace || !folderSharePath) throw new Error('no folder selected')
+    const path = folderSharePath
+    const link = await workspace.carveFolder(path)
+    const room = workspace.ui.mounts.find((m) => m.path === path)?.room
+    if (room) {
+      addShare({ link, room, label: `${getVault(workspace.room)?.name ?? 'vault'}/${path}` })
     }
+    refreshLists()
+    return link
   }
 
   // ---- tree operations (M3): the tree requests, App owns the dialogs ----
@@ -260,6 +289,10 @@
     if (!workspace) return
     if (op.type === 'new-file') {
       void workspace.createFile(op.dir) // auto-named untitled-N; rename after
+      return
+    }
+    if (op.type === 'share-folder') {
+      folderSharePath = op.path
       return
     }
     treeOp = op
@@ -282,9 +315,9 @@
     }
   }
 
-  /** Narrowed props for the dialog (new-file never opens one). */
+  /** Narrowed props for the dialog (new-file/share-folder never open this one). */
   const treeOpDialog = $derived.by(() => {
-    if (!treeOp || treeOp.type === 'new-file') return null
+    if (!treeOp || treeOp.type === 'new-file' || treeOp.type === 'share-folder') return null
     if (treeOp.type === 'new-folder')
       return { mode: 'new-folder' as const, path: treeOp.dir, kind: 'dir' as const }
     return { mode: treeOp.type, path: treeOp.path, kind: treeOp.kind }
@@ -367,9 +400,10 @@
         <ShareDialog
           shared={workspace.ui.shared}
           shareLink={workspace.ui.shareLink}
-          defaultRelay={relayDefault}
           room={workspace.room}
-          onShare={shareFolder}
+          relayUrl={relayDefault}
+          secret={opSecret}
+          onCreate={createVaultShare}
         />
         <button
           data-testid="open-settings"
@@ -389,6 +423,8 @@
           files={workspace.ui.files}
           records={workspace.ui.records}
           selected={selectedPath}
+          mounts={workspace.ui.mounts}
+          rootShared={workspace.ui.shared}
           onSelect={(path) => workspace?.select(path)}
           onOp={handleTreeOp}
         />
@@ -433,6 +469,17 @@
       paths={workspace.ui.breaker.paths}
       onConfirm={() => void workspace?.confirmBreaker()}
       onDismiss={() => workspace?.dismissBreaker()}
+    />
+  {/if}
+
+  {#if folderSharePath}
+    <FolderShareDialog
+      path={folderSharePath}
+      mount={folderShareMount}
+      relayUrl={relayDefault}
+      secret={opSecret}
+      onShare={carveFolderShare}
+      onClose={() => (folderSharePath = null)}
     />
   {/if}
 {/if}

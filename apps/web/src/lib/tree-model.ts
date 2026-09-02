@@ -84,6 +84,28 @@ export type TreeOp =
   | { type: 'rename'; path: string; kind: 'dir' | 'text' | 'binary' }
   | { type: 'move'; path: string; kind: 'dir' | 'text' | 'binary' }
   | { type: 'delete'; path: string; kind: 'dir' | 'text' | 'binary' }
+  | { type: 'share-folder'; path: string }
+
+// ---- provenance filter (R3.2, M4) ----
+
+export type TreeFilter = 'all' | 'local' | 'shared'
+
+/**
+ * Filter rows by share provenance. `sharedRoots` are the mount roots; a
+ * shared root vault makes everything shared. Ancestor dirs of surviving rows
+ * re-derive inside buildTree, so filtering never breaks the tree shape.
+ */
+export function filterRows(
+  rows: { path: string; kind: string }[],
+  filter: TreeFilter,
+  sharedRoots: string[],
+  rootShared: boolean
+): typeof rows {
+  if (filter === 'all') return rows
+  const isShared = (path: string): boolean =>
+    rootShared || sharedRoots.some((root) => path === root || path.startsWith(`${root}/`))
+  return rows.filter((r) => (filter === 'shared' ? isShared(r.path) : !isShared(r.path)))
+}
 
 /** The directory a tree operation should target for a given selection. */
 export function containingDir(path: string | null, kind?: 'dir' | 'text' | 'binary'): string {

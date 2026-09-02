@@ -52,6 +52,12 @@ interface AppConfigV2 {
   /** Relay admin credential for in-app token minting (M4). '' = unset. */
   operatorSecret: string
   shares: StoredShare[]
+  /**
+   * Bearer token per room for shares this device created or joined (M4).
+   * Tokens NEVER live in mounts.json/folder maps (parent D4: descs are
+   * advisory, never an auth source) — only here, in app config.
+   */
+  tokensByRoom: Record<string, string>
 }
 
 const K_USER = 'editor:user'
@@ -127,6 +133,7 @@ function emptyConfig(): AppConfigV2 {
     defaultRelay: DEFAULT_RELAY,
     operatorSecret: '',
     shares: [],
+    tokensByRoom: {},
   }
 }
 
@@ -174,6 +181,8 @@ export function loadConfig(): AppConfigV2 {
   const existing = readJson<AppConfigV2>(K_CONFIG)
   if (isValidConfig(existing)) {
     existing.vaults = existing.vaults.filter((v) => v && typeof v.room === 'string' && !!v.vault)
+    // Field added after v2 shipped — backfill for configs written before M4.
+    existing.tokensByRoom ??= {}
     return existing
   }
   // First run on v2 (or corrupted v2 blob): rebuild from v1 keys, persist,
@@ -260,6 +269,17 @@ export function operatorSecret(): string {
 export function setOperatorSecret(secret: string): void {
   const cfg = loadConfig()
   cfg.operatorSecret = secret.trim()
+  save(cfg)
+}
+
+/** Bearer token for a room this device created/joined a share of ('' = none). */
+export function roomToken(room: string): string {
+  return loadConfig().tokensByRoom[room] ?? ''
+}
+
+export function setRoomToken(room: string, token: string): void {
+  const cfg = loadConfig()
+  cfg.tokensByRoom[room] = token
   save(cfg)
 }
 
