@@ -1,0 +1,136 @@
+/**
+ * The command registry, tested without a DOM.
+ *
+ * These bindings are Chris's actual Obsidian hotkeys, so "does Mod+ArrowLeft
+ * resolve on both platforms" is a real behavioural question, not a formality:
+ * on mac Mod is Cmd and Ctrl is a separate modifier, everywhere else `Ctrl+Mod`
+ * would mean Ctrl twice.
+ */
+import { describe, expect, it, vi } from 'vitest'
+import {
+  CommandRegistry,
+  eventMatches,
+  formatBinding,
+  isMac,
+  parseBinding,
+  type KeyEventLike,
+} from './commands.js'
+
+const key = (over: Partial<KeyEventLike> & { key: string }): KeyEventLike => ({
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  altKey: false,
+  ...over,
+})
+
+describe('parseBinding', () => {
+  it('parses modifiers in any order', () => {
+    expect(parseBinding('Mod+Shift+P')).toEqual({
+      key: 'p',
+      mod: true,
+      shift: true,
+      alt: false,
+      ctrl: false,
+    })
+    expect(parseBinding('Shift+Mod+P')).toEqual(parseBinding('Mod+Shift+P'))
+  })
+
+  it('parses a bare key and a symbol key', () => {
+    expect(parseBinding('Escape')?.key).toBe('escape')
+    expect(parseBinding('Mod+,')?.key).toBe(',')
+    expect(parseBinding('Alt+=')).toMatchObject({ key: '=', alt: true })
+  })
+
+  it('rejects an unknown modifier rather than silently binding it', () => {
+    expect(parseBinding('Hyper+P')).toBeNull()
+  })
+
+  it('rejects an empty binding', () => {
+    expect(parseBinding('')).toBeNull()
+  })
+})
+
+describe('eventMatches', () => {
+  const b = (s: string) => parseBinding(s)!
+
+  it('maps Mod to Cmd on mac and Ctrl elsewhere', () => {
+    expect(eventMatches(b('Mod+o'), key({ key: 'o', metaKey: true }), true)).toBe(true)
+    expect(eventMatches(b('Mod+o'), key({ key: 'o', ctrlKey: true }), true)).toBe(false)
+    expect(eventMatches(b('Mod+o'), key({ key: 'o', ctrlKey: true }), false)).toBe(true)
+    expect(eventMatches(b('Mod+o'), key({ key: 'o', metaKey: true }), false)).toBe(false)
+  })
+
+  it('is case-insensitive on the key', () => {
+    expect(eventMatches(b('Mod+o'), key({ key: 'O', ctrlKey: true }), false)).toBe(true)
+  })
+
+  it('does not fire a plain binding when a modifier is held', () => {
+    expect(eventMatches(b('Mod+o'), key({ key: 'o', ctrlKey: true, shiftKey: true }), false)).toBe(
+      false
+    )
+  })
+
+  it('collapses Ctrl+Mod to one Ctrl off mac', () => {
+    expect(
+      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)
+    ).toBe(true)
+    expect(
+      eventMatches(
+        b('Ctrl+Mod+ArrowLeft'),
+        key({ key: 'ArrowLeft', ctrlKey: true, metaKey: true }),
+        true
+      )
+    ).toBe(true)
+  })
+})
+
+describe('CommandRegistry', () => {
+  it('matches a bound key and returns the command', () => {
+    const run = vi.fn()
+    const registry = new CommandRegistry(false)
+    registry.register({ id: 'a', title: 'A', keys: 'Mod+o', run })
+    expect(registry.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
+    expect(registry.match(key({ key: 'o' }))).toBeNull()
+  })
+
+  it('lets a later registration rebind the same key', () => {
+    const registry = new CommandRegistry(false)
+    registry.register({ id: 'a', title: 'A', keys: 'Mod+o', run: () => {} })
+    registry.register({ id: 'b', title: 'B', keys: 'Mod+o', run: () => {} })
+    expect(registry.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('b')
+  })
+
+  it('lets a guarded-off command fall through to the editor', () => {
+    const registry = new CommandRegistry(false)
+    registry.register({ id: 'a', title: 'A', keys: 'Mod+o', run: () => {}, when: () => false })
+    expect(registry.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
+    expect(registry.available()).toEqual([])
+  })
+
+  it('reports a display binding, and nothing for an unbound command', () => {
+    const registry = new CommandRegistry(false)
+    registry.register({ id: 'a', title: 'A', keys: 'Mod+Shift+p', run: () => {} })
+    registry.register({ id: 'b', title: 'B', run: () => {} })
+    expect(registry.binding('a')).toBe('Ctrl+Shift+P')
+    expect(registry.binding('b')).toBe('')
+  })
+})
+
+describe('formatBinding', () => {
+  it('uses mac glyphs on mac and words elsewhere', () => {
+    expect(formatBinding('Mod+Shift+p', true)).toBe('⇧⌘P')
+    expect(formatBinding('Mod+Shift+p', false)).toBe('Ctrl+Shift+P')
+  })
+
+  it('renders arrow keys as arrows', () => {
+    expect(formatBinding('Mod+ArrowLeft', true)).toBe('⌘←')
+  })
+})
+
+describe('isMac', () => {
+  it('reads the platform string', () => {
+    expect(isMac('MacIntel')).toBe(true)
+    expect(isMac('Linux x86_64')).toBe(false)
+  })
+})
