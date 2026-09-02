@@ -5,7 +5,7 @@
 # `clock-exempt` comment.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-violations=$(grep -rnE 'setTimeout|setInterval|Date\.now' libs/sync/src libs/vault/src 2>/dev/null | grep -v 'clock-exempt' || true)
+violations=$(grep -rnE 'setTimeout|setInterval|Date\.now|performance\.now' libs/sync/src libs/vault/src libs/index/src 2>/dev/null | grep -v 'clock-exempt' || true)
 if [ -n "$violations" ]; then
   echo "Ambient time/timer usage in clock-injected packages:" >&2
   echo "$violations" >&2

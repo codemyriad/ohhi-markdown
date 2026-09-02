@@ -7,6 +7,7 @@
  * directories on write. Same contract/semantics as MemVaultAdapter and
  * NodeVaultAdapter (see @editor/vault) — mirror them when in doubt.
  */
+import { IGNORED_DIRS } from '@editor/vault'
 import type { FileStat, VaultAdapter, WatchEvent } from '@editor/vault'
 
 /** Container dir (under the OPFS root) that holds one subdirectory per vault. */
@@ -77,6 +78,7 @@ export class OpfsVaultAdapter implements VaultAdapter {
       // `.values()` yields the base FileSystemHandle type, so `kind` does not
       // narrow the union — cast to the concrete handle per entry.
       for await (const entry of dir.values()) {
+        if (IGNORED_DIRS.has(entry.name)) continue
         const path = prefix ? `${prefix}/${entry.name}` : entry.name
         if (entry.kind === 'directory') {
           await walk(entry as FileSystemDirectoryHandle, path)
@@ -94,7 +96,7 @@ export class OpfsVaultAdapter implements VaultAdapter {
     const out: string[] = []
     const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
       for await (const entry of dir.values()) {
-        if (entry.kind !== 'directory') continue
+        if (entry.kind !== 'directory' || IGNORED_DIRS.has(entry.name)) continue
         const path = prefix ? `${prefix}/${entry.name}` : entry.name
         out.push(path)
         await walk(entry as FileSystemDirectoryHandle, path)

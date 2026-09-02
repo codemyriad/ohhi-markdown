@@ -12,14 +12,17 @@
   },
   "dependencies": {
     "@editor/editor": "workspace:*",
+    "@editor/editor-lang": "workspace:*",
+    "@editor/index": "workspace:*",
     "@editor/sync": "workspace:*",
+    "@editor/ui": "workspace:*",
     "@editor/vault": "workspace:*",
     "@editor/workspace": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-fs": "^2.0.0",
-    "yjs": "^13.6.27",
-    "y-protocols": "^1.0.6"
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
   },
   "devDependencies": {
     "@editor/testkit": "workspace:*",

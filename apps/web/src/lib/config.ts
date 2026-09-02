@@ -10,6 +10,7 @@
  * are then ignored; `editor:user` stays its own key (the name helpers below
  * also heal values double-JSON-encoded by earlier builds).
  */
+import type { BuiltinTheme } from '@editor/ui/tokens'
 
 /** How to (re)build the VaultAdapter for a session. */
 export type VaultSourceDesc =
@@ -60,10 +61,32 @@ interface AppConfigV2 {
   tokensByRoom: Record<string, string>
   /** Sync devtools inspector (M6); `?debug=1` forces it on for a session. */
   devtools?: boolean
+  /**
+   * Theme preference (V2a). Device-level, NOT vault-level: it is a preference
+   * about this screen, and pushing it through the CRDT would make one
+   * collaborator's aesthetics another's problem.
+   */
+  theme?: ThemePref
 }
+
+/**
+ * `system` is a preference, not a theme — it resolves to a built-in at boot
+ * against `prefers-color-scheme`. `custom:<name>` names a theme file in
+ * `<vault>/.editor/themes/<name>/theme.css`.
+ */
+export type ThemePref = BuiltinTheme | 'system' | `custom:${string}`
 
 const K_USER = 'editor:user'
 const K_CONFIG = 'editor:config'
+/**
+ * Fast-path mirror of `theme`, read by the synchronous boot script in
+ * index.html before first paint. A dedicated string key rather than a
+ * JSON.parse of the whole config blob: the blob grows with every vault, share
+ * and room token, and a shape change or half-written migration throwing on
+ * the critical paint path is the one failure we cannot afford. A missing or
+ * corrupt mirror degrades to `system`, which is always defensible.
+ */
+export const K_THEME = 'editor:theme'
 /** v1 keys, read once by the migration and never written again. */
 const K_LAST_V1 = 'editor:lastSession'
 const K_SHARES_V1 = 'editor:shares'
@@ -267,6 +290,23 @@ export function setDefaultRelay(url: string): void {
 
 export function devtoolsEnabled(): boolean {
   return loadConfig().devtools === true
+}
+
+// ---- theme (V2a) ----
+
+export function themePref(): ThemePref {
+  return loadConfig().theme ?? 'system'
+}
+
+export function setThemePref(pref: ThemePref): void {
+  const cfg = loadConfig()
+  cfg.theme = pref
+  save(cfg)
+  try {
+    store()?.setItem(K_THEME, pref)
+  } catch {
+    // Mirror is best-effort; a miss costs one frame of the default theme.
+  }
 }
 
 export function setDevtools(on: boolean): void {

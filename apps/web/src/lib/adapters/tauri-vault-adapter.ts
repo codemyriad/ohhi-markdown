@@ -25,9 +25,11 @@ import {
   writeFile,
   type UnwatchFn,
 } from '@tauri-apps/plugin-fs'
+import { IGNORED_DIRS } from '@editor/vault'
 import type { FileStat, VaultAdapter, WatchEvent } from '@editor/vault'
 
-const IGNORED = new Set(['.git', '.obsidian', '.editor-cache', 'node_modules'])
+/** Shared with every other adapter — see IGNORED_DIRS in @editor/vault. */
+const IGNORED = IGNORED_DIRS
 
 /** Counter for unique temp names within a single ms tick. */
 let tmpCounter = 0

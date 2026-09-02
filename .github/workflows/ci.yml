@@ -18,16 +18,20 @@ jobs:
         run: node common/scripts/install-run-rush.js install
       - name: Clock-injection guard
         run: ./scripts/check-clock-injection.sh
+      - name: Design-token guard
+        run: ./scripts/check-design-tokens.sh
       - name: Typecheck all packages
         run: |
-          for pkg in libs/sync libs/testkit libs/vault libs/editor apps/relay apps/web; do
+          for pkg in libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
+                     libs/editor-lang libs/editor apps/relay apps/web; do
             echo "::group::check $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js check)
             echo "::endgroup::"
           done
       - name: Unit + property tests (L0, L1 bounded, relay integration)
         run: |
-          for pkg in libs/sync libs/testkit libs/vault apps/relay apps/web; do
+          for pkg in libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
+                     libs/editor-lang apps/relay apps/web; do
             echo "::group::test $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js test)
             echo "::endgroup::"

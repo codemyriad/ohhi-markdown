@@ -55,9 +55,18 @@ importers:
       '@editor/editor':
         specifier: workspace:*
         version: link:../../libs/editor
+      '@editor/editor-lang':
+        specifier: workspace:*
+        version: link:../../libs/editor-lang
+      '@editor/index':
+        specifier: workspace:*
+        version: link:../../libs/index
       '@editor/sync':
         specifier: workspace:*
         version: link:../../libs/sync
+      '@editor/ui':
+        specifier: workspace:*
+        version: link:../../libs/ui
       '@editor/vault':
         specifier: workspace:*
         version: link:../../libs/vault
@@ -128,9 +137,15 @@ importers:
       '@codemirror/view':
         specifier: ^6.36.0
         version: 6.43.1
+      '@editor/editor-lang':
+        specifier: workspace:*
+        version: link:../editor-lang
       '@editor/sync':
         specifier: workspace:*
         version: link:../sync
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       y-codemirror.next:
         specifier: ^0.3.5
         version: 0.3.5(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)(yjs@13.6.31)
@@ -147,6 +162,52 @@ importers:
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
+
+  ../../libs/editor-lang:
+    dependencies:
+      '@codemirror/autocomplete':
+        specifier: ^6.18.0
+        version: 6.20.3
+      '@codemirror/language':
+        specifier: ^6.10.0
+        version: 6.12.3
+      '@codemirror/state':
+        specifier: ^6.5.0
+        version: 6.6.0
+      '@codemirror/view':
+        specifier: ^6.36.0
+        version: 6.43.1
+      '@editor/index':
+        specifier: workspace:*
+        version: link:../index
+      '@lezer/common':
+        specifier: ^1.2.0
+        version: 1.5.2
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
+      '@lezer/markdown':
+        specifier: ^1.4.0
+        version: 1.6.4
+    devDependencies:
+      '@codemirror/lang-markdown':
+        specifier: ^6.3.0
+        version: 6.5.0
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@22.19.21)(jiti@2.7.0)(lightningcss@1.32.0)
+
+  ../../libs/index:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@22.19.21)(jiti@2.7.0)(lightningcss@1.32.0)
 
   ../../libs/sync:
     dependencies:
@@ -179,6 +240,22 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@22.19.21)(jiti@2.7.0)(lightningcss@1.32.0)
+
+  ../../libs/ui:
+    dependencies:
+      daisyui:
+        specifier: ^5.0.8
+        version: 5.7.27
+    devDependencies:
+      tailwindcss:
+        specifier: ^4.0.0
+        version: 4.3.0
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
@@ -1068,6 +1145,9 @@ packages:
     peerDependenciesMeta:
       srvx:
         optional: true
+
+  daisyui@5.7.27:
+    resolution: {integrity: sha512-Je10yYK7UFJYyLSQrIxhFmpwX+86gXdNTnfNkA1jlev7j9oz3QrqioEQ6/0JYOvYPs5NYH4aaJ+X35/N80G/xg==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2361,6 +2441,8 @@ snapshots:
   crelt@1.0.6: {}
 
   crossws@0.4.6: {}
+
+  daisyui@5.7.27: {}
 
   debug@4.4.3:
     dependencies:

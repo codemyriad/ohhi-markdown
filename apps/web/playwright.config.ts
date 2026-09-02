@@ -7,6 +7,10 @@ import { defineConfig } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './e2e',
+  // shots.spec.ts is a manual screenshot pass over the themes, not a gate —
+  // run it explicitly with `playwright test e2e/shots.spec.ts`.
+  // Set SHOT_DIR to include it (see docs/running-and-testing.md).
+  testIgnore: process.env.SHOT_DIR ? [] : ['**/shots.spec.ts'],
   timeout: 60_000,
   forbidOnly: !!process.env.CI,
   retries: 0,

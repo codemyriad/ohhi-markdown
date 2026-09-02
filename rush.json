@@ -341,6 +341,9 @@
     { "packageName": "@editor/vault", "projectFolder": "libs/vault" },
     { "packageName": "@editor/workspace", "projectFolder": "libs/workspace" },
     { "packageName": "@editor/editor", "projectFolder": "libs/editor" },
+    { "packageName": "@editor/ui", "projectFolder": "libs/ui" },
+    { "packageName": "@editor/index", "projectFolder": "libs/index" },
+    { "packageName": "@editor/editor-lang", "projectFolder": "libs/editor-lang" },
     { "packageName": "@editor/relay", "projectFolder": "apps/relay" },
     { "packageName": "@editor/web", "projectFolder": "apps/web" },
     { "packageName": "@editor/desktop", "projectFolder": "apps/desktop" }
