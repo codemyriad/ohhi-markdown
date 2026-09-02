@@ -91,8 +91,8 @@ export interface MountSessionConfig {
   /** Workspace-relative mount root for the mounts.json desc ('' = root). */
   mountPath?: string
   thresholds?: Partial<ReconcileThresholds>
-  /** Stable per-path reactive record factory (see SyncRecordFields). */
-  recordFor: (path: string) => SyncRecordFields
+  /** Stable reactive record factory, keyed by doc GUID + FOLDER_RECORD_KEY (guids are rename-stable). */
+  recordFor: (key: string) => SyncRecordFields
   events?: MountEvents
   /** Builds the copyable share link once the mount is shared. */
   makeShareLink: (relay: RelayConfig, room: string) => string
@@ -196,13 +196,14 @@ export class MountSession {
     }
   }
 
-  /** Create an empty `notes/untitled-N.md`; returns its path (null on error). */
-  async createFile(): Promise<string | null> {
+  /** Create an empty untitled note in `dir` ('' = root); returns its path. */
+  async createFile(dir = ''): Promise<string | null> {
     try {
+      const base = dir ? `${dir}/` : ''
       const taken = new Set(this.folderDoc.getMap().entries().map(([p]) => p))
       let n = 1
-      while (taken.has(`notes/untitled-${n}.md`)) n++
-      const path = `notes/untitled-${n}.md`
+      while (taken.has(`${base}untitled-${n}.md`)) n++
+      const path = `${base}untitled-${n}.md`
       const bytes = new TextEncoder().encode('')
       await this.adapter.writeAtomic(path, bytes)
       const guid = crypto.randomUUID()
@@ -235,6 +236,51 @@ export class MountSession {
       await this.sessionRef.resolveReview(guid, mergedText)
       const path = this.pathForGuid(guid)
       if (path) await this.refreshDiskMatch(path, guid)
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  // ---- tree operations (M3) — thin wrappers over VaultSession's local ops ----
+
+  async createDir(path: string): Promise<void> {
+    try {
+      await this.sessionRef?.createDir(path)
+      this.refreshFiles()
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /** Rename/move a file or directory (kind read from the map). */
+  async renamePath(from: string, to: string): Promise<void> {
+    const entry = this.folderDoc.getMap().get(from)
+    if (!entry || entry.deleted) {
+      this.pushError(new Error(`rename: unknown path ${from}`))
+      return
+    }
+    try {
+      if (entry.kind === 'dir') await this.sessionRef?.renameDir(from, to)
+      else await this.sessionRef?.renameFile(from, to)
+      this.refreshFiles()
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  async deletePath(path: string): Promise<void> {
+    const entry = this.folderDoc.getMap().get(path)
+    if (!entry || entry.deleted) {
+      this.pushError(new Error(`delete: unknown path ${path}`))
+      return
+    }
+    try {
+      if (this.openPath === path || (entry.kind === 'dir' && this.openPath?.startsWith(`${path}/`))) {
+        this.setOpenPath(null)
+      }
+      if (entry.kind === 'dir') await this.sessionRef?.deleteDir(path)
+      else await this.sessionRef?.deleteFile(path)
+      this.refreshFiles()
     } catch (err) {
       this.pushError(err)
     }
@@ -274,8 +320,8 @@ export class MountSession {
     this.events.onError?.(err)
   }
 
-  private recordForPath(path: string): SyncRecordFields {
-    return this.cfg.recordFor(path)
+  private recordFor(key: string): SyncRecordFields {
+    return this.cfg.recordFor(key)
   }
 
   private guidFor(path: string): string | null {
@@ -302,7 +348,7 @@ export class MountSession {
   private refreshFiles(): void {
     const rows = this.currentRows()
     // Records exist for every text row before the host renders pills for them.
-    for (const row of rows) if (row.kind === 'text') this.recordForPath(row.path)
+    for (const row of rows) if (row.kind === 'text') this.recordFor(row.guid)
     this.events.onFiles?.(rows)
   }
 
@@ -312,7 +358,7 @@ export class MountSession {
     if (!doc) return
     const bytes = await this.adapter.read(path)
     const diskText = bytes ? decodeFile(bytes).text : ''
-    this.recordForPath(path).diskMatchesCrdt = diskText === doc.getText()
+    this.recordFor(guid).diskMatchesCrdt = diskText === doc.getText()
   }
 
   private debounceDoc(guid: string, ms: number, fn: () => void): void {
@@ -350,7 +396,7 @@ export class MountSession {
     if (origin === 'seed' || origin === 'disk') return
     const path = this.pathForGuid(guid)
     if (!path) return
-    this.recordForPath(path).diskMatchesCrdt = false
+    this.recordFor(guid).diskMatchesCrdt = false
     if (this.openPath === path) {
       this.debounceDoc(guid, FLUSH_DEBOUNCE_MS, () => void this.flushOpenDoc(guid, path))
     } else {
@@ -371,7 +417,7 @@ export class MountSession {
         token: this.relay.token,
         doc,
         user: this.user,
-        record: this.recordForPath(path),
+        record: this.recordFor(guid),
         onAuthFailed: (reason) => this.reportAuthFailure(reason),
         webSocketPolyfill: this.cfg.webSocketPolyfill,
       })
@@ -456,26 +502,60 @@ export class MountSession {
               .catch((err) => this.pushError(err))
             return
           }
-          this.recordForPath(this.pathForGuid(review.guid) ?? review.path).diverged = true
+          this.recordFor(review.guid).diverged = true
           this.events.onReview?.(review)
         },
         onReviewCleared: (guid) => {
-          const path = this.pathForGuid(guid)
-          if (path) this.recordForPath(path).diverged = false
+          this.recordFor(guid).diverged = false
           this.events.onReviewCleared?.(guid)
         },
         onActivity: (guid) => {
           const path = this.pathForGuid(guid)
           if (path) void this.refreshDiskMatch(path, guid)
         },
-        onBreaker: (paths) => {
-          // V1 shell has no batch-confirm affordance; log and proceed.
-          console.warn('[workspace] mass-change breaker tripped — auto-confirming', paths)
-          void this.sessionRef?.confirmPendingBatch()
+        onPathsRenamed: (moves) => {
+          for (const { from, to } of moves) {
+            if (this.openPath === from) this.openPath = to
+          }
+          this.events.onPathsRenamed?.(moves)
         },
+        onBreaker: (paths) => this.holdBatch('watch', paths),
         onError: (err) => this.pushError(err),
       },
     })
+  }
+
+  // ---- mass-change breaker (M3): one held batch, watch- or boot-shaped ----
+
+  /** Which machinery holds the current batch (null = nothing held). */
+  private pendingBatchKind: 'watch' | 'boot' | null = null
+
+  private holdBatch(kind: 'watch' | 'boot', paths: string[]): void {
+    if (this.events.onBreaker) {
+      this.pendingBatchKind = kind
+      this.events.onBreaker(paths)
+    } else {
+      // No host affordance (headless/tests): keep the historical auto-confirm.
+      console.warn('[workspace] mass-change breaker tripped — auto-confirming', paths)
+      if (kind === 'watch') void this.sessionRef?.confirmPendingBatch()
+      else void this.confirmBootBatch()
+    }
+  }
+
+  /** Apply the held batch (host confirm affordance). */
+  async confirmBreaker(): Promise<void> {
+    const kind = this.pendingBatchKind
+    this.pendingBatchKind = null
+    if (kind === 'watch') await this.sessionRef?.confirmPendingBatch()
+    else if (kind === 'boot') await this.confirmBootBatch()
+  }
+
+  /** Drop the held batch: nothing is enrolled, ingested, or reconciled. */
+  dismissBreaker(): void {
+    const kind = this.pendingBatchKind
+    this.pendingBatchKind = null
+    if (kind === 'watch') this.sessionRef?.dismissPendingBatch()
+    else if (kind === 'boot') this.dismissBootBatch()
   }
 
   private async restartSession(): Promise<void> {
@@ -517,7 +597,7 @@ export class MountSession {
       token: this.relay.token,
       doc: this.folderDoc,
       user: this.user,
-      record: this.recordForPath(FOLDER_RECORD_KEY),
+      record: this.recordFor(FOLDER_RECORD_KEY),
       onAuthFailed: (reason) => this.reportAuthFailure(reason),
       webSocketPolyfill: this.cfg.webSocketPolyfill,
     })
@@ -565,7 +645,10 @@ export class MountSession {
         )
       }
       await this.restartSession()
-      // Materialize relay content onto the joiner's vault backend.
+      // Materialize relay content onto the joiner's vault backend — dirs too:
+      // the map arrived before the session started, so onRemoteMapChange never
+      // saw the initial dir entries (M3).
+      await this.syncDirs()
       for (const guid of this.docs.keys()) {
         const path = this.pathForGuid(guid)
         if (path) await this.reconcileClosedDoc(guid, path)
@@ -669,16 +752,15 @@ export class MountSession {
       if (diskHash !== lca.contentHash) changed.push(path)
     }
 
+    // Directory delta (M3): dir map-adds and mkdirs carry no content risk, so
+    // they apply immediately and never count toward the mass-change breaker.
+    await this.syncDirs()
+
     const threshold = this.cfg.thresholds?.massChangePaths ?? DEFAULT_THRESHOLDS.massChangePaths
     const touched = [...additions.map((s) => s.path), ...changed]
     if (touched.length > threshold) {
       this.pendingBootBatch = { additions: additions.map((s) => s.path), changed }
-      if (this.events.onBreaker) {
-        this.events.onBreaker(touched)
-      } else {
-        console.warn('[workspace] boot mass-change breaker tripped — auto-confirming', touched)
-        await this.confirmBootBatch()
-      }
+      this.holdBatch('boot', touched)
       // Unchanged docs still reconcile below (doc-ahead-of-LCA is our own
       // durable state, not an external change — safe while the batch is held).
       await this.reconcileKnown(new Set(changed))
@@ -688,6 +770,33 @@ export class MountSession {
     for (const path of additions.map((s) => s.path)) await this.enrollOne(path)
     if (additions.length > 0) await this.restartSession()
     await this.reconcileKnown()
+  }
+
+  /**
+   * Two-way directory sync (M3): dirs on disk missing from the map enroll as
+   * dir entries; dir entries missing on disk materialize as mkdirs.
+   */
+  private async syncDirs(): Promise<void> {
+    try {
+      const mapPaths = new Set(
+        this.folderDoc.getMap().entries().filter(([, e]) => !e.deleted).map(([p]) => p)
+      )
+      const onDisk = new Set(await this.adapter.listDirs())
+      for (const dir of onDisk) {
+        if (!mapPaths.has(dir)) {
+          this.folderDoc.transactMap(
+            (m) => m.set(dir, { guid: crypto.randomUUID(), kind: 'dir' }),
+            'local'
+          )
+        }
+      }
+      for (const [path, entry] of this.folderDoc.getMap().entries()) {
+        if (entry.kind !== 'dir' || entry.deleted) continue
+        if (!onDisk.has(path)) await this.adapter.mkdir(path)
+      }
+    } catch (err) {
+      this.pushError(err)
+    }
   }
 
   /** Reconcile every known text doc except the skipped paths. */

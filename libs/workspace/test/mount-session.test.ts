@@ -46,14 +46,21 @@ async function bootLocal(seed: Record<string, string>) {
     },
   }
   const session = await MountSession.create(cfg)
-  return { session, adapter, clock, records, errors, files: () => files }
+  /** Record for a path via its (rename-stable) guid — records are guid-keyed (M3). */
+  const recordAt = (path: string) => {
+    const row = files.find((r) => r.path === path)
+    return row ? records.get(row.guid) : undefined
+  }
+  return { session, adapter, clock, records, errors, files: () => files, recordAt }
 }
 
 describe('MountSession (local mode)', () => {
-  it('enrolls disk files and emits sorted rows with records for text files', async () => {
+  it('enrolls disk files (and their dirs) and emits sorted rows with records', async () => {
     const h = await bootLocal({ 'b.md': 'bee', 'a/nested.md': 'nested' })
-    expect(h.files().map((r) => r.path)).toEqual(['a/nested.md', 'b.md'])
-    expect(h.records.has('a/nested.md')).toBe(true)
+    // 'a' enrolls as a first-class dir entry (M3).
+    expect(h.files().map((r) => r.path)).toEqual(['a', 'a/nested.md', 'b.md'])
+    expect(h.files().find((r) => r.path === 'a')?.kind).toBe('dir')
+    expect(h.recordAt('a/nested.md')).toBeDefined()
     expect(h.session.docForPath('b.md')?.getText()).toBe('bee')
     expect(h.errors).toEqual([])
     h.session.dispose()
@@ -67,14 +74,17 @@ describe('MountSession (local mode)', () => {
     await Promise.resolve() // let the flush promise chain settle
     await new Promise((r) => setTimeout(r, 0))
     expect(new TextDecoder().decode((await h.adapter.read('note.md'))!)).toBe('v1-edited')
-    expect(h.records.get('note.md')!.diskMatchesCrdt).toBe(true)
+    expect(h.recordAt('note.md')!.diskMatchesCrdt).toBe(true)
     h.session.dispose()
   })
 
-  it('creates a fresh notes/untitled-N.md and reports its path', async () => {
+  it('creates untitled notes at the root and inside a target dir', async () => {
     const h = await bootLocal({})
     const path = await h.session.createFile()
-    expect(path).toBe('notes/untitled-1.md')
+    expect(path).toBe('untitled-1.md')
+    await h.session.createDir('notes')
+    const nested = await h.session.createFile('notes')
+    expect(nested).toBe('notes/untitled-1.md')
     expect(await h.adapter.read('notes/untitled-1.md')).not.toBeNull()
     expect(h.files().some((r) => r.path === 'notes/untitled-1.md')).toBe(true)
     h.session.dispose()

@@ -87,6 +87,7 @@ function spyRemoves(adapter: VaultAdapter): { adapter: VaultAdapter; removed: st
     removed,
     adapter: {
       list: () => adapter.list(),
+      listDirs: () => adapter.listDirs(),
       read: (p) => adapter.read(p),
       writeAtomic: (p, b) => adapter.writeAtomic(p, b),
       rename: (f, t) => adapter.rename(f, t),
@@ -94,6 +95,12 @@ function spyRemoves(adapter: VaultAdapter): { adapter: VaultAdapter; removed: st
         removed.push(p)
         return adapter.remove(p)
       },
+      mkdir: (p) => adapter.mkdir(p),
+      removeDir: (p) => {
+        removed.push(p)
+        return adapter.removeDir(p)
+      },
+      renameDir: (f, t) => adapter.renameDir(f, t),
       watch: (cb) => adapter.watch(cb),
     },
   }
@@ -205,6 +212,29 @@ describe('boot machine — reopen matrix (L1 fixture 2)', () => {
   })
 })
 
+describe('boot machine — directory delta scan (M3)', () => {
+  it('dirs appearing on disk while closed enroll; missing map dirs rematerialize', async () => {
+    const adapter = await seedVault({ 'a.md': 'alpha' })
+    await adapter.mkdir('seeded/empty')
+    const store = new MemStoreDir()
+    const b1 = await boot(adapter, store)
+    expect(b1.session.files().find((r) => r.path === 'seeded/empty')?.kind).toBe('dir')
+    b1.session.dispose()
+
+    // While closed: a new dir appears on disk, and a map-known dir vanishes.
+    await adapter.mkdir('appeared')
+    await adapter.removeDir('seeded/empty')
+
+    const b2 = await boot(adapter, store)
+    // Disk → map: the new dir enrolled.
+    expect(b2.session.files().find((r) => r.path === 'appeared')?.kind).toBe('dir')
+    // Map → disk: the known dir was rematerialized (dirs carry no content risk).
+    expect(await adapter.listDirs()).toContain('seeded/empty')
+    expect(b2.errors).toEqual([])
+    b2.session.dispose()
+  })
+})
+
 describe('boot machine — mass-change breaker (L1 fixture 8)', () => {
   it('bulk offline changes are HELD until confirmed; confirm processes them', async () => {
     const files: Record<string, string> = {}
@@ -212,7 +242,8 @@ describe('boot machine — mass-change breaker (L1 fixture 8)', () => {
     const adapter = await seedVault(files)
     const store = new MemStoreDir()
     const b1 = await boot(adapter, store)
-    expect(b1.session.files()).toHaveLength(25)
+    // 25 files + the 'n' dir entry (dirs are first-class since M3).
+    expect(b1.session.files().filter((r) => r.kind === 'text')).toHaveLength(25)
     b1.session.dispose()
 
     // A git-branch-switch shape: 22 files rewritten while the app was closed.
@@ -246,7 +277,7 @@ describe('boot machine — mass-change breaker (L1 fixture 8)', () => {
     b2.session.dismissBootBatch()
     // No tombstones, no reviews, no writes: the vanished files stay in the
     // map awaiting a real decision (M3's confirm dialog).
-    expect(b2.session.files()).toHaveLength(25)
+    expect(b2.session.files().filter((r) => r.kind === 'text')).toHaveLength(25)
     expect(b2.reviews).toEqual([])
     b2.session.dispose()
   })
