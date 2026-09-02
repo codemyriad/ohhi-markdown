@@ -37,7 +37,9 @@ import {
   recoverMounts,
   unmountMount,
   unshareMount,
+  type DocInspection,
   type FileRow,
+  type MountStats,
   type RelayConfig,
 } from '@editor/workspace'
 import { defaultRelay, getVault, operatorSecret, roomToken, setRoomToken } from './config.js'
@@ -132,7 +134,16 @@ export interface Workspace {
   carveFolder(path: string): Promise<string>
   confirmBreaker(): Promise<void>
   dismissBreaker(): void
+  /** Read-only devtools inspection of one file (M6); null for unknown/binary/dir. */
+  inspect(path: string): Promise<WorkspaceInspection | null>
+  /** Read-only per-mount devtools counts (root mount included). */
+  mountStats(): Promise<MountStats[]>
   dispose(): void
+}
+
+/** DocInspection plus which mount owns the path (workspace-level view). */
+export interface WorkspaceInspection extends DocInspection {
+  mount: { path: string; room: string }
 }
 
 function seedDemoFiles(adapter: VaultAdapter): Promise<void[]> {
@@ -675,6 +686,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       ;(breakerOwner ?? rootSession!).dismissBreaker()
       breakerOwner = null
     },
+    inspect: async (path) => {
+      const r = registry.resolve(path)
+      if (!r) return null
+      const insp = await r.session.inspectPath(r.rel)
+      // Report the workspace-level path, not the mount-relative one.
+      return insp ? { ...insp, path, mount: { path: r.mountPath, room: r.session.room } } : null
+    },
+    mountStats: () => Promise.all(registry.all().map((h) => h.session.mountStats())),
     dispose: () => registry.dispose(),
   }
 }

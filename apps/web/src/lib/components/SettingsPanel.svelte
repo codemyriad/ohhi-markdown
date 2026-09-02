@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     defaultRelay,
+    devtoolsEnabled,
     listVaults,
     loadShares,
     loadUser,
@@ -9,6 +10,7 @@
     removeVault,
     saveUser,
     setDefaultRelay,
+    setDevtools,
     setOperatorSecret,
   } from '../config.js'
 
@@ -25,11 +27,13 @@
   let secret = $state(operatorSecret())
   let shares = $state(loadShares())
   let vaults = $state(listVaults())
+  let devtools = $state(devtoolsEnabled())
 
   function persist(): void {
     if (name.trim()) saveUser(name)
     setDefaultRelay(relay)
     setOperatorSecret(secret)
+    setDevtools(devtools)
   }
 
   function close(): void {
@@ -119,6 +123,12 @@
       <span class="mt-1 block text-xs text-gray-500">
         Lets this app mint share tokens on your relay (coming with in-app sharing).
       </span>
+    </label>
+
+    <label class="mt-4 flex items-center gap-2">
+      <input data-testid="settings-devtools" type="checkbox" bind:checked={devtools} />
+      <span class="text-sm text-gray-700">Developer tools</span>
+      <span class="text-xs text-gray-500">— sync inspector panel (or force with ?debug=1)</span>
     </label>
 
     {#if vaults.length > 0}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
   import BreakerDialog from './lib/components/BreakerDialog.svelte'
+  import DevtoolsPanel from './lib/components/DevtoolsPanel.svelte'
   import FileTree from './lib/components/FileTree.svelte'
   import ReviewModal from './lib/components/ReviewModal.svelte'
   import TreeOpDialog from './lib/components/TreeOpDialog.svelte'
@@ -17,6 +18,7 @@
     addShare,
     defaultRelay,
     deriveVaultName,
+    devtoolsEnabled,
     getVault,
     lastVault,
     listVaults,
@@ -54,6 +56,9 @@
   let relayDefault = $state(defaultRelay())
   let opSecret = $state(operatorSecret())
   const prefillLink = url.get('share') ?? ''
+  /** ?debug=1 forces the sync devtools on for this session (M6). */
+  const debugForced = url.get('debug') === '1'
+  let devtools = $state(debugForced || devtoolsEnabled())
 
   /**
    * Boot generation: bumped by Cancel and by every new boot so a stale
@@ -622,6 +627,9 @@
       onClose={() => (folderSharePath = null)}
     />
   {/if}
+  {#if devtools}
+    <DevtoolsPanel {workspace} />
+  {/if}
 {/if}
 
 {#if settingsOpen}
@@ -629,6 +637,7 @@
     onClose={() => {
       settingsOpen = false
       refreshLists()
+      devtools = debugForced || devtoolsEnabled()
     }}
   />
 {/if}

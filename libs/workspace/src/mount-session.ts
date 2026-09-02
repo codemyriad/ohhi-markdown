@@ -32,6 +32,7 @@
 import type {
   Clock,
   DivergenceReview,
+  DocBlobStat,
   DocStore,
   LcaStore,
   MountProvenance,
@@ -103,6 +104,47 @@ export interface MountSessionConfig {
   makeShareLink: (relay: RelayConfig, room: string) => string
   /** Non-browser hosts pass their WebSocket impl through to providers. */
   webSocketPolyfill?: unknown
+}
+
+/** Read-only per-file inspection snapshot (devtools, M6). */
+export interface DocInspection {
+  path: string
+  guid: string
+  /** ui.records key for the live record (guid — rename-stable). */
+  recordKey: string
+  lca: {
+    contentHash: string
+    headsDigest: string
+    eol: string
+    bom: boolean
+    baseTextLength: number
+  } | null
+  doc: {
+    headsDigest: string
+    textLength: number
+    /** null when no LCA exists yet. */
+    equalsLca: boolean | null
+  } | null
+  blob: DocBlobStat | null
+  journal: { count: number; recent: { at: number; bytes: number }[] }
+  providerAttached: boolean
+}
+
+/** Read-only per-mount counts + identity (devtools footer, M6). */
+export interface MountStats {
+  room: string
+  mountPath: string
+  provenance: MountProvenance
+  shared: boolean
+  entryCount: number
+  docCount: number
+  lcaCount: number
+  journalCount: number
+}
+
+/** Short stable digest of encoded heads for eyeball comparison. */
+function shortDigest(bytes: Uint8Array): string {
+  return hashBytes(bytes).slice(0, 12)
 }
 
 export class MountSession {
@@ -427,6 +469,65 @@ export class MountSession {
   async rescan(): Promise<void> {
     await this.bootScan()
     this.refreshFiles()
+  }
+
+  // ---- read-only inspection (devtools, M6) — never mutates ----
+
+  /** Full disk↔CRDT picture for one text file; null for unknown/binary/dir. */
+  async inspectPath(path: string): Promise<DocInspection | null> {
+    const guid = this.guidFor(path)
+    if (!guid) return null
+    const doc = this.docs.get(guid) ?? null
+    const lca = await this.lcaStore.get(guid)
+    const lcaHeads = lca ? this.engine.decodeHeads(lca.heads) : null
+    const docHeads = doc ? this.engine.heads(doc) : null
+    const entries = await this.journal.entries(path)
+    return {
+      path,
+      guid,
+      recordKey: guid,
+      lca: lca
+        ? {
+            contentHash: lca.contentHash === NEVER_ON_DISK ? '(never on disk)' : lca.contentHash,
+            headsDigest: shortDigest(lca.heads),
+            eol: lca.eol,
+            bom: lca.bom,
+            baseTextLength: lca.baseText.length,
+          }
+        : null,
+      doc:
+        doc && docHeads
+          ? {
+              headsDigest: shortDigest(this.engine.encodeHeads(docHeads)),
+              textLength: doc.getText().length,
+              equalsLca: lcaHeads ? this.engine.headsEqual(docHeads, lcaHeads) : null,
+            }
+          : null,
+      blob: this.cfg.docStore ? await this.cfg.docStore.stat(guid) : null,
+      journal: {
+        count: entries.length,
+        recent: entries
+          .slice(-10)
+          .reverse()
+          .map((e) => ({ at: e.at, bytes: e.bytes.length })),
+      },
+      providerAttached: this.conns.has(guid),
+    }
+  }
+
+  /** Per-mount counts + identity for the devtools footer. */
+  async mountStats(): Promise<MountStats> {
+    const entries = this.folderDoc.getMap().entries()
+    return {
+      room: this.room,
+      mountPath: this.cfg.mountPath ?? '',
+      provenance: this.cfg.provenance ?? (this.cfg.firstJoin ? 'joined' : 'local'),
+      shared: this.isShared(),
+      entryCount: entries.filter(([, e]) => !e.deleted).length,
+      docCount: this.docs.size,
+      lcaCount: (await this.lcaStore.all()).length,
+      journalCount: (await this.journal.entries()).length,
+    }
   }
 
   /** Promote a local mount to a shared one; returns the copyable link. */

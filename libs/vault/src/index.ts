@@ -36,6 +36,7 @@ export {
   docBlobName,
   FOLDER_DOC_KEY,
   lcaGuard,
+  type DocBlobStat,
   type DocStore,
 } from './doc-store.js'
 export { FileJournal } from './file-journal.js'

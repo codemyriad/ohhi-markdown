@@ -58,6 +58,8 @@ interface AppConfigV2 {
    * advisory, never an auth source) — only here, in app config.
    */
   tokensByRoom: Record<string, string>
+  /** Sync devtools inspector (M6); `?debug=1` forces it on for a session. */
+  devtools?: boolean
 }
 
 const K_USER = 'editor:user'
@@ -134,6 +136,7 @@ function emptyConfig(): AppConfigV2 {
     operatorSecret: '',
     shares: [],
     tokensByRoom: {},
+    devtools: false,
   }
 }
 
@@ -259,6 +262,16 @@ export function defaultRelay(): string {
 export function setDefaultRelay(url: string): void {
   const cfg = loadConfig()
   cfg.defaultRelay = url.trim() || DEFAULT_RELAY
+  save(cfg)
+}
+
+export function devtoolsEnabled(): boolean {
+  return loadConfig().devtools === true
+}
+
+export function setDevtools(on: boolean): void {
+  const cfg = loadConfig()
+  cfg.devtools = on
   save(cfg)
 }
 

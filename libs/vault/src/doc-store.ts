@@ -20,6 +20,14 @@ import type { StoreDir } from './store-dir.js'
 /** Store key for a mount's folder doc → blob `docs/folder.bin`. */
 export const FOLDER_DOC_KEY = 'folder'
 
+/** Read-only blob facts for the devtools inspector (M6). */
+export interface DocBlobStat {
+  present: boolean
+  bytes: number | null
+  /** Clock time of the last successful flush THIS session; null if none. */
+  lastFlushAt: number | null
+}
+
 export interface DocStore {
   /**
    * Register a doc for dirty-tracking + debounced persistence. Tracking marks
@@ -39,6 +47,8 @@ export interface DocStore {
   flushAll(): Promise<void>
   /** Delete the persisted blob (untrack first if tracked). */
   remove(key: string): Promise<void>
+  /** Read-only blob presence/size/flush-age (devtools; never mutates). */
+  stat(key: string): Promise<DocBlobStat>
   /** Untrack everything. Does NOT flush — call flushAll() first if needed. */
   dispose(): void
 }
@@ -69,6 +79,8 @@ const blobName = docBlobName
 export class BlobDocStore implements DocStore {
   private tracked = new Map<string, Tracked>()
   private readonly debounceMs: number
+  /** Last successful flush time per key (session-local, devtools only). */
+  private flushedAt = new Map<string, number>()
 
   constructor(
     private engine: SyncEngine,
@@ -123,6 +135,7 @@ export class BlobDocStore implements DocStore {
         const bytes = this.engine.encodeUpdateSince(t.doc, null)
         await this.dir.io(blobName(key)).writeAtomic(bytes)
         t.persistedEpoch = epoch
+        this.flushedAt.set(key, this.clock.now())
       }
     })
     // A failed write leaves the epoch un-advanced (retried on the next flush)
@@ -137,6 +150,16 @@ export class BlobDocStore implements DocStore {
 
   async remove(key: string): Promise<void> {
     await this.dir.remove(blobName(key))
+    this.flushedAt.delete(key)
+  }
+
+  async stat(key: string): Promise<DocBlobStat> {
+    const bytes = await this.dir.io(blobName(key)).read()
+    return {
+      present: bytes !== null,
+      bytes: bytes ? bytes.length : null,
+      lastFlushAt: this.flushedAt.get(key) ?? null,
+    }
   }
 
   dispose(): void {

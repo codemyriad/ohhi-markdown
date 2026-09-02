@@ -7,7 +7,12 @@ export {
   type SyncRecordFields,
 } from './types.js'
 export { connectDoc, whenSynced, type ConnectDocOptions, type DocConnection } from './providers.js'
-export { MountSession, type MountSessionConfig } from './mount-session.js'
+export {
+  MountSession,
+  type DocInspection,
+  type MountSessionConfig,
+  type MountStats,
+} from './mount-session.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
 export { absorbMount, recoverMounts } from './vault-boot.js'
 export { carveFolder, type CarveOptions } from './carve.js'
