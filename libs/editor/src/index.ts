@@ -11,3 +11,4 @@ export {
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
 } from './markdown-editor.js'
+export { editorHighlightStyle, editorTheme, themeModeCompartment } from './theme.js'
