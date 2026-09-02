@@ -18,11 +18,14 @@
 </script>
 
 <!-- Pure rendering of f(syncRecord) — no status logic lives here. -->
+<!-- `relative` contains the absolutely-positioned sr-only span; without a
+     positioned ancestor it anchors to the viewport, escapes the file tree's
+     overflow clip, and stretches the page scroll height (one span per row). -->
 <span
   data-testid={testid}
   data-status={status}
   title={PILL_TITLES[status]}
-  class="inline-flex shrink-0 items-center gap-1.5"
+  class="relative inline-flex shrink-0 items-center gap-1.5"
 >
   <span class="size-2.5 rounded-full {colors[status]}" aria-hidden="true"></span>
   {#if label}<span class="text-xs text-gray-600">{label}</span>{/if}
