@@ -41,15 +41,18 @@ import type {
   VaultAdapter,
 } from '@editor/vault'
 import {
+  BlobDocStore,
   decodeFile,
   DEFAULT_THRESHOLDS,
   enrollFolder,
   FOLDER_DOC_KEY,
   hashBytes,
   joinFolder,
+  JsonFileLcaStore,
   looksBinary,
   NEVER_ON_DISK,
   VaultSession,
+  type StoreDir,
 } from '@editor/vault'
 import type { EngineDoc, FileEntry, SyncEngine } from '@editor/sync'
 import type { Awareness } from 'y-protocols/awareness'
@@ -90,6 +93,8 @@ export interface MountSessionConfig {
   mountsFile?: MountsFile
   /** Workspace-relative mount root for the mounts.json desc ('' = root). */
   mountPath?: string
+  /** Recorded in the mount desc; default: 'joined' when firstJoin, else 'local'. */
+  provenance?: MountProvenance
   thresholds?: Partial<ReconcileThresholds>
   /** Stable reactive record factory, keyed by doc GUID + FOLDER_RECORD_KEY (guids are rename-stable). */
   recordFor: (key: string) => SyncRecordFields
@@ -284,6 +289,96 @@ export class MountSession {
     } catch (err) {
       this.pushError(err)
     }
+  }
+
+  // ---- carve (spike S8 Q1, slice M4) — this mount is the PARENT being carved ----
+
+  /**
+   * Carve step 3 (seeding): copy this mount's subtree state into a fresh
+   * mount namespace — folder doc with keys rebased subtree-relative and the
+   * SAME doc guids, LCA records with rebased paths, doc-state blobs. Pure
+   * copies; this mount is untouched, so the step is idempotent and a crash
+   * here rolls BACK (recoverMounts drops the target namespace).
+   */
+  async seedCarveStores(prefix: string, targetDir: StoreDir): Promise<void> {
+    const pre = `${prefix}/`
+    const subtree = this.folderDoc
+      .getMap()
+      .entries()
+      .filter(([p, e]) => !e.deleted && (p === prefix || p.startsWith(pre)))
+
+    // Temp doc under a throwaway name — never `${room}/folder`, which the new
+    // mount's own MountSession will create as its instance later.
+    const tmp = this.engine.createDoc(`carve-tmp:${crypto.randomUUID()}`)
+    const store = new BlobDocStore(this.engine, targetDir, this.clock)
+    try {
+      tmp.transactMap((m) => {
+        for (const [path, entry] of subtree) {
+          if (path === prefix) continue // the carved dir itself becomes the new vault root
+          m.set(path.slice(pre.length), entry)
+        }
+      }, 'seed')
+      store.track(FOLDER_DOC_KEY, tmp)
+      await store.flush(FOLDER_DOC_KEY)
+
+      const lcas = new JsonFileLcaStore(targetDir.io('lca.json'))
+      for (const [path, entry] of subtree) {
+        if (entry.kind !== 'text') continue
+        const doc = this.docs.get(entry.guid)
+        if (doc) {
+          store.track(entry.guid, doc)
+          await store.flush(entry.guid)
+        }
+        const lca = await this.lcaStore.get(entry.guid)
+        if (lca) await lcas.put({ ...lca, path: path.slice(pre.length) })
+      }
+    } finally {
+      store.dispose()
+      tmp.destroy()
+    }
+  }
+
+  /**
+   * Carve step 5 (detaching): remove the subtree from this mount — one map
+   * transaction for the entries (the carved dir's own entry included), then
+   * per-doc teardown (providers, debounces, blobs, LCAs, doc instances). The
+   * adapter the host gave us must already ignore `prefix` (live ignore set)
+   * so the restarted watcher never sees the subtree again. Idempotent —
+   * recoverMounts re-runs it as store surgery after a crash.
+   */
+  async detachSubtree(prefix: string): Promise<void> {
+    const pre = `${prefix}/`
+    const doomed = this.folderDoc
+      .getMap()
+      .entries()
+      .filter(([p]) => p === prefix || p.startsWith(pre))
+
+    this.folderDoc.transactMap((m) => {
+      for (const [path] of doomed) m.delete(path)
+    }, 'local')
+
+    for (const [, entry] of doomed) {
+      if (entry.kind !== 'text') continue
+      const guid = entry.guid
+      this.debounces.get(guid)?.()
+      this.debounces.delete(guid)
+      this.conns.get(guid)?.destroy()
+      this.conns.delete(guid)
+      this.tracked.delete(guid)
+      this.cfg.docStore?.untrack(guid)
+      await this.cfg.docStore?.remove(guid)
+      await this.lcaStore.remove(guid)
+      const doc = this.docs.get(guid)
+      this.docs.delete(guid)
+      doc?.destroy()
+    }
+
+    // Shorten the rollforward window: the map deletion is durable now, not at
+    // the next debounce tick (crash between txn and flush is still covered by
+    // recoverMounts' store surgery).
+    await this.cfg.docStore?.flush(FOLDER_DOC_KEY)
+    await this.restartSession()
+    this.refreshFiles()
   }
 
   /** Promote a local mount to a shared one; returns the copyable link. */
@@ -882,7 +977,8 @@ export class MountSession {
 
   /** Upsert this mount's desc in the vault's mount table (idempotent). */
   private async writeMountDesc(): Promise<void> {
-    const provenance: MountProvenance = this.cfg.firstJoin ? 'joined' : 'local'
+    const provenance: MountProvenance =
+      this.cfg.provenance ?? (this.cfg.firstJoin ? 'joined' : 'local')
     await this.cfg.mountsFile?.upsert({
       room: this.room,
       path: this.cfg.mountPath ?? '',

@@ -44,7 +44,7 @@ async function boot(adapter: VaultAdapter, storeDir: StoreDir, opts: BootOpts = 
   const engine = createYjsEngine()
   const clock = new SimClock()
   const mountsFile = new MountsFile(storeDir.io('mounts.json'))
-  await recoverMounts(storeDir, mountsFile)
+  await recoverMounts(storeDir, mountsFile, engine)
   const mountDir = scopedStoreDir(storeDir, `${ROOM}/`)
   const docStore = new BlobDocStore(engine, mountDir, clock)
   const lcaStore = lcaGuard(docStore, new JsonFileLcaStore(mountDir.io('lca.json')))

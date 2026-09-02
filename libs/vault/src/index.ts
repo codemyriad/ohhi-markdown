@@ -3,6 +3,7 @@ export { computeMergeHunks, tryCleanMerge, type MergeHunk } from './diff3.js'
 export { decodeFile, renderFile, type DecodedText } from './eol.js'
 export { hashBytes, hashText } from './hash.js'
 export { MemVaultAdapter } from './mem-adapter.js'
+export { ignoringAdapter, scopedAdapter } from './adapter-wrappers.js'
 export {
   JsonFileLcaStore,
   MemJournal,
@@ -32,6 +33,7 @@ export {
 export { MemStoreDir, scopedStoreDir, type StoreDir } from './store-dir.js'
 export {
   BlobDocStore,
+  docBlobName,
   FOLDER_DOC_KEY,
   lcaGuard,
   type DocStore,

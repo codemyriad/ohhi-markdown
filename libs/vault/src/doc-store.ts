@@ -54,11 +54,17 @@ interface Tracked {
   chain: Promise<void>
 }
 
-function blobName(key: string): string {
-  // encodeURIComponent keeps UUIDs and 'folder' verbatim and makes any other
-  // key (e.g. a '/'-bearing engine guid) filesystem-safe and reversible.
+/**
+ * Blob file name for a doc key within a mount namespace. Exported for
+ * store-surgery recovery paths (vault-boot rollforward) that must address
+ * blobs without a live BlobDocStore. encodeURIComponent keeps UUIDs and
+ * 'folder' verbatim and makes any other key filesystem-safe and reversible.
+ */
+export function docBlobName(key: string): string {
   return `docs/${encodeURIComponent(key)}.bin`
 }
+
+const blobName = docBlobName
 
 export class BlobDocStore implements DocStore {
   private tracked = new Map<string, Tracked>()

@@ -10,3 +10,4 @@ export { connectDoc, whenSynced, type ConnectDocOptions, type DocConnection } fr
 export { MountSession, type MountSessionConfig } from './mount-session.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
 export { recoverMounts } from './vault-boot.js'
+export { carveFolder, type CarveOptions } from './carve.js'
