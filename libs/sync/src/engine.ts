@@ -26,10 +26,14 @@ export interface TextHandle {
   delete(index: number, length: number): void
 }
 
-/** Entry in a folder doc's path map. */
+/**
+ * Entry in a folder doc's path map. 'dir' entries (slice M3) make directories
+ * first-class so empty folders enroll, sync, and materialize; they carry no
+ * Y.Doc, no LCA, no provider — the guid only gives them a stable identity.
+ */
 export interface FileEntry {
   guid: string
-  kind: 'text' | 'binary'
+  kind: 'text' | 'binary' | 'dir'
   deleted?: boolean
 }
 

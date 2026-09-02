@@ -17,12 +17,23 @@ export interface WatchEvent {
  */
 export interface VaultAdapter {
   list(): Promise<FileStat[]>
-  /** null if the file does not exist. */
+  /**
+   * Every directory path (deep, POSIX-relative, ignored dirs excluded) — kept
+   * separate from list() so existing file consumers never see dirs (M3).
+   */
+  listDirs(): Promise<string[]>
+  /** null if the file does not exist (or the path is a directory). */
   read(path: string): Promise<Uint8Array | null>
   /** Atomic: temp file + fsync + rename (or simulated equivalent). */
   writeAtomic(path: string, bytes: Uint8Array): Promise<void>
   rename(from: string, to: string): Promise<void>
   remove(path: string): Promise<void>
+  /** Create a directory (parents included); idempotent. */
+  mkdir(path: string): Promise<void>
+  /** Remove an EMPTY directory; rejects when non-empty; missing is a no-op. */
+  removeDir(path: string): Promise<void>
+  /** Move a directory and everything under it (copy+delete where the platform has no rename). */
+  renameDir(from: string, to: string): Promise<void>
   /** Raw change notifications; QuiescedWatcher turns these into stable events. */
   watch(cb: (ev: WatchEvent) => void): () => void
 }

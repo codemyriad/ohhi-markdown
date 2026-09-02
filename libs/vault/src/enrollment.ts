@@ -72,6 +72,12 @@ export async function enrollFolder(
     })
     docs.set(guid, doc)
   }
+  // Directories are first-class map entries (M3): every dir enrolls — not just
+  // empty ones — so the map is the full tree authority and renames/deletes
+  // have an entry to rewrite. No Y.Doc, no LCA, no provider.
+  for (const dir of await adapter.listDirs()) {
+    folderDoc.transactMap((m) => m.set(dir, { guid: newGuid(), kind: 'dir' }), 'seed')
+  }
   return { docs, binaries }
 }
 

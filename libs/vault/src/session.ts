@@ -34,6 +34,13 @@ export interface SessionEvents {
   onBreaker?: (paths: string[]) => void
   /** Fired after any reconcile that changed disk or CRDT state. */
   onActivity?: (guid: string, action: string) => void
+  /**
+   * Paths changed identity (local or remote rename/move, incl. every child of
+   * a directory move). Hosts MUST re-key any per-path state they hold — sync
+   * records especially: providers mutate the record OBJECT, so moving it under
+   * the new key keeps live state flowing (M3).
+   */
+  onPathsRenamed?: (moves: { from: string; to: string }[]) => void
   onError?: (err: unknown) => void
 }
 
@@ -252,7 +259,12 @@ export class VaultSession {
     this.lastEntries = new Map(current)
 
     const prevByGuid = new Map([...previous.entries()].map(([p, e]) => [e.guid, p]))
+    const moves: { from: string; to: string }[] = []
+    /** Old dir paths to clear once their children have moved/gone (pass 2). */
+    const dirCleanups: string[] = []
 
+    // Pass 1: text files — content-bearing effects first, so a directory
+    // move's children land before its old dir is cleaned up in pass 2.
     for (const [path, entry] of current) {
       if (entry.kind !== 'text') continue
       const oldPath = prevByGuid.get(entry.guid)
@@ -263,6 +275,7 @@ export class VaultSession {
         if (pre) await this.ctx.journal.record(oldPath, pre)
         await this.adapter.remove(oldPath).catch(() => {})
         this.pathToGuid.delete(oldPath)
+        this.ctx.openPaths.delete(oldPath)
         continue
       }
       if (entry.deleted) continue
@@ -290,31 +303,180 @@ export class VaultSession {
       if (oldPath !== path) {
         // Remote rename: move the disk file, update the LCA path.
         await this.adapter.rename(oldPath, path).catch((err) => this.events.onError?.(err))
-        this.pathToGuid.delete(oldPath)
-        this.pathToGuid.set(path, entry.guid)
+        this.rekeyPath(oldPath, path, entry.guid)
         const lca = await this.lcaStore.get(entry.guid)
         if (lca) await this.lcaStore.put({ ...lca, path })
+        moves.push({ from: oldPath, to: path })
       }
+    }
+
+    // Pass 2: directories (M3) — mkdir creates, rename/delete cleanup after
+    // the children moved above. Old dirs are removed empty-only, deepest
+    // first; untracked leftovers legitimately keep a dir alive.
+    for (const [path, entry] of current) {
+      if (entry.kind !== 'dir') continue
+      const oldPath = prevByGuid.get(entry.guid)
+
+      if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
+        dirCleanups.push(oldPath)
+        continue
+      }
+      if (entry.deleted) continue
+
+      if (!oldPath) {
+        await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
+        continue
+      }
+      if (oldPath !== path) {
+        await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
+        dirCleanups.push(oldPath)
+        moves.push({ from: oldPath, to: path })
+      }
+    }
+    for (const p of dirCleanups.sort((a, b) => b.length - a.length)) {
+      await this.adapter.removeDir(p).catch(() => {})
+    }
+
+    if (moves.length) this.events.onPathsRenamed?.(moves)
+  }
+
+  /** Move every piece of per-path session bookkeeping from one key to another. */
+  private rekeyPath(from: string, to: string, guid: string | null): void {
+    if (guid !== null) {
+      this.pathToGuid.delete(from)
+      this.pathToGuid.set(to, guid)
+    }
+    if (this.ctx.openPaths.delete(from)) this.ctx.openPaths.add(to)
+    const ring = this.ctx.recentFlushes.get(from)
+    if (ring) {
+      this.ctx.recentFlushes.delete(from)
+      this.ctx.recentFlushes.set(to, ring)
     }
   }
 
-  /** UI action: rename a file locally and propagate via the folder map. */
+  /** UI action: rename/move a file (text or binary) and propagate via the map. */
   async renameFile(from: string, to: string): Promise<void> {
-    const guid = this.pathToGuid.get(from)
-    if (!guid) throw new Error(`rename: unknown path ${from}`)
     const entry = this.folderDoc.getMap().get(from)
-    if (!entry) throw new Error(`rename: no map entry for ${from}`)
+    if (!entry || entry.deleted || entry.kind === 'dir') {
+      throw new Error(`rename: unknown path ${from}`)
+    }
     await this.adapter.rename(from, to)
     this.folderDoc.transactMap((m) => {
       m.delete(from)
       m.set(to, entry)
     }, 'local')
-    this.pathToGuid.delete(from)
-    this.pathToGuid.set(to, guid)
     this.lastEntries.delete(from)
     this.lastEntries.set(to, entry)
-    const lca = await this.lcaStore.get(guid)
-    if (lca) await this.lcaStore.put({ ...lca, path: to })
+    if (entry.kind === 'text') {
+      this.rekeyPath(from, to, entry.guid)
+      const lca = await this.lcaStore.get(entry.guid)
+      if (lca) await this.lcaStore.put({ ...lca, path: to })
+    }
+    this.events.onPathsRenamed?.([{ from, to }])
+  }
+
+  /** UI action: create a directory — first-class map entry, syncs to peers. */
+  async createDir(path: string): Promise<void> {
+    if (this.folderDoc.getMap().get(path)) throw new Error(`createDir: ${path} exists`)
+    await this.adapter.mkdir(path)
+    const entry: FileEntry = { guid: crypto.randomUUID(), kind: 'dir' }
+    this.folderDoc.transactMap((m) => m.set(path, entry), 'local')
+    this.lastEntries.set(path, entry)
+  }
+
+  /**
+   * UI action: rename/move a directory. ONE map transaction rewrites the
+   * prefix of every child entry plus the dir entry itself (peers apply the
+   * children as ordinary per-file moves and clean up the old dir); disk moves
+   * first via the adapter's dir rename (copy+delete on OPFS).
+   */
+  async renameDir(from: string, to: string): Promise<void> {
+    const dirEntry = this.folderDoc.getMap().get(from)
+    if (!dirEntry || dirEntry.kind !== 'dir' || dirEntry.deleted) {
+      throw new Error(`renameDir: unknown dir ${from}`)
+    }
+    if (to === from || to.startsWith(`${from}/`)) {
+      throw new Error(`renameDir: cannot move ${from} into itself`)
+    }
+    const prefix = `${from}/`
+    await this.adapter.renameDir(from, to)
+    const moves: { from: string; to: string }[] = []
+    this.folderDoc.transactMap((m) => {
+      for (const [p, e] of m.entries()) {
+        if (p !== from && !p.startsWith(prefix)) continue
+        const np = to + p.slice(from.length)
+        m.delete(p)
+        m.set(np, e)
+        moves.push({ from: p, to: np })
+      }
+    }, 'local')
+    for (const { from: p, to: np } of moves) {
+      const e = this.lastEntries.get(p)
+      if (e) {
+        this.lastEntries.delete(p)
+        this.lastEntries.set(np, e)
+      }
+      const guid = this.pathToGuid.get(p) ?? null
+      this.rekeyPath(p, np, guid)
+      if (guid) {
+        const lca = await this.lcaStore.get(guid)
+        if (lca) await this.lcaStore.put({ ...lca, path: np })
+      }
+    }
+    this.events.onPathsRenamed?.(moves)
+  }
+
+  /** UI action: delete one file (text or binary) — journaled, tombstoned for peers. */
+  async deleteFile(path: string): Promise<void> {
+    const entry = this.folderDoc.getMap().get(path)
+    if (!entry || entry.deleted || entry.kind === 'dir') {
+      throw new Error(`deleteFile: unknown path ${path}`)
+    }
+    const pre = await this.adapter.read(path)
+    if (pre) await this.ctx.journal.record(path, pre)
+    await this.adapter.remove(path)
+    const tomb = { ...entry, deleted: true }
+    this.folderDoc.transactMap((m) => m.set(path, tomb), 'local')
+    this.lastEntries.set(path, tomb)
+    this.pathToGuid.delete(path)
+    this.ctx.openPaths.delete(path)
+  }
+
+  /**
+   * UI action: delete a directory and everything under it. Every file's
+   * pre-image is journaled before its bytes are removed; all tombstones land
+   * in ONE map transaction; empty dirs are cleared deepest-first (untracked
+   * leftovers legitimately keep a dir on disk).
+   */
+  async deleteDir(path: string): Promise<void> {
+    const dirEntry = this.folderDoc.getMap().get(path)
+    if (!dirEntry || dirEntry.kind !== 'dir' || dirEntry.deleted) {
+      throw new Error(`deleteDir: unknown dir ${path}`)
+    }
+    const prefix = `${path}/`
+    const doomed = this.folderDoc
+      .getMap()
+      .entries()
+      .filter(([p, e]) => !e.deleted && (p === path || p.startsWith(prefix)))
+    for (const [p, e] of doomed) {
+      if (e.kind === 'dir') continue
+      const pre = await this.adapter.read(p)
+      if (pre) await this.ctx.journal.record(p, pre)
+      await this.adapter.remove(p).catch((err) => this.events.onError?.(err))
+    }
+    this.folderDoc.transactMap((m) => {
+      for (const [p, e] of doomed) m.set(p, { ...e, deleted: true })
+    }, 'local')
+    for (const [p, e] of doomed) {
+      this.lastEntries.set(p, { ...e, deleted: true })
+      this.pathToGuid.delete(p)
+      this.ctx.openPaths.delete(p)
+    }
+    const dirs = doomed
+      .filter(([, e]) => e.kind === 'dir')
+      .map(([p]) => p)
+      .sort((a, b) => b.length - a.length)
+    for (const d of dirs) await this.adapter.removeDir(d).catch(() => {})
   }
 }
 

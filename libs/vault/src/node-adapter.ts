@@ -11,6 +11,7 @@ import {
   readFile,
   rename as fsRename,
   rm,
+  rmdir,
   stat,
 } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
@@ -48,11 +49,48 @@ export class NodeVaultAdapter implements VaultAdapter {
     return out
   }
 
+  async listDirs(): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (dir: string): Promise<void> => {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        if (IGNORED.has(entry.name)) continue
+        if (!entry.isDirectory()) continue
+        const full = join(dir, entry.name)
+        out.push(relative(this.root, full).split(sep).join('/'))
+        await walk(full)
+      }
+    }
+    await walk(this.root)
+    return out.sort()
+  }
+
+  async mkdir(path: string): Promise<void> {
+    await mkdir(this.abs(path), { recursive: true })
+  }
+
+  async removeDir(path: string): Promise<void> {
+    try {
+      await rmdir(this.abs(path)) // refuses non-empty (ENOTEMPTY) by design
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+      throw err
+    }
+  }
+
+  async renameDir(from: string, to: string): Promise<void> {
+    const dest = this.abs(to)
+    await mkdir(dirname(dest), { recursive: true })
+    await fsRename(this.abs(from), dest)
+  }
+
   async read(path: string): Promise<Uint8Array | null> {
     try {
       return new Uint8Array(await readFile(this.abs(path)))
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
+      const code = (err as NodeJS.ErrnoException).code
+      // EISDIR: the path is a directory — unreadable as a file, so null (the
+      // watcher hands dir paths to the same quiesce reads as files).
+      if (code === 'ENOENT' || code === 'EISDIR') return null
       throw err
     }
   }
