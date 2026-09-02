@@ -10,7 +10,7 @@ import {
   resolveDivergence,
   type ReconcileContext,
 } from './reconciler.js'
-import { decodeFile } from './eol.js'
+import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
 import { NEVER_ON_DISK } from './enrollment.js'
 import {
@@ -153,6 +153,36 @@ export class VaultSession {
     const doc = this.docs.get(guid)
     if (!lca || !doc) throw new Error(`resolveReview: unknown doc ${guid}`)
     await resolveDivergence(this.ctx, doc, lca, mergedText)
+    this.reviews.delete(guid)
+    this.events.onReviewCleared?.(guid)
+  }
+
+  /**
+   * Resolve a 'vanished' review (file gone from disk with no map tombstone —
+   * an external deletion). 'restore' materializes the CRDT content back onto
+   * disk; 'remove' accepts the deletion for everyone: the LCA shadow text is
+   * journaled for recoverability, the map entry is tombstoned (peers remove
+   * their copies through the normal remote-delete path), and the LCA is
+   * dropped. (M5, spike S8 Q5.)
+   */
+  async resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void> {
+    const lca = await this.lcaStore.get(guid)
+    const doc = this.docs.get(guid)
+    if (!lca || !doc) throw new Error(`resolveVanished: unknown doc ${guid}`)
+    if (action === 'restore') {
+      await resolveDivergence(this.ctx, doc, lca, doc.getText())
+    } else {
+      await this.ctx.journal.record(lca.path, renderFile(lca.baseText, lca.eol, lca.bom))
+      const entry = this.folderDoc.getMap().get(lca.path)
+      if (entry && !entry.deleted) {
+        const tomb = { ...entry, deleted: true }
+        this.folderDoc.transactMap((m) => m.set(lca.path, tomb), 'local')
+        this.lastEntries.set(lca.path, tomb)
+      }
+      this.pathToGuid.delete(lca.path)
+      this.ctx.openPaths.delete(lca.path)
+      await this.lcaStore.remove(guid)
+    }
     this.reviews.delete(guid)
     this.events.onReviewCleared?.(guid)
   }

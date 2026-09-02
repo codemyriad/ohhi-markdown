@@ -56,8 +56,9 @@ export async function reconcileFile(
       return materialize(ctx, doc, lca, null)
     }
     // File vanished without a folder-map tombstone: external deletion.
-    // Never silently drop CRDT content — surface as divergence.
-    return review(lca, doc.getText(), '', 'three-way')
+    // Never silently drop CRDT content — surface as a 'vanished' review the
+    // host resolves via resolveVanished (restore | confirm removal, M5).
+    return review(lca, doc.getText(), '', 'vanished')
   }
 
   const diskHash = hashBytes(diskBytes)
@@ -181,7 +182,7 @@ function review(
   reason: DivergenceReview['reason']
 ): ReconcileResult {
   return {
-    action: reason === 'three-way' ? 'diverged' : 'escalated',
+    action: reason === 'three-way' || reason === 'vanished' ? 'diverged' : 'escalated',
     review: { guid: lca.guid, path: lca.path, base: lca.baseText, mine, theirs, reason },
   }
 }

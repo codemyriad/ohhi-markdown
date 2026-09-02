@@ -9,5 +9,7 @@ export {
 export { connectDoc, whenSynced, type ConnectDocOptions, type DocConnection } from './providers.js'
 export { MountSession, type MountSessionConfig } from './mount-session.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
-export { recoverMounts } from './vault-boot.js'
+export { absorbMount, recoverMounts } from './vault-boot.js'
 export { carveFolder, type CarveOptions } from './carve.js'
+export { joinMount, type JoinMountOptions } from './join.js'
+export { unmountMount, unshareMount, type UnshareOptions } from './unshare.js'

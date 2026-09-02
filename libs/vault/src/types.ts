@@ -101,7 +101,7 @@ export interface DivergenceReview {
   mine: string
   /** Disk side. */
   theirs: string
-  reason: 'three-way' | 'ratio-threshold' | 'stale-echo' | 'mass-change'
+  reason: 'three-way' | 'ratio-threshold' | 'stale-echo' | 'mass-change' | 'vanished'
 }
 
 export interface ReconcileThresholds {

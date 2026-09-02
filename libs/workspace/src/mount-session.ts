@@ -246,6 +246,21 @@ export class MountSession {
     }
   }
 
+  /** Resolve a 'vanished' review: restore from CRDT, or confirm the removal. */
+  async resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void> {
+    if (!this.sessionRef) return
+    try {
+      await this.sessionRef.resolveVanished(guid, action)
+      if (action === 'restore') {
+        const path = this.pathForGuid(guid)
+        if (path) await this.refreshDiskMatch(path, guid)
+      }
+      this.refreshFiles()
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
   // ---- tree operations (M3) — thin wrappers over VaultSession's local ops ----
 
   async createDir(path: string): Promise<void> {
@@ -381,6 +396,39 @@ export class MountSession {
     this.refreshFiles()
   }
 
+  // ---- cross-mount move primitives (spike S8 Q5, slice M5) ----
+
+  /** Raw bytes of a file in this mount (cross-move source read). */
+  readFileBytes(rel: string): Promise<Uint8Array | null> {
+    return this.adapter.read(rel)
+  }
+
+  /**
+   * Import a file at an explicit path (cross-move target): journaled write,
+   * then enrollment with a FRESH guid — content identity never crosses rooms
+   * (spike Q5). Dir entries for new parents sync immediately.
+   */
+  async importFile(rel: string, bytes: Uint8Array): Promise<void> {
+    const existing = this.folderDoc.getMap().get(rel)
+    if (existing && !existing.deleted) {
+      // Overwriting would orphan the existing entry's guid — a silent loss.
+      throw new Error(`'${rel}' already exists in the destination`)
+    }
+    const pre = await this.adapter.read(rel)
+    await this.journal.record(rel, pre)
+    await this.adapter.writeAtomic(rel, bytes)
+    await this.enrollOne(rel)
+    await this.syncDirs()
+    await this.restartSession()
+    this.refreshFiles()
+  }
+
+  /** Re-run the boot delta scan (unmount: newly-local files enroll now). */
+  async rescan(): Promise<void> {
+    await this.bootScan()
+    this.refreshFiles()
+  }
+
   /** Promote a local mount to a shared one; returns the copyable link. */
   enableSharing(newRelay: RelayConfig): { link: string } {
     this.relay = newRelay
@@ -395,6 +443,7 @@ export class MountSession {
   }
 
   dispose(): void {
+    if (this.shutdownDone) return
     for (const cancel of this.debounces.values()) cancel()
     this.debounces.clear()
     this.sessionRef?.dispose()
@@ -407,6 +456,36 @@ export class MountSession {
     // page close can't await it either way — bounded loss, spike S8 Q2).
     const ds = this.cfg.docStore
     if (ds) void ds.flushAll().finally(() => ds.dispose())
+  }
+
+  private shutdownDone = false
+
+  /**
+   * Orderly, awaitable teardown (unshare/unmount, spike S8 Q6): flush blobs
+   * durably, stop the session and providers, then DESTROY the doc instances —
+   * the caller is about to rebuild sessions over the same guids from stores,
+   * and stale instances must not linger (their engine.onUpdate routing has no
+   * unsubscribe by design; dead instances receive nothing).
+   */
+  async shutdown(): Promise<void> {
+    if (this.shutdownDone) return
+    for (const cancel of this.debounces.values()) cancel()
+    this.debounces.clear()
+    this.sessionRef?.dispose()
+    this.sessionRef = null
+    for (const conn of this.conns.values()) conn.destroy()
+    this.conns.clear()
+    this.folderConn?.destroy()
+    this.folderConn = null
+    const ds = this.cfg.docStore
+    if (ds) {
+      await ds.flushAll()
+      ds.dispose()
+    }
+    this.shutdownDone = true
+    for (const doc of this.docs.values()) doc.destroy()
+    this.docs.clear()
+    this.folderDoc.destroy()
   }
 
   // ---- internals ----
@@ -587,11 +666,20 @@ export class MountSession {
       thresholds: this.cfg.thresholds,
       events: {
         onReview: (review) => {
+          // An EMPTY doc's file vanishing is a deletion with nothing at
+          // stake — accept it silently instead of nagging (M5).
+          if (review.reason === 'vanished' && review.mine === '') {
+            void this.sessionRef
+              ?.resolveVanished(review.guid, 'remove')
+              .catch((err) => this.pushError(err))
+            return
+          }
           // Identical-sides fast path (Invariant D's k=1 crash artifact — a
           // lost LCA write behind a durable blob classifies as diverged with
           // mine === theirs): resolving with either side is safe by
-          // construction, so never surface it as a review.
-          if (review.mine === review.theirs) {
+          // construction, so never surface it as a review. Never applies to
+          // 'vanished' (theirs is '' there by construction, handled above).
+          if (review.reason !== 'vanished' && review.mine === review.theirs) {
             void this.sessionRef
               ?.resolveReview(review.guid, review.mine)
               .catch((err) => this.pushError(err))
