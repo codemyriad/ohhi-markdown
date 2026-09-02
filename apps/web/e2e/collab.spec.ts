@@ -64,7 +64,8 @@ test('a bad token fails fast with a real message, not eternal connecting', async
     user: 'Mallory',
   })
   await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('boot-error')).toContainText('rejected', { timeout: 15_000 })
+  // Boot failures land on the vault manager with the message — never a dead end (M2).
+  await expect(page.getByTestId('manager-error')).toContainText('rejected', { timeout: 15_000 })
   await context.close()
 })
 
@@ -80,7 +81,7 @@ test('join via share link into OPFS: materializes, co-edits, and reopens', async
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   await page.goto(`/?share=${encodeURIComponent(link)}`)
-  await page.getByTestId('landing-name').fill('Bob')
+  await page.getByTestId('manager-name').fill('Bob')
   await page.getByTestId('join-share').click()
 
   // Relay content materialized into the OPFS vault.

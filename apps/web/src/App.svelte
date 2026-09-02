@@ -1,55 +1,117 @@
 <script lang="ts">
   import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
   import FileTree from './lib/components/FileTree.svelte'
-  import Landing from './lib/components/Landing.svelte'
   import ReviewModal from './lib/components/ReviewModal.svelte'
+  import SettingsPanel from './lib/components/SettingsPanel.svelte'
   import ShareDialog from './lib/components/ShareDialog.svelte'
   import SyncPill from './lib/components/SyncPill.svelte'
+  import VaultManager from './lib/components/VaultManager.svelte'
+  import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
   import { configForMemory, configForSession, newFolderGuid } from './lib/boot.js'
   import {
     addShare,
-    loadLastSession,
+    defaultRelay,
+    deriveVaultName,
+    getVault,
+    lastVault,
+    listVaults,
     loadShares,
     loadUser,
-    saveLastSession,
+    removeVault,
     saveUser,
-    type SessionDesc,
-    type VaultSourceDesc,
+    setVaultRelay,
+    touchVault,
+    upsertVault,
+    type VaultEntry,
   } from './lib/config.js'
   import { parseAppConfig } from './lib/params.js'
-  import { isTauri } from './lib/platform.js'
+  import { hasOpfs, isTauri } from './lib/platform.js'
   import { decodeShareLink } from './lib/share-link.js'
   import { pillStatus, worstStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type Workspace } from './lib/workspace.svelte.js'
 
-  const DEFAULT_RELAY = 'ws://localhost:8787'
-
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
 
-  let view = $state<'landing' | 'connecting' | 'workspace' | 'error'>('connecting')
+  let view = $state<'manager' | 'connecting' | 'workspace'>('connecting')
   let workspace = $state.raw<Workspace | null>(null)
-  let bootError = $state('')
-  let landingError = $state('')
+  /** Boot failure surfaced on the manager — against its vault row when room is set. */
+  let failure = $state<{ room: string | null; message: string } | null>(null)
   let busy = $state(false)
+  let settingsOpen = $state(false)
+  let vaults = $state(listVaults())
   let shares = $state(loadShares())
+  let relayDefault = $state(defaultRelay())
   const prefillLink = url.get('share') ?? ''
 
-  async function boot(configPromise: Promise<Parameters<typeof setupWorkspace>[0]>): Promise<void> {
+  /**
+   * Boot generation: bumped by Cancel and by every new boot so a stale
+   * setupWorkspace settling late can neither install itself nor clobber the
+   * view. A cancelled boot's workspace is disposed when it settles.
+   */
+  let bootGen = 0
+
+  function refreshLists(): void {
+    vaults = listVaults()
+    shares = loadShares()
+    relayDefault = defaultRelay()
+  }
+
+  function userName(): string {
+    return loadUser() ?? 'Anonymous'
+  }
+
+  /** Boot a registered vault; failures land on the manager, never a dead end. */
+  async function bootVault(entry: VaultEntry): Promise<void> {
+    const gen = ++bootGen
     view = 'connecting'
-    bootError = ''
+    failure = null
+    busy = false
     try {
-      workspace = await setupWorkspace(await configPromise)
+      const ws = await setupWorkspace(await configForSession(entry, userName()))
+      if (gen !== bootGen) {
+        ws.dispose() // cancelled or superseded while awaiting
+        return
+      }
+      workspace?.dispose()
+      workspace = ws
+      touchVault(entry.room, Date.now())
+      refreshLists()
       view = 'workspace'
     } catch (err) {
-      bootError = err instanceof Error ? err.message : String(err)
-      view = 'error'
+      if (gen !== bootGen) return
+      failure = { room: entry.room, message: err instanceof Error ? err.message : String(err) }
+      view = 'manager'
     }
+  }
+
+  /** Memory URL contract (dev / Playwright L2) — bypasses the manager entirely. */
+  async function bootMemory(cfg: Extract<typeof memConfig, { kind: 'memory' }>): Promise<void> {
+    const gen = ++bootGen
+    view = 'connecting'
+    try {
+      const ws = await setupWorkspace(await configForMemory(cfg))
+      if (gen !== bootGen) {
+        ws.dispose()
+        return
+      }
+      workspace = ws
+      view = 'workspace'
+    } catch (err) {
+      if (gen !== bootGen) return
+      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
+      view = 'manager'
+    }
+  }
+
+  function cancelBoot(): void {
+    bootGen++
+    view = workspace ? 'workspace' : 'manager'
   }
 
   /**
    * After onboarding, drop any bootstrap query params from the address bar so a
-   * reload reopens via the persisted session (not the deep link) — and so a
+   * reload reopens via the persisted vault (not the deep link) — and so a
    * share secret never lingers in the URL / history (R5).
    */
   function cleanUrl(): void {
@@ -58,23 +120,25 @@
 
   // ---- initial routing ----
   if (memConfig.kind === 'memory') {
-    void boot(configForMemory(memConfig))
+    void bootMemory(memConfig)
   } else if (memConfig.kind === 'error') {
-    bootError = memConfig.message
-    view = 'error'
+    failure = { room: null, message: memConfig.message }
+    view = 'manager'
   } else {
-    const last = loadLastSession()
+    const last = lastVault()
     if (last && !prefillLink) {
-      void boot(configForSession(last, loadUser() ?? 'Anonymous'))
+      // Attempted once; a failure routes to the manager with the error shown
+      // against this entry (no reload retrap — the entry is fixable there).
+      void bootVault(last)
     } else {
-      view = 'landing'
+      view = 'manager'
     }
   }
 
-  // ---- landing actions ----
+  // ---- manager actions ----
   async function openFolder(name: string): Promise<void> {
     saveUser(name)
-    landingError = ''
+    failure = null
     busy = true
     try {
       const { pickVaultFolder } = await import('./lib/adapters/tauri-vault-adapter.js')
@@ -83,30 +147,52 @@
         busy = false
         return
       }
-      const desc: SessionDesc = { vault: { kind: 'tauri', path }, room: newFolderGuid() }
-      saveLastSession(desc)
+      // Reopening a known folder resumes its entry (same room/stores) instead
+      // of minting a second identity for the same bytes.
+      const existing = listVaults().find((v) => v.vault.kind === 'tauri' && v.vault.path === path)
+      const entry: VaultEntry = existing ?? {
+        name: deriveVaultName({ kind: 'tauri', path }),
+        vault: { kind: 'tauri', path },
+        room: newFolderGuid(),
+      }
+      upsertVault(entry)
+      refreshLists()
       cleanUrl()
-      await boot(configForSession(desc, name))
+      await bootVault(entry)
     } catch (err) {
-      landingError = err instanceof Error ? err.message : String(err)
+      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
       busy = false
     }
   }
 
+  async function createBrowserVault(name: string, vaultName: string): Promise<void> {
+    saveUser(name)
+    failure = null
+    const entry: VaultEntry = {
+      name: vaultName,
+      vault: { kind: 'opfs', id: crypto.randomUUID() },
+      room: newFolderGuid(),
+    }
+    upsertVault(entry)
+    refreshLists()
+    cleanUrl()
+    await bootVault(entry)
+  }
+
   async function joinShare(name: string, link: string): Promise<void> {
     saveUser(name)
-    landingError = ''
+    failure = null
     busy = true
     let target: ReturnType<typeof decodeShareLink>
     try {
       target = decodeShareLink(link)
     } catch {
-      landingError = "That doesn't look like a valid share link."
+      failure = { room: null, message: "That doesn't look like a valid share link." }
       busy = false
       return
     }
     try {
-      let vault: VaultSourceDesc
+      let entry: VaultEntry
       if (isTauri()) {
         const { pickVaultFolder } = await import('./lib/adapters/tauri-vault-adapter.js')
         const path = await pickVaultFolder()
@@ -114,25 +200,40 @@
           busy = false
           return
         }
-        vault = { kind: 'tauri', path }
+        entry = {
+          name: deriveVaultName({ kind: 'tauri', path }),
+          vault: { kind: 'tauri', path },
+          room: target.room,
+          relay: { url: target.relay, token: target.token },
+          firstJoin: true,
+        }
       } else {
-        vault = { kind: 'opfs', id: target.room }
+        entry = {
+          name: 'Shared vault',
+          vault: { kind: 'opfs', id: target.room },
+          room: target.room,
+          relay: { url: target.relay, token: target.token },
+          firstJoin: true,
+        }
       }
-      const desc: SessionDesc = {
-        vault,
-        room: target.room,
-        relay: { url: target.relay, token: target.token },
-        firstJoin: true,
-      }
-      saveLastSession(desc)
-      addShare({ link, room: target.room, label: name })
-      shares = loadShares()
+      upsertVault(entry)
+      // Label the remembered share by the vault it opens as — not the joiner's
+      // own name (the "Recent shares show my name" bug).
+      addShare({ link, room: target.room, label: entry.name })
+      refreshLists()
       cleanUrl()
-      await boot(configForSession(desc, name))
+      busy = false
+      await bootVault(entry)
     } catch (err) {
-      landingError = err instanceof Error ? err.message : String(err)
+      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
       busy = false
     }
+  }
+
+  function removeVaultEntry(room: string): void {
+    removeVault(room)
+    if (failure?.room === room) failure = null
+    refreshLists()
   }
 
   // ---- in-workspace sharing ----
@@ -140,16 +241,19 @@
     if (!workspace) return
     try {
       const { link } = workspace.enableSharing({ url: relay, token })
-      const last = loadLastSession()
-      if (last) saveLastSession({ ...last, relay: { url: relay, token } })
-      addShare({ link, room: workspace.room, label: workspace.user.name })
-      shares = loadShares()
+      setVaultRelay(workspace.room, { url: relay, token })
+      const label = getVault(workspace.room)?.name ?? 'This vault'
+      addShare({ link, room: workspace.room, label })
+      refreshLists()
     } catch (err) {
       workspace.ui.error = err instanceof Error ? err.message : String(err)
     }
   }
 
   // ---- workspace-derived view state ----
+  const currentVaultName = $derived(
+    workspace ? (getVault(workspace.room)?.name ?? 'Vault') : 'Vault'
+  )
   const globalStatus = $derived(
     workspace ? worstStatus(Object.values(workspace.ui.records).map(pillStatus)) : 'offline'
   )
@@ -161,33 +265,53 @@
   const activeReview = $derived(workspace?.ui.reviews[0] ?? null)
 </script>
 
-{#if view === 'landing'}
-  <Landing
+{#if view === 'manager'}
+  <VaultManager
     isTauri={isTauri()}
+    hasOpfs={hasOpfs()}
     defaultUser={loadUser() ?? ''}
+    {vaults}
     {shares}
     {prefillLink}
-    error={landingError}
+    {failure}
     {busy}
+    canGoBack={workspace !== null}
+    onOpenVault={(entry) => void bootVault(entry)}
+    onRemoveVault={removeVaultEntry}
     onOpenFolder={openFolder}
+    onCreateBrowserVault={createBrowserVault}
     onJoin={joinShare}
+    onBack={() => (view = 'workspace')}
+    onSettings={() => (settingsOpen = true)}
   />
-{:else if view === 'error'}
-  <main class="mx-auto max-w-xl px-6 py-16">
-    <h1 class="text-xl font-semibold text-red-700">Cannot start</h1>
-    <p class="mt-2 font-mono text-sm text-gray-700" data-testid="boot-error">{bootError}</p>
-  </main>
 {:else if view === 'connecting' || !workspace}
   <main
-    class="flex h-screen items-center justify-center text-sm text-gray-500"
+    class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500"
     data-testid="connecting"
   >
-    connecting…
+    <span>connecting…</span>
+    {#if memConfig.kind !== 'memory'}
+      <button
+        data-testid="boot-cancel"
+        onclick={cancelBoot}
+        class="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+      >
+        Cancel
+      </button>
+    {/if}
   </main>
 {:else}
   <div class="flex h-screen flex-col bg-gray-50 text-gray-900">
     <header class="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-2">
-      <h1 class="text-sm font-semibold">Editor</h1>
+      <VaultSwitcher
+        current={{ room: workspace.room, name: currentVaultName }}
+        {vaults}
+        onSwitch={(entry) => void bootVault(entry)}
+        onManage={() => {
+          refreshLists()
+          view = 'manager'
+        }}
+      />
       <span class="text-xs text-gray-400">{workspace.ui.shared ? 'shared' : 'local'}</span>
       <div data-testid="presence" class="flex items-center gap-2 text-xs text-gray-600">
         {#each workspace.ui.presence as name (name)}
@@ -203,10 +327,18 @@
         <ShareDialog
           shared={workspace.ui.shared}
           shareLink={workspace.ui.shareLink}
-          defaultRelay={DEFAULT_RELAY}
+          defaultRelay={relayDefault}
           room={workspace.room}
           onShare={shareFolder}
         />
+        <button
+          data-testid="open-settings"
+          onclick={() => (settingsOpen = true)}
+          aria-label="Settings"
+          class="rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+        >
+          ⚙
+        </button>
         <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
       </div>
     </header>
@@ -244,4 +376,13 @@
       />
     {/key}
   {/if}
+{/if}
+
+{#if settingsOpen}
+  <SettingsPanel
+    onClose={() => {
+      settingsOpen = false
+      refreshLists()
+    }}
+  />
 {/if}

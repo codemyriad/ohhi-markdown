@@ -124,8 +124,8 @@ work — two browser tabs editing the same vault through a live relay. It uses
 **`mode=memory`**: each tab holds an in-memory vault (the seeder ships a couple
 of demo files), and the relay carries the CRDT updates between them. The memory
 URL contract is a dev/e2e affordance and stays supported; for the real
-landing-driven flows (open a folder, share, join a link — no URL params) see
-[§4b](#4b-the-onboarding-flows-open--share--join).
+manager-driven flows (open/create a vault, share, join a link — no URL params)
+see [§4b](#4b-the-vault-manager-flows-open--create--share--join).
 
 ### Step 1 — start the relay *with a seeded share*
 
@@ -179,7 +179,7 @@ tab, and a sync pill that goes **green** when synced with the relay.
 
 | Param | Values | Meaning |
 |---|---|---|
-| `mode` | `memory` | V1 dev shell only supports memory mode (no params → landing screen) |
+| `mode` | `memory` | V1 dev shell only supports memory mode (no params → vault manager) |
 | `role` | `seed` \| `join` | seeder ships the initial files; joiner pulls them from the relay |
 | `relay` | `ws://host:port` | the running relay's websocket URL |
 | `room` | folder GUID | **must equal** the seeded share's folder GUID |
@@ -190,16 +190,29 @@ tab, and a sync pill that goes **green** when synced with the relay.
 
 ---
 
-## 4b. The onboarding flows (open / share / join)
+## 4b. The vault manager flows (open / create / share / join)
 
-These are the real, URL-param-free flows (onboarding-shaping.md). With no URL
-params the app shows a **landing screen**; on relaunch it reopens your last
-vault automatically. Your name and last session persist in `localStorage`.
+These are the real, URL-param-free flows (onboarding-shaping.md, extended by
+dogfood-shaping M2). With no URL params the app shows the **vault manager**: a
+list of your known vaults (open on click, ✕ to forget — files are never
+touched), plus *Open folder as vault…* (desktop), *Create vault* (browser:
+a named, OPFS-backed private vault — offered only when the browser supports
+OPFS), and *Join a share*. On relaunch the app reopens your last vault
+automatically — and if that boot fails (moved folder, dead relay), you land
+back on the manager with the error shown against the failing entry instead of
+a dead-end screen. Your name, vault registry, and settings persist in
+`localStorage` (`editor:config`, migrated automatically from the pre-M2 keys).
 
-**Open a folder (desktop, O1).** In the Tauri app, landing → **Open folder…** →
-pick a folder via the native dialog. Your `.md` files on disk are the source of
-truth; edits save back atomically. This needs no relay — it works fully offline.
-Relaunch reopens the same folder with no prompt.
+Inside a workspace, the header's **vault name ▾** switches between vaults or
+returns to the manager, and **⚙** opens Settings (display name, default relay,
+relay operator secret for the upcoming in-app share minting, remembered
+shares/vaults).
+
+**Open a folder (desktop, O1).** Manager → **Open folder as vault…** → pick a
+folder via the native dialog (its *New Folder* button covers the create case).
+Your `.md` files on disk are the source of truth; edits save back atomically.
+This needs no relay — it works fully offline. Reopening the same folder later
+resumes the same vault entry (same room, same durable stores).
 
 **Share a folder (O2).** Sharing is two steps because token minting is a relay
 operation (onboarding Fork 1 — the app doesn't mint tokens itself yet):
@@ -215,11 +228,12 @@ operation (onboarding Fork 1 — the app doesn't mint tokens itself yet):
    `editor1:…` string that carries relay + folder + token (the token is *not* in
    the address bar; R5). Send it to the other device/person.
 
-**Join a share (desktop O2 / browser O3).** Landing → **Join a share…** → paste
-the `editor1:…` link. On the browser the vault is stored privately in **OPFS**;
-on desktop you pick a local folder to materialize into. The relay's content is
-pulled and you're co-editing live. The `?share=` deep-link (`/?share=editor1:…`)
-works too and is cleared from the URL once you join.
+**Join a share (desktop O2 / browser O3).** Manager → **Join a share** → paste
+the `editor1:…` link — it opens as a new vault in your list. On the browser the
+vault is stored privately in **OPFS**; on desktop you pick a local folder to
+materialize into. The relay's content is pulled and you're co-editing live. The
+`?share=` deep-link (`/?share=editor1:…`) works too and is cleared from the URL
+once you join.
 
 > **Reopen is durable (slice M1).** Every vault — local or joined — persists
 > its CRDT doc state, LCA records, and pre-image journal in a per-vault store
@@ -264,10 +278,10 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 
 | Symptom | Cause & fix |
 |---|---|
-| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now it shows a **boot error** instead. Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
+| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager** (and "connecting…" has a Cancel). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
 | Boot error mentioning **"relay rejected this token"** | The token isn't a valid share on the relay. Check `SEED_SHARE`, or list shares: `cd apps/relay && node --experimental-strip-types src/cli.ts share-list`. |
 | Need to reset a vault's durable sync state | The per-vault stores (doc blobs, LCA, journal, `mounts.json`) live at `~/.local/share/dev.chris.editor/stores/<room>` (desktop) or OPFS `stores/<room>` (browser). Deleting a vault's store dir forces a fresh enroll (local vault) or a clean rejoin (shared vault) on next launch — file contents on disk are never touched. |
-| Nothing loads, **landing screen** shows | No `mode` param. Use the full URLs in §4. |
+| Nothing loads, the **vault manager** shows | No `mode` param. Use the full URLs in §4. |
 | `cargo check` fails at a `pkg-config` / `dbus-1.pc` step | Missing system lib — install the §1 apt line (note `libdbus-1-dev`). |
 | `cargo check` fails with `E0119: conflicting implementations … From<…HourBase>` in `cookie`/`time` | The lockfile pinned `time` 0.3.48, a broken release (since yanked) that breaks downstream crates on recent rustc. Fix: `cargo update -p time` (moves to 0.3.49+). See [time#783](https://github.com/time-rs/time/issues/783). |
 | Playwright e2e can't find a browser | Run `./node_modules/.bin/playwright install chromium` in `apps/web`. |
