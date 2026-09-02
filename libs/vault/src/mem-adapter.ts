@@ -2,7 +2,12 @@
  * In-memory VaultAdapter: deterministic, synchronous storage with manual or
  * automatic watch emission. Used by L1 fuzz tests and the web demo mode.
  */
-import type { FileStat, VaultAdapter, WatchEvent } from './types.js'
+import { IGNORED_DIRS, type FileStat, type VaultAdapter, type WatchEvent } from './types.js'
+
+/** Does any segment of `path` name an ignored directory? */
+function ignored(path: string): boolean {
+  return path.split('/').some((seg) => IGNORED_DIRS.has(seg))
+}
 
 export class MemVaultAdapter implements VaultAdapter {
   private files = new Map<string, Uint8Array>()
@@ -13,10 +18,9 @@ export class MemVaultAdapter implements VaultAdapter {
   autoEmit = true
 
   async list(): Promise<FileStat[]> {
-    return [...this.files.entries()].map(([path, bytes]) => ({
-      path,
-      size: bytes.length,
-    }))
+    return [...this.files.entries()]
+      .filter(([path]) => !ignored(path))
+      .map(([path, bytes]) => ({ path, size: bytes.length }))
   }
 
   async listDirs(): Promise<string[]> {
@@ -29,7 +33,7 @@ export class MemVaultAdapter implements VaultAdapter {
     }
     for (const path of this.files.keys()) addParents(path)
     for (const dir of this.dirs) addParents(dir)
-    return [...out].sort()
+    return [...out].filter((d) => !ignored(d)).sort()
   }
 
   async mkdir(path: string): Promise<void> {

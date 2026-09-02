@@ -41,6 +41,13 @@
   import { decodeShareLink } from './lib/share-link.js'
   import { pillStatus, worstStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type Workspace } from './lib/workspace.svelte.js'
+  import { wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
+  import LinksPanel from './lib/components/LinksPanel.svelte'
+  import Palette from './lib/components/Palette.svelte'
+  import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
+  import { NavHistory } from './lib/nav-history.js'
+  import { touchPath } from './lib/recent.js'
+  import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
@@ -59,6 +66,119 @@
   /** ?debug=1 forces the sync devtools on for this session (M6). */
   const debugForced = url.get('debug') === '1'
   let devtools = $state(debugForced || devtoolsEnabled())
+
+  // ---- V2b/V2c: index, commands, palette, link panels ----
+  const nav = createNavigation()
+  const navHistory = new NavHistory()
+  let treeOpen = $state(true)
+  let linksOpen = $state(true)
+  /** Suppresses the history push while back/forward is doing the navigating. */
+  let travelling = false
+  /** Selection-aware word count for the status bar. */
+  let wordCount = $state(0)
+  nav.setLinksVisible(() => linksOpen)
+
+  nav.registry.register(
+    ...defaultCommands({
+      quickOpen: () => nav.open('quick-open'),
+      commandPalette: () => nav.open('command'),
+      search: () => nav.open('search'),
+      newNote: () => void workspace?.createFile(''),
+      toggleSidebar: () => (treeOpen = !treeOpen),
+      toggleLinks: () => (linksOpen = !linksOpen),
+      settings: () => (settingsOpen = true),
+      back: () => travel(navHistory.back()),
+      forward: () => travel(navHistory.forward()),
+    })
+  )
+
+  /** Open a path from the history without recording it as a new visit. */
+  function travel(path: string | null): void {
+    if (!path || !workspace) return
+    travelling = true
+    workspace.select(path)
+    travelling = false
+  }
+
+  /**
+   * Global hotkeys, in the CAPTURE phase.
+   *
+   * Capture matters: several of Chris's own bindings collide with CodeMirror's
+   * defaults — `Mod+ArrowLeft`/`Mod+ArrowRight` are his Obsidian sidebar
+   * toggles AND `standardKeymap`'s word/line motion. CM6 calls preventDefault
+   * but not stopPropagation, so a bubble-phase handler would run the command
+   * *and* move the caret. Capturing lets an app command claim the key first
+   * and stop it, which is the precedence Obsidian itself has.
+   */
+  function onGlobalKeydown(e: KeyboardEvent): void {
+    if (view !== 'workspace') return
+    const command = nav.registry.match(e)
+    if (!command) return
+    e.preventDefault()
+    e.stopPropagation()
+    void command.run()
+  }
+
+  /**
+   * What the editor may do with a `[[link]]`. Module-stable so reconfiguring
+   * the compartment never rebuilds the view (and never rebinds the Y.Text).
+   */
+  const linkHost: WikiLinkHost = {
+    resolve: (target) => nav.resolveLink(target, workspace?.ui.selectedPath ?? undefined),
+    open: (path) => openPath(path),
+    create: (target) => void createFromLink(target),
+    candidates: () => (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path),
+  }
+  const editorExtensions = [wikiLinkHost.of(linkHost)]
+
+  function openPath(path: string): void {
+    if (!workspace) return
+    workspace.select(path)
+    touchPath(workspace.room, path)
+  }
+
+  // Record every settled selection, wherever it came from — the tree, a
+  // wikilink, quick-open, search — except the ones back/forward performed.
+  $effect(() => {
+    const path = workspace?.ui.selectedPath
+    if (path && !travelling) navHistory.push(path)
+  })
+
+  // Keep history honest after deletes and renames.
+  $effect(() => {
+    const files = workspace?.ui.files
+    if (files) navHistory.prune(new Set(files.map((f) => f.path)))
+  })
+
+  /**
+   * Word count over the open note, selection-aware — `word-count` is enabled
+   * in Chris's Obsidian while `editor-status` is disabled, so this readout
+   * specifically is the one he keeps.
+   */
+  $effect(() => {
+    nav.revision // any content change, from any writer
+    const doc = selectedDoc
+    wordCount = doc ? (doc.getText().match(/[\p{L}\p{N}'’-]+/gu) ?? []).length : 0
+  })
+
+  /**
+   * Create the note an unresolved link points at, in the linking note's own
+   * folder — matching where the link's author was working, which is what
+   * Obsidian's default new-note location does in practice.
+   */
+  async function createFromLink(target: string): Promise<void> {
+    if (!workspace) return
+    const clean = target.trim().replace(/^\/+/, '')
+    if (!clean) return
+    const from = workspace.ui.selectedPath ?? ''
+    const dir = clean.includes('/')
+      ? ''
+      : from.includes('/')
+        ? from.slice(0, from.lastIndexOf('/'))
+        : ''
+    const name = clean.endsWith('.md') ? clean : `${clean}.md`
+    await workspace.createFile(dir, name, `# ${clean.split('/').pop()}\n\n`)
+  }
 
   /**
    * Boot generation: bumped by Cancel and by every new boot so a stale
@@ -84,14 +204,18 @@
     view = 'connecting'
     failure = null
     busy = false
+    // Drop the previous vault's index BEFORE the next one fills it.
+    nav.attach(null)
     try {
-      const ws = await setupWorkspace(await configForSession(entry, userName()))
+      const ws = await setupWorkspace({ ...(await configForSession(entry, userName())), index: nav.sink })
       if (gen !== bootGen) {
         ws.dispose() // cancelled or superseded while awaiting
         return
       }
       workspace?.dispose()
       workspace = ws
+      nav.attach(ws)
+      void restoreCustomTheme(ws)
       touchVault(entry.room, Date.now())
       refreshLists()
       view = 'workspace'
@@ -106,18 +230,38 @@
   async function bootMemory(cfg: Extract<typeof memConfig, { kind: 'memory' }>): Promise<void> {
     const gen = ++bootGen
     view = 'connecting'
+    nav.attach(null)
     try {
-      const ws = await setupWorkspace(await configForMemory(cfg))
+      const ws = await setupWorkspace({ ...(await configForMemory(cfg)), index: nav.sink })
       if (gen !== bootGen) {
         ws.dispose()
         return
       }
       workspace = ws
+      nav.attach(ws)
       view = 'workspace'
     } catch (err) {
       if (gen !== bootGen) return
       failure = { room: null, message: err instanceof Error ? err.message : String(err) }
       view = 'manager'
+    }
+  }
+
+  /**
+   * The pre-paint script restores the `data-theme` attribute, but a custom
+   * theme's CSS lives in the vault and cannot be read until one is open. Fetch
+   * and install it as soon as it can be; a missing file leaves the attribute
+   * pointing at nothing, which resolves to the contract defaults rather than
+   * to a broken page.
+   */
+  async function restoreCustomTheme(ws: Workspace): Promise<void> {
+    if (!themeState.pref.startsWith('custom:')) return
+    const name = themeState.pref.slice('custom:'.length)
+    try {
+      const css = await ws.readAppFile(themePath(name))
+      if (css) installUserTheme(css)
+    } catch {
+      // A vault without the theme file: the built-in defaults still apply.
     }
   }
 
@@ -429,6 +573,8 @@
   const activeReview = $derived(workspace?.ui.reviews[0] ?? null)
 </script>
 
+<svelte:window onkeydowncapture={onGlobalKeydown} />
+
 {#if view === 'manager'}
   <VaultManager
     isTauri={isTauri()}
@@ -450,7 +596,7 @@
   />
 {:else if view === 'connecting' || !workspace}
   <main
-    class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-gray-500"
+    class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/60"
     data-testid="connecting"
   >
     <span>connecting…</span>
@@ -458,15 +604,15 @@
       <button
         data-testid="boot-cancel"
         onclick={cancelBoot}
-        class="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+        class="rounded border border-base-300 px-3 py-1 text-xs text-base-content/70 hover:bg-base-200"
       >
         Cancel
       </button>
     {/if}
   </main>
 {:else}
-  <div class="flex h-screen flex-col bg-gray-50 text-gray-900">
-    <header class="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-2">
+  <div class="flex h-screen flex-col bg-base-100 text-base-content">
+    <header class="flex items-center gap-4 border-b border-base-300 bg-base-100 px-4 py-2">
       <VaultSwitcher
         current={{ room: workspace.room, name: currentVaultName }}
         {vaults}
@@ -476,22 +622,38 @@
           view = 'manager'
         }}
       />
-      <span class="text-xs text-gray-400">{workspace.ui.shared ? 'shared' : 'local'}</span>
-      <div data-testid="presence" class="flex items-center gap-2 text-xs text-gray-600">
+      <span class="text-xs text-base-content/40">{workspace.ui.shared ? 'shared' : 'local'}</span>
+      <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
         {#each workspace.ui.presence as name (name)}
-          <span class="rounded-full bg-gray-100 px-2 py-0.5">{name}</span>
+          <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
         {/each}
       </div>
       <div class="ml-auto flex items-center gap-3">
         {#if workspace.ui.error}
-          <span class="max-w-sm truncate text-xs text-red-600" data-testid="workspace-error">
+          <span class="max-w-sm truncate text-xs text-error" data-testid="workspace-error">
             {workspace.ui.error}
           </span>
         {/if}
         <button
+          data-testid="open-quick-open"
+          onclick={() => nav.open('quick-open')}
+          title="Open a note ({nav.registry.binding('nav.quick-open')})"
+          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
+        >
+          Open…
+        </button>
+        <button
+          data-testid="open-search"
+          onclick={() => nav.open('search')}
+          title="Search the vault ({nav.registry.binding('nav.search')})"
+          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
+        >
+          Search
+        </button>
+        <button
           data-testid="add-share"
           onclick={() => (addShareOpen = true)}
-          class="rounded bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
           title="Join a shared folder into this vault"
         >
           Add share
@@ -508,38 +670,63 @@
           data-testid="open-settings"
           onclick={() => (settingsOpen = true)}
           aria-label="Settings"
-          class="rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+          class="rounded px-2 py-1 text-sm text-base-content/60 hover:bg-base-200"
         >
           ⚙
         </button>
+        {#if selectedPath}
+          <span data-testid="word-count" class="text-xs tabular-nums text-base-content/50">
+            {wordCount}
+            {wordCount === 1 ? 'word' : 'words'}
+          </span>
+        {/if}
         <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
       </div>
     </header>
 
     <div class="flex min-h-0 flex-1">
-      <aside class="w-64 shrink-0 border-r border-gray-200 bg-white">
-        <FileTree
-          files={workspace.ui.files}
-          records={workspace.ui.records}
-          selected={selectedPath}
-          mounts={workspace.ui.mounts}
-          rootShared={workspace.ui.shared}
-          onSelect={(path) => workspace?.select(path)}
-          onOp={handleTreeOp}
-        />
-      </aside>
+      {#if treeOpen}
+        <aside class="w-64 shrink-0 border-r border-base-300 bg-base-100">
+          <FileTree
+            files={workspace.ui.files}
+            records={workspace.ui.records}
+            selected={selectedPath}
+            mounts={workspace.ui.mounts}
+            rootShared={workspace.ui.shared}
+            onSelect={(path) => openPath(path)}
+            onOp={handleTreeOp}
+          />
+        </aside>
+      {/if}
 
-      <main data-testid="editor-pane" class="min-h-0 min-w-0 flex-1 bg-white">
+      <main data-testid="editor-pane" class="min-h-0 min-w-0 flex-1 bg-ed-surface">
         {#if selectedDoc && selectedPath}
           {#key selectedPath}
-            <MarkdownEditor doc={selectedDoc} awareness={selectedAwareness} user={workspace.user} />
+            <MarkdownEditor
+              doc={selectedDoc}
+              awareness={selectedAwareness}
+              user={workspace.user}
+              dark={themeState.dark}
+              extensions={editorExtensions}
+              reveal={nav.pending.reveal}
+            />
           {/key}
         {:else}
-          <div class="flex h-full items-center justify-center text-sm text-gray-400">
+          <div class="flex h-full items-center justify-center text-sm text-base-content/40">
             select a file to start editing
           </div>
         {/if}
       </main>
+
+      {#if linksOpen}
+        <LinksPanel
+          backlinks={nav.links.backlinks}
+          outgoing={nav.links.outgoing}
+          path={selectedPath}
+          onOpen={openPath}
+          onCreate={(target) => void createFromLink(target)}
+        />
+      {/if}
     </div>
   </div>
 
@@ -627,6 +814,20 @@
       onClose={() => (folderSharePath = null)}
     />
   {/if}
+  {#if nav.palette.mode}
+    <Palette
+      placeholder={nav.meta.placeholder}
+      testid={nav.meta.testid}
+      empty={nav.meta.empty}
+      rows={nav.palette.rows}
+      query={nav.palette.query}
+      width={nav.palette.mode === 'search' ? 'lg' : 'md'}
+      onQuery={(q) => nav.setQuery(q)}
+      onPick={(row) => nav.pick(row)}
+      onClose={() => nav.close()}
+    />
+  {/if}
+
   {#if devtools}
     <DevtoolsPanel {workspace} />
   {/if}
@@ -634,6 +835,7 @@
 
 {#if settingsOpen}
   <SettingsPanel
+    readAppFile={workspace ? (p) => workspace!.readAppFile(p) : undefined}
     onClose={() => {
       settingsOpen = false
       refreshLists()

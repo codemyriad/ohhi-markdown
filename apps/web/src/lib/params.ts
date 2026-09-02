@@ -1,3 +1,5 @@
+import { presenceColor, PRESENCE_SLOTS } from '@editor/ui/tokens'
+
 /**
  * URL-param modes — the contract Playwright L2 drives:
  *   ?mode=memory&role=seed&relay=ws://localhost:PORT&room=FOLDERGUID&token=TOK&user=Alice
@@ -45,11 +47,28 @@ export function parseAppConfig(params: URLSearchParams): AppConfig {
   }
 }
 
-const PALETTE = ['#30bced', '#6eeb83', '#ffbc42', '#ecd444', '#ee6352', '#9ac2c9', '#8acb88', '#1be7ff']
-
-/** Stable per-name cursor/presence colour. */
-export function colorFor(name: string): string {
+/**
+ * Stable per-name presence slot (0..PRESENCE_SLOTS-1). The COLOUR for a slot
+ * is a theme token, not a constant: a palette tuned for a white page vibrates
+ * on #2e3440, and one of the old hardcoded values sat close enough to the
+ * diverged red to be mistakable for a conflict marker.
+ */
+export function colorSlot(name: string): number {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
-  return PALETTE[h % PALETTE.length]!
+  return h % PRESENCE_SLOTS
+}
+
+/**
+ * Stable per-name cursor/presence colour, read from the ACTIVE theme.
+ *
+ * NOTE (V2): y-codemirror.next writes this as an inline style from the
+ * awareness `user.color` field, so a peer already on screen keeps the colour
+ * their own client published. Making every viewer resolve peers against their
+ * own theme means sending a slot index rather than a hex — an awareness
+ * WIRE-FORMAT change that needs a version-tolerant reader, sequenced with the
+ * y-codemirror.next vendoring already flagged as TODO(V2) in binding.ts.
+ */
+export function colorFor(name: string): string {
+  return presenceColor(colorSlot(name))
 }

@@ -48,6 +48,19 @@ export interface MountEvents {
   onPresence?: (names: string[]) => void
   onReview?: (review: DivergenceReview) => void
   onReviewCleared?: (guid: string) => void
+  /**
+   * A text doc's CONTENT changed, from any writer. Fires for local keystrokes,
+   * remote peers, and — critically — `disk`-origin ingests, i.e. Obsidian,
+   * git and Claude Code editing the same files (V2 slice V2b, B2.1).
+   *
+   * Emitted BEFORE routeDocUpdate's origin filter on purpose: an index that
+   * only saw local edits would go blind to exactly the writers this product
+   * exists to coexist with. `path` is MOUNT-RELATIVE like every other path
+   * on this interface; hosts spanning mounts must re-prefix it.
+   *
+   * Fire-and-forget: listeners must not throw and must not do I/O inline.
+   */
+  onDocChanged?: (guid: string, path: string, origin: unknown) => void
   /** Fired when the mount becomes shared (join boot, or enableSharing). */
   onShared?: (link: string) => void
   /**

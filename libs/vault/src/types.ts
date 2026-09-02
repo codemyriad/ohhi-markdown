@@ -15,6 +15,24 @@ export interface WatchEvent {
  * Implementations: MemVaultAdapter (tests/demo), NodeVaultAdapter
  * (tests/CLI, ./node export), TauriVaultAdapter (apps/web under Tauri).
  */
+/**
+ * Directories every VaultAdapter must hide from `list`, `listDirs` and the
+ * watcher. Not per-adapter policy: `.editor/` holding a user theme that gets
+ * enrolled as a note, synced to every peer, and simultaneously read as the
+ * stylesheet Editor is rendering itself with is the same bug in each one.
+ *
+ * `read`/`writeAtomic` are deliberately NOT filtered — Editor reads its own
+ * `.editor/` files directly (see Workspace.readAppFile).
+ */
+export const IGNORED_DIRS: ReadonlySet<string> = new Set([
+  '.git',
+  '.obsidian',
+  '.editor',
+  '.editor-cache',
+  '.trash',
+  'node_modules',
+])
+
 export interface VaultAdapter {
   list(): Promise<FileStat[]>
   /**

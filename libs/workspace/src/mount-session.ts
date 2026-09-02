@@ -195,6 +195,7 @@ export class MountSession {
     this.folderDoc = cfg.engine.createDoc(`${cfg.room}/folder`)
 
     this.folderDoc.getMap().observe(() => {
+      this.guidPaths = null // any map change can move a guid's path
       if (this.adoptionEnabled) void this.queueMapScan()
       else this.refreshFiles()
     })
@@ -243,31 +244,80 @@ export class MountSession {
     }
   }
 
-  /** Create an empty untitled note in `dir` ('' = root); returns its path. */
-  async createFile(dir = ''): Promise<string | null> {
+  /**
+   * Create a note in `dir` ('' = root); returns its path, or null on failure.
+   *
+   * With no `name`, the note is auto-named `untitled-N.md` (the tree's "+
+   * file" affordance renames afterwards). With a `name`, the note is created
+   * AT that path in one operation — which is what wikilink create-on-click and
+   * daily notes need: going via createFile + renamePath would double the
+   * journal writes, the map transactions and the session restarts.
+   *
+   * An existing path is returned as-is rather than clobbered or suffixed:
+   * "create the note this link points at" must be idempotent.
+   */
+  async createFile(dir = '', name?: string, text = ''): Promise<string | null> {
     try {
       const base = dir ? `${dir}/` : ''
       const taken = new Set(this.folderDoc.getMap().entries().map(([p]) => p))
-      let n = 1
-      while (taken.has(`${base}untitled-${n}.md`)) n++
-      const path = `${base}untitled-${n}.md`
-      const bytes = new TextEncoder().encode('')
-      await this.adapter.writeAtomic(path, bytes)
+      let path: string
+      if (name) {
+        const clean = name.replace(/^\/+/, '')
+        if (clean.split('/').includes('..')) throw new Error(`invalid note name '${name}'`)
+        // Notes are markdown. A name carrying some other extension is an
+        // attachment reference (`![[diagram.png]]`), and appending `.md` to it
+        // would create `diagram.png.md` — a file nobody wants and nothing links to.
+        const ext = /\.[A-Za-z0-9]{1,8}$/.exec(clean)?.[0]
+        if (ext && ext.toLowerCase() !== '.md') {
+          throw new Error(`'${clean}' is not a note — only .md files are created here`)
+        }
+        path = `${base}${clean.endsWith('.md') ? clean : `${clean}.md`}`
+        const existing = this.folderDoc.getMap().get(path)
+        if (existing && !existing.deleted) return path
+      } else {
+        let n = 1
+        while (taken.has(`${base}untitled-${n}.md`)) n++
+        path = `${base}untitled-${n}.md`
+      }
+      // A map miss is NOT evidence the path is free: VaultSession's watcher
+      // deliberately ignores out-of-map disk files for the whole session, so
+      // a note Obsidian/git/Claude Code wrote while we were running is
+      // invisible to the check above. NEVER overwrite bytes Editor did not
+      // write (golden rule 1) — adopt them instead, which is also what "open
+      // the note this link points at" should do.
+      const onDisk = await this.adapter.read(path)
+      if (onDisk !== null && looksBinary(path, onDisk)) {
+        throw new Error(`'${path}' already exists and is not a text file`)
+      }
+      const decoded = onDisk !== null ? decodeFile(onDisk) : null
+      const seedText = decoded ? decoded.text : text
+      const bytes = onDisk ?? new TextEncoder().encode(text)
+      if (onDisk === null) {
+        // Journal before every Editor-initiated write, exactly as importFile
+        // does — a pre-image of null still records that we created the path.
+        await this.journal.record(path, null)
+        await this.adapter.writeAtomic(path, bytes)
+      }
       const guid = crypto.randomUUID()
       const doc = this.engine.createDoc(guid)
       this.docs.set(guid, doc) // before the map txn so our own observer won't adopt it
       this.cfg.docStore?.track(guid, doc)
+      if (seedText) doc.transact((t) => t.insert(0, seedText), 'seed')
       await this.lcaStore.put({
         guid,
         path,
-        baseText: '',
+        baseText: seedText,
         contentHash: hashBytes(bytes),
         heads: this.engine.encodeHeads(this.engine.heads(doc)),
-        eol: 'lf',
-        bom: false,
+        eol: decoded ? decoded.eol : 'lf',
+        bom: decoded ? decoded.bom : false,
       })
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
+      // A nested name (`[[Projects/2026/Roadmap]]`) implies directories that
+      // must become map entries too, or the tree can render them but rename
+      // and delete cannot find them (M3: the map is the full tree authority).
+      if (path.includes('/')) await this.syncDirs()
       await this.restartSession()
       this.refreshFiles()
       return path
@@ -604,11 +654,25 @@ export class MountSession {
     return entry && entry.kind === 'text' && !entry.deleted ? entry.guid : null
   }
 
+  /**
+   * guid → path, rebuilt lazily and invalidated by the map observer.
+   *
+   * This used to be a linear scan of the whole folder map, and it runs on
+   * EVERY doc update — i.e. once per keystroke, per open doc. At vault scale
+   * that is a 1k+ entry walk per character typed, and V2's index adds another
+   * per-update consumer on top of it.
+   */
+  private guidPaths: Map<string, string> | null = null
+
   private pathForGuid(guid: string): string | null {
-    for (const [path, entry] of this.folderDoc.getMap().entries()) {
-      if (entry.guid === guid && !entry.deleted) return path
+    if (!this.guidPaths) {
+      const map = new Map<string, string>()
+      for (const [path, entry] of this.folderDoc.getMap().entries()) {
+        if (!entry.deleted) map.set(entry.guid, path)
+      }
+      this.guidPaths = map
     }
-    return null
+    return this.guidPaths.get(guid) ?? null
   }
 
   private currentRows(): FileRow[] {
@@ -668,14 +732,32 @@ export class MountSession {
   }
 
   private routeDocUpdate(guid: string, origin: unknown): void {
-    if (origin === 'seed' || origin === 'disk') return
     const path = this.pathForGuid(guid)
     if (!path) return
+    // BEFORE the origin filter: a content-change listener (the index) must see
+    // 'disk' ingests — Obsidian, git and Claude Code writing the same files —
+    // and 'seed' restores, or it silently drifts from the vault.
+    this.emitDocChanged(guid, path, origin)
+    if (origin === 'seed' || origin === 'disk') return
     this.recordFor(guid).diskMatchesCrdt = false
     if (this.openPath === path) {
       this.debounceDoc(guid, FLUSH_DEBOUNCE_MS, () => void this.flushOpenDoc(guid, path))
     } else {
       this.debounceDoc(guid, CLOSED_RECONCILE_MS, () => void this.reconcileClosedDoc(guid, path))
+    }
+  }
+
+  /**
+   * Notify the host that a doc's content changed. Never lets a listener's
+   * failure reach the sync path — an index is a derived convenience and must
+   * not be able to break reconciliation.
+   */
+  private emitDocChanged(guid: string, path: string, origin: unknown): void {
+    if (!this.events.onDocChanged) return
+    try {
+      this.events.onDocChanged(guid, path, origin)
+    } catch (err) {
+      this.pushError(err)
     }
   }
 
@@ -793,9 +875,14 @@ export class MountSession {
           this.recordFor(guid).diverged = false
           this.events.onReviewCleared?.(guid)
         },
-        onActivity: (guid) => {
+        onActivity: (guid, action) => {
           const path = this.pathForGuid(guid)
-          if (path) void this.refreshDiskMatch(path, guid)
+          if (!path) return
+          void this.refreshDiskMatch(path, guid)
+          // 'materialized' writes disk from the CRDT and emits no doc update,
+          // so routeDocUpdate never fires for it. Re-emit here so a listener
+          // sees every state change, not just the ones that moved the CRDT.
+          if (action === 'materialized') this.emitDocChanged(guid, path, 'materialize')
         },
         onPathsRenamed: (moves) => {
           for (const { from, to } of moves) {

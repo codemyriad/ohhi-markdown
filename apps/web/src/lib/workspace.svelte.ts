@@ -51,6 +51,17 @@ import { decodeShareLink, encodeShareLink } from './share-link.js'
 
 export { FOLDER_RECORD_KEY, type FileRow, type RelayConfig }
 
+/**
+ * The index's write side, as the workspace needs it. Structurally
+ * `IndexWriter` from @editor/index minus `rebuild` — typed here so
+ * libs/workspace stays index-agnostic and the app owns the wiring.
+ */
+export interface IndexSink {
+  upsert(doc: { guid: string; path: string; text: string }): void
+  remove(guid: string): void
+  rename(guid: string, path: string): void
+}
+
 export interface WorkspaceConfig {
   adapter: VaultAdapter
   /** The vault's durable store namespace (spike S8 layout; Mem for memory mode). */
@@ -64,6 +75,13 @@ export interface WorkspaceConfig {
   relay?: RelayConfig
   /** Seed demo notes before enrolling — memory demo / e2e only. */
   seedDemo?: boolean
+  /**
+   * Kept in step with every text doc in every mount (V2b). Fed from the file
+   * list (creates/deletes/renames) and from MountEvents.onDocChanged, which
+   * fires for local, remote AND disk-origin edits — so the index sees
+   * Obsidian, git and Claude Code writing the same files.
+   */
+  index?: IndexSink
 }
 
 /** A shared subtree of this workspace, for badges/filter/share management. */
@@ -101,8 +119,13 @@ export interface Workspace {
   docForPath(path: string): EngineDoc | null
   awarenessForPath(path: string): Awareness | null
   select(path: string | null): void
-  /** Create an untitled note inside `dir` ('' = vault root) and select it. */
-  createFile(dir?: string): Promise<void>
+  /**
+   * Create a note inside `dir` ('' = vault root) and select it. With no
+   * `name` the note is auto-named `untitled-N.md`; with one it is created at
+   * that path (wikilink create-on-click, daily notes). An existing note at
+   * that path is opened, not overwritten.
+   */
+  createFile(dir?: string, name?: string, text?: string): Promise<void>
   createDir(path: string): Promise<void>
   /** Rename or move a file/folder WITHIN one mount (same shared scope). */
   renamePath(from: string, to: string): Promise<void>
@@ -138,6 +161,13 @@ export interface Workspace {
   inspect(path: string): Promise<WorkspaceInspection | null>
   /** Read-only per-mount devtools counts (root mount included). */
   mountStats(): Promise<MountStats[]>
+  /**
+   * Read a file from Editor's own `.editor/` directory in the vault (custom
+   * themes today). Deliberately narrow: the vault adapters IGNORE `.editor/`,
+   * so it is invisible to enrollment, the tree and sync — but it is still
+   * inside the vault, so it travels with the folder. Returns null when absent.
+   */
+  readAppFile(path: string): Promise<string | null>
   dispose(): void
 }
 
@@ -221,6 +251,53 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const mountsFile = new MountsFile(cfg.storeDir.io('mounts.json'))
   await recoverMounts(cfg.storeDir, mountsFile, engine)
 
+  /** guid → path, as the index last saw it. Drives the create/delete/rename diff. */
+  const indexed = new Map<string, string>()
+
+  /**
+   * Reconcile the index's document set with the tree.
+   *
+   * Text is read from the doc (in-memory Y.Text), never from disk: every
+   * enrolled text file has a live doc for the whole session, so this costs no
+   * I/O. Directories and binaries have no doc and are deliberately absent.
+   */
+  const syncIndexRows = (rows: FileRow[]): void => {
+    const sink = cfg.index
+    if (!sink) return
+    const live = new Map<string, string>()
+    for (const row of rows) {
+      if (row.kind !== 'text') continue
+      live.set(row.guid, row.path)
+      const was = indexed.get(row.guid)
+      if (was === row.path) continue
+      if (was === undefined) {
+        const doc = resolveDoc(row.path)
+        // A row can appear before its doc instance exists — a carve or an
+        // unshare destroys and rebuilds every doc in a mount, and refreshTree
+        // can run in between. Skip it rather than indexing empty text and
+        // recording it as done: the next refresh (or the doc's first change)
+        // picks it up with real content.
+        if (!doc) continue
+        sink.upsert({ guid: row.guid, path: row.path, text: doc.getText() })
+      } else {
+        // Same guid, new path: a rename. Keep the derived text, move the path
+        // — re-deriving would drop nothing but cost a full re-tokenize.
+        sink.rename(row.guid, row.path)
+      }
+      indexed.set(row.guid, row.path)
+    }
+    for (const guid of [...indexed.keys()]) {
+      if (live.has(guid)) continue
+      sink.remove(guid)
+      indexed.delete(guid)
+    }
+  }
+
+  const resolveDoc = (path: string): EngineDoc | null => {
+    const r = registry.resolve(path)
+    return r ? r.session.docForPath(r.rel) : null
+  }
+
   const refreshTree = (): void => {
     const rows = registry.files()
     // A mount root with no children is invisible in the merged rows (its own
@@ -233,6 +310,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     }
     rows.sort((a, b) => a.path.localeCompare(b.path))
     ui.files = rows
+    syncIndexRows(rows)
     // Records exist for every text row before the tree renders pills for them.
     for (const row of rows) if (row.kind === 'text') recordFor(row.guid)
     // Prune records for guids that no longer exist (deletes) so the global
@@ -309,6 +387,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       makeShareLink: (relay, room) => encodeShareLink({ relay: relay.url, room, token: relay.token }),
       events: {
         onFiles: () => refreshTree(),
+        onDocChanged: (guid, path) => {
+          if (!cfg.index) return
+          const full = opts.path === '' ? path : `${opts.path}/${path}`
+          const doc = resolveDoc(full)
+          if (!doc) return
+          cfg.index.upsert({ guid, path: full, text: doc.getText() })
+          indexed.set(guid, full)
+        },
         onPathsRenamed: (moves) => {
           for (const { from, to } of prefixMoves(moves)) {
             if (ui.selectedPath === from) ui.selectedPath = to
@@ -640,11 +726,31 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return r ? r.session.awarenessForPath(r.rel) : null
     },
     select,
-    createFile: async (dir = '') => {
-      // '' = vault root → the root mount; otherwise the dir's owning mount.
-      const r = dir ? registry.resolve(dir) : null
-      const path = r ? await r.session.createFile(r.rel) : await rootSession!.createFile(dir)
-      if (path) select(r && path ? (r.mountPath ? `${r.mountPath}/${path}` : path) : path)
+    createFile: async (dir = '', name, text) => {
+      // Route on the FULL TARGET PATH, never on `dir` alone. A prefixed name
+      // (`[[team/plan]]` → name='team/plan.md', dir='') targets a path that a
+      // carved mount may own; routing by `dir` sent it to the root session,
+      // whose adapter is pass-through, so the bytes landed inside the mount's
+      // directory while the map entry went into the root room — two rooms,
+      // two guids, two LCAs over one file on disk.
+      const target = name ? (dir ? `${dir}/${name}` : name) : dir
+      const r = target ? registry.resolve(target) : null
+      const owner = r?.session ?? rootSession!
+      const mountPath = r?.mountPath ?? ''
+      // The owner speaks mount-relative paths: split the resolved target back
+      // into (dir, name) in its own space.
+      let relDir = ''
+      let relName = name
+      if (name) {
+        const rel = r ? r.rel : target
+        const cut = rel.lastIndexOf('/')
+        relDir = cut === -1 ? '' : rel.slice(0, cut)
+        relName = cut === -1 ? rel : rel.slice(cut + 1)
+      } else {
+        relDir = r ? r.rel : dir
+      }
+      const path = await owner.createFile(relDir, relName, text)
+      if (path) select(mountPath ? `${mountPath}/${path}` : path)
     },
     createDir: async (path) => {
       const r = registry.resolve(path)
@@ -694,6 +800,12 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return insp ? { ...insp, path, mount: { path: r.mountPath, room: r.session.room } } : null
     },
     mountStats: () => Promise.all(registry.all().map((h) => h.session.mountStats())),
+    readAppFile: async (path) => {
+      const rel = path.replace(/^\/+/, '')
+      if (!rel.startsWith('.editor/')) throw new Error('readAppFile is for .editor/ only')
+      const bytes = await cfg.adapter.read(rel)
+      return bytes ? new TextDecoder().decode(bytes) : null
+    },
     dispose: () => registry.dispose(),
   }
 }

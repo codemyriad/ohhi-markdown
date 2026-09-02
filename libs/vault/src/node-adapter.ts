@@ -15,11 +15,12 @@ import {
   stat,
 } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
-import type { FileStat, VaultAdapter, WatchEvent } from './types.js'
+import { IGNORED_DIRS, type FileStat, type VaultAdapter, type WatchEvent } from './types.js'
 import type { StoreIo } from './stores.js'
 import type { StoreDir } from './store-dir.js'
 
-const IGNORED = new Set(['.git', '.obsidian', '.editor-cache', 'node_modules'])
+/** Shared with every other adapter — see IGNORED_DIRS in types.ts. */
+const IGNORED = IGNORED_DIRS
 
 export class NodeVaultAdapter implements VaultAdapter {
   constructor(private root: string) {}
