@@ -52,15 +52,15 @@
   aria-modal="true"
   aria-label="Share folder"
   data-testid="folder-share-dialog"
-  class="fixed inset-0 z-20 flex items-center justify-center bg-black/30"
+  class="fixed inset-0 z-20 flex items-center justify-center bg-neutral/40"
 >
-  <div class="w-96 rounded border border-gray-200 bg-white p-4 text-gray-800 shadow-xl">
+  <div class="w-96 rounded border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
     <h2 class="text-sm font-semibold">
-      Share <span class="font-mono text-blue-900">{path}</span>
+      Share <span class="font-mono text-primary">{path}</span>
     </h2>
 
     {#if link || mount}
-      <p class="mt-2 text-xs text-gray-600">
+      <p class="mt-2 text-xs text-base-content/70">
         This folder is shared — everything inside it syncs to anyone holding the link. The rest
         of the vault stays local.
       </p>
@@ -70,12 +70,12 @@
             readonly
             value={link}
             data-testid="folder-share-link"
-            class="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1 font-mono text-[11px] select-all"
+            class="min-w-0 flex-1 rounded border border-base-300 px-2 py-1 font-mono text-[11px] select-all"
           />
           <button
             data-testid="copy-folder-link"
             onclick={copy}
-            class="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-200"
+            class="rounded bg-success/15 px-2 py-1 text-xs font-medium text-success hover:bg-success/25"
           >
             {copied ? 'Copied!' : 'Copy'}
           </button>
@@ -85,24 +85,24 @@
         <TokenManager {relayUrl} {secret} room={mount.room} />
       {/if}
     {:else}
-      <p class="mt-2 text-xs text-gray-600">
+      <p class="mt-2 text-xs text-base-content/70">
         Sharing carves this folder into its own synced space on
         <span class="font-mono">{relayUrl}</span>: everything inside syncs to anyone holding the
         link; everything outside stays local to this vault. No files are moved or changed.
       </p>
       {#if !secret}
-        <p class="mt-2 text-xs text-amber-700" data-testid="folder-share-needs-secret">
+        <p class="mt-2 text-xs text-warning" data-testid="folder-share-needs-secret">
           Set the relay operator secret in Settings to create shares in-app.
         </p>
       {/if}
       {#if error}
-        <p class="mt-2 text-xs text-red-600" data-testid="folder-share-error">{error}</p>
+        <p class="mt-2 text-xs text-error" data-testid="folder-share-error">{error}</p>
       {/if}
       <button
         data-testid="confirm-share-folder"
         disabled={!secret || busy}
         onclick={() => void share()}
-        class="mt-3 w-full rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        class="mt-3 w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
       >
         {busy ? 'Sharing…' : 'Share this folder'}
       </button>
@@ -111,7 +111,7 @@
     <button
       data-testid="close-folder-share"
       onclick={onClose}
-      class="mt-3 w-full rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+      class="mt-3 w-full rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
     >
       Close
     </button>

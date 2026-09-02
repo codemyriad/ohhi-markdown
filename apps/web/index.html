@@ -3,7 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Paints the canvas at the right polarity before any CSS arrives. -->
+    <meta name="color-scheme" content="light dark" />
     <title>Editor</title>
+    <script>
+      // Pre-paint theme. MUST be inline and synchronous: main.ts is a module
+      // script, i.e. deferred, and would flash the wrong theme first. Mirrors
+      // `editor:config.theme` via the `editor:theme` fast-path key — see
+      // config.ts (K_THEME) and lib/theme.svelte.ts.
+      ;(function () {
+        try {
+          var pref = localStorage.getItem('editor:theme') || 'system'
+          var name =
+            pref === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'editor-dark'
+                : 'editor-light'
+              : pref.indexOf('custom:') === 0
+                ? pref.slice(7)
+                : pref
+          document.documentElement.setAttribute('data-theme', name)
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'editor-light')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

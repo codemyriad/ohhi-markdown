@@ -1,0 +1,58 @@
+/*
+ * Editor custom theme — copy me.
+ *
+ * Save as <vault>/.editor/themes/<name>/theme.css. The folder name is the
+ * theme name and becomes the [data-theme] value, so keep them in sync.
+ *
+ * Editor injects this file into @layer editor.user, which sits ABOVE our own
+ * @layer editor.tokens — so anything you set here wins over the built-in
+ * themes. Two things you cannot override, by design:
+ *
+ *   - --ed-sync-* (the sync pill). Those are declared unlayered, and
+ *     unlayered rules beat every layer. "Sync state never lies" is not
+ *     something a theme gets a vote on.
+ *   - @import, non-data: url(), and remote @font-face src are stripped when
+ *     the file is loaded. A theme travels with a shared vault, i.e. it is
+ *     someone else's content, and url() is a working beacon out of a
+ *     local-first app. Ship fonts as data: URIs or not at all.
+ *
+ * Every token below has a default in @editor/ui's _contract.css, so you only
+ * need the ones you want to change. The full list, and an Obsidian → Editor
+ * porting table, is in docs/theming.md.
+ */
+[data-theme="my-theme"] {
+  /* Drives native scrollbars, form controls and the pre-paint canvas. */
+  color-scheme: dark;
+
+  /* --- chrome (DaisyUI semantics) ------------------------------------- */
+  --color-base-100: #2e3440;
+  --color-base-200: #3b4252;
+  --color-base-300: #434c5e;
+  --color-base-content: #eceff4;
+  --color-primary: #88c0d0;
+  --color-primary-content: #2e3440;
+
+  /* --- editing surface ------------------------------------------------- */
+  --ed-surface: #2e3440;
+  --ed-ink: #eceff4;
+  --ed-ink-muted: #d8dee9;
+  --ed-ink-faint: #8f9bb0;
+
+  /* --- headings -------------------------------------------------------- */
+  --ed-h1: #bf616a;
+  --ed-h2: #ebcb8b;
+  --ed-h3: #a3be8c;
+  --ed-h4: #b48ead;
+  --ed-h5: #8fbcbb;
+  --ed-h6: #81a1c1;
+
+  /* --- links ----------------------------------------------------------- */
+  --ed-link: #d08770;
+  --ed-wikilink: #d08770;
+  --ed-wikilink-unresolved: #a05359;
+
+  /* --- editing state --------------------------------------------------- */
+  --ed-selection: #bf616a99;
+  --ed-caret: #bf616a;
+  --ed-active-line: #bf616a33;
+}

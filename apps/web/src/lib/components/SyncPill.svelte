@@ -9,12 +9,6 @@
 
   let { status, testid, label = '' }: Props = $props()
 
-  const colors: Record<PillStatus, string> = {
-    green: 'bg-emerald-500',
-    yellow: 'bg-amber-400',
-    red: 'bg-red-500',
-    offline: 'bg-gray-400',
-  }
 </script>
 
 <!-- Pure rendering of f(syncRecord) — no status logic lives here. -->
@@ -27,7 +21,13 @@
   title={PILL_TITLES[status]}
   class="relative inline-flex shrink-0 items-center gap-1.5"
 >
-  <span class="size-2.5 rounded-full {colors[status]}" aria-hidden="true"></span>
-  {#if label}<span class="text-xs text-gray-600">{label}</span>{/if}
+  <!-- Size, shape AND colour all come from libs/ui's UNLAYERED
+       `.ed-sync-dot` / `[data-status] > .ed-sync-dot` rules, keyed on the
+       data-status above. No Tailwind utilities and no custom property: a
+       utility sits in @layer utilities and an inherited var can be set on any
+       ancestor, and either would let a user theme repaint or hide the one
+       signal that must never lie. -->
+  <span class="ed-sync-dot" aria-hidden="true"></span>
+  {#if label}<span class="text-xs text-base-content/70">{label}</span>{/if}
   <span class="sr-only">{PILL_TITLES[status]}</span>
 </span>

@@ -1,0 +1,66 @@
+/*
+ * editor-light — Editor's own default theme (light).
+ *
+ * Design thesis (plans/v2-shaping.md, Fork 2): headings are a six-step
+ * LUMINANCE ramp of one hue, not six competing hues. Hue is spent on links,
+ * code, tags and unresolved wikilinks. The highest-chroma things on screen
+ * are the sync and presence colours — in an app whose promise is "sync state
+ * never lies", the status indicators must win every fight for attention, and
+ * they cannot win against a red h1.
+ *
+ * The `:root` defaults in _contract.css already ARE this theme's editor
+ * tokens, so this file only restates the headings ramp and the title.
+ */
+@plugin "daisyui/theme" {
+  name: "editor-light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #f5f7f9;
+  --color-base-300: #e3e8ee;
+  --color-base-content: #1f242b;
+
+  --color-primary: #1d7f9c;
+  --color-primary-content: #ffffff;
+  --color-secondary: #55606f;
+  --color-secondary-content: #ffffff;
+  --color-accent: #9a5b12;
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #1f242b;
+  --color-neutral-content: #ffffff;
+
+  --color-info: #1d7f9c;
+  --color-info-content: #ffffff;
+  --color-success: #4a7a2e;
+  --color-success-content: #ffffff;
+  --color-warning: #8a6300;
+  --color-warning-content: #ffffff;
+  --color-error: #b3271e;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@layer editor.tokens {
+  [data-theme="editor-light"] {
+    --ed-h1: #0d1117;
+    --ed-h2: #171c23;
+    --ed-h3: #242b34;
+    --ed-h4: #333c47;
+    --ed-h5: #4a5462;
+    --ed-h6: #626d7d;
+    --ed-title: #1d7f9c;
+    --ed-bold: #0d1117;
+    --ed-italic: #333c47;
+  }
+}

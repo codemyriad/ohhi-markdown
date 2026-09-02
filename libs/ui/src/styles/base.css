@@ -1,0 +1,88 @@
+/*
+ * @editor/ui — the entry stylesheet. Import this and nothing else.
+ *
+ * Three bands, one attribute (`data-theme` on <html>):
+ *
+ *   Band A  CHROME   DaisyUI v5 semantic tokens (--color-*, --radius-*, …)
+ *                    consumed as Tailwind utilities: bg-base-100, text-error,
+ *                    and DaisyUI components as dui-btn, dui-modal, …
+ *   Band B  EDITOR   our --ed-* tokens, in @layer editor.tokens, read by
+ *                    CodeMirror as var() strings and by a few chrome rules.
+ *                    A user theme in @layer editor.user overrides them.
+ *   Band C  HONESTY  --ed-sync-*, UNLAYERED so no user theme can reach them.
+ *
+ * See docs/theming.md for the contract and the custom-theme format.
+ */
+
+/* Layer order must be declared before the first rule. @layer STATEMENTS are
+ * allowed to precede @import. `editor.user` sits above `editor.tokens` so a
+ * dropped-in theme wins over ours — and below nothing, because Band C is
+ * unlayered and unlayered beats every layer. */
+@layer theme, base, editor.tokens, editor.user, components, utilities;
+
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: editor-light --default, editor-dark, nord-light, nord-dark;
+  prefix: dui-;
+  logs: false;
+}
+
+/* The contract first (every --ed-* with a default), then the themes. */
+@import "./tokens/_contract.css";
+@import "./tokens/editor-light.css";
+@import "./tokens/editor-dark.css";
+@import "./tokens/nord-light.css";
+@import "./tokens/nord-dark.css";
+
+/* Band C last, and unlayered. */
+@import "./sync-tokens.css";
+
+/*
+ * Selective re-export into Tailwind's namespace.
+ *
+ * Most --ed-* tokens are read by CodeMirror, not by utility classes, so
+ * exporting all of them would emit ~90 dead utilities. Only the ones the
+ * Svelte chrome genuinely needs are re-exported.
+ *
+ * `inline` IS MANDATORY. Plain @theme emits `:root { --color-x: var(--ed-x) }`
+ * and the utility then reads the value COMPUTED AT :root — a nested
+ * [data-theme] subtree would inherit the outer theme's colour and paint the
+ * wrong sync dot while every test still passed. `inline` splices the var()
+ * into the utility rule so it resolves at the use site.
+ */
+@theme inline {
+  --color-ed-sync-ok: var(--ed-sync-ok);
+  --color-ed-sync-ok-fg: var(--ed-sync-ok-fg);
+  --color-ed-sync-pending: var(--ed-sync-pending);
+  --color-ed-sync-pending-fg: var(--ed-sync-pending-fg);
+  --color-ed-sync-diverged: var(--ed-sync-diverged);
+  --color-ed-sync-diverged-fg: var(--ed-sync-diverged-fg);
+  --color-ed-sync-offline: var(--ed-sync-offline);
+  --color-ed-sync-offline-fg: var(--ed-sync-offline-fg);
+
+  --color-ed-surface: var(--ed-surface);
+  --color-ed-ink: var(--ed-ink);
+  --color-ed-ink-muted: var(--ed-ink-muted);
+  --color-ed-ink-faint: var(--ed-ink-faint);
+  --color-ed-wikilink: var(--ed-wikilink);
+  --color-ed-wikilink-unresolved: var(--ed-wikilink-unresolved);
+  --color-ed-tag-fg: var(--ed-tag-fg);
+  --color-ed-tag-bg: var(--ed-tag-bg);
+
+  --font-ed-prose: var(--ed-font-prose);
+  --font-ed-mono: var(--ed-font-mono);
+  --font-ed-ui: var(--ed-font-ui);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
+    font-family: var(--ed-font-ui);
+  }
+}

@@ -83,13 +83,13 @@
 </script>
 
 <nav data-testid="file-tree" aria-label="Files" class="flex h-full flex-col overflow-y-auto">
-  <div class="flex items-center gap-1 border-b border-gray-200 px-2 py-2">
-    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">Files</h2>
+  <div class="flex items-center gap-1 border-b border-base-300 px-2 py-2">
+    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/60 uppercase">Files</h2>
     <button
       data-testid="new-file"
       onclick={() => onOp({ type: 'new-file', dir: targetDir })}
       title="New file{targetDir ? ` in ${targetDir}` : ''}"
-      class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+      class="rounded bg-base-200 px-1.5 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-300"
     >
       + file
     </button>
@@ -97,13 +97,13 @@
       data-testid="new-folder"
       onclick={() => onOp({ type: 'new-folder', dir: targetDir })}
       title="New folder{targetDir ? ` in ${targetDir}` : ''}"
-      class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+      class="rounded bg-base-200 px-1.5 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-300"
     >
       + folder
     </button>
   </div>
   <div
-    class="flex items-center gap-0.5 border-b border-gray-100 px-2 py-1"
+    class="flex items-center gap-0.5 border-b border-base-200 px-2 py-1"
     role="radiogroup"
     aria-label="Filter by sharing"
   >
@@ -114,7 +114,7 @@
         data-testid="tree-filter:{value}"
         onclick={() => (filter = value)}
         class="rounded px-1.5 py-0.5 text-[10px] font-medium
-          {filter === value ? 'bg-blue-100 text-blue-900' : 'text-gray-500 hover:bg-gray-100'}"
+          {filter === value ? 'bg-primary/15 text-primary' : 'text-base-content/60 hover:bg-base-200'}"
       >
         {label}
       </button>
@@ -122,14 +122,14 @@
   </div>
   {#if contextNode}
     <div
-      class="flex items-center gap-1 border-b border-gray-100 px-2 py-1 text-[11px] text-gray-500"
+      class="flex items-center gap-1 border-b border-base-200 px-2 py-1 text-[11px] text-base-content/60"
     >
       <span class="min-w-0 flex-1 truncate" title={contextNode.path}>{contextNode.path}</span>
       {#if canShareContext}
         <button
           data-testid="tree-share"
           onclick={() => onOp({ type: 'share-folder', path: contextNode.path })}
-          class="rounded px-1.5 py-0.5 text-blue-700 hover:bg-blue-50"
+          class="rounded px-1.5 py-0.5 text-primary hover:bg-primary/10"
         >
           share
         </button>
@@ -138,7 +138,7 @@
         <button
           data-testid="tree-unshare"
           onclick={() => onOp({ type: 'unshare', path: contextNode.path })}
-          class="rounded px-1.5 py-0.5 text-amber-700 hover:bg-amber-50"
+          class="rounded px-1.5 py-0.5 text-warning hover:bg-warning/10"
         >
           unshare
         </button>
@@ -146,7 +146,7 @@
           <button
             data-testid="tree-unmount"
             onclick={() => onOp({ type: 'unmount', path: contextNode.path })}
-            class="rounded px-1.5 py-0.5 text-amber-700 hover:bg-amber-50"
+            class="rounded px-1.5 py-0.5 text-warning hover:bg-warning/10"
           >
             unmount
           </button>
@@ -155,21 +155,21 @@
       <button
         data-testid="tree-rename"
         onclick={() => onOp({ type: 'rename', ...contextNode })}
-        class="rounded px-1.5 py-0.5 hover:bg-gray-100"
+        class="rounded px-1.5 py-0.5 hover:bg-base-200"
       >
         rename
       </button>
       <button
         data-testid="tree-move"
         onclick={() => onOp({ type: 'move', ...contextNode })}
-        class="rounded px-1.5 py-0.5 hover:bg-gray-100"
+        class="rounded px-1.5 py-0.5 hover:bg-base-200"
       >
         move
       </button>
       <button
         data-testid="tree-delete"
         onclick={() => onOp({ type: 'delete', ...contextNode })}
-        class="rounded px-1.5 py-0.5 text-red-600 hover:bg-red-50"
+        class="rounded px-1.5 py-0.5 text-error hover:bg-error/10"
       >
         delete
       </button>
@@ -187,9 +187,9 @@
           onclick={() => clickDir(node)}
           style="padding-left: {8 + depth * 14}px"
           class="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm
-            {contextDir === node.path ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}"
+            {contextDir === node.path ? 'bg-base-200 text-base-content' : 'text-base-content/80 hover:bg-base-200'}"
         >
-          <span class="inline-block w-3 text-[10px] text-gray-400"
+          <span class="inline-block w-3 text-[10px] text-base-content/40"
             >{collapsed.has(node.path) ? '▸' : '▾'}</span
           >
           <span class="truncate font-medium">{node.name}</span>
@@ -200,8 +200,8 @@
               title={m.provenance === 'carved' ? 'shared by you' : 'shared with you'}
               class="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide
                 {m.provenance === 'carved'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-purple-100 text-purple-800'}"
+                ? 'bg-primary/15 text-primary'
+                : 'bg-secondary/15 text-secondary'}"
             >
               shared
             </span>
@@ -223,7 +223,7 @@
           aria-current={selected === node.path ? 'true' : undefined}
           style="padding-left: {8 + depth * 14 + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm
-            {selected === node.path ? 'bg-blue-50 font-medium text-blue-900' : 'text-gray-800 hover:bg-gray-50'}"
+            {selected === node.path ? 'bg-primary/10 font-medium text-primary' : 'text-base-content hover:bg-base-200'}"
         >
           <span class="truncate">{node.name}</span>
           {#if records[node.guid]}
@@ -237,12 +237,12 @@
           aria-selected="false"
           data-testid="file-item:{node.path}"
           style="padding-left: {8 + depth * 14 + 12}px"
-          class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-gray-400"
+          class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-base-content/40"
         >
           <span class="truncate">{node.name}</span>
           <span
             data-testid="binary-badge:{node.path}"
-            class="shrink-0 rounded border border-gray-300 px-1.5 py-0.5 text-[10px] tracking-wide text-gray-500 uppercase"
+            class="shrink-0 rounded border border-base-300 px-1.5 py-0.5 text-[10px] tracking-wide text-base-content/60 uppercase"
           >
             not synced
           </span>

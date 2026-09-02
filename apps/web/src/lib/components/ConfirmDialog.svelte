@@ -29,13 +29,13 @@
   aria-modal="true"
   aria-label={title}
   data-testid={testid}
-  class="fixed inset-0 z-30 flex items-center justify-center bg-black/30"
+  class="fixed inset-0 z-30 flex items-center justify-center bg-neutral/40"
 >
-  <div class="w-96 rounded border border-gray-200 bg-white p-4 text-gray-800 shadow-xl">
+  <div class="w-96 rounded border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
     <h2 class="text-sm font-semibold">{title}</h2>
-    <p class="mt-2 text-xs text-gray-600">{body}</p>
+    <p class="mt-2 text-xs text-base-content/70">{body}</p>
     {#if checkboxLabel}
-      <label class="mt-2 flex items-center gap-2 text-xs text-gray-700">
+      <label class="mt-2 flex items-center gap-2 text-xs text-base-content/80">
         <input type="checkbox" bind:checked data-testid="{testid}-checkbox" />
         {checkboxLabel}
       </label>
@@ -44,7 +44,7 @@
       <button
         data-testid="{testid}-cancel"
         onclick={onCancel}
-        class="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+        class="rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
       >
         Cancel
       </button>
@@ -52,8 +52,10 @@
         data-testid="{testid}-confirm"
         disabled={busy}
         onclick={confirm}
-        class="rounded px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50
-          {danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}"
+        class="rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50
+          {danger
+            ? 'bg-error text-error-content hover:bg-error/90'
+            : 'bg-primary text-primary-content hover:bg-primary/90'}"
       >
         {busy ? 'Working…' : confirmLabel}
       </button>

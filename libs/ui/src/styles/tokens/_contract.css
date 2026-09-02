@@ -1,0 +1,147 @@
+/*
+ * THE TOKEN CONTRACT.
+ *
+ * Every `--ed-*` token a theme MAY set, with a defensible default, declared
+ * once on `:root`. A theme overrides what it cares about; anything it omits
+ * still resolves. This file is the reference list — if a token is not here it
+ * does not exist, and code that reads one missing from here is the bug.
+ *
+ * Some tokens are already consumed by the CM6 source-mode theme; the ones
+ * marked (V2e) are part of the published contract but are only READ once live
+ * preview renders the construct they describe. They are declared now so a
+ * theme written today does not need editing when that slice lands.
+ *
+ * Band B (editor) lives in @layer editor.tokens so a user theme (@layer
+ * editor.user) can override every value. Band C (sync honesty) is NOT here —
+ * it is unlayered in sync-tokens.css so no user theme can reach it.
+ *
+ * See docs/theming.md and plans/v2-shaping.md (Fork 2).
+ */
+@layer editor.tokens {
+  :root {
+    /* --- surface & metrics ------------------------------------------- */
+    --ed-surface: #ffffff;
+    --ed-ink: #1f242b;
+    --ed-ink-muted: #4d5765;
+    --ed-ink-faint: #78838f;
+    --ed-font-prose: ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+    --ed-font-mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --ed-font-ui: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    --ed-font-size: 15px;
+    --ed-line-height: 1.65;
+    /* A full-bleed 2560px line is unreadable and CM6 has no opinion. */
+    --ed-measure: 44rem;
+
+    /* --- headings ----------------------------------------------------- */
+    --ed-h1: var(--ed-ink);
+    --ed-h2: var(--ed-ink);
+    --ed-h3: var(--ed-ink);
+    --ed-h4: var(--ed-ink);
+    --ed-h5: var(--ed-ink);
+    --ed-h6: var(--ed-ink);
+    /* The filename-as-title line — a different thing from h1. */
+    --ed-title: var(--ed-ink); /* (V2e) */
+    --ed-h1-size: 1.9em;
+    --ed-h2-size: 1.55em;
+    --ed-h3-size: 1.3em;
+    --ed-h4-size: 1.15em;
+    --ed-h5-size: 1.05em;
+    --ed-h6-size: 1em;
+    --ed-heading-weight: 600;
+
+    /* --- emphasis ------------------------------------------------------ */
+    --ed-bold: var(--ed-ink);
+    --ed-italic: var(--ed-ink);
+    --ed-strike: var(--ed-ink-faint);
+    --ed-mark-bg: #ffe08a; /* (V2e) */
+    --ed-mark-fg: #1f242b; /* (V2e) */
+    /* --- code (inline is a chip, a fence is a slab) --------------------- */
+    --ed-code-fg: #0f6e63;
+    --ed-code-bg: #f0f3f6; /* (V2e) */
+    --ed-code-block-fg: var(--ed-ink); /* (V2e) */
+    --ed-code-block-bg: #f5f7f9;
+    --ed-code-border: #e3e8ee;
+
+    --ed-syn-keyword: #7d3fa8;
+    --ed-syn-string: #4a7a2e;
+    --ed-syn-number: #8a6300;
+    --ed-syn-comment: #78838f;
+    --ed-syn-function: #0f6e63;
+    --ed-syn-type: #1d7f9c;
+    --ed-syn-variable: var(--ed-ink);
+    --ed-syn-operator: #55606f;
+    --ed-syn-invalid: #b3271e;
+
+    /* --- links ---------------------------------------------------------- */
+    --ed-link: #1d7f9c;
+    --ed-link-hover: #0f6e63; /* (V2e) */
+    /* Separate from --ed-link on purpose: in source mode you see the visible
+     * text and the raw URL inside []() at the same time. */
+    --ed-url: #6a4a9c;
+    --ed-wikilink: #0f6e63;
+    /* A broken [[link]] is a data-integrity signal, not decoration — but it
+     * is "not written yet", NOT a conflict, so it must stay clear of the
+     * diverged red that band C reserves. Guarded by theme-contract.test.ts. */
+    --ed-wikilink-unresolved: #7d5a1f;
+    --ed-wikilink-punct: #b0bac5;
+
+    /* --- tags & frontmatter --------------------------------------------- */
+    --ed-tag-fg: #0f6e63;
+    --ed-tag-bg: #e6f1ef;
+    --ed-tag-bg-hover: #d7e8e5; /* (V2e) */
+    --ed-tag-radius: 0.5em; /* (V2e) */
+    /* Frontmatter is byte-preserved and surgically patched (golden rule 2).
+     * Visually fencing it is a correctness affordance, not decoration: if you
+     * can't see you've crossed into a structured region you will reformat it
+     * by hand and produce exactly the churn diff the rule exists to prevent. */
+    --ed-frontmatter-fg: #55606f;
+    --ed-frontmatter-bg: #f5f7f9; /* (V2e) */
+    --ed-frontmatter-border: #e3e8ee; /* (V2e) */
+    /* --- block furniture ------------------------------------------------ */
+    --ed-quote-fg: var(--ed-ink-muted);
+    --ed-quote-border: #e3e8ee; /* (V2e) */
+    --ed-hr: #e3e8ee;
+    /* The generic markdown syntax mark: `#`, `*`, `>`, `-`, fence backticks.
+     * NOT a per-construct colour — the standard lezer tags cannot tell a
+     * heading's hash from a list's dash. */
+    --ed-marker: #b0bac5;
+    --ed-bullet: #78838f; /* (V2e) rendered bullets, once markers are hidden */
+    --ed-checkbox: #1d7f9c; /* (V2e) */
+    --ed-checkbox-done: #1f242b66; /* (V2e) */
+    --ed-table-header-bg: #f5f7f9; /* (V2e) */
+    --ed-table-row-alt-bg: #fafbfc; /* (V2e) */
+    --ed-table-border: #e3e8ee; /* (V2e) */
+    /* --- editing-surface state (the two colours a writer stares at) ------ */
+    --ed-selection: #1d7f9c2b;
+    /* CM6 draws a distinct unfocused selection; in a two-pane collab app
+     * "which pane has focus" must stay legible. */
+    --ed-selection-blur: #1d7f9c14;
+    --ed-caret: #1d7f9c;
+    --ed-active-line: #00000006;
+    --ed-gutter-bg: transparent;
+    --ed-gutter-fg: #b0bac5;
+    --ed-gutter-active-fg: #55606f;
+    --ed-bracket-match-bg: #1d7f9c33;
+    --ed-search-match-bg: #ffe08a80;
+    --ed-search-match-active-bg: #ffc94d;
+
+    /* --- collaboration --------------------------------------------------- */
+    --ed-peer-caret-width: 2px;
+    --ed-peer-label-fg: #ffffff;
+    --ed-peer-label-radius: 3px;
+    --ed-peer-label-font-size: 11px;
+    /* HOUSE RULE, asserted by theme-contract.test.ts: no presence colour may
+     * be near --ed-sync-diverged. A peer's caret must never be mistakable for
+     * a conflict marker. */
+    --ed-presence-1: #2b7f8a;
+    --ed-presence-2: #4d7c2f;
+    --ed-presence-3: #8a6300;
+    --ed-presence-4: #7d3fa8;
+    --ed-presence-5: #2f6fbf;
+    /* Not the brown-red it wants to be: #9c5335 sits ~55 units from the
+     * diverged red, close enough for a peer caret to read as a conflict. */
+    --ed-presence-6: #a8327d;
+    --ed-presence-7: #1f7a68;
+    --ed-presence-8: #55606f;
+  }
+}

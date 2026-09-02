@@ -1,0 +1,224 @@
+/*
+ * BAND C — SYNC HONESTY TOKENS. Golden rule 4 expressed in the cascade.
+ *
+ * These declarations are DELIBERATELY UNLAYERED. Unlayered rules beat every
+ * @layer regardless of specificity, so a user theme injected into
+ * @layer editor.user physically cannot repaint the sync pill. That is the
+ * point: a theme file travels with a shared vault, i.e. it is content
+ * authored by someone else, and "green" must not be something another person
+ * can define.
+ *
+ * They are also NOT DaisyUI's success/warning/error/neutral, for two reasons:
+ *
+ *   1. Those are BRAND colours. Someone retinting `success` toward a
+ *      marketing green would silently retint the honesty signal.
+ *   2. The four states are not four severities. pill-status.ts encodes
+ *      SEVERITY = {green:0, yellow:1, offline:2, red:3} — `offline` outranks
+ *      `yellow`. No severity ladder expresses that, so mapping onto one
+ *      would lie by construction.
+ *
+ * Colour is never the only channel: SyncPill.svelte also carries a title, an
+ * sr-only label, and the data-status attribute Playwright asserts on.
+ *
+ * TWO defences, because ONE IS NOT ENOUGH. Cascade layers only settle
+ * conflicts on the SAME element, and custom properties inherit — so a user
+ * theme containing `body { --ed-sync-diverged: green }` is the only
+ * declaration for that property on <body>, and the pill inherits it. Layer
+ * priority never enters the picture. Therefore:
+ *
+ *   1. `sanitizeThemeCss()` strips every `--ed-sync-*` declaration and every
+ *      rule targeting the pill, before the theme is injected.
+ *   2. The dot's colour is set as an UNLAYERED LONGHAND on the dot's own
+ *      element, in the rules at the bottom of this file. A declaration on an
+ *      ancestor cannot reach a longhand on a descendant, so an inherited
+ *      custom property is irrelevant here.
+ *
+ * A cascade fact worth writing down, because it is counter-intuitive and it
+ * decides the design: for NORMAL declarations unlayered has the HIGHEST
+ * priority, but for IMPORTANT declarations unlayered has the LOWEST — layer
+ * order reverses. So a theme's `.ed-sync-dot { background: red !important }`
+ * inside @layer editor.user would beat anything written here, `!important` or
+ * not. There is no CSS-only defence against that; it is why defence 1 also
+ * STRIPS `!important` from injected theme CSS, which leaves the attacker with
+ * a layered normal rule that the unlayered rules below reliably outrank.
+ *
+ * The custom properties above remain for anything that legitimately wants the
+ * palette (a future per-folder rollup); the PILL does not depend on them.
+ *
+ * Asserted by theme-contract.test.ts and by apps/web/e2e/v2.spec.ts.
+ */
+
+/* Defaults (light polarity). */
+:root {
+  --ed-sync-ok: #2f7d3f;
+  --ed-sync-ok-fg: #ffffff;
+  --ed-sync-pending: #8a6300;
+  --ed-sync-pending-fg: #ffffff;
+  --ed-sync-diverged: #b3271e;
+  --ed-sync-diverged-fg: #ffffff;
+  --ed-sync-offline: #6b7684;
+  --ed-sync-offline-fg: #ffffff;
+}
+
+[data-theme="editor-light"] {
+  --ed-sync-ok: #2f7d3f;
+  --ed-sync-ok-fg: #ffffff;
+  --ed-sync-pending: #8a6300;
+  --ed-sync-pending-fg: #ffffff;
+  --ed-sync-diverged: #b3271e;
+  --ed-sync-diverged-fg: #ffffff;
+  --ed-sync-offline: #6b7684;
+  --ed-sync-offline-fg: #ffffff;
+}
+
+[data-theme="editor-dark"] {
+  --ed-sync-ok: #56b96f;
+  --ed-sync-ok-fg: #0d1408;
+  --ed-sync-pending: #d9a441;
+  --ed-sync-pending-fg: #1a1206;
+  --ed-sync-diverged: #e05252;
+  --ed-sync-diverged-fg: #1a0b0b;
+  /* Lighter than the neutral it looks like it should be: at #6b7684 the dark
+   * foreground only reached 4.04:1, and "offline" is the state a reader most
+   * needs to be able to read. */
+  --ed-sync-offline: #8b96a6;
+  --ed-sync-offline-fg: #0f1319;
+}
+
+/* Nord's own semantic colours — green/yellow/red/nord3. */
+[data-theme="nord-dark"] {
+  --ed-sync-ok: #a3be8c;
+  --ed-sync-ok-fg: #2e3440;
+  --ed-sync-pending: #ebcb8b;
+  --ed-sync-pending-fg: #2e3440;
+  --ed-sync-diverged: #bf616a;
+  /* Not Nord's own #2e3440: aurora red is dark enough that the theme's own
+   * darkest background only reaches 3.05:1 on it. A near-black keeps the
+   * hue and makes the label readable. Documented in docs/theming.md. */
+  --ed-sync-diverged-fg: #140a0c;
+  --ed-sync-offline: #4c566a;
+  --ed-sync-offline-fg: #d8dee9;
+}
+
+[data-theme="nord-light"] {
+  --ed-sync-ok: #4a7a2e;
+  --ed-sync-ok-fg: #ffffff;
+  --ed-sync-pending: #8a6300;
+  --ed-sync-pending-fg: #ffffff;
+  --ed-sync-diverged: #b3271e;
+  --ed-sync-diverged-fg: #ffffff;
+  --ed-sync-offline: #6b7690;
+  --ed-sync-offline-fg: #ffffff;
+}
+
+/*
+ * Defence 2: the pill's dot, painted by longhand on its own element.
+ *
+ * `.ed-sync-dot` is set by SyncPill.svelte and `data-status` is the same
+ * attribute Playwright asserts on, so the rendered colour and the tested
+ * status can never drift apart. Literal values, deliberately: a var() here
+ * would reintroduce exactly the inheritance vector this defends against.
+ */
+/* The dot's GEOMETRY is unlayered too, not just its colour: a layered
+ * `display: none` would otherwise hide the honesty signal outright, and
+ * unlayered normal declarations outrank every layered one. This also means
+ * the dot needs no Tailwind sizing utilities — they would lose to these. */
+.ed-sync-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: #6b7684;
+}
+
+[data-status='green'] > .ed-sync-dot {
+  background-color: #2f7d3f;
+}
+[data-status='yellow'] > .ed-sync-dot {
+  background-color: #8a6300;
+}
+[data-status='red'] > .ed-sync-dot {
+  background-color: #b3271e;
+}
+[data-status='offline'] > .ed-sync-dot {
+  background-color: #6b7684;
+}
+
+[data-theme='editor-dark'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
+ * `display: none` would otherwise hide the honesty signal outright, and
+ * unlayered normal declarations outrank every layered one. This also means
+ * the dot needs no Tailwind sizing utilities — they would lose to these. */
+.ed-sync-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: #6b7684;
+}
+
+[data-status='green'] > .ed-sync-dot {
+  background-color: #56b96f;
+}
+[data-theme='editor-dark'] [data-status='yellow'] > .ed-sync-dot {
+  background-color: #d9a441;
+}
+[data-theme='editor-dark'] [data-status='red'] > .ed-sync-dot {
+  background-color: #e05252;
+}
+[data-theme='editor-dark'] [data-status='offline'] > .ed-sync-dot {
+  background-color: #8b96a6;
+}
+
+[data-theme='nord-dark'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
+ * `display: none` would otherwise hide the honesty signal outright, and
+ * unlayered normal declarations outrank every layered one. This also means
+ * the dot needs no Tailwind sizing utilities — they would lose to these. */
+.ed-sync-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: #6b7684;
+}
+
+[data-status='green'] > .ed-sync-dot {
+  background-color: #a3be8c;
+}
+[data-theme='nord-dark'] [data-status='yellow'] > .ed-sync-dot {
+  background-color: #ebcb8b;
+}
+[data-theme='nord-dark'] [data-status='red'] > .ed-sync-dot {
+  background-color: #bf616a;
+}
+[data-theme='nord-dark'] [data-status='offline'] > .ed-sync-dot {
+  background-color: #4c566a;
+}
+
+[data-theme='nord-light'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
+ * `display: none` would otherwise hide the honesty signal outright, and
+ * unlayered normal declarations outrank every layered one. This also means
+ * the dot needs no Tailwind sizing utilities — they would lose to these. */
+.ed-sync-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: #6b7684;
+}
+
+[data-status='green'] > .ed-sync-dot {
+  background-color: #4a7a2e;
+}
+[data-theme='nord-light'] [data-status='yellow'] > .ed-sync-dot {
+  background-color: #8a6300;
+}
+[data-theme='nord-light'] [data-status='red'] > .ed-sync-dot {
+  background-color: #b3271e;
+}
+[data-theme='nord-light'] [data-status='offline'] > .ed-sync-dot {
+  background-color: #6b7690;
+}

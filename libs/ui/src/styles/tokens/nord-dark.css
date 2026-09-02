@@ -1,0 +1,156 @@
+/*
+ * nord-dark — a faithful port of "Obsidian Nord" (.theme-dark), the theme
+ * Chris actually reads every day. Sources are named per row so the port is
+ * auditable against .obsidian/themes/Obsidian Nord/theme.css.
+ *
+ * Nord: nord0 #2e3440 nord1 #3b4252 nord2 #434c5e nord3 #4c566a
+ *       nord4 #d8dee9 nord5 #e5e9f0 nord6 #eceff4
+ *       nord7 #8fbcbb nord8 #88c0d0 nord9 #81a1c1 nord10 #5e81ac
+ *       nord11 #bf616a nord12 #d08770 nord13 #ebcb8b nord14 #a3be8c nord15 #b48ead
+ *
+ * ONE DELIBERATE DEVIATION: aurora red #bf616a is reserved for divergence in
+ * every Editor theme, so it is excluded from --ed-presence-*. Everything else
+ * is Nord's own value. See docs/theming.md.
+ */
+@plugin "daisyui/theme" {
+  name: "nord-dark";
+  default: false;
+  prefersdark: false;
+  color-scheme: dark;
+
+  --color-base-100: #2e3440;             /* --background-primary */
+  --color-base-200: #3b4252;             /* --background-secondary */
+  --color-base-300: #434c5e;             /* --background-secondary-alt */
+  --color-base-content: #eceff4;         /* --text-normal */
+
+  --color-primary: #88c0d0;              /* frost1 */
+  --color-primary-content: #2e3440;
+  --color-secondary: #81a1c1;            /* --nav-item-color-active */
+  --color-secondary-content: #2e3440;
+  --color-accent: #d08770;               /* --text-accent */
+  --color-accent-content: #2e3440;
+
+  /* Inverted on purpose — a near-black neutral button on a near-black base
+   * disappears (the Edible lesson). */
+  --color-neutral: #d8dee9;
+  --color-neutral-content: #2e3440;
+
+  --color-info: #5e81ac;                 /* --color-blue */
+  --color-info-content: #eceff4;
+  --color-success: #a3be8c;              /* --color-green */
+  --color-success-content: #2e3440;
+  --color-warning: #ebcb8b;              /* --color-yellow */
+  --color-warning-content: #2e3440;
+  --color-error: #bf616a;                /* --color-red */
+  --color-error-content: #2e3440;
+
+  --radius-selector: 0.5rem;             /* --tag-radius: .5em */
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@layer editor.tokens {
+  [data-theme="nord-dark"] {
+    --ed-surface: #2e3440;               /* --background-primary */
+    --ed-ink: #eceff4;                   /* --text-normal */
+    --ed-ink-muted: #e5e9f0;             /* --text-muted */
+    --ed-ink-faint: #d8dee9;             /* --text-faint */
+
+    --ed-h1: #bf616a;                    /* --h1-color */
+    --ed-h2: #ebcb8b;                    /* --h2-color */
+    --ed-h3: #a3be8c;                    /* --h3-color */
+    --ed-h4: #b48ead;                    /* --h4-color */
+    --ed-h5: #8fbcbb;                    /* --h5-color */
+    --ed-h6: #81a1c1;                    /* --h6-color */
+    --ed-title: #ebcb8b;                 /* --inline-title-color */
+
+    --ed-bold: #ebcb8b;                  /* --bold-color */
+    --ed-italic: #ebcb8b;                /* --italic-color */
+    --ed-strike: #4c566a;
+    --ed-mark-bg: #88c0d0;               /* --text-highlight-bg */
+    --ed-mark-fg: #2e3440;               /* --text-highlight-fg */
+
+    --ed-code-fg: #88c0d0;               /* --code-normal */
+    --ed-code-bg: #3b4252;               /* --code-background */
+    --ed-code-block-fg: #d8dee9;
+    --ed-code-block-bg: #3b4252;
+    --ed-code-border: #434c5e;
+
+    --ed-syn-keyword: #81a1c1;
+    --ed-syn-string: #a3be8c;
+    --ed-syn-number: #b48ead;
+    --ed-syn-comment: #616e88;           /* Nord's canonical comment colour */
+    --ed-syn-function: #88c0d0;
+    --ed-syn-type: #8fbcbb;
+    --ed-syn-variable: #d8dee9;
+    --ed-syn-operator: #81a1c1;
+    --ed-syn-invalid: #bf616a;
+
+    --ed-link: #d08770;                  /* --text-accent */
+    --ed-link-hover: #81a1c1;            /* --text-accent-hover */
+    --ed-url: #b48ead;                   /* --link-url */
+    --ed-wikilink: #d08770;              /* --text-accent */
+    /* Nord has no unresolved-link colour, and it has no WARM one to spare:
+     * every candidate near its orange link colour is also near its aurora
+     * red, which band C reserves for divergence (the first attempt, a
+     * desaturated red #a05359, sat 38 units from it and the contract test
+     * rejected it). So an unresolved link goes cool instead — a muted mauve
+     * in the aurora family, clear of both the link orange and the diverged
+     * red, and distinguishable from --ed-url's #b48ead. */
+    --ed-wikilink-unresolved: #a888a0;
+    --ed-wikilink-punct: #4c566a;
+
+    --ed-tag-fg: #8fbcbb;                /* --tag-color */
+    --ed-tag-bg: #434c5e;                /* --tag-background */
+    --ed-tag-bg-hover: #3b4252;          /* --tag-background-hover */
+    --ed-tag-radius: 0.5em;              /* --tag-radius */
+    --ed-frontmatter-fg: #81a1c1;
+    --ed-frontmatter-bg: #3b4252;
+    --ed-frontmatter-border: #434c5e;
+
+    --ed-quote-fg: #d8dee9;
+    --ed-quote-border: #4c566a;
+    --ed-hr: #434c5e;                    /* --background-modifier-border */
+    --ed-bullet: #81a1c1;
+    --ed-marker: #4c566a;
+    --ed-checkbox: #8fbcbb;              /* --checkbox-color */
+    --ed-checkbox-done: #eceff480;       /* --checklist-done-color */
+    --ed-table-header-bg: #22272f;       /* --table-header-background */
+    --ed-table-row-alt-bg: #2b303b;      /* --table-row-even-background */
+    --ed-table-border: #3b4252;
+
+    /* Nord ships --text-selection at 60% aurora red. Kept verbatim: it is
+     * what Chris already reads. Known trade-off — selected body text lands
+     * near 2.9:1. Documented in docs/theming.md, overridable per theme. */
+    --ed-selection: #bf616a99;           /* --text-selection */
+    --ed-selection-blur: #bf616a4d;
+    --ed-caret: #bf616a;                 /* --accent-h/s/l 354/42%/56% */
+    --ed-active-line: #bf616a33;         /* --cursor-line-background */
+    --ed-gutter-bg: transparent;
+    --ed-gutter-fg: #4c566a;
+    --ed-gutter-active-fg: #bf616a;
+    --ed-bracket-match-bg: #5e81ac66;
+    --ed-search-match-bg: #ebcb8b4d;
+    --ed-search-match-active-bg: #ebcb8b;
+
+    --ed-presence-1: #88c0d0;
+    --ed-presence-2: #a3be8c;
+    --ed-presence-3: #b48ead;
+    --ed-presence-4: #ebcb8b;
+    --ed-presence-5: #8fbcbb;
+    --ed-presence-6: #81a1c1;
+    --ed-presence-7: #5e81ac;
+    /* NOT Nord's orange (#d08770, --text-accent): it sits ~42 units from the
+     * aurora red this theme reserves for divergence, and a peer's caret must
+     * never read as a conflict marker. Nord simply does not contain eight
+     * hues that all clear the red, so slot 8 is a muted sand in the palette's
+     * family rather than one of its canonical fifteen. Second and last
+     * documented deviation from the port — see docs/theming.md. */
+    --ed-presence-8: #cbb69a;
+  }
+}

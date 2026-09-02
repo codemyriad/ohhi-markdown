@@ -69,7 +69,7 @@
   }
 </script>
 
-<main class="mx-auto max-w-xl px-6 py-16 text-gray-800">
+<main class="mx-auto max-w-xl px-6 py-16 text-base-content">
   <div class="flex items-center justify-between">
     <h1 class="text-2xl font-semibold">Editor</h1>
     <div class="flex items-center gap-2">
@@ -77,7 +77,7 @@
         <button
           data-testid="manager-back"
           onclick={onBack}
-          class="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+          class="rounded px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200"
         >
           ← Back
         </button>
@@ -85,42 +85,42 @@
       <button
         data-testid="manager-settings"
         onclick={onSettings}
-        class="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+        class="rounded px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200"
       >
         Settings
       </button>
     </div>
   </div>
-  <p class="mt-2 text-sm text-gray-600">
+  <p class="mt-2 text-sm text-base-content/70">
     Collaborative markdown over a plain-text vault. Files on disk stay the source of truth.
   </p>
 
   {#if failure && !failure.room}
-    <p role="alert" data-testid="manager-error" class="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+    <p role="alert" data-testid="manager-error" class="mt-4 rounded bg-error/10 px-3 py-2 text-sm text-error">
       {failure.message}
     </p>
   {/if}
 
   <label class="mt-6 block">
-    <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase">Your name</span>
+    <span class="text-xs font-semibold tracking-wide text-base-content/60 uppercase">Your name</span>
     <input
       data-testid="manager-name"
       bind:value={name}
       placeholder="Anonymous"
-      class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      class="mt-1 w-full rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
     />
   </label>
 
   {#if vaults.length > 0}
     <section class="mt-8">
-      <h2 class="text-sm font-semibold text-gray-900">Your vaults</h2>
+      <h2 class="text-sm font-semibold text-base-content">Your vaults</h2>
       <ul class="mt-2 space-y-1">
         {#each vaults as entry (entry.room)}
           <li>
             <div
               class="flex items-center gap-2 rounded border px-3 py-2 {failure?.room === entry.room
-                ? 'border-red-200 bg-red-50'
-                : 'border-gray-200 hover:bg-gray-50'}"
+                ? 'border-error/30 bg-error/10'
+                : 'border-base-300 hover:bg-base-200'}"
             >
               <button
                 data-testid="open-vault:{entry.room}"
@@ -128,11 +128,11 @@
                 onclick={() => onOpenVault(entry)}
                 class="min-w-0 flex-1 text-left disabled:opacity-50"
               >
-                <span class="block truncate text-sm font-medium text-gray-900">
+                <span class="block truncate text-sm font-medium text-base-content">
                   {entry.name}
-                  {#if entry.relay}<span class="ml-1 text-xs font-normal text-blue-600">shared</span>{/if}
+                  {#if entry.relay}<span class="ml-1 text-xs font-normal text-primary">shared</span>{/if}
                 </span>
-                <span class="block truncate font-mono text-xs text-gray-500">{sub(entry)}</span>
+                <span class="block truncate font-mono text-xs text-base-content/60">{sub(entry)}</span>
               </button>
               <button
                 data-testid="remove-vault:{entry.room}"
@@ -140,14 +140,14 @@
                 onclick={() => remove(entry.room)}
                 aria-label="Remove {entry.name} from this list"
                 class="shrink-0 rounded px-2 py-1 text-xs {confirmRemove === entry.room
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'}"
+                  ? 'bg-error text-error-content hover:bg-error/90'
+                  : 'text-base-content/40 hover:bg-base-200 hover:text-base-content/80'}"
               >
                 {confirmRemove === entry.room ? 'Remove?' : '✕'}
               </button>
             </div>
             {#if failure?.room === entry.room}
-              <p role="alert" data-testid="vault-error:{entry.room}" class="mt-1 px-3 text-xs text-red-700">
+              <p role="alert" data-testid="vault-error:{entry.room}" class="mt-1 px-3 text-xs text-error">
                 {failure.message} — fix the folder, or remove this entry (files are untouched).
               </p>
             {/if}
@@ -158,32 +158,32 @@
   {/if}
 
   <section class="mt-8">
-    <h2 class="text-sm font-semibold text-gray-900">Add a vault</h2>
+    <h2 class="text-sm font-semibold text-base-content">Add a vault</h2>
     {#if isTauri}
-      <p class="mt-1 text-xs text-gray-500">
+      <p class="mt-1 text-xs text-base-content/60">
         Pick a folder on disk (use the dialog's New Folder to create a fresh vault).
       </p>
       <button
         data-testid="open-folder"
         disabled={busy}
         onclick={() => onOpenFolder(displayName)}
-        class="mt-3 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        class="mt-3 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
       >
         Open folder as vault…
       </button>
     {:else if browserBlocked}
-      <p role="alert" class="mt-1 text-xs text-amber-700">
+      <p role="alert" class="mt-1 text-xs text-warning">
         This browser doesn't support the private file storage (OPFS) Editor needs — try a recent
         Chrome, Edge, or Firefox.
       </p>
     {:else}
-      <p class="mt-1 text-xs text-gray-500">A new vault stored privately in this browser.</p>
+      <p class="mt-1 text-xs text-base-content/60">A new vault stored privately in this browser.</p>
       <div class="mt-3 flex gap-2">
         <input
           data-testid="new-vault-name"
           bind:value={newVaultName}
           placeholder="Vault name"
-          class="w-48 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          class="w-48 rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
         />
         <button
           data-testid="create-vault"
@@ -192,7 +192,7 @@
             onCreateBrowserVault(displayName, newVaultName.trim())
             newVaultName = ''
           }}
-          class="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          class="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
         >
           Create vault
         </button>
@@ -202,8 +202,8 @@
 
   {#if !browserBlocked}
     <section class="mt-8">
-      <h2 class="text-sm font-semibold text-gray-900">Join a share</h2>
-      <p class="mt-1 text-xs text-gray-500">
+      <h2 class="text-sm font-semibold text-base-content">Join a share</h2>
+      <p class="mt-1 text-xs text-base-content/60">
         Paste a share link someone sent you — it opens as a new vault.
       </p>
       <textarea
@@ -211,26 +211,26 @@
         bind:value={link}
         rows="2"
         placeholder="editor1:…"
-        class="mt-2 w-full rounded border border-gray-300 px-3 py-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
+        class="mt-2 w-full rounded border border-base-300 px-3 py-2 font-mono text-xs focus:border-primary focus:outline-none"
       ></textarea>
       <button
         data-testid="join-share"
         disabled={busy || !link.trim()}
         onclick={() => onJoin(displayName, link.trim())}
-        class="mt-2 rounded bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-900 disabled:opacity-50"
+        class="mt-2 rounded bg-neutral px-4 py-2 text-sm font-medium text-neutral-content hover:bg-neutral/90 disabled:opacity-50"
       >
         Join
       </button>
 
       {#if shares.length > 0}
-        <h3 class="mt-4 text-xs font-semibold tracking-wide text-gray-500 uppercase">Recent shares</h3>
+        <h3 class="mt-4 text-xs font-semibold tracking-wide text-base-content/60 uppercase">Recent shares</h3>
         <ul class="mt-1 space-y-1">
           {#each shares as share (share.room)}
             <li>
               <button
                 onclick={() => onJoin(displayName, share.link)}
                 disabled={busy}
-                class="w-full truncate rounded px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                class="w-full truncate rounded px-3 py-1.5 text-left text-sm text-base-content/80 hover:bg-base-200 disabled:opacity-50"
               >
                 {share.label || share.room}
               </button>
