@@ -16,6 +16,10 @@ A collaborative, agent-native markdown editor — a drop-in replacement for Obsi
 
 Shaping → tracer bullet. See [`/plans`](./plans) — start with [`plans/frame.md`](./plans/frame.md), then [`plans/shaping.md`](./plans/shaping.md) and [`plans/slices.md`](./plans/slices.md).
 
+## Running it
+
+See the **[runbook](docs/running-and-testing.md)** — install, run the test suite, drive the two-tab collaboration demo in a browser, and (once set up) the Tauri desktop shell.
+
 ## Repo layout
 
 Rush monorepo (same conventions as Edible): `apps/` for applications, `libs/` for shared libraries, `common/` for Rush config, `.claude/skills/` for agent skills, `/plans` for shaping and slice plans.
