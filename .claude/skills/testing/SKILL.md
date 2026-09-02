@@ -175,6 +175,16 @@ await contextB.setOffline(false);
 // assert convergence + pill honesty
 ```
 
+- **Exception — severing only the relay** (dev server must stay reachable,
+  e.g. a reload-while-offline test): `context.setOffline` blocks everything
+  including Vite. Use `page.routeWebSocket` with a test-side flag instead.
+  Verified against Playwright 1.60 (M1 integration, `collab.spec.ts`): ws
+  routes **survive `unrouteAll()` and only take effect after a navigation** —
+  register the route before the `goto`, and flip the flag rather than
+  unrouting. Before reloading "offline", wait for the pill to be green first:
+  green is a durable-blob guarantee (Invariant D), so the wait is
+  deterministic, not a sleep.
+
 ---
 
 ## How to extend this skill
