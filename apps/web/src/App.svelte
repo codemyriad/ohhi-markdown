@@ -1,7 +1,9 @@
 <script lang="ts">
   import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
+  import BreakerDialog from './lib/components/BreakerDialog.svelte'
   import FileTree from './lib/components/FileTree.svelte'
   import ReviewModal from './lib/components/ReviewModal.svelte'
+  import TreeOpDialog from './lib/components/TreeOpDialog.svelte'
   import SettingsPanel from './lib/components/SettingsPanel.svelte'
   import ShareDialog from './lib/components/ShareDialog.svelte'
   import SyncPill from './lib/components/SyncPill.svelte'
@@ -26,6 +28,7 @@
   } from './lib/config.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
+  import { dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
   import { pillStatus, worstStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type Workspace } from './lib/workspace.svelte.js'
@@ -250,6 +253,43 @@
     }
   }
 
+  // ---- tree operations (M3): the tree requests, App owns the dialogs ----
+  let treeOp = $state<TreeOp | null>(null)
+
+  function handleTreeOp(op: TreeOp): void {
+    if (!workspace) return
+    if (op.type === 'new-file') {
+      void workspace.createFile(op.dir) // auto-named untitled-N; rename after
+      return
+    }
+    treeOp = op
+  }
+
+  async function confirmTreeOp(value: string): Promise<void> {
+    const op = treeOp
+    treeOp = null
+    if (!op || !workspace) return
+    if (op.type === 'new-folder') {
+      await workspace.createDir(op.dir ? `${op.dir}/${value}` : value)
+    } else if (op.type === 'rename') {
+      const parent = op.path.includes('/') ? op.path.slice(0, op.path.lastIndexOf('/')) : ''
+      await workspace.renamePath(op.path, parent ? `${parent}/${value}` : value)
+    } else if (op.type === 'move') {
+      const base = op.path.slice(op.path.lastIndexOf('/') + 1)
+      await workspace.renamePath(op.path, value ? `${value}/${base}` : base)
+    } else if (op.type === 'delete') {
+      await workspace.deletePath(op.path)
+    }
+  }
+
+  /** Narrowed props for the dialog (new-file never opens one). */
+  const treeOpDialog = $derived.by(() => {
+    if (!treeOp || treeOp.type === 'new-file') return null
+    if (treeOp.type === 'new-folder')
+      return { mode: 'new-folder' as const, path: treeOp.dir, kind: 'dir' as const }
+    return { mode: treeOp.type, path: treeOp.path, kind: treeOp.kind }
+  })
+
   // ---- workspace-derived view state ----
   const currentVaultName = $derived(
     workspace ? (getVault(workspace.room)?.name ?? 'Vault') : 'Vault'
@@ -350,7 +390,7 @@
           records={workspace.ui.records}
           selected={selectedPath}
           onSelect={(path) => workspace?.select(path)}
-          onNewFile={() => void workspace?.createFile()}
+          onOp={handleTreeOp}
         />
       </aside>
 
@@ -375,6 +415,25 @@
         onResolve={(guid, mergedText) => void workspace?.resolveReview(guid, mergedText)}
       />
     {/key}
+  {/if}
+
+  {#if treeOpDialog}
+    <TreeOpDialog
+      mode={treeOpDialog.mode}
+      path={treeOpDialog.path}
+      kind={treeOpDialog.kind}
+      dirs={dirPaths(workspace.ui.files)}
+      onConfirm={(v) => void confirmTreeOp(v)}
+      onCancel={() => (treeOp = null)}
+    />
+  {/if}
+
+  {#if workspace.ui.breaker}
+    <BreakerDialog
+      paths={workspace.ui.breaker.paths}
+      onConfirm={() => void workspace?.confirmBreaker()}
+      onDismiss={() => workspace?.dismissBreaker()}
+    />
   {/if}
 {/if}
 

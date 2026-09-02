@@ -102,11 +102,46 @@ export class TauriVaultAdapter implements VaultAdapter {
     return out
   }
 
+  async listDirs(): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (relDir: string): Promise<void> => {
+      for (const entry of await readDir(this.abs(relDir))) {
+        if (IGNORED.has(entry.name)) continue
+        if (!entry.isDirectory) continue
+        const relPath = relDir ? `${relDir}/${entry.name}` : entry.name
+        out.push(relPath)
+        await walk(relPath)
+      }
+    }
+    await walk('')
+    return out.sort()
+  }
+
+  async mkdir(path: string): Promise<void> {
+    await mkdir(this.abs(path), { recursive: true })
+  }
+
+  async removeDir(path: string): Promise<void> {
+    const full = this.abs(path)
+    if (!(await exists(full))) return
+    // Non-recursive remove refuses a non-empty directory (std::fs::remove_dir).
+    await fsRemove(full)
+  }
+
+  async renameDir(from: string, to: string): Promise<void> {
+    const dest = this.abs(to)
+    await mkdir(dirnamePosix(dest), { recursive: true })
+    await fsRename(this.abs(from), dest)
+  }
+
   async read(path: string): Promise<Uint8Array | null> {
     const full = this.abs(path)
     // plugin-fs throws (with a non-structured message) for a missing file, so
-    // probe with exists() to distinguish not-found from real read errors.
+    // probe with exists() to distinguish not-found from real read errors. A
+    // directory is unreadable-as-a-file → null (watch hands dir paths to the
+    // same quiesce reads as files).
     if (!(await exists(full))) return null
+    if ((await stat(full)).isDirectory) return null
     return await readFile(full)
   }
 

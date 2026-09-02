@@ -208,6 +208,18 @@ returns to the manager, and **⚙** opens Settings (display name, default relay,
 relay operator secret for the upcoming in-app share minting, remembered
 shares/vaults).
 
+**File tree (M3).** The sidebar is a real nested tree: folders collapse
+(click a focused folder to toggle), and empty folders are first-class — they
+enroll, sync, and materialize on peers like files (`mkdir` is part of the
+vault-adapter seam). **+ file** creates an untitled note in the selected
+folder; **+ folder**, **rename**, **move**, and **delete** act on the focused
+file/folder via small dialogs. A folder rename is one bulk folder-map
+transaction — children follow on every peer — and deletes journal each file's
+pre-image before touching disk. A bulk external change (a git branch switch,
+20+ files at once, live or discovered at boot) now pauses behind a real
+**confirm dialog** listing the files — nothing is ingested until you apply,
+and *Not now* defers the batch.
+
 **Open a folder (desktop, O1).** Manager → **Open folder as vault…** → pick a
 folder via the native dialog (its *New Folder* button covers the create case).
 Your `.md` files on disk are the source of truth; edits save back atomically.

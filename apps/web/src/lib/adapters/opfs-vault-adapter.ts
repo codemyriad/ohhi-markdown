@@ -65,6 +65,8 @@ export class OpfsVaultAdapter implements VaultAdapter {
       return await dir.getFileHandle(name)
     } catch (err) {
       if (isNotFound(err)) return null
+      // TypeMismatchError: the entry is a directory — unreadable as a file.
+      if (err instanceof DOMException && err.name === 'TypeMismatchError') return null
       throw err
     }
   }
@@ -86,6 +88,60 @@ export class OpfsVaultAdapter implements VaultAdapter {
     }
     await walk(this.root, '')
     return out
+  }
+
+  async listDirs(): Promise<string[]> {
+    const out: string[] = []
+    const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
+      for await (const entry of dir.values()) {
+        if (entry.kind !== 'directory') continue
+        const path = prefix ? `${prefix}/${entry.name}` : entry.name
+        out.push(path)
+        await walk(entry as FileSystemDirectoryHandle, path)
+      }
+    }
+    await walk(this.root, '')
+    return out.sort()
+  }
+
+  async mkdir(path: string): Promise<void> {
+    await this.resolveDir(path.split('/').filter((p) => p.length > 0), true)
+  }
+
+  async removeDir(path: string): Promise<void> {
+    const { dirs, name } = splitPath(path)
+    const dir = await this.resolveDir(dirs, false)
+    if (!dir) return
+    try {
+      // Non-recursive removeEntry refuses a non-empty directory
+      // (InvalidModificationError) — exactly the empty-only contract.
+      await dir.removeEntry(name)
+    } catch (err) {
+      if (!isNotFound(err)) throw err
+    }
+  }
+
+  async renameDir(from: string, to: string): Promise<void> {
+    // OPFS has no rename at all — recursively copy the subtree, then drop the
+    // source (with recursive removeEntry; the copy is already complete).
+    const src = await this.resolveDir(from.split('/').filter((p) => p.length > 0), false)
+    if (!src) throw new Error(`renameDir: missing ${from}`)
+    const copy = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
+      await this.mkdir(prefix)
+      for await (const entry of dir.values()) {
+        const target = `${prefix}/${entry.name}`
+        if (entry.kind === 'directory') {
+          await copy(entry as FileSystemDirectoryHandle, target)
+        } else {
+          const file = await (entry as FileSystemFileHandle).getFile()
+          await this.writeAtomic(target, new Uint8Array(await file.arrayBuffer()))
+        }
+      }
+    }
+    await copy(src, to)
+    const { dirs, name } = splitPath(from)
+    const parent = await this.resolveDir(dirs, false)
+    if (parent) await parent.removeEntry(name, { recursive: true })
   }
 
   async read(path: string): Promise<Uint8Array | null> {

@@ -63,12 +63,14 @@ export interface WorkspaceUi {
   presence: string[]
   reviews: DivergenceReview[]
   selectedPath: string | null
-  /** Per-doc sync records keyed by path (+ FOLDER_RECORD_KEY). */
+  /** Per-doc sync records keyed by doc GUID (+ FOLDER_RECORD_KEY) — guids are rename-stable (M3). */
   records: Record<string, SyncRecord>
   /** True once a relay is attached (via join or enableSharing). */
   shared: boolean
   /** The copyable share link, once this folder is shared. */
   shareLink: string | null
+  /** Held mass-change batch awaiting confirm/dismiss (M3), else null. */
+  breaker: { paths: string[] } | null
 }
 
 export interface Workspace {
@@ -78,10 +80,17 @@ export interface Workspace {
   docForPath(path: string): EngineDoc | null
   awarenessForPath(path: string): Awareness | null
   select(path: string | null): void
-  createFile(): Promise<void>
+  /** Create an untitled note inside `dir` ('' = vault root) and select it. */
+  createFile(dir?: string): Promise<void>
+  createDir(path: string): Promise<void>
+  /** Rename or move a file/folder (move = rename to another parent). */
+  renamePath(from: string, to: string): Promise<void>
+  deletePath(path: string): Promise<void>
   resolveReview(guid: string, mergedText: string): Promise<void>
   /** Promote a local vault to a shared one; returns the copyable link. */
   enableSharing(relay: RelayConfig): { link: string }
+  confirmBreaker(): Promise<void>
+  dismissBreaker(): void
   dispose(): void
 }
 
@@ -126,6 +135,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     records: {},
     shared: false,
     shareLink: null,
+    breaker: null,
   })
 
   const user: CollabUser = { name: cfg.user, color: colorFor(cfg.user) }
@@ -170,6 +180,21 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     events: {
       onFiles: (rows) => {
         ui.files = rows
+        // Prune records for guids that no longer exist (deletes) so the
+        // global rollup never aggregates a dead file's stale status. Records
+        // are keyed by GUID (rename-stable), so renames never re-key.
+        const live = new Set(rows.map((r) => r.guid))
+        for (const key of Object.keys(ui.records)) {
+          if (key !== FOLDER_RECORD_KEY && !live.has(key)) delete ui.records[key]
+        }
+      },
+      onPathsRenamed: (moves) => {
+        for (const { from, to } of moves) {
+          if (ui.selectedPath === from) ui.selectedPath = to
+        }
+      },
+      onBreaker: (paths) => {
+        ui.breaker = { paths }
       },
       onPresence: (names) => {
         ui.presence = names
@@ -225,12 +250,40 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return r ? r.session.awarenessForPath(r.rel) : null
     },
     select,
-    createFile: async () => {
-      const path = await session.createFile()
-      if (path) select(path)
+    createFile: async (dir = '') => {
+      // '' = vault root → the root mount; otherwise the dir's owning mount.
+      const r = dir ? registry.resolve(dir) : null
+      const path = r ? await r.session.createFile(r.rel) : await session.createFile(dir)
+      if (path) select(r && path ? (r.mountPath ? `${r.mountPath}/${path}` : path) : path)
+    },
+    createDir: async (path) => {
+      const r = registry.resolve(path)
+      if (r) await r.session.createDir(r.rel)
+    },
+    renamePath: async (from, to) => {
+      const r = registry.resolve(from)
+      const rTo = registry.resolve(to)
+      if (!r || !rTo || r.session !== rTo.session) {
+        // Cross-mount moves are spike S8 Q5 territory (slice M5).
+        ui.error = 'cannot move across shared-folder boundaries yet'
+        return
+      }
+      await r.session.renamePath(r.rel, rTo.rel)
+    },
+    deletePath: async (path) => {
+      const r = registry.resolve(path)
+      if (r) await r.session.deletePath(r.rel)
     },
     resolveReview: (guid, mergedText) => session.resolveReview(guid, mergedText),
     enableSharing: (relay) => session.enableSharing(relay),
+    confirmBreaker: async () => {
+      ui.breaker = null
+      await session.confirmBreaker()
+    },
+    dismissBreaker: () => {
+      ui.breaker = null
+      session.dismissBreaker()
+    },
     dispose: () => registry.dispose(),
   }
 }
