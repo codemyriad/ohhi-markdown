@@ -31,9 +31,12 @@ import type { CollabUser } from '@editor/editor'
 import {
   carveFolder as runCarve,
   FOLDER_RECORD_KEY,
+  joinMount,
   MountRegistry,
   MountSession,
   recoverMounts,
+  unmountMount,
+  unshareMount,
   type FileRow,
   type RelayConfig,
 } from '@editor/workspace'
@@ -42,7 +45,7 @@ import { colorFor } from './params.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
-import { encodeShareLink } from './share-link.js'
+import { decodeShareLink, encodeShareLink } from './share-link.js'
 
 export { FOLDER_RECORD_KEY, type FileRow, type RelayConfig }
 
@@ -99,10 +102,26 @@ export interface Workspace {
   /** Create an untitled note inside `dir` ('' = vault root) and select it. */
   createFile(dir?: string): Promise<void>
   createDir(path: string): Promise<void>
-  /** Rename or move a file/folder (move = rename to another parent). */
+  /** Rename or move a file/folder WITHIN one mount (same shared scope). */
   renamePath(from: string, to: string): Promise<void>
+  /**
+   * Move across mounts (spike S8 Q5): copy bytes into the target mount with
+   * a FRESH guid, then tombstone the source (peers of the source room see a
+   * delete). The confirm affordance is the caller's job.
+   */
+  movePath(from: string, to: string): Promise<void>
+  /** Do `from` and `to` live in different mounts (needs the move confirm)? */
+  isCrossMount(from: string, to: string): boolean
   deletePath(path: string): Promise<void>
   resolveReview(guid: string, mergedText: string): Promise<void>
+  /** Resolve a 'vanished' review: restore from CRDT or confirm the removal. */
+  resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void>
+  /** Join a share link as a mount at `destPath` (empty/new folder). */
+  addShareMount(link: string, destPath: string): Promise<void>
+  /** Fold a shared mount back into the vault (files stay, sharing ends). */
+  unshare(path: string): Promise<void>
+  /** Drop a joined mount; its files stay and become local notes. */
+  unmount(path: string): Promise<void>
   /** Promote the whole vault to a shared one; returns the copyable link. */
   enableSharing(relay: RelayConfig): { link: string }
   /**
@@ -211,8 +230,16 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // pruning then orphans record objects its providers already captured.
     if (ui.phase === 'ready' && mountsBooting === 0) {
       const live = new Set(rows.map((r) => r.guid))
+      // Folder records live per room; prune the ones for dead rooms too (an
+      // unshared mount's stale offline record would pin the global pill).
+      const liveRooms = new Set([cfg.room, ...ui.mounts.map((m) => m.room)])
       for (const key of Object.keys(ui.records)) {
-        if (!key.startsWith('//folder') && !live.has(key)) delete ui.records[key]
+        if (key.startsWith('//folder')) {
+          const room = key.slice('//folder:'.length)
+          if (key !== FOLDER_RECORD_KEY && !liveRooms.has(room)) delete ui.records[key]
+        } else if (!live.has(key)) {
+          delete ui.records[key]
+        }
       }
     }
   }
@@ -432,6 +459,163 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
   }
 
+  // ---- M5: join-as-mount, unshare/unmount, cross-mount moves ----
+
+  const doJoinMount = async (link: string, destPath: string): Promise<void> => {
+    const target = decodeShareLink(link)
+    const dest = destPath.trim().replace(/^\/+|\/+$/g, '')
+    if (target.room === cfg.room || ui.mounts.some((m) => m.room === target.room)) {
+      throw new Error('this share is already part of this vault')
+    }
+    const info: MountInfo = { path: dest, room: target.room, provenance: 'joined', link: null }
+    let added = false
+    try {
+      const session = await joinMount({
+        vaultDir: cfg.storeDir,
+        mountsFile,
+        root: rootSession!,
+        baseAdapter: cfg.adapter,
+        existingMountPaths: ui.mounts.map((m) => m.path),
+        mountPath: dest,
+        room: target.room,
+        addIgnore: (p) => ignoreSet.add(p),
+        removeIgnore: (p) => ignoreSet.delete(p),
+        buildSession: () => {
+          // Visible (with its badge row) while the pull runs.
+          ui.mounts = [...ui.mounts, info]
+          added = true
+          return buildMount({
+            room: target.room,
+            path: dest,
+            provenance: 'joined',
+            relay: { url: target.relay, token: target.token },
+            firstJoin: true,
+            onShared: (l) => {
+              info.link = l
+              ui.mounts = ui.mounts.map((m) => (m.room === target.room ? { ...m, link: l } : m))
+            },
+          })
+        },
+      })
+      setRoomToken(target.room, target.token)
+      registry.add(dest, session)
+      refreshTree()
+    } catch (err) {
+      if (added) ui.mounts = ui.mounts.filter((m) => m.room !== target.room)
+      refreshTree()
+      throw err
+    }
+  }
+
+  /** Rebuild the root session from its (surgically updated) durable stores. */
+  const rebuildRoot = async (): Promise<void> => {
+    rootSession = await buildMount({
+      room: cfg.room,
+      path: '',
+      provenance: 'local',
+      onShared: (link) => {
+        ui.shared = true
+        ui.shareLink = link
+      },
+    })
+    registry.add('', rootSession)
+  }
+
+  const mountAt = (path: string): MountInfo => {
+    const info = ui.mounts.find((m) => m.path === path)
+    if (!info) throw new Error(`'${path}' is not a shared folder`)
+    return info
+  }
+
+  const dropSelectionUnder = (path: string): void => {
+    if (ui.selectedPath && (ui.selectedPath === path || ui.selectedPath.startsWith(`${path}/`))) {
+      select(null)
+    }
+  }
+
+  const doUnshare = async (path: string): Promise<void> => {
+    const info = mountAt(path)
+    dropSelectionUnder(path)
+    const mount = registry.resolve(path)!.session
+    // Both sessions leave the registry before the stop-the-world surgery.
+    registry.remove(path)
+    registry.remove('')
+    await unshareMount({
+      vaultDir: cfg.storeDir,
+      mountsFile,
+      engine,
+      rootRoom: cfg.room,
+      desc: { room: info.room, path },
+      mount,
+      root: rootSession!,
+      removeIgnore: (p) => ignoreSet.delete(p),
+    })
+    ui.mounts = ui.mounts.filter((m) => m.room !== info.room)
+    await rebuildRoot()
+    refreshTree()
+  }
+
+  const doUnmount = async (path: string): Promise<void> => {
+    const info = mountAt(path)
+    dropSelectionUnder(path)
+    const mount = registry.resolve(path)!.session
+    registry.remove(path)
+    await unmountMount({
+      vaultDir: cfg.storeDir,
+      mountsFile,
+      engine,
+      rootRoom: cfg.room,
+      desc: { room: info.room, path },
+      mount,
+      removeIgnore: (p) => ignoreSet.delete(p),
+    })
+    ui.mounts = ui.mounts.filter((m) => m.room !== info.room)
+    // The files are on disk and newly visible to the root — enroll them now
+    // (a big folder legitimately trips the breaker dialog here).
+    await rootSession!.rescan()
+    refreshTree()
+  }
+
+  const isCrossMount = (from: string, to: string): boolean => {
+    const a = registry.resolve(from)
+    const b = registry.resolve(to)
+    return !!a && !!b && a.session !== b.session
+  }
+
+  const doMovePath = async (from: string, to: string): Promise<void> => {
+    const src = registry.resolve(from)
+    const dst = registry.resolve(to)
+    if (!src || !dst) return
+    if (src.session === dst.session) {
+      await src.session.renamePath(src.rel, dst.rel)
+      return
+    }
+    dropSelectionUnder(from)
+    const row = ui.files.find((f) => f.path === from)
+    if (!row) return
+    // Import into the target FIRST, tombstone the source after — a crash in
+    // between leaves a visible duplicate (both journaled), never a loss.
+    if (row.kind === 'dir') {
+      const childPrefix = `${from}/`
+      const children = ui.files.filter((f) => f.path.startsWith(childPrefix))
+      const rebase = (p: string): string => `${dst.rel}${p.slice(from.length)}`
+      await dst.session.createDir(dst.rel)
+      for (const child of children.filter((c) => c.kind === 'dir')) {
+        await dst.session.createDir(rebase(child.path))
+      }
+      for (const child of children.filter((c) => c.kind !== 'dir')) {
+        const bytes = await src.session.readFileBytes(child.path.slice(src.mountPath ? src.mountPath.length + 1 : 0))
+        if (bytes) await dst.session.importFile(rebase(child.path), bytes)
+      }
+    } else {
+      const bytes = await src.session.readFileBytes(src.rel)
+      if (bytes === null) throw new Error(`cannot read ${from}`)
+      await dst.session.importFile(dst.rel, bytes)
+    }
+    await src.session.deletePath(src.rel)
+    refreshTree()
+  }
+
   return {
     ui,
     user,
@@ -458,19 +642,27 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     renamePath: async (from, to) => {
       const r = registry.resolve(from)
       const rTo = registry.resolve(to)
-      if (!r || !rTo || r.session !== rTo.session) {
-        // Cross-mount moves are spike S8 Q5 territory (slice M5).
-        ui.error = 'cannot move across shared-folder boundaries yet'
+      if (!r || !rTo) return
+      if (r.session !== rTo.session) {
+        // Cross-mount: the caller must route through movePath (confirm first).
+        ui.error = 'moving across shared-folder boundaries needs the move confirmation'
         return
       }
       await r.session.renamePath(r.rel, rTo.rel)
     },
+    movePath: doMovePath,
+    isCrossMount,
     deletePath: async (path) => {
       const r = registry.resolve(path)
       if (r) await r.session.deletePath(r.rel)
     },
     resolveReview: (guid, mergedText) =>
       (reviewOwner.get(guid) ?? rootSession!).resolveReview(guid, mergedText),
+    resolveVanished: (guid, action) =>
+      (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
+    addShareMount: doJoinMount,
+    unshare: doUnshare,
+    unmount: doUnmount,
     enableSharing: (relay) => rootSession!.enableSharing(relay),
     carveFolder: doCarve,
     confirmBreaker: async () => {

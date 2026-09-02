@@ -10,6 +10,8 @@
   import VaultManager from './lib/components/VaultManager.svelte'
   import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
   import { configForMemory, configForSession, newFolderGuid } from './lib/boot.js'
+  import AddShareDialog from './lib/components/AddShareDialog.svelte'
+  import ConfirmDialog from './lib/components/ConfirmDialog.svelte'
   import FolderShareDialog from './lib/components/FolderShareDialog.svelte'
   import {
     addShare,
@@ -21,6 +23,7 @@
     loadShares,
     loadUser,
     operatorSecret,
+    removeShare,
     removeVault,
     saveUser,
     setRoomToken,
@@ -29,7 +32,7 @@
     upsertVault,
     type VaultEntry,
   } from './lib/config.js'
-  import { mintShare } from './lib/relay-admin.js'
+  import { listShares, mintShare, revokeShare } from './lib/relay-admin.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { dirPaths, type TreeOp } from './lib/tree-model.js'
@@ -282,6 +285,62 @@
     return link
   }
 
+  // ---- M5: add-share, unshare/unmount, cross-mount move confirms ----
+  let addShareOpen = $state(false)
+  let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
+  let unmountConfirm = $state<string | null>(null)
+  let moveConfirm = $state<{ from: string; to: string; leavingShared: boolean } | null>(null)
+
+  async function confirmUnshare(revokeTokens: boolean): Promise<void> {
+    const target = unshareConfirm
+    unshareConfirm = null
+    if (!target || !workspace) return
+    const room = workspace.ui.mounts.find((m) => m.path === target.path)?.room
+    try {
+      await workspace.unshare(target.path)
+      if (room) {
+        removeShare(room)
+        setRoomToken(room, '')
+        if (revokeTokens && operatorSecret()) {
+          for (const share of await listShares(defaultRelay(), operatorSecret(), room)) {
+            await revokeShare(defaultRelay(), operatorSecret(), share.token)
+          }
+        }
+      }
+      refreshLists()
+    } catch (err) {
+      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  async function confirmUnmount(): Promise<void> {
+    const path = unmountConfirm
+    unmountConfirm = null
+    if (!path || !workspace) return
+    const room = workspace.ui.mounts.find((m) => m.path === path)?.room
+    try {
+      await workspace.unmount(path)
+      if (room) {
+        removeShare(room)
+        setRoomToken(room, '')
+      }
+      refreshLists()
+    } catch (err) {
+      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  async function confirmCrossMove(): Promise<void> {
+    const mv = moveConfirm
+    moveConfirm = null
+    if (!mv || !workspace) return
+    try {
+      await workspace.movePath(mv.from, mv.to)
+    } catch (err) {
+      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+    }
+  }
+
   // ---- tree operations (M3): the tree requests, App owns the dialogs ----
   let treeOp = $state<TreeOp | null>(null)
 
@@ -293,6 +352,16 @@
     }
     if (op.type === 'share-folder') {
       folderSharePath = op.path
+      return
+    }
+    if (op.type === 'unshare') {
+      const provenance =
+        workspace.ui.mounts.find((m) => m.path === op.path)?.provenance ?? 'carved'
+      unshareConfirm = { path: op.path, provenance }
+      return
+    }
+    if (op.type === 'unmount') {
+      unmountConfirm = op.path
       return
     }
     treeOp = op
@@ -309,15 +378,32 @@
       await workspace.renamePath(op.path, parent ? `${parent}/${value}` : value)
     } else if (op.type === 'move') {
       const base = op.path.slice(op.path.lastIndexOf('/') + 1)
-      await workspace.renamePath(op.path, value ? `${value}/${base}` : base)
+      const to = value ? `${value}/${base}` : base
+      if (workspace.isCrossMount(op.path, to)) {
+        // Crossing a share boundary changes who can see the content — confirm
+        // with honest consequences before anything moves (spike S8 Q5).
+        const leavingShared = workspace.ui.mounts.some(
+          (m) => op.path === m.path || op.path.startsWith(`${m.path}/`)
+        )
+        moveConfirm = { from: op.path, to, leavingShared }
+      } else {
+        await workspace.movePath(op.path, to)
+      }
     } else if (op.type === 'delete') {
       await workspace.deletePath(op.path)
     }
   }
 
-  /** Narrowed props for the dialog (new-file/share-folder never open this one). */
+  /** Narrowed props for the dialog (ops with their own affordance never open this one). */
   const treeOpDialog = $derived.by(() => {
-    if (!treeOp || treeOp.type === 'new-file' || treeOp.type === 'share-folder') return null
+    if (
+      !treeOp ||
+      treeOp.type === 'new-file' ||
+      treeOp.type === 'share-folder' ||
+      treeOp.type === 'unshare' ||
+      treeOp.type === 'unmount'
+    )
+      return null
     if (treeOp.type === 'new-folder')
       return { mode: 'new-folder' as const, path: treeOp.dir, kind: 'dir' as const }
     return { mode: treeOp.type, path: treeOp.path, kind: treeOp.kind }
@@ -397,6 +483,14 @@
             {workspace.ui.error}
           </span>
         {/if}
+        <button
+          data-testid="add-share"
+          onclick={() => (addShareOpen = true)}
+          class="rounded bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+          title="Join a shared folder into this vault"
+        >
+          Add share
+        </button>
         <ShareDialog
           shared={workspace.ui.shared}
           shareLink={workspace.ui.shareLink}
@@ -449,8 +543,54 @@
       <ReviewModal
         review={activeReview}
         onResolve={(guid, mergedText) => void workspace?.resolveReview(guid, mergedText)}
+        onVanished={(guid, action) => void workspace?.resolveVanished(guid, action)}
       />
     {/key}
+  {/if}
+
+  {#if addShareOpen}
+    <AddShareDialog
+      dirs={dirPaths(workspace.ui.files)}
+      onJoin={(link, dest) => workspace!.addShareMount(link, dest)}
+      onClose={() => (addShareOpen = false)}
+    />
+  {/if}
+
+  {#if unshareConfirm}
+    <ConfirmDialog
+      title="Stop sharing '{unshareConfirm.path}'?"
+      body="The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing access tokens keep working until revoked."
+      confirmLabel="Stop sharing"
+      checkboxLabel={opSecret ? 'Also revoke all access tokens on the relay' : undefined}
+      testid="unshare-confirm"
+      onConfirm={(revoke) => void confirmUnshare(revoke)}
+      onCancel={() => (unshareConfirm = null)}
+    />
+  {/if}
+
+  {#if unmountConfirm}
+    <ConfirmDialog
+      title="Remove shared folder '{unmountConfirm}'?"
+      body="This vault stops syncing the folder. Its files stay on disk and become plain local notes (delete the folder afterwards if you don't want them). Other people are unaffected."
+      confirmLabel="Remove from vault"
+      testid="unmount-confirm"
+      onConfirm={() => void confirmUnmount()}
+      onCancel={() => (unmountConfirm = null)}
+    />
+  {/if}
+
+  {#if moveConfirm}
+    <ConfirmDialog
+      title="Move across a sharing boundary?"
+      body={moveConfirm.leavingShared
+        ? `Moving '${moveConfirm.from}' out of the shared folder removes it for everyone else, and it stops syncing. Its sync history starts over as a local file.`
+        : `Moving '${moveConfirm.from}' into the shared folder makes it visible to everyone sharing it. Its sync history starts over in the shared space.`}
+      confirmLabel="Move"
+      danger={moveConfirm.leavingShared}
+      testid="cross-move-confirm"
+      onConfirm={() => void confirmCrossMove()}
+      onCancel={() => (moveConfirm = null)}
+    />
   {/if}
 
   {#if treeOpDialog}

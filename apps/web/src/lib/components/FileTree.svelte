@@ -76,6 +76,10 @@
       (m) => node.path.startsWith(`${m.path}/`) || m.path.startsWith(`${node.path}/`)
     )
   })
+  /** The context node's mount, when it IS a mount root (unshare/unmount). */
+  const contextMount = $derived(
+    contextNode && contextNode.kind === 'dir' ? (mountByPath.get(contextNode.path) ?? null) : null
+  )
 </script>
 
 <nav data-testid="file-tree" aria-label="Files" class="flex h-full flex-col overflow-y-auto">
@@ -129,6 +133,24 @@
         >
           share
         </button>
+      {/if}
+      {#if contextMount}
+        <button
+          data-testid="tree-unshare"
+          onclick={() => onOp({ type: 'unshare', path: contextNode.path })}
+          class="rounded px-1.5 py-0.5 text-amber-700 hover:bg-amber-50"
+        >
+          unshare
+        </button>
+        {#if contextMount.provenance === 'joined'}
+          <button
+            data-testid="tree-unmount"
+            onclick={() => onOp({ type: 'unmount', path: contextNode.path })}
+            class="rounded px-1.5 py-0.5 text-amber-700 hover:bg-amber-50"
+          >
+            unmount
+          </button>
+        {/if}
       {/if}
       <button
         data-testid="tree-rename"

@@ -260,6 +260,30 @@ materialize into. The relay's content is pulled and you're co-editing live. The
 `?share=` deep-link (`/?share=editor1:…`) works too and is cleared from the URL
 once you join.
 
+**Join a share INTO an existing vault (M5).** In a workspace: header →
+**Add share** → paste the link and pick a destination folder (new or empty —
+e.g. `shared/team`). The shared content materializes there, badged
+`shared with you`, syncing alongside your local notes. Guards refuse non-empty
+destinations, overlaps with existing shared folders, and (V1) adding shares
+inside a vault that is itself shared.
+
+**Unshare / unmount (M5).** Click a shared folder in the tree →
+- **unshare** — stop syncing and fold the folder back into the vault (files
+  stay, same content identity; peers keep their copies but nothing syncs).
+  Optional checkbox revokes all of the share's relay tokens.
+- **unmount** *(joined shares)* — drop the share from this vault; the files
+  stay on disk and re-enroll as plain local notes (delete the folder
+  afterwards if you don't want them).
+
+**Moving across a share boundary (M5)** asks for confirmation first: moving a
+file *out* of a shared folder removes it for everyone else; moving one *in*
+makes it visible to everyone. Either way the file's sync identity starts over
+in its new home. A file *deleted or moved away by an external tool* (git,
+Obsidian, a file manager) is never silently dropped: Editor raises a
+**vanished-file review** offering *Restore file* (from the synced content —
+concurrent remote edits included) or *Confirm removal* (tombstones it for
+every peer; a recovery copy lands in the journal first).
+
 > **Reopen is durable (slice M1).** Every vault — local or joined — persists
 > its CRDT doc state, LCA records, and pre-image journal in a per-vault store
 > (app-data under Tauri, OPFS in the browser), so a relaunch boots from those

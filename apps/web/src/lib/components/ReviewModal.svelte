@@ -8,11 +8,15 @@
   interface Props {
     review: DivergenceReview
     onResolve: (guid: string, mergedText: string) => void
+    /** 'vanished' reviews resolve two-way instead of by merged text (M5). */
+    onVanished: (guid: string, action: 'restore' | 'remove') => void
   }
 
   // Parent remounts this component per review ({#key review.guid}), so pick
   // state never leaks across reviews.
-  let { review, onResolve }: Props = $props()
+  let { review, onResolve, onVanished }: Props = $props()
+
+  const vanished = $derived(review.reason === 'vanished')
 
   const hunks = $derived(computeMergeHunks(review))
   /** Non-null when diff3 found no real conflicts — "accept merge" is then free. */
@@ -49,6 +53,34 @@
       </p>
     </header>
 
+    {#if vanished}
+      <div class="flex-1 overflow-y-auto px-4 py-3">
+        <p class="text-xs text-gray-600">
+          This file was deleted on disk outside Editor, but its synced content still exists.
+          Restore it, or confirm the deletion — confirming removes it for everyone sharing this
+          folder (a recovery copy is journaled).
+        </p>
+        <pre
+          data-testid="vanished-content"
+          class="mt-2 max-h-64 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs whitespace-pre-wrap text-gray-700">{review.mine}</pre>
+      </div>
+      <footer class="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3">
+        <button
+          data-testid="vanished-remove"
+          onclick={() => onVanished(review.guid, 'remove')}
+          class="rounded border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+        >
+          Confirm removal
+        </button>
+        <button
+          data-testid="vanished-restore"
+          onclick={() => onVanished(review.guid, 'restore')}
+          class="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+        >
+          Restore file
+        </button>
+      </footer>
+    {:else}
     <div class="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs">
       {#each hunks as hunk, i (i)}
         {#if hunk.kind === 'ok'}
@@ -119,5 +151,6 @@
         accept merge
       </button>
     </footer>
+    {/if}
   </div>
 </div>

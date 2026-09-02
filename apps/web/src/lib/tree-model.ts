@@ -85,6 +85,8 @@ export type TreeOp =
   | { type: 'move'; path: string; kind: 'dir' | 'text' | 'binary' }
   | { type: 'delete'; path: string; kind: 'dir' | 'text' | 'binary' }
   | { type: 'share-folder'; path: string }
+  | { type: 'unshare'; path: string }
+  | { type: 'unmount'; path: string }
 
 // ---- provenance filter (R3.2, M4) ----
 
