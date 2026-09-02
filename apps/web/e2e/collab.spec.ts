@@ -4,6 +4,7 @@
  * sync-pill honesty (+ binary badge). Two browser contexts share one relay.
  */
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { encodeShareLink } from '../src/lib/share-link.js'
 
 const RELAY = 'ws://localhost:8799'
 const ROOM = 'e2eroom'
@@ -65,6 +66,72 @@ test('a bad token fails fast with a real message, not eternal connecting', async
   await page.goto(`/?${params.toString()}`)
   await expect(page.getByTestId('boot-error')).toContainText('rejected', { timeout: 15_000 })
   await context.close()
+})
+
+test('join via share link into OPFS: materializes, co-edits, and reopens', async ({ browser }) => {
+  test.setTimeout(90_000) // reload + re-join is heavier than the memory paths
+
+  // Alice seeds the room's content to the relay (memory backend).
+  const alice = await openPeer(browser, 'seed', 'Alice')
+
+  // Bob joins through a share link → OPFS-backed vault (the O3 path). The link
+  // is a deep-link into the landing screen; he names himself and joins.
+  const link = encodeShareLink({ relay: RELAY, room: ROOM, token: TOKEN })
+  const ctx = await browser.newContext()
+  const page = await ctx.newPage()
+  await page.goto(`/?share=${encodeURIComponent(link)}`)
+  await page.getByTestId('landing-name').fill('Bob')
+  await page.getByTestId('join-share').click()
+
+  // Relay content materialized into the OPFS vault.
+  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
+
+  // Live propagation Alice → Bob over the joined OPFS vault.
+  await openFile(alice.page)
+  await openFile(page)
+  await typeAtTop(alice.page, 'OPFS-JOIN ')
+  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+
+  // Wait for Bob's flush to settle (green = disk written, and Invariant D
+  // means the durable doc blob was flushed BEFORE that LCA advance) so the
+  // relay-less reload below must serve the edit from OPFS stores alone.
+  await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute('data-status', 'green', {
+    timeout: 15_000,
+  })
+
+  // Reopen with the RELAY UNREACHABLE (slice M1): the ?share= param was
+  // cleared on join, so a reload rehydrates the persisted session — and with
+  // durable stores the vault boots from OPFS alone. Only websockets are
+  // severed (setOffline would block the dev server too); the pre-M1
+  // wipe+re-pull path would show an empty vault here. A flag flips the route
+  // between severed and pass-through: ws routes persist across unrouteAll
+  // and only take effect after a navigation (verified empirically, PW 1.60).
+  let relaySevered = true
+  await page.routeWebSocket(/.*/, (ws) => {
+    if (relaySevered) ws.close()
+    else ws.connectToServer()
+  })
+  await page.reload()
+  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
+  await openFile(page)
+  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+
+  // Reopen ONLINE: a second reload with the relay reachable again — the
+  // durable boot catches up and returns honestly to green, with the file
+  // singular (the pre-M1 re-pull is gone; nothing doubles, nothing is lost).
+  relaySevered = false
+  await page.reload()
+  await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
+  await openFile(page)
+  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+  await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute('data-status', 'green', {
+    timeout: 30_000,
+  })
+
+  await alice.context.close()
+  await ctx.close()
 })
 
 test('seed + join: edits propagate both ways and pills are honest', async ({ browser }) => {

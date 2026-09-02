@@ -14,11 +14,10 @@
     "@editor/editor": "workspace:*",
     "@editor/sync": "workspace:*",
     "@editor/vault": "workspace:*",
-    "@hocuspocus/provider": "^4.0.0",
+    "@editor/workspace": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-fs": "^2.0.0",
-    "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.27",
     "y-protocols": "^1.0.6"
   },

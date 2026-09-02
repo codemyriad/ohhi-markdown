@@ -339,6 +339,7 @@
     { "packageName": "@editor/sync", "projectFolder": "libs/sync" },
     { "packageName": "@editor/testkit", "projectFolder": "libs/testkit" },
     { "packageName": "@editor/vault", "projectFolder": "libs/vault" },
+    { "packageName": "@editor/workspace", "projectFolder": "libs/workspace" },
     { "packageName": "@editor/editor", "projectFolder": "libs/editor" },
     { "packageName": "@editor/relay", "projectFolder": "apps/relay" },
     { "packageName": "@editor/web", "projectFolder": "apps/web" },

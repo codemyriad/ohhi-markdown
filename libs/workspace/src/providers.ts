@@ -10,14 +10,15 @@
  *   seam's 'remote' string) — callers must compare origins against
  *   `connection.provider`;
  * - `unsyncedChanges` counts local updates not yet acked by the server's
- *   SyncStatus message; `synced` flips true once it drains after a handshake.
+ *   SyncStatus message; `synced` flips true once it drains after a handshake;
+ * - a provider given an explicit `websocketProvider` does NOT auto-attach
+ *   (manageSocket is false) — the non-browser path below attaches by hand.
  */
-import { HocuspocusProvider } from '@hocuspocus/provider'
+import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
 import { Awareness } from 'y-protocols/awareness'
 import type * as Y from 'yjs'
 import type { EngineDoc } from '@editor/sync'
-import type { SyncRecord } from './sync-record.svelte.js'
-import type { CollabUser } from '@editor/editor'
+import type { CollabUser, SyncRecordFields } from './types.js'
 
 export interface DocConnection {
   provider: HocuspocusProvider
@@ -33,9 +34,11 @@ export interface ConnectDocOptions {
   doc: EngineDoc
   user: CollabUser
   /** Reactive record this provider keeps honest. */
-  record: SyncRecord
+  record: SyncRecordFields
   /** Auth rejection is permanent — surface it instead of retrying silently. */
   onAuthFailed?: (reason: string) => void
+  /** Non-browser hosts (headless peer, tests) pass their WebSocket impl. */
+  webSocketPolyfill?: unknown
 }
 
 export function connectDoc(opts: ConnectDocOptions): DocConnection {
@@ -43,13 +46,12 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
   const awareness = new Awareness(ydoc)
   awareness.setLocalStateField('user', { name: opts.user.name, color: opts.user.color })
 
-  const provider = new HocuspocusProvider({
-    url: opts.relay,
+  const shared = {
     name: opts.name,
     token: opts.token,
     document: ydoc,
     awareness,
-    onStatus: ({ status }) => {
+    onStatus: ({ status }: { status: string }) => {
       opts.record.connected = status === 'connected'
       // synced is only re-emitted by the provider on the next handshake;
       // degrade immediately so the pill never shows a stale green.
@@ -58,21 +60,38 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
     onSynced: () => {
       opts.record.synced = true
     },
-    onUnsyncedChanges: ({ number }) => {
+    onUnsyncedChanges: ({ number }: { number: number }) => {
       opts.record.pendingLocal = number > 0
     },
-    onAuthenticationFailed: ({ reason }) => {
+    onAuthenticationFailed: ({ reason }: { reason: string }) => {
       opts.record.connected = false
       opts.record.synced = false
       opts.onAuthFailed?.(reason)
     },
-  })
+  }
+
+  let provider: HocuspocusProvider
+  let socket: HocuspocusProviderWebsocket | null = null
+  if (opts.webSocketPolyfill) {
+    socket = new HocuspocusProviderWebsocket({
+      url: opts.relay,
+      WebSocketPolyfill: opts.webSocketPolyfill as typeof WebSocket,
+    })
+    provider = new HocuspocusProvider({ ...shared, websocketProvider: socket })
+    provider.attach()
+  } else {
+    provider = new HocuspocusProvider({ ...shared, url: opts.relay })
+  }
 
   return {
     provider,
     awareness,
-    // provider.destroy() also destroys the awareness it was handed.
-    destroy: () => provider.destroy(),
+    // provider.destroy() also destroys the awareness it was handed; an
+    // explicitly-created socket is ours to close.
+    destroy: () => {
+      provider.destroy()
+      socket?.destroy()
+    },
   }
 }
 
