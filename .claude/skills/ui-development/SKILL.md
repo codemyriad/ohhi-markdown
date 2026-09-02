@@ -24,12 +24,47 @@ If a task touches visual components, layout, or styles, start here before reachi
 This project uses:
 
 - **Svelte 5** – runes-based reactivity (`$props`, `$state`, `$derived`, `$effect`, etc.).
-- **Tailwind CSS v4** – utility-first CSS, CSS-first configuration (`@theme` and other modern features).
+- **Tailwind CSS v4** – utility-first CSS, CSS-first configuration (`@theme`, `@plugin`, `@layer`).
+- **DaisyUI v5** – standard CSS components, `dui-` prefixed (the Edible convention). Adopted in slice V2a.
 - **CodeMirror 6** – the editor surface (see the integration pattern below).
 
-**DaisyUI and Melt UI are not yet dependencies.** Editor follows the same conventions as Edible — DaisyUI for standard CSS components, Melt UI for complex headless/accessible primitives — and will adopt them when a slice actually needs them. Don't add either speculatively; if a task seems to call for one, confirm first.
+**Melt UI is still not a dependency** — adopt it when a slice actually needs a complex headless primitive; don't add it speculatively.
+
+**Where things live**: `libs/ui` (tokens + themes, CSS only), `libs/editor`
+(the CM6 surface and its theme), `libs/editor-lang` (markdown language
+extras), `libs/index` (the derived index), `apps/web/src/lib/components`
+(the shell). Ground truth for UI decisions: `plans/v2-shaping.md` and
+`docs/theming.md`, then `plans/shaping.md` / `plans/slices.md`.
 
 Storybook is not set up; add it later if needed.
+
+### Design tokens — read `docs/theming.md` before touching colour
+
+`libs/ui` owns the whole token system, in three bands driven by one
+`data-theme` attribute on `<html>`:
+
+| Band | Use it for | Examples |
+|---|---|---|
+| **A — chrome** (DaisyUI) | every app surface | `bg-base-100`, `bg-base-200`, `text-base-content/70`, `border-base-300`, `bg-primary text-primary-content`, `text-error`, `dui-btn` |
+| **B — editor** (`--ed-*`) | anything inside or about the editing surface | `bg-ed-surface`, `text-ed-wikilink`, `font-ed-mono`, or `var(--ed-h1)` from CM6 |
+| **C — sync honesty** (`--ed-sync-*`) | the pill and nothing else | `bg-ed-sync-ok` / `-pending` / `-diverged` / `-offline` |
+
+**Rules, all enforced or load-bearing:**
+
+- **Never write a raw palette utility** — no `bg-white`, `text-gray-500`,
+  `border-blue-500`, `bg-black/30`. `scripts/check-design-tokens.sh` fails the
+  build on them. A single one makes a panel ignore the theme, and it is
+  invisible until someone switches to dark.
+- **Never put a literal colour in a CM6 theme object.** `EditorView.theme()`
+  injects one global stylesheet that never re-runs; use `var(--ed-*)`.
+- **Never re-implement an overlay.** Use `Modal.svelte` (scrim, z-scale,
+  Escape, backdrop click, focus trap + restore) and `Palette.svelte` for
+  anything list-and-filter shaped.
+- **The sync tokens are unlayered on purpose.** Don't "tidy" them into a
+  `@layer`: that is what stops an injected user theme from repainting the pill.
+- Adding a token means adding it to `libs/ui/src/styles/tokens/_contract.css`
+  with a default. `theme-contract.test.ts` asserts the contract, the sync-colour
+  separation, contrast, and that no presence colour sits near the diverged red.
 
 ---
 
@@ -76,8 +111,18 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
 - **Collab binding**:
   - The **vendored y-codemirror.next** binding connects the open doc's Y.Text and awareness (remote cursors/selections) to the view via `docSession`.
   - Document state flows through Yjs, not Svelte. Do not mirror editor content into `$state`; the Y.Doc is the source of truth.
-- **Plain markdown first**:
-  - V1 ships zero preview. Live preview (decorations) and the forked markdown grammar come in later slices — don't build toward them speculatively.
+- **Markdown language extras live in `libs/editor-lang`**:
+  - Wikilinks shipped in V2c as a ~120-line `MarkdownConfig` on **upstream**
+    `@codemirror/lang-markdown` — explicitly **not** a fork of
+    `lezer-markdown-obsidian` (`plans/v2-shaping.md` Fork 3). Add new syntax
+    the same way.
+  - Host behaviour (resolve / open / create a link target) arrives through the
+    `wikiLinkHost` **Facet**, never as a prop: a prop the wrapper tracks would
+    destroy and rebuild the `EditorView` — losing cursor, scroll and undo — on
+    every parent render.
+  - Live-preview decorations (marker hiding, checkbox widgets, image embeds)
+    land here in V2e. Tables, callouts and transclusion stay out: the real
+    vault has 56 table rows and zero of the other two.
 
 ---
 
@@ -118,6 +163,7 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
   - Prefer `$props`, `$state`, `$derived`, `$effect` over older Svelte patterns.
 - **Tailwind v4 patterns**:
   - Use the CSS-first configuration with `@theme` and other modern Tailwind features.
+  - `@theme inline` is mandatory for any token whose value is another `var()`.
   - Avoid bespoke inline styles when utilities suffice.
 - **Accessibility**:
   - Use semantic elements and roles:
@@ -147,7 +193,7 @@ When adding components, prefer `apps/web` for app UI and `libs/editor` for anyth
 
 ## How to extend this skill
 
-When UI patterns or libraries change (for example adopting DaisyUI/Melt UI, adding live preview, or Tailwind upgrades):
+When UI patterns or libraries change (for example adopting Melt UI, adding live-preview decorations, or Tailwind upgrades):
 
 - Update this SKILL to reflect:
   - New recommended component approaches.

@@ -20,7 +20,7 @@ Neither side can be ignored, and neither can blindly overwrite the other. The ca
 
 ## The pattern: a shadow copy as merge base
 
-The fix is the classic move every serious file syncer makes (Dropbox-style syncers keep a last-synced snapshot; git merges through a merge base; relay.md proved the same shape works for an Obsidian vault over Yjs — see [research](../../plans/research/file-crdt-reconciliation.md)): **remember what both sides last agreed on**. We call that the **LCA** — last common ancestor — and keep one per enrolled file in `lcaStore`, a durable device-local SQLite (app-data, never the droppable index, never browser-evictable storage — more on why below):
+The fix is the classic move every serious file syncer makes (Dropbox-style syncers keep a last-synced snapshot; git merges through a merge base; relay.md proved the same shape works for an Obsidian vault over Yjs — see [research](../../plans/research/file-crdt-reconciliation.md)): **remember what both sides last agreed on**. We call that the **LCA** — last common ancestor — and keep one per enrolled file in `lcaStore`, a durable device-local store (an atomic JSON file in app-data — never the droppable index, never browser-evictable storage; more on why below):
 
 ```
 { guid, path, baseText, contentHash, eolFlavor, bom, heads (sv + ds digest), snapshot }

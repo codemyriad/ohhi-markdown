@@ -64,10 +64,14 @@ Rush monorepo, packages named `@editor/<name>`, created per-slice (shaping D10).
 | `libs/sync` | The **engine seam**. Owns Y.Docs, the Hocuspocus client provider per doc, reconnect/backoff, the `syncRecord` per doc, and heads/snapshot encoding. The only package that imports `yjs`. See [sync.md](sync.md). |
 | `libs/vault` | The disk side: `TauriVaultAdapter` (read/write/list/rename + watcher), `enrollmentService` (GUID minting, seeding, binary detection), the `reconciler` (dmp ingest / materialize / diff3 escalation), `lcaStore`, `preImageJournal` + restore CLI. See [vault-and-reconciler.md](vault-and-reconciler.md). |
 | `apps/relay` | Thin Hocuspocus v4 service on Fly.io: static-token auth against a relay-authoritative shares table, SQLite persistence. Deliberately dumb in V1. See [relay.md](relay.md). |
+| `libs/workspace` | Host-neutral orchestration: a workspace is a set of **mounts** (a subtree bound to a room). Owns the folder map, doc lifecycle, carve/join/unshare, the mass-change breaker, and the boot delta scan. Knows nothing about Svelte — `apps/web` mirrors its events into runes. Extracted in M1. |
+| `libs/ui` | Design tokens and themes (Tailwind v4 + DaisyUI v5). CSS + token-name types only — no components, no logic. Three bands driven by `data-theme`: DaisyUI chrome, `--ed-*` editor tokens, and unlayered `--ed-sync-*` honesty tokens. See [theming.md](../theming.md). |
+| `libs/index` | The vault's **derived** index: full text, links, tags, headings, frontmatter keys. Droppable by construction, never a system of record. One swap-proof query interface over an in-memory backend; SQLite/FTS5 sits behind a measured trigger (`plans/v2-shaping.md` Fork 1). |
+| `libs/editor-lang` | Markdown language extras for CM6 — the `[[wikilink]]` `MarkdownConfig` on upstream `@codemirror/lang-markdown`, its decorations, click-through and completion. Live-preview decorations land here too. |
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
 
-Split-on-demand later: `libs/index`, `libs/editor-lang`, `libs/agent`, `apps/agentd`
-(V2–V3 slices). Don't reference them before their slice creates them.
+Split-on-demand later: `libs/agent`, `apps/agentd` (V3). Don't reference them
+before their slice creates them.
 
 ## Dependency rules
 
@@ -91,6 +95,14 @@ harness possible.
 5. All Editor-owned sync/reconciler code takes an **injected clock/scheduler**
    (lint-enforced; third-party provider internals exempt). Deterministic simulation is
    the foundation of the harness (shaping D9).
+6. **`libs/ui` is tokens and CSS only.** It imports nothing from other `libs/*`;
+   other packages may import its `./tokens` entry (token names and helpers),
+   never its CSS. The CSS is applied once by the app shell — a library that
+   imported it would inject a second copy of every theme.
+7. **`libs/index` depends on nothing.** It is a pure data structure over text
+   handed to it. It never reads disk, never touches the engine, and is fed from
+   exactly one place (the workspace's index sink) — an index with N writers
+   drifts from the vault.
 
 ## The two file modes
 

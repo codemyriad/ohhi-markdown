@@ -12,6 +12,7 @@ Learning and reference documentation for the Editor project — a collaborative,
 | Doc | What it covers |
 |---|---|
 | [running-and-testing.md](running-and-testing.md) | **The runbook.** How to install the toolchain, run the test suite, drive the two-tab collaboration demo in a browser, launch the Tauri desktop shell, and troubleshoot. |
+| [theming.md](theming.md) | **The design system.** Three token bands driven by one `data-theme` attribute, why the sync-honesty tokens are unlayered, how CodeMirror is themed from the same tokens, the four built-in themes, and the Obsidian→Editor porting table for custom themes. |
 | [glossary.md](glossary.md) | Every term a newcomer hits in this repo, alphabetical, cross-linked to the primers. |
 | [primers/01-crdts-and-yjs.md](primers/01-crdts-and-yjs.md) | What a CRDT is and why; Yjs concretely — Y.Doc, Y.Text, updates, state vectors, delete sets (why heads = SV + DS), transactions/origins, awareness. |
 | [primers/02-plain-text-crdt-over-markdown.md](primers/02-plain-text-crdt-over-markdown.md) | Why the CRDT runs over the literal markdown bytes vs rich-text trees and block models; round-trip fidelity; the moment.dev pt 2 critique; what we give up. |

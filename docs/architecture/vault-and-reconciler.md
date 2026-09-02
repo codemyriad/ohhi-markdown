@@ -69,7 +69,9 @@ can distinguish disk-ingested ops in telemetry, and L1 fixtures assert that orig
 
 ## The LCA record and the iron rule
 
-One record per enrolled file, in `lcaStore` — the **durable** app-data SQLite store
+One record per enrolled file, in `lcaStore` — the **durable** app-data store
+(an atomic JSON file per mount, `<room>/lca.json`; SQLite behind the same
+interface if it is ever needed)
 (shaping D5b): never the droppable index, never browser-evictable storage. Losing an LCA
 record silently degrades every future merge of that file, so it is treated as
 never-droppable state alongside the pre-image journal.

@@ -59,7 +59,14 @@ Preventing a stale client's replayed history from merging into a doc that was re
 One Y.Doc per shared folder holding a CRDT map of vault-relative paths → doc GUIDs plus metadata. It propagates creates/renames/deletes and renders the file tree; it is *advisory*, never an auth source. See [primer 05](primers/05-sync-and-relay.md#sharing-per-note-and-per-folder).
 
 ### FTS5
-SQLite's full-text search extension; powers vault-wide search from the local, droppable index (V2) so search never waits on the network (R4.1).
+SQLite's full-text search extension. **Not what V2 ships.** The index was
+shaped as FTS5 (sqlite-wasm in the browser, rusqlite under Tauri), but measured
+against the real vault — 1,029 notes / 3.0 MB, where an index build is a pure
+CPU pass over text already resident in RAM and search answers in ~1 ms — the
+5,000-doc premise did not hold. V2 ships `libs/index`: one swap-proof query
+interface over an in-memory TypeScript backend. FTS5 returns behind a measured
+trigger (>5k files, >20 MB, cold build >750 ms, or search p95 >50 ms). See
+[`plans/v2-shaping.md`](../plans/v2-shaping.md) Fork 1.
 
 ### Fuzz-crashers
 The `fuzz-crashers/` directory: every counterexample the fuzz harness ever finds is checked in as a permanent regression fixture (a habit borrowed from Automerge). See [collab-testing research](../plans/research/collab-testing.md).
@@ -95,7 +102,7 @@ relay.md's hierarchical state machine for disk↔CRDT reconciliation — the pro
 Property testing where a simple model (here: a plain string) runs alongside the real system under generated command sequences, and divergence between them is a failure — with automatic shrinking to a minimal failing script (fast-check `fc.commands`). Layer 0 of the harness. See [collab-testing research](../plans/research/collab-testing.md).
 
 ### OPFS
-Origin Private File System — the browser's private, worker-accessible file storage; where sqlite-wasm keeps the droppable index in browser contexts. Browser-evictable, which is exactly why the LCA and other durable state must *not* live there (D5).
+Origin Private File System — the browser's private, worker-accessible file storage. Editor uses it for the browser vault tier (`OpfsVaultAdapter`) and for the durable store, behind a best-effort `navigator.storage.persist()`. It is browser-*evictable*, which is why the durable/droppable split exists at all (D5); the V2 index is in memory and simply rebuilds.
 
 ### Origin (transaction origin)
 The tag on every CRDT transaction saying who wrote and why (`'editor'`, `'disk'`, `'remote'`, …). How observers suppress their own echoes — the reconciler ignores `'disk'`-origin updates when deciding whether to materialize. See [primer 01](primers/01-crdts-and-yjs.md#transactions-and-origins).
@@ -171,3 +178,30 @@ Stock browser-side persistence for Y.Docs, used for V1 CRDT logs with a hard exi
 
 ### Yjs
 The CRDT engine (v13.6.x, pinned, MIT) behind the [engine seam](#engine-seam) — chosen for ecosystem maturity, tiny pure-JS runtime, and relay.md's production precedent. See [primer 01](primers/01-crdts-and-yjs.md) and [crdt-engine research](../plans/research/crdt-engine.md).
+
+### Derived index
+`libs/index` — full text, links, tags, headings and frontmatter keys, all
+derived from note text. **Never a system of record** (golden rule 8): losing it
+costs a rebuild, never data. One writer path feeds it, every query is
+Promise-returning and paged, and a backend conformance suite defines what any
+replacement must do. See [`plans/v2-shaping.md`](../plans/v2-shaping.md) Fork 1.
+
+### Design token
+A named CSS custom property that every surface reads instead of a literal
+colour, so a theme change is a token change in one place. Editor has three
+bands: DaisyUI's semantic chrome tokens, our `--ed-*` editor tokens, and the
+unlayered `--ed-sync-*` honesty tokens (golden rule 7). See
+[theming.md](theming.md).
+
+### `data-theme`
+The attribute on `<html>` that selects a theme. Set synchronously before first
+paint by an inline script in `index.html`, so there is no flash; `system`
+resolves to a built-in rather than being written as a value.
+
+### Wikilink
+`[[Target]]`, `[[Target|alias]]`, `[[Target#anchor]]` — the vault's own
+navigation structure (949 occurrences across 29% of the real vault). Parsed by
+a `MarkdownConfig` on upstream `@codemirror/lang-markdown` in
+`libs/editor-lang`, deliberately *not* a fork of the Obsidian grammar. A target
+that resolves to nothing is styled differently on purpose: 12% of this vault's
+targets are notes the author meant to write.
