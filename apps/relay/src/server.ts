@@ -12,14 +12,22 @@
  * onStoreDocument (debounced by Hocuspocus, flushed on disconnect/destroy)
  * writes the current state back.
  */
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Hocuspocus, Server } from '@hocuspocus/server'
 import { encodeStateAsUpdate } from 'yjs'
+import { handleAdminRequest } from './admin.ts'
 import { RelayDb } from './db.ts'
 
 export interface RelayOptions {
   dbPath: string
   /** Defaults to 0 (ephemeral — read the actual port after listen()). */
   port?: number
+  /**
+   * Enables the operator admin HTTP API (mint/list/revoke shares) guarded by
+   * `Authorization: Bearer <secret>`. Unset → the routes answer 404 and the
+   * CLI remains the only mutation path (see admin.ts).
+   */
+  operatorSecret?: string
 }
 
 export interface Relay {
@@ -38,6 +46,15 @@ export function createRelay(opts: RelayOptions): Relay {
     port: opts.port ?? 0,
     quiet: true,
     stopOnSignals: false, // main.ts owns shutdown; keeps embedded/test use clean
+
+    async onRequest({ request, response }: { request: IncomingMessage; response: ServerResponse }) {
+      if (await handleAdminRequest(request, response, db, opts.operatorSecret)) {
+        // Hocuspocus contract: a rejected onRequest hook aborts the chain so
+        // its default "Welcome to Hocuspocus!" handler never runs; throwing a
+        // falsy value aborts without surfacing an error (`if (error) throw`).
+        throw null
+      }
+    },
 
     async onAuthenticate({ token, documentName, connectionConfig }) {
       const share = db.getShare(token)

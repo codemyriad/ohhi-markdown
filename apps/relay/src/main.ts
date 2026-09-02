@@ -12,7 +12,9 @@ const dbPath = join(dataDir, 'relay.db')
 
 mkdirSync(dataDir, { recursive: true })
 
-const relay = createRelay({ dbPath, port })
+// OPERATOR_SECRET enables the admin HTTP API (in-app share minting — M4).
+// Unset, the /shares routes answer 404 and the CLI is the only mutation path.
+const relay = createRelay({ dbPath, port, operatorSecret: process.env.OPERATOR_SECRET })
 
 // Dev/e2e convenience: SEED_SHARE="<folderGuid>:<token>" pre-creates a share
 // idempotently. Never set this in production.

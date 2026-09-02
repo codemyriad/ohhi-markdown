@@ -35,6 +35,28 @@ node --experimental-strip-types src/cli.ts share-rm <token>
 Uses the same `DATA_DIR` as the server. Clients connect with
 `HocuspocusProvider({ url, name: '<folderGuid>/<docGuid>', token })`.
 
+## Operator admin API (in-app minting — M4)
+
+Set `OPERATOR_SECRET` to enable an HTTP admin surface on the same port the
+websocket uses (unset, the routes answer 404 and the CLI stays the only
+mutation path):
+
+```sh
+OPERATOR_SECRET=my-secret node --experimental-strip-types src/main.ts
+```
+
+```
+POST   /shares            { folderGuid, label?, readOnly? }  → { token, … }
+GET    /shares[?folder=g]                                    → { shares: […] }
+DELETE /shares/<token>                                       → { removed: true }
+```
+
+Every call requires `Authorization: Bearer $OPERATOR_SECRET`. CORS is `*` —
+the credential is the bearer secret itself, and the Editor web shell calls
+this cross-origin. Revoking a token blocks NEW connections only; live
+connections persist until they reconnect. The Editor app stores the secret in
+**Settings** and uses this API for its one-click share flows.
+
 ## Deploy to Fly.io
 
 `Dockerfile` and `fly.toml` are untested templates. Roughly:
