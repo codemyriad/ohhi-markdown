@@ -76,8 +76,12 @@ Run per project with `rushx test`:
 | `libs/sync` | engine seam — heads = state-vector + delete-set, origin tagging |
 | `libs/testkit` | the SimClock / TestNetwork the model tests run on |
 | `libs/vault` | LCA reconciler — convergence, no-data-loss, idempotence (fuzz) |
+| `libs/workspace` | mount lifecycle — carve, join, unshare, boot recovery |
+| `libs/ui` | the **theme contract** — every theme defines the sync tokens, they stay visually distinct (including under deuteranopia), foregrounds clear 4.5:1, no presence colour sits near the diverged red, and the sync tokens are unlayered |
+| `libs/index` | the **backend conformance suite** — paging, cursors, ranking, link resolution, rename/delete propagation. Written against the interface, so any future backend passes it or is not a valid backend |
+| `libs/editor-lang` | the wikilink grammar, through the real lezer pipeline |
 | `apps/relay` | share-token auth + folder-GUID scoping, sqlite persistence |
-| `apps/web` | `pill-status` truth table (unit) |
+| `apps/web` | `pill-status` truth table, tree model, share links, config, the command registry |
 
 ```sh
 cd libs/vault && rushx test      # one project
@@ -86,10 +90,35 @@ cd libs/vault && rushx test      # one project
 Or run every unit suite from the repo root in one go:
 
 ```sh
-for p in libs/sync libs/testkit libs/vault apps/relay apps/web; do
+for p in libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
+         libs/editor-lang apps/relay apps/web; do
   (cd "$p" && rushx test) || break
 done
 ```
+
+### Repo-wide guards
+
+Two greps, both build gates:
+
+```sh
+./scripts/check-clock-injection.sh   # golden rule 5 — no ambient timers in sync code
+./scripts/check-design-tokens.sh     # golden rule 7 — no raw palette utilities in components
+```
+
+### The index benchmark (not a CI test)
+
+`libs/index` carries the evidence behind `plans/v2-shaping.md` Fork 1 — the
+decision to ship an in-memory index instead of sqlite-wasm/FTS5 — as a
+re-runnable measurement, skipped unless you point it at a real vault:
+
+```sh
+cd libs/index && EDITOR_BENCH_VAULT="/path/to/your/vault" rushx test
+```
+
+It prints corpus size, cold build time, search latency and heap, and **fails if
+the trigger has fired** (>5,000 md files, >20 MB markdown, cold build >750 ms,
+or search p95 >50 ms) — at which point the SQLite backend is due. Last measured
+on the real vault: 1,029 notes / 3.00 MB, 253 ms cold build, ~1 ms search.
 
 ### End-to-end browser smoke (L2)
 
@@ -104,9 +133,30 @@ cd apps/web && rushx e2e
 What it asserts: edits propagate both ways, presence shows both users, concurrent
 typing converges, offline drops the sync pill honestly and reconnect reconverges,
 binary files are badged not synced, and a **bad token fails fast with a visible
-error** (not an eternal "connecting…"). The relay it spawns uses a throwaway temp
-db and the fixed share `e2eroom:e2e-token` (see `e2e/start-relay.mjs`); the web
-app is built and served on `localhost:4173`, the relay on `ws://localhost:8799`.
+error** (not an eternal "connecting…"). The relay it spawns uses a throwaway
+temp db and the fixed share `e2eroom:e2e-token` (see `e2e/start-relay.mjs`);
+the web app is built and served on `localhost:4173`, the relay on
+`ws://localhost:8799`.
+
+`e2e/v2.spec.ts` covers the V2 slices in the same run: quick-open finds a note
+by fuzzy path; search answers from the index with highlighted snippets, reflects
+an edit **without a reload**, and lands the caret on the matching line; wikilinks
+resolve, decorate, Mod-click through, and an unresolved one creates the note;
+`Mod+[`/`Mod+]` walk the visited notes; the word count tracks the open note; the
+theme retints chrome and the CodeMirror surface together and survives a reload;
+the command palette lists its bindings — and **a user theme can neither repaint
+nor hide the sync pill**, which is asserted by actually attacking it rather than
+assumed from the cascade.
+
+`e2e/shots.spec.ts` is a screenshot pass over all four themes, for eyeballing
+rather than gating:
+
+```sh
+cd apps/web && SHOT_DIR=/tmp/shots ./node_modules/.bin/playwright test e2e/shots.spec.ts
+```
+
+(It is excluded from the default project via `testIgnore`, so `rushx e2e` and
+CI never run it.)
 
 ### Type checks
 
@@ -293,6 +343,21 @@ every peer; a recovery copy lands in the journal first).
 > at boot — external edits ingest, vanished files raise a review, new files
 > enroll additively; a bulk change (e.g. a git branch switch) pauses for
 > confirmation. See `plans/spike-s8-mount-lifecycle.md`.
+
+**Sync devtools (M6).** A read-only inspector of any file's disk ↔ CRDT
+state. Enable it with **⚙ Settings → Developer tools** (persisted per
+device) or force it for one session with `?debug=1`. A bottom drawer shows,
+for the selected file: the raw sync-record fields plus the pill status they
+compute to (so you can see *why* a pill is that color); the LCA vs live doc
+heads with an explicit **DOC AHEAD of LCA** marker while a flush is pending;
+LCA facts (content hash — "(never on disk)" for remote-created files — EOL
+flavor, BOM, base-text length); the durable doc blob's size and time since
+last flush (session-local — a blob restored from a previous launch reads
+"never" until its first flush); the pre-image **journal timeline** (every
+guarded disk write, newest first); and the file's mount (room, provenance).
+A footer lists every mount's room, provenance, and entry/doc/LCA/journal
+counts. It refreshes on selection, on record changes, and via its refresh
+button — no polling, and nothing in it can mutate state.
 
 ---
 
