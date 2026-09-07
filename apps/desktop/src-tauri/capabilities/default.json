@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for the main window. Vault access pattern: the user picks a vault folder at runtime via the dialog plugin; fs calls are then scoped to that folder by the web layer. V1 DEV ONLY: the fs scope below is a blanket $HOME/** grant so any picked vault works. TODO(tighten before real dogfooding): replace with tauri-plugin-persisted-scope or runtime-scoped grants keyed to the picked folder — see plans/shaping.md D6.",
+  "description": "Default capability for the main window. Vault access pattern: the user picks a vault folder at runtime via the dialog plugin; fs calls are then scoped to that folder by the web layer. V1 DEV ONLY: the fs scope below is a blanket $HOME/** grant so any picked vault works. $APPDATA is listed SEPARATELY because Tauri's scope globs never cross dot-directories — $HOME/** does NOT match ~/.local/... — and the durable stores (M1) live under app-data; without these entries every desktop vault boot fails with 'forbidden path' on its store dir. TODO(tighten before real dogfooding): replace the $HOME grant with tauri-plugin-persisted-scope or runtime-scoped grants keyed to the picked folder — see plans/shaping.md D6.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -12,7 +12,12 @@
     "fs:allow-unwatch",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$HOME" }, { "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME" },
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" }
+      ]
     }
   ]
 }
