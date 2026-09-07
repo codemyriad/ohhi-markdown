@@ -119,7 +119,15 @@ async function materialize(
   preImage: Uint8Array | null
 ): Promise<ReconcileResult> {
   const { engine, adapter, lcaStore, journal } = ctx
+  // Text and heads MUST be captured back-to-back in one synchronous block:
+  // the LCA describes a single moment of the doc. Reading heads after the
+  // awaits below let a remote update land in between and store a TORN record
+  // — old text/hash with new heads — which the next pass classifies as noop
+  // over stale disk (and, with overlapping entry points, as spurious
+  // three-way reviews; dogfood 2026-09-07). If the doc advances during the
+  // awaits, the next pass sees doc-ahead-of-LCA and materializes the delta.
   const text = doc.getText()
+  const heads = engine.encodeHeads(engine.heads(doc))
   const bytes = renderFile(text, lca.eol, lca.bom)
   await journal.record(lca.path, preImage)
   await adapter.writeAtomic(lca.path, bytes)
@@ -129,7 +137,7 @@ async function materialize(
     ...lca,
     baseText: text,
     contentHash: newHash,
-    heads: engine.encodeHeads(engine.heads(doc)),
+    heads,
   })
   return { action: 'materialized' }
 }

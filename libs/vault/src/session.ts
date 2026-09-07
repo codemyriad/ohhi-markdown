@@ -76,6 +76,7 @@ export class VaultSession {
   private paused = false
   private queuedPaths = new Set<string>()
   private reconcileScheduled = new Set<string>()
+  private docQueues = new Map<string, Promise<unknown>>()
   private disposed = false
 
   constructor(opts: VaultSessionOptions) {
@@ -136,12 +137,17 @@ export class VaultSession {
   async flush(guid: string): Promise<void> {
     const path = this.pathOf(guid)
     if (!path) return
-    const wasOpen = this.ctx.openPaths.delete(path)
-    try {
-      await this.reconcile(guid)
-    } finally {
-      if (wasOpen) this.ctx.openPaths.add(path)
-    }
+    // The open-path suspension brackets exactly THIS flush's own turn in the
+    // per-doc queue — not the wait for predecessors — so a queued-ahead
+    // reconcile still respects editor ownership.
+    await this.runExclusive(guid, async () => {
+      const wasOpen = this.ctx.openPaths.delete(path)
+      try {
+        await this.reconcileNow(guid)
+      } finally {
+        if (wasOpen) this.ctx.openPaths.add(path)
+      }
+    })
   }
 
   pendingReviews(): DivergenceReview[] {
@@ -149,10 +155,12 @@ export class VaultSession {
   }
 
   async resolveReview(guid: string, mergedText: string): Promise<void> {
-    const lca = await this.lcaStore.get(guid)
-    const doc = this.docs.get(guid)
-    if (!lca || !doc) throw new Error(`resolveReview: unknown doc ${guid}`)
-    await resolveDivergence(this.ctx, doc, lca, mergedText)
+    await this.runExclusive(guid, async () => {
+      const lca = await this.lcaStore.get(guid)
+      const doc = this.docs.get(guid)
+      if (!lca || !doc) throw new Error(`resolveReview: unknown doc ${guid}`)
+      await resolveDivergence(this.ctx, doc, lca, mergedText)
+    })
     this.reviews.delete(guid)
     this.events.onReviewCleared?.(guid)
   }
@@ -166,23 +174,25 @@ export class VaultSession {
    * dropped. (M5, spike S8 Q5.)
    */
   async resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void> {
-    const lca = await this.lcaStore.get(guid)
-    const doc = this.docs.get(guid)
-    if (!lca || !doc) throw new Error(`resolveVanished: unknown doc ${guid}`)
-    if (action === 'restore') {
-      await resolveDivergence(this.ctx, doc, lca, doc.getText())
-    } else {
-      await this.ctx.journal.record(lca.path, renderFile(lca.baseText, lca.eol, lca.bom))
-      const entry = this.folderDoc.getMap().get(lca.path)
-      if (entry && !entry.deleted) {
-        const tomb = { ...entry, deleted: true }
-        this.folderDoc.transactMap((m) => m.set(lca.path, tomb), 'local')
-        this.lastEntries.set(lca.path, tomb)
+    await this.runExclusive(guid, async () => {
+      const lca = await this.lcaStore.get(guid)
+      const doc = this.docs.get(guid)
+      if (!lca || !doc) throw new Error(`resolveVanished: unknown doc ${guid}`)
+      if (action === 'restore') {
+        await resolveDivergence(this.ctx, doc, lca, doc.getText())
+      } else {
+        await this.ctx.journal.record(lca.path, renderFile(lca.baseText, lca.eol, lca.bom))
+        const entry = this.folderDoc.getMap().get(lca.path)
+        if (entry && !entry.deleted) {
+          const tomb = { ...entry, deleted: true }
+          this.folderDoc.transactMap((m) => m.set(lca.path, tomb), 'local')
+          this.lastEntries.set(lca.path, tomb)
+        }
+        this.pathToGuid.delete(lca.path)
+        this.ctx.openPaths.delete(lca.path)
+        await this.lcaStore.remove(guid)
       }
-      this.pathToGuid.delete(lca.path)
-      this.ctx.openPaths.delete(lca.path)
-      await this.lcaStore.remove(guid)
-    }
+    })
     this.reviews.delete(guid)
     this.events.onReviewCleared?.(guid)
   }
@@ -265,7 +275,34 @@ export class VaultSession {
     await this.reconcile(guid)
   }
 
-  private async reconcile(guid: string): Promise<void> {
+  /**
+   * Serialize every disk/LCA-touching operation per doc. Overlapping entry
+   * points (flush, markClosed, scheduled reconciles, boot scans, review
+   * resolution) used to interleave across await boundaries for one guid —
+   * racing disk reads, atomic writes, and LCA puts into torn states and
+   * spurious divergence reviews (dogfood 2026-09-07). Pure promise chaining:
+   * no timers, injected-clock friendly; cross-doc concurrency is preserved.
+   */
+  private runExclusive<T>(guid: string, fn: () => Promise<T>): Promise<T> {
+    const tail = this.docQueues.get(guid) ?? Promise.resolve()
+    const run = tail.then(fn, fn)
+    const settled = run.then(
+      () => undefined,
+      () => undefined
+    )
+    this.docQueues.set(guid, settled)
+    void settled.then(() => {
+      if (this.docQueues.get(guid) === settled) this.docQueues.delete(guid)
+    })
+    return run
+  }
+
+  private reconcile(guid: string): Promise<void> {
+    return this.runExclusive(guid, () => this.reconcileNow(guid))
+  }
+
+  /** Only ever call from inside runExclusive (or a fn queued through it). */
+  private async reconcileNow(guid: string): Promise<void> {
     if (this.disposed) return
     const doc = this.docs.get(guid)
     const lca = await this.lcaStore.get(guid)
