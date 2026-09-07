@@ -30,7 +30,7 @@ export {
   type SessionEvents,
   type VaultSessionOptions,
 } from './session.js'
-export { MemStoreDir, scopedStoreDir, type StoreDir } from './store-dir.js'
+export { MemStoreDir, scopedStoreDir, wipeStoreDir, type StoreDir } from './store-dir.js'
 export {
   BlobDocStore,
   docBlobName,

@@ -24,6 +24,7 @@
     loadShares,
     loadUser,
     operatorSecret,
+    purgeRooms,
     removeShare,
     removeVault,
     saveUser,
@@ -33,6 +34,7 @@
     type VaultEntry,
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
+  import { forgetVaultState } from './lib/vault-adapter.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { dirPaths, type TreeOp } from './lib/tree-model.js'
@@ -389,10 +391,36 @@
     }
   }
 
-  function removeVaultEntry(room: string): void {
+  async function removeVaultEntry(room: string): Promise<void> {
+    const entry = getVault(room)
+    // Removing the vault that is OPEN right now: dispose the workspace first
+    // so its debounced flushes can't write into a half-wiped namespace. Any
+    // flush already in flight may still land after the wipe — the remnant is
+    // inert, since a reopen mints a new room and never reads the old one.
+    if (workspace?.room === room) {
+      ++bootGen // supersede any in-flight boot of this vault
+      nav.attach(null)
+      workspace.dispose()
+      workspace = null
+    }
+    // Config entry goes first and unconditionally (never strand the registry
+    // on a store-wipe failure — leftover stores are inert for the same
+    // new-room reason).
     removeVault(room)
     if (failure?.room === room) failure = null
     refreshLists()
+    if (entry) {
+      try {
+        purgeRooms(await forgetVaultState(entry))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        failure = {
+          room: null,
+          message: `Vault forgotten, but some of its sync state could not be deleted (${msg}). The leftovers are inert — reopening the folder still starts fresh.`,
+        }
+      }
+      refreshLists()
+    }
   }
 
   // ---- in-workspace sharing (M4: minted in-app, zero terminal) ----

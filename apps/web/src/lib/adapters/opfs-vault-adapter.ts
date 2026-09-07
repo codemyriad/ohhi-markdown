@@ -213,6 +213,23 @@ export async function createOpfsVaultAdapter(vaultId: string): Promise<OpfsVault
 }
 
 /**
+ * Delete a vault's CONTENT directory (`vaults/<vaultId>`), recursively.
+ * Used by "forget vault" for OPFS vaults only: their files live nowhere but
+ * OPFS, and once the registry entry is gone the dir would be unreachable
+ * orphaned storage. Missing dir is a no-op.
+ */
+export async function removeOpfsVaultContent(vaultId: string): Promise<void> {
+  const opfsRoot = await navigator.storage.getDirectory()
+  try {
+    const vaults = await opfsRoot.getDirectoryHandle(VAULTS_DIR)
+    await vaults.removeEntry(vaultId, { recursive: true })
+  } catch (err) {
+    if (isNotFound(err)) return
+    throw err
+  }
+}
+
+/**
  * List the vault ids present under `vaults/` (directories only). Returns `[]`
  * when the `vaults` container does not exist yet (no vault ever created).
  */

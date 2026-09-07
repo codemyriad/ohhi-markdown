@@ -146,6 +146,17 @@
                 {confirmRemove === entry.room ? 'Remove?' : '✕'}
               </button>
             </div>
+            {#if confirmRemove === entry.room}
+              <p data-testid="remove-note:{entry.room}" class="mt-1 px-3 text-xs text-base-content/70">
+                {#if entry.vault.kind === 'opfs'}
+                  This browser vault's notes live only in this browser — removing it deletes
+                  the notes AND all sync state, shares, and tokens.
+                {:else}
+                  Files on disk are never touched. Sync state, shares, and tokens for this
+                  vault are deleted — reopening the folder starts fresh with new share links.
+                {/if}
+              </p>
+            {/if}
             {#if failure?.room === entry.room}
               <p role="alert" data-testid="vault-error:{entry.room}" class="mt-1 px-3 text-xs text-error">
                 {failure.message} — fix the folder, or remove this entry (files are untouched).

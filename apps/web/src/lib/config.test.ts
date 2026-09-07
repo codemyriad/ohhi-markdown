@@ -10,11 +10,14 @@ import {
   loadShares,
   loadUser,
   operatorSecret,
+  purgeRooms,
   removeShare,
   removeVault,
+  roomToken,
   saveUser,
   setDefaultRelay,
   setOperatorSecret,
+  setRoomToken,
   touchVault,
   upsertVault,
   type VaultEntry,
@@ -161,6 +164,19 @@ describe('settings + shares', () => {
     expect(loadShares()).toEqual([{ link: 'editor1:b', room: 'r', label: 'two' }])
     removeShare('r')
     expect(loadShares()).toEqual([])
+  })
+
+  it('purgeRooms drops tokens and remembered shares for exactly those rooms', () => {
+    setRoomToken('root-r', 't1')
+    setRoomToken('mount-r', 't2')
+    setRoomToken('other-r', 't3')
+    addShare({ link: 'editor1:m', room: 'mount-r', label: 'team' })
+    addShare({ link: 'editor1:o', room: 'other-r', label: 'keep' })
+    purgeRooms(['root-r', 'mount-r'])
+    expect(roomToken('root-r')).toBe('')
+    expect(roomToken('mount-r')).toBe('')
+    expect(roomToken('other-r')).toBe('t3')
+    expect(loadShares()).toEqual([{ link: 'editor1:o', room: 'other-r', label: 'keep' }])
   })
 })
 

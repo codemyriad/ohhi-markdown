@@ -5,8 +5,15 @@
  * browser never pulls the @tauri-apps modules into its bundle path, and vice
  * versa.
  */
-import { MemStoreDir, MemVaultAdapter, type StoreDir, type VaultAdapter } from '@editor/vault'
-import type { VaultSourceDesc } from './config.js'
+import {
+  MemStoreDir,
+  MemVaultAdapter,
+  MountsFile,
+  wipeStoreDir,
+  type StoreDir,
+  type VaultAdapter,
+} from '@editor/vault'
+import type { VaultEntry, VaultSourceDesc } from './config.js'
 
 export async function buildAdapter(source: VaultSourceDesc): Promise<VaultAdapter> {
   switch (source.kind) {
@@ -41,4 +48,43 @@ export async function buildStoreDir(source: VaultSourceDesc, room: string): Prom
       return await createOpfsStoreDir(room)
     }
   }
+}
+
+/**
+ * Forget a vault's SYNC STATE: delete its entire store namespace
+ * (`stores/<room>` — mounts.json plus every mount's subnamespace) so the next
+ * open of the same folder enrolls fresh under a new room. Disk `.md` files
+ * are never touched — the stores are derived state (spike S8). For OPFS
+ * vaults the vault CONTENT dir is deleted too: those files live only inside
+ * OPFS, and with the registry entry gone the dir would be unreachable
+ * orphaned storage with no affordance to ever see it again.
+ *
+ * Returns every room whose config residue (tokens, remembered shares) should
+ * be purged: the vault's root room plus any mount rooms found in mounts.json.
+ * mounts.json is read BEFORE the wipe; if that read fails, the mount rooms'
+ * tokens are left behind — inert, since revocation happens relay-side.
+ */
+export async function forgetVaultState(entry: VaultEntry): Promise<string[]> {
+  const rooms = [entry.room]
+  if (entry.vault.kind === 'memory') return rooms // per-boot stores; nothing durable
+  const dir = await buildStoreDir(entry.vault, entry.room)
+  try {
+    const mounts = await new MountsFile(dir.io('mounts.json')).load()
+    for (const m of mounts) if (!rooms.includes(m.room)) rooms.push(m.room)
+  } catch {
+    /* unreadable mounts.json — wipe proceeds; mount tokens stay (inert) */
+  }
+  // Files first (the generic seam), then the platform helper drops the
+  // now-empty directory skeleton the file-level interface can't see.
+  await wipeStoreDir(dir)
+  if (entry.vault.kind === 'tauri') {
+    const { destroyTauriStoreDir } = await import('./store-dirs/tauri-store-dir.js')
+    await destroyTauriStoreDir(entry.room)
+  } else if (entry.vault.kind === 'opfs') {
+    const { destroyOpfsStoreDir } = await import('./store-dirs/opfs-store-dir.js')
+    await destroyOpfsStoreDir(entry.room)
+    const { removeOpfsVaultContent } = await import('./adapters/opfs-vault-adapter.js')
+    await removeOpfsVaultContent(entry.vault.id)
+  }
+  return rooms
 }

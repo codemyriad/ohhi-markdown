@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MemStoreDir } from '../src/store-dir.js'
+import { MemStoreDir, wipeStoreDir } from '../src/store-dir.js'
 import { NodeStoreDir } from '../src/node-adapter.js'
 import type { StoreDir } from '../src/store-dir.js'
 
@@ -53,6 +53,23 @@ function storeDirContract(name: string, make: () => Promise<{ dir: StoreDir; cle
       await made.dir.remove('a/b.bin')
       expect(await made.dir.io('a/b.bin').read()).toBeNull()
       await expect(made.dir.remove('never-existed')).resolves.toBeUndefined()
+    })
+
+    it('wipeStoreDir empties a namespace (or everything) and no-ops when missing', async () => {
+      const made = await make()
+      cleanup = made.cleanup
+      await made.dir.io('mounts.json').writeAtomic(enc('m'))
+      await made.dir.io('room-a/lca.json').writeAtomic(enc('l'))
+      await made.dir.io('room-a/docs/g1.bin').writeAtomic(enc('d'))
+      await made.dir.io('room-b/lca.json').writeAtomic(enc('l'))
+      // Scoped wipe leaves siblings alone.
+      expect(await wipeStoreDir(made.dir, 'room-a/')).toBe(2)
+      expect(await made.dir.list()).toEqual(['mounts.json', 'room-b/lca.json'])
+      // Full wipe empties the vault namespace (mounts.json included).
+      expect(await wipeStoreDir(made.dir)).toBe(2)
+      expect(await made.dir.list()).toEqual([])
+      // Never-booted / already-wiped namespace: silent no-op.
+      expect(await wipeStoreDir(made.dir, 'room-c/')).toBe(0)
     })
   })
 }

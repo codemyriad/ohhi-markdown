@@ -240,11 +240,24 @@ export function upsertVault(entry: VaultEntry): void {
   save(cfg)
 }
 
-/** Forget a vault (config only — never touches its files). */
+/** Forget a vault's registry entry (files untouched; see also purgeRooms). */
 export function removeVault(room: string): void {
   const cfg = loadConfig()
   cfg.vaults = cfg.vaults.filter((v) => v.room !== room)
   if (cfg.lastRoom === room) cfg.lastRoom = null
+  save(cfg)
+}
+
+/**
+ * Drop every config residue of a set of rooms: bearer tokens and remembered
+ * share links. Called after forgetVaultState with the root + mount rooms it
+ * discovered, so a forgotten vault leaves nothing that could resurrect its
+ * old share identity.
+ */
+export function purgeRooms(rooms: string[]): void {
+  const cfg = loadConfig()
+  for (const room of rooms) delete cfg.tokensByRoom[room]
+  cfg.shares = cfg.shares.filter((s) => !rooms.includes(s.room))
   save(cfg)
 }
 

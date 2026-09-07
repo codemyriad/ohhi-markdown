@@ -33,6 +33,18 @@ export function scopedStoreDir(base: StoreDir, prefix: string): StoreDir {
   }
 }
 
+/**
+ * Delete every file under a namespace (`prefix` with a trailing '/', or the
+ * entire dir with no prefix). The store namespace is derived state over
+ * canonical disk files, so wiping it is always safe — a reopen re-enrolls
+ * fresh. A missing namespace is a no-op. Returns the number of files removed.
+ */
+export async function wipeStoreDir(dir: StoreDir, prefix = ''): Promise<number> {
+  const names = await dir.list(prefix)
+  for (const name of names) await dir.remove(name)
+  return names.length
+}
+
 export class MemStoreDir implements StoreDir {
   private files = new Map<string, Uint8Array>()
 

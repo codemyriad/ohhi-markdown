@@ -111,3 +111,19 @@ export async function createOpfsStoreDir(sub: string): Promise<OpfsStoreDir> {
   const dir = await stores.getDirectoryHandle(sub, { create: true })
   return new OpfsStoreDir(dir)
 }
+
+/**
+ * Delete the whole `stores/<sub>` namespace, directory included — the
+ * forget-vault path (wipeStoreDir removes files; OPFS keeps empty directory
+ * skeletons, so remove the dir itself). Missing namespace is a no-op.
+ */
+export async function destroyOpfsStoreDir(sub: string): Promise<void> {
+  const opfsRoot = await navigator.storage.getDirectory()
+  try {
+    const stores = await opfsRoot.getDirectoryHandle(STORES_DIR)
+    await stores.removeEntry(sub, { recursive: true })
+  } catch (err) {
+    if (isNotFound(err)) return
+    throw err
+  }
+}

@@ -113,3 +113,14 @@ export async function createTauriStoreDir(sub: string): Promise<TauriStoreDir> {
   await mkdir(root, { recursive: true })
   return new TauriStoreDir(root)
 }
+
+/**
+ * Delete the whole `<appData>/stores/<sub>` namespace, directory included —
+ * the forget-vault path (wipeStoreDir removes files; this also drops the
+ * skeleton). Missing namespace is a no-op.
+ */
+export async function destroyTauriStoreDir(sub: string): Promise<void> {
+  const base = normalizePosix(toPosix(await appDataDir()))
+  const root = `${base}/stores/${sub}`
+  if (await exists(root)) await fsRemove(root, { recursive: true })
+}

@@ -378,6 +378,20 @@ every peer; a recovery copy lands in the journal first).
 > enroll additively; a bulk change (e.g. a git branch switch) pauses for
 > confirmation. See `plans/spike-s8-mount-lifecycle.md`.
 
+**Resetting a test vault.** To restart a vault with completely fresh shared
+state while keeping every `.md` on disk: manager → **✕** on the vault →
+confirm ("Remove?") → reopen the same folder via *Open folder as vault…*.
+Forgetting a vault deletes its entire durable store namespace (mounts,
+CRDT blobs, LCA records, journal) plus its tokens and remembered share
+links; the reopened folder enrolls fresh under a **new room**, so old share
+links are dead and new ones mint cleanly. Disk files are never touched —
+except for **browser (OPFS) vaults**, whose notes live only in the browser:
+forgetting one deletes its notes too (the confirm note says which you're
+getting). Relay-side rows for the old rooms become inert orphans — harmless,
+cleanable with `share-rm`/the admin API, or just point the dev relay at a
+fresh `DATA_DIR`. If the vault is open when you remove it, the workspace is
+shut down first; you stay on the manager.
+
 **Sync devtools (M6).** A read-only inspector of any file's disk ↔ CRDT
 state. Enable it with **⚙ Settings → Developer tools** (persisted per
 device) or force it for one session with `?debug=1`. A bottom drawer shows,
