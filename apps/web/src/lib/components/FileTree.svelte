@@ -6,11 +6,16 @@
     buildTree,
     containingDir,
     filterRows,
+    planDrop,
+    treeMenuItems,
     type TreeFilter,
+    type TreeMenuItem,
+    type TreeMenuTarget,
     type TreeNode,
     type TreeOp,
   } from '../tree-model.js'
   import SyncPill from './SyncPill.svelte'
+  import TreeContextMenu from './TreeContextMenu.svelte'
 
   interface Props {
     files: FileRow[]
@@ -34,18 +39,9 @@
     )
   )
   const collapsed = new SvelteSet<string>()
-  /** Last-clicked directory — the target for new/rename/move/delete on dirs. */
+  /** Last-clicked directory — where the header's "+ file"/"+ folder" create. */
   let contextDir = $state<string | null>(null)
 
-  /** The node ops act on: an explicitly clicked dir, else the selected file. */
-  const contextNode = $derived.by((): { path: string; kind: 'dir' | 'text' | 'binary' } | null => {
-    if (contextDir !== null) return { path: contextDir, kind: 'dir' }
-    if (selected) {
-      const row = files.find((f) => f.path === selected)
-      if (row) return { path: row.path, kind: row.kind }
-    }
-    return null
-  })
   /** Where "+ file" / "+ folder" create. */
   const targetDir = $derived(
     contextDir !== null ? contextDir : containingDir(selected, 'text')
@@ -65,24 +61,150 @@
     onSelect(path)
   }
 
-  /** A dir can be shared when it's a mount root already, or a plain folder of
-   * an unshared root vault that doesn't overlap an existing mount. */
-  const canShareContext = $derived.by((): boolean => {
-    const node = contextNode
-    if (!node || node.kind !== 'dir') return false
-    if (mountByPath.has(node.path)) return true // manage an existing share
-    if (rootShared) return false // V1 guard: no shares inside a shared vault
-    return !mounts.some(
-      (m) => node.path.startsWith(`${m.path}/`) || m.path.startsWith(`${node.path}/`)
-    )
-  })
-  /** The context node's mount, when it IS a mount root (unshare/unmount). */
-  const contextMount = $derived(
-    contextNode && contextNode.kind === 'dir' ? (mountByPath.get(contextNode.path) ?? null) : null
-  )
+  // ---- context menu ----
+
+  interface MenuState {
+    x: number
+    y: number
+    label: string
+    target: TreeMenuTarget
+    items: TreeMenuItem[]
+  }
+  let menu = $state<MenuState | null>(null)
+  /** The row that opened the menu — focus goes back to it on close. */
+  let menuOrigin: HTMLElement | null = null
+
+  function labelFor(target: TreeMenuTarget): string {
+    return target.kind === 'root' ? 'Vault root actions' : `Actions for ${target.path}`
+  }
+
+  function openMenu(e: Event, target: TreeMenuTarget, at?: { x: number; y: number }): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const el = e.currentTarget instanceof HTMLElement ? e.currentTarget : null
+    let point = at
+    if (!point && e instanceof MouseEvent && (e.clientX || e.clientY)) {
+      point = { x: e.clientX, y: e.clientY }
+    }
+    if (!point) {
+      // Keyboard invocation: hang the menu off the row's bottom-left corner.
+      const r = el?.getBoundingClientRect()
+      point = { x: r ? r.left + 8 : 24, y: r ? r.bottom : 24 }
+    }
+    menuOrigin = el
+    // Right-click focuses nothing on its own in Chromium, so take focus here:
+    // the menu restores focus to this element when it closes.
+    el?.focus?.()
+    menu = {
+      ...point,
+      label: labelFor(target),
+      target,
+      items: treeMenuItems(target, { mounts, rootShared }),
+    }
+  }
+
+  /** Shift+F10 / the Menu key — the keyboard route to the same menu. */
+  function menuKey(e: KeyboardEvent, target: TreeMenuTarget): void {
+    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) openMenu(e, target)
+  }
+
+  function closeMenu(): void {
+    menu = null
+    menuOrigin?.focus()
+    menuOrigin = null
+  }
+
+  function runMenu(item: TreeMenuItem): void {
+    const target = menu?.target
+    closeMenu()
+    if (!target) return
+    const path = target.kind === 'root' ? '' : target.path
+    switch (item.action) {
+      case 'new-file':
+        onOp({ type: 'new-file', dir: path })
+        break
+      case 'new-folder':
+        onOp({ type: 'new-folder', dir: path })
+        break
+      case 'rename':
+      case 'move':
+      case 'delete':
+        if (target.kind !== 'root') onOp({ type: item.action, path, kind: target.kind })
+        break
+      // Sharing and managing an existing share are one dialog, keyed on
+      // whether the folder already is a mount root.
+      case 'share':
+      case 'manage':
+        onOp({ type: 'share-folder', path })
+        break
+      case 'unshare':
+        onOp({ type: 'unshare', path })
+        break
+      case 'unmount':
+        onOp({ type: 'unmount', path })
+        break
+    }
+  }
+
+  // ---- drag-and-drop arrange ----
+
+  let dragging = $state<string | null>(null)
+  /** Highlighted drop directory; '' is the tree's root area, null is none. */
+  let dropDir = $state<string | null>(null)
+  const allPaths = $derived(new Set(files.map((f) => f.path)))
+
+  function dragStart(e: DragEvent, path: string): void {
+    dragging = path
+    e.dataTransfer?.setData('text/plain', path)
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function dragEnd(): void {
+    dragging = null
+    dropDir = null
+  }
+
+  /**
+   * A drop target lights up only when the move is actually legal — the pointer
+   * carries the refusal (no drop cursor) rather than a dialog after the fact.
+   */
+  function dragOver(e: DragEvent, dir: string): void {
+    e.stopPropagation()
+    if (dragging === null) return
+    if (!planDrop(dragging, dir, allPaths).ok) {
+      dropDir = null
+      return
+    }
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    dropDir = dir
+  }
+
+  function drop(e: DragEvent, dir: string): void {
+    e.preventDefault()
+    e.stopPropagation()
+    const from = dragging ?? e.dataTransfer?.getData('text/plain') ?? ''
+    dragging = null
+    dropDir = null
+    const plan = planDrop(from, dir, allPaths)
+    if (plan.ok) onOp({ type: 'move-to', from, to: plan.to })
+  }
+
+  /** Leaving the tree entirely clears the highlight; row-to-row does not. */
+  function treeLeave(e: DragEvent): void {
+    const to = e.relatedTarget
+    if (to instanceof Node && e.currentTarget instanceof Node && e.currentTarget.contains(to)) return
+    dropDir = null
+  }
 </script>
 
-<nav data-testid="file-tree" aria-label="Files" class="flex h-full flex-col overflow-y-auto">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<nav
+  data-testid="file-tree"
+  aria-label="Files"
+  class="flex h-full flex-col overflow-y-auto"
+  ondragleave={treeLeave}
+>
   <div class="flex items-center gap-1 border-b border-base-300 px-2 py-2">
     <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/60 uppercase">Files</h2>
     <button
@@ -120,63 +242,9 @@
       </button>
     {/each}
   </div>
-  {#if contextNode}
-    <div
-      class="flex items-center gap-1 border-b border-base-200 px-2 py-1 text-[11px] text-base-content/60"
-    >
-      <span class="min-w-0 flex-1 truncate" title={contextNode.path}>{contextNode.path}</span>
-      {#if canShareContext}
-        <button
-          data-testid="tree-share"
-          onclick={() => onOp({ type: 'share-folder', path: contextNode.path })}
-          class="rounded px-1.5 py-0.5 text-primary hover:bg-primary/10"
-        >
-          share
-        </button>
-      {/if}
-      {#if contextMount}
-        <button
-          data-testid="tree-unshare"
-          onclick={() => onOp({ type: 'unshare', path: contextNode.path })}
-          class="rounded px-1.5 py-0.5 text-warning hover:bg-warning/10"
-        >
-          unshare
-        </button>
-        {#if contextMount.provenance === 'joined'}
-          <button
-            data-testid="tree-unmount"
-            onclick={() => onOp({ type: 'unmount', path: contextNode.path })}
-            class="rounded px-1.5 py-0.5 text-warning hover:bg-warning/10"
-          >
-            unmount
-          </button>
-        {/if}
-      {/if}
-      <button
-        data-testid="tree-rename"
-        onclick={() => onOp({ type: 'rename', ...contextNode })}
-        class="rounded px-1.5 py-0.5 hover:bg-base-200"
-      >
-        rename
-      </button>
-      <button
-        data-testid="tree-move"
-        onclick={() => onOp({ type: 'move', ...contextNode })}
-        class="rounded px-1.5 py-0.5 hover:bg-base-200"
-      >
-        move
-      </button>
-      <button
-        data-testid="tree-delete"
-        onclick={() => onOp({ type: 'delete', ...contextNode })}
-        class="rounded px-1.5 py-0.5 text-error hover:bg-error/10"
-      >
-        delete
-      </button>
-    </div>
-  {/if}
 
   {#snippet nodeView(node: TreeNode, depth: number)}
+    {@const target = { kind: node.kind, path: node.path } as TreeMenuTarget}
     <li role="none">
       {#if node.kind === 'dir'}
         <button
@@ -184,10 +252,21 @@
           aria-expanded={!collapsed.has(node.path)}
           aria-selected={contextDir === node.path}
           data-testid="dir-item:{node.path}"
+          draggable="true"
           onclick={() => clickDir(node)}
+          oncontextmenu={(e) => openMenu(e, target)}
+          onkeydown={(e) => menuKey(e, target)}
+          ondragstart={(e) => dragStart(e, node.path)}
+          ondragend={dragEnd}
+          ondragover={(e) => dragOver(e, node.path)}
+          ondrop={(e) => drop(e, node.path)}
           style="padding-left: {8 + depth * 14}px"
           class="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm
-            {contextDir === node.path ? 'bg-base-200 text-base-content' : 'text-base-content/80 hover:bg-base-200'}"
+            {dropDir === node.path
+            ? 'inset-ring-2 inset-ring-primary bg-primary/10 text-primary'
+            : contextDir === node.path
+              ? 'bg-base-200 text-base-content'
+              : 'text-base-content/80 hover:bg-base-200'}"
         >
           <span class="inline-block w-3 text-[10px] text-base-content/40"
             >{collapsed.has(node.path) ? '▸' : '▾'}</span
@@ -219,7 +298,14 @@
           role="treeitem"
           aria-selected={selected === node.path}
           data-testid="file-item:{node.path}"
+          draggable="true"
           onclick={() => clickFile(node.path)}
+          oncontextmenu={(e) => openMenu(e, target)}
+          onkeydown={(e) => menuKey(e, target)}
+          ondragstart={(e) => dragStart(e, node.path)}
+          ondragend={dragEnd}
+          ondragover={(e) => dragOver(e, containingDir(node.path, 'text'))}
+          ondrop={(e) => drop(e, containingDir(node.path, 'text'))}
           aria-current={selected === node.path ? 'true' : undefined}
           style="padding-left: {8 + depth * 14 + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm
@@ -231,11 +317,21 @@
           {/if}
         </button>
       {:else}
-        <!-- Binaries are excluded from sync; the pill never claims them (D2f). -->
+        <!-- Binaries are excluded from sync; the pill never claims them (D2f).
+             They are still files, so they rename, move and delete like one. -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div
           role="treeitem"
           aria-selected="false"
+          tabindex="0"
           data-testid="file-item:{node.path}"
+          draggable="true"
+          oncontextmenu={(e) => openMenu(e, target)}
+          onkeydown={(e) => menuKey(e, target)}
+          ondragstart={(e) => dragStart(e, node.path)}
+          ondragend={dragEnd}
+          ondragover={(e) => dragOver(e, containingDir(node.path, 'binary'))}
+          ondrop={(e) => drop(e, containingDir(node.path, 'binary'))}
           style="padding-left: {8 + depth * 14 + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-base-content/40"
         >
@@ -251,9 +347,31 @@
     </li>
   {/snippet}
 
-  <ul role="tree" aria-label="Vault files" class="flex-1 py-1">
+  <!-- The tree's own body is the vault root: right-click it to create at the
+       top level, drop onto it to move something back out of a folder. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <ul
+    role="tree"
+    aria-label="Vault files"
+    data-testid="tree-root"
+    oncontextmenu={(e) => openMenu(e, { kind: 'root' })}
+    ondragover={(e) => dragOver(e, '')}
+    ondrop={(e) => drop(e, '')}
+    class="flex-1 py-1 {dropDir === '' ? 'inset-ring-2 inset-ring-primary' : ''}"
+  >
     {#each tree as node (node.path)}
       {@render nodeView(node, 0)}
     {/each}
   </ul>
 </nav>
+
+{#if menu}
+  <TreeContextMenu
+    x={menu.x}
+    y={menu.y}
+    label={menu.label}
+    items={menu.items}
+    onPick={runMenu}
+    onClose={closeMenu}
+  />
+{/if}

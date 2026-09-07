@@ -144,9 +144,11 @@ an edit **without a reload**, and lands the caret on the matching line; wikilink
 resolve, decorate, Mod-click through, and an unresolved one creates the note;
 `Mod+[`/`Mod+]` walk the visited notes; the word count tracks the open note; the
 theme retints chrome and the CodeMirror surface together and survives a reload;
-the command palette lists its bindings — and **a user theme can neither repaint
-nor hide the sync pill**, which is asserted by actually attacking it rather than
-assumed from the cascade.
+the command palette lists its bindings; the tree's **right-click menu renames a
+note, drag-and-drop moves it between folders, and a folder's disabled Share…
+still states its rule** — and **a user theme can neither repaint nor hide the
+sync pill**, which is asserted by actually attacking it rather than assumed from
+the cascade.
 
 `e2e/shots.spec.ts` is a screenshot pass over all four themes, for eyeballing
 rather than gating:
@@ -261,14 +263,39 @@ shares/vaults).
 **File tree (M3).** The sidebar is a real nested tree: folders collapse
 (click a focused folder to toggle), and empty folders are first-class — they
 enroll, sync, and materialize on peers like files (`mkdir` is part of the
-vault-adapter seam). **+ file** creates an untitled note in the selected
-folder; **+ folder**, **rename**, **move**, and **delete** act on the focused
-file/folder via small dialogs. A folder rename is one bulk folder-map
-transaction — children follow on every peer — and deletes journal each file's
-pre-image before touching disk. A bulk external change (a git branch switch,
-20+ files at once, live or discovered at boot) now pauses behind a real
-**confirm dialog** listing the files — nothing is ingested until you apply,
-and *Not now* defers the batch.
+vault-adapter seam). The header's **+ file** / **+ folder** create in the
+focused folder. A folder rename is one bulk folder-map transaction — children
+follow on every peer — and deletes journal each file's pre-image before
+touching disk. A bulk external change (a git branch switch, 20+ files at once,
+live or discovered at boot) now pauses behind a real **confirm dialog** listing
+the files — nothing is ingested until you apply, and *Not now* defers the batch.
+
+**Right-click anything in the tree (2026-09-07).** The context menu replaced
+the old inline row of text buttons, and it is now the only route to sharing:
+
+| Right-clicked | Menu |
+|---|---|
+| A file | Rename… · Move… · Delete… |
+| A folder | New file · New folder · Rename… · Move… · **Share…** · Delete… |
+| A shared folder (mount root) | …the same, but **Manage tokens…** · **Unshare…** in place of Share — plus **Unmount…** when the share was joined rather than carved by you |
+| Empty space below the rows | New file · New folder (at the vault root) |
+
+It is a real ARIA menu: **Shift+F10** (or the Menu key) opens it from the
+keyboard on the focused row, ↑/↓/Home/End move, Enter activates, **Escape**
+closes and puts focus back on the row. When an item cannot apply it is shown
+**disabled with the reason printed under it** rather than hidden — most
+importantly *Share…* in a vault that is already shared as a whole, where the
+V1 no-nested-shares guard (`plans/spike-s8-mount-lifecycle.md`, "The mount
+model") forbids folder shares.
+
+**Drag to rearrange.** Drag a file or folder row onto a folder row (or onto the
+empty area of the tree to move it to the vault root); the destination lights up
+only when the move is legal. A folder cannot be dropped into itself or a
+descendant, a drop back into the same parent is a no-op, and a name collision
+is refused — all decided by `planDrop()` in `apps/web/src/lib/tree-model.ts`
+(unit-tested). A drop that crosses a share boundary goes through the same
+confirm dialog as **Move…** (below). Keyboard users use **Move…**, which is
+equivalent.
 
 **Open a folder (desktop, O1).** Manager → **Open folder as vault…** → pick a
 folder via the native dialog (its *New Folder* button covers the create case).
@@ -286,19 +313,26 @@ OPERATOR_SECRET=my-secret SEED_SHARE=demo:demo-token rushx dev   # apps/relay
 then in the app: **⚙ Settings** → set the default relay URL and the operator
 secret. From there:
 
-- **Share one folder** *(the unit of sharing — dogfood-shaping R3)*: click the
-  folder in the tree → **share** → **Share this folder**. The app mints a
-  token, carves the folder into its own synced space (spike S8 Q1 — no files
-  are moved or changed), and hands you the copyable `editor1:…` link. Green
-  pills appear **only inside the shared folder**; the rest of the vault stays
-  local. The folder shows a `shared` badge, and the tree's All/Local/Shared
-  filter splits the view by provenance.
-- **Share the whole vault**: header → **Share this vault** → **Create share
-  link** (one click, same minting path).
-- **Manage tokens**: in either share dialog — list a share's tokens (label,
-  read-only), mint extra labeled tokens (one per person/device), revoke.
-  Revoking blocks *new* connections; connected peers persist until they
-  reconnect (R4.3 is deliberately deferred).
+- **Share one folder** *(the unit of sharing — dogfood-shaping R3)*:
+  right-click the folder in the tree → **Share…** → **Share this folder**. The
+  app mints a token, carves the folder into its own synced space (spike S8 Q1 —
+  no files are moved or changed), and hands you the copyable `editor1:…` link.
+  Green pills appear **only inside the shared folder**; the rest of the vault
+  stays local. The folder shows a `shared` badge, and the tree's
+  All/Local/Shared filter splits the view by provenance.
+- **Sharing the whole vault is no longer offered** (2026-09-07). It was one
+  click away from making every folder share impossible for the life of the
+  vault — mounts never nest, so a root share silently disables the affordance
+  the product is built around. Vaults that are *already* root-shared (joined
+  from a whole-vault link, or driven by the `mode=memory` URL contract) keep
+  working exactly as before: they boot, sync, read "shared" in the header, and
+  their folders' **Share…** items explain why they are disabled. They simply
+  have no share-management UI. To share everything, share the folders you mean
+  to share — or use the relay CLI, which still mints a token for any room.
+- **Manage tokens**: right-click a shared folder → **Manage tokens…** — list a
+  share's tokens (label, read-only), mint extra labeled tokens (one per
+  person/device), revoke. Revoking blocks *new* connections; connected peers
+  persist until they reconnect (R4.3 is deliberately deferred).
 - The relay CLI (`share-add`/`share-list`/`share-rm`) still works and is the
   only path when `OPERATOR_SECRET` is unset — the admin HTTP API answers 404
   without it (see `apps/relay/README.md`).
@@ -317,17 +351,17 @@ e.g. `shared/team`). The shared content materializes there, badged
 destinations, overlaps with existing shared folders, and (V1) adding shares
 inside a vault that is itself shared.
 
-**Unshare / unmount (M5).** Click a shared folder in the tree →
-- **unshare** — stop syncing and fold the folder back into the vault (files
+**Unshare / unmount (M5).** Right-click a shared folder in the tree →
+- **Unshare…** — stop syncing and fold the folder back into the vault (files
   stay, same content identity; peers keep their copies but nothing syncs).
   Optional checkbox revokes all of the share's relay tokens.
-- **unmount** *(joined shares)* — drop the share from this vault; the files
+- **Unmount…** *(joined shares)* — drop the share from this vault; the files
   stay on disk and re-enroll as plain local notes (delete the folder
   afterwards if you don't want them).
 
-**Moving across a share boundary (M5)** asks for confirmation first: moving a
-file *out* of a shared folder removes it for everyone else; moving one *in*
-makes it visible to everyone. Either way the file's sync identity starts over
+**Moving across a share boundary (M5)** asks for confirmation first — whether
+you used **Move…** or dragged the row: moving a file *out* of a shared folder
+removes it for everyone else; moving one *in* makes it visible to everyone. Either way the file's sync identity starts over
 in its new home. A file *deleted or moved away by an external tool* (git,
 Obsidian, a file manager) is never silently dropped: Editor raises a
 **vanished-file review** offering *Restore file* (from the synced content —

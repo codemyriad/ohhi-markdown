@@ -15,7 +15,6 @@ import {
   saveUser,
   setDefaultRelay,
   setOperatorSecret,
-  setVaultRelay,
   touchVault,
   upsertVault,
   type VaultEntry,
@@ -139,9 +138,6 @@ describe('vault registry round-trips', () => {
     upsertVault({ ...tauriEntry, name: 'renamed' })
     expect(listVaults().filter((v) => v.room === 'room-a')).toHaveLength(1)
     expect(getName('room-a')).toBe('renamed')
-
-    setVaultRelay('room-a', { url: 'ws://new', token: 'n' })
-    expect(listVaults()[0]?.relay?.url).toBe('ws://new')
   })
 })
 

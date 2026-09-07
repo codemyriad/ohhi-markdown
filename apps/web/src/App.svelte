@@ -6,7 +6,6 @@
   import ReviewModal from './lib/components/ReviewModal.svelte'
   import TreeOpDialog from './lib/components/TreeOpDialog.svelte'
   import SettingsPanel from './lib/components/SettingsPanel.svelte'
-  import ShareDialog from './lib/components/ShareDialog.svelte'
   import SyncPill from './lib/components/SyncPill.svelte'
   import VaultManager from './lib/components/VaultManager.svelte'
   import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
@@ -29,12 +28,11 @@
     removeVault,
     saveUser,
     setRoomToken,
-    setVaultRelay,
     touchVault,
     upsertVault,
     type VaultEntry,
   } from './lib/config.js'
-  import { listShares, mintShare, revokeShare } from './lib/relay-admin.js'
+  import { listShares, revokeShare } from './lib/relay-admin.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { dirPaths, type TreeOp } from './lib/tree-model.js'
@@ -398,21 +396,15 @@
   }
 
   // ---- in-workspace sharing (M4: minted in-app, zero terminal) ----
-
-  /** One-click whole-vault share: mint a token, attach the relay, remember it. */
-  async function createVaultShare(): Promise<void> {
-    if (!workspace) return
-    const secret = operatorSecret()
-    if (!secret) throw new Error('set the relay operator secret in Settings first')
-    const relayUrl = defaultRelay()
-    const label = getVault(workspace.room)?.name ?? 'This vault'
-    const minted = await mintShare(relayUrl, secret, { folderGuid: workspace.room, label })
-    setRoomToken(workspace.room, minted.token)
-    const { link } = workspace.enableSharing({ url: relayUrl, token: minted.token })
-    setVaultRelay(workspace.room, { url: relayUrl, token: minted.token })
-    addShare({ link, room: workspace.room, label })
-    refreshLists()
-  }
+  //
+  // The FOLDER is the unit of sharing (dogfood-shaping R3), reached from the
+  // tree's context menu. Promoting the whole vault from the UI was removed on
+  // 2026-09-07: it made every folder share silently impossible afterwards (the
+  // V1 no-nested-shares guard, spike S8 "The mount model") with no visible
+  // rule. Vaults that are ALREADY root-shared — joined from a whole-vault link,
+  // or relay-attached by the memory URL contract — still boot, sync and read
+  // "shared"; they simply have no share-management UI, and the tree says why
+  // their folders cannot be shared.
 
   /** Folder being shared/managed via the tree's share action, else null. */
   let folderSharePath = $state<string | null>(null)
@@ -513,7 +505,29 @@
       unmountConfirm = op.path
       return
     }
+    if (op.type === 'move-to') {
+      // Drag-and-drop already resolved the destination; the boundary rules are
+      // identical to the Move… dialog's, so both land in one place.
+      void performMove(op.from, op.to)
+      return
+    }
     treeOp = op
+  }
+
+  /**
+   * Move `from` to `to`, asking first when it crosses a share boundary —
+   * that changes who can see the content, so it is never silent (spike S8 Q5).
+   */
+  async function performMove(from: string, to: string): Promise<void> {
+    if (!workspace) return
+    if (workspace.isCrossMount(from, to)) {
+      const leavingShared = workspace.ui.mounts.some(
+        (m) => from === m.path || from.startsWith(`${m.path}/`)
+      )
+      moveConfirm = { from, to, leavingShared }
+    } else {
+      await workspace.movePath(from, to)
+    }
   }
 
   async function confirmTreeOp(value: string): Promise<void> {
@@ -527,17 +541,7 @@
       await workspace.renamePath(op.path, parent ? `${parent}/${value}` : value)
     } else if (op.type === 'move') {
       const base = op.path.slice(op.path.lastIndexOf('/') + 1)
-      const to = value ? `${value}/${base}` : base
-      if (workspace.isCrossMount(op.path, to)) {
-        // Crossing a share boundary changes who can see the content — confirm
-        // with honest consequences before anything moves (spike S8 Q5).
-        const leavingShared = workspace.ui.mounts.some(
-          (m) => op.path === m.path || op.path.startsWith(`${m.path}/`)
-        )
-        moveConfirm = { from: op.path, to, leavingShared }
-      } else {
-        await workspace.movePath(op.path, to)
-      }
+      await performMove(op.path, value ? `${value}/${base}` : base)
     } else if (op.type === 'delete') {
       await workspace.deletePath(op.path)
     }
@@ -548,6 +552,7 @@
     if (
       !treeOp ||
       treeOp.type === 'new-file' ||
+      treeOp.type === 'move-to' ||
       treeOp.type === 'share-folder' ||
       treeOp.type === 'unshare' ||
       treeOp.type === 'unmount'
@@ -658,14 +663,6 @@
         >
           Add share
         </button>
-        <ShareDialog
-          shared={workspace.ui.shared}
-          shareLink={workspace.ui.shareLink}
-          room={workspace.room}
-          relayUrl={relayDefault}
-          secret={opSecret}
-          onCreate={createVaultShare}
-        />
         <button
           data-testid="open-settings"
           onclick={() => (settingsOpen = true)}

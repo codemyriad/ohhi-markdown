@@ -267,15 +267,6 @@ export function lastVault(): VaultEntry | null {
   return cfg.lastRoom ? (cfg.vaults.find((v) => v.room === cfg.lastRoom) ?? null) : null
 }
 
-/** Attach/replace the relay recorded for a vault (after enableSharing). */
-export function setVaultRelay(room: string, relay: { url: string; token: string }): void {
-  const cfg = loadConfig()
-  const entry = cfg.vaults.find((v) => v.room === room)
-  if (!entry) return
-  entry.relay = relay
-  save(cfg)
-}
-
 // ---- settings ----
 
 export function defaultRelay(): string {

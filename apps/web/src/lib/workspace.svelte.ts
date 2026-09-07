@@ -102,10 +102,16 @@ export interface WorkspaceUi {
   selectedPath: string | null
   /** Per-doc sync records keyed by doc GUID (+ per-mount folder keys) — guids are rename-stable (M3). */
   records: Record<string, SyncRecord>
-  /** True once the ROOT mount has a relay (via join or enableSharing). */
+  /**
+   * True once the ROOT mount has a relay — i.e. the whole vault is shared.
+   * Reachable only by joining a whole-vault link or by the memory URL
+   * contract: the app stopped offering root promotion on 2026-09-07 (folder
+   * shares are the route, and a root share blocks them — spike S8's V1
+   * no-nested-shares guard). Still load-bearing: the header says "shared", the
+   * tree's provenance filter treats everything as shared, and the context
+   * menu explains why Share… is refused on a folder.
+   */
   shared: boolean
-  /** The root mount's copyable share link, once shared. */
-  shareLink: string | null
   /** Shared subtrees (carved/joined mounts), excluding the root mount. */
   mounts: MountInfo[]
   /** Held mass-change batch awaiting confirm/dismiss (M3), else null. */
@@ -147,8 +153,10 @@ export interface Workspace {
   unshare(path: string): Promise<void>
   /** Drop a joined mount; its files stay and become local notes. */
   unmount(path: string): Promise<void>
-  /** Promote the whole vault to a shared one; returns the copyable link. */
-  enableSharing(relay: RelayConfig): { link: string }
+  // NOTE: no root-promotion method. `MountSession.enableSharing` still exists
+  // in libs/workspace (it is how a relay-attached root announces its link, and
+  // libs/workspace's carve/join tests drive it), but the app no longer exposes
+  // a way to promote the whole vault — see WorkspaceUi.shared.
   /**
    * Carve `path` (a folder of the root mount) into its own shared mount:
    * mints a token (operator secret from Settings), runs the spike S8 Q1
@@ -216,7 +224,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     selectedPath: null,
     records: {},
     shared: false,
-    shareLink: null,
     mounts: [],
     breaker: null,
   })
@@ -446,10 +453,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: 'local',
     relay: cfg.relay,
     firstJoin: cfg.firstJoin,
-    onShared: (link) => {
-      ui.shared = true
-      ui.shareLink = link
-    },
+    onShared: () => (ui.shared = true),
   })
   registry.add('', rootSession)
 
@@ -610,10 +614,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       room: cfg.room,
       path: '',
       provenance: 'local',
-      onShared: (link) => {
-        ui.shared = true
-        ui.shareLink = link
-      },
+      onShared: () => (ui.shared = true),
     })
     registry.add('', rootSession)
   }
@@ -780,7 +781,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     addShareMount: doJoinMount,
     unshare: doUnshare,
     unmount: doUnmount,
-    enableSharing: (relay) => rootSession!.enableSharing(relay),
     carveFolder: doCarve,
     confirmBreaker: async () => {
       ui.breaker = null

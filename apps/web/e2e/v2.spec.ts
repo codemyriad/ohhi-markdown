@@ -199,6 +199,38 @@ test('the word count is present and selection-aware of the open note', async ({ 
   await expect(page.getByTestId('word-count')).toHaveText('5 words')
 })
 
+test('the tree context menu renames, and drag-and-drop rearranges', async ({ page }) => {
+  await openApp(page, 'v2-tree')
+
+  // Right-click a file row: files get rename/move/delete and no sharing.
+  await page.getByTestId('file-item:notes/ideas.md').click({ button: 'right' })
+  await expect(page.getByTestId('tree-context-menu')).toBeVisible()
+  await expect(page.getByTestId('tree-menu:share')).toHaveCount(0)
+  await page.getByTestId('tree-menu:rename').click()
+  await page.getByTestId('tree-op-name').fill('thoughts.md')
+  await page.getByTestId('tree-op-confirm').click()
+  await expect(page.getByTestId('file-item:notes/thoughts.md')).toBeVisible()
+
+  // Drag it out to the tree's root area, then back into the folder.
+  await page.dragAndDrop(
+    '[data-testid="file-item:notes/thoughts.md"]',
+    '[data-testid="tree-root"]',
+    { targetPosition: { x: 30, y: 320 } }
+  )
+  await expect(page.getByTestId('file-item:thoughts.md')).toBeVisible()
+  await page.dragAndDrop('[data-testid="file-item:thoughts.md"]', '[data-testid="dir-item:notes"]')
+  await expect(page.getByTestId('file-item:notes/thoughts.md')).toBeVisible()
+
+  // The memory contract attaches the relay to the ROOT mount, so this vault is
+  // shared as a whole — folder sharing is refused, and the menu SAYS SO rather
+  // than hiding the item (the hidden rule is what this menu replaced).
+  await page.getByTestId('dir-item:notes').click({ button: 'right' })
+  await expect(page.getByTestId('tree-menu:share')).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByTestId('tree-menu-reason:share')).toContainText('already shared as a whole')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('tree-context-menu')).toHaveCount(0)
+})
+
 test('the command palette lists commands with their bindings', async ({ page }) => {
   await openApp(page, 'v2-cmd')
   await page.keyboard.press('ControlOrMeta+Shift+p')
