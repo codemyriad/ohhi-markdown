@@ -73,10 +73,21 @@ describe('eventMatches', () => {
     )
   })
 
-  it('collapses Ctrl+Mod to one Ctrl off mac', () => {
+  it("matches Obsidian's unrebound Ctrl+Tab on both platforms", () => {
+    // Off mac Ctrl IS Mod, so a Ctrl-only binding must not also demand that
+    // Mod be absent — that contradiction made Ctrl+Tab unmatchable (R1).
+    expect(eventMatches(b('Ctrl+Tab'), key({ key: 'Tab', ctrlKey: true }), false)).toBe(true)
+    expect(eventMatches(b('Ctrl+Tab'), key({ key: 'Tab', ctrlKey: true }), true)).toBe(true)
     expect(
-      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)
+      eventMatches(b('Ctrl+Shift+Tab'), key({ key: 'Tab', ctrlKey: true, shiftKey: true }), false)
     ).toBe(true)
+    expect(eventMatches(b('Ctrl+Tab'), key({ key: 'Tab', metaKey: true }), true)).toBe(false)
+  })
+
+  it('gives Ctrl+Mod its own chord off mac instead of shadowing Mod', () => {
+    // Cmd+Ctrl on mac; Ctrl+Alt everywhere else, so that Chris's
+    // `Ctrl+Mod+←` (focus a pane) and his `Mod+←` (toggle a sidebar) stay two
+    // different keys on Linux, as they are on the machine they came from.
     expect(
       eventMatches(
         b('Ctrl+Mod+ArrowLeft'),
@@ -84,6 +95,19 @@ describe('eventMatches', () => {
         true
       )
     ).toBe(true)
+    expect(
+      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true, altKey: true }), false)
+    ).toBe(true)
+    expect(
+      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)
+    ).toBe(false)
+    expect(eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)).toBe(
+      true
+    )
+    expect(
+      eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true, altKey: true }), false)
+    ).toBe(false)
+    expect(formatBinding('Ctrl+Mod+ArrowLeft', false)).toBe('Ctrl+Alt+←')
   })
 })
 

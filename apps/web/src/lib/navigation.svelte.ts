@@ -45,6 +45,12 @@ export function createNavigation(): {
   /** Tell navigation whether the links panel is visible; it skips the work if not. */
   setLinksVisible(isVisible: () => boolean): void
   /**
+   * How a picked note opens. The pane tree owns that decision (tab-groups
+   * B5), so the palette hands the path over rather than selecting anything
+   * itself. Without one, picking a note does nothing.
+   */
+  setOpener(open: (path: string, opts: { background?: boolean }) => void): void
+  /**
    * Bumped on every indexed content change, from any writer. Read it inside
    * an `$effect` to re-derive anything that depends on note TEXT — the index
    * itself is a plain data structure, so this counter is the subscription.
@@ -53,7 +59,7 @@ export function createNavigation(): {
   open(mode: PaletteMode): void
   close(): void
   setQuery(q: string): void
-  pick(row: PaletteRow): void
+  pick(row: PaletteRow, opts?: { background?: boolean }): void
   /**
    * Point navigation at a workspace. Pass null (and call it BEFORE booting the
    * next vault) to drop the previous vault's documents.
@@ -88,6 +94,8 @@ export function createNavigation(): {
   let workspace: Workspace | null = null
   /** Set by the host: false while the links panel is hidden. */
   let linksWanted: () => boolean = () => true
+  /** Set by the host: opens a path in the pane tree. */
+  let opener: (path: string, opts: { background?: boolean }) => void = () => {}
   /**
    * Bumped by the index sink so derived queries re-run on any content change.
    *
@@ -128,9 +136,9 @@ export function createNavigation(): {
   /** Set when a search result asked to land on a specific character. */
   const pending = $state<{ reveal: { offset: number } | null }>({ reveal: null })
 
-  const openNote = (path: string, offset?: number): void => {
+  const openNote = (path: string, offset?: number, background = false): void => {
     if (!workspace) return
-    workspace.select(path)
+    opener(path, { background })
     touchPath(workspace.room, path)
     palette.mode = null
     // A NEW object every time, so picking the same hit twice still reveals.
@@ -226,6 +234,9 @@ export function createNavigation(): {
     setLinksVisible(isVisible) {
       linksWanted = isVisible
     },
+    setOpener(open) {
+      opener = open
+    },
     resolveLink(target, fromPath) {
       refreshResolver()
       return resolver.resolve(target, fromPath)
@@ -241,13 +252,13 @@ export function createNavigation(): {
     setQuery(q) {
       palette.query = q
     },
-    pick(row) {
+    pick(row, opts) {
       if (palette.mode === 'command') {
         palette.mode = null
         void registry.get(row.id)?.run()
         return
       }
-      openNote(row.id, row.offset)
+      openNote(row.id, row.offset, opts?.background)
     },
     attach(ws) {
       // Detaching CLEARS the index. Guids are UUIDs, so nothing collides —
@@ -286,6 +297,16 @@ export function defaultCommands(actions: {
   addShare: () => void
   /** Device linking (N2, A1): opens the device-link dialog. */
   linkDevice: () => void
+  /**
+   * Daily notes (W3), over Obsidian's own `daily-notes.json`. `today` creates
+   * the note if it is not there yet; prev/next only ever open a daily that
+   * already exists, so their guards are "is there one to step to".
+   */
+  dailyToday: () => void
+  dailyPrev: () => void
+  dailyNext: () => void
+  hasPrevDaily: () => boolean
+  hasNextDaily: () => boolean
 }): Command[] {
   // Titles resolve at registration (the locale is loaded before the shell
   // mounts); a locale switch re-registers, the way Edible re-runs its load.
@@ -308,6 +329,10 @@ export function defaultCommands(actions: {
     // Chris's own Obsidian bindings for the sidebars (Mod+Left / Mod+Right).
     { id: 'view.sidebar', title: t.toggle_navigator(), group: g.view(), keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
     { id: 'view.rail', title: t.toggle_rail(), group: g.view(), keys: 'Mod+ArrowRight', run: actions.toggleRail },
+    // Chris's own Obsidian bindings for the daily-notes plugin (3 of his 18 rebinds).
+    { id: 'daily.today', title: t.daily_today(), group: g.daily(), keys: 'Mod+\\', run: actions.dailyToday },
+    { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), keys: 'Mod+-', run: actions.dailyPrev, when: actions.hasPrevDaily },
+    { id: 'daily.next', title: t.daily_next(), group: g.daily(), keys: 'Mod+=', run: actions.dailyNext, when: actions.hasNextDaily },
     { id: 'app.settings', title: t.settings(), group: g.app(), keys: 'Mod+,', run: actions.settings },
   ]
 }

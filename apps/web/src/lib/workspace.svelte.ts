@@ -58,6 +58,7 @@ import {
   type DocInspection,
   type FileRow,
   type MountStats,
+  type PreImageInfo,
   type PullProgress,
   type RelayConfig,
 } from '@editor/workspace'
@@ -122,6 +123,12 @@ export interface WorkspaceConfig {
    * the boot is done.
    */
   onPull?: (progress: PullProgress | null) => void
+  /**
+   * Workspace-absolute renames, as the mounts report them. `ui.selectedPath`
+   * is followed here; the pane tree follows its own tabs and per-tab
+   * histories through this (tab-groups B6/S9-Q4).
+   */
+  onPathsRenamed?: (moves: { from: string; to: string }[]) => void
 }
 
 /** A shared subtree of this workspace, for badges/filter/share management. */
@@ -148,6 +155,9 @@ export interface MountInfo {
    */
   foreign: boolean
 }
+
+/** Re-exported so the shell can type a History row without reaching past the facade. */
+export type { PreImageInfo }
 
 export interface WorkspaceUi {
   phase: 'connecting' | 'ready'
@@ -185,6 +195,12 @@ export interface WorkspaceUi {
   breaker: { paths: string[] } | null
 }
 
+/**
+ * The only directories `readAppFile` will read. Both are ignored by the vault
+ * adapters, so nothing here is ever enrolled, synced or shown in the tree.
+ */
+const APP_FILE_DIRS = ['.editor/', '.obsidian/'] as const
+
 export interface Workspace {
   ui: WorkspaceUi
   user: CollabUser
@@ -201,12 +217,6 @@ export interface Workspace {
    */
   setLiveViews(paths: ReadonlySet<string>): void
   /**
-   * One selected path is one live view: `setLiveViews` plus
-   * `ui.selectedPath`. The single-editor shell's entry point; the pane shell
-   * calls the two halves itself.
-   */
-  select(path: string | null): void
-  /**
    * The undo manager for a note's doc, minted on first ask and shared by
    * every view of it (tab-groups B2). Owned here rather than by a view, so
    * undo survives a tab switch and two panes on one note share a stack.
@@ -214,12 +224,15 @@ export interface Workspace {
    */
   undoManagerFor(path: string): CollabUndoManager | null
   /**
-   * Create a note inside `dir` ('' = vault root) and select it. With no
-   * `name` the note is auto-named `untitled-N.md`; with one it is created at
-   * that path (wikilink create-on-click, daily notes). An existing note at
-   * that path is opened, not overwritten.
+   * Create a note inside `dir` ('' = vault root) and answer with its
+   * workspace path. With no `name` the note is auto-named `untitled-N.md`;
+   * with one it is created at that path (wikilink create-on-click, daily
+   * notes). An existing note at that path is opened, not overwritten.
+   *
+   * It does NOT open the note: with a pane tree, WHERE a new note opens is
+   * the shell's call (tab-groups B5), so the path comes back instead.
    */
-  createFile(dir?: string, name?: string, text?: string): Promise<void>
+  createFile(dir?: string, name?: string, text?: string): Promise<string | null>
   createDir(path: string): Promise<void>
   /** Rename or move a file/folder WITHIN one mount (same shared scope). */
   renamePath(from: string, to: string): Promise<void>
@@ -232,6 +245,17 @@ export interface Workspace {
   /** Do `from` and `to` live in different mounts (needs the move confirm)? */
   isCrossMount(from: string, to: string): boolean
   deletePath(path: string): Promise<void>
+  /**
+   * Pre-images the journal holds for a note, newest first (W3). Metadata only
+   * — the bytes stay in the journal until `restorePreImage` asks for them.
+   */
+  fileHistory(path: string): Promise<PreImageInfo[]>
+  /**
+   * Put one pre-image back. It travels the vault's own write path (CRDT diff →
+   * journal → atomic rename), so peers see an edit and the bytes replaced are
+   * themselves journaled — never a raw disk write (golden rule 1).
+   */
+  restorePreImage(path: string, seq: number): Promise<void>
   resolveReview(guid: string, mergedText: string): Promise<void>
   /** Resolve a 'vanished' review: restore from CRDT or confirm the removal. */
   resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void>
@@ -273,10 +297,13 @@ export interface Workspace {
   /** Read-only per-mount devtools counts (root mount included). */
   mountStats(): Promise<MountStats[]>
   /**
-   * Read a file from Editor's own `.editor/` directory in the vault (custom
-   * themes today). Deliberately narrow: the vault adapters IGNORE `.editor/`,
-   * so it is invisible to enrollment, the tree and sync — but it is still
-   * inside the vault, so it travels with the folder. Returns null when absent.
+   * Read a file from a configuration directory in the vault: Editor's own
+   * `.editor/` (custom themes) or Obsidian's `.obsidian/` (daily-notes.json,
+   * W3). Deliberately narrow, and read-only: the vault adapters IGNORE both,
+   * so they are invisible to enrollment, the tree and sync — but they are
+   * still inside the vault, so they travel with the folder. Obsidian's
+   * directory especially is *its* state; Editor reads it and never writes it.
+   * Returns null when absent.
    */
   readAppFile(path: string): Promise<string | null>
   dispose(): void
@@ -593,9 +620,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           indexed.set(guid, full)
         },
         onPathsRenamed: (moves) => {
-          for (const { from, to } of prefixMoves(moves)) {
+          const full = prefixMoves(moves)
+          for (const { from, to } of full) {
             if (ui.selectedPath === from) ui.selectedPath = to
           }
+          cfg.onPathsRenamed?.(full)
         },
         onBreaker: (paths) => {
           breakerOwner = sessionOf(opts.room)
@@ -871,11 +900,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const reapplyLiveViews = (): void => {
     liveByMount = new Map()
     setLiveViews(liveViews)
-  }
-
-  const select = (path: string | null): void => {
-    ui.selectedPath = path
-    setLiveViews(path ? new Set([path]) : NO_RELS)
   }
 
   /**
@@ -1294,7 +1318,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return r ? r.session.awarenessForPath(r.rel) : null
     },
     setLiveViews,
-    select,
     undoManagerFor,
     createFile: async (dir = '', name, text) => {
       // Route on the FULL TARGET PATH, never on `dir` alone. A prefixed name
@@ -1320,7 +1343,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         relDir = r ? r.rel : dir
       }
       const path = await owner.createFile(relDir, relName, text)
-      if (path) select(mountPath ? `${mountPath}/${path}` : path)
+      return path ? (mountPath ? `${mountPath}/${path}` : path) : null
     },
     createDir: async (path) => {
       const r = registry.resolve(path)
@@ -1348,6 +1371,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       }
       const r = registry.resolve(path)
       if (r) await r.session.deletePath(r.rel)
+    },
+    fileHistory: async (path) => {
+      const r = registry.resolve(path)
+      return r ? r.session.fileHistory(r.rel) : []
+    },
+    restorePreImage: async (path, seq) => {
+      const r = registry.resolve(path)
+      if (r) await r.session.restorePreImage(r.rel, seq)
     },
     resolveReview: (guid, mergedText) =>
       (reviewOwner.get(guid) ?? rootSession!).resolveReview(guid, mergedText),
@@ -1379,7 +1410,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     mountStats: () => Promise.all(registry.all().map((h) => h.session.mountStats())),
     readAppFile: async (path) => {
       const rel = path.replace(/^\/+/, '')
-      if (!rel.startsWith('.editor/')) throw new Error('readAppFile is for .editor/ only')
+      if (!APP_FILE_DIRS.some((dir) => rel.startsWith(dir))) {
+        throw new Error(`readAppFile is for ${APP_FILE_DIRS.join(' / ')} only`)
+      }
       const bytes = await cfg.adapter.read(rel)
       return bytes ? new TextDecoder().decode(bytes) : null
     },

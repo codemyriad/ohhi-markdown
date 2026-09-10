@@ -426,6 +426,42 @@ export function groupAtIndex(p: Pane, index: number, excludeTabId?: string): str
   return gp && gn && gp.id === gn.id ? gp.id : null
 }
 
+/** One item as a strip draws it: a group's chip, then that group's tabs. */
+export type StripItem =
+  | { kind: 'chip'; group: Group; index: number; endIndex: number }
+  | { kind: 'tab'; tab: Tab; group: Group | null; index: number }
+
+/**
+ * The strip in draw order — the one place that knows a chip precedes its
+ * group's run and that a folded group draws its chip alone. The tab strip
+ * renders it, the drag hit test measures it and `tab.next`/`tab.prev` walk
+ * it, so all three agree about what is on screen.
+ *
+ * `index` is the item's position in `pane.tabs` (for a chip: its group's
+ * first tab), which is what every insertion index is counted in.
+ */
+export function stripItems(p: Pane): StripItem[] {
+  const out: StripItem[] = []
+  const seen = new Set<string>()
+  p.tabs.forEach((tab, index) => {
+    const group = groupOf(p, tab.id)
+    if (group && !seen.has(group.id)) {
+      seen.add(group.id)
+      out.push({ kind: 'chip', group, index, endIndex: index + group.tabIds.length })
+    }
+    if (group?.collapsed) return
+    out.push({ kind: 'tab', tab, group, index })
+  })
+  return out
+}
+
+/** The tabs a strip is showing right now — folded groups hide theirs. */
+export function visibleTabs(p: Pane): Tab[] {
+  return stripItems(p)
+    .filter((i): i is Extract<StripItem, { kind: 'tab' }> => i.kind === 'tab')
+    .map((i) => i.tab)
+}
+
 function placeTabAt(p: Pane, t: Tab, index: number, groupId?: string | null): void {
   const i = Math.max(0, Math.min(index, p.tabs.length))
   const gid = groupId === undefined ? groupAtIndex(p, i, t.id) : groupId
@@ -991,6 +1027,70 @@ export function zoneAt(rect: Rect, x: number, y: number): 'center' | Side {
   ]
   const near = bands.filter(([, d]) => d < EDGE_BAND).sort((a, b) => a[1] - b[1])
   return near.length ? near[0][0] : 'center'
+}
+
+// ---- per-tab history (Fork 4) ----
+
+/**
+ * The one in-place navigation (B5): following a `[[link]]`, or picking a note
+ * in an empty tab, keeps the tab and pushes its trail — which is the whole
+ * point of having back/forward. Every OTHER open is a new tab.
+ *
+ * R3 still holds: if another tab of this pane is already on `path`, that tab
+ * is activated and this one is left where it was.
+ */
+export function navigateInTab(
+  l: Layout,
+  tabId: string,
+  path: string,
+  now = Date.now()
+): Layout {
+  return editLayout(l, (d) => {
+    const p = paneOfTab(d, tabId)
+    const t = p?.tabs.find((x) => x.id === tabId)
+    if (!p || !t) return
+    if (t.path === path) {
+      activateIn(d, p, t.id, now)
+      return
+    }
+    const dup = p.tabs.find((x) => x.id !== tabId && x.path === path)
+    if (dup) {
+      activateIn(d, p, dup.id, now)
+      return
+    }
+    // Going somewhere new truncates the forward trail, exactly as a browser's
+    // does — and the resume point belonged to the note being left.
+    t.history = [...t.history.slice(0, t.historyAt + 1), path]
+    t.historyAt = t.history.length - 1
+    t.path = path
+    t.cursor = null
+    t.scroll = 0
+    activateIn(d, p, t.id, now)
+  })
+}
+
+/** Can this tab step `delta` (-1 back, +1 forward) through its own trail? */
+export function canTravel(t: Tab | null, delta: number): boolean {
+  if (!t) return false
+  const next = t.historyAt + delta
+  return next >= 0 && next < t.history.length
+}
+
+/**
+ * Back/forward inside one tab. Travelling never rewrites the trail, so
+ * stepping back and forward again lands on the same entries.
+ */
+export function travelTab(l: Layout, tabId: string, delta: number, now = Date.now()): Layout {
+  return editLayout(l, (d) => {
+    const p = paneOfTab(d, tabId)
+    const t = p?.tabs.find((x) => x.id === tabId)
+    if (!p || !t || !canTravel(t, delta)) return
+    t.historyAt += delta
+    t.path = t.history[t.historyAt]
+    t.cursor = null
+    t.scroll = 0
+    activateIn(d, p, t.id, now)
+  })
 }
 
 // ---- keeping the layout honest against the vault (R5) ----

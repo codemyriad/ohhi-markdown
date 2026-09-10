@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activate,
   activeTab,
+  canTravel,
   closedTabOf,
   closeOthers,
   closePane,
@@ -14,6 +15,7 @@ import {
   groupOf,
   liveGuidsInput,
   moveTab,
+  navigateInTab,
   neighbour,
   normalize,
   openPath,
@@ -29,8 +31,11 @@ import {
   serialize,
   split,
   splitWith,
+  stripItems,
   swapPanes,
   tabOf,
+  travelTab,
+  visibleTabs,
   zoneAt,
   zoom,
   type Layout,
@@ -734,6 +739,99 @@ describe('staying honest against the vault (R5)', () => {
     const pruned = prune(l, new Set<string>(), gen)
     expect(panes(pruned.tree)).toHaveLength(1)
     expect(pathsOf(paneAt(pruned, 0))).toEqual([null])
+  })
+})
+
+describe('stripItems (what a strip draws)', () => {
+  it('puts a chip before its run, and folds the run away behind it', () => {
+    const l = chris()
+    const top = paneAt(l, 0)
+    // 'CS reading' is folded (tabs 5–7), 'Myriad' is open (tabs 9–10).
+    const shape = stripItems(top).map((i) =>
+      i.kind === 'chip' ? `chip:${i.group.name}:${i.index}-${i.endIndex}` : `tab:${i.index}`
+    )
+    expect(shape).toEqual([
+      'tab:0',
+      'tab:1',
+      'tab:2',
+      'tab:3',
+      'tab:4',
+      'chip:CS reading:5-8',
+      'tab:8',
+      'chip:Myriad:9-11',
+      'tab:9',
+      'tab:10',
+    ])
+    expect(visibleTabs(top).map((t) => t.path)).toEqual([
+      ...TOP.slice(0, 5),
+      TOP[8],
+      TOP[9],
+      TOP[10],
+    ])
+  })
+})
+
+describe('per-tab history (Fork 4)', () => {
+  it('fills an empty tab, then pushes the trail as links are followed', () => {
+    const gen = ids()
+    const l0 = createLayout(gen)
+    const empty = paneAt(l0, 0).tabs[0].id
+    let l = navigateInTab(l0, empty, 'a.md', 1)
+    expect(pathsOf(paneAt(l, 0))).toEqual(['a.md'])
+    expect(tabOf(l, empty)).toMatchObject({ history: ['a.md'], historyAt: 0 })
+
+    l = navigateInTab(l, empty, 'b.md', 2)
+    expect(tabOf(l, empty)).toMatchObject({ path: 'b.md', history: ['a.md', 'b.md'], historyAt: 1 })
+    // Still ONE tab: following a link navigates, it does not open (B5).
+    expect(paneAt(l, 0).tabs).toHaveLength(1)
+  })
+
+  it('walks back and forward without rewriting the trail, and truncates on a new turn', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    const t = paneAt(l, 0).tabs[0].id
+    for (const p of ['a.md', 'b.md', 'c.md']) l = navigateInTab(l, t, p, 1)
+
+    l = travelTab(l, t, -1)
+    expect(tabOf(l, t)).toMatchObject({ path: 'b.md', historyAt: 1 })
+    l = travelTab(l, t, -1)
+    expect(tabOf(l, t)).toMatchObject({ path: 'a.md', historyAt: 0 })
+    expect(canTravel(tabOf(l, t), -1)).toBe(false)
+    l = travelTab(l, t, -1) // nothing to go back to
+    expect(tabOf(l, t)?.path).toBe('a.md')
+
+    l = travelTab(l, t, 1)
+    expect(tabOf(l, t)?.path).toBe('b.md')
+    // A new turn from here drops what was ahead — the browser rule.
+    l = navigateInTab(l, t, 'd.md', 3)
+    expect(tabOf(l, t)?.history).toEqual(['a.md', 'b.md', 'd.md'])
+    expect(canTravel(tabOf(l, t), 1)).toBe(false)
+  })
+
+  it('activates the tab that already holds the target instead of duplicating it (R3)', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    const pane = paneAt(l, 0)
+    const a = tabIdFor(pane, 'a.md')
+    const b = tabIdFor(pane, 'b.md')
+    l = navigateInTab(l, b, 'a.md', 4)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+    expect(activeTab(paneAt(l, 0))?.id).toBe(a)
+    // The travelling tab kept its own path and trail.
+    expect(tabOf(l, b)?.path).toBe('b.md')
+  })
+
+  it('drops the resume point when the tab goes somewhere else', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    const t = paneAt(l, 0).tabs[0].id
+    l = navigateInTab(l, t, 'a.md', 1)
+    let pane = paneAt(l, 0)
+    pane = { ...pane, tabs: pane.tabs.map((x) => ({ ...x, cursor: { anchor: 9, head: 9 }, scroll: 40 })) }
+    l = { ...l, tree: pane }
+    l = navigateInTab(l, t, 'b.md', 2)
+    expect(tabOf(l, t)).toMatchObject({ cursor: null, scroll: 0 })
   })
 })
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
   import BreakerDialog from './lib/components/BreakerDialog.svelte'
   import DevtoolsPanel from './lib/components/DevtoolsPanel.svelte'
   import FileTree from './lib/components/FileTree.svelte'
@@ -23,6 +22,7 @@
     deriveVaultName,
     devtoolsEnabled,
     getVault,
+    hotkeys,
     lastVault,
     listVaults,
     loadShares,
@@ -45,13 +45,10 @@
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
-  import { pillStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
-  import { wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
-  import { NavHistory } from './lib/nav-history.js'
   import { touchPath } from './lib/recent.js'
   import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
@@ -60,10 +57,25 @@
   import ActionsCluster from './lib/components/ActionsCluster.svelte'
   import Breadcrumb from './lib/components/Breadcrumb.svelte'
   import RightRail, { type RailSection } from './lib/components/RightRail.svelte'
-  import StatusBar from './lib/components/StatusBar.svelte'
-  import { Bell, Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
+  import DropZones from './lib/components/DropZones.svelte'
+  import ModeBar from './lib/components/ModeBar.svelte'
+  import PaneTree, { type PaneRender } from './lib/components/PaneTree.svelte'
+  import { createPanes } from './lib/workspace-panes.svelte.js'
+  import { findPane } from './lib/panes.js'
+  import { Bell, History, Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
   import ActivitySection from './lib/components/ActivitySection.svelte'
+  import HistorySection from './lib/components/HistorySection.svelte'
   import NoteSection from './lib/components/NoteSection.svelte'
+  import {
+    DAILY_DEFAULTS,
+    dailyPath,
+    dateOfPath,
+    loadDailyConfig,
+    neighbours,
+    today,
+    type DailyConfig,
+  } from './lib/daily-notes.js'
+  import { realClock } from './lib/real-clock.js'
   import { scopedRollup } from './lib/share-status.js'
   import { unreadCount } from './lib/notices.js'
   import { toast } from './lib/ui/toaster.js'
@@ -102,7 +114,14 @@
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()
-  const navHistory = new NavHistory()
+  /**
+   * The pane tree (tab-groups W1). It owns where a note opens, which paths
+   * have a live editor and what `ui.selectedPath` is — so every "open this"
+   * in the shell goes through `openPath` below and nothing calls the
+   * workspace's single-selection entry point any more.
+   */
+  const panes = createPanes(realClock, nav.registry)
+  nav.setOpener((path, opts) => openPath(path, opts))
 
   // ---- layout (chrome U2): device-level, persisted like the theme ----
   const savedLayout = layoutPrefs()
@@ -137,6 +156,7 @@
     // The one place the presence union survives: as a count on the icon.
     { id: 'note', label: $LL.web.rail.sections.note(), icon: Users, badge: workspace?.ui.presence.length || undefined },
     { id: 'activity', label: $LL.web.rail.sections.activity(), icon: Bell, badge: unread || undefined },
+    { id: 'history', label: $LL.web.rail.sections.history(), icon: History },
   ])
   /** Bumped when a share dialog closes so the note section refetches its access list. */
   let shareRevision = $state(0)
@@ -155,23 +175,86 @@
     revealDir = { path: dir }
   }
 
-  /** Suppresses the history push while back/forward is doing the navigating. */
-  let travelling = false
-  /** Selection-aware word count for the status bar. */
-  let wordCount = $state(0)
   nav.setLinksVisible(() => linksVisible)
+
+  // ---- daily notes (W3): Obsidian's own daily-notes.json drives all three ----
+  /** Read once per vault; `DAILY_DEFAULTS` until it answers (and if it is absent). */
+  let dailyCfg = $state<DailyConfig>(DAILY_DEFAULTS)
+  $effect(() => {
+    const ws = workspace
+    if (!ws) return
+    let live = true
+    void loadDailyConfig((path) => ws.readAppFile(path)).then((cfg) => {
+      if (live) dailyCfg = cfg
+    })
+    return () => {
+      live = false
+    }
+  })
+
+  /**
+   * The dailies either side of where we are — from the focused note's own
+   * date when it is a daily, else from today. Computed fresh because the day
+   * can turn over while the app is open; `dailySteps` is the memoized read,
+   * so the `when` guards (which run on EVERY keypress, via registry.match)
+   * never rescan the vault.
+   */
+  function dailyNeighbours(): { prev: string | null; next: string | null } {
+    const files = workspace?.ui.files
+    if (!files) return { prev: null, next: null }
+    const from =
+      dateOfPath(dailyCfg, workspace?.ui.selectedPath ?? null) ?? today(() => realClock.now())
+    return neighbours(
+      dailyCfg,
+      files.filter((f) => f.kind === 'text').map((f) => f.path),
+      from
+    )
+  }
+  const dailySteps = $derived(dailyNeighbours())
+
+  /**
+   * Today's daily note, created if it is not there yet. Empty, as Obsidian
+   * creates it with no template configured — Chris has none.
+   */
+  async function openDailyToday(): Promise<void> {
+    if (!workspace) return
+    const path = dailyPath(dailyCfg, today(() => realClock.now()))
+    if (workspace.ui.files.some((f) => f.path === path)) {
+      openPath(path)
+      return
+    }
+    const cut = path.lastIndexOf('/')
+    // createFile answers with the path and opens nothing — WHERE a new note
+    // lands is the shell's call now (tab-groups B5). It adopts a file already
+    // on disk rather than clobbering it, so a note Obsidian wrote today opens
+    // untouched.
+    const created = await workspace.createFile(
+      cut === -1 ? '' : path.slice(0, cut),
+      path.slice(cut + 1)
+    )
+    if (created) openPath(created)
+  }
+
+  /** Walk to the neighbouring daily; a no-op at either end (the guards agree). */
+  function stepDaily(side: 'prev' | 'next'): void {
+    const path = dailyNeighbours()[side]
+    if (path) openPath(path)
+  }
 
   nav.registry.register(
     ...defaultCommands({
       quickOpen: () => nav.open('quick-open'),
       commandPalette: () => nav.open('command'),
       search: () => nav.open('search'),
-      newNote: () => void workspace?.createFile(''),
+      newNote: () => void createNote(''),
       toggleSidebar: () => (treeOpen = !treeOpen),
       toggleRail: () => (railOpen = !railOpen),
       settings: () => (settingsOpen = true),
-      back: () => travel(navHistory.back()),
-      forward: () => travel(navHistory.forward()),
+      // Fork 4: back/forward walk the FOCUSED TAB's own trail, not one
+      // workspace-wide list — with four panes, "back" jumping panes is a
+      // surprise, and a tab replaced in place is exactly what has a trail.
+      back: () => panes.travel(-1),
+      forward: () => panes.travel(1),
       hasNote: () => workspace?.ui.selectedPath != null,
       deleteNote: () => {
         const path = workspace?.ui.selectedPath
@@ -190,16 +273,22 @@
       linkDevice: () => {
         if (workspace) deviceLinkOpen = true
       },
+      dailyToday: () => void openDailyToday(),
+      // Fresh, not `dailySteps`: the guard's memo is for the keypress path,
+      // the step itself must be right even if a day turned over since.
+      dailyPrev: () => stepDaily('prev'),
+      dailyNext: () => stepDaily('next'),
+      hasPrevDaily: () => dailySteps.prev !== null,
+      hasNextDaily: () => dailySteps.next !== null,
     })
   )
-
-  /** Open a path from the history without recording it as a new visit. */
-  function travel(path: string | null): void {
-    if (!path || !workspace) return
-    travelling = true
-    workspace.select(path)
-    travelling = false
-  }
+  // Every `workspace.*` and `tab.*` row of the command table (B7). Registered
+  // after the defaults so a later rebind of a shared key wins, as the registry
+  // documents.
+  nav.registry.register(...panes.commands())
+  // The user's own bindings sit over those defaults (R1.3). Settings writes
+  // config and re-applies them itself, so this is the boot read.
+  nav.registry.setOverrides(hotkeys())
 
   /**
    * Global hotkeys, in the CAPTURE phase.
@@ -213,6 +302,9 @@
    */
   function onGlobalKeydown(e: KeyboardEvent): void {
     if (view !== 'workspace') return
+    // A live pane mode owns the keyboard: its letters are commands, not text,
+    // and this handler is in the capture phase so CodeMirror never sees them.
+    if (panes.handleKey(e)) return
     const command = nav.registry.match(e)
     if (!command) return
     e.preventDefault()
@@ -221,46 +313,21 @@
   }
 
   /**
-   * What the editor may do with a `[[link]]`. Module-stable so reconfiguring
-   * the compartment never rebuilds the view (and never rebinds the Y.Text).
+   * Every "open this note" in the shell (Fork 1-B): the tree, the links
+   * panel, quick-open, search, Activity, daily notes. `background` is
+   * Mod+click / Mod+Enter — a tab, but stay where you are.
    */
-  const linkHost: WikiLinkHost = {
-    resolve: (target) => nav.resolveLink(target, workspace?.ui.selectedPath ?? undefined),
-    open: (path) => openPath(path),
-    create: (target) => void createFromLink(target),
-    candidates: () => (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path),
-  }
-  const editorExtensions = [wikiLinkHost.of(linkHost)]
-
-  function openPath(path: string): void {
+  function openPath(path: string, opts: { background?: boolean } = {}): void {
     if (!workspace) return
-    workspace.select(path)
+    panes.open(path, opts)
     touchPath(workspace.room, path)
   }
 
-  // Record every settled selection, wherever it came from — the tree, a
-  // wikilink, quick-open, search — except the ones back/forward performed.
-  $effect(() => {
-    const path = workspace?.ui.selectedPath
-    if (path && !travelling) navHistory.push(path)
-  })
-
-  // Keep history honest after deletes and renames.
-  $effect(() => {
-    const files = workspace?.ui.files
-    if (files) navHistory.prune(new Set(files.map((f) => f.path)))
-  })
-
-  /**
-   * Word count over the open note, selection-aware — `word-count` is enabled
-   * in Chris's Obsidian while `editor-status` is disabled, so this readout
-   * specifically is the one he keeps.
-   */
-  $effect(() => {
-    nav.revision // any content change, from any writer
-    const doc = selectedDoc
-    wordCount = doc ? (doc.getText().match(/[\p{L}\p{N}'’-]+/gu) ?? []).length : 0
-  })
+  /** Create an auto-named note in `dir` and open it in the focused pane. */
+  async function createNote(dir: string): Promise<void> {
+    const created = await workspace?.createFile(dir)
+    if (created) openPath(created)
+  }
 
   /**
    * Create the note an unresolved link points at, in the linking note's own
@@ -278,7 +345,8 @@
         ? from.slice(0, from.lastIndexOf('/'))
         : ''
     const name = clean.endsWith('.md') ? clean : `${clean}.md`
-    await workspace.createFile(dir, name, `# ${clean.split('/').pop()}\n\n`)
+    const created = await workspace.createFile(dir, name, `# ${clean.split('/').pop()}\n\n`)
+    if (created) openPath(created)
   }
 
   /**
@@ -320,6 +388,10 @@
       const ws = await setupWorkspace({
         ...(await configForSession(entry, userName())),
         index: nav.sink,
+        // A rename must reach the tabs and their histories in the same turn
+        // the file list changes, or the prune would close a tab that only
+        // moved (B6, S9-Q4).
+        onPathsRenamed: (moves) => panes.onRenamed(moves),
         // Reported from inside setupWorkspace, before it resolves — the whole
         // point of the panel (spike S10 Q4).
         onPull: (progress) => {
@@ -333,6 +405,9 @@
       workspace?.dispose()
       workspace = ws
       nav.attach(ws)
+      // After `ui.files` exists, so the restored tree is pruned against the
+      // vault before a single editor mounts (B6).
+      panes.attach(ws, entry.room)
       void restoreCustomTheme(ws)
       touchVault(entry.room, Date.now())
       refreshLists()
@@ -353,13 +428,18 @@
     view = 'connecting'
     nav.attach(null)
     try {
-      const ws = await setupWorkspace({ ...(await configForMemory(cfg)), index: nav.sink })
+      const ws = await setupWorkspace({
+        ...(await configForMemory(cfg)),
+        index: nav.sink,
+        onPathsRenamed: (moves) => panes.onRenamed(moves),
+      })
       if (gen !== bootGen) {
         ws.dispose()
         return
       }
       workspace = ws
       nav.attach(ws)
+      panes.attach(ws, ws.room)
       view = 'workspace'
     } catch (err) {
       if (gen !== bootGen) return
@@ -601,6 +681,7 @@
     if (workspace?.room === room) {
       ++bootGen // supersede any in-flight boot of this vault
       nav.attach(null)
+      panes.attach(null, '')
       workspace.dispose()
       workspace = null
     }
@@ -725,6 +806,9 @@
     const path = unmountConfirm
     unmountConfirm = null
     if (!path || !workspace) return
+    // The folder leaves the vault: its tabs go with it, now rather than when
+    // the file list settles (B6).
+    panes.closeUnder(path)
     const room = workspace.ui.mounts.find((m) => m.path === path)?.room
     try {
       await workspace.unmount(path)
@@ -755,7 +839,7 @@
   function handleTreeOp(op: TreeOp): void {
     if (!workspace) return
     if (op.type === 'new-file') {
-      void workspace.createFile(op.dir) // auto-named untitled-N; rename after
+      void createNote(op.dir) // auto-named untitled-N; rename after
       return
     }
     if (op.type === 'share-folder') {
@@ -768,6 +852,14 @@
     }
     if (op.type === 'add-link') {
       addLinkPath = op.path
+      return
+    }
+    if (op.type === 'history') {
+      // The section reads the FOCUSED note, so History… focuses this one and
+      // then makes sure the rail is showing that section.
+      openPath(op.path)
+      railOpen = true
+      railFolded = toggleFolded(railFolded, 'history', false)
       return
     }
     if (op.type === 'unshare') {
@@ -832,7 +924,8 @@
       treeOp.type === 'add-share' ||
       treeOp.type === 'add-link' ||
       treeOp.type === 'unshare' ||
-      treeOp.type === 'unmount'
+      treeOp.type === 'unmount' ||
+      treeOp.type === 'history'
     )
       return null
     if (treeOp.type === 'new-folder')
@@ -854,18 +947,50 @@
       ? scopedRollup(workspace.ui.files, workspace.ui.records, workspace.ui.mounts, workspace.ui.linked)
       : null
   )
+  /** The focused pane's active path — what the rail, breadcrumb and index follow. */
   const selectedPath = $derived(workspace?.ui.selectedPath ?? null)
-  const selectedDoc = $derived(workspace && selectedPath ? workspace.docForPath(selectedPath) : null)
-  const selectedAwareness = $derived(
-    workspace && selectedPath ? workspace.awarenessForPath(selectedPath) : null
+  /**
+   * Everything a pane needs that is the same for all of them. The reveal goes
+   * to the focused pane only: a search result lands where you were looking.
+   */
+  const paneCtx = $derived<PaneRender | null>(
+    workspace
+      ? {
+          panes,
+          workspace,
+          dark: themeState.dark,
+          /**
+           * Selection-aware word count — `word-count` is the one Obsidian
+           * status item Chris keeps. Read through a function so only the
+           * status bar that shows it re-derives when the text changes.
+           */
+          wordsOf: (path) => {
+            nav.revision // any content change, from any writer
+            const doc = workspace?.docForPath(path)
+            return doc ? (doc.getText().match(/[\p{L}\p{N}'’-]+/gu) ?? []).length : 0
+          },
+          search: async (query) => {
+            const page = await nav.index.quickOpen(query, { limit: 50 })
+            return page.items.map((hit) => ({ path: hit.path, spans: hit.spans }))
+          },
+          resolveLink: (target, from) => nav.resolveLink(target, from),
+          createFromLink: (target) => void createFromLink(target),
+          linkCandidates: () =>
+            (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path),
+          reveal: nav.pending.reveal,
+        }
+      : null
+  )
+  /** Zoom mounts one pane and nothing else — that is the whole memory story. */
+  const treeRoot = $derived(
+    (panes.layout.zoom ? findPane(panes.layout, panes.layout.zoom) : null) ?? panes.layout.tree
   )
   const activeReview = $derived(workspace?.ui.reviews[0] ?? null)
-  /** The open note's own record → pill, for the status bar (pure f(record)). */
-  const noteStatus = $derived.by(() => {
+  /** The open note's own sync record — the pill reads it, so does History. */
+  const noteRecord = $derived.by(() => {
     if (!workspace || !selectedPath) return null
     const guid = workspace.ui.files.find((f) => f.path === selectedPath)?.guid
-    const record = guid ? workspace.ui.records[guid] : undefined
-    return record ? pillStatus(record) : null
+    return (guid ? workspace.ui.records[guid] : undefined) ?? null
   })
 </script>
 
@@ -983,7 +1108,7 @@
               rootShared={workspace.ui.linked}
               presenceByRoom={workspace.ui.presenceByRoom}
               reveal={revealDir}
-              onSelect={(path) => openPath(path)}
+              onSelect={(path, opts) => openPath(path, opts)}
               onOp={handleTreeOp}
               onNotice={(level, text, path) => workspace?.notify({ level, text, path })}
             />
@@ -1021,26 +1146,17 @@
         </aside>
       {/if}
 
-      <main data-testid="editor-pane" class="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div class="min-h-0 flex-1 bg-ed-surface">
-          {#if selectedDoc && selectedPath}
-            {#key selectedPath}
-              <MarkdownEditor
-                doc={selectedDoc}
-                awareness={selectedAwareness}
-                user={workspace.user}
-                dark={themeState.dark}
-                extensions={editorExtensions}
-                reveal={nav.pending.reveal}
-              />
-            {/key}
-          {:else}
-            <div class="flex h-full items-center justify-center text-sm text-base-content/70">
-              {$LL.web.shell.select_a_file()}
-            </div>
+      <main
+        data-testid="editor-area"
+        aria-label={$LL.web.panes.area()}
+        class="flex min-h-0 min-w-0 flex-1 flex-col"
+      >
+        <div class="flex min-h-0 min-w-0 flex-1 bg-base-200">
+          {#if paneCtx}
+            <PaneTree node={treeRoot} ctx={paneCtx} />
           {/if}
         </div>
-        <StatusBar hasNote={selectedPath !== null} {wordCount} {noteStatus} />
+        <ModeBar {panes} />
       </main>
 
       <RightRail
@@ -1075,6 +1191,14 @@
               onShareFolder={(dir) => (folderSharePath = dir)}
               onAddShare={(dir) => (addShareOpen = { dir })}
               onAddLink={(mountPath) => (addLinkPath = mountPath)}
+            />
+          {:else if id === 'history' && workspace}
+            <HistorySection
+              path={selectedPath}
+              load={(p) => workspace!.fileHistory(p)}
+              restore={(p, seq) => workspace!.restorePreImage(p, seq)}
+              written={noteRecord?.diskMatchesCrdt ?? true}
+              now={() => realClock.now()}
             />
           {:else if id === 'activity' && workspace}
             <ActivitySection
@@ -1219,6 +1343,8 @@
     />
   {/if}
 
+  <DropZones {panes} />
+
   {#if devtools}
     <DevtoolsPanel {workspace} />
   {/if}
@@ -1237,6 +1363,7 @@
 
 {#if settingsOpen}
   <SettingsPanel
+    registry={nav.registry}
     readAppFile={workspace ? (p) => workspace!.readAppFile(p) : undefined}
     onLinkDevice={workspace
       ? () => {

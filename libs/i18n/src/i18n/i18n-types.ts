@@ -134,6 +134,10 @@ export type NamespaceWebTranslation = {
 			 * A​c​t​i​v​i​t​y
 			 */
 			activity: string
+			/**
+			 * H​i​s​t​o​r​y
+			 */
+			history: string
 		}
 	}
 	actions: {
@@ -175,6 +179,321 @@ export type NamespaceWebTranslation = {
 		 * @param {number} count
 		 */
 		words: RequiredParams<'count'>
+	}
+	panes: {
+		/**
+		 * E​d​i​t​o​r
+		 */
+		area: string
+		/**
+		 * P​a​n​e​ ​{​n​}
+		 * @param {number} n
+		 */
+		label: RequiredParams<'n'>
+		/**
+		 * R​e​s​i​z​e​ ​p​a​n​e​s
+		 */
+		resize: string
+		/**
+		 * {​c​o​u​n​t​}​ ​t​a​b​{​{​s​}​}
+		 * @param {number} count
+		 */
+		tab_count: RequiredParams<'count'>
+		/**
+		 * Z​o​o​m​e​d
+		 */
+		zoomed: string
+		/**
+		 * M​o​v​e​ ​{​n​a​m​e​}​ ​h​e​r​e
+		 * @param {string} name
+		 */
+		drop_here: RequiredParams<'name'>
+		/**
+		 * S​p​l​i​t​ ​w​i​t​h​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		split_here: RequiredParams<'name'>
+		commands: {
+			/**
+			 * N​e​w​ ​p​a​n​e
+			 */
+			split_auto: string
+			/**
+			 * S​p​l​i​t​ ​d​o​w​n
+			 */
+			split_down: string
+			/**
+			 * S​p​l​i​t​ ​r​i​g​h​t
+			 */
+			split_right: string
+			/**
+			 * C​l​o​s​e​ ​p​a​n​e
+			 */
+			close_pane: string
+			/**
+			 * F​o​c​u​s​ ​p​a​n​e
+			 */
+			focus: string
+			/**
+			 * F​o​c​u​s​ ​p​a​n​e​ ​l​e​f​t
+			 */
+			focus_left: string
+			/**
+			 * F​o​c​u​s​ ​p​a​n​e​ ​b​e​l​o​w
+			 */
+			focus_down: string
+			/**
+			 * F​o​c​u​s​ ​p​a​n​e​ ​a​b​o​v​e
+			 */
+			focus_up: string
+			/**
+			 * F​o​c​u​s​ ​p​a​n​e​ ​r​i​g​h​t
+			 */
+			focus_right: string
+			/**
+			 * F​o​c​u​s​ ​n​e​x​t​ ​p​a​n​e
+			 */
+			focus_next: string
+			/**
+			 * Z​o​o​m​ ​p​a​n​e
+			 */
+			zoom: string
+			/**
+			 * S​w​a​p​ ​s​p​l​i​t​ ​d​i​r​e​c​t​i​o​n
+			 */
+			rotate: string
+			/**
+			 * M​o​v​e​ ​p​a​n​e
+			 */
+			move: string
+			/**
+			 * M​o​v​e​ ​p​a​n​e​ ​l​e​f​t
+			 */
+			move_left: string
+			/**
+			 * M​o​v​e​ ​p​a​n​e​ ​d​o​w​n
+			 */
+			move_down: string
+			/**
+			 * M​o​v​e​ ​p​a​n​e​ ​u​p
+			 */
+			move_up: string
+			/**
+			 * M​o​v​e​ ​p​a​n​e​ ​r​i​g​h​t
+			 */
+			move_right: string
+			/**
+			 * R​e​s​i​z​e​ ​p​a​n​e
+			 */
+			resize: string
+			/**
+			 * R​e​s​i​z​e​ ​p​a​n​e​ ​l​e​f​t
+			 */
+			resize_left: string
+			/**
+			 * R​e​s​i​z​e​ ​p​a​n​e​ ​d​o​w​n
+			 */
+			resize_down: string
+			/**
+			 * R​e​s​i​z​e​ ​p​a​n​e​ ​u​p
+			 */
+			resize_up: string
+			/**
+			 * R​e​s​i​z​e​ ​p​a​n​e​ ​r​i​g​h​t
+			 */
+			resize_right: string
+			/**
+			 * E​q​u​a​l​i​z​e​ ​p​a​n​e​s
+			 */
+			equalize: string
+			/**
+			 * C​l​o​s​e​ ​o​t​h​e​r​ ​t​a​b​s
+			 */
+			close_others: string
+			/**
+			 * P​a​n​e​ ​m​o​d​e
+			 */
+			mode: string
+		}
+	}
+	tabs: {
+		/**
+		 * O​p​e​n​ ​n​o​t​e​s
+		 */
+		list: string
+		/**
+		 * N​e​w​ ​t​a​b
+		 */
+		untitled: string
+		/**
+		 * N​e​w​ ​t​a​b
+		 */
+		new_tab: string
+		/**
+		 * T​a​b​ ​g​r​o​u​p​s
+		 */
+		more: string
+		/**
+		 * N​o​ ​t​a​b​ ​g​r​o​u​p​s​ ​i​n​ ​t​h​i​s​ ​p​a​n​e​ ​y​e​t
+		 */
+		no_groups: string
+		/**
+		 * L​i​v​e​ ​e​d​i​t​o​r
+		 */
+		live: string
+		/**
+		 * P​i​n​n​e​d
+		 */
+		pinned: string
+		/**
+		 * C​l​o​s​e​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		close: RequiredParams<'name'>
+		/**
+		 * A​c​t​i​o​n​s​ ​f​o​r​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		menu: RequiredParams<'name'>
+		/**
+		 * P​i​n
+		 */
+		pin: string
+		/**
+		 * U​n​p​i​n
+		 */
+		unpin: string
+		/**
+		 * M​o​v​e​ ​t​o​ ​p​a​n​e
+		 */
+		move_to_pane: string
+		picker: {
+			/**
+			 * O​p​e​n​ ​a​ ​n​o​t​e
+			 */
+			lead: string
+			/**
+			 * T​y​p​e​ ​t​o​ ​f​i​l​t​e​r​…
+			 */
+			placeholder: string
+			/**
+			 * N​o​ ​n​o​t​e​ ​m​a​t​c​h​e​s
+			 */
+			empty: string
+		}
+		commands: {
+			/**
+			 * N​e​w​ ​t​a​b
+			 */
+			'new': string
+			/**
+			 * C​l​o​s​e​ ​t​a​b
+			 */
+			close: string
+			/**
+			 * P​r​e​v​i​o​u​s​ ​t​a​b
+			 */
+			prev: string
+			/**
+			 * N​e​x​t​ ​t​a​b
+			 */
+			next: string
+			/**
+			 * G​o​ ​t​o​ ​t​a​b
+			 */
+			goto: string
+			/**
+			 * G​o​ ​t​o​ ​t​a​b​ ​{​n​}
+			 * @param {number} n
+			 */
+			goto_n: RequiredParams<'n'>
+			/**
+			 * M​o​v​e​ ​t​a​b​ ​t​o​ ​a​n​o​t​h​e​r​ ​p​a​n​e
+			 */
+			move: string
+			/**
+			 * M​o​v​e​ ​t​a​b​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​l​e​f​t
+			 */
+			move_left: string
+			/**
+			 * M​o​v​e​ ​t​a​b​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​b​e​l​o​w
+			 */
+			move_down: string
+			/**
+			 * M​o​v​e​ ​t​a​b​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​a​b​o​v​e
+			 */
+			move_up: string
+			/**
+			 * M​o​v​e​ ​t​a​b​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​r​i​g​h​t
+			 */
+			move_right: string
+			/**
+			 * P​i​n​ ​/​ ​u​n​p​i​n​ ​t​a​b
+			 */
+			pin: string
+			/**
+			 * R​e​o​p​e​n​ ​c​l​o​s​e​d​ ​t​a​b
+			 */
+			reopen: string
+		}
+	}
+	mode: {
+		/**
+		 * P​a​n​e​ ​m​o​d​e​ ​k​e​y​s
+		 */
+		bar: string
+		names: {
+			/**
+			 * P​A​N​E
+			 */
+			pane: string
+			/**
+			 * M​O​V​E
+			 */
+			move: string
+			/**
+			 * R​E​S​I​Z​E
+			 */
+			resize: string
+			/**
+			 * T​A​B
+			 */
+			tab: string
+			/**
+			 * G​R​O​U​P
+			 */
+			group: string
+		}
+		enter: {
+			/**
+			 * m​o​v​e​…
+			 */
+			move: string
+			/**
+			 * r​e​s​i​z​e​…
+			 */
+			resize: string
+			/**
+			 * t​a​b​…
+			 */
+			tab: string
+			/**
+			 * g​r​o​u​p​…
+			 */
+			group: string
+		}
+		/**
+		 * E​s​c
+		 */
+		escape: string
+		/**
+		 * l​e​a​v​e
+		 */
+		leave: string
+		/**
+		 * d​o​n​e
+		 */
+		done: string
 	}
 	pill: {
 		label: {
@@ -356,6 +675,10 @@ export type NamespaceWebTranslation = {
 			 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​h​e​r​e​…
 			 */
 			add_share: string
+			/**
+			 * H​i​s​t​o​r​y​…
+			 */
+			history: string
 		}
 		reason: {
 			/**
@@ -537,9 +860,21 @@ export type NamespaceWebTranslation = {
 			 */
 			view: string
 			/**
+			 * D​a​i​l​y
+			 */
+			daily: string
+			/**
 			 * A​p​p
 			 */
 			app: string
+			/**
+			 * P​a​n​e
+			 */
+			pane: string
+			/**
+			 * T​a​b
+			 */
+			tab: string
 		}
 		/**
 		 * O​p​e​n​ ​n​o​t​e​…
@@ -594,9 +929,75 @@ export type NamespaceWebTranslation = {
 		 */
 		toggle_rail: string
 		/**
+		 * T​o​d​a​y​'​s​ ​d​a​i​l​y​ ​n​o​t​e
+		 */
+		daily_today: string
+		/**
+		 * P​r​e​v​i​o​u​s​ ​d​a​i​l​y​ ​n​o​t​e
+		 */
+		daily_prev: string
+		/**
+		 * N​e​x​t​ ​d​a​i​l​y​ ​n​o​t​e
+		 */
+		daily_next: string
+		/**
 		 * S​e​t​t​i​n​g​s
 		 */
 		settings: string
+	}
+	history: {
+		/**
+		 * O​p​e​n​ ​a​ ​n​o​t​e​ ​t​o​ ​s​e​e​ ​i​t​s​ ​h​i​s​t​o​r​y​.
+		 */
+		no_note: string
+		/**
+		 * N​o​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​y​e​t​ ​—​ ​E​d​i​t​o​r​ ​s​a​v​e​s​ ​o​n​e​ ​e​v​e​r​y​ ​t​i​m​e​ ​i​t​ ​w​r​i​t​e​s​ ​t​h​i​s​ ​f​i​l​e​.
+		 */
+		empty: string
+		/**
+		 * R​e​a​d​i​n​g​ ​t​h​e​ ​j​o​u​r​n​a​l​…
+		 */
+		loading: string
+		/**
+		 * E​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​o​f​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		list_label: RequiredParams<'name'>
+		/**
+		 * R​e​s​t​o​r​e
+		 */
+		restore: string
+		/**
+		 * R​e​s​t​o​r​e​ ​t​h​e​ ​v​e​r​s​i​o​n​ ​f​r​o​m​ ​{​t​i​m​e​}
+		 * @param {string} time
+		 */
+		restore_this: RequiredParams<'time'>
+		/**
+		 * {​c​o​u​n​t​}​ ​b​y​t​e​{​{​s​}​}
+		 * @param {number} count
+		 */
+		bytes: RequiredParams<'count'>
+		/**
+		 * {​s​i​z​e​}​ ​k​B
+		 * @param {string} size
+		 */
+		kilobytes: RequiredParams<'size'>
+		confirm: {
+			/**
+			 * R​e​s​t​o​r​e​ ​{​n​a​m​e​}​ ​t​o​ ​i​t​s​ ​{​t​i​m​e​}​ ​v​e​r​s​i​o​n​?
+			 * @param {string} name
+			 * @param {string} time
+			 */
+			title: RequiredParams<'name' | 'time'>
+			/**
+			 * T​h​e​ ​n​o​t​e​ ​g​o​e​s​ ​b​a​c​k​ ​t​o​ ​t​h​a​t​ ​v​e​r​s​i​o​n​ ​e​v​e​r​y​w​h​e​r​e​ ​i​t​ ​i​s​ ​o​p​e​n​,​ ​a​n​d​ ​f​o​r​ ​a​n​y​o​n​e​ ​y​o​u​ ​s​h​a​r​e​ ​i​t​ ​w​i​t​h​.​ ​W​h​a​t​ ​i​s​ ​i​n​ ​i​t​ ​n​o​w​ ​i​s​ ​j​o​u​r​n​a​l​e​d​ ​f​i​r​s​t​,​ ​s​o​ ​y​o​u​ ​c​a​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​ ​a​n​d​ ​u​n​d​o​ ​t​h​i​s​.
+			 */
+			body: string
+			/**
+			 * R​e​s​t​o​r​e
+			 */
+			confirm: string
+		}
 	}
 	activity: {
 		/**
@@ -1997,6 +2398,10 @@ export type TranslationFunctions = {
 				 * Activity
 				 */
 				activity: () => LocalizedString
+				/**
+				 * History
+				 */
+				history: () => LocalizedString
 			}
 		}
 		actions: {
@@ -2036,6 +2441,314 @@ export type TranslationFunctions = {
 			 * {count} word{{s}}
 			 */
 			words: (arg: { count: number }) => LocalizedString
+		}
+		panes: {
+			/**
+			 * Editor
+			 */
+			area: () => LocalizedString
+			/**
+			 * Pane {n}
+			 */
+			label: (arg: { n: number }) => LocalizedString
+			/**
+			 * Resize panes
+			 */
+			resize: () => LocalizedString
+			/**
+			 * {count} tab{{s}}
+			 */
+			tab_count: (arg: { count: number }) => LocalizedString
+			/**
+			 * Zoomed
+			 */
+			zoomed: () => LocalizedString
+			/**
+			 * Move {name} here
+			 */
+			drop_here: (arg: { name: string }) => LocalizedString
+			/**
+			 * Split with {name}
+			 */
+			split_here: (arg: { name: string }) => LocalizedString
+			commands: {
+				/**
+				 * New pane
+				 */
+				split_auto: () => LocalizedString
+				/**
+				 * Split down
+				 */
+				split_down: () => LocalizedString
+				/**
+				 * Split right
+				 */
+				split_right: () => LocalizedString
+				/**
+				 * Close pane
+				 */
+				close_pane: () => LocalizedString
+				/**
+				 * Focus pane
+				 */
+				focus: () => LocalizedString
+				/**
+				 * Focus pane left
+				 */
+				focus_left: () => LocalizedString
+				/**
+				 * Focus pane below
+				 */
+				focus_down: () => LocalizedString
+				/**
+				 * Focus pane above
+				 */
+				focus_up: () => LocalizedString
+				/**
+				 * Focus pane right
+				 */
+				focus_right: () => LocalizedString
+				/**
+				 * Focus next pane
+				 */
+				focus_next: () => LocalizedString
+				/**
+				 * Zoom pane
+				 */
+				zoom: () => LocalizedString
+				/**
+				 * Swap split direction
+				 */
+				rotate: () => LocalizedString
+				/**
+				 * Move pane
+				 */
+				move: () => LocalizedString
+				/**
+				 * Move pane left
+				 */
+				move_left: () => LocalizedString
+				/**
+				 * Move pane down
+				 */
+				move_down: () => LocalizedString
+				/**
+				 * Move pane up
+				 */
+				move_up: () => LocalizedString
+				/**
+				 * Move pane right
+				 */
+				move_right: () => LocalizedString
+				/**
+				 * Resize pane
+				 */
+				resize: () => LocalizedString
+				/**
+				 * Resize pane left
+				 */
+				resize_left: () => LocalizedString
+				/**
+				 * Resize pane down
+				 */
+				resize_down: () => LocalizedString
+				/**
+				 * Resize pane up
+				 */
+				resize_up: () => LocalizedString
+				/**
+				 * Resize pane right
+				 */
+				resize_right: () => LocalizedString
+				/**
+				 * Equalize panes
+				 */
+				equalize: () => LocalizedString
+				/**
+				 * Close other tabs
+				 */
+				close_others: () => LocalizedString
+				/**
+				 * Pane mode
+				 */
+				mode: () => LocalizedString
+			}
+		}
+		tabs: {
+			/**
+			 * Open notes
+			 */
+			list: () => LocalizedString
+			/**
+			 * New tab
+			 */
+			untitled: () => LocalizedString
+			/**
+			 * New tab
+			 */
+			new_tab: () => LocalizedString
+			/**
+			 * Tab groups
+			 */
+			more: () => LocalizedString
+			/**
+			 * No tab groups in this pane yet
+			 */
+			no_groups: () => LocalizedString
+			/**
+			 * Live editor
+			 */
+			live: () => LocalizedString
+			/**
+			 * Pinned
+			 */
+			pinned: () => LocalizedString
+			/**
+			 * Close {name}
+			 */
+			close: (arg: { name: string }) => LocalizedString
+			/**
+			 * Actions for {name}
+			 */
+			menu: (arg: { name: string }) => LocalizedString
+			/**
+			 * Pin
+			 */
+			pin: () => LocalizedString
+			/**
+			 * Unpin
+			 */
+			unpin: () => LocalizedString
+			/**
+			 * Move to pane
+			 */
+			move_to_pane: () => LocalizedString
+			picker: {
+				/**
+				 * Open a note
+				 */
+				lead: () => LocalizedString
+				/**
+				 * Type to filter…
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * No note matches
+				 */
+				empty: () => LocalizedString
+			}
+			commands: {
+				/**
+				 * New tab
+				 */
+				'new': () => LocalizedString
+				/**
+				 * Close tab
+				 */
+				close: () => LocalizedString
+				/**
+				 * Previous tab
+				 */
+				prev: () => LocalizedString
+				/**
+				 * Next tab
+				 */
+				next: () => LocalizedString
+				/**
+				 * Go to tab
+				 */
+				goto: () => LocalizedString
+				/**
+				 * Go to tab {n}
+				 */
+				goto_n: (arg: { n: number }) => LocalizedString
+				/**
+				 * Move tab to another pane
+				 */
+				move: () => LocalizedString
+				/**
+				 * Move tab to the pane left
+				 */
+				move_left: () => LocalizedString
+				/**
+				 * Move tab to the pane below
+				 */
+				move_down: () => LocalizedString
+				/**
+				 * Move tab to the pane above
+				 */
+				move_up: () => LocalizedString
+				/**
+				 * Move tab to the pane right
+				 */
+				move_right: () => LocalizedString
+				/**
+				 * Pin / unpin tab
+				 */
+				pin: () => LocalizedString
+				/**
+				 * Reopen closed tab
+				 */
+				reopen: () => LocalizedString
+			}
+		}
+		mode: {
+			/**
+			 * Pane mode keys
+			 */
+			bar: () => LocalizedString
+			names: {
+				/**
+				 * PANE
+				 */
+				pane: () => LocalizedString
+				/**
+				 * MOVE
+				 */
+				move: () => LocalizedString
+				/**
+				 * RESIZE
+				 */
+				resize: () => LocalizedString
+				/**
+				 * TAB
+				 */
+				tab: () => LocalizedString
+				/**
+				 * GROUP
+				 */
+				group: () => LocalizedString
+			}
+			enter: {
+				/**
+				 * move…
+				 */
+				move: () => LocalizedString
+				/**
+				 * resize…
+				 */
+				resize: () => LocalizedString
+				/**
+				 * tab…
+				 */
+				tab: () => LocalizedString
+				/**
+				 * group…
+				 */
+				group: () => LocalizedString
+			}
+			/**
+			 * Esc
+			 */
+			escape: () => LocalizedString
+			/**
+			 * leave
+			 */
+			leave: () => LocalizedString
+			/**
+			 * done
+			 */
+			done: () => LocalizedString
 		}
 		pill: {
 			label: {
@@ -2209,6 +2922,10 @@ export type TranslationFunctions = {
 				 * Add a shared folder here…
 				 */
 				add_share: () => LocalizedString
+				/**
+				 * History…
+				 */
+				history: () => LocalizedString
 			}
 			reason: {
 				/**
@@ -2378,9 +3095,21 @@ export type TranslationFunctions = {
 				 */
 				view: () => LocalizedString
 				/**
+				 * Daily
+				 */
+				daily: () => LocalizedString
+				/**
 				 * App
 				 */
 				app: () => LocalizedString
+				/**
+				 * Pane
+				 */
+				pane: () => LocalizedString
+				/**
+				 * Tab
+				 */
+				tab: () => LocalizedString
 			}
 			/**
 			 * Open note…
@@ -2435,9 +3164,69 @@ export type TranslationFunctions = {
 			 */
 			toggle_rail: () => LocalizedString
 			/**
+			 * Today's daily note
+			 */
+			daily_today: () => LocalizedString
+			/**
+			 * Previous daily note
+			 */
+			daily_prev: () => LocalizedString
+			/**
+			 * Next daily note
+			 */
+			daily_next: () => LocalizedString
+			/**
 			 * Settings
 			 */
 			settings: () => LocalizedString
+		}
+		history: {
+			/**
+			 * Open a note to see its history.
+			 */
+			no_note: () => LocalizedString
+			/**
+			 * No earlier versions yet — Editor saves one every time it writes this file.
+			 */
+			empty: () => LocalizedString
+			/**
+			 * Reading the journal…
+			 */
+			loading: () => LocalizedString
+			/**
+			 * Earlier versions of {name}
+			 */
+			list_label: (arg: { name: string }) => LocalizedString
+			/**
+			 * Restore
+			 */
+			restore: () => LocalizedString
+			/**
+			 * Restore the version from {time}
+			 */
+			restore_this: (arg: { time: string }) => LocalizedString
+			/**
+			 * {count} byte{{s}}
+			 */
+			bytes: (arg: { count: number }) => LocalizedString
+			/**
+			 * {size} kB
+			 */
+			kilobytes: (arg: { size: string }) => LocalizedString
+			confirm: {
+				/**
+				 * Restore {name} to its {time} version?
+				 */
+				title: (arg: { name: string, time: string }) => LocalizedString
+				/**
+				 * The note goes back to that version everywhere it is open, and for anyone you share it with. What is in it now is journaled first, so you can come back here and undo this.
+				 */
+				body: () => LocalizedString
+				/**
+				 * Restore
+				 */
+				confirm: () => LocalizedString
+			}
 		}
 		activity: {
 			/**

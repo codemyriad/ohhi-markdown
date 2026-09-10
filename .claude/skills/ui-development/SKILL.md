@@ -271,6 +271,15 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
     `wikiLinkHost` **Facet**, never as a prop: a prop the wrapper tracks would
     destroy and rebuild the `EditorView` — losing cursor, scroll and undo — on
     every parent render.
+  - **The same rule applies INSIDE those callbacks, and inside `onhandle`.**
+    CM6 builds decorations, and the wrapper reports its handle, from within
+    the `$effect` that creates the view — so a `$state`/`$derived` read in
+    `resolve()` or in the `onhandle` callback becomes a dependency of the
+    view's own lifecycle. Wrap them in `untrack()` (see
+    `components/Pane.svelte`): without it, any change to the surrounding
+    state rebuilds the editor, and a wrapper that writes state back on
+    teardown (the pane tree's resume point) loops until Svelte throws
+    `effect_update_depth_exceeded`.
   - Live-preview decorations (marker hiding, checkbox widgets, image embeds)
     land here in V2e. Tables, callouts and transclusion stay out: the real
     vault has 56 table rows and zero of the other two.

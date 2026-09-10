@@ -20,7 +20,7 @@
     outgoing: LinkRef[]
     /** Null when nothing is open. */
     path: string | null
-    onOpen: (path: string) => void
+    onOpen: (path: string, opts?: { background?: boolean }) => void
     onCreate: (target: string) => void
   }
 
@@ -66,7 +66,7 @@
             <li>
               <button
                 data-testid="backlink-source:{source}"
-                onclick={() => onOpen(source)}
+                onclick={(e) => onOpen(source, { background: e.metaKey || e.ctrlKey })}
                 class="w-full truncate text-left text-xs font-medium text-ed-wikilink hover:underline"
               >
                 {source}
@@ -100,7 +100,7 @@
             <li>
               <button
                 data-testid="outgoing-link:{link.target}"
-                onclick={() => onOpen(link.resolved!)}
+                onclick={(e) => onOpen(link.resolved!, { background: e.metaKey || e.ctrlKey })}
                 class="w-full truncate text-left text-xs text-ed-wikilink hover:underline"
                 title={link.resolved!}
               >

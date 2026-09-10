@@ -51,6 +51,26 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   await page.getByTestId('file-item:notes/welcome.md').click()
   await expect(page.locator('[data-testid="editor-pane"] .cm-content')).toBeVisible()
   await expectAccessible(page, 'workspace')
+
+  // The pane tree (tab-groups W1): two panes, two tab strips, two status
+  // bars, a separator between them — and a second tab, so the strip is
+  // scanned with a roving tab stop rather than a single tab.
+  await page.getByTestId('file-item:notes/ideas.md').click()
+  await page.keyboard.press('Alt+=')
+  await expect(page.locator('[data-pane-id]')).toHaveCount(2)
+  await expectAccessible(page, 'pane tree')
+
+  // The mode bar, docked while a mode is live.
+  await page.keyboard.press('ControlOrMeta+p')
+  await expect(page.getByTestId('mode-bar')).toBeVisible()
+  await expectAccessible(page, 'pane mode bar')
+  await page.keyboard.press('Escape')
+
+  // A tab's context menu — the keyboard equivalent of every drag gesture.
+  await page.locator('[data-slot-kind="tab"]').first().click({ button: 'right' })
+  await expect(page.getByTestId('tab-menu')).toBeVisible()
+  await expectAccessible(page, 'tab context menu')
+  await page.keyboard.press('Escape')
 })
 
 test('the palette, a dialog, a menu and settings are accessible', async ({ page }) => {

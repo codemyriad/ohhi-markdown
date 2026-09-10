@@ -38,7 +38,8 @@
     onQuery: (q: string) => void
     /** Search results carry snippets; the switcher does not need the room. */
     width?: 'md' | 'lg'
-    onPick: (row: PaletteRow) => void
+    /** `background` = Mod+Enter / Mod+click: open a tab but stay here (B5). */
+    onPick: (row: PaletteRow, opts?: { background?: boolean }) => void
     onClose: () => void
     footer?: Snippet
   }
@@ -82,7 +83,7 @@
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const row = rows[active]
-      if (row) onPick(row)
+      if (row) onPick(row, { background: e.metaKey || e.ctrlKey })
     } else if (e.key === 'Home') {
       e.preventDefault()
       active = 0
@@ -153,7 +154,7 @@
               data-testid="{testid}-row"
               data-row-id={row.id}
               aria-current={i === active}
-              onclick={() => onPick(row)}
+              onclick={(e) => onPick(row, { background: e.metaKey || e.ctrlKey })}
               onmousemove={() => (active = i)}
               class="flex w-full flex-col gap-0.5 px-4 py-2 text-left
                 {i === active ? 'bg-primary/15' : 'hover:bg-base-200'}"

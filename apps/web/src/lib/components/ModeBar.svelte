@@ -1,0 +1,55 @@
+<script lang="ts">
+  /**
+   * The pane mode's hint bar (tab-groups B12, Fork 6-A): docked at the bottom
+   * of the editor area **only while a mode is live**, so the per-pane status
+   * bars never move.
+   *
+   * The rows are `mode.ts`'s tables read through the command registry, which
+   * is what makes the bar and the palette one table rather than two: a
+   * rebound key changes both, and a command W2 has not registered yet simply
+   * has no row.
+   */
+  import { LL } from '@editor/i18n/i18n-svelte'
+  import type { PaneShell } from '../workspace-panes.svelte.js'
+
+  interface Props {
+    panes: PaneShell
+  }
+
+  let { panes }: Props = $props()
+
+  const t = $derived($LL.web.mode)
+</script>
+
+{#if panes.mode}
+  <!-- role=status: entering a mode changes what every key does, which a
+       screen-reader user must hear without being moved there. -->
+  <div
+    role="status"
+    aria-label={t.bar()}
+    data-testid="mode-bar"
+    data-mode={panes.mode}
+    class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-base-300 bg-base-100 px-3 py-1.5 text-xs text-base-content/70"
+  >
+    <span
+      data-testid="mode-badge"
+      class="rounded bg-primary px-2 py-0.5 text-[10px] font-bold tracking-widest text-primary-content"
+    >
+      {panes.modeBadge()}
+    </span>
+    {#each panes.hints() as hint (hint.key)}
+      <span class="inline-flex items-center gap-1.5 whitespace-nowrap {hint.sub ? 'text-base-content' : ''}">
+        <kbd class="rounded border border-base-300 border-b-2 bg-base-200 px-1.5 font-ed-mono text-[10px]">
+          {hint.key}
+        </kbd>
+        {hint.label}
+      </span>
+    {/each}
+    <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <kbd class="rounded border border-base-300 border-b-2 bg-base-200 px-1.5 font-ed-mono text-[10px]">
+        {t.escape()}
+      </kbd>
+      {panes.escapeLabel()}
+    </span>
+  </div>
+{/if}

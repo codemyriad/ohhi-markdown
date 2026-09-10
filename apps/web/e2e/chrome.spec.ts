@@ -241,8 +241,10 @@ test('settings are tabs: keyboard between them, validated forms with their own S
   await expect(dialog).toBeVisible()
   await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true')
 
-  // Arrow keys move between tabs (vertical list → down).
+  // Arrow keys move between tabs (vertical list → down). Three steps now:
+  // General, Appearance, Hotkeys, Sync (the Hotkeys tab landed with R1.3).
   await page.getByRole('tab', { name: 'General' }).focus()
+  await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('tab', { name: 'Sync' })).toHaveAttribute('aria-selected', 'true')

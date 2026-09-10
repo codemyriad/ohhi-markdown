@@ -19,16 +19,32 @@
   interface Props {
     placement?: MenuPlacement
     testid?: string
+    /**
+     * Bindable, so a host can open the menu from a gesture the trigger cannot
+     * see — a right-click on a tab, whose menu anchors to a trigger placed at
+     * the pointer (tab-groups B9).
+     */
+    open?: boolean
     trigger: Snippet<[MenuTrigger]>
     children: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }]>
   }
 
-  let { placement = 'bottom-start', testid, trigger: triggerSnippet, children }: Props = $props()
+  let {
+    placement = 'bottom-start',
+    testid,
+    open: wanted = $bindable(false),
+    trigger: triggerSnippet,
+    children,
+  }: Props = $props()
 
   const {
     elements: { trigger, menu, item, separator },
     states: { open },
   } = createDropdownMenu({
+    onOpenChange: ({ next }) => {
+      wanted = next
+      return next
+    },
     // In place, not portalled to <body>: a portalled menu sits outside every
     // landmark (axe's `region` rule, and a real region-navigation gap).
     // Fixed positioning means no scrolling ancestor can clip it.
@@ -38,6 +54,12 @@
     loop: true,
     forceVisible: true,
     preventScroll: false,
+  })
+
+  // Host → Melt. Melt → host goes through `onOpenChange` above, so neither
+  // direction can loop: both only write when the value actually differs.
+  $effect(() => {
+    if (wanted !== $open) open.set(wanted)
   })
 </script>
 

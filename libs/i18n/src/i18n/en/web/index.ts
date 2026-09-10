@@ -40,6 +40,7 @@ const rail = {
     links: 'Links',
     note: 'This note',
     activity: 'Activity',
+    history: 'History',
   },
 }
 
@@ -58,6 +59,110 @@ const breadcrumb = {
 
 const status_bar = {
   words: '{count:number} word{{s}}',
+}
+
+/**
+ * The pane tree (tab-groups W1): the split tree, its handles, the per-pane
+ * status line and the pane half of the command table. `commands.focus`,
+ * `commands.move` and `commands.resize` are the FAMILY labels the mode's hint
+ * bar collapses `h j k l` onto — they are not commands themselves.
+ */
+const panes = {
+  area: 'Editor',
+  label: 'Pane {n:number}',
+  resize: 'Resize panes',
+  tab_count: '{count:number} tab{{s}}',
+  zoomed: 'Zoomed',
+  drop_here: 'Move {name:string} here',
+  split_here: 'Split with {name:string}',
+  commands: {
+    split_auto: 'New pane',
+    split_down: 'Split down',
+    split_right: 'Split right',
+    close_pane: 'Close pane',
+    focus: 'Focus pane',
+    focus_left: 'Focus pane left',
+    focus_down: 'Focus pane below',
+    focus_up: 'Focus pane above',
+    focus_right: 'Focus pane right',
+    focus_next: 'Focus next pane',
+    zoom: 'Zoom pane',
+    rotate: 'Swap split direction',
+    move: 'Move pane',
+    move_left: 'Move pane left',
+    move_down: 'Move pane down',
+    move_up: 'Move pane up',
+    move_right: 'Move pane right',
+    resize: 'Resize pane',
+    resize_left: 'Resize pane left',
+    resize_down: 'Resize pane down',
+    resize_up: 'Resize pane up',
+    resize_right: 'Resize pane right',
+    equalize: 'Equalize panes',
+    close_others: 'Close other tabs',
+    mode: 'Pane mode',
+  },
+}
+
+/** A pane's tab strip, its menus, and the tab half of the command table. */
+const tabs = {
+  list: 'Open notes',
+  untitled: 'New tab',
+  new_tab: 'New tab',
+  more: 'Tab groups',
+  no_groups: 'No tab groups in this pane yet',
+  live: 'Live editor',
+  pinned: 'Pinned',
+  close: 'Close {name:string}',
+  menu: 'Actions for {name:string}',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  move_to_pane: 'Move to pane',
+  picker: {
+    lead: 'Open a note',
+    placeholder: 'Type to filter…',
+    empty: 'No note matches',
+  },
+  commands: {
+    new: 'New tab',
+    close: 'Close tab',
+    prev: 'Previous tab',
+    next: 'Next tab',
+    goto: 'Go to tab',
+    goto_n: 'Go to tab {n:number}',
+    move: 'Move tab to another pane',
+    move_left: 'Move tab to the pane left',
+    move_down: 'Move tab to the pane below',
+    move_up: 'Move tab to the pane above',
+    move_right: 'Move tab to the pane right',
+    pin: 'Pin / unpin tab',
+    reopen: 'Reopen closed tab',
+  },
+}
+
+/**
+ * The pane mode's hint bar (B12). `names` is the badge; `enter` labels the
+ * rows that open a sub-mode; `leave`/`done` is what Escape does, which
+ * differs because move and resize are sticky and the rest are one-shot.
+ */
+const mode = {
+  bar: 'Pane mode keys',
+  names: {
+    pane: 'PANE',
+    move: 'MOVE',
+    resize: 'RESIZE',
+    tab: 'TAB',
+    group: 'GROUP',
+  },
+  enter: {
+    move: 'move…',
+    resize: 'resize…',
+    tab: 'tab…',
+    group: 'group…',
+  },
+  escape: 'Esc',
+  leave: 'leave',
+  done: 'done',
 }
 
 const pill = {
@@ -113,6 +218,7 @@ const tree = {
     unshare: 'Unshare…',
     unmount: 'Unmount…',
     add_share: 'Add a shared folder here…',
+    history: 'History…',
   },
   reason: {
     // No `share_root_shared`: a shared vault no longer blocks folder shares —
@@ -167,7 +273,10 @@ const commands = {
     file: 'File',
     share: 'Share',
     view: 'View',
+    daily: 'Daily',
     app: 'App',
+    pane: 'Pane',
+    tab: 'Tab',
   },
   quick_open: 'Open note…',
   command_palette: 'Command palette',
@@ -182,7 +291,31 @@ const commands = {
   forward: 'Forward',
   toggle_navigator: 'Toggle file navigator',
   toggle_rail: 'Toggle right sidebar',
+  daily_today: "Today's daily note",
+  daily_prev: 'Previous daily note',
+  daily_next: 'Next daily note',
   settings: 'Settings',
+}
+
+/**
+ * The History rail section (W3): the pre-image journal, in words. The journal
+ * records bytes and a time and nothing else, so the copy claims nothing else
+ * — no author, no reason, no "you edited this".
+ */
+const history = {
+  no_note: 'Open a note to see its history.',
+  empty: 'No earlier versions yet — Editor saves one every time it writes this file.',
+  loading: 'Reading the journal…',
+  list_label: 'Earlier versions of {name:string}',
+  restore: 'Restore',
+  restore_this: 'Restore the version from {time:string}',
+  bytes: '{count:number} byte{{s}}',
+  kilobytes: '{size:string} kB',
+  confirm: {
+    title: 'Restore {name:string} to its {time:string} version?',
+    body: 'The note goes back to that version everywhere it is open, and for anyone you share it with. What is in it now is journaled first, so you can come back here and undo this.',
+    confirm: 'Restore',
+  },
 }
 
 const activity = {
@@ -630,11 +763,15 @@ const web = {
   actions,
   breadcrumb,
   status_bar,
+  panes,
+  tabs,
+  mode,
   pill,
   tree,
   tree_op,
   palette,
   commands,
+  history,
   activity,
   links,
   note,

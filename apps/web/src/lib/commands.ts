@@ -68,17 +68,30 @@ export interface KeyEventLike {
   altKey: boolean
 }
 
+/**
+ * Off mac there is one Mod and it IS Ctrl — so a binding that asks for BOTH
+ * (`Ctrl+Mod+X`, the shape Obsidian writes for a chord recorded on a Mac)
+ * has nowhere to put the second modifier. Collapsing it onto plain Ctrl is
+ * what Obsidian does, and it silently kills one of the two: Chris's
+ * `Ctrl+Mod+←` (focus the pane left) and his `Mod+←` (toggle the sidebar)
+ * become the same key, as do `Ctrl+Mod+-` (close other tabs) and `Mod+-`
+ * (previous daily note). So the second modifier lands on **Alt** instead, and
+ * both of his rebinds keep working (tab-groups R1).
+ *
+ * A binding with Ctrl and no Mod (`Ctrl+Tab` — Obsidian's unrebound tab key)
+ * is untouched: there is nothing to disambiguate.
+ */
+function altStandsInForCtrl(binding: ParsedBinding): boolean {
+  return binding.ctrl && binding.mod
+}
+
 export function eventMatches(binding: ParsedBinding, e: KeyEventLike, mac: boolean): boolean {
   if (e.key.toLowerCase() !== binding.key) return false
-  const modDown = mac ? e.metaKey : e.ctrlKey
-  if (binding.mod !== modDown) return false
   if (binding.shift !== e.shiftKey) return false
-  if (binding.alt !== e.altKey) return false
-  // On mac, Mod is Cmd and Ctrl is a separate modifier; elsewhere `Ctrl+Mod`
-  // would mean Ctrl twice, so it collapses into Mod.
-  const wantCtrl = mac ? binding.ctrl : binding.ctrl || binding.mod
-  const haveCtrl = e.ctrlKey
-  return wantCtrl === haveCtrl
+  // On mac, Mod is Cmd and Ctrl is a separate modifier.
+  if (mac) return binding.alt === e.altKey && binding.mod === e.metaKey && binding.ctrl === e.ctrlKey
+  if ((binding.alt || altStandsInForCtrl(binding)) !== e.altKey) return false
+  return (binding.ctrl || binding.mod) === e.ctrlKey && !e.metaKey
 }
 
 export function isMac(platform = globalThis.navigator?.platform ?? ''): boolean {
@@ -97,7 +110,12 @@ export function formatBinding(binding: string, mac: boolean): string {
   if (mac) {
     return `${parsed.ctrl ? '⌃' : ''}${parsed.alt ? '⌥' : ''}${parsed.shift ? '⇧' : ''}${parsed.mod ? '⌘' : ''}${key}`
   }
-  const mods = [parsed.mod || parsed.ctrl ? 'Ctrl' : '', parsed.alt ? 'Alt' : '', parsed.shift ? 'Shift' : '']
+  // Printed as it is actually pressed here — see `altStandsInForCtrl`.
+  const mods = [
+    parsed.mod || parsed.ctrl ? 'Ctrl' : '',
+    parsed.alt || altStandsInForCtrl(parsed) ? 'Alt' : '',
+    parsed.shift ? 'Shift' : '',
+  ]
   return [...mods.filter(Boolean), key].join('+')
 }
 

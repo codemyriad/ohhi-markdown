@@ -1,0 +1,638 @@
+/**
+ * The shell's pane state (tab-groups W1): the tree, the mode, the drag
+ * session and the device-local persistence around them.
+ *
+ * `panes.ts` / `groups.ts` / `mode.ts` are pure and know nothing about the
+ * DOM, documents or storage; the components are thin renderers. This is the
+ * one module that sees all three — it holds the current `Layout`, turns every
+ * command and gesture into one of the pure ops, and re-derives the two things
+ * the rest of the app reads from a layout change: the set of paths that have
+ * a live view (`setLiveViews`, the S9 seam) and the focused pane's active
+ * path (`ui.selectedPath`, which the rail, breadcrumb, index and links panel
+ * follow).
+ *
+ * Two rules keep it honest:
+ *
+ * - **Every mutation goes through `commit`**, so nothing can change the tree
+ *   without the save being scheduled and the derivations re-running.
+ * - **Geometry is measured, never assumed**: `neighbour`, the split-auto axis
+ *   and the drag hit test all read real rects off the elements the components
+ *   register here, because the tree has no idea how wide anything is.
+ */
+import { untrack } from 'svelte'
+import { getLL } from '@editor/i18n'
+import type { Clock } from '@editor/vault'
+import type { Command, CommandRegistry } from './commands.js'
+import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
+import { familyTitle, paneCommands } from './pane-commands.js'
+import { slotsFrom, stripDrop } from './pane-drag.js'
+import * as tree from './panes.js'
+import type { ClosedTab, Dir, Layout, Pane, Rect, SavedGroup, Side, Tab } from './panes.js'
+import {
+  loadLayout,
+  loadSavedGroups,
+  saveLayout,
+  saveSavedGroups,
+} from './workspace-layout.js'
+import type { Workspace } from './workspace.svelte.js'
+
+/** Layout writes are device-local and cheap; this only keeps a drag quiet. */
+const SAVE_DEBOUNCE_MS = 400
+/** Pointer travel before a press on a tab becomes a drag (B10). */
+const DRAG_THRESHOLD_PX = 6
+/** One keyboard/mode resize step, in percent of the split. */
+const RESIZE_STEP_PCT = 5
+
+export interface DragPayload {
+  tabIds: string[]
+  fromPaneId: string
+  /** Set when the payload IS a whole group (a chip drag — W2). */
+  groupId: string | null
+  label: string
+  color: number | null
+}
+
+export interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export type DropTarget =
+  /** Over something that cannot take the payload — paint nothing. */
+  | { kind: 'none' }
+  | {
+      kind: 'strip'
+      paneId: string
+      at: number
+      groupId?: string | null
+      /** The joined group's token slot, so the indicator wears its colour. */
+      color?: number
+      /** Where the 2 px insertion indicator goes. */
+      x: number
+      top: number
+      height: number
+    }
+  | { kind: 'zone'; paneId: string; zone: 'center' | Side; box: Box }
+
+export interface DragState {
+  payload: DragPayload
+  x: number
+  y: number
+  target: DropTarget | null
+}
+
+export interface PaneShell {
+  readonly layout: Layout
+  readonly savedGroups: readonly SavedGroup[]
+  readonly mode: Mode | null
+  readonly drag: DragState | null
+  /** 1-based, in strip (DFS) order — what the status bar and menus call it. */
+  paneIndex(paneId: string): number
+  /** Every `workspace.*` / `tab.*` row of the command table. */
+  commands(): Command[]
+  /** The live mode's hint rows, already translated; empty when no mode. */
+  hints(): Hint[]
+  /** What Escape does in the live mode — sticky modes say "done". */
+  escapeLabel(): string
+  modeBadge(): string
+  attach(workspace: Workspace | null, vaultKey: string): void
+  /** A key press while a mode is live; true = swallowed, never reaches CM6. */
+  handleKey(e: KeyboardEvent): boolean
+  leaveMode(): void
+
+  // ---- opening (B5) ----
+  /** Fork 1-B: every open is a tab. `background` = Mod+click / Mod+Enter. */
+  open(path: string, opts?: { background?: boolean; paneId?: string }): void
+  /** The one in-place navigation: a `[[link]]`, or the empty tab's picker. */
+  navigate(path: string, tabId?: string): void
+  travel(delta: number): void
+  canTravel(delta: number): boolean
+
+  // ---- the strip's own affordances ----
+  activate(paneId: string, tabId: string): void
+  focusPane(paneId: string): void
+  closeTab(tabId: string): void
+  togglePin(tabId: string): void
+  newTabIn(paneId: string): void
+  closeOthersIn(paneId: string): void
+  closePaneById(paneId: string): void
+  moveTabToPane(tabId: string, paneId: string): void
+  resizeSplit(splitId: string, index: number, deltaPct: number): void
+  /** Write the layout out now — what a drag gesture's END calls (chrome U2). */
+  persistNow(): void
+
+  // ---- geometry the components own ----
+  registerPane(paneId: string, el: HTMLElement | null): void
+  beginDrag(e: PointerEvent, payload: DragPayload): void
+
+  // ---- vault events (B6/R5) ----
+  onRenamed(moves: { from: string; to: string }[]): void
+  closeUnder(prefix: string): void
+  /** Capture the active view's resume point into its tab (B2). */
+  setResume(tabId: string, resume: { cursor: { anchor: number; head: number }; scroll: number }): void
+}
+
+export function createPanes(
+  clock: Clock,
+  registry: CommandRegistry,
+  ids: () => string = tree.nextId
+): PaneShell {
+  let workspace = $state.raw<Workspace | null>(null)
+  let vaultKey = ''
+  /**
+   * The tree, twice on purpose.
+   *
+   * `current` is what every op reads and writes; `rendered` is the signal the
+   * components render. They are always the same object — but Svelte runs an
+   * effect's TEARDOWN with the values the effect last saw, and the resume
+   * point (B2) is captured in exactly such a teardown. Reading the signal
+   * there would hand an op the tree as it was before the tab switch that is
+   * tearing the view down, and the op would then write that stale tree back.
+   */
+  let current: Layout = tree.createLayout(ids)
+  let rendered = $state.raw<Layout>(current)
+  let savedGroups = $state.raw<SavedGroup[]>([])
+  let mode = $state.raw<Mode | null>(null)
+  let drag = $state.raw<DragState | null>(null)
+  /** Closed-tab stack for `tab.reopen`, newest last; session-only. */
+  const closed: ClosedTab[] = []
+  const paneEls = new Map<string, HTMLElement>()
+  let cancelSave: (() => void) | null = null
+
+  const now = (): number => clock.now()
+
+  function flushSave(): void {
+    cancelSave?.()
+    cancelSave = null
+    if (vaultKey) saveLayout(vaultKey, current)
+  }
+
+  function scheduleSave(): void {
+    cancelSave?.()
+    cancelSave = clock.schedule(() => {
+      cancelSave = null
+      if (vaultKey) saveLayout(vaultKey, current)
+    }, SAVE_DEBOUNCE_MS)
+  }
+
+  /** The one way the tree changes: set it, then let the derivations catch up. */
+  function commit(next: Layout): void {
+    current = next
+    rendered = next
+    scheduleSave()
+  }
+
+  function keepSaved(groups: readonly SavedGroup[]): void {
+    if (!groups.length) return
+    savedGroups = [...groups, ...savedGroups]
+    if (vaultKey) saveSavedGroups(vaultKey, savedGroups)
+  }
+
+  const focused = (): Pane => tree.focusedPane(current)
+  const active = (): Tab | null => tree.activeTab(focused())
+
+  function rects(): Record<string, Rect> {
+    const out: Record<string, Rect> = {}
+    for (const [id, el] of paneEls) {
+      const r = el.getBoundingClientRect()
+      out[id] = { x: r.x, y: r.y, width: r.width, height: r.height }
+    }
+    return out
+  }
+
+  // ---- what the rest of the app reads off a current change (B3, S9-Q1) ----
+
+  $effect(() => {
+    const l = rendered
+    const ws = workspace
+    if (!ws) return
+    ws.setLiveViews(new Set(tree.liveGuidsInput(l).map((v) => v.path)))
+    // Not a second source of truth: one derived value, so the rail, the
+    // breadcrumb, the links panel and the index keep the API they had.
+    ws.ui.selectedPath = tree.activeTab(tree.focusedPane(l))?.path ?? null
+  })
+
+  /**
+   * Deleted notes take their tabs and their history entries with them (R5) —
+   * but only once the file list has SETTLED.
+   *
+   * Carve, unshare and unmount take mounts out of the registry and put them
+   * back a few awaits later, and the tree refreshes in between: acting on
+   * that intermediate list would close every tab of a vault that is merely
+   * being rebuilt. So the check is debounced through the injected clock and
+   * re-reads the list when it fires. A rename never reaches here at all — it
+   * lands through `onRenamed`, in the same synchronous turn.
+   */
+  const PRUNE_SETTLE_MS = 400
+  let lastLive = ''
+  let cancelPrune: (() => void) | null = null
+  const livePaths = (ws: Workspace): string[] =>
+    ws.ui.files.filter((f) => f.kind === 'text').map((f) => f.path)
+
+  $effect(() => {
+    const ws = workspace
+    if (!ws) return
+    if (livePaths(ws).sort().join('|') === lastLive) return
+    cancelPrune?.()
+    cancelPrune = clock.schedule(() => {
+      cancelPrune = null
+      untrack(() => {
+        const paths = livePaths(ws)
+        lastLive = [...paths].sort().join('|')
+        const next = tree.prune(current, new Set(paths), ids)
+        if (JSON.stringify(tree.serialize(next)) !== JSON.stringify(tree.serialize(current))) {
+          commit(next)
+        }
+      })
+    }, PRUNE_SETTLE_MS)
+  })
+
+  // ---- the command table's actions ----
+
+  function splitFocused(dir: Dir): void {
+    commit(tree.split(current, current.focus, dir, ids))
+  }
+
+  function focusSide(side: Side): void {
+    const next = tree.neighbour(current, current.focus, side, rects())
+    if (next) commit(tree.focusPane(current, next))
+  }
+
+  const actions = {
+    splitAuto: (): void => {
+      // The longer side splits, so a wide pane halves horizontally — the mock's
+      // rule, and tmux's.
+      const r = paneEls.get(current.focus)?.getBoundingClientRect()
+      splitFocused(r && r.width > r.height * 1.2 ? 'row' : 'col')
+    },
+    split: splitFocused,
+    closePane: (): void => closePaneById(current.focus),
+    focus: focusSide,
+    focusNext: (): void => commit(tree.focusNext(current)),
+    zoom: (): void => commit(tree.zoom(current, current.zoom ? null : current.focus)),
+    rotate: (): void => commit(tree.rotate(current, current.focus)),
+    movePane: (side: Side): void => {
+      const other = tree.neighbour(current, current.focus, side, rects())
+      if (other) commit(tree.swapPanes(current, current.focus, other))
+    },
+    resizePane: (side: Side): void =>
+      commit(tree.resizeBy(current, current.focus, side, RESIZE_STEP_PCT)),
+    equalize: (): void => commit(tree.equalize(current)),
+    closeOthers: (): void => closeOthersIn(current.focus),
+    enterMode: (): void => {
+      mode = 'pane'
+    },
+    newTab: (): void => newTabIn(current.focus),
+    closeTab: (): void => {
+      const t = active()
+      if (t && !t.pinned) closeTab(t.id)
+    },
+    stepTab: (delta: number): void => {
+      const p = focused()
+      const list = tree.visibleTabs(p)
+      const at = list.findIndex((t) => t.id === p.active)
+      const next = list[(at + delta + list.length) % list.length]
+      if (next) commit(tree.activate(current, p.id, next.id, now()))
+    },
+    gotoTab: (n: number): void => {
+      const p = focused()
+      const t = p.tabs[n - 1]
+      if (t) commit(tree.activate(current, p.id, t.id, now()))
+    },
+    moveTabTo: (side: Side): void => {
+      const t = active()
+      const other = tree.neighbour(current, current.focus, side, rects())
+      if (t && other) commit(tree.moveTab(current, t.id, other, undefined, undefined, ids, now()))
+    },
+    pinTab: (): void => {
+      const t = active()
+      if (t) togglePin(t.id)
+    },
+    reopenTab: (): void => {
+      const last = closed.pop()
+      if (last) commit(tree.reopenTab(current, last, ids, now()))
+    },
+  }
+
+  // ---- strip affordances ----
+
+  function closeTab(tabId: string): void {
+    const snapshot = tree.closedTabOf(current, tabId)
+    if (snapshot?.tab.path) closed.push(snapshot)
+    commit(tree.closeTab(current, tabId, ids))
+  }
+
+  function togglePin(tabId: string): void {
+    commit(
+      tree.editLayout(current, (d) => {
+        const t = tree.tabOf(d, tabId)
+        if (t) t.pinned = !t.pinned
+      })
+    )
+  }
+
+  function newTabIn(paneId: string): void {
+    commit(
+      tree.editLayout(current, (d) => {
+        const p = tree.findPane(d, paneId)
+        if (!p) return
+        const t = tree.insertTab(p, tree.newTab(ids), tree.activeTab(p)?.id ?? null)
+        p.active = t.id
+        d.focus = p.id
+      })
+    )
+  }
+
+  function closeOthersIn(paneId: string): void {
+    const { layout: next, saved } = tree.closeOthers(current, paneId, ids, now())
+    keepSaved(saved)
+    commit(next)
+  }
+
+  function closePaneById(paneId: string): void {
+    const { layout: next, saved } = tree.closePane(current, paneId, now())
+    keepSaved(saved)
+    commit(next)
+  }
+
+  // ---- the drag session (B10) ----
+
+  function boxOf(r: DOMRect, zone: 'center' | Side): Box {
+    if (zone === 'center') {
+      return { left: r.left + 10, top: r.top + 10, width: r.width - 20, height: r.height - 20 }
+    }
+    if (zone === 'left') return { left: r.left, top: r.top, width: r.width / 2, height: r.height }
+    if (zone === 'right') {
+      return { left: r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height }
+    }
+    if (zone === 'up') return { left: r.left, top: r.top, width: r.width, height: r.height / 2 }
+    return { left: r.left, top: r.top + r.height / 2, width: r.width, height: r.height / 2 }
+  }
+
+  function hitTest(x: number, y: number, payload: DragPayload): DropTarget | null {
+    const hit = document.elementFromPoint(x, y)
+    const el = hit instanceof Element ? hit.closest<HTMLElement>('[data-pane-id]') : null
+    const paneId = el?.dataset.paneId
+    const pane = paneId ? tree.findPane(current, paneId) : null
+    if (!el || !paneId || !pane) return null
+
+    const strip = el.querySelector<HTMLElement>('[data-strip]')
+    const sr = strip?.getBoundingClientRect()
+    if (strip && sr && y >= sr.top && y <= sr.bottom) {
+      const slots = slotsFrom(strip.querySelectorAll<HTMLElement>('[data-slot-index]'), (node) => {
+        const r = node.getBoundingClientRect()
+        return { left: r.left, right: r.right }
+      })
+      const spot = stripDrop(slots, x, pane.tabs.length, sr.left)
+      return {
+        kind: 'strip',
+        paneId,
+        at: spot.at,
+        groupId: spot.groupId,
+        color: pane.groups.find((g) => g.id === spot.groupId)?.color,
+        x: spot.indicatorX,
+        top: sr.top + 4,
+        height: sr.height - 8,
+      }
+    }
+
+    const r = el.getBoundingClientRect()
+    const zone = tree.zoneAt({ x: r.x, y: r.y, width: r.width, height: r.height }, x, y)
+    const whole = payload.fromPaneId === paneId && payload.tabIds.length === pane.tabs.length
+    // Dissolving a pane onto its own edge would rebuild the same pane; joining
+    // the strip you came from is a reorder, and that is the strip's job.
+    if (payload.fromPaneId === paneId && (zone === 'center' || whole)) return { kind: 'none' }
+    return { kind: 'zone', paneId, zone, box: boxOf(r, zone) }
+  }
+
+  function applyDrop(target: DropTarget, payload: DragPayload): void {
+    if (target.kind === 'none') return
+    if (target.kind === 'strip') {
+      let next = current
+      payload.tabIds.forEach((tabId, i) => {
+        next =
+          payload.fromPaneId === target.paneId
+            ? tree.reorder(next, target.paneId, tabId, target.at + i, target.groupId)
+            : tree.moveTab(next, tabId, target.paneId, target.at + i, target.groupId, ids, now())
+      })
+      commit(next)
+      return
+    }
+    if (target.zone === 'center') {
+      let next = current
+      for (const tabId of payload.tabIds) {
+        next = tree.moveTab(next, tabId, target.paneId, undefined, undefined, ids, now())
+      }
+      commit(next)
+      return
+    }
+    commit(
+      tree.splitWith(current, target.paneId, target.zone, { tabIds: payload.tabIds }, ids, now())
+    )
+  }
+
+  function beginDrag(e: PointerEvent, payload: DragPayload): void {
+    if (e.button !== 0) return
+    const startX = e.clientX
+    const startY = e.clientY
+    let live = false
+
+    const move = (ev: PointerEvent): void => {
+      if (!live) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX) return
+        live = true
+        // A global hotkey landing mid-drag would rearrange the tree under the
+        // pointer; the registry is the one place that can be told to stop.
+        registry.setSuspended(true)
+      }
+      drag = {
+        payload,
+        x: ev.clientX,
+        y: ev.clientY,
+        target: hitTest(ev.clientX, ev.clientY, payload),
+      }
+    }
+
+    const done = (ev: PointerEvent): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', done)
+      window.removeEventListener('pointercancel', done)
+      const state = drag
+      drag = null
+      if (!live) return
+      registry.setSuspended(false)
+      if (state?.target && ev.type === 'pointerup') applyDrop(state.target, payload)
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', done)
+    window.addEventListener('pointercancel', done)
+  }
+
+  // ---- the mode (B12) ----
+
+  function titleOf(id: string): string {
+    return registry.get(id)?.title ?? familyTitle(id)
+  }
+
+  return {
+    get layout() {
+      return rendered
+    },
+    get savedGroups() {
+      return savedGroups
+    },
+    get mode() {
+      return mode
+    },
+    get drag() {
+      return drag
+    },
+
+    paneIndex: (paneId) => tree.panes(current.tree).findIndex((p) => p.id === paneId) + 1,
+
+    commands: () => paneCommands(actions),
+
+    hints: () =>
+      mode
+        ? // A row whose command is not registered yet (the group sub-mode until
+          // W2) has no title to print, so it is not printed.
+          modeHints(mode, titleOf).filter((h) => h.label !== '')
+        : [],
+
+    escapeLabel: () => {
+      const t = getLL().web.mode
+      return mode && MODES[mode].sticky ? t.done() : t.leave()
+    },
+
+    modeBadge: () => (mode ? getLL().web.mode.names[mode]() : ''),
+
+    attach(next, key) {
+      cancelSave?.()
+      cancelSave = null
+      cancelPrune?.()
+      cancelPrune = null
+      workspace = next
+      vaultKey = key
+      lastLive = ''
+      closed.length = 0
+      if (!next) {
+        commit(tree.createLayout(ids))
+        savedGroups = []
+        return
+      }
+      const live = new Set(next.ui.files.filter((f) => f.kind === 'text').map((f) => f.path))
+      const stored = loadLayout(key, ids)
+      // A restored tree is checked against the vault before it is shown, so a
+      // note deleted in Obsidian while this device was closed cannot open (R5).
+      commit(stored ? tree.prune(stored, live, ids) : tree.createLayout(ids))
+      savedGroups = loadSavedGroups(key)
+    },
+
+    handleKey(e) {
+      if (!mode) return false
+      // Capture phase + preventDefault: a mode letter is never editor input.
+      e.preventDefault()
+      e.stopPropagation()
+      const next = modeStep(mode, e.key)
+      mode = next.mode
+      if (next.command) void registry.get(next.command)?.run()
+      return true
+    },
+
+    leaveMode() {
+      mode = null
+    },
+
+    open(path, opts = {}) {
+        const p = opts.paneId ? tree.findPane(current, opts.paneId) : focused()
+      const slot = p ? tree.activeTab(p) : null
+      // An empty tab is a slot waiting for a note (that is what its picker is
+      // for), so a foreground open fills it rather than leaving it behind.
+      if (!opts.background && p && slot && slot.path === null) {
+        commit(tree.navigateInTab(current, slot.id, path, now()))
+        return
+      }
+      commit(tree.openPath(current, path, opts, ids, now()))
+    },
+
+    navigate(path, tabId) {
+      const t = tabId ?? active()?.id
+      if (t) commit(tree.navigateInTab(current, t, path, now()))
+    },
+
+    travel(delta) {
+      const t = active()
+      if (t) commit(tree.travelTab(current, t.id, delta, now()))
+    },
+
+    canTravel: (delta) => tree.canTravel(active(), delta),
+
+    activate: (paneId, tabId) => commit(tree.activate(current, paneId, tabId, now())),
+    focusPane: (paneId) => {
+      if (paneId !== current.focus) commit(tree.focusPane(current, paneId))
+    },
+    closeTab,
+    togglePin,
+    newTabIn,
+    closeOthersIn,
+    closePaneById,
+    moveTabToPane: (tabId, paneId) =>
+      commit(tree.moveTab(current, tabId, paneId, undefined, undefined, ids, now())),
+
+    resizeSplit(splitId, index, deltaPct) {
+      commit(tree.resize(current, splitId, index, deltaPct))
+    },
+
+    // A resize is a stream of tiny commits; the debounce keeps them off
+    // storage, and the gesture's end is what makes the result durable — the
+    // navigator's rule (chrome U2), so a reload right after a drag is safe.
+    persistNow: flushSave,
+
+    registerPane(paneId, el) {
+      if (el) paneEls.set(paneId, el)
+      else paneEls.delete(paneId)
+    },
+
+    beginDrag,
+
+    onRenamed(moves) {
+      let next = current
+      for (const { from, to } of moves) next = tree.rename(next, from, to, ids)
+      commit(next)
+      // A rename is also a new file set; keep the prune effect from re-running
+      // over the pre-rename snapshot.
+      lastLive = ''
+      flushSave()
+    },
+
+    closeUnder(prefix) {
+      commit(tree.closeUnder(current, prefix, ids))
+    },
+
+    setResume(tabId, resume) {
+      const held = tree.tabOf(current, tabId)
+      if (!held) return
+      // A capture that says nothing new is not a layout change: re-committing
+      // the same cursor on every tab switch would churn the tree, and the
+      // save, for nothing.
+      if (
+        held.scroll === resume.scroll &&
+        held.cursor?.anchor === resume.cursor.anchor &&
+        held.cursor?.head === resume.cursor.head
+      ) {
+        return
+      }
+      commit(
+        tree.editLayout(current, (d) => {
+          const t = tree.tabOf(d, tabId)
+          if (!t) return
+          t.cursor = { ...resume.cursor }
+          t.scroll = resume.scroll
+        })
+      )
+    },
+  }
+}

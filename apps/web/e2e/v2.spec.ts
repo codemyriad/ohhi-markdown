@@ -178,18 +178,22 @@ test('search Enter lands the caret on the matching line, not the top', async ({ 
   )
 })
 
-test('Mod+[ and Mod+] walk the notes you have visited', async ({ page }) => {
+test("Mod+[ and Mod+] walk the tab's own trail", async ({ page }) => {
+  // Fork 4 (tab-groups): history is per TAB, not per window — with four
+  // panes, "back" jumping you to another pane would be a surprise. Opening a
+  // note is a new tab with a trail of its own; following a `[[link]]` is the
+  // one navigation that stays in the tab, so it is what makes a trail.
   await openApp(page, 'v2-history')
   const editor = page.locator('[data-testid="editor-pane"] .cm-content')
-  await page.getByTestId('file-item:notes/welcome.md').click()
-  await expect(editor).toContainText('Welcome to Editor')
   await page.getByTestId('file-item:notes/ideas.md').click()
-  await expect(editor).toContainText('Ideas')
+  await type(page, 'see [[welcome]]\n')
+  await page.locator('.cm-wikilink').first().click({ modifiers: ['ControlOrMeta'] })
+  await expect(editor).toContainText('Welcome to Editor')
 
   await page.keyboard.press('ControlOrMeta+[')
-  await expect(editor).toContainText('Welcome to Editor')
+  await expect(editor).toContainText('[[welcome]]')
   await page.keyboard.press('ControlOrMeta+]')
-  await expect(editor).toContainText('Ideas')
+  await expect(editor).toContainText('Welcome to Editor')
 })
 
 test('the word count is present and selection-aware of the open note', async ({ page }) => {
