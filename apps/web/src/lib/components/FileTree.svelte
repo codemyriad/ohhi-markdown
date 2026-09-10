@@ -21,7 +21,6 @@
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
-  import { toast } from '../ui/toaster.js'
   import SyncPill from './SyncPill.svelte'
   import TreeContextMenu from './TreeContextMenu.svelte'
 
@@ -39,6 +38,8 @@
     reveal?: { path: string } | null
     onSelect: (path: string) => void
     onOp: (op: TreeOp) => void
+    /** A refusal worth keeping (drop rejected): the host toasts it and logs it. */
+    onNotice: (level: 'warn' | 'error', text: string, path?: string) => void
   }
 
   let {
@@ -51,6 +52,7 @@
     reveal = null,
     onSelect,
     onOp,
+    onNotice,
   }: Props = $props()
 
   let host = $state<HTMLElement>()
@@ -237,9 +239,7 @@
   }
 
   function dragEnd(): void {
-    if (!dropped && refusal) {
-      toast({ level: 'warn', title: 'Not moved', description: refusal.reason })
-    }
+    if (!dropped && refusal) onNotice('warn', `Not moved: ${refusal.reason}`, dragging ?? undefined)
     dragging = null
     dropDir = null
     refusal = null

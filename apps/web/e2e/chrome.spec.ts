@@ -200,3 +200,31 @@ test('the rail says where the open note lives, who is online there, and the head
   await page.getByTestId('rail-icon:note').click()
   await expect(section).toBeVisible()
 })
+
+test('a workspace error toasts once and stays in Activity with its time; the badge counts it until read; devtools toggles from there', async ({
+  page,
+}) => {
+  // An unseeded room: the relay rejects the token, which is a real error the
+  // workspace raises — exactly what used to be one truncated header string.
+  await openApp(page, 'chrome-notice')
+  await expect(page.getByTestId('toast')).toContainText('relay rejected this token')
+
+  const activity = page.getByTestId('rail-section:activity')
+  await expect(activity.getByTestId('activity-section')).toContainText('relay rejected this token')
+  await expect(activity.locator('time')).toHaveCount(1)
+
+  // Folding the section makes what arrives next unread; the rail icon shows the count.
+  await page.getByTestId('rail-fold:activity').click()
+  await page.getByTestId('rail-collapse').click()
+  await expect(page.getByTestId('rail-icon:activity')).toBeVisible()
+  await page.getByTestId('rail-icon:activity').click()
+  await expect(activity.getByTestId('activity-section')).toBeVisible()
+
+  await activity.getByTestId('activity-devtools').check()
+  await expect(page.getByTestId('devtools-panel')).toBeVisible()
+  await activity.getByTestId('activity-devtools').uncheck()
+  await expect(page.getByTestId('devtools-panel')).toHaveCount(0)
+
+  await activity.getByTestId('activity-clear').click()
+  await expect(activity.getByTestId('activity-section')).toContainText('Nothing to report')
+})

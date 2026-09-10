@@ -55,9 +55,13 @@
   import Breadcrumb from './lib/components/Breadcrumb.svelte'
   import RightRail, { type RailSection } from './lib/components/RightRail.svelte'
   import StatusBar from './lib/components/StatusBar.svelte'
-  import { Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
+  import { Bell, Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
+  import ActivitySection from './lib/components/ActivitySection.svelte'
   import NoteSection from './lib/components/NoteSection.svelte'
   import { scopedRollup } from './lib/share-status.js'
+  import { unreadCount } from './lib/notices.js'
+  import { toast } from './lib/ui/toaster.js'
+  import { setDevtools } from './lib/config.js'
   import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
   import { TREE_WIDTH, toggleFolded } from './lib/layout.js'
 
@@ -89,11 +93,33 @@
   let treeWidth = $state(savedLayout.treeWidth)
   let railOpen = $state(savedLayout.railOpen)
   let railFolded = $state<string[]>(savedLayout.railFolded)
-  /** Rail sections; U5 (Activity) appends a row here. */
+  // ---- notices (chrome U5): every new one toasts; all of them stay in Activity ----
+  /** When the Activity section was last in view; what arrived since is "unread". */
+  let noticesSeenAt = $state(0)
+  let toastedId: string | null = null
+  const activityVisible = $derived(view === 'workspace' && railOpen && !railFolded.includes('activity'))
+  const unread = $derived(workspace ? unreadCount(workspace.ui.notices, noticesSeenAt) : 0)
+  $effect(() => {
+    const newest = workspace?.ui.notices[0]
+    if (!newest || newest.id === toastedId) return
+    toastedId = newest.id
+    toast({
+      level: newest.level,
+      title: newest.level === 'error' ? 'Something went wrong' : newest.level === 'warn' ? 'Heads up' : 'Note',
+      description: newest.text,
+    })
+  })
+  $effect(() => {
+    // Looking at the log reads it — including anything that arrives while it is open.
+    workspace?.ui.notices.length
+    if (activityVisible) noticesSeenAt = Date.now()
+  })
+
   const railSections = $derived<RailSection[]>([
     { id: 'links', label: 'Links', icon: Link2 },
     // The one place the presence union survives: as a count on the icon.
     { id: 'note', label: 'This note', icon: Users, badge: workspace?.ui.presence.length || undefined },
+    { id: 'activity', label: 'Activity', icon: Bell, badge: unread || undefined },
   ])
   /** Bumped when a share dialog closes so the note section refetches its access list. */
   let shareRevision = $state(0)
@@ -534,7 +560,7 @@
       }
       refreshLists()
     } catch (err) {
-      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -551,7 +577,7 @@
       }
       refreshLists()
     } catch (err) {
-      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -562,7 +588,7 @@
     try {
       await workspace.movePath(mv.from, mv.to)
     } catch (err) {
-      if (workspace) workspace.ui.error = err instanceof Error ? err.message : String(err)
+      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -732,12 +758,6 @@
       />
       <Breadcrumb path={selectedPath} onReveal={revealInTree} />
       <div class="ml-auto flex min-w-0 items-center gap-3">
-        <!-- The error string leaves the header in U5. -->
-        {#if workspace.ui.error}
-          <span class="max-w-sm truncate text-xs text-error" data-testid="workspace-error">
-            {workspace.ui.error}
-          </span>
-        {/if}
         {#if globalStatus}
           <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
         {:else}
@@ -782,6 +802,7 @@
               reveal={revealDir}
               onSelect={(path) => openPath(path)}
               onOp={handleTreeOp}
+              onNotice={(level, text, path) => workspace?.notify({ level, text, path })}
             />
           </div>
           <div class="flex items-center gap-1 border-t border-base-300 px-2 py-1">
@@ -870,6 +891,19 @@
               onManage={(mountPath) => (folderSharePath = mountPath)}
               onShareFolder={(dir) => (folderSharePath = dir)}
               onAddShare={(dir) => (addShareOpen = { dir })}
+            />
+          {:else if id === 'activity' && workspace}
+            <ActivitySection
+              notices={workspace.ui.notices}
+              {devtools}
+              onOpenPath={openPath}
+              onClear={() => {
+                if (workspace) workspace.ui.notices = []
+              }}
+              onDevtools={(on) => {
+                setDevtools(on)
+                devtools = debugForced || on
+              }}
             />
           {/if}
         {/snippet}

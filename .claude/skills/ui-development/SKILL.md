@@ -80,6 +80,17 @@ relay; with nothing shared it renders "Local vault · nothing shared" in
 words, because a pill for an absence reads as a problem. A shared folder's
 tree badge carries its online count.
 
+**Notices (chrome U5, Fork 4 C)**: there is no `ui.error` string. Anything
+worth telling the user goes through `workspace.notify({ level, text, path? })`
+(the shim's own writers and the shell's handlers alike; a component reports
+through an `onNotice` prop, never by calling `toast()` itself). The log is
+`ui.notices` (pure `lib/notices.ts`: newest first, capped, an immediate
+repeat refreshes rather than stacks). The shell toasts each new notice once
+(`role=status`, polite) and lists them all in the rail's Activity section
+with time and the path they concern; the rail icon carries the unread count
+until the section is in view. The developer-tools toggle lives at the foot
+of Activity (and in Settings).
+
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
 **Component tests** live beside the primitive (`Dialog.test.ts`), start with `// @vitest-environment jsdom`, drive through `@testing-library/svelte` + `user-event`, and assert roles, names, focus and keys — never internals. A stateful primitive gets a harness in `src/lib/ui/test-harness/`. **The axe gate** is `apps/web/e2e/a11y.spec.ts`: it fails the e2e run on any violation, on every surface it opens; do not switch a rule off to pass it — list the reason and the slice that lifts it.

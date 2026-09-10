@@ -47,6 +47,7 @@ import { colorFor } from './params.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
+import { appendNotice, type Notice, type NoticeInput } from './notices.js'
 import { decodeShareLink, encodeShareLink } from './share-link.js'
 
 export { FOLDER_RECORD_KEY, type FileRow, type RelayConfig }
@@ -95,7 +96,8 @@ export interface MountInfo {
 
 export interface WorkspaceUi {
   phase: 'connecting' | 'ready'
-  error: string
+  /** Session notice log, newest first (chrome U5). Replaces the one overwritten error string. */
+  notices: Notice[]
   files: FileRow[]
   /** Names online anywhere in this workspace (the union of every room). */
   presence: string[]
@@ -125,6 +127,8 @@ export interface Workspace {
   ui: WorkspaceUi
   user: CollabUser
   room: string
+  /** Record a notice for the session (the shell toasts new ones and lists them in Activity). */
+  notify(input: NoticeInput): void
   docForPath(path: string): EngineDoc | null
   awarenessForPath(path: string): Awareness | null
   select(path: string | null): void
@@ -220,7 +224,7 @@ function seedDemoFiles(adapter: VaultAdapter): Promise<void[]> {
 export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const ui = $state<WorkspaceUi>({
     phase: 'connecting',
-    error: '',
+    notices: [],
     files: [],
     presence: [],
     presenceByRoom: {},
@@ -231,6 +235,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     mounts: [],
     breaker: null,
   })
+
+  const notify = (input: NoticeInput): void => {
+    ui.notices = appendNotice(ui.notices, input, Date.now())
+  }
 
   const user: CollabUser = { name: cfg.user, color: colorFor(cfg.user) }
   const engine = createYjsEngine()
@@ -436,7 +444,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         onShared: (link) => opts.onShared?.(link),
         onError: (err) => {
           console.error('[workspace]', err)
-          ui.error = err instanceof Error ? err.message : String(err)
+          notify({
+            level: 'error',
+            text: err instanceof Error ? err.message : String(err),
+            path: opts.path || undefined,
+          })
         },
       },
     })
@@ -468,7 +480,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (desc.path === '' || desc.status !== 'active') continue
     const token = roomToken(desc.room)
     if (desc.relay && !token) {
-      ui.error = `no token stored for shared folder '${desc.path}' — rejoin it via its share link`
+      notify({
+        level: 'error',
+        text: `no token stored for shared folder '${desc.path}' — rejoin it via its share link`,
+        path: desc.path,
+      })
     }
     const relay = desc.relay && token ? { url: desc.relay.url, token } : undefined
     const info: MountInfo = { path: desc.path, room: desc.room, provenance: desc.provenance, link: null }
@@ -723,6 +739,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   return {
     ui,
+    notify,
     user,
     room: cfg.room,
     docForPath: (path) => {
@@ -770,7 +787,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       if (!r || !rTo) return
       if (r.session !== rTo.session) {
         // Cross-mount: the caller must route through movePath (confirm first).
-        ui.error = 'moving across shared-folder boundaries needs the move confirmation'
+        notify({ level: 'error', text: 'moving across shared-folder boundaries needs the move confirmation', path: from })
         return
       }
       await r.session.renamePath(r.rel, rTo.rel)

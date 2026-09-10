@@ -164,7 +164,11 @@ menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
 drop's reason on the hovered row, and *Add a shared folder* (disabled with its
 rule in a root-shared vault; reachable from the palette). The note-section
 test (U4) checks the rail says where the open note lives and who is online
-there, and that the header no longer carries presence.
+there, and that the header no longer carries presence. The activity test
+(U5) opens an unseeded room so the relay rejects the token: the error toasts
+once, stays in the rail's Activity log with its time, counts as unread on the
+rail icon until the section is viewed, and the developer-tools toggle there
+shows and hides the sync inspector.
 
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
 practice) over the vault manager, the workspace with a note open, quick-open,
