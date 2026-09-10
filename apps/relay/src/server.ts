@@ -22,6 +22,9 @@
  * returns the stored Uint8Array (v4 applies it as a Yjs update for us);
  * onStoreDocument (debounced by Hocuspocus, flushed on disconnect/destroy)
  * writes the current state back.
+ *
+ * Plain HTTP on the same port goes through onRequest: `GET /healthz` (the
+ * unauthenticated container/proxy probe) and the operator admin API (admin.ts).
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Hocuspocus, Server } from '@hocuspocus/server'
@@ -50,6 +53,31 @@ export interface Relay {
   destroy(): Promise<void>
 }
 
+/**
+ * GET /healthz: 200 `{ ok: true }` only while the database answers a read,
+ * else 503 — a relay that accepts sockets but cannot persist is not healthy.
+ * Unauthenticated, so it says nothing else (no counts, names or version).
+ */
+function handleHealthRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  db: RelayDb
+): boolean {
+  if (new URL(request.url ?? '/', 'http://relay.invalid').pathname !== '/healthz') return false
+  let ok = true
+  try {
+    db.ping()
+  } catch {
+    ok = false
+  }
+  response.writeHead(ok ? 200 : 503, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
+  })
+  response.end(JSON.stringify({ ok }))
+  return true
+}
+
 export function createRelay(opts: RelayOptions): Relay {
   const db = new RelayDb(opts.dbPath)
 
@@ -59,7 +87,10 @@ export function createRelay(opts: RelayOptions): Relay {
     stopOnSignals: false, // main.ts owns shutdown; keeps embedded/test use clean
 
     async onRequest({ request, response }: { request: IncomingMessage; response: ServerResponse }) {
-      if (await handleAdminRequest(request, response, db, opts.operatorSecret)) {
+      const handled =
+        handleHealthRequest(request, response, db) ||
+        (await handleAdminRequest(request, response, db, opts.operatorSecret))
+      if (handled) {
         // Hocuspocus contract: a rejected onRequest hook aborts the chain so
         // its default "Welcome to Hocuspocus!" handler never runs; throwing a
         // falsy value aborts without surfacing an error (`if (error) throw`).

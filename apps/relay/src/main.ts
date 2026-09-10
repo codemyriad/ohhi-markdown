@@ -34,7 +34,10 @@ if (process.env.SEED_SHARE) {
 await relay.listen()
 console.log(`@editor/relay listening on ws://0.0.0.0:${relay.port} (db: ${dbPath})`)
 
-// Flush pending doc stores before exiting (Fly sends SIGINT on deploy/stop).
+// Flush pending doc stores before exiting (`docker stop` sends SIGTERM,
+// Ctrl-C SIGINT). In the container node runs as PID 1, which gets no default
+// signal actions, so these handlers are the only thing that makes a stop a
+// clean exit rather than a SIGKILL once the grace period runs out.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void relay.destroy().then(() => process.exit(0))

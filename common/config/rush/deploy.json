@@ -1,0 +1,10 @@
+/**
+ * "rush deploy" scenario for the relay image (apps/relay/Dockerfile): the relay
+ * plus only its production dependency closure, copied out of common/temp.
+ * Docs: https://rushjs.io/pages/maintainer/deploying/
+ */
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/deploy-scenario.schema.json",
+  "deploymentProjectNames": ["@editor/relay"],
+  "projectSettings": []
+}

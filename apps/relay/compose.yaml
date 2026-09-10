@@ -1,0 +1,22 @@
+# Minimal single-host relay (README: "Run in a container"). From this folder:
+#
+#   printf 'OPERATOR_SECRET=%s\n' "$(openssl rand -hex 32)" > .env && chmod 600 .env
+#   docker compose up -d --build
+#
+# .env is git-ignored. Never put SEED_SHARE in it — that's a dev/e2e seed.
+services:
+  relay:
+    build:
+      context: ../.. # repo root: the lockfile and rush.json
+      dockerfile: apps/relay/Dockerfile
+    image: editor-relay
+    container_name: editor-relay
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8787:8787" # only the host's reverse proxy (TLS) reaches it
+    volumes:
+      - relay-data:/data
+
+volumes:
+  relay-data:

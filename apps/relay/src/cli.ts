@@ -1,26 +1,32 @@
 /**
  * Minimal share management — the only mutation path for the shares table
- * (docs/architecture/relay.md: nothing in the CRDT plane can touch it).
+ * (docs/architecture/relay.md: nothing in the CRDT plane can touch it) — plus
+ * an online backup of the relay database.
  *
  *   node --experimental-strip-types src/cli.ts share-add <folderGuid> [--read-only] [--label <label>] [--kind folder|device] [--parent <roomGuid>]
  *   node --experimental-strip-types src/cli.ts share-list
  *   node --experimental-strip-types src/cli.ts share-rm <token>
+ *   node --experimental-strip-types src/cli.ts backup <destPath>
  *
  * --kind device mints a device token (also reaches rooms carved out of this
  * one); --parent records that <folderGuid> was carved out of <roomGuid>,
  * which is the edge a device token walks (device-link-shaping.md A4-A).
  *
+ * `backup` is safe next to the live relay (RelayDb.backup), e.g. from a
+ * nightly `docker exec` (apps/relay/README.md).
+ *
  * Env: DATA_DIR (default ./data), same as main.ts.
  */
 import { randomBytes } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, renameSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { RelayDb, type ShareKind } from './db.ts'
 
 const USAGE = `usage:
   cli.ts share-add <folderGuid> [--read-only] [--label <label>] [--kind folder|device] [--parent <roomGuid>]
   cli.ts share-list
-  cli.ts share-rm <token>`
+  cli.ts share-rm <token>
+  cli.ts backup <destPath>`
 
 function openDb(): RelayDb {
   const dataDir = process.env.DATA_DIR ?? './data'
@@ -97,6 +103,26 @@ switch (cmd) {
     db.close()
     if (!removed) fail(`no share with token: ${token}`)
     console.log('removed')
+    break
+  }
+  case 'backup': {
+    const dest = rest[0]
+    if (!dest || rest.length > 1) fail(USAGE)
+    mkdirSync(dirname(dest), { recursive: true })
+    // Written beside the destination, then renamed: an interrupted backup
+    // never leaves a truncated file under a name that looks complete.
+    const partial = `${dest}.partial`
+    const db = openDb()
+    try {
+      await db.backup(partial)
+    } catch (err) {
+      db.close()
+      rmSync(partial, { force: true }) // the cron's prune never matches *.partial
+      fail(`backup failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    db.close()
+    renameSync(partial, dest)
+    console.log(dest)
     break
   }
   default:

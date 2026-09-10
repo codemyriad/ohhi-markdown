@@ -30,6 +30,7 @@ node --experimental-strip-types src/cli.ts share-add <folderGuid> [--read-only] 
 # prints the token
 node --experimental-strip-types src/cli.ts share-list
 node --experimental-strip-types src/cli.ts share-rm <token>
+node --experimental-strip-types src/cli.ts backup <destPath>   # online SQLite backup
 ```
 
 Uses the same `DATA_DIR` as the server. Clients connect with
@@ -57,22 +58,76 @@ this cross-origin. Revoking a token blocks NEW connections only; live
 connections persist until they reconnect. The Editor app stores the secret in
 **Settings** and uses this API for its one-click share flows.
 
-## Deploy to Fly.io
+`GET /healthz` needs no credential: `200 {"ok":true}` while the database
+answers a read, `503 {"ok":false}` otherwise.
 
-`Dockerfile` and `fly.toml` are untested templates. Roughly:
+## Run in a container
+
+`Dockerfile` builds from the **repo root** and installs dependencies from the
+repo lockfile (`rush install` + `rush deploy`; the header explains why). No
+architecture is hardcoded — the same file builds linux/amd64 and linux/arm64.
 
 ```sh
-fly apps create editor-relay          # or your own name; update fly.toml
-fly volumes create relay_data --size 1
-fly deploy
-fly ssh console -C 'node --experimental-strip-types src/cli.ts share-add <folderGuid>'
+docker build -f apps/relay/Dockerfile -t editor-relay .    # from the repo root
+printf 'OPERATOR_SECRET=%s\n' "$(openssl rand -hex 32)" > relay.env && chmod 600 relay.env
+docker run -d --name editor-relay --restart unless-stopped --env-file relay.env \
+  -p 127.0.0.1:8787:8787 -v editor-relay-data:/data editor-relay
 ```
 
-One small VM, one volume. V1 runs with volume snapshots only; relay loss means
-re-seeding coordination, not data loss (every enrolled doc lives in full on
-each client). Litestream replication is scheduled with the V2 update-log work.
+Or, from `apps/relay`, `docker compose up -d --build` (`compose.yaml`: named
+volume, git-ignored `.env` for the secret, loopback-only port, restart policy).
 
-## Notes
+| Env | Image default | |
+|---|---|---|
+| `OPERATOR_SECRET` | unset | Enables the admin API. A runtime secret — env file or secret store, never baked into the image or committed. |
+| `SEED_SHARE` | unset | Dev/e2e only (pre-creates known tokens). **Never set in production.** |
+| `PORT` | `8787` | |
+| `DATA_DIR` | `/data` | The volume. Owned by the image's non-root `node` user (uid 1000); `chown 1000:1000` a bind-mounted host dir. |
 
-- `@types/ws` is not in the workspace; tests use a minimal ambient shim
-  (`test/ws.d.ts`) for the `ws` polyfill.
+Node runs as PID 1 and handles `docker stop`'s SIGTERM itself: pending doc
+stores are flushed, then it exits 0. The image's `HEALTHCHECK` polls
+`/healthz`. Upgrading is rebuild + recreate; schema migrations are additive
+and run on start.
+
+### Behind Caddy
+
+TLS terminates at the host's reverse proxy; the relay speaks plain HTTP and
+ws on loopback. Caddy proxies websockets with no extra config:
+
+```caddy
+relay.codemyriad.io {
+	reverse_proxy 127.0.0.1:8787
+}
+```
+
+Clients then use `wss://relay.codemyriad.io`. (If Caddy itself runs in a
+container, 127.0.0.1 is its own loopback: put both on one Docker network and
+proxy to `editor-relay:8787` instead.)
+
+### Shares and backups from the host
+
+```sh
+docker exec editor-relay node --experimental-strip-types src/cli.ts share-add <folderGuid> --label laptop
+```
+
+The relay is never the only copy of any content — every enrolled doc lives in
+full on each client and the files live on disk — so losing it means
+re-seeding shares, not losing data. A backup saves re-creating every share.
+`cli.ts backup` uses SQLite's online backup API, so it runs against the live
+relay. Nightly, keeping 14 days (`%` must be escaped in crontab):
+
+```cron
+# /etc/cron.d/editor-relay-backup
+15 3 * * * root docker exec editor-relay node --experimental-strip-types src/cli.ts backup /data/backups/relay-$(date +\%F).db && docker exec editor-relay find /data/backups -name 'relay-*.db' -mtime +14 -delete
+```
+
+Backups on the relay's own volume survive a bad deploy, not a lost disk —
+copy `/data/backups` off the host too if that matters. To restore, stop the
+relay and swap the file in with the image's own user:
+
+```sh
+docker stop editor-relay
+docker run --rm --volumes-from editor-relay editor-relay \
+  sh -c 'cp /data/backups/relay-2026-09-10.db /data/relay.db && rm -f /data/relay.db-wal /data/relay.db-shm'
+docker start editor-relay
+```

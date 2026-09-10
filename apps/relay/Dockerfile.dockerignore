@@ -1,0 +1,11 @@
+# Context allowlist for apps/relay/Dockerfile (BuildKit reads
+# <Dockerfile>.dockerignore for a repo-root context): what `rush install` reads
+# — rush.json, the Rush config + lockfile, EVERY project's package.json — plus
+# the relay's sources. Keeps out node_modules, common/temp, data/relay.db, .git.
+*
+!rush.json
+!common/config/rush/
+!common/scripts/
+!apps/*/package.json
+!libs/*/package.json
+!apps/relay/src/

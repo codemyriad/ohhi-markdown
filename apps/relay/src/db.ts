@@ -193,6 +193,26 @@ export class RelayDb {
       )
   }
 
+  /**
+   * Readiness probe for GET /healthz: a real read transaction on the schema
+   * (a bare `SELECT 1` never touches the file). Throws when the connection is
+   * closed or the database cannot be read.
+   */
+  ping(): void {
+    this.db.prepare('SELECT 1 FROM shares LIMIT 1').get()
+  }
+
+  /**
+   * Online backup via SQLite's backup API — safe while the relay serves from
+   * the same file (a write from another connection restarts the copy, so the
+   * result is always one consistent snapshot). After the first step sizes the
+   * source, every remaining page is copied in one step, so a busy relay
+   * cannot keep restarting a paged copy.
+   */
+  async backup(destPath: string): Promise<void> {
+    await this.db.backup(destPath, { progress: ({ remainingPages }) => remainingPages })
+  }
+
   close(): void {
     this.db.close()
   }
