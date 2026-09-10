@@ -2,6 +2,7 @@
   import { SvelteSet } from 'svelte/reactivity'
   import { ChevronsDownUp, FilePlus, FolderPlus, ListFilter, Users } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { pillStatus, type PillStatus, type SyncRecord } from '../sync-record.svelte.js'
   import type { FileRow, MountInfo } from '../workspace.svelte.js'
   import {
@@ -57,11 +58,8 @@
 
   let host = $state<HTMLElement>()
 
-  const FILTERS: { value: TreeFilter; label: string }[] = [
-    { value: 'all', label: 'All notes' },
-    { value: 'local', label: 'Local only' },
-    { value: 'shared', label: 'Shared only' },
-  ]
+  const t = $derived($LL.web.tree)
+  const FILTER_VALUES: TreeFilter[] = ['all', 'local', 'shared']
   let filter = $state<TreeFilter>('all')
 
   const mountByPath = $derived(new Map(mounts.map((m) => [m.path, m])))
@@ -77,7 +75,6 @@
 
   /** Where New note / New folder create. */
   const targetDir = $derived(contextDir !== null ? contextDir : containingDir(selected, 'text'))
-  const inLabel = $derived(targetDir ? ` in ${targetDir}` : '')
 
   /** The pill a file row shows, if any: quiet when good, loud when not (Fork 3 B2/B4). */
   function statusFor(node: TreeNode): PillStatus | null {
@@ -129,7 +126,7 @@
   let menuOrigin: HTMLElement | null = null
 
   function labelFor(target: TreeMenuTarget): string {
-    return target.kind === 'root' ? 'Vault root actions' : `Actions for ${target.path}`
+    return target.kind === 'root' ? t.root_actions() : t.actions_for({ path: target.path })
   }
 
   function openMenu(e: Event, target: TreeMenuTarget, at?: { x: number; y: number }): void {
@@ -239,7 +236,7 @@
   }
 
   function dragEnd(): void {
-    if (!dropped && refusal) onNotice('warn', `Not moved: ${refusal.reason}`, dragging ?? undefined)
+    if (!dropped && refusal) onNotice('warn', t.not_moved({ reason: refusal.reason }), dragging ?? undefined)
     dragging = null
     dropDir = null
     refusal = null
@@ -294,52 +291,52 @@
 <nav
   bind:this={host}
   data-testid="file-tree"
-  aria-label="Files"
+  aria-label={t.files()}
   class="flex h-full flex-col overflow-y-auto"
   ondragleave={treeLeave}
 >
   <div class="flex items-center gap-0.5 border-b border-base-300 px-2 py-1">
-    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/70 uppercase">Files</h2>
+    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.files()}</h2>
     <IconButton
-      label="New note{inLabel}"
+      label={targetDir ? t.new_note_in({ dir: targetDir }) : t.new_note()}
       icon={FilePlus}
       testid="new-file"
       onclick={() => onOp({ type: 'new-file', dir: targetDir })}
     />
     <IconButton
-      label="New folder{inLabel}"
+      label={targetDir ? t.new_folder_in({ dir: targetDir }) : t.new_folder()}
       icon={FolderPlus}
       testid="new-folder"
       onclick={() => onOp({ type: 'new-folder', dir: targetDir })}
     />
     <IconButton
-      label="Collapse all folders"
+      label={t.collapse_all()}
       icon={ChevronsDownUp}
       testid="collapse-all"
       onclick={collapseAll}
     />
     <DropdownMenu placement="bottom-end" testid="tree-filter-menu">
-      {#snippet trigger(t)}
+      {#snippet trigger(attrs)}
         <button
-          use:melt={t}
+          use:melt={attrs}
           data-testid="tree-filter"
           class="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary
             {filter !== 'all' ? 'bg-base-200 text-base-content' : ''}"
         >
           <ListFilter size={14} aria-hidden="true" />
-          <span class="sr-only">Filter:</span>
-          <span>{filter === 'all' ? 'All' : filter === 'local' ? 'Local' : 'Shared'}</span>
+          <span class="sr-only">{t.filter_label()}</span>
+          <span>{t.filter[filter]()}</span>
         </button>
       {/snippet}
       {#snippet children({ item })}
-        {#each FILTERS as f (f.value)}
+        {#each FILTER_VALUES as value (value)}
           <MenuItem
             {item}
-            checked={filter === f.value}
-            testid="tree-filter:{f.value}"
-            onSelect={() => (filter = f.value)}
+            checked={filter === value}
+            testid="tree-filter:{value}"
+            onSelect={() => (filter = value)}
           >
-            {f.label}
+            {t.filter_option[value]()}
           </MenuItem>
         {/each}
       {/snippet}
@@ -395,12 +392,12 @@
             </span>
           {:else if mount}
             {@const online = (presenceByRoom[mount.room] ?? []).length}
-            {@const whose = mount.provenance === 'carved' ? 'Shared by you' : 'Shared with you'}
+            {@const whose = mount.provenance === 'carved' ? t.shared_by_you() : t.shared_with_you()}
             <span class="ml-auto flex shrink-0 items-center gap-1.5">
               <SyncPill status={rollups.get(node.path) ?? 'offline'} testid="sync-pill:{node.path}" />
               <span
                 data-testid="mount-badge:{node.path}"
-                title="{whose}{online ? ` · ${online} online` : ''}"
+                title={online ? t.online_title({ whose, count: online }) : whose}
                 class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium
                   {mount.provenance === 'carved'
                   ? 'bg-primary text-primary-content'
@@ -408,7 +405,7 @@
               >
                 <Users size={12} aria-hidden="true" />
                 {#if online}<span aria-hidden="true">{online}</span>{/if}
-                <span class="sr-only">{whose}{online ? `, ${online} online` : ''}</span>
+                <span class="sr-only">{online ? t.online_sr({ whose, count: online }) : whose}</span>
               </span>
             </span>
           {/if}
@@ -470,7 +467,7 @@
             data-testid="binary-badge:{node.path}"
             class="shrink-0 rounded border border-base-300 px-1.5 py-0.5 text-[10px] tracking-wide text-base-content/70 uppercase"
           >
-            not synced
+            {t.not_synced()}
           </span>
         </div>
       {/if}
@@ -482,7 +479,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <ul
     role="tree"
-    aria-label="Vault files"
+    aria-label={t.root_label()}
     data-testid="tree-root"
     oncontextmenu={(e) => openMenu(e, { kind: 'root' })}
     ondragover={(e) => dragOver(e, '')}

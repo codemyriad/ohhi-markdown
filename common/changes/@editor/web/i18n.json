@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/web",
+      "comment": "Every label, menu item, dialog and message in the app now comes from one English dictionary, so the copy can be translated without touching the interface.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/web"
+}

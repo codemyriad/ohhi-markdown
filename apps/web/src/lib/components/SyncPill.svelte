@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PILL_TITLES, type PillStatus } from '../pill-status.js'
+  import { pillTitle, type PillStatus } from '../pill-status.js'
 
   interface Props {
     status: PillStatus
@@ -9,6 +9,7 @@
 
   let { status, testid, label = '' }: Props = $props()
 
+  const title = $derived(pillTitle(status))
 </script>
 
 <!-- Pure rendering of f(syncRecord) — no status logic lives here. -->
@@ -18,7 +19,7 @@
 <span
   data-testid={testid}
   data-status={status}
-  title={PILL_TITLES[status]}
+  {title}
   class="relative inline-flex shrink-0 items-center gap-1.5"
 >
   <!-- Size, shape AND colour all come from libs/ui's UNLAYERED
@@ -29,5 +30,5 @@
        signal that must never lie. -->
   <span class="ed-sync-dot" aria-hidden="true"></span>
   {#if label}<span class="text-xs text-base-content/70">{label}</span>{/if}
-  <span class="sr-only">{PILL_TITLES[status]}</span>
+  <span class="sr-only">{title}</span>
 </span>

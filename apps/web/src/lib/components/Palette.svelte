@@ -10,6 +10,7 @@
    * loading state. That absence is the feature (parent R4.1).
    */
   import type { Snippet } from 'svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   export interface PaletteRow {
@@ -137,7 +138,7 @@
 
     {#if rows.length === 0}
       <p data-testid="{testid}-empty" class="px-4 py-6 text-center text-xs text-base-content/70">
-        {empty ?? 'No matches'}
+        {empty ?? $LL.web.palette.no_matches()}
       </p>
     {:else}
       <ul

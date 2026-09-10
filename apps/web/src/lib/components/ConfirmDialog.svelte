@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LL } from '@editor/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   interface Props {
@@ -50,7 +51,7 @@
       onclick={onCancel}
       class="rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
     >
-      Cancel
+      {$LL.common.cancel()}
     </button>
     <button
       type="button"
@@ -62,7 +63,7 @@
         ? 'bg-error text-error-content hover:bg-error/90'
         : 'bg-primary text-primary-content hover:bg-primary/90'}"
     >
-      {busy ? 'Working…' : confirmLabel}
+      {busy ? $LL.common.working() : confirmLabel}
     </button>
   </div>
 </Dialog>

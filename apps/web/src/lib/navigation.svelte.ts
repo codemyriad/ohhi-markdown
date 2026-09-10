@@ -6,6 +6,7 @@
  * shell stays a renderer (the tree-model.ts pattern — the only testable-UI
  * convention this repo has).
  */
+import { getLL } from '@editor/i18n'
 import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@editor/index'
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
@@ -14,18 +15,17 @@ import type { IndexSink, Workspace } from './workspace.svelte.js'
 
 export type PaletteMode = 'quick-open' | 'command' | 'search'
 
-const MODES: Record<PaletteMode, { placeholder: string; testid: string; empty: string }> = {
-  'quick-open': {
-    placeholder: 'Open a note…',
-    testid: 'quick-open',
-    empty: 'No note matches',
-  },
-  command: { placeholder: 'Run a command…', testid: 'command-palette', empty: 'No command matches' },
-  search: {
-    placeholder: 'Search the vault…   (tag:#x, path:folder/)',
-    testid: 'search',
-    empty: 'Nothing found',
-  },
+/** The testids are the spec's contract; the copy is the dictionary's (`web.palette`). */
+const MODE_KEYS: Record<PaletteMode, { key: 'quick_open' | 'command' | 'search'; testid: string }> = {
+  'quick-open': { key: 'quick_open', testid: 'quick-open' },
+  command: { key: 'command', testid: 'command-palette' },
+  search: { key: 'search', testid: 'search' },
+}
+
+function modeMeta(mode: PaletteMode): { placeholder: string; testid: string; empty: string } {
+  const { key, testid } = MODE_KEYS[mode]
+  const t = getLL().web.palette[key]
+  return { placeholder: t.placeholder(), testid, empty: t.empty() }
 }
 
 export interface PaletteState {
@@ -123,7 +123,7 @@ export function createNavigation(): {
     },
   }
 
-  const meta = $derived(MODES[palette.mode ?? 'quick-open'])
+  const meta = $derived(modeMeta(palette.mode ?? 'quick-open'))
 
   /** Set when a search result asked to land on a specific character. */
   const pending = $state<{ reveal: { offset: number } | null }>({ reveal: null })
@@ -171,7 +171,7 @@ export function createNavigation(): {
         id: hit.path,
         title: hit.path,
         spans: hit.spans,
-        hint: !query && recent.includes(hit.path) ? 'recent' : undefined,
+        hint: !query && recent.includes(hit.path) ? getLL().web.palette.recent() : undefined,
       }))
     }
     if (!query.trim()) return []
@@ -179,7 +179,7 @@ export function createNavigation(): {
     return page.items.map((hit: SearchHit) => ({
       id: hit.path,
       title: hit.path,
-      subtitle: hit.snippets.length === 0 ? 'filename match' : undefined,
+      subtitle: hit.snippets.length === 0 ? getLL().web.palette.filename_match() : undefined,
       detail: hit.snippets.map((s) => ({ text: s.text, spans: s.spans })),
       // Enter lands the caret on the first match, not at the top of the note.
       offset: hit.spans[0]?.from,
@@ -285,22 +285,26 @@ export function defaultCommands(actions: {
   newFolder: () => void
   addShare: () => void
 }): Command[] {
+  // Titles resolve at registration (the locale is loaded before the shell
+  // mounts); a locale switch re-registers, the way Edible re-runs its load.
+  const t = getLL().web.commands
+  const g = t.groups
   return [
-    { id: 'nav.quick-open', title: 'Open note…', group: 'Navigate', keys: 'Mod+o', run: actions.quickOpen },
-    { id: 'nav.command-palette', title: 'Command palette', group: 'Navigate', keys: 'Mod+Shift+p', run: actions.commandPalette },
-    { id: 'nav.search', title: 'Search in vault', group: 'Navigate', keys: 'Mod+Shift+f', run: actions.search },
-    { id: 'file.new', title: 'New note', group: 'File', keys: 'Mod+n', run: actions.newNote },
-    { id: 'file.new-folder', title: 'New folder', group: 'File', keys: 'Mod+Shift+n', run: actions.newFolder },
+    { id: 'nav.quick-open', title: t.quick_open(), group: g.navigate(), keys: 'Mod+o', run: actions.quickOpen },
+    { id: 'nav.command-palette', title: t.command_palette(), group: g.navigate(), keys: 'Mod+Shift+p', run: actions.commandPalette },
+    { id: 'nav.search', title: t.search(), group: g.navigate(), keys: 'Mod+Shift+f', run: actions.search },
+    { id: 'file.new', title: t.new_note(), group: g.file(), keys: 'Mod+n', run: actions.newNote },
+    { id: 'file.new-folder', title: t.new_folder(), group: g.file(), keys: 'Mod+Shift+n', run: actions.newFolder },
     // Chris's own Obsidian bindings: app:delete-file and file-explorer:move-file.
-    { id: 'file.delete', title: 'Delete current note…', group: 'File', keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
-    { id: 'file.move', title: 'Move current note…', group: 'File', keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
-    { id: 'share.add', title: 'Add a shared folder…', group: 'Share', run: actions.addShare },
+    { id: 'file.delete', title: t.delete_note(), group: g.file(), keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
+    { id: 'file.move', title: t.move_note(), group: g.file(), keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
+    { id: 'share.add', title: t.add_share(), group: g.share(), run: actions.addShare },
     // Mod+[ / Mod+] are Chris's own Obsidian bindings for navigation history.
-    { id: 'nav.back', title: 'Back', group: 'Navigate', keys: 'Mod+[', run: actions.back },
-    { id: 'nav.forward', title: 'Forward', group: 'Navigate', keys: 'Mod+]', run: actions.forward },
+    { id: 'nav.back', title: t.back(), group: g.navigate(), keys: 'Mod+[', run: actions.back },
+    { id: 'nav.forward', title: t.forward(), group: g.navigate(), keys: 'Mod+]', run: actions.forward },
     // Chris's own Obsidian bindings for the sidebars (Mod+Left / Mod+Right).
-    { id: 'view.sidebar', title: 'Toggle file navigator', group: 'View', keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
-    { id: 'view.rail', title: 'Toggle right sidebar', group: 'View', keys: 'Mod+ArrowRight', run: actions.toggleRail },
-    { id: 'app.settings', title: 'Settings', group: 'App', keys: 'Mod+,', run: actions.settings },
+    { id: 'view.sidebar', title: t.toggle_navigator(), group: g.view(), keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
+    { id: 'view.rail', title: t.toggle_rail(), group: g.view(), keys: 'Mod+ArrowRight', run: actions.toggleRail },
+    { id: 'app.settings', title: t.settings(), group: g.app(), keys: 'Mod+,', run: actions.settings },
   ]
 }

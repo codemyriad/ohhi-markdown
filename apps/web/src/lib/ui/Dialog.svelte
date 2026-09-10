@@ -14,6 +14,7 @@
   import { createDialog, melt } from '@melt-ui/svelte'
   import { X } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { firstTabbable } from './focus.js'
 
   interface Props {
@@ -143,7 +144,7 @@
       {#if showClose}
         <button
           use:melt={$close}
-          aria-label="Close"
+          aria-label={$LL.common.close()}
           data-testid={closeTestid}
           class="absolute top-3 right-3 rounded p-1 text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
         >

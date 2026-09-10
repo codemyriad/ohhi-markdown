@@ -13,6 +13,7 @@
  * secret via config), statuses in mounts.json, seed → detach → activate, then
  * mounts the new session live. Tokens live in config only (never in descs).
  */
+import { getLL } from '@editor/i18n'
 import type { DivergenceReview, StoreDir, VaultAdapter } from '@editor/vault'
 import {
   BlobDocStore,
@@ -482,7 +483,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (desc.relay && !token) {
       notify({
         level: 'error',
-        text: `no token stored for shared folder '${desc.path}' — rejoin it via its share link`,
+        text: getLL().web.workspace.no_token({ path: desc.path }),
         path: desc.path,
       })
     }
@@ -522,20 +523,21 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const doCarve = async (path: string): Promise<string> => {
+    const t = getLL().web.workspace
     const row = ui.files.find((f) => f.path === path)
-    if (!row || row.kind !== 'dir') throw new Error('only folders can be shared')
+    if (!row || row.kind !== 'dir') throw new Error(t.only_folders())
     const resolved = registry.resolve(path)
     if (!resolved || resolved.mountPath !== '') {
-      throw new Error('this folder is already inside a shared folder')
+      throw new Error(t.inside_shared())
     }
     for (const m of ui.mounts) {
       if (m.path === path || m.path.startsWith(`${path}/`) || path.startsWith(`${m.path}/`)) {
-        throw new Error('this folder overlaps an existing shared folder')
+        throw new Error(t.overlaps())
       }
     }
     const secret = operatorSecret()
     if (!secret) {
-      throw new Error('set the relay operator secret in Settings to create shares in-app')
+      throw new Error(t.needs_secret())
     }
     const relayUrl = defaultRelay()
     const room = crypto.randomUUID()
@@ -589,7 +591,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const target = decodeShareLink(link)
     const dest = destPath.trim().replace(/^\/+|\/+$/g, '')
     if (target.room === cfg.room || ui.mounts.some((m) => m.room === target.room)) {
-      throw new Error('this share is already part of this vault')
+      throw new Error(getLL().web.workspace.already_joined())
     }
     const info: MountInfo = { path: dest, room: target.room, provenance: 'joined', link: null }
     let added = false
@@ -644,7 +646,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   const mountAt = (path: string): MountInfo => {
     const info = ui.mounts.find((m) => m.path === path)
-    if (!info) throw new Error(`'${path}' is not a shared folder`)
+    if (!info) throw new Error(getLL().web.workspace.not_shared({ path }))
     return info
   }
 
@@ -730,7 +732,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       }
     } else {
       const bytes = await src.session.readFileBytes(src.rel)
-      if (bytes === null) throw new Error(`cannot read ${from}`)
+      if (bytes === null) throw new Error(getLL().web.workspace.cannot_read({ path: from }))
       await dst.session.importFile(dst.rel, bytes)
     }
     await src.session.deletePath(src.rel)
@@ -787,7 +789,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       if (!r || !rTo) return
       if (r.session !== rTo.session) {
         // Cross-mount: the caller must route through movePath (confirm first).
-        notify({ level: 'error', text: 'moving across shared-folder boundaries needs the move confirmation', path: from })
+        notify({ level: 'error', text: getLL().web.workspace.cross_mount_move(), path: from })
         return
       }
       await r.session.renamePath(r.rel, rTo.rel)

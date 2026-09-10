@@ -8,7 +8,7 @@ import type { SyncRecordSnapshot } from './pill-status.js'
 export {
   pillStatus,
   worstStatus,
-  PILL_TITLES,
+  pillTitle,
   type PillStatus,
   type SyncRecordSnapshot,
 } from './pill-status.js'

@@ -64,6 +64,7 @@
   import { setDevtools } from './lib/config.js'
   import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
   import { TREE_WIDTH, toggleFolded } from './lib/layout.js'
+  import { LL } from '@editor/i18n/i18n-svelte'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
@@ -105,7 +106,7 @@
     toastedId = newest.id
     toast({
       level: newest.level,
-      title: newest.level === 'error' ? 'Something went wrong' : newest.level === 'warn' ? 'Heads up' : 'Note',
+      title: $LL.web.notices.toast_title[newest.level](),
       description: newest.text,
     })
   })
@@ -116,10 +117,10 @@
   })
 
   const railSections = $derived<RailSection[]>([
-    { id: 'links', label: 'Links', icon: Link2 },
+    { id: 'links', label: $LL.web.rail.sections.links(), icon: Link2 },
     // The one place the presence union survives: as a count on the icon.
-    { id: 'note', label: 'This note', icon: Users, badge: workspace?.ui.presence.length || undefined },
-    { id: 'activity', label: 'Activity', icon: Bell, badge: unread || undefined },
+    { id: 'note', label: $LL.web.rail.sections.note(), icon: Users, badge: workspace?.ui.presence.length || undefined },
+    { id: 'activity', label: $LL.web.rail.sections.activity(), icon: Bell, badge: unread || undefined },
   ])
   /** Bumped when a share dialog closes so the note section refetches its access list. */
   let shareRevision = $state(0)
@@ -429,7 +430,7 @@
     try {
       target = decodeShareLink(link)
     } catch {
-      failure = { room: null, message: "That doesn't look like a valid share link." }
+      failure = { room: null, message: $LL.web.manager.errors.invalid_link() }
       busy = false
       return
     }
@@ -495,10 +496,7 @@
         purgeRooms(await forgetVaultState(entry))
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        failure = {
-          room: null,
-          message: `Vault forgotten, but some of its sync state could not be deleted (${msg}). The leftovers are inert — reopening the folder still starts fresh.`,
-        }
+        failure = { room: null, message: $LL.web.manager.errors.forget_partial({ message: msg }) }
       }
       refreshLists()
     }
@@ -680,7 +678,7 @@
 
   // ---- workspace-derived view state ----
   const currentVaultName = $derived(
-    workspace ? (getVault(workspace.room)?.name ?? 'Vault') : 'Vault'
+    (workspace ? getVault(workspace.room)?.name : undefined) ?? $LL.web.shell.unnamed_vault()
   )
   /**
    * The header rollup, fed only by docs that have a relay to be in sync WITH
@@ -733,14 +731,14 @@
     class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/70"
     data-testid="connecting"
   >
-    <span>connecting…</span>
+    <span>{$LL.web.shell.connecting()}</span>
     {#if memConfig.kind !== 'memory'}
       <button
         data-testid="boot-cancel"
         onclick={cancelBoot}
         class="rounded border border-base-300 px-3 py-1 text-xs text-base-content/70 hover:bg-base-200"
       >
-        Cancel
+        {$LL.common.cancel()}
       </button>
     {/if}
   </main>
@@ -750,7 +748,7 @@
       <!-- The page's one h1: the vault. -->
       <h1 class="sr-only">{currentVaultName}</h1>
       <IconButton
-        label={treeOpen ? 'Hide file navigator' : 'Show file navigator'}
+        label={treeOpen ? $LL.web.shell.hide_navigator() : $LL.web.shell.show_navigator()}
         icon={PanelLeft}
         pressed={treeOpen}
         testid="toggle-tree"
@@ -761,10 +759,10 @@
         {#if globalStatus}
           <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
         {:else}
-          <span data-testid="sync-summary" class="text-xs text-base-content/70">Local vault · nothing shared</span>
+          <span data-testid="sync-summary" class="text-xs text-base-content/70">{$LL.web.shell.nothing_shared()}</span>
         {/if}
         <IconButton
-          label={railOpen ? 'Hide sidebar' : 'Show sidebar'}
+          label={railOpen ? $LL.web.shell.hide_sidebar() : $LL.web.shell.show_sidebar()}
           icon={PanelRight}
           pressed={railOpen}
           testid="toggle-rail"
@@ -777,7 +775,7 @@
       {#if treeOpen}
         <aside
           data-testid="navigator"
-          aria-label="File navigator"
+          aria-label={$LL.web.shell.navigator_label()}
           style="width: {treeWidth}px"
           class="relative flex shrink-0 flex-col border-r border-base-300 bg-base-100"
         >
@@ -817,7 +815,7 @@
             />
             <div class="ml-auto">
               <IconButton
-                label="Settings ({nav.registry.binding('app.settings')})"
+                label={$LL.web.shell.settings_with_binding({ binding: nav.registry.binding('app.settings') })}
                 icon={Settings}
                 placement="top"
                 testid="open-settings"
@@ -830,7 +828,7 @@
             min={TREE_WIDTH.min}
             max={TREE_WIDTH.max}
             step={TREE_WIDTH.step}
-            label="Resize file navigator"
+            label={$LL.web.shell.resize_navigator()}
             testid="tree-resize"
             onChange={(px) => (treeWidth = px)}
             onCommit={() => setLayoutPrefs({ treeWidth })}
@@ -853,7 +851,7 @@
             {/key}
           {:else}
             <div class="flex h-full items-center justify-center text-sm text-base-content/70">
-              select a file to start editing
+              {$LL.web.shell.select_a_file()}
             </div>
           {/if}
         </div>
@@ -932,10 +930,10 @@
 
   {#if unshareConfirm}
     <ConfirmDialog
-      title="Stop sharing '{unshareConfirm.path}'?"
-      body="The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing access tokens keep working until revoked."
-      confirmLabel="Stop sharing"
-      checkboxLabel={opSecret ? 'Also revoke all access tokens on the relay' : undefined}
+      title={$LL.web.share.unshare.title({ path: unshareConfirm.path })}
+      body={$LL.web.share.unshare.body()}
+      confirmLabel={$LL.web.share.unshare.confirm()}
+      checkboxLabel={opSecret ? $LL.web.share.unshare.revoke() : undefined}
       testid="unshare-confirm"
       onConfirm={(revoke) => void confirmUnshare(revoke)}
       onCancel={() => (unshareConfirm = null)}
@@ -944,9 +942,9 @@
 
   {#if unmountConfirm}
     <ConfirmDialog
-      title="Remove shared folder '{unmountConfirm}'?"
-      body="This vault stops syncing the folder. Its files stay on disk and become plain local notes (delete the folder afterwards if you don't want them). Other people are unaffected."
-      confirmLabel="Remove from vault"
+      title={$LL.web.share.unmount.title({ path: unmountConfirm })}
+      body={$LL.web.share.unmount.body()}
+      confirmLabel={$LL.web.share.unmount.confirm()}
       testid="unmount-confirm"
       onConfirm={() => void confirmUnmount()}
       onCancel={() => (unmountConfirm = null)}
@@ -955,11 +953,11 @@
 
   {#if moveConfirm}
     <ConfirmDialog
-      title="Move across a sharing boundary?"
+      title={$LL.web.share.cross_move.title()}
       body={moveConfirm.leavingShared
-        ? `Moving '${moveConfirm.from}' out of the shared folder removes it for everyone else, and it stops syncing. Its sync history starts over as a local file.`
-        : `Moving '${moveConfirm.from}' into the shared folder makes it visible to everyone sharing it. Its sync history starts over in the shared space.`}
-      confirmLabel="Move"
+        ? $LL.web.share.cross_move.leaving({ path: moveConfirm.from })
+        : $LL.web.share.cross_move.entering({ path: moveConfirm.from })}
+      confirmLabel={$LL.web.share.cross_move.confirm()}
       danger={moveConfirm.leavingShared}
       testid="cross-move-confirm"
       onConfirm={() => void confirmCrossMove()}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LL } from '@editor/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   interface Props {
@@ -9,6 +10,7 @@
 
   let { paths, onConfirm, onDismiss }: Props = $props()
 
+  const t = $derived($LL.web.breaker)
   const SHOWN = 10
   const shown = $derived(paths.slice(0, SHOWN))
 </script>
@@ -18,8 +20,8 @@
      Escape = "Not now" (safe: nothing happens); the scrim is inert. -->
 <Dialog
   role="alertdialog"
-  title="{paths.length} files changed at once"
-  description="This looks like a bulk change (a git branch switch, a folder drop). Nothing has been synced yet — apply it, or dismiss to leave those files untouched for now."
+  title={t.title({ count: paths.length })}
+  description={t.description()}
   closeOnOutsideClick={false}
   align="top"
   testid="breaker-dialog"
@@ -30,7 +32,7 @@
       <li class="truncate">{p}</li>
     {/each}
     {#if paths.length > SHOWN}
-      <li class="text-base-content/70">… and {paths.length - SHOWN} more</li>
+      <li class="text-base-content/70">{t.more({ count: paths.length - SHOWN })}</li>
     {/if}
   </ul>
   <div class="mt-4 flex justify-end gap-2">
@@ -40,7 +42,7 @@
       onclick={onDismiss}
       class="rounded border border-base-300 px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200"
     >
-      Not now
+      {t.dismiss()}
     </button>
     <button
       type="button"
@@ -48,7 +50,7 @@
       onclick={onConfirm}
       class="rounded bg-warning px-3 py-1.5 text-sm font-medium text-warning-content hover:bg-warning/90"
     >
-      Apply changes
+      {t.apply()}
     </button>
   </div>
 </Dialog>

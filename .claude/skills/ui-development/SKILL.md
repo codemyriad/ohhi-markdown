@@ -106,7 +106,8 @@ belongs to; add a validated setting to that tab's schema, never as a bare
 
 **Where things live**: `libs/ui` (tokens + themes, CSS only), `libs/editor`
 (the CM6 surface and its theme), `libs/editor-lang` (markdown language
-extras), `libs/index` (the derived index), `apps/web/src/lib/components`
+extras), `libs/index` (the derived index), `libs/i18n` (the dictionaries —
+see *Strings and i18n* below), `apps/web/src/lib/components`
 (the shell). Ground truth for UI decisions: `plans/v2-shaping.md` and
 `docs/theming.md`, then `plans/shaping.md` / `plans/slices.md`.
 
@@ -149,6 +150,74 @@ Storybook is not set up; add it later if needed.
   separation, contrast, and that no presence colour sits near the diverged red.
 
 ---
+
+## Strings and i18n — `libs/i18n` (`@editor/i18n`, typesafe-i18n)
+
+**No hardcoded user-facing strings.** Every label, heading, placeholder,
+`aria-label`, tooltip, dialog title/body, menu item, refusal reason, toast
+title, command title and error message a user can read is a key in the
+dictionary. The layout, the adapter and the habits are Edible's
+(`@edible/shared/i18n`), so they transfer unchanged:
+
+```
+libs/i18n/.typesafe-i18n.json      { adapter: 'svelte', esmImports: true }
+libs/i18n/src/i18n/en/index.ts     the ROOT dictionary: `common` (Cancel, Close, Save, Working…)
+libs/i18n/src/i18n/en/web/index.ts the `web` NAMESPACE: the shell, grouped by surface
+libs/i18n/src/i18n/i18n-*.ts       GENERATED (types, util, util.sync, util.async, svelte) — committed, never edited
+libs/i18n/src/i18n/formatters.ts   per-locale formatters (hand-written; empty today)
+libs/i18n/src/index.ts             re-exports the types + `getLL()`
+```
+
+**How to add a string.**
+
+1. Put it in `en/web/index.ts` under the group for the surface that renders
+   it (`manager`, `tree`, `settings`, `share.folder`, …). Keys are
+   `snake_case`; arguments are typed — `'Rename {name:string}'`,
+   `'{count:number} word{{s}}'` (plural), `'{state:string} · {host:string}'`.
+   Only `en` is hand-written; other locales extend it
+   (`extendDictionary(en, mergeTranslations(en, json))`) when they arrive.
+2. `cd libs/i18n && rushx generate` (one-shot) — or keep `rushx typesafe-i18n`
+   (watch mode, Edible's script name) running while you work. `rushx check`
+   in `libs/i18n` regenerates and typechecks, so a stale generated file can
+   never reach CI; the app's own `rushx check` fails on a key that does not
+   exist.
+3. Use it. In a component, subscribe to the store and alias the group:
+
+   ```svelte
+   <script lang="ts">
+     import { LL } from '@editor/i18n/i18n-svelte'
+     const t = $derived($LL.web.tree)
+   </script>
+   <h2>{t.files()}</h2>
+   <IconButton label={targetDir ? t.new_note_in({ dir: targetDir }) : t.new_note()} … />
+   ```
+
+   In a module that is not a component (`.ts`, `.svelte.ts` — `tree-model`,
+   `pill-status`, `navigation`, the workspace shim), call `getLL()` from
+   `@editor/i18n` at the point of use: `getLL().web.tree.drop.already_there({ name })`.
+   It reads the same store, so the module stays a pure function of its
+   inputs and unit-tests on node — `apps/web/src/test-setup.ts` does
+   `loadLocale('en'); setLocale('en')` first, as Edible's `vitest.setup` does.
+4. A sentence with inline markup (`<code>`, `<em>`) renders `{@html t.key({ … })}`
+   with the markup passed as arguments and any user- or config-derived text
+   through `escapeHtml` (`apps/web/src/lib/html.ts`) — the Edible pattern;
+   the dictionary never carries classes.
+
+**What is not a dictionary key**: persisted identifiers (the default vault
+name written into config, the `Anonymous` awareness name sent to peers, a
+share's stored label) — those are data, and translating stored data would
+change on a locale switch; glyphs (`▸`, `✕`, `…` after a truncated token);
+and the developer inspector's field-name echoes (`connected true · synced
+false`), which print record fields, not copy.
+
+**Loading** happens once, in `apps/web/src/lib/i18n.ts` (`initI18n`): detect
+(`detectLocale(navigatorDetector)`), `loadLocaleAsync` + `loadNamespaceAsync('web')`,
+`setLocale` — then `main.ts` mounts. The store answers `''` before that, so
+nothing renders early. Playwright asserts on the English text; a wording
+change is a dictionary edit and its spec catches it. Not replicated from
+Edible, on purpose: JSON export for translators and the Weblate preview
+toolbar — a desktop app with one locale and no translators has nothing to
+export; they return with the second locale.
 
 ## Documentation lookup strategy
 

@@ -1,6 +1,14 @@
 // Vitest setup: jest-dom matchers (`toBeVisible`, `toHaveAccessibleName`, …)
 // for the component tests. Harmless in node-environment suites.
 import '@testing-library/jest-dom/vitest'
+import { setLocale } from '@editor/i18n/i18n-svelte'
+import { loadLocale } from '@editor/i18n/i18n-util.sync'
+
+// The dictionary, synchronously (Edible's vitest.setup does the same): the
+// pure modules read `getLL()` and the components `$LL`, on node and jsdom
+// alike, so a test can assert the English text a spec will see.
+loadLocale('en')
+setLocale('en')
 
 // jsdom has no layout: Melt's floating-ui positioning observes element size
 // and menus scroll their focused item into view. Neither matters to what the

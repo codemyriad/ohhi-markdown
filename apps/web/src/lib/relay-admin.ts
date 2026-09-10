@@ -4,6 +4,8 @@
  * relay URL users configure is the ws:// endpoint; the admin API lives on the
  * same server over http(s).
  */
+import { getLL } from '@editor/i18n'
+
 export interface RelayShare {
   token: string
   folderGuid: string
@@ -34,15 +36,16 @@ async function call<T>(
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     })
   } catch {
-    throw new Error(`relay unreachable at ${adminBaseUrl(relayWsUrl)} — is it running?`)
+    throw new Error(getLL().web.relay.unreachable({ url: adminBaseUrl(relayWsUrl) }))
   }
   const payload = (await res.json().catch(() => ({}))) as { error?: string }
   if (!res.ok) {
-    if (res.status === 401) throw new Error('relay rejected the operator secret — check Settings')
+    const t = getLL().web.relay
+    if (res.status === 401) throw new Error(t.bad_secret())
     if (res.status === 404 && payload.error === 'not found') {
-      throw new Error('this relay has no admin API enabled (OPERATOR_SECRET unset)')
+      throw new Error(t.no_admin())
     }
-    throw new Error(payload.error ?? `relay admin call failed (${res.status})`)
+    throw new Error(payload.error ?? t.failed({ status: res.status }))
   }
   return payload as T
 }

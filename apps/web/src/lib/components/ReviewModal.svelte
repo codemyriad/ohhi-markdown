@@ -4,6 +4,7 @@
     tryCleanMerge,
     type DivergenceReview,
   } from '@editor/vault'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   interface Props {
@@ -17,6 +18,7 @@
   // state never leaks across reviews.
   let { review, onResolve, onVanished }: Props = $props()
 
+  const t = $derived($LL.web.review)
   const vanished = $derived(review.reason === 'vanished')
 
   const hunks = $derived(computeMergeHunks(review))
@@ -42,8 +44,8 @@
 <!-- A review must be RESOLVED, never dismissed: no Escape, no scrim click.
      Nothing is written to disk while it is open. -->
 <Dialog
-  title="Divergence review — {review.path}"
-  description="reason: {review.reason}. Nothing is written to disk until you resolve."
+  title={t.title({ path: review.path })}
+  description={t.description({ reason: review.reason })}
   closeOnEscape={false}
   closeOnOutsideClick={false}
   layer="review"
@@ -56,11 +58,7 @@
 
     {#if vanished}
       <div class="flex-1 overflow-y-auto px-4 py-3">
-        <p class="text-xs text-base-content/70">
-          This file was deleted on disk outside Editor, but its synced content still exists.
-          Restore it, or confirm the deletion — confirming removes it for everyone sharing this
-          folder (a recovery copy is journaled).
-        </p>
+        <p class="text-xs text-base-content/70">{t.vanished()}</p>
         <pre
           data-testid="vanished-content"
           class="mt-2 max-h-64 overflow-y-auto rounded border border-base-300 bg-base-200 p-2 font-mono text-xs whitespace-pre-wrap text-base-content/80">{review.mine}</pre>
@@ -71,14 +69,14 @@
           onclick={() => onVanished(review.guid, 'remove')}
           class="rounded border border-error/40 px-3 py-1 text-xs font-medium text-error hover:bg-error/10"
         >
-          Confirm removal
+          {t.confirm_removal()}
         </button>
         <button
           data-testid="vanished-restore"
           onclick={() => onVanished(review.guid, 'restore')}
           class="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-content hover:bg-primary/90"
         >
-          Restore file
+          {t.restore()}
         </button>
       </footer>
     {:else}
@@ -90,7 +88,7 @@
           <div data-testid="conflict-hunk:{i}" class="my-2 overflow-hidden rounded border border-error/30">
             <div class="border-b border-error/20 bg-error/10 p-2">
               <div class="mb-1 flex items-center justify-between">
-                <span class="text-[10px] font-semibold tracking-wide text-error uppercase">mine (editor)</span>
+                <span class="text-[10px] font-semibold tracking-wide text-error uppercase">{t.mine()}</span>
                 <button
                   data-testid="pick-mine:{i}"
                   onclick={() => (picks = { ...picks, [i]: 'mine' })}
@@ -100,14 +98,14 @@
                       ? 'border-error bg-error text-error-content'
                       : 'border-error/40 bg-base-100 text-error hover:bg-error/15'}"
                 >
-                  pick mine
+                  {t.pick_mine()}
                 </button>
               </div>
               <pre class="whitespace-pre-wrap">{hunk.mine.join('\n')}</pre>
             </div>
             <div class="bg-warning/10 p-2">
               <div class="mb-1 flex items-center justify-between">
-                <span class="text-[10px] font-semibold tracking-wide text-warning uppercase">theirs (disk)</span>
+                <span class="text-[10px] font-semibold tracking-wide text-warning uppercase">{t.theirs()}</span>
                 <button
                   data-testid="pick-theirs:{i}"
                   onclick={() => (picks = { ...picks, [i]: 'theirs' })}
@@ -117,7 +115,7 @@
                       ? 'border-warning bg-warning text-warning-content'
                       : 'border-warning/40 bg-base-100 text-warning hover:bg-warning/15'}"
                 >
-                  pick theirs
+                  {t.pick_theirs()}
                 </button>
               </div>
               <pre class="whitespace-pre-wrap">{hunk.theirs.join('\n')}</pre>
@@ -133,14 +131,14 @@
         onclick={() => onResolve(review.guid, review.mine)}
         class="rounded border border-base-300 px-3 py-1 text-xs font-medium text-base-content/80 hover:bg-base-200"
       >
-        keep mine
+        {t.keep_mine()}
       </button>
       <button
         data-testid="keep-theirs"
         onclick={() => onResolve(review.guid, review.theirs)}
         class="rounded border border-base-300 px-3 py-1 text-xs font-medium text-base-content/80 hover:bg-base-200"
       >
-        keep theirs
+        {t.keep_theirs()}
       </button>
       <button
         data-testid="accept-merge"
@@ -149,7 +147,7 @@
         class="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-content hover:bg-primary/90
           disabled:cursor-not-allowed disabled:bg-base-300"
       >
-        accept merge
+        {t.accept_merge()}
       </button>
     </footer>
     {/if}

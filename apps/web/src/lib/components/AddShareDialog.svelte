@@ -1,5 +1,6 @@
 <script lang="ts">
   import { z } from 'zod'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { looksLikeShareLink } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'
@@ -20,12 +21,11 @@
 
   let { dirs, onJoin, initialDest = '', onClose }: Props = $props()
 
+  const t = $derived($LL.web.share.add)
+
   const schema = z.object({
-    link: z
-      .string()
-      .trim()
-      .refine(looksLikeShareLink, 'That doesn’t look like a share link — they start with "editor1:".'),
-    dest: z.string().trim().min(1, 'Pick a folder for the shared content to live in.'),
+    link: z.string().trim().refine(looksLikeShareLink, $LL.web.share.add.link_invalid()),
+    dest: z.string().trim().min(1, $LL.web.share.add.dest_required()),
   })
   // svelte-ignore state_referenced_locally -- seed only; the form owns it after
   const form = createForm(schema, { link: '', dest: initialDest })
@@ -35,12 +35,7 @@
   }
 </script>
 
-<Dialog
-  title="Add a shared folder"
-  description="Paste a share link and pick where it lives in this vault. The folder must be new or empty — it fills with the shared content and stays in sync alongside your local notes."
-  testid="add-share-dialog"
-  {onClose}
->
+<Dialog title={t.title()} description={t.description()} testid="add-share-dialog" {onClose}>
   <!-- novalidate: the schema is the validator; the browser's own bubbles
        would pre-empt it and never fire submit for an empty required field. -->
   <form
@@ -53,13 +48,13 @@
   >
     <Field name="link" errors={form.errorsFor('link')} required>
       <TextControl
-        label="Share link"
+        label={t.link()}
         multiline
         rows={2}
         mono
         bind:value={form.data.link}
         onblur={() => form.touch('link')}
-        placeholder="editor1:…"
+        placeholder={t.link_placeholder()}
         testid="add-share-link"
         class="text-[11px]"
       />
@@ -68,19 +63,19 @@
 
     <Field name="dest" errors={form.errorsFor('dest')} required>
       <TextControl
-        label="Destination folder"
+        label={t.dest()}
         mono
         bind:value={form.data.dest}
         onblur={() => form.touch('dest')}
         list="add-share-dirs"
-        placeholder="e.g. shared/team"
+        placeholder={t.dest_placeholder()}
         testid="add-share-dest"
         class="text-xs"
       />
       <datalist id="add-share-dirs">
         {#each dirs as d (d)}<option value={d}></option>{/each}
       </datalist>
-      <Description>A new folder, or an existing empty one.</Description>
+      <Description>{t.dest_hint()}</Description>
       <FieldErrors />
     </Field>
 
@@ -95,7 +90,7 @@
         onclick={onClose}
         class="rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
       >
-        Cancel
+        {$LL.common.cancel()}
       </button>
       <button
         type="submit"
@@ -103,7 +98,7 @@
         disabled={form.busy}
         class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
       >
-        {form.busy ? 'Joining…' : 'Join into this vault'}
+        {form.busy ? t.joining() : t.join()}
       </button>
     </div>
   </form>

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  PILL_TITLES,
+  pillLabel,
   pillStatus,
+  pillTitle,
   worstStatus,
   type SyncRecordSnapshot,
 } from './pill-status.js'
@@ -81,6 +82,14 @@ describe('worstStatus (global rollup)', () => {
 
 describe('pill titles', () => {
   it('labels green as relay receipt, not durability (V1-plan honesty caveat)', () => {
-    expect(PILL_TITLES.green).toBe('synced (relay)')
+    expect(pillTitle('green')).toBe('synced (relay)')
+  })
+
+  it('reads every status from the dictionary — no status is ever unlabeled', () => {
+    for (const status of ['green', 'yellow', 'red', 'offline'] as const) {
+      expect(pillLabel(status)).not.toBe('')
+      expect(pillTitle(status)).not.toBe('')
+    }
+    expect(pillLabel('offline')).toBe('offline')
   })
 })

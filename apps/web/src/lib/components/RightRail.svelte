@@ -9,6 +9,7 @@
   import type { LucideIcon } from '@lucide/svelte'
   import { ChevronDown, ChevronsLeft, ChevronsRight } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import IconButton from '../ui/IconButton.svelte'
 
   export interface RailSection {
@@ -30,6 +31,8 @@
 
   let { sections, open, folded, onOpenChange, onFoldChange, children }: Props = $props()
 
+  const t = $derived($LL.web.rail)
+
   function show(id: string): void {
     onFoldChange(id, false)
     onOpenChange(true)
@@ -40,12 +43,12 @@
   <aside
     data-testid="right-rail"
     data-state="expanded"
-    aria-label="Sidebar"
+    aria-label={t.label()}
     class="flex w-72 shrink-0 flex-col border-l border-base-300 bg-base-100"
   >
     <div class="flex items-center justify-end border-b border-base-200 px-1 py-0.5">
       <IconButton
-        label="Collapse sidebar"
+        label={t.collapse()}
         icon={ChevronsRight}
         placement="left"
         testid="rail-collapse"
@@ -93,7 +96,7 @@
   <aside
     data-testid="right-rail"
     data-state="collapsed"
-    aria-label="Sidebar"
+    aria-label={t.label()}
     class="flex w-10 shrink-0 flex-col items-center gap-1 border-l border-base-300 bg-base-100 py-1"
   >
     {#each sections as s (s.id)}
@@ -117,7 +120,7 @@
     {/each}
     <div class="mt-auto">
       <IconButton
-        label="Expand sidebar"
+        label={t.expand()}
         icon={ChevronsLeft}
         placement="left"
         testid="rail-expand"

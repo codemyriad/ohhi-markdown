@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronDown } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import type { VaultEntry } from '../config.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
@@ -38,6 +39,6 @@
     {#if others.length > 0}
       <MenuSeparator {separator} />
     {/if}
-    <MenuItem {item} testid="manage-vaults" onSelect={onManage}>Manage vaults…</MenuItem>
+    <MenuItem {item} testid="manage-vaults" onSelect={onManage}>{$LL.web.vault_switcher.manage()}</MenuItem>
   {/snippet}
 </DropdownMenu>

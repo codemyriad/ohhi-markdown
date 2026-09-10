@@ -13,6 +13,7 @@
    * than as typos. That section is a note-creation queue.
    */
   import type { LinkRef } from '@editor/index'
+  import { LL } from '@editor/i18n/i18n-svelte'
 
   interface Props {
     backlinks: LinkRef[]
@@ -25,6 +26,7 @@
 
   let { backlinks, outgoing, path, onOpen, onCreate }: Props = $props()
 
+  const t = $derived($LL.web.links)
   const resolved = $derived(outgoing.filter((l) => l.resolved !== null))
   /** Notes you meant to write — 12% of this vault's link targets. */
   const unresolved = $derived(outgoing.filter((l) => l.resolved === null && !l.embed))
@@ -49,15 +51,15 @@
 
 <div data-testid="links-panel" class="flex flex-col">
   {#if !path}
-    <p class="p-4 text-xs text-base-content/70">Open a note to see its links.</p>
+    <p class="p-4 text-xs text-base-content/70">{t.no_note()}</p>
   {:else}
     <section class="border-b border-base-200 p-3">
       <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
-        Backlinks
+        {t.backlinks()}
         <span data-testid="backlink-count" class="ml-1 font-normal">{backlinks.length}</span>
       </h3>
       {#if backlinks.length === 0}
-        <p class="text-xs text-base-content/70">No note links here yet.</p>
+        <p class="text-xs text-base-content/70">{t.no_backlinks()}</p>
       {:else}
         <ul class="space-y-2">
           {#each bySource as [source, refs] (source)}
@@ -87,11 +89,11 @@
 
     <section class="p-3">
       <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
-        Outgoing
+        {t.outgoing()}
         <span data-testid="outgoing-count" class="ml-1 font-normal">{outgoing.length}</span>
       </h3>
       {#if outgoing.length === 0}
-        <p class="text-xs text-base-content/70">This note links nowhere yet.</p>
+        <p class="text-xs text-base-content/70">{t.no_outgoing()}</p>
       {:else}
         <ul class="space-y-1">
           {#each resolved as link (link.offset)}
@@ -111,7 +113,7 @@
           <h4
             class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
-            Not created yet
+            {t.not_created()}
           </h4>
           <ul class="space-y-1">
             {#each unresolved as link (link.offset)}
@@ -119,7 +121,7 @@
                 <button
                   data-testid="unresolved-link:{link.target}"
                   onclick={() => onCreate(link.target)}
-                  title="Create {link.target}.md"
+                  title={t.create({ target: link.target })}
                   class="w-full truncate text-left text-xs text-ed-wikilink-unresolved
                     decoration-dotted hover:underline"
                 >
@@ -133,13 +135,13 @@
           <h4
             class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
-            Missing attachments
+            {t.missing_attachments()}
           </h4>
           <ul class="space-y-1">
             {#each missingEmbeds as link (link.offset)}
               <li
                 data-testid="missing-embed:{link.target}"
-                title="No file at this path — attachments are not created from a link"
+                title={t.missing_attachment_title()}
                 class="truncate text-xs text-base-content/70 line-through"
               >
                 {link.target}

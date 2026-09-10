@@ -15,6 +15,7 @@
  * code path is worth more than the CSS-only purity, and the boot script is
  * synchronous so there is no flash either way. Recorded in docs/theming.md.
  */
+import { getLL } from '@editor/i18n'
 import { BUILTIN_THEMES, DARK_THEMES, type BuiltinTheme } from '@editor/ui/tokens'
 import { setThemePref, themePref, type ThemePref } from './config.js'
 
@@ -125,7 +126,7 @@ export async function useCustomTheme(
   const clean = name.trim()
   // The name becomes a [data-theme] value and a path segment.
   if (!/^[\w -]{1,64}$/.test(clean)) {
-    return 'Theme names may contain letters, numbers, spaces, - and _ only.'
+    return getLL().web.theme.bad_name()
   }
   let css: string | null
   try {
@@ -133,7 +134,7 @@ export async function useCustomTheme(
   } catch (err) {
     return err instanceof Error ? err.message : String(err)
   }
-  if (css === null) return `No theme at ${themePath(clean)}`
+  if (css === null) return getLL().web.theme.missing({ path: themePath(clean) })
   installUserTheme(css)
   applyTheme(`custom:${clean}`)
   return null
