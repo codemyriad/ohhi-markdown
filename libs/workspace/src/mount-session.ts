@@ -162,6 +162,19 @@ export interface DocInspection {
   providerAttached: boolean
 }
 
+/**
+ * One journaled pre-image of a file, without its bytes (W3, the History rail
+ * section). The bytes stay in the journal until a restore actually asks for
+ * them: a list is metadata, and a note's twenty retained versions are not
+ * something a sidebar should be holding.
+ */
+export interface PreImageInfo {
+  /** Journal-stable id; what `restorePreImage` names. */
+  seq: number
+  at: number
+  size: number
+}
+
 /** Read-only per-mount counts + identity (devtools footer, M6). */
 export interface MountStats {
   room: string
@@ -707,6 +720,37 @@ export class MountSession {
     await this.syncDirs()
     await this.restartSession()
     this.refreshFiles()
+  }
+
+  // ---- pre-image history (W3) — the journal that already exists, read back ----
+
+  /**
+   * Pre-images recorded for `rel`, newest first. Bounded by the journal's own
+   * per-path retention (20), so this is a small read, not a scan.
+   */
+  async fileHistory(rel: string): Promise<PreImageInfo[]> {
+    const entries = await this.journal.entries(rel)
+    return entries.map((e) => ({ seq: e.seq, at: e.at, size: e.bytes.length })).reverse()
+  }
+
+  /**
+   * Put one pre-image back. The write goes through VaultSession, never through
+   * this adapter: the pre-image journal and the atomic rename are the vault
+   * layer's job (golden rule 1), and going around them would strand the CRDT.
+   */
+  async restorePreImage(rel: string, seq: number): Promise<void> {
+    if (!this.sessionRef) return
+    try {
+      const entry = (await this.journal.entries(rel)).find((e) => e.seq === seq)
+      // A pre-image can age out of retention between the listing and the click.
+      if (!entry) throw new Error(`no journaled version ${seq} of '${rel}' remains`)
+      await this.sessionRef.restoreFile(rel, entry.bytes)
+      const guid = this.guidFor(rel)
+      if (guid) await this.refreshDiskMatch(rel, guid)
+      this.refreshFiles()
+    } catch (err) {
+      this.pushError(err)
+    }
   }
 
   /** Re-run the boot delta scan (unmount: newly-local files enroll now). */

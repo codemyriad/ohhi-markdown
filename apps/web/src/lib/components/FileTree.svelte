@@ -39,7 +39,11 @@
     presenceByRoom?: Record<string, string[]>
     /** A folder to expand, focus as the context and scroll to (a NEW object each time). */
     reveal?: { path: string } | null
-    onSelect: (path: string) => void
+    /**
+     * Open a note. `background` = Mod+click, the browser gesture for "a tab,
+     * but stay here" (tab-groups B5).
+     */
+    onSelect: (path: string, opts?: { background?: boolean }) => void
     onOp: (op: TreeOp) => void
     /** A refusal worth keeping (drop rejected): the host toasts it and logs it. */
     onNotice: (level: 'warn' | 'error', text: string, path?: string) => void
@@ -108,9 +112,9 @@
     contextDir = node.path
   }
 
-  function clickFile(path: string): void {
+  function clickFile(path: string, e: MouseEvent): void {
     contextDir = null
-    onSelect(path)
+    onSelect(path, { background: e.metaKey || e.ctrlKey })
   }
 
   function collapseAll(): void {
@@ -226,6 +230,9 @@
         break
       case 'add-link':
         onOp({ type: 'add-link', path })
+        break
+      case 'history':
+        onOp({ type: 'history', path })
         break
       case 'rename':
       case 'move':
@@ -497,7 +504,7 @@
           aria-selected={selected === node.path}
           data-testid="file-item:{node.path}"
           draggable="true"
-          onclick={() => clickFile(node.path)}
+          onclick={(e) => clickFile(node.path, e)}
           oncontextmenu={(e) => openMenu(e, target)}
           onkeydown={(e) => rowKey(e, target)}
           ondragstart={(e) => dragStart(e, node.path)}

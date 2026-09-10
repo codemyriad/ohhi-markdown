@@ -1,0 +1,14 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "A journaled version of a file can be put back: the pre-image is applied to the document as an edit and written through the normal atomic path, so collaborators see an ordinary change, the file keeps its line endings, and the content being replaced is journaled first.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "Journal entries now carry a stable id, so a specific version can be named and restored even when several were recorded in the same second.",
+      "type": "minor"
+    }
+  ]
+}

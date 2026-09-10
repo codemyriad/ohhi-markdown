@@ -1,0 +1,9 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/i18n",
+      "comment": "Wording for the daily-note commands, the History sidebar section and its restore confirm.",
+      "type": "minor"
+    }
+  ]
+}

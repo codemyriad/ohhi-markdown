@@ -230,6 +230,32 @@ export class VaultSession {
     this.events.onReviewCleared?.(guid)
   }
 
+  /**
+   * Restore a journaled pre-image over `path` (History rail section, W3).
+   *
+   * The pre-image's TEXT is applied to the CRDT as a minimal diff and then
+   * materialized — the same route a divergence resolution takes — rather than
+   * written to disk directly. That matters three ways: peers see an ordinary
+   * edit instead of a file that changed under them, the bytes currently on
+   * disk are journaled first (so a restore is itself undoable from the same
+   * list), and the only disk write is the atomic one inside `materialize`
+   * (golden rule 1). Text-only by construction: a path with no doc — a binary,
+   * a deleted note — has nothing to apply the diff to, and says so.
+   */
+  async restoreFile(path: string, bytes: Uint8Array): Promise<void> {
+    const guid = this.pathToGuid.get(path)
+    if (!guid) throw new Error(`restoreFile: '${path}' is not a live note in this vault`)
+    await this.runExclusive(guid, async () => {
+      const lca = await this.lcaStore.get(guid)
+      const doc = this.docs.get(guid)
+      if (!lca || !doc) throw new Error(`restoreFile: unknown doc ${guid}`)
+      // The pre-image carries its own EOL/BOM; the LCA's flavour is what the
+      // file is written back with, so decode to text and let materialize
+      // render it. Restoring must not flip a CRLF file to LF behind the user.
+      await resolveDivergence(this.ctx, doc, lca, decodeFile(bytes).text)
+    })
+  }
+
   /** Mass-change breaker confirmation: process everything queued. */
   async confirmPendingBatch(): Promise<void> {
     this.paused = false

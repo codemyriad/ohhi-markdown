@@ -85,6 +85,12 @@ export interface LcaStore {
 }
 
 export interface JournalEntry {
+  /**
+   * Stable, monotonic id within one journal — what a UI names when it asks
+   * for a specific pre-image back (the History rail section, W3). `at` alone
+   * cannot: a coarse clock stamps two records of the same path identically.
+   */
+  seq: number
   path: string
   at: number
   bytes: Uint8Array

@@ -1,0 +1,9 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A mount can list the journaled versions of one of its files, and restore one — the reading half of the file-history panel.",
+      "type": "minor"
+    }
+  ]
+}

@@ -170,7 +170,7 @@ export class FileJournal implements PreImageJournal {
     const out: JournalEntry[] = []
     for (const e of selected) {
       const bytes = await this.dir.io(e.file).read()
-      out.push({ path: e.path, at: e.at, bytes: bytes ?? new Uint8Array() })
+      out.push({ seq: e.seq, path: e.path, at: e.at, bytes: bytes ?? new Uint8Array() })
     }
     return out
   }
@@ -180,6 +180,6 @@ export class FileJournal implements PreImageJournal {
     const last = selected[selected.length - 1]
     if (!last) return null
     const bytes = await this.dir.io(last.file).read()
-    return { path: last.path, at: last.at, bytes: bytes ?? new Uint8Array() }
+    return { seq: last.seq, path: last.path, at: last.at, bytes: bytes ?? new Uint8Array() }
   }
 }

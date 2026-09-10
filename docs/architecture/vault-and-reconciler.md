@@ -176,8 +176,20 @@ the system (shaping D2a; requirement R1.3):
 
 - **Pre-image journal** (`preImageJournal`): before *every* Editor-initiated disk write,
   the file's current content is snapshotted into the durable store, with bounded
-  retention. `editor restore <file> <t>` (CLI) restores any journaled pre-image —
-  recovery from a reconciler bug must not depend on a git commit having happened.
+  retention (20 per path). Each entry carries a `seq` — a stable id within the journal,
+  because a coarse clock stamps two records of one path identically. Recovery from a
+  reconciler bug must not depend on a git commit having happened. The `editor restore
+  <file> <t>` CLI in `slices.md` is still unbuilt; the shipped affordance is the History
+  rail section.
+
+  **Restoring one** (`VaultSession.restoreFile`, surfaced as the History rail section in
+  W3 and reachable from `MountSession.fileHistory` / `restorePreImage`) does *not* write
+  the bytes back: it decodes the pre-image to text, applies it to the CRDT as a minimal
+  diff and materializes, exactly as a divergence resolution does. So peers see an
+  ordinary edit rather than a file that changed under them, the file's own EOL/BOM
+  flavour is preserved, the bytes being replaced are themselves journaled (a restore is
+  undoable), and the only disk write is the atomic one inside `materialize` — golden
+  rule 1 holds without a second write path existing.
 - **Post-session git audit**: after any real-vault session, a `git diff --stat` audit
   script verifies only intended changes touched disk — no churn diffs, no EOL flips, no
   frontmatter reserialization (golden rule: never reserialize what you didn't change;

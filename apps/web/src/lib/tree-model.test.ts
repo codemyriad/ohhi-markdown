@@ -73,8 +73,13 @@ describe('treeMenuItems', () => {
     expect(actions({ kind: 'root' }, plain)).toEqual(['new-file', 'new-folder', 'add-share'])
   })
 
-  it('offers rename/move/delete on a file, and no sharing', () => {
-    expect(actions({ kind: 'text', path: 'a/n.md' }, plain)).toEqual(['rename', 'move', 'delete'])
+  it('offers rename/move/history/delete on a note, and no sharing', () => {
+    expect(actions({ kind: 'text', path: 'a/n.md' }, plain)).toEqual([
+      'rename',
+      'move',
+      'history',
+      'delete',
+    ])
     expect(actions({ kind: 'binary', path: 'a/i.png' }, plain)).toEqual([
       'rename',
       'move',

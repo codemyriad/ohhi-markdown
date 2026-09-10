@@ -212,11 +212,18 @@ export class JsonFileLcaStore implements LcaStore {
 
 export class MemJournal implements PreImageJournal {
   private log: JournalEntry[] = []
+  /** Mirrors FileJournal's file-name seq: 1-based, never reused. */
+  private seq = 0
 
   constructor(private now: () => number = () => 0) {}
 
   async record(path: string, bytes: Uint8Array | null): Promise<void> {
-    this.log.push({ path, at: this.now(), bytes: bytes ? bytes.slice() : new Uint8Array() })
+    this.log.push({
+      seq: ++this.seq,
+      path,
+      at: this.now(),
+      bytes: bytes ? bytes.slice() : new Uint8Array(),
+    })
   }
   async entries(path?: string): Promise<JournalEntry[]> {
     return this.log.filter((e) => !path || e.path === path)

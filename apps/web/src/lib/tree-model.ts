@@ -104,6 +104,8 @@ export type TreeOp =
    * `status:'needs-token'`) — activates it in place, no re-seed.
    */
   | { type: 'add-link'; path: string }
+  /** Show the pre-image journal for this note in the rail (W3). */
+  | { type: 'history'; path: string }
 
 // ---- provenance filter (R3.2, M4) ----
 
@@ -177,6 +179,7 @@ export type TreeMenuAction =
   | 'unmount'
   | 'add-share'
   | 'add-link'
+  | 'history'
 
 export interface TreeMenuItem {
   action: TreeMenuAction
@@ -251,6 +254,9 @@ export function treeMenuItems(
     return [
       { action: 'rename', label: t.rename() },
       { action: 'move', label: t.move() },
+      // Notes only: the journal holds pre-images of files Editor writes, and
+      // Editor never writes a binary (they are excluded from sync entirely).
+      ...(target.kind === 'text' ? [{ action: 'history' as const, label: t.history() }] : []),
       { action: 'delete', label: t.delete(), danger: true, separatorBefore: true },
     ]
   }

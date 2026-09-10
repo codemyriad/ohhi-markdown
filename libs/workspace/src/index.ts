@@ -28,6 +28,7 @@ export {
   type DocInspection,
   type MountSessionConfig,
   type MountStats,
+  type PreImageInfo,
 } from './mount-session.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
 export {
