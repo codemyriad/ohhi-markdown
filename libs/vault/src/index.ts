@@ -41,9 +41,12 @@ export {
 } from './doc-store.js'
 export { FileJournal } from './file-journal.js'
 export {
+  isRecoverable,
   MountsFile,
+  mountRootsFrom,
   type MountDesc,
   type MountProvenance,
   type MountRecovery,
   type MountStatus,
+  type RecoverableMountStatus,
 } from './mounts-file.js'

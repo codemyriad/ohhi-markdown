@@ -36,6 +36,7 @@ const enc = new TextEncoder()
 const dec = new TextDecoder()
 const ROOT_ROOM = 'root-room'
 const CARVE_ROOM = 'carved-room'
+const RELAY_URL = 'ws://relay.test'
 
 const FILES: Record<string, string> = {
   'keep.md': 'stays in the root vault\n',
@@ -232,26 +233,51 @@ describe('carve — happy path', () => {
     await assertConverged(base, vaultDir, before)
   })
 
-  it('refuses to carve a shared parent (V1 guard)', async () => {
+  it('carves inside a RELAY-ATTACHED root: the map announces the nested mount (N1)', async () => {
+    // The V1 "this vault is itself shared" refusal is gone (device-link
+    // shaping A5); the depth-1 carve announces itself instead.
     const base = await seedAdapter()
     const vaultDir = new MemStoreDir()
+    const before = await diskSnapshot(base)
     const vault = await bootVault(base, vaultDir)
-    vault.root.enableSharing({ url: 'ws://relay.test', token: 't' })
+    vault.root.enableSharing({ url: RELAY_URL, token: 't' })
     const mountsFile = new MountsFile(vaultDir.io('mounts.json'))
-    await expect(
-      carveFolder({
-        root: vault.root,
-        vaultDir,
-        mountsFile,
-        mountPath: 'team',
-        room: CARVE_ROOM,
-        relayUrl: 'ws://relay.test',
-        addIgnore: () => {},
-      })
-    ).rejects.toThrow(/itself shared/)
-    // Nothing persisted: no desc, no stores.
-    expect((await mountsFile.load()).some((m) => m.room === CARVE_ROOM)).toBe(false)
-    expect(await vaultDir.list(`${CARVE_ROOM}/`)).toEqual([])
+
+    await carveFolder({
+      root: vault.root,
+      vaultDir,
+      mountsFile,
+      mountPath: 'team',
+      room: CARVE_ROOM,
+      relayUrl: RELAY_URL,
+      addIgnore: (prefix) => vault.ignore.add(prefix),
+    })
+
+    // The subtree left the root map and a single mount entry took its place —
+    // guid IS the room, and the relay URL rides along (the token never does).
+    const rows = vault.root.files()
+    expect(rows.filter((r) => r.path === 'team' || r.path.startsWith('team/'))).toEqual([
+      { path: 'team', guid: CARVE_ROOM, kind: 'mount' },
+    ])
+    expect(vault.root.mountEntries()).toEqual([
+      { path: 'team', room: CARVE_ROOM, relay: RELAY_URL },
+    ])
+    expect((await mountsFile.load()).find((m) => m.room === CARVE_ROOM)).toMatchObject({
+      path: 'team',
+      provenance: 'carved',
+      status: 'active',
+    })
+    // Still zero bytes moved.
+    expect(await diskSnapshot(base)).toEqual(before)
+    vault.dispose()
+  })
+
+  it('a PRIVATE root carve writes no mount entry (nothing to announce)', async () => {
+    const base = await seedAdapter()
+    const vaultDir = new MemStoreDir()
+    const { vault } = await carveThrough(base, vaultDir)
+    expect(vault.root.mountEntries()).toEqual([])
+    expect(vault.root.files().some((r) => r.kind === 'mount')).toBe(false)
     vault.dispose()
   })
 })

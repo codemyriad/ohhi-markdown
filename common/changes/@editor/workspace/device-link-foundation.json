@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "You can share a folder from inside a vault that is already synced elsewhere — the app no longer refuses with \"this vault is itself shared\".",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "When someone shares a folder out of a vault you sync, your copy is told where that folder went — as one atomic change, so no file is ever in two places at once and none is duplicated.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/workspace"
+}

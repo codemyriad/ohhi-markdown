@@ -46,12 +46,14 @@ export function buildTree(rows: FileRow[]): TreeNode[] {
     return node
   }
 
-  // Dir entries first so explicit dirs exist even when empty.
+  // Dir entries first so explicit dirs exist even when empty. A 'mount' row
+  // (N1) is a nested share's root: a directory on disk, owned by another mount
+  // session — it renders as the folder it is (the badge is N1's UI half).
   for (const row of rows) {
-    if (row.kind === 'dir') dirNode(row.path).guid = row.guid
+    if (row.kind === 'dir' || row.kind === 'mount') dirNode(row.path).guid = row.guid
   }
   for (const row of rows) {
-    if (row.kind === 'dir') continue
+    if (row.kind === 'dir' || row.kind === 'mount') continue
     const i = row.path.lastIndexOf('/')
     const node: TreeNode = {
       name: row.path.slice(i + 1),
@@ -76,7 +78,7 @@ export function buildTree(rows: FileRow[]): TreeNode[] {
 export function dirPaths(rows: FileRow[]): string[] {
   const out = new Set<string>()
   for (const row of rows) {
-    if (row.kind === 'dir') out.add(row.path)
+    if (row.kind === 'dir' || row.kind === 'mount') out.add(row.path)
     const segs = row.path.split('/')
     for (let i = 1; i < segs.length; i++) out.add(segs.slice(0, i).join('/'))
   }
@@ -132,7 +134,7 @@ export function containingDir(path: string | null, kind?: 'dir' | 'text' | 'bina
 /** The mount facts the menu needs; `MountInfo` satisfies it structurally. */
 export interface MountLike {
   path: string
-  provenance: 'local' | 'carved' | 'joined'
+  provenance: 'local' | 'carved' | 'joined' | 'adopted'
 }
 
 /** What was right-clicked: a row, or the tree's empty space (= vault root). */

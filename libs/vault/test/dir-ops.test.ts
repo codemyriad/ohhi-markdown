@@ -1,7 +1,8 @@
 /**
  * M3 directory seam: adapter conformance (mem + node) and two-session L1
  * fixtures — empty-dir round trip, dir rename as ONE bulk map txn applied
- * remotely, folder delete with journaled pre-images.
+ * remotely, folder delete with journaled pre-images. N1 adds the nested-mount
+ * boundary fixture: a peer of a carved room must not touch the subtree.
  */
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -76,8 +77,13 @@ describe('VaultAdapter directory ops (conformance: mem + node)', () => {
 // ---- two-session L1 fixtures ----
 
 interface Duo {
-  a: { adapter: MemVaultAdapter; session: VaultSession; journal: MemJournal }
-  b: { adapter: MemVaultAdapter; session: VaultSession }
+  a: { adapter: MemVaultAdapter; session: VaultSession; journal: MemJournal; folder: EngineDoc }
+  b: {
+    adapter: MemVaultAdapter
+    session: VaultSession
+    folder: EngineDoc
+    docs: Map<string, EngineDoc>
+  }
   net: TestNetwork
   clock: SimClock
 }
@@ -143,11 +149,18 @@ async function makeDuo(seed: Record<string, string>, dirs: string[] = []): Promi
   net.addPeer('B', folderB)
 
   return {
-    a: { adapter: adapterA, session: sessionA, journal: journalA },
-    b: { adapter: adapterB, session: sessionB },
+    a: { adapter: adapterA, session: sessionA, journal: journalA, folder: folderA },
+    b: { adapter: adapterB, session: sessionB, folder: folderB, docs: docsB },
     net,
     clock,
   }
+}
+
+/** Every file + every directory on an adapter — the "nothing moved" witness. */
+async function disk(a: MemVaultAdapter): Promise<{ files: Record<string, string>; dirs: string[] }> {
+  const files: Record<string, string> = {}
+  for (const stat of await a.list()) files[stat.path] = new TextDecoder().decode((await a.read(stat.path))!)
+  return { files, dirs: (await a.listDirs()).sort() }
 }
 
 async function deliver(duo: Duo): Promise<void> {
@@ -215,6 +228,51 @@ describe('directory sync (L1 fixtures, M3)', () => {
     await deliver(duo)
     expect(new TextDecoder().decode((await duo.b.adapter.read('dst/f.md'))!)).toBe('body')
     expect(await duo.b.adapter.read('src/f.md')).toBeNull()
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
+})
+
+describe('nested mounts: mount entries are an opaque boundary (L1 fixture, N1)', () => {
+  it("a peer's disk is untouched by a carve, and the subtree leaves its scope", async () => {
+    const duo = await makeDuo({ 'keep.md': 'k', 'team/plan.md': 'plan', 'team/sub/deep.md': 'deep' })
+    const beforeB = await disk(duo.b.adapter)
+    const planGuid = duo.a.folder.getMap().get('team/plan.md')!.guid
+
+    // A carves 'team': ONE transaction hard-deletes the subtree's keys and
+    // sets the mount entry at its root (MountSession.detachSubtree's shape).
+    duo.a.folder.transactMap((m) => {
+      for (const [p] of m.entries()) {
+        if (p === 'team' || p.startsWith('team/')) m.delete(p)
+      }
+      m.set('team', { guid: 'carved-room', kind: 'mount', relay: 'ws://relay.test' })
+    }, 'local')
+    await deliver(duo)
+
+    // The peer learned where the subtree went and did NOT act on it: no file
+    // removed, no dir removed, no mkdir. Those bytes belong to the mount
+    // session that will adopt them, not to this one.
+    expect(duo.b.folder.getMap().get('team')).toEqual({
+      guid: 'carved-room',
+      kind: 'mount',
+      relay: 'ws://relay.test',
+    })
+    expect(await disk(duo.b.adapter)).toEqual(beforeB)
+
+    // ...and the subtree is out of the peer session's scope from that instant:
+    // an external write under the mount root is never ingested into the parent
+    // room's doc, even though the path is still in pathToGuid from start().
+    await duo.b.adapter.writeAtomic('team/plan.md', enc('edited by another app'))
+    for (let i = 0; i < 3; i++) {
+      duo.clock.advance(100)
+      await settle()
+    }
+    expect(duo.b.docs.get(planGuid)!.getText()).toBe('plan')
+    expect(await disk(duo.b.adapter)).toEqual({
+      files: { ...beforeB.files, 'team/plan.md': 'edited by another app' },
+      dirs: beforeB.dirs,
+    })
+
     duo.a.session.dispose()
     duo.b.session.dispose()
   })

@@ -37,13 +37,45 @@ export const FOLDER_RECORD_KEY = '//folder'
 export interface FileRow {
   path: string
   guid: string
-  kind: 'text' | 'binary' | 'dir'
+  /**
+   * 'mount' (N1) is a nested share's root: the subtree belongs to another
+   * mount session on this device, and `guid` is that mount's ROOM guid, not a
+   * doc guid. The tree renders it as the shared folder it is.
+   */
+  kind: 'text' | 'binary' | 'dir' | 'mount'
+}
+
+/**
+ * A `kind:'mount'` entry as the map announces it (device-link-shaping A2):
+ * where the nested share is, which room it is, and which relay carries it.
+ * Never a token — the map is advisory, never an auth source (shaping D4).
+ */
+export interface MountEntryInfo {
+  /** Mount root, relative to THIS mount's root. */
+  path: string
+  /** The room GUID (the map entry's `guid`). */
+  room: string
+  relay?: string
 }
 
 /** UI-facing events; every mutation the host must mirror into its view state. */
 export interface MountEvents {
   /** Full row list after any folder-map change (sorted by path). */
   onFiles?: (rows: FileRow[]) => void
+  /**
+   * The CURRENT set of `kind:'mount'` entries in this mount's map (N1,
+   * device-link-shaping A2/A3) — a full snapshot, not a delta, sorted by path.
+   *
+   * Fired once at boot (so a device that was offline during someone else's
+   * carve adopts on reopen) and thereafter whenever the set changes from a
+   * FOREIGN origin — i.e. a peer carved or unshared a subtree of a room we
+   * share. Our own carve mutates the map with a 'local' origin and does not
+   * fire: the carver already knows. Always emitted AFTER `onFiles`, so a host
+   * that renders from rows has the mount row before it hears about the mount.
+   *
+   * This is the trigger for the peer-side adopt/absorb machine.
+   */
+  onMountEntries?: (entries: MountEntryInfo[]) => void
   /** Sorted unique presence names from the folder-doc awareness. */
   onPresence?: (names: string[]) => void
   onReview?: (review: DivergenceReview) => void

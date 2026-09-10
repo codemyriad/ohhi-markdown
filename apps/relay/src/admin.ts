@@ -3,9 +3,17 @@
  * minting, listing, and revocation, served from the relay's own HTTP server
  * via the Hocuspocus `onRequest` hook:
  *
- *   POST   /shares            { folderGuid, label?, readOnly? } → { token, … }
- *   GET    /shares[?folder=g] → { shares: [{ token, folderGuid, … }] }
+ *   POST   /shares            { folderGuid, label?, readOnly?, kind?, parent? }
+ *                             → { token, folderGuid, readOnly, label, kind, parent? }
+ *   GET    /shares[?folder=g] → { shares: [{ token, folderGuid, …, kind }] }
  *   DELETE /shares/<token>    → { removed: true }
+ *
+ * `kind` is 'folder' (default — exact-room match) or 'device' (also reaches
+ * rooms carved out of this one; device-link-shaping.md A4-A). `parent` names
+ * the room this one was carved out of and records the ancestry edge the
+ * device grant walks — a carve sends both `folderGuid` (the new room) and
+ * `parent` (the vault room). `parent` with `kind:'device'` is refused: a
+ * device token is minted for a root room, never for a child.
  *
  * Every route requires `Authorization: Bearer <OPERATOR_SECRET>`. With no
  * secret configured the routes answer 404 — admin HTTP simply does not exist
@@ -19,7 +27,13 @@
  */
 import { randomBytes } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { RelayDb } from './db.ts'
+import type { RelayDb, ShareKind } from './db.ts'
+
+/** Body `kind` → the share kind, or null when it is neither of the two. */
+function parseKind(value: unknown): ShareKind | null {
+  if (value === undefined || value === 'folder') return 'folder'
+  return value === 'device' ? 'device' : null
+}
 
 /** Handles admin routes; false → not an admin path (fall through to default). */
 export async function handleAdminRequest(
@@ -61,14 +75,28 @@ export async function handleAdminRequest(
       const body = await readJsonBody(request)
       const folderGuid = typeof body.folderGuid === 'string' ? body.folderGuid.trim() : ''
       if (!folderGuid) return json(400, { error: 'folderGuid is required' })
+      const kind = parseKind(body.kind)
+      if (!kind) return json(400, { error: 'kind must be "folder" or "device"' })
+      const parent = typeof body.parent === 'string' ? body.parent.trim() : ''
+      if (body.parent !== undefined && !parent) return json(400, { error: 'parent must be a room' })
+      if (parent && kind === 'device') {
+        return json(400, { error: 'a device token is minted for a root room, never for a child' })
+      }
+      if (parent === folderGuid && parent) {
+        return json(400, { error: 'parent must differ from folderGuid' })
+      }
       const share = {
         token: randomBytes(32).toString('hex'),
         folderGuid,
         readOnly: body.readOnly === true,
         label: typeof body.label === 'string' && body.label.trim() ? body.label.trim() : null,
+        kind,
       }
       db.addShare(share)
-      return json(200, share)
+      // Ancestry after the mint: a failed mint leaves no edge behind, and a
+      // re-mint for the same room restates the same edge (idempotent).
+      if (parent) db.setRoomParent(folderGuid, parent)
+      return json(200, parent ? { ...share, parent } : share)
     }
 
     if (request.method === 'GET' && url.pathname === '/shares') {

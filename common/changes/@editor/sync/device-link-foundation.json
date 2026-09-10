@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/sync",
+      "comment": "A folder shared out of a vault that is itself synced now appears to everyone else in that vault as a shared folder, in the same instant it is carved out — instead of its files quietly going missing from their view.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/sync"
+}

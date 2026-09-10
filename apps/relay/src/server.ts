@@ -7,6 +7,17 @@
  * contents. Read-only shares flip `connectionConfig.readOnly`, which makes
  * Hocuspocus drop incoming updates from that connection.
  *
+ * Two token kinds (device-link-shaping.md A4-A, R5):
+ *   - `folder` — exact room match, as it has always been. A folder token
+ *     never reaches the vault it was carved out of, nor a sibling room.
+ *   - `device` — one person's own device. Exact match *or* any room whose
+ *     recorded ancestry (the `rooms` table, written by POST /shares with a
+ *     `parent`) reaches the token's room, so folders carved after the
+ *     devices were linked need no new paste.
+ * `read_only` is orthogonal: a read-only device token is read-only
+ * everywhere it reaches. The relay stays the only auth authority — maps and
+ * descs are advisory (parent D4) and tokens never travel in them.
+ *
  * Persistence: full doc state as an opaque blob in SQLite. onLoadDocument
  * returns the stored Uint8Array (v4 applies it as a Yjs update for us);
  * onStoreDocument (debounced by Hocuspocus, flushed on disconnect/destroy)
@@ -62,9 +73,16 @@ export function createRelay(opts: RelayOptions): Relay {
       const inScope =
         documentName === `${share.folderGuid}/folder` ||
         documentName.startsWith(`${share.folderGuid}/`)
-      if (!inScope) throw new Error('document outside share scope')
+      // A device token also reaches the rooms carved out of its own room.
+      // The room is the first doc-name segment; the walk is bounded and
+      // cycle-guarded in db.ancestorsOf.
+      const viaAncestry =
+        !inScope &&
+        share.kind === 'device' &&
+        db.ancestorsOf(documentName.split('/')[0] ?? '').includes(share.folderGuid)
+      if (!inScope && !viaAncestry) throw new Error('document outside share scope')
       if (share.readOnly) connectionConfig.readOnly = true
-      return { folderGuid: share.folderGuid, readOnly: share.readOnly }
+      return { folderGuid: share.folderGuid, readOnly: share.readOnly, kind: share.kind }
     },
 
     async onLoadDocument({ documentName }) {

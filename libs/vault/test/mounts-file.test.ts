@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { MemStoreDir } from '../src/store-dir.js'
-import { MountsFile, type MountDesc } from '../src/mounts-file.js'
+import {
+  isRecoverable,
+  MountsFile,
+  mountRootsFrom,
+  type MountDesc,
+} from '../src/mounts-file.js'
+import type { FileEntry } from '@editor/sync'
 
 const desc = (over: Partial<MountDesc>): MountDesc => ({
   room: 'room-1',
@@ -71,5 +77,58 @@ describe('MountsFile', () => {
     })
     // Active mounts never appear in recovery.
     expect(byRoom['ok']).toBeUndefined()
+  })
+
+  it('classifies the peer-side adopt statuses, and never recovers needs-token (N1)', async () => {
+    const mounts = new MountsFile(new MemStoreDir().io('mounts.json'))
+    await mounts.upsert(desc({ room: 'as', status: 'adopting:seeding', provenance: 'adopted' }))
+    await mounts.upsert(desc({ room: 'ad', status: 'adopting:detaching', provenance: 'adopted' }))
+    await mounts.upsert(desc({ room: 'nt', status: 'needs-token', provenance: 'adopted' }))
+
+    const byRoom = Object.fromEntries((await mounts.recover()).map((r) => [r.desc.room, r.action]))
+    expect(byRoom).toEqual({
+      // Mirror of carving:* — the mount entry is still in the parent map, so a
+      // rolled-back adopt simply re-adopts at the next boot.
+      as: 'rollback',
+      ad: 'rollforward',
+    })
+    // needs-token is a STEADY state, not a half-made one: its stores exist and
+    // its files sit on disk under an ignored prefix. Boot must not roll it
+    // back (that would drop the stores a later paste activates without
+    // re-seeding) nor forward.
+    expect(byRoom['nt']).toBeUndefined()
+    expect(isRecoverable('needs-token')).toBe(false)
+    expect(isRecoverable('active')).toBe(false)
+    expect(isRecoverable('adopting:seeding')).toBe(true)
+  })
+})
+
+describe('mountRootsFrom (the live ignore-set seam, N1/S10-Q6)', () => {
+  const entry = (kind: FileEntry['kind'], guid = 'g'): FileEntry => ({ guid, kind })
+
+  it('unions mounts.json paths with the map\'s mount entries', () => {
+    const descs: MountDesc[] = [
+      desc({ room: 'root', path: '' }), // the root mount is never an ignore root
+      desc({ room: 'joined', path: 'inbox', provenance: 'joined' }),
+      desc({ room: 'waiting', path: 'legal', provenance: 'adopted', status: 'needs-token' }),
+    ]
+    const map: [string, FileEntry][] = [
+      ['keep.md', entry('text')],
+      ['notes', entry('dir')],
+      // A peer's carve that has reached this device BEFORE it has a desc: it
+      // must already be ignored, or the delta scan re-enrolls the subtree.
+      ['team', entry('mount', 'team-room')],
+    ]
+    expect(mountRootsFrom(descs, map)).toEqual(new Set(['inbox', 'legal', 'team']))
+  })
+
+  it('ignores tombstoned mount entries and dedupes the two authorities', () => {
+    const descs: MountDesc[] = [desc({ room: 'team-room', path: 'team', provenance: 'carved' })]
+    const map: [string, FileEntry][] = [
+      ['team', entry('mount', 'team-room')],
+      ['old', { guid: 'gone-room', kind: 'mount', deleted: true }],
+    ]
+    expect(mountRootsFrom(descs, map)).toEqual(new Set(['team']))
+    expect(mountRootsFrom([], [])).toEqual(new Set())
   })
 })

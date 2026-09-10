@@ -9,7 +9,7 @@ import { pillStatus, worstStatus, type PillStatus, type SyncRecordSnapshot } fro
 export interface MountLike {
   path: string
   room: string
-  provenance: 'local' | 'carved' | 'joined'
+  provenance: 'local' | 'carved' | 'joined' | 'adopted'
   link: string | null
 }
 
@@ -18,7 +18,7 @@ export type ShareState =
   | {
       kind: 'shared'
       /** 'root' = the whole vault is shared (legacy joins / the memory contract). */
-      provenance: 'carved' | 'joined' | 'root'
+      provenance: 'carved' | 'joined' | 'adopted' | 'root'
       room: string
       /** The mount root ('' for a root share). */
       mountPath: string

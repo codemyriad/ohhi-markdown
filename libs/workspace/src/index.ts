@@ -2,6 +2,7 @@ export {
   FOLDER_RECORD_KEY,
   type CollabUser,
   type FileRow,
+  type MountEntryInfo,
   type MountEvents,
   type RelayConfig,
   type SyncRecordFields,

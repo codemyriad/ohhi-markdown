@@ -9,10 +9,13 @@ import {
   loadConfig,
   loadShares,
   loadUser,
+  grantsForBundle,
+  mergeGrants,
   operatorSecret,
   purgeRooms,
   removeShare,
   removeVault,
+  roomRelay,
   roomToken,
   saveUser,
   setDefaultRelay,
@@ -167,7 +170,7 @@ describe('settings + shares', () => {
   })
 
   it('purgeRooms drops tokens and remembered shares for exactly those rooms', () => {
-    setRoomToken('root-r', 't1')
+    setRoomToken('root-r', 't1', 'ws://relay-1')
     setRoomToken('mount-r', 't2')
     setRoomToken('other-r', 't3')
     addShare({ link: 'editor1:m', room: 'mount-r', label: 'team' })
@@ -176,7 +179,64 @@ describe('settings + shares', () => {
     expect(roomToken('root-r')).toBe('')
     expect(roomToken('mount-r')).toBe('')
     expect(roomToken('other-r')).toBe('t3')
+    expect(roomRelay('root-r')).toBe('') // the relay URL goes with the token
     expect(loadShares()).toEqual([{ link: 'editor1:o', room: 'other-r', label: 'keep' }])
+  })
+})
+
+describe('device-link grants (device-link-shaping A4-B)', () => {
+  it('remembers a relay alongside a token, and bundles the triples', () => {
+    setRoomToken('team-r', 'team-token', 'wss://relay.example.com')
+    setRoomToken('foreign-r', 'foreign-token', ' wss://other.example.com ') // trimmed
+    expect(roomRelay('team-r')).toBe('wss://relay.example.com')
+    expect(grantsForBundle()).toEqual([
+      { room: 'team-r', relay: 'wss://relay.example.com', token: 'team-token' },
+      { room: 'foreign-r', relay: 'wss://other.example.com', token: 'foreign-token' },
+    ])
+  })
+
+  it('falls back to the vault entry’s relay, then the default, for tokens stored before N2', () => {
+    seed('editor:config', {
+      version: 2,
+      vaults: [{ ...tauriEntry, relay: { url: 'ws://vault-relay:8787', token: 'x' } }],
+      lastRoom: 'room-a',
+      defaultRelay: 'ws://settings-relay:8787',
+      operatorSecret: '',
+      shares: [],
+      tokensByRoom: { 'room-a': 'root-token', 'mount-r': 'mount-token' },
+    })
+    // Loads without the new field and never throws (the blob stays v2).
+    expect(loadConfig().relayByRoom).toEqual({})
+    expect(roomToken('room-a')).toBe('root-token')
+    expect(grantsForBundle()).toEqual([
+      { room: 'room-a', relay: 'ws://vault-relay:8787', token: 'root-token' },
+      { room: 'mount-r', relay: 'ws://settings-relay:8787', token: 'mount-token' },
+    ])
+  })
+
+  it('mergeGrants stores new tokens and never clobbers a local one', () => {
+    setRoomToken('known-r', 'local-token', 'ws://local-relay')
+    const stored = mergeGrants([
+      { room: 'known-r', relay: 'ws://bundle-relay', token: 'stale-bundle-token' },
+      { room: 'new-r', relay: 'ws://bundle-relay', token: 'bundle-token' },
+      { room: '', relay: 'ws://bundle-relay', token: 'no-room' },
+    ])
+    expect(stored).toEqual(['new-r'])
+    expect(roomToken('known-r')).toBe('local-token') // the local one may be newer
+    expect(roomRelay('known-r')).toBe('ws://local-relay')
+    expect(roomToken('new-r')).toBe('bundle-token')
+    expect(roomRelay('new-r')).toBe('ws://bundle-relay')
+  })
+
+  it('a merged bundle survives a reload and re-bundles unchanged', () => {
+    const grants = [
+      { room: 'a-r', relay: 'ws://relay-a', token: 'a-token' },
+      { room: 'b-r', relay: 'ws://relay-b', token: 'b-token' },
+    ]
+    expect(mergeGrants(grants)).toEqual(['a-r', 'b-r'])
+    expect(grantsForBundle()).toEqual(grants)
+    // Merging the same bundle twice stores nothing new (idempotent paste).
+    expect(mergeGrants(grants)).toEqual([])
   })
 })
 

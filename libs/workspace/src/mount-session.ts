@@ -51,6 +51,7 @@ import {
   joinFolder,
   JsonFileLcaStore,
   looksBinary,
+  mountRootsFrom,
   NEVER_ON_DISK,
   VaultSession,
   type StoreDir,
@@ -62,6 +63,7 @@ import {
   FOLDER_RECORD_KEY,
   type CollabUser,
   type FileRow,
+  type MountEntryInfo,
   type MountEvents,
   type RelayConfig,
   type SyncRecordFields,
@@ -194,10 +196,22 @@ export class MountSession {
     this.relay = cfg.relay ?? null
     this.folderDoc = cfg.engine.createDoc(`${cfg.room}/folder`)
 
-    this.folderDoc.getMap().observe(() => {
+    this.folderDoc.getMap().observe((origin) => {
       this.guidPaths = null // any map change can move a guid's path
-      if (this.adoptionEnabled) void this.queueMapScan()
-      else this.refreshFiles()
+      // Only a FOREIGN map change can tell us about someone else's carve or
+      // unshare; our own carve wrote the entry itself (N1, shaping A2/A3).
+      // A local change still refreshes the remembered set, so the next foreign
+      // change reports what changed REMOTELY rather than replaying our own.
+      const foreign = isForeignOrigin(origin)
+      const announce = (): void => {
+        if (foreign) this.emitMountEntries()
+        else this.lastMountEntries = JSON.stringify(this.mountEntries())
+      }
+      if (this.adoptionEnabled) void this.queueMapScan().then(announce)
+      else {
+        this.refreshFiles()
+        announce()
+      }
     })
   }
 
@@ -452,8 +466,16 @@ export class MountSession {
    * adapter the host gave us must already ignore `prefix` (live ignore set)
    * so the restarted watcher never sees the subtree again. Idempotent —
    * recoverMounts re-runs it as store surgery after a crash.
+   *
+   * `mount` (N1, device-link-shaping A2) makes the SAME transaction announce
+   * where the subtree went: a `kind:'mount'` entry replaces the dir entry at
+   * `prefix`. One transaction, one observer, one ordering — every peer of this
+   * room learns about the nested share atomically with the deletion, instead
+   * of seeing keys vanish and re-enrolling the files with fresh guids. Pass it
+   * whenever this mount is relay-attached; a private vault needs no
+   * announcement (and gets exactly the pre-N1 behaviour without one).
    */
-  async detachSubtree(prefix: string): Promise<void> {
+  async detachSubtree(prefix: string, mount?: { room: string; relay?: string }): Promise<void> {
     const pre = `${prefix}/`
     const doomed = this.folderDoc
       .getMap()
@@ -462,6 +484,15 @@ export class MountSession {
 
     this.folderDoc.transactMap((m) => {
       for (const [path] of doomed) m.delete(path)
+      if (mount) {
+        // Replaces the dir entry at `prefix`, deleted just above. The guid IS
+        // the room; the relay URL is not a secret, the token never travels.
+        m.set(prefix, {
+          guid: mount.room,
+          kind: 'mount',
+          ...(mount.relay ? { relay: mount.relay } : {}),
+        })
+      }
     }, 'local')
 
     for (const [, entry] of doomed) {
@@ -689,6 +720,47 @@ export class MountSession {
     // Records exist for every text row before the host renders pills for them.
     for (const row of rows) if (row.kind === 'text') this.recordFor(row.guid)
     this.events.onFiles?.(rows)
+  }
+
+  // ---- mount entries (N1, device-link-shaping A2) ----
+
+  /** Mount roots declared in this map — the opaque boundaries (N1). */
+  private mountRoots(): ReadonlySet<string> {
+    return mountRootsFrom([], this.folderDoc.getMap().entries())
+  }
+
+  /** Is `path` at or under a mount boundary in this map? */
+  private underMount(path: string, roots = this.mountRoots()): boolean {
+    for (const root of roots) {
+      if (path === root || path.startsWith(`${root}/`)) return true
+    }
+    return false
+  }
+
+  /** The current `kind:'mount'` entries, sorted by path. */
+  mountEntries(): MountEntryInfo[] {
+    return this.folderDoc
+      .getMap()
+      .entries()
+      .filter(([, e]) => e.kind === 'mount' && !e.deleted)
+      .map(([path, e]): MountEntryInfo => ({ path, room: e.guid, ...(e.relay ? { relay: e.relay } : {}) }))
+      .sort((a, b) => a.path.localeCompare(b.path))
+  }
+
+  /** Signature of the last emitted set; null until the boot emission. */
+  private lastMountEntries: string | null = null
+
+  /**
+   * Announce the current mount-entry set to the host (wave-2's adopt machine
+   * hook). `force` emits even when unchanged — the boot emission, which gives
+   * a device that was offline during a peer's carve its trigger on reopen.
+   */
+  private emitMountEntries(force = false): void {
+    const entries = this.mountEntries()
+    const sig = JSON.stringify(entries)
+    if (!force && sig === this.lastMountEntries) return
+    this.lastMountEntries = sig
+    this.events.onMountEntries?.(entries)
   }
 
   /** Recompute diskMatchesCrdt from actual bytes — never guessed. */
@@ -985,6 +1057,10 @@ export class MountSession {
   private async boot(): Promise<void> {
     if (await this.tryDurableReopen()) {
       this.refreshFiles()
+      // Boot emission (N1): the map may already carry mount entries a peer
+      // carved while this device was closed — the adopt machine's trigger
+      // must not depend on having been online for the change.
+      this.emitMountEntries(true)
       return
     }
 
@@ -1039,6 +1115,7 @@ export class MountSession {
 
     await this.persistBaseline()
     this.refreshFiles()
+    this.emitMountEntries(true)
   }
 
   /**
@@ -1111,7 +1188,14 @@ export class MountSession {
       if (entry.kind === 'text' && !entry.deleted) textEntries.push([path, entry])
     }
 
-    const additions = (await this.adapter.list()).filter((s) => !knownPaths.has(s.path))
+    // Anything at or under a mount boundary belongs to another session on this
+    // device. The host's ignore set normally hides it, but a peer sees a
+    // carve's mount entry BEFORE it has a desc to derive that set from — so
+    // the scan refuses to re-enroll there on its own (N1, shaping A2).
+    const mountRoots = this.mountRoots()
+    const additions = (await this.adapter.list()).filter(
+      (s) => !knownPaths.has(s.path) && !this.underMount(s.path, mountRoots)
+    )
 
     // Pre-pass: which known files changed (or vanished) on disk while closed?
     const changed: string[] = []
@@ -1152,9 +1236,12 @@ export class MountSession {
       const mapPaths = new Set(
         this.folderDoc.getMap().entries().filter(([, e]) => !e.deleted).map(([p]) => p)
       )
+      // A mount root's own directory and everything under it are the mount
+      // session's to manage — never enrolled here, never mkdir'd here (N1).
+      const mountRoots = this.mountRoots()
       const onDisk = new Set(await this.adapter.listDirs())
       for (const dir of onDisk) {
-        if (!mapPaths.has(dir)) {
+        if (!mapPaths.has(dir) && !this.underMount(dir, mountRoots)) {
           this.folderDoc.transactMap(
             (m) => m.set(dir, { guid: crypto.randomUUID(), kind: 'dir' }),
             'local'
@@ -1163,6 +1250,7 @@ export class MountSession {
       }
       for (const [path, entry] of this.folderDoc.getMap().entries()) {
         if (entry.kind !== 'dir' || entry.deleted) continue
+        if (this.underMount(path, mountRoots)) continue
         if (!onDisk.has(path)) await this.adapter.mkdir(path)
       }
     } catch (err) {
@@ -1172,9 +1260,13 @@ export class MountSession {
 
   /** Reconcile every known text doc except the skipped paths. */
   private async reconcileKnown(skip?: Set<string>): Promise<void> {
+    const mountRoots = this.mountRoots()
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (entry.kind !== 'text' || entry.deleted) continue
       if (skip?.has(path)) continue
+      // Never write another session's disk (N1): a text entry that survives
+      // under a mount boundary is a race, not ours to materialize.
+      if (this.underMount(path, mountRoots)) continue
       await this.reconcileClosedDoc(entry.guid, path)
     }
   }
@@ -1263,4 +1355,14 @@ export class MountSession {
       status: 'active',
     })
   }
+}
+
+/**
+ * Anything our own code didn't tag is an external change (mirrors
+ * VaultSession's rule): real providers apply remote updates with the provider
+ * INSTANCE as origin, never the seam's 'remote' string, so "not one of ours"
+ * is the correct remote test.
+ */
+function isForeignOrigin(origin: unknown): boolean {
+  return origin !== 'local' && origin !== 'disk' && origin !== 'seed'
 }

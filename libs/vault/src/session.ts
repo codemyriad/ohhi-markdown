@@ -13,6 +13,7 @@ import {
 import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
 import { NEVER_ON_DISK } from './enrollment.js'
+import { mountRootsFrom } from './mounts-file.js'
 import {
   DEFAULT_THRESHOLDS,
   type DivergenceReview,
@@ -71,6 +72,14 @@ export class VaultSession {
 
   private pathToGuid = new Map<string, string>()
   private lastEntries = new Map<string, FileEntry>()
+  /**
+   * Mount roots declared IN THIS MAP (`kind:'mount'` entries, slice N1). Each
+   * is an opaque boundary: the subtree at or under it belongs to another
+   * session on this device, so this session never reconciles, materializes,
+   * mkdirs, removes or re-enrolls anything there. Recomputed on every map
+   * change — including our own — so it is never stale.
+   */
+  private mountRoots: ReadonlySet<string> = new Set()
   private reviews = new Map<string, DivergenceReview>()
   private subscriptions: (() => void)[] = []
   private paused = false
@@ -100,17 +109,41 @@ export class VaultSession {
   }
 
   async start(): Promise<void> {
+    this.refreshMountRoots()
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       this.lastEntries.set(path, entry)
-      if (entry.kind === 'text' && !entry.deleted) this.pathToGuid.set(path, entry.guid)
+      if (entry.kind === 'text' && !entry.deleted && !this.underMount(path)) {
+        this.pathToGuid.set(path, entry.guid)
+      }
     }
     this.subscriptions.push(this.adapter.watch((ev) => this.onWatch(ev)))
     this.subscriptions.push(
       this.folderDoc.getMap().observe((origin) => {
+        this.refreshMountRoots()
         if (isForeignOrigin(origin)) void this.onRemoteMapChange()
       })
     )
     for (const [guid, doc] of this.docs) this.subscribeDoc(guid, doc)
+  }
+
+  private refreshMountRoots(): void {
+    this.mountRoots = mountRootsFrom([], this.folderDoc.getMap().entries())
+  }
+
+  /** Is `path` at or under a `kind:'mount'` boundary in this map? */
+  private underMount(path: string): boolean {
+    for (const root of this.mountRoots) {
+      if (path === root || path.startsWith(`${root}/`)) return true
+    }
+    return false
+  }
+
+  /** Does the subtree at `dir` contain a mount boundary? */
+  private containsMount(dir: string): boolean {
+    for (const root of this.mountRoots) {
+      if (root === dir || root.startsWith(`${dir}/`)) return true
+    }
+    return false
   }
 
   private subscribeDoc(guid: string, doc: EngineDoc): void {
@@ -224,6 +257,11 @@ export class VaultSession {
   }
 
   private onWatch(ev: WatchEvent): void {
+    // A mount boundary is out of scope even when the host's ignore set has not
+    // caught up yet (a peer sees the mount entry before it has a desc): the
+    // subtree is another session's business, never ours (N1, shaping A2).
+    ev = { paths: ev.paths.filter((p) => !this.underMount(p)) }
+    if (ev.paths.length === 0) return
     const known = ev.paths.filter((p) => this.pathToGuid.has(p))
     if (known.length > this.ctx.thresholds.massChangePaths) {
       this.paused = true
@@ -330,11 +368,23 @@ export class VaultSession {
     /** Old dir paths to clear once their children have moved/gone (pass 2). */
     const dirCleanups: string[] = []
 
+    // Mount entries (N1) are pure announcements: never a doc, never an LCA,
+    // never a disk effect. Their subtrees are skipped in BOTH passes — the
+    // files under a mount root belong to another session on this device, so a
+    // remove/mkdir here would be one session editing another's files. The
+    // carve transaction that introduces one hard-deletes the subtree's keys in
+    // the same transaction, so those keys are simply absent from `current`.
+    // Recomputed before the passes because the entry may have arrived in the
+    // very change we are handling.
+    this.refreshMountRoots()
+
     // Pass 1: text files — content-bearing effects first, so a directory
     // move's children land before its old dir is cleaned up in pass 2.
     for (const [path, entry] of current) {
       if (entry.kind !== 'text') continue
       const oldPath = prevByGuid.get(entry.guid)
+      // Either end inside a mount boundary → another session's disk.
+      if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
 
       if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
         // Remote deletion → journal pre-image, remove local file.
@@ -383,6 +433,7 @@ export class VaultSession {
     for (const [path, entry] of current) {
       if (entry.kind !== 'dir') continue
       const oldPath = prevByGuid.get(entry.guid)
+      if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
 
       if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
         dirCleanups.push(oldPath)
@@ -424,7 +475,7 @@ export class VaultSession {
   /** UI action: rename/move a file (text or binary) and propagate via the map. */
   async renameFile(from: string, to: string): Promise<void> {
     const entry = this.folderDoc.getMap().get(from)
-    if (!entry || entry.deleted || entry.kind === 'dir') {
+    if (!entry || entry.deleted || entry.kind === 'dir' || entry.kind === 'mount') {
       throw new Error(`rename: unknown path ${from}`)
     }
     await this.adapter.rename(from, to)
@@ -465,6 +516,11 @@ export class VaultSession {
     if (to === from || to.startsWith(`${from}/`)) {
       throw new Error(`renameDir: cannot move ${from} into itself`)
     }
+    // A mount boundary inside the subtree is another session's root: moving
+    // its key would strand that session's path (S10-Q5 race territory).
+    if (this.containsMount(from)) {
+      throw new Error(`renameDir: '${from}' contains a shared folder`)
+    }
     const prefix = `${from}/`
     await this.adapter.renameDir(from, to)
     const moves: { from: string; to: string }[] = []
@@ -496,7 +552,7 @@ export class VaultSession {
   /** UI action: delete one file (text or binary) — journaled, tombstoned for peers. */
   async deleteFile(path: string): Promise<void> {
     const entry = this.folderDoc.getMap().get(path)
-    if (!entry || entry.deleted || entry.kind === 'dir') {
+    if (!entry || entry.deleted || entry.kind === 'dir' || entry.kind === 'mount') {
       throw new Error(`deleteFile: unknown path ${path}`)
     }
     const pre = await this.adapter.read(path)
@@ -519,6 +575,9 @@ export class VaultSession {
     const dirEntry = this.folderDoc.getMap().get(path)
     if (!dirEntry || dirEntry.kind !== 'dir' || dirEntry.deleted) {
       throw new Error(`deleteDir: unknown dir ${path}`)
+    }
+    if (this.containsMount(path)) {
+      throw new Error(`deleteDir: '${path}' contains a shared folder`)
     }
     const prefix = `${path}/`
     const doomed = this.folderDoc

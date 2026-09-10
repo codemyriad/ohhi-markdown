@@ -5,6 +5,16 @@
  * same server over http(s).
  */
 import { getLL } from '@editor/i18n'
+import type { ShareKind } from './share-link.js'
+
+/**
+ * The kind is the link's kind (share-link.ts): `folder` — exact-room token,
+ * never grants the vault it was carved out of; `device` — one of my own
+ * devices, which also reaches rooms carved out of this one, so a folder
+ * shared after linking needs no paste (device-link-shaping A4-A, R5).
+ * Absent on a relay predating N3 → treat as 'folder'.
+ */
+export type { ShareKind }
 
 export interface RelayShare {
   token: string
@@ -12,6 +22,9 @@ export interface RelayShare {
   readOnly: boolean
   label: string | null
   createdAt?: string
+  kind?: ShareKind
+  /** Echoed back when the mint recorded an ancestry edge. */
+  parent?: string
 }
 
 export function adminBaseUrl(relayWsUrl: string): string {
@@ -50,10 +63,21 @@ async function call<T>(
   return payload as T
 }
 
+/**
+ * Mint a token. `kind:'device'` mints a device credential for a root room;
+ * `parent` records that `folderGuid` was carved out of that room, which is
+ * the edge a device token walks. The relay refuses the two together.
+ */
 export function mintShare(
   relayWsUrl: string,
   secret: string,
-  opts: { folderGuid: string; label?: string; readOnly?: boolean }
+  opts: {
+    folderGuid: string
+    label?: string
+    readOnly?: boolean
+    kind?: ShareKind
+    parent?: string
+  }
 ): Promise<RelayShare> {
   return call<RelayShare>(relayWsUrl, secret, 'POST', '/shares', opts)
 }

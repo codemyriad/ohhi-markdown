@@ -30,11 +30,25 @@ export interface TextHandle {
  * Entry in a folder doc's path map. 'dir' entries (slice M3) make directories
  * first-class so empty folders enroll, sync, and materialize; they carry no
  * Y.Doc, no LCA, no provider — the guid only gives them a stable identity.
+ *
+ * 'mount' entries (slice N1, device-link-shaping A2) mark a subtree that has
+ * become its OWN mount — a nested share. They are an opaque boundary: the
+ * session that owns this map never reconciles, materializes or scans anything
+ * at or under the entry's path, because that subtree belongs to another
+ * session on this device. For a mount entry `guid` IS the room GUID (the
+ * relay doc-name prefix), never a doc guid.
  */
 export interface FileEntry {
   guid: string
-  kind: 'text' | 'binary' | 'dir'
+  kind: 'text' | 'binary' | 'dir' | 'mount'
   deleted?: boolean
+  /**
+   * Mount entries only: the relay WebSocket URL the room lives on. Not a
+   * secret — tokens NEVER travel in the map (shaping D4: maps and descs are
+   * advisory, never an auth source), so a peer that sees this still needs its
+   * own token before it can connect.
+   */
+  relay?: string
 }
 
 export interface MapHandle {

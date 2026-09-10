@@ -11,6 +11,7 @@
  * also heal values double-JSON-encoded by earlier builds).
  */
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
+import type { ShareGrant } from './share-link.js'
 import type { BuiltinTheme } from '@editor/ui/tokens'
 
 /** How to (re)build the VaultAdapter for a session. */
@@ -60,6 +61,15 @@ interface AppConfigV2 {
    * advisory, never an auth source) — only here, in app config.
    */
   tokensByRoom: Record<string, string>
+  /**
+   * Relay URL per room, parallel to `tokensByRoom` (device-link-shaping
+   * A4-B): a device link bundles {room, relay, token} triples, and the room
+   * of a *foreign* mount has no other home for its relay URL here —
+   * mounts.json stays the mount authority, config only holds credentials.
+   * Additive: configs written before N2 have no map and are backfilled on
+   * load, exactly as `tokensByRoom` was when M4 added it.
+   */
+  relayByRoom: Record<string, string>
   /** Sync devtools inspector (M6); `?debug=1` forces it on for a session. */
   devtools?: boolean
   /**
@@ -162,6 +172,7 @@ function emptyConfig(): AppConfigV2 {
     operatorSecret: '',
     shares: [],
     tokensByRoom: {},
+    relayByRoom: {},
     devtools: false,
   }
 }
@@ -210,8 +221,11 @@ export function loadConfig(): AppConfigV2 {
   const existing = readJson<AppConfigV2>(K_CONFIG)
   if (isValidConfig(existing)) {
     existing.vaults = existing.vaults.filter((v) => v && typeof v.room === 'string' && !!v.vault)
-    // Field added after v2 shipped — backfill for configs written before M4.
+    // Fields added after v2 shipped — backfill for configs written before
+    // M4 (tokens) and before N2 (relay URLs). The blob's version does not
+    // move: every addition here is optional and defaulted on read.
     existing.tokensByRoom ??= {}
+    existing.relayByRoom ??= {}
     return existing
   }
   // First run on v2 (or corrupted v2 blob): rebuild from v1 keys, persist,
@@ -259,7 +273,10 @@ export function removeVault(room: string): void {
  */
 export function purgeRooms(rooms: string[]): void {
   const cfg = loadConfig()
-  for (const room of rooms) delete cfg.tokensByRoom[room]
+  for (const room of rooms) {
+    delete cfg.tokensByRoom[room]
+    delete cfg.relayByRoom[room]
+  }
   cfg.shares = cfg.shares.filter((s) => !rooms.includes(s.room))
   save(cfg)
 }
@@ -349,10 +366,66 @@ export function roomToken(room: string): string {
   return loadConfig().tokensByRoom[room] ?? ''
 }
 
-export function setRoomToken(room: string, token: string): void {
+/** Relay the room's token belongs to ('' = unknown; see relayByRoom). */
+export function roomRelay(room: string): string {
+  return loadConfig().relayByRoom[room] ?? ''
+}
+
+/**
+ * Remember a room's token, and the relay it is a credential for when the
+ * caller knows it. Passing a blank relay leaves a remembered one alone.
+ */
+export function setRoomToken(room: string, token: string, relay?: string): void {
   const cfg = loadConfig()
   cfg.tokensByRoom[room] = token
+  if (relay?.trim()) cfg.relayByRoom[room] = relay.trim()
   save(cfg)
+}
+
+/**
+ * Every {room, relay, token} triple this device holds — the payload of a
+ * device link's `grants` (device-link-shaping A4-B). A room whose relay was
+ * never recorded falls back to the vault entry that carries it, then to the
+ * default relay: shares are minted against the relay in Settings, and a
+ * wrong guess costs one paste, not a lost token.
+ */
+export function grantsForBundle(): ShareGrant[] {
+  const cfg = loadConfig()
+  const fallback = cfg.defaultRelay || DEFAULT_RELAY
+  const out: ShareGrant[] = []
+  for (const [room, token] of Object.entries(cfg.tokensByRoom)) {
+    if (!token) continue
+    const relay =
+      cfg.relayByRoom[room] ??
+      cfg.vaults.find((v) => v.room === room)?.relay?.url ??
+      fallback
+    out.push({ room, relay, token })
+  }
+  return out
+}
+
+/**
+ * Merge the grants carried by a device link into this device's tokens. An
+ * existing token is never overwritten: the local one may be newer than the
+ * bundle (re-minted since the link was copied), and losing it would strand
+ * a mount that is connected right now. Returns the rooms actually stored.
+ *
+ * Tokens only — mounts.json remains the authority on which mounts exist and
+ * where they live; a grant for a room this device has no mount for simply
+ * waits until one arrives (peer-side adopt, A3).
+ */
+export function mergeGrants(grants: readonly ShareGrant[]): string[] {
+  const cfg = loadConfig()
+  const stored: string[] = []
+  for (const g of grants) {
+    if (!g?.room || !g.token) continue
+    if (cfg.tokensByRoom[g.room]) continue
+    cfg.tokensByRoom[g.room] = g.token
+    if (g.relay) cfg.relayByRoom[g.room] = g.relay
+    stored.push(g.room)
+  }
+  if (stored.length > 0) save(cfg)
+  return stored
 }
 
 // ---- shares ----

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/relay",
+      "comment": "The relay knows which folder was carved out of which vault, so a token for one of your own devices reaches the folders you share later without you pasting anything. A folder's own token still reaches only that folder — never the vault it came from, and never a folder beside it.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/relay"
+}
