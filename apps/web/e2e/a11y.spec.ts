@@ -80,4 +80,8 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await expectAccessible(page, 'settings')
   await page.getByTestId('settings-close').click()
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
+
+  await page.getByTestId('rail-collapse').click()
+  await expect(page.getByTestId('right-rail')).toHaveAttribute('data-state', 'collapsed')
+  await expectAccessible(page, 'collapsed rail')
 })

@@ -43,6 +43,19 @@ This project uses:
 | `Toaster` + `toast()` | announcing a notice without stealing focus (`role=status`, polite) | an inline error string in the header |
 | `createForm` + `Field` / `TextControl` / `CheckControl` / `FieldErrors` / `Description` | any form with a rule in it — the field wires `aria-invalid`, `aria-required` and `aria-describedby` (description + errors) exactly as Edible's `form-field` builder does | inputs with ad-hoc `error` spans |
 
+**The shell's layout (chrome U2)** is three columns under a one-line header:
+the **navigator** (`data-testid="navigator"`: actions cluster → `FileTree` →
+vault switcher + settings; resizable via `ResizeHandle`, a valued
+`separator`), the editor `<main>` with `StatusBar` (word count + the note's
+pill), and `RightRail` (collapsed = icon column, expanded = stacked foldable
+sections). **A rail section is data, not markup**: push a `RailSection`
+`{ id, label, icon, badge? }` onto `railSections` in `App.svelte` and render
+its body in the rail's `children(id)` snippet — that is how U4's *This note*
+and U5's *Activity* land. Layout state (`treeOpen`, `treeWidth`, `railOpen`,
+`railFolded`) is device-level, normalised by the pure `lib/layout.ts` and
+persisted through `config.ts` like the theme; the width persists on gesture
+end, never per pointer-move.
+
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
 **Component tests** live beside the primitive (`Dialog.test.ts`), start with `// @vitest-environment jsdom`, drive through `@testing-library/svelte` + `user-event`, and assert roles, names, focus and keys — never internals. A stateful primitive gets a harness in `src/lib/ui/test-harness/`. **The axe gate** is `apps/web/e2e/a11y.spec.ts`: it fails the e2e run on any violation, on every surface it opens; do not switch a rule off to pass it — list the reason and the slice that lifts it.

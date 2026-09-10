@@ -274,7 +274,7 @@ export function defaultCommands(actions: {
   search: () => void
   newNote: () => void
   toggleSidebar: () => void
-  toggleLinks: () => void
+  toggleRail: () => void
   settings: () => void
   back: () => void
   forward: () => void
@@ -288,8 +288,8 @@ export function defaultCommands(actions: {
     { id: 'nav.back', title: 'Back', group: 'Navigate', keys: 'Mod+[', run: actions.back },
     { id: 'nav.forward', title: 'Forward', group: 'Navigate', keys: 'Mod+]', run: actions.forward },
     // Chris's own Obsidian bindings for the sidebars (Mod+Left / Mod+Right).
-    { id: 'view.sidebar', title: 'Toggle file tree', group: 'View', keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
-    { id: 'view.links', title: 'Toggle links panel', group: 'View', keys: 'Mod+ArrowRight', run: actions.toggleLinks },
+    { id: 'view.sidebar', title: 'Toggle file navigator', group: 'View', keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
+    { id: 'view.rail', title: 'Toggle right sidebar', group: 'View', keys: 'Mod+ArrowRight', run: actions.toggleRail },
     { id: 'app.settings', title: 'Settings', group: 'App', keys: 'Mod+,', run: actions.settings },
   ]
 }

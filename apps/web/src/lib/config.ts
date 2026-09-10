@@ -10,6 +10,7 @@
  * are then ignored; `editor:user` stays its own key (the name helpers below
  * also heal values double-JSON-encoded by earlier builds).
  */
+import { normalizeLayout, type LayoutPrefs } from './layout.js'
 import type { BuiltinTheme } from '@editor/ui/tokens'
 
 /** How to (re)build the VaultAdapter for a session. */
@@ -67,6 +68,8 @@ interface AppConfigV2 {
    * collaborator's aesthetics another's problem.
    */
   theme?: ThemePref
+  /** Rails, navigator width, folded rail sections (chrome U2). Device-level, like theme. */
+  layout?: Partial<LayoutPrefs>
 }
 
 /**
@@ -311,6 +314,18 @@ export function setThemePref(pref: ThemePref): void {
   } catch {
     // Mirror is best-effort; a miss costs one frame of the default theme.
   }
+}
+
+// ---- layout (chrome U2) ----
+
+export function layoutPrefs(): LayoutPrefs {
+  return normalizeLayout(loadConfig().layout)
+}
+
+export function setLayoutPrefs(patch: Partial<LayoutPrefs>): void {
+  const cfg = loadConfig()
+  cfg.layout = { ...normalizeLayout(cfg.layout), ...patch }
+  save(cfg)
 }
 
 export function setDevtools(on: boolean): void {

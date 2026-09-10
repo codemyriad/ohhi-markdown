@@ -25,11 +25,27 @@
     mounts: MountInfo[]
     /** The whole vault is shared (badge/filter treat everything as shared). */
     rootShared: boolean
+    /** A folder to expand, focus as the context and scroll to (a NEW object each time). */
+    reveal?: { path: string } | null
     onSelect: (path: string) => void
     onOp: (op: TreeOp) => void
   }
 
-  let { files, records, selected, mounts, rootShared, onSelect, onOp }: Props = $props()
+  let { files, records, selected, mounts, rootShared, reveal = null, onSelect, onOp }: Props =
+    $props()
+
+  let host = $state<HTMLElement>()
+
+  $effect(() => {
+    if (!reveal) return
+    const path = reveal.path
+    const segments = path.split('/')
+    for (let i = 1; i <= segments.length; i++) collapsed.delete(segments.slice(0, i).join('/'))
+    contextDir = path
+    host
+      ?.querySelector<HTMLElement>(`[data-testid="dir-item:${CSS.escape(path)}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  })
 
   let filter = $state<TreeFilter>('all')
   const mountByPath = $derived(new Map(mounts.map((m) => [m.path, m])))
@@ -200,6 +216,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <nav
+  bind:this={host}
   data-testid="file-tree"
   aria-label="Files"
   class="flex h-full flex-col overflow-y-auto"

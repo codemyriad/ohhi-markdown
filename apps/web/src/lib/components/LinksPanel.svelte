@@ -47,19 +47,15 @@
   }
 </script>
 
-<aside
-  data-testid="links-panel"
-  aria-label="Links"
-  class="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l border-base-300 bg-base-100"
->
+<div data-testid="links-panel" class="flex flex-col">
   {#if !path}
     <p class="p-4 text-xs text-base-content/70">Open a note to see its links.</p>
   {:else}
     <section class="border-b border-base-200 p-3">
-      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+      <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
         Backlinks
         <span data-testid="backlink-count" class="ml-1 font-normal">{backlinks.length}</span>
-      </h2>
+      </h3>
       {#if backlinks.length === 0}
         <p class="text-xs text-base-content/70">No note links here yet.</p>
       {:else}
@@ -90,10 +86,10 @@
     </section>
 
     <section class="p-3">
-      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+      <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
         Outgoing
         <span data-testid="outgoing-count" class="ml-1 font-normal">{outgoing.length}</span>
-      </h2>
+      </h3>
       {#if outgoing.length === 0}
         <p class="text-xs text-base-content/70">This note links nowhere yet.</p>
       {:else}
@@ -112,11 +108,11 @@
           {/each}
         </ul>
         {#if unresolved.length > 0}
-          <h3
+          <h4
             class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
             Not created yet
-          </h3>
+          </h4>
           <ul class="space-y-1">
             {#each unresolved as link (link.offset)}
               <li>
@@ -134,11 +130,11 @@
           </ul>
         {/if}
         {#if missingEmbeds.length > 0}
-          <h3
+          <h4
             class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
             Missing attachments
-          </h3>
+          </h4>
           <ul class="space-y-1">
             {#each missingEmbeds as link (link.offset)}
               <li
@@ -154,4 +150,4 @@
       {/if}
     </section>
   {/if}
-</aside>
+</div>

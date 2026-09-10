@@ -150,10 +150,18 @@ still states its rule** — and **a user theme can neither repaint nor hide the
 sync pill**, which is asserted by actually attacking it rather than assumed from
 the cascade.
 
+`e2e/chrome.spec.ts` covers the shell (chrome U2+): the right rail collapses
+to icons and reopens to the section clicked, `Mod+ArrowRight` toggles it; the
+navigator resizes from the keyboard (its handle is a valued `separator`),
+hides on `Mod+ArrowLeft`, and the layout survives a reload; the breadcrumb
+names the open note and reveals its folder in the tree; the status bar carries
+the word count and the note's own pill.
+
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
 practice) over the vault manager, the workspace with a note open, quick-open,
-the tree's context menu, a rename dialog, the vault menu and settings. Any
-violation fails the run and prints the offending node with the rule.
+the tree's context menu, a rename dialog, the vault menu, settings and the
+collapsed rail. Any violation fails the run and prints the offending node
+with the rule.
 
 `e2e/shots.spec.ts` is a screenshot pass over all four themes, for eyeballing
 rather than gating:

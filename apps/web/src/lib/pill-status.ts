@@ -41,6 +41,14 @@ export function worstStatus(statuses: PillStatus[]): PillStatus {
  * receipt, not durable ack; durable-ack honesty lands V2 (plans/V1-plan.md,
  * deviations).
  */
+/** Short inline label beside the dot (the status bar). Same claims as the titles. */
+export const PILL_LABELS: Record<PillStatus, string> = {
+  green: 'synced',
+  yellow: 'syncing',
+  red: 'diverged',
+  offline: 'offline',
+}
+
 export const PILL_TITLES: Record<PillStatus, string> = {
   green: 'synced (relay)',
   yellow: 'working — ops or disk flush in flight',

@@ -49,6 +49,15 @@
   import { touchPath } from './lib/recent.js'
   import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
+  import IconButton from './lib/ui/IconButton.svelte'
+  import ResizeHandle from './lib/ui/ResizeHandle.svelte'
+  import ActionsCluster from './lib/components/ActionsCluster.svelte'
+  import Breadcrumb from './lib/components/Breadcrumb.svelte'
+  import RightRail, { type RailSection } from './lib/components/RightRail.svelte'
+  import StatusBar from './lib/components/StatusBar.svelte'
+  import { Link2, PanelLeft, PanelRight, Settings } from '@lucide/svelte'
+  import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
+  import { TREE_WIDTH, toggleFolded } from './lib/layout.js'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
@@ -71,13 +80,35 @@
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()
   const navHistory = new NavHistory()
-  let treeOpen = $state(true)
-  let linksOpen = $state(true)
+
+  // ---- layout (chrome U2): device-level, persisted like the theme ----
+  const savedLayout = layoutPrefs()
+  let treeOpen = $state(savedLayout.treeOpen)
+  let treeWidth = $state(savedLayout.treeWidth)
+  let railOpen = $state(savedLayout.railOpen)
+  let railFolded = $state<string[]>(savedLayout.railFolded)
+  /** Rail sections; U4 (This note) and U5 (Activity) append rows here. */
+  const railSections: RailSection[] = [{ id: 'links', label: 'Links', icon: Link2 }]
+  const linksVisible = $derived(railOpen && !railFolded.includes('links'))
+  /** A folder the breadcrumb asked the navigator to show (new object per click). */
+  let revealDir = $state<{ path: string } | null>(null)
+
+  // The booleans persist as they change; the width persists when a resize
+  // gesture ENDS (ResizeHandle's onCommit), not on every pointer move.
+  $effect(() => {
+    setLayoutPrefs({ treeOpen, railOpen, railFolded: $state.snapshot(railFolded) })
+  })
+
+  function revealInTree(dir: string): void {
+    treeOpen = true
+    revealDir = { path: dir }
+  }
+
   /** Suppresses the history push while back/forward is doing the navigating. */
   let travelling = false
   /** Selection-aware word count for the status bar. */
   let wordCount = $state(0)
-  nav.setLinksVisible(() => linksOpen)
+  nav.setLinksVisible(() => linksVisible)
 
   nav.registry.register(
     ...defaultCommands({
@@ -86,7 +117,7 @@
       search: () => nav.open('search'),
       newNote: () => void workspace?.createFile(''),
       toggleSidebar: () => (treeOpen = !treeOpen),
-      toggleLinks: () => (linksOpen = !linksOpen),
+      toggleRail: () => (railOpen = !railOpen),
       settings: () => (settingsOpen = true),
       back: () => travel(navHistory.back()),
       forward: () => travel(navHistory.forward()),
@@ -605,6 +636,13 @@
     workspace && selectedPath ? workspace.awarenessForPath(selectedPath) : null
   )
   const activeReview = $derived(workspace?.ui.reviews[0] ?? null)
+  /** The open note's own record → pill, for the status bar (pure f(record)). */
+  const noteStatus = $derived.by(() => {
+    if (!workspace || !selectedPath) return null
+    const guid = workspace.ui.files.find((f) => f.path === selectedPath)?.guid
+    const record = guid ? workspace.ui.records[guid] : undefined
+    return record ? pillStatus(record) : null
+  })
 </script>
 
 <svelte:window onkeydowncapture={onGlobalKeydown} />
@@ -646,46 +684,29 @@
   </main>
 {:else}
   <div class="flex h-screen flex-col bg-base-100 text-base-content">
-    <header class="flex items-center gap-4 border-b border-base-300 bg-base-100 px-4 py-2">
-      <!-- The page's one h1: the vault. U2's breadcrumb makes it visible. -->
+    <header class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-2 py-1">
+      <!-- The page's one h1: the vault. -->
       <h1 class="sr-only">{currentVaultName}</h1>
-      <VaultSwitcher
-        current={{ room: workspace.room, name: currentVaultName }}
-        {vaults}
-        onSwitch={(entry) => void bootVault(entry)}
-        onManage={() => {
-          refreshLists()
-          view = 'manager'
-        }}
+      <IconButton
+        label={treeOpen ? 'Hide file navigator' : 'Show file navigator'}
+        icon={PanelLeft}
+        pressed={treeOpen}
+        testid="toggle-tree"
+        onclick={() => (treeOpen = !treeOpen)}
       />
-      <span class="text-xs text-base-content/70">{workspace.ui.shared ? 'shared' : 'local'}</span>
-      <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
-        {#each workspace.ui.presence as name (name)}
-          <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
-        {/each}
-      </div>
-      <div class="ml-auto flex items-center gap-3">
+      <Breadcrumb path={selectedPath} onReveal={revealInTree} />
+      <div class="ml-auto flex min-w-0 items-center gap-3">
+        <!-- Presence, the error string and Add share leave the header in U4/U5. -->
+        <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
+          {#each workspace.ui.presence as name (name)}
+            <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
+          {/each}
+        </div>
         {#if workspace.ui.error}
           <span class="max-w-sm truncate text-xs text-error" data-testid="workspace-error">
             {workspace.ui.error}
           </span>
         {/if}
-        <button
-          data-testid="open-quick-open"
-          onclick={() => nav.open('quick-open')}
-          title="Open a note ({nav.registry.binding('nav.quick-open')})"
-          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
-        >
-          Open…
-        </button>
-        <button
-          data-testid="open-search"
-          onclick={() => nav.open('search')}
-          title="Search the vault ({nav.registry.binding('nav.search')})"
-          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
-        >
-          Search
-        </button>
         <button
           data-testid="add-share"
           onclick={() => (addShareOpen = true)}
@@ -694,67 +715,121 @@
         >
           Add share
         </button>
-        <button
-          data-testid="open-settings"
-          onclick={() => (settingsOpen = true)}
-          aria-label="Settings"
-          class="rounded px-2 py-1 text-sm text-base-content/70 hover:bg-base-200"
-        >
-          ⚙
-        </button>
-        {#if selectedPath}
-          <span data-testid="word-count" class="text-xs tabular-nums text-base-content/70">
-            {wordCount}
-            {wordCount === 1 ? 'word' : 'words'}
-          </span>
-        {/if}
         <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
+        <IconButton
+          label={railOpen ? 'Hide sidebar' : 'Show sidebar'}
+          icon={PanelRight}
+          pressed={railOpen}
+          testid="toggle-rail"
+          onclick={() => (railOpen = !railOpen)}
+        />
       </div>
     </header>
 
     <div class="flex min-h-0 flex-1">
       {#if treeOpen}
-        <aside class="w-64 shrink-0 border-r border-base-300 bg-base-100">
-          <FileTree
-            files={workspace.ui.files}
-            records={workspace.ui.records}
-            selected={selectedPath}
-            mounts={workspace.ui.mounts}
-            rootShared={workspace.ui.shared}
-            onSelect={(path) => openPath(path)}
-            onOp={handleTreeOp}
+        <aside
+          data-testid="navigator"
+          aria-label="File navigator"
+          style="width: {treeWidth}px"
+          class="relative flex shrink-0 flex-col border-r border-base-300 bg-base-100"
+        >
+          <ActionsCluster
+            bindings={{
+              quickOpen: nav.registry.binding('nav.quick-open'),
+              search: nav.registry.binding('nav.search'),
+              commands: nav.registry.binding('nav.command-palette'),
+            }}
+            onQuickOpen={() => nav.open('quick-open')}
+            onSearch={() => nav.open('search')}
+            onCommands={() => nav.open('command')}
+          />
+          <div class="min-h-0 flex-1">
+            <FileTree
+              files={workspace.ui.files}
+              records={workspace.ui.records}
+              selected={selectedPath}
+              mounts={workspace.ui.mounts}
+              rootShared={workspace.ui.shared}
+              reveal={revealDir}
+              onSelect={(path) => openPath(path)}
+              onOp={handleTreeOp}
+            />
+          </div>
+          <div class="flex items-center gap-1 border-t border-base-300 px-2 py-1">
+            <VaultSwitcher
+              current={{ room: workspace.room, name: currentVaultName }}
+              {vaults}
+              onSwitch={(entry) => void bootVault(entry)}
+              onManage={() => {
+                refreshLists()
+                view = 'manager'
+              }}
+            />
+            <div class="ml-auto">
+              <IconButton
+                label="Settings ({nav.registry.binding('app.settings')})"
+                icon={Settings}
+                placement="top"
+                testid="open-settings"
+                onclick={() => (settingsOpen = true)}
+              />
+            </div>
+          </div>
+          <ResizeHandle
+            value={treeWidth}
+            min={TREE_WIDTH.min}
+            max={TREE_WIDTH.max}
+            step={TREE_WIDTH.step}
+            label="Resize file navigator"
+            testid="tree-resize"
+            onChange={(px) => (treeWidth = px)}
+            onCommit={() => setLayoutPrefs({ treeWidth })}
           />
         </aside>
       {/if}
 
-      <main data-testid="editor-pane" class="min-h-0 min-w-0 flex-1 bg-ed-surface">
-        {#if selectedDoc && selectedPath}
-          {#key selectedPath}
-            <MarkdownEditor
-              doc={selectedDoc}
-              awareness={selectedAwareness}
-              user={workspace.user}
-              dark={themeState.dark}
-              extensions={editorExtensions}
-              reveal={nav.pending.reveal}
-            />
-          {/key}
-        {:else}
-          <div class="flex h-full items-center justify-center text-sm text-base-content/70">
-            select a file to start editing
-          </div>
-        {/if}
+      <main data-testid="editor-pane" class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div class="min-h-0 flex-1 bg-ed-surface">
+          {#if selectedDoc && selectedPath}
+            {#key selectedPath}
+              <MarkdownEditor
+                doc={selectedDoc}
+                awareness={selectedAwareness}
+                user={workspace.user}
+                dark={themeState.dark}
+                extensions={editorExtensions}
+                reveal={nav.pending.reveal}
+              />
+            {/key}
+          {:else}
+            <div class="flex h-full items-center justify-center text-sm text-base-content/70">
+              select a file to start editing
+            </div>
+          {/if}
+        </div>
+        <StatusBar hasNote={selectedPath !== null} {wordCount} {noteStatus} />
       </main>
 
-      {#if linksOpen}
-        <LinksPanel
-          backlinks={nav.links.backlinks}
-          outgoing={nav.links.outgoing}
-          path={selectedPath}
-          onOpen={openPath}
-          onCreate={(target) => void createFromLink(target)}
-        />
-      {/if}
+      <RightRail
+        sections={railSections}
+        open={railOpen}
+        folded={railFolded}
+        onOpenChange={(o) => (railOpen = o)}
+        onFoldChange={(id, f) => (railFolded = toggleFolded(railFolded, id, f))}
+      >
+        {#snippet children(id)}
+          {#if id === 'links'}
+            <LinksPanel
+              backlinks={nav.links.backlinks}
+              outgoing={nav.links.outgoing}
+              path={selectedPath}
+              onOpen={openPath}
+              onCreate={(target) => void createFromLink(target)}
+            />
+          {/if}
+        {/snippet}
+      </RightRail>
     </div>
   </div>
 
