@@ -45,7 +45,9 @@ import type { Awareness } from 'y-protocols/awareness'
 import type { CollabUser } from '@editor/editor'
 import {
   activateMount,
+  bootFlagsFor,
   carveFolder as runCarve,
+  resolveRoomRelay,
   FOLDER_RECORD_KEY,
   joinMount,
   MountRegistry,
@@ -80,8 +82,9 @@ import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
 import { appendNotice, type Notice, type NoticeInput } from './notices.js'
 import { decodeShareLink, encodeDeviceLink, encodeShareLink, type ShareKind } from './share-link.js'
-import { isForeignMount, sameRelay } from './share-status.js'
+import { isForeignMount } from './share-status.js'
 
+export { resolveRoomRelay }
 export { FOLDER_RECORD_KEY, type FileRow, type PullProgress, type RelayConfig }
 
 /**
@@ -151,55 +154,17 @@ export interface MountInfo {
 }
 
 /**
- * The credential for a room, in the order spike S10 Q2 fixes (R5 lives here):
+ * `resolveRoomRelay` is re-exported, not defined here.
  *
- *  1. an exact token for the room always wins — it is the most specific
- *     statement of what this device was given, and may be read-only for
- *     exactly that folder;
- *  2. else, for a `carved`/`adopted` room **that lives on THIS vault's own
- *     relay**, the vault's own token when it is a DEVICE token — A4-A, the
- *     reason a folder carved after linking needs no paste;
- *  3. else none ⇒ `needs-token`.
- *
- * Rule 2's relay condition is R5, not decoration. Provenance alone cannot
- * separate "carved out of my vault" from "a foreign share another of my
- * devices joined" — on a peer BOTH are `'adopted'` — and a `kind:'mount'`
- * entry is written by any peer of the root room, which chooses the entry's
- * `relay` field freely (maps are advisory, never an auth source: shaping D4).
- * Without the condition a peer of the root could write
- * `{kind:'mount', relay:'wss://elsewhere'}` into the folder map and this
- * device would open a socket there and hand over the VAULT's device token — a
- * full-access credential for every room of this vault. The URL is persisted
- * into mounts.json too, so it would re-leak on every boot.
- *
- * `sameRelay` is the same normaliser `isForeignMount` tints the tree with;
- * here it gates the CREDENTIAL, which is the part that matters. Pure and
- * exported so the rule is provable without a browser, a relay, or a socket.
+ * The rule — exact token ▸ the vault's DEVICE token for a room on the vault's
+ * OWN relay ▸ nothing — lives in `libs/workspace/src/resolve-relay.ts` so the
+ * device-link harness can drive the same function instead of paraphrasing it.
+ * It had paraphrased it, with raw `===` on the relay URLs, so a trailing
+ * slash made two different answers to the one question that decides who gets
+ * a credential. Re-exported here because this module is where the shell's
+ * tests reach for it, and because the binding below is what a vault actually
+ * uses.
  */
-export function resolveRoomRelay(m: {
-  /** Where this room lives, already resolved (entry relay ▸ remembered ▸ default). */
-  url: string
-  provenance: MountProvenance
-  /** This device's token for THIS room ('' = none). */
-  exactToken: string
-  /** This device's token for the VAULT's root room ('' = none). */
-  rootToken: string
-  rootTokenKind: ShareKind | ''
-  /** This vault's own relay — the one its rooms are minted on. */
-  rootRelayUrl: string
-}): RelayConfig | null {
-  if (m.exactToken) return { url: m.url, token: m.exactToken }
-  const ancestryEligible = m.provenance === 'carved' || m.provenance === 'adopted'
-  if (
-    ancestryEligible &&
-    sameRelay(m.url, m.rootRelayUrl) &&
-    m.rootToken &&
-    m.rootTokenKind === 'device'
-  ) {
-    return { url: m.url, token: m.rootToken }
-  }
-  return null
-}
 
 /**
  * A relay refusal on an ADOPTED mount is a MISSING KEY, not a broken relay
@@ -873,10 +838,17 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const relay = desc.relay
       ? relayForRoom({ room: desc.room, relay: desc.relay.url, provenance: desc.provenance })
       : null
-    if (desc.relay && !relay) {
-      // Not an error: a mount with no key is a fully functional LOCAL mount
-      // that knows where its room lives. The tree marks it; the pill is never
-      // told it is "offline", which would promise a reconnection (S10 Q2).
+    if (!relay && desc.provenance !== 'local') {
+      // No credential — because none is held, or because nothing anywhere
+      // says where the room lives. Both are the same state to a person and
+      // the same action fixes them: paste the link, which carries the relay
+      // URL as well as the token.
+      //
+      // Statusing only the `desc.relay && !relay` half left the other one
+      // sitting at `active` with no relay: the tree drew it as a shared
+      // folder and `mountHasRelay` counted it into the sync rollup, which
+      // then reported the whole vault offline because a mount that can never
+      // connect never does. Sync state that lies (golden rule 4).
       if (desc.status !== 'needs-token') await mountsFile.setStatus(desc.room, 'needs-token')
       notify({
         level: 'warn',
@@ -889,11 +861,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       path: desc.path,
       provenance: desc.provenance,
       ...(relay ? { relay } : {}),
-      // Never held and still no key: boot empty. The files under the mount
-      // root belong to a room this device has not seen, and enrolling them
-      // would mint fresh guids that clobber the owner's entries at the first
-      // paste (N3's empty-adopt finding).
-      ...(desc.neverHeld && !relay ? { neverHeld: true } : {}),
+      // Never held: PULL with a credential, wait empty without one — derived
+      // together, because the third combination (neither flag) drops an
+      // adopted mount into the fresh-vault enrol and mints new guids for the
+      // room's own files (N3's empty-adopt finding).
+      ...bootFlagsFor(desc, relay),
       onShared: (link) => {
         linkByRoom.set(desc.room, link)
         refreshMounts()

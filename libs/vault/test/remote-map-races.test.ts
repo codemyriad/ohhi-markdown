@@ -243,6 +243,68 @@ describe('concurrent renames of one guid (crasher 0004)', () => {
     }
   })
 
+  it('leaves keys under a MOUNT boundary to the adopt machine', async () => {
+    // A key at or under a `kind:'mount'` root is a GHOST: the subtree's
+    // authority has moved to another session on this device, and the adopt
+    // machine's sweep resolves it BY GUID — replay the rename inside the
+    // mount, import it, or replay the delete — and only then hard-deletes the
+    // parent key. Electing a winner here deletes the very key that sweep is
+    // about to read, and the two rooms then disagree about where the file
+    // went. Every other pass over this map carries the same guard.
+    const duo = await makeDuo({ 'keep.md': '# keep\n' })
+    try {
+      const guid = crypto.randomUUID()
+      duo.a.folder.transactMap((m) => {
+        m.set('team', { guid: 'team-room', kind: 'mount', relay: 'ws://relay.test' })
+        m.set('team/plan.md', { guid, kind: 'text' })
+        m.set('team/notes/plan.md', { guid, kind: 'text' })
+      }, 'local')
+      await duo.deliver()
+
+      // Both ghosts survive on both devices — untouched, for the sweep.
+      for (const side of [duo.a, duo.b]) {
+        const keys = side.folder
+          .getMap()
+          .entries()
+          .filter(([, e]) => !e.deleted)
+          .map(([p]) => p)
+          .sort()
+        expect(keys).toEqual(['keep.md', 'team', 'team/notes/plan.md', 'team/plan.md'])
+      }
+    } finally {
+      duo.dispose()
+    }
+  })
+
+  it('leaves a BINARY guid at two keys alone — nothing moves one by guid', async () => {
+    // The dedupe exists to collapse what a concurrent rename split, and the
+    // passes that reconstruct a rename from `previous` move TEXT. Nothing
+    // moves a binary or a dir by guid, so collapsing one here hard-deletes a
+    // live key that no pass will ever put back — a file that vanishes from
+    // the map while its bytes sit on disk.
+    const duo = await makeDuo({ 'keep.md': '# keep\n' })
+    try {
+      const guid = crypto.randomUUID()
+      duo.a.folder.transactMap((m) => {
+        m.set('a.png', { guid, kind: 'binary' })
+        m.set('b.png', { guid, kind: 'binary' })
+      }, 'local')
+      await duo.deliver()
+
+      for (const side of [duo.a, duo.b]) {
+        const keys = side.folder
+          .getMap()
+          .entries()
+          .filter(([, e]) => !e.deleted)
+          .map(([p]) => p)
+          .sort()
+        expect(keys).toEqual(['a.png', 'b.png', 'keep.md'])
+      }
+    } finally {
+      duo.dispose()
+    }
+  })
+
   it('a dir rename racing a file rename inside it lands on one path too', async () => {
     const duo = await makeDuo({ 'keep.md': '# keep\n', 'dir/f.md': '# f\n' })
     try {

@@ -561,14 +561,15 @@ export class MountSession {
     try {
       /** `[relative key in the mount, workspace path, entry]`. */
       const seeded: [string, string, FileEntry][] = []
-      if (opts?.seed !== undefined) {
+      const decoded = opts?.seed === undefined ? null : decodeSeed(opts.seed)
+      if (decoded !== null) {
         // ONE history on every device: apply the announcer's own folder state
         // instead of re-`set`ting the entries ourselves. Two independently
         // seeded folder docs merge as a UNION, so a hard delete on one side —
         // which is how a rename removes its source and how the ghost rule
         // removes a key — has nothing to delete on the other, and the two
         // maps diverge permanently (`fuzz-crashers/0003`).
-        this.engine.applyUpdate(tmp, decodeSeed(opts.seed), 'seed')
+        this.engine.applyUpdate(tmp, decoded, 'seed')
         for (const [rel, entry] of tmp.getMap().entries()) {
           if (entry.deleted || entry.kind === 'mount') continue
           seeded.push([rel, `${prefix}/${rel}`, entry])
@@ -874,6 +875,33 @@ export class MountSession {
 
   /** Promote a local mount to a shared one; returns the copyable link. */
   enableSharing(newRelay: RelayConfig): { link: string } {
+    // RE-KEY when a relay is already attached. `connectFolder` returns early
+    // on an existing `folderConn` and `attachProvider` skips a guid that
+    // already has one, so a session that had been refused — a mount degraded
+    // to `needs-token` after the relay rejected its token — kept its dead
+    // connections and quietly ignored the new credential the paste just
+    // supplied, while its desc read `active`. "Shared, not syncing", forever
+    // (golden rule 4). Tearing the old ones down first is what makes a paste
+    // mean something.
+    if (this.relay) {
+      for (const conn of this.conns.values()) conn.destroy()
+      this.conns.clear()
+      this.folderConn?.destroy()
+      this.folderConn = null
+      this.roomSocket?.destroy() // after the per-doc detaches, never before
+      this.roomSocket = null
+      this.authFailure = null
+      // Every record goes back to "not connected" until the NEW provider says
+      // otherwise: the pill must never carry a previous credential's verdict.
+      const folder = this.recordFor(FOLDER_RECORD_KEY)
+      folder.connected = false
+      folder.synced = false
+      for (const guid of this.docs.keys()) {
+        const rec = this.recordFor(guid)
+        rec.connected = false
+        rec.synced = false
+      }
+    }
     this.relay = newRelay
     this.connectFolder() // sets sharedLink + fires onShared, wires presence
     for (const guid of this.docs.keys()) {
@@ -906,6 +934,21 @@ export class MountSession {
     const ds = this.cfg.docStore
     if (ds) void ds.flushAll().finally(() => ds.dispose())
   }
+
+  /**
+   * This boot built the namespace from DISK for a mount whose content belongs
+   * to a room (`adopted`/`joined`, provider-less). The guids are ours, not the
+   * room's, so the desc must say `neverHeld` — the paste has to pull.
+   */
+  private enrolledForRoom = false
+
+  /**
+   * This boot actually PULLED the room (the `firstJoin` branch ran to
+   * completion). Only that clears `neverHeld` from the desc: being *told* to
+   * pull is not the same as having pulled, and a session that was handed
+   * `firstJoin` but came up some other way must not claim the room's content.
+   */
+  private pulledRoom = false
 
   private shutdownDone = false
   /**
@@ -1013,6 +1056,12 @@ export class MountSession {
 
   /** Mount roots declared in this map — the opaque boundaries (N1). */
   private mountRoots(): ReadonlySet<string> {
+    // The MAP term alone: this is THIS room's declared boundaries, which is
+    // what every pass over this map must skip. The mounts.json term belongs
+    // to the host's ignore set (`mountRootsFrom(descs, rootMapEntries)`),
+    // which covers the mirror-image window — a mount this device still runs
+    // after its entry left the map. A session reading its own map wants the
+    // map's answer (spike S10 Q6).
     return mountRootsFrom([], this.folderDoc.getMap().entries())
   }
 
@@ -1043,6 +1092,24 @@ export class MountSession {
 
   /** Signature of the last emitted set; null until the boot emission. */
   private lastMountEntries: string | null = null
+
+  /**
+   * The last seed this map was seen to carry for each mount root, kept after
+   * the key itself is gone.
+   *
+   * The repair row exists because a concurrent rename or delete can remove a
+   * mount entry; re-stating it has to put back the SAME announcement, and by
+   * then the map no longer holds it. Without this the repair either published
+   * a seed of its own — on a device that holds none of the room's content,
+   * an empty folder doc overwriting the owner's real one — or none at all,
+   * sending every fresh peer to a pull it did not need.
+   */
+  private seedMemory = new Map<string, string>()
+
+  /** The seed last announced at `path`, as it travelled (base64), or undefined. */
+  rememberedSeed(path: string): string | undefined {
+    return this.seedMemory.get(path)
+  }
 
   /** Is any key in this map at or under a mount root that is not its own? */
   private hasGhosts(entries: readonly MountEntryInfo[]): boolean {
@@ -1077,6 +1144,11 @@ export class MountSession {
 
   private refreshMapSnapshot(): void {
     if (!this.tracksMountEntries) return
+    for (const [path, entry] of this.folderDoc.getMap().entries()) {
+      if (entry.kind === 'mount' && !entry.deleted && entry.seed) {
+        this.seedMemory.set(path, entry.seed)
+      }
+    }
     this.mapSnapshot = new Map(this.folderDoc.getMap().entries())
   }
 
@@ -1207,7 +1279,7 @@ export class MountSession {
     path: string,
     room: string,
     relay?: string,
-    seed?: Uint8Array
+    seed?: Uint8Array | string
   ): Promise<void> {
     this.folderDoc.transactMap((m) => {
       m.set(path, mountEntry(room, relay, seed))
@@ -1619,31 +1691,40 @@ export class MountSession {
   // ---- boot (the spike S8 Q3 machine — see header) ----
 
   private async boot(): Promise<void> {
-    if (this.cfg.neverHeld) {
-      // A mount this device has never held, with no credential yet (S10 Q2 +
-      // N3): boot EMPTY, and do NOT touch the durable state. The files under
-      // the mount root are the room's, not ours — enrolling them would mint
-      // fresh guids that LWW-clobber the owner's entries at the next paste —
-      // and the namespace may still hold the seeded map its adopt wrote as
-      // the crash rollforward's authority, which `persistBaseline` would
-      // overwrite with this session's empty one.
-      //
-      // "Keep + mark" read exactly (spike S10 Q2): the bytes stay on disk,
-      // untouched and unmanaged, and the tree marks the folder as needing a
-      // link. Listing them as managed rows would be the dishonest half —
-      // they are not this mount's files until the pull says so.
-      await this.restartSession()
-      this.adoptionEnabled = true
-      await this.writeMountDesc()
-      this.refreshFiles()
-      this.emitMountEntries(true)
-      return
-    }
-    if (await this.tryDurableReopen()) {
+    // An explicit `firstJoin` on a MOUNT outranks durable state.
+    //
+    // `firstJoin` normally means "there is nothing here, so pull instead of
+    // enrolling", and for the ROOT that is still exactly what it means — a
+    // vault reopens from its own stores, always. But a mount is handed
+    // `firstJoin` by `bootFlagsFor` precisely when its desc says `neverHeld`:
+    // whatever is in that namespace is not the room's content, and an
+    // interrupted adopt can leave the seeded MAP there with nothing behind
+    // it. `tryDurableReopen` would accept that map and the awaited pull would
+    // never run — a mount showing the room's file list with none of its
+    // content and nothing scheduled to fetch it.
+    const pullFirst = this.cfg.firstJoin === true && (this.cfg.mountPath ?? '') !== ''
+    if (!pullFirst && (await this.tryDurableReopen())) {
       this.refreshFiles()
       // Boot emission (N1): the map may already carry mount entries a peer
       // carved while this device was closed — the adopt machine's trigger
       // must not depend on having been online for the change.
+      this.emitMountEntries(true)
+      return
+    }
+
+    if (this.cfg.neverHeld) {
+      // A mount this device has never held, with no credential yet (S10 Q2 +
+      // N3), and nothing durable to reopen: boot EMPTY. The files under the
+      // mount root are the room's, not ours, and minting guids for them here
+      // would put this device's copies into the room at the next paste.
+      //
+      // Reached only when `tryDurableReopen` found nothing — a namespace that
+      // DOES exist is this mount's own work from an earlier boot and is used,
+      // which is what keeps "keep + mark" true across reopens (S10 Q2).
+      await this.restartSession()
+      this.adoptionEnabled = true
+      await this.writeMountDesc()
+      this.refreshFiles()
       this.emitMountEntries(true)
       return
     }
@@ -1714,15 +1795,49 @@ export class MountSession {
           const path = this.pathForGuid(guid)
           if (path) await this.reconcileClosedDoc(guid, path)
         }
+        this.pulledRoom = true // the room's own content is here now
       } finally {
         pull.dispose()
         this.pull = null
         this.pullPhase = null
       }
+    } else if (this.relay && (this.cfg.provenance === 'adopted' || this.cfg.provenance === 'joined')) {
+      // A mount whose content belongs to a ROOM, with a live credential and
+      // an empty namespace, must PULL — never enrol. Reaching this branch
+      // means `firstJoin` was not derived while the namespace was empty, and
+      // enrolling here mints a fresh guid per file on disk and the connected
+      // provider pushes them straight into the room, LWW-clobbering the
+      // owner's entries. Silent, permanent, and only visible from the other
+      // device.
+      //
+      // This is the last line of that defence, not the first: `bootFlagsFor`
+      // derives `firstJoin`/`neverHeld` together everywhere a session is
+      // built. It is here because the failure is invisible from this side,
+      // and a rule that is only documented is a rule that holds once.
+      //
+      // A PROVIDER-LESS mount of the same shape is a different question and
+      // gets the opposite answer — see the enrol branch below.
+      this.pushError(
+        new Error(
+          `mount ${this.room} has no durable state and no way to fetch it — not enrolling ` +
+            `the files under its root, which belong to that room (add its link to fetch them)`
+        )
+      )
+      await this.restartSession()
+      this.adoptionEnabled = true
     } else {
       // Fresh vault: enroll disk (one-time seeding). Any attached relay (the
       // memory contract's seed role) is connected but NOT awaited.
       this.connectFolder()
+      // A provider-less mount for a ROOM enrols what is on disk, and says so.
+      // Spike S10 Q2's "keep + mark" is a promise that the files stay visible
+      // and openable while the folder waits for its key, and a folder that
+      // vanishes because a token is missing is the dishonesty golden rule 4
+      // forbids. But the guids minted here are this device's, not the room's,
+      // so the desc is marked `neverHeld`: when the key arrives the mount
+      // PULLS rather than merging, and these entries are dropped instead of
+      // being pushed into the room on top of the owner's.
+      this.enrolledForRoom = this.cfg.provenance === 'adopted' || this.cfg.provenance === 'joined'
       const enrolled = await enrollFolder(this.engine, this.adapter, this.folderDoc, this.lcaStore)
       for (const [guid, doc] of enrolled.docs) this.docs.set(guid, doc)
       for (const [path, entry] of this.folderDoc.getMap().entries()) {
@@ -2004,7 +2119,7 @@ export class MountSession {
       // `neverHeld` survives every reopen until this session has actually
       // PULLED the room — a firstJoin boot is the only thing that clears it,
       // because it is the only thing that puts the room's content here (N3).
-      const neverHeld = existing?.neverHeld === true && this.cfg.firstJoin !== true
+      const neverHeld = (existing?.neverHeld === true || this.enrolledForRoom) && !this.pulledRoom
       return {
         room: this.room,
         path: this.cfg.mountPath ?? '',
@@ -2052,18 +2167,23 @@ export class MountSession {
 }
 
 /**
- * Cap on the announced seed (spike S10 Q1). A folder-doc entry costs roughly
- * 80-100 bytes encoded, so 64 KB is several hundred files: above it the map
- * entry stops being advisory structure and starts being a payload every peer
- * of the parent room carries forever. Over the cap the entry ships WITHOUT a
- * seed, and a peer with a token pulls the room instead (`firstJoin`) while one
- * without waits as `needs-token` over an empty namespace.
+ * Cap on the announced seed (spike S10 Q1), measured on the BASE64 — the form
+ * that actually travels. A folder-doc entry costs roughly 80-100 bytes
+ * encoded, so 64 KB is several hundred files: above it the map entry stops
+ * being advisory structure and starts being a payload every peer of the parent
+ * room carries forever. Over the cap the entry ships WITHOUT a seed, and a
+ * peer with a token pulls the room instead (`firstJoin`) while one without
+ * waits as `needs-token` over an empty namespace.
+ *
+ * Capping the raw update instead let 64 KB of Yjs through as 87 KB of map —
+ * a third more than the budget on every peer, forever.
  */
 export const MAX_SEED_BYTES = 64 * 1024
 
 /** A `kind:'mount'` entry, with the seed when it fits (S10 Q1). */
-function mountEntry(room: string, relay?: string, seed?: Uint8Array): FileEntry {
-  const encoded = seed && seed.byteLength <= MAX_SEED_BYTES ? encodeSeed(seed) : undefined
+function mountEntry(room: string, relay?: string, seed?: Uint8Array | string): FileEntry {
+  const candidate = seed === undefined ? undefined : typeof seed === 'string' ? seed : encodeSeed(seed)
+  const encoded = candidate !== undefined && candidate.length <= MAX_SEED_BYTES ? candidate : undefined
   return {
     guid: room,
     kind: 'mount',
@@ -2081,11 +2201,26 @@ function encodeSeed(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-function decodeSeed(seed: string): Uint8Array {
-  const binary = atob(seed)
-  const out = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
-  return out
+/**
+ * Decode an announced seed, or null when it is not one.
+ *
+ * The seed arrives in a folder map any peer of the room can write, so it is
+ * untrusted input: truncated base64, a stray string, a future encoding. A
+ * throw here would land inside the adopt, whose caller retries it from the
+ * boot pass on every open — a permanent failure loop over one bad map entry,
+ * with the subtree stranded meanwhile. Null instead means "no seed", and the
+ * seedless path is already a complete, safe answer: pull the room with a
+ * token, wait as `needs-token` without one.
+ */
+function decodeSeed(seed: string): Uint8Array | null {
+  try {
+    const binary = atob(seed)
+    const out = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+    return out
+  } catch {
+    return null
+  }
 }
 
 /**

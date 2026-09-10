@@ -45,5 +45,6 @@
       "comment": "The vault manager no longer becomes clickable again while a vault is still arriving.",
       "type": "patch"
     }
-  ]
+  ],
+  "packageName": "@editor/web"
 }

@@ -40,6 +40,7 @@ import { carveFolder } from '../src/carve.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
 import {
+  bootFlagsFor,
   mountInvariants,
   mountStoreInvariants,
   reconcileMountEntries,
@@ -594,11 +595,13 @@ export async function bootVault(
     return makeSession(o.room, scopedAdapter(base, o.path), o.path, {
       provenance: o.provenance,
       ...(o.relay ? { relay: o.relay } : {}),
-      // `neverHeld` is obeyed (an empty boot is local and cheap); `firstJoin`
-      // is only RECORDED — it is an awaited provider pull and this fixture's
-      // sockets never open, so tests assert the DECISION through
-      // `events.builds`.
-      ...(o.neverHeld ? { neverHeld: true } : {}),
+      // `firstJoin` is passed THROUGH — it decides boot ordering, and a mount
+      // told to pull must skip `tryDurableReopen` here exactly as it does in
+      // the product — but the pull itself cannot run (this fixture's sockets
+      // never open), so `neverHeld` stands in for it: boot empty, enrol
+      // nothing. Tests assert the DECISION through `events.builds`.
+      ...(o.firstJoin ? { firstJoin: true } : {}),
+      ...(o.neverHeld || o.firstJoin ? { neverHeld: true } : {}),
       ...(o.onPullProgress ? { events: { onPullProgress: o.onPullProgress } } : {}),
     })
   }
@@ -666,11 +669,10 @@ export async function bootVault(
         path: desc.path,
         provenance: desc.provenance,
         ...(relay ? { relay } : {}),
-        // Never held and still no key: boot empty and enrol nothing. The files
-        // under the mount root belong to a room this device has not seen, and
-        // enrolling them would mint fresh guids that clobber the owner's
-        // entries at the first paste (N3). The shim does the same.
-        ...(desc.neverHeld && !relay ? { neverHeld: true } : {}),
+        // Derived together, exactly as the shim does: PULL with a credential,
+        // wait empty without one. Neither flag on a `neverHeld` desc drops an
+        // adopted mount into the fresh-vault enrol (N3).
+        ...bootFlagsFor(desc, relay),
       })
     )
   }

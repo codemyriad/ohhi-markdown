@@ -114,7 +114,19 @@ export async function handleAdminRequest(
       db.addShare(share)
       // Ancestry after the mint: a failed mint leaves no edge behind, and the
       // edge itself is write-once (the re-parent case was refused above).
-      if (parent) db.setRoomParent(folderGuid, parent)
+      //
+      // The return value is checked, not discarded. `setRoomParent` refuses to
+      // re-point an existing edge and says so, and the 409 above only catches
+      // the races it can see — between that read and this write another mint
+      // can land. Reporting the answer we actually got beats returning a
+      // `parent` the relay does not hold, which is what a caller would then
+      // rely on for its device tokens.
+      if (parent && !db.setRoomParent(folderGuid, parent)) {
+        return json(409, {
+          error: 'this room is already recorded under a different parent',
+          parent: db.getRoomParent(folderGuid),
+        })
+      }
       return json(200, parent ? { ...share, parent } : share)
     }
 

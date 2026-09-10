@@ -53,12 +53,44 @@ export interface ActivateMountOptions {
 }
 
 /**
+ * One activation per room at a time.
+ *
+ * The pull branch is a long awaited operation that starts by writing a
+ * recoverable status and WIPING the namespace. A second call arriving while
+ * the first is in flight — an impatient second paste, an "Add link…" dialog
+ * still open behind a retry, two rows of the tree wired to the same room —
+ * would re-enter `joining` and wipe the namespace the first pull is filling,
+ * then attach a second session at the same path. The first caller's
+ * `attachMount` would then overwrite the second's, leaving a live session
+ * nobody holds a handle to.
+ */
+const inFlight = new Map<string, Promise<MountSession>>()
+
+/**
  * Give a `needs-token` mount its credential. Returns the session that is live
  * afterwards — the same one for a merge, a fresh one for a pull.
+ *
+ * Idempotent per room: a call that arrives while another is running joins it,
+ * and a mount that is already active with this credential is left alone.
  */
-export async function activateMount(opts: ActivateMountOptions): Promise<MountSession> {
+export function activateMount(opts: ActivateMountOptions): Promise<MountSession> {
+  const running = inFlight.get(opts.desc.room)
+  if (running) return running
+  const run = activateOnce(opts).finally(() => inFlight.delete(opts.desc.room))
+  inFlight.set(opts.desc.room, run)
+  return run
+}
+
+async function activateOnce(opts: ActivateMountOptions): Promise<MountSession> {
   const { desc, mountsFile } = opts
   if (opts.relay.token === '') throw new Error('that link carries no token')
+
+  // Already done. A settled, connected mount holding a namespace does not
+  // need re-keying, and running the merge branch again would re-tear-down and
+  // re-attach every provider for nothing.
+  if (desc.status === 'active' && desc.neverHeld !== true && opts.session.isShared()) {
+    return opts.session
+  }
 
   if (desc.neverHeld !== true) {
     // The seeded case. `enableSharing` sets the relay, connects the folder

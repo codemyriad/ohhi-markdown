@@ -19,10 +19,12 @@ import {
   MountsFile,
   scopedAdapter,
   scopedStoreDir,
+  isRecoverable,
   type MountDesc,
   type StoreDir,
 } from '@editor/vault'
 import { createYjsEngine, type FileEntry, type SyncEngine } from '@editor/sync'
+import { MAX_SEED_BYTES, type MountSession } from '../src/mount-session.js'
 import {
   applyForeignCarve,
   applyForeignMap,
@@ -207,7 +209,7 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
         adoptCtx(dev, {
           relay: { url: 'ws://cynthia.relay', token: 'guest-token' },
           onBuild: (o) => {
-            built.push({ room: o.room, firstJoin: o.firstJoin })
+            built.push({ room: o.room, firstJoin: o.firstJoin === true })
           },
         })
       )
@@ -235,7 +237,7 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
         adoptCtx(dev, {
           relay: null,
           onBuild: (o) => {
-            built.push({ room: o.room, firstJoin: o.firstJoin })
+            built.push({ room: o.room, firstJoin: o.firstJoin === true })
           },
         })
       )
@@ -735,6 +737,11 @@ function adoptCtx(
       return dev.makeSession(o.room, scopedAdapter(dev.adapter, o.path), o.path, {
         provenance: o.provenance,
         ...(o.relay ? { relay: o.relay } : {}),
+        // `firstJoin` decides boot ordering and is passed through; the pull
+        // itself cannot run here (no sockets), so `neverHeld` stands in for
+        // it — boot empty, enrol nothing.
+        ...(o.firstJoin ? { firstJoin: true } : {}),
+        ...(o.neverHeld || o.firstJoin ? { neverHeld: true } : {}),
       })
     },
     attachMount: (path, session) => {
@@ -1759,13 +1766,16 @@ describe('nested mounts — the empty adopt and its paste (N3, spike S10 Q2)', (
     try {
       const desc = dev.descs().find((d) => d.room === TEAM_ROOM)!
       expect(desc.neverHeld).toBe(true)
-      // A session built WITHOUT the neverHeld guard: it enrols the disk.
+      // A session that DID enrol the disk under the mount root — the state
+      // the old discriminator saw and read as "this mount has content". (A
+      // real adopted mount refuses to enrol at all now; `provenance: 'local'`
+      // is how the fixture reproduces the rows without that refusal.)
       dev.mounts.get('team')!.dispose()
       const enrolled = await dev.makeSession(
         TEAM_ROOM,
         scopedAdapter(dev.adapter, 'team'),
         'team',
-        { provenance: 'adopted' }
+        { provenance: 'local' }
       )
       dev.mounts.set('team', enrolled)
       expect(enrolled.files().length).toBeGreaterThan(0)
@@ -1882,3 +1892,476 @@ describe('nested mounts — the empty adopt and its paste (N3, spike S10 Q2)', (
 async function settleTicks(rounds = 4): Promise<void> {
   for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 0))
 }
+
+// ---------------------------------------------------------------------------
+// The review round: what a mount does when its credential, its namespace and
+// its desc disagree (device-link N3 review).
+// ---------------------------------------------------------------------------
+
+describe('nested mounts — an adopted mount never enrols INTO its room', () => {
+  it('refuses the fresh-vault branch when a credential is live', async () => {
+    // The last line of the `bootFlagsFor` defence. A session built for an
+    // adopted room with a live relay, no durable state and neither flag fell
+    // into the fresh-vault branch: `enrollFolder` mints a guid per file on
+    // disk and the connected provider pushes them straight into the room,
+    // LWW-clobbering the owner's entries. Silent, permanent, and only visible
+    // from the other device.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const before = await diskSnapshot(base)
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      const session = await dev.makeSession(
+        TEAM_ROOM,
+        scopedAdapter(dev.adapter, 'team'),
+        'team',
+        { provenance: 'adopted', relay: TEAM_TOKEN } // no firstJoin, no stores
+      )
+      dev.mounts.set('team', session)
+      expect(session.files()).toEqual([])
+      expect(await diskSnapshot(base)).toEqual(before)
+      expect(dev.events.errors.map(String).join(' ')).toContain('not enrolling')
+      // A 'local' mount in the same state still enrols — this is about rooms.
+      const local = await dev.makeSession(
+        'local-room',
+        scopedAdapter(dev.adapter, 'team'),
+        'team',
+        { provenance: 'local' }
+      )
+      expect(local.files().length).toBeGreaterThan(0)
+      local.dispose()
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('keeps + marks instead when there is no credential to push through', async () => {
+    // Spike S10 Q2's promise, kept: a folder waiting for its key still shows
+    // its files. Nothing can reach the room from here, so enrolling them costs
+    // nothing — but the guids are this device's, not the room's, so the desc
+    // says `neverHeld` and the paste PULLS rather than merging them in.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      const session = await dev.makeSession(
+        TEAM_ROOM,
+        scopedAdapter(dev.adapter, 'team'),
+        'team',
+        { provenance: 'adopted' } // provider-less: no relay
+      )
+      dev.mounts.set('team', session)
+      expect(session.files().map((r) => r.path).sort()).toContain('plan.md')
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)?.neverHeld).toBe(true)
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — the re-point and re-key rows carry the desc (C3)', () => {
+  it('a re-point keeps neverHeld, so the winner still pulls rather than enrols', async () => {
+    // The loser's stores are copied verbatim into the winner's room, so
+    // whatever they hold is what the winner holds. Dropping `neverHeld` told
+    // the next boot the mount had content when it had none — and told the next
+    // paste to merge when it had to pull.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false, tokens: new Map() })
+    try {
+      // An empty adopt of room A (seedless ⇒ neverHeld, no token ⇒ waits).
+      applyForeignCarve(dev, 'team', { room: 'room-a', relay: RELAY, seed: false })
+      await reconcileMountEntries(adoptCtx(dev, { relay: null }))
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === 'room-a')?.neverHeld).toBe(true)
+
+      // ...and now the map says the folder lives in room B instead (row 10).
+      const built: AdoptedMountOptions[] = []
+      applyForeignMap(dev, (m) => {
+        m.set('team', { guid: 'room-b', kind: 'mount', relay: RELAY })
+      })
+      await reconcileMountEntries(
+        adoptCtx(dev, { relay: null, onBuild: (o) => void built.push(o) })
+      )
+      await dev.refreshDescs()
+
+      const desc = dev.descs().find((d) => d.room === 'room-b')
+      expect(desc?.neverHeld).toBe(true)
+      expect(desc?.status).toBe('needs-token')
+      expect(built.map((o) => ({ room: o.room, neverHeld: o.neverHeld === true }))).toEqual([
+        { room: 'room-b', neverHeld: true },
+      ])
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('a re-key rebuilds with the flags the desc implies, and settles both ways', async () => {
+    // The mount root moved, and the entry at its new path names a relay this
+    // device does hold a key for. Rebuilding without the derived flags put a
+    // `neverHeld` mount back on the fresh-vault enrol branch; settling only
+    // downward left it running a live provider while the tree still said
+    // "Link needed" — sync state that lies (golden rule 4).
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false, tokens: new Map() })
+    try {
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY, seed: false })
+      await reconcileMountEntries(adoptCtx(dev, { relay: null }))
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)).toMatchObject({
+        status: 'needs-token',
+        neverHeld: true,
+      })
+
+      // The folder is renamed on another device, and a token turns up for it.
+      const built: AdoptedMountOptions[] = []
+      applyForeignMap(dev, (m) => {
+        const at = m.get('team')!
+        m.delete('team')
+        m.set('crew', at)
+      })
+      await reconcileMountEntries(
+        adoptCtx(dev, { relay: TEAM_TOKEN, onBuild: (o) => void built.push(o) })
+      )
+      await dev.refreshDescs()
+
+      expect(built.map((o) => ({ path: o.path, firstJoin: o.firstJoin === true }))).toEqual([
+        { path: 'crew', firstJoin: true },
+      ])
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)).toMatchObject({
+        path: 'crew',
+        status: 'active',
+      })
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — the repair row and the announced seed', () => {
+  it('restates the bytes the map last carried, not this session’s own', async () => {
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', {
+      autoAdopt: false,
+      rootRelay: TEAM_TOKEN,
+      tokens: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+    })
+    try {
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY })
+      const announced = dev.root.mountEntries()[0]!.seed
+      expect(announced).toBeTypeOf('string')
+      await reconcileMountEntries(adoptCtx(dev, { relay: TEAM_TOKEN }))
+
+      // A concurrent rename/delete takes the key away; the repair row restates
+      // it — with the SAME announcement every peer already applied.
+      applyForeignMap(dev, (m) => m.delete('team'))
+      await reconcileMountEntries(adoptCtx(dev, { relay: TEAM_TOKEN }))
+
+      expect(dev.root.mountEntries()[0]?.seed).toBe(announced)
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('never publishes an EMPTY seed from a device that has never held the room', async () => {
+    // On a `neverHeld` device the mount's folder doc is empty. Publishing that
+    // as the room's seed tells every other peer the room is empty — the
+    // owner's real announcement overwritten by a device that has never seen a
+    // byte of it.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', {
+      autoAdopt: false,
+      rootRelay: TEAM_TOKEN,
+      tokens: new Map(),
+    })
+    try {
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY, seed: false })
+      await reconcileMountEntries(adoptCtx(dev, { relay: null }))
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)?.neverHeld).toBe(true)
+      expect(dev.mounts.get('team')!.files()).toEqual([])
+
+      applyForeignMap(dev, (m) => m.delete('team'))
+      await reconcileMountEntries(adoptCtx(dev, { relay: null }))
+
+      const entry = dev.root.mountEntries()[0]
+      expect(entry?.room).toBe(TEAM_ROOM) // the mount is restated...
+      expect(entry?.seed).toBeUndefined() // ...without a seed it cannot vouch for
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('treats a malformed seed as no seed at all, never as a throw', async () => {
+    // The seed rides in a folder map any peer of the room can write, so it is
+    // untrusted input. A throw here lands inside the adopt, which the boot
+    // pass retries on every open: a permanent failure loop over one bad map
+    // entry, with the subtree stranded meanwhile.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      applyForeignMap(dev, (m) => {
+        for (const [p] of m.entries()) if (p === 'team' || p.startsWith('team/')) m.delete(p)
+        m.set('team', { guid: TEAM_ROOM, kind: 'mount', relay: RELAY, seed: 'not base64 at all!!' })
+      })
+      await reconcileMountEntries(adoptCtx(dev, { relay: TEAM_TOKEN }))
+      await dev.refreshDescs()
+
+      const desc = dev.descs().find((d) => d.room === TEAM_ROOM)
+      expect(desc?.neverHeld).toBe(true) // degraded to the pull path
+      expect(desc && isRecoverable(desc.status)).toBe(false)
+      expect(dev.events.errors).toEqual([])
+      await checkInvariants(dev)
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('omits a seed whose BASE64 is over the cap, even when the raw update is not', async () => {
+    // The cap has to be measured on what travels. 64 KB of Yjs is 87 KB of
+    // map — a third over budget on every peer of the room, forever.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      const big = dev.engine.createDoc(`cap-fixture:${crypto.randomUUID()}`)
+      big.transactMap((m) => {
+        for (let i = 0; i < 700; i++) {
+          m.set(`folder-${i}/note-${i}.md`, { guid: crypto.randomUUID(), kind: 'text' })
+        }
+      }, 'seed')
+      const raw = dev.engine.encodeUpdateSince(big, null)
+      big.destroy()
+      // The window the bug lived in: under the cap raw, over it encoded.
+      expect(raw.byteLength).toBeLessThanOrEqual(MAX_SEED_BYTES)
+      expect(Math.ceil(raw.byteLength / 3) * 4).toBeGreaterThan(MAX_SEED_BYTES)
+
+      await dev.root.setMountEntry('team', TEAM_ROOM, RELAY, raw)
+      expect(dev.root.mountEntries()).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — activateMount is one at a time', () => {
+  it('a second paste joins the first instead of wiping the pull it is running', async () => {
+    // The pull branch writes a recoverable status and WIPES the namespace. A
+    // second call arriving mid-pull would re-enter both, then attach a second
+    // session at the same path — and the first caller's attach would overwrite
+    // it, leaving a live session nobody holds a handle to.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save([
+      { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+      {
+        room: TEAM_ROOM,
+        path: 'team',
+        provenance: 'adopted',
+        relay: { url: RELAY },
+        status: 'needs-token',
+        neverHeld: true,
+      },
+    ])
+    const dev = await bootVault(base, dir, 'root-room', { tokens: new Map() })
+    try {
+      const desc = dev.descs().find((d) => d.room === TEAM_ROOM)!
+      let built = 0
+      const activate = (): Promise<MountSession> =>
+        activateMount({
+          vaultDir: dev.vaultDir,
+          mountsFile: dev.mountsFile,
+          desc,
+          session: dev.mounts.get('team')!,
+          relay: TEAM_TOKEN,
+          buildSession: async (o) => {
+            built++
+            await new Promise((r) => setTimeout(r, 5)) // the pull takes a while
+            return dev.makeSession(o.room, scopedAdapter(dev.adapter, o.path), o.path, {
+              provenance: o.provenance,
+              ...(o.relay ? { relay: o.relay } : {}),
+            })
+          },
+          detachMount: (p) => dev.mounts.delete(p),
+          attachMount: (p, next) => dev.mounts.set(p, next),
+        })
+
+      const [first, second] = await Promise.all([activate(), activate()])
+      expect(built).toBe(1)
+      expect(second).toBe(first)
+      expect(dev.mounts.get('team')).toBe(first)
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — the orphan-namespace sweep keeps its receipts', () => {
+  it('drops a dead room’s derived state but never its journal', async () => {
+    // Doc blobs and LCA records of a room nobody names any more are derived
+    // and safe to drop. The journal is not: every Editor-initiated disk write
+    // records its pre-image there first (golden rule 1), and those entries are
+    // the only copy of what a file looked like before we touched it.
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save([
+      { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+    ])
+    await dir.io('dead-room/docs/g.bin').writeAtomic(enc.encode('blob'))
+    await dir.io('dead-room/lca/g.json').writeAtomic(enc.encode('{}'))
+    await dir.io('dead-room/journal/1.900-team%2Fplan.md.bin').writeAtomic(enc.encode('pre-image'))
+
+    await recoverMounts(dir, new MountsFile(dir.io('mounts.json')), createYjsEngine())
+
+    expect(await dir.list('dead-room/')).toEqual(['dead-room/journal/1.900-team%2Fplan.md.bin'])
+    expect(dec.decode((await dir.io('dead-room/journal/1.900-team%2Fplan.md.bin').read())!)).toBe(
+      'pre-image'
+    )
+  })
+})
+
+describe('nested mounts — the absorb never restores an inner announcement', () => {
+  it('drops a child kind:mount entry when folding a dissolved room back', async () => {
+    // A dissolved mount's map can still name an inner one. Putting that back
+    // announces a room that no longer exists — carrying a stale seed every
+    // peer would then adopt from. The live twin (`announceAbsorb`) filters
+    // them; boot recovery has to agree.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+      { room: TEAM_ROOM, path: 'team', provenance: 'carved', status: 'unsharing:absorbing' },
+    ])
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+      sub: { guid: SUB_ROOM, kind: 'mount', relay: RELAY, seed: 'c3RhbGU=' },
+    })
+    await writeFolderBlob(engine, dir, 'root-room', { team: { guid: TEAM_ROOM, kind: 'mount' } })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    const root = await readFolderBlob(engine, dir, 'root-room')
+    expect(root.get('team/plan.md')).toEqual({ guid: 'g-plan', kind: 'text' })
+    expect(root.has('team/sub')).toBe(false)
+  })
+})
+
+describe('nested mounts — the empty adopt settles only after the wipe', () => {
+  it('a mount told to pull pulls, whatever an interrupted adopt left behind', async () => {
+    // An interrupted adopt can roll FORWARD into a settled desc while the
+    // seeded folder blob is still there. `tryDurableReopen` would accept that
+    // map — the room's file list with none of its content — and the awaited
+    // pull would never run. On a mount, an explicit `firstJoin` outranks
+    // durable state for exactly this reason.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    await new MountsFile(dir.io('mounts.json')).save([
+      { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+      {
+        room: TEAM_ROOM,
+        path: 'team',
+        provenance: 'adopted',
+        relay: { url: RELAY },
+        status: 'active',
+        neverHeld: true,
+      },
+    ])
+    // The leftover: a map, and nothing behind it.
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+
+    const dev = await bootVault(base, dir, 'root-room', {
+      tokens: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+    })
+    try {
+      expect(dev.events.builds.filter((b) => b.room === TEAM_ROOM)).toEqual([
+        { room: TEAM_ROOM, path: 'team', firstJoin: true },
+      ])
+      // ...and it did NOT come up holding that map (the fixture stands a pull
+      // in as an empty boot — what matters is that the blob did not win).
+      expect(dev.mounts.get('team')!.files()).toEqual([])
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('writes a RECOVERABLE status over the wipe, never a settled one', async () => {
+    // The wipe drops the namespace the seed step just built. Settling first
+    // and wiping after leaves a crash in between with a desc that says
+    // `active`/`needs-token` over a half-removed namespace and no machine
+    // that owns it. 'joining' rolls back — drop what is left and the desc with
+    // it — and the boot pass re-adopts, which is the retry this wants.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      /** Every status this room's desc passed through, in order. */
+      const seen: string[] = []
+      const mountsFile = hookedMounts(dir, async (json) => {
+        const desc = (JSON.parse(json) as MountDesc[]).find((d) => d.room === TEAM_ROOM)
+        if (desc && seen[seen.length - 1] !== desc.status) seen.push(desc.status)
+      })
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY, seed: false })
+      await reconcileMountEntries({ ...adoptCtx(dev, { relay: null }), mountsFile })
+
+      // ...and the last recoverable one it passed through is the wipe's.
+      expect(seen).toContain('joining')
+      expect(seen.indexOf('joining')).toBeGreaterThan(seen.indexOf('adopting:detaching'))
+      expect(seen[seen.length - 1]).toBe('needs-token')
+      expect(await dev.vaultDir.list(`${TEAM_ROOM}/`)).toEqual([])
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('never leaves a settled desc over a namespace it cannot fill', async () => {
+    // The wipe used to run AFTER the status settled. A crash in between left a
+    // desc saying `active`/`needs-token` over a namespace holding the seeded
+    // folder blob and nothing else — which the next boot's `tryDurableReopen`
+    // wins with, giving the mount a map it has no content for and no pull to
+    // fill it. Every kill point must leave either a recoverable desc or a
+    // settled one with no blob behind it.
+    for (let budget = 0; budget < 40; budget++) {
+      const base = await seedAdapter(FILES)
+      const dir = new MemStoreDir()
+      const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY, seed: false })
+      let crashed = false
+      try {
+        await reconcileMountEntries(
+          adoptCtx({ ...dev, vaultDir: crashingDir(dir, budget) }, { relay: null })
+        )
+      } catch (err) {
+        crashed = true
+        expect(String(err)).toContain('injected-crash')
+      }
+      dev.dispose()
+
+      // Reboot WITH a credential — the case that matters. Whatever the kill
+      // point left in the namespace, a mount whose desc says `neverHeld` must
+      // fetch the room rather than come up holding a half-written map of it.
+      const reboot = await bootVault(base, dir, 'root-room', {
+        tokens: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+      })
+      await reboot.reconcile()
+      const desc = reboot.descs().find((d) => d.room === TEAM_ROOM)
+      if (desc?.neverHeld) {
+        expect(
+          reboot.events.builds.filter((b) => b.room === TEAM_ROOM).map((b) => b.firstJoin)
+        ).toEqual([true])
+        expect(reboot.mounts.get('team')!.files()).toEqual([])
+      }
+      await checkInvariants(reboot)
+      reboot.dispose()
+      if (!crashed) return
+    }
+    throw new Error('crash budget never reached the happy path — raise the sweep bound')
+  }, 60_000)
+})

@@ -40,6 +40,7 @@ export {
   type AbsorbOptions,
 } from './vault-boot.js'
 export {
+  bootFlagsFor,
   mountInvariants,
   mountStoreInvariants,
   reconcileMountEntries,
@@ -50,6 +51,7 @@ export {
   type AdoptNoticeKind,
 } from './adopt.js'
 export { activateMount, type ActivateMountOptions } from './activate.js'
+export { resolveRoomRelay, sameRelay, type TokenKind } from './resolve-relay.js'
 export { carveFolder, type CarveOptions } from './carve.js'
 export { joinMount, type JoinMountOptions } from './join.js'
 export { unmountMount, unshareMount, type UnshareOptions } from './unshare.js'

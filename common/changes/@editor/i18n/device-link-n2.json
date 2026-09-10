@@ -5,5 +5,6 @@
       "comment": "Internal: English text for device linking, the progress panel, and the linked-vault wording. The outcome a person notices belongs to the app that renders it.",
       "type": "none"
     }
-  ]
+  ],
+  "packageName": "@editor/i18n"
 }

@@ -9,7 +9,15 @@
  * libs/workspace's `nested.test.ts` against two devices.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { MemStoreDir, MemVaultAdapter, MountsFile } from '@editor/vault'
+import {
+  docBlobName,
+  FOLDER_DOC_KEY,
+  MemStoreDir,
+  MemVaultAdapter,
+  MountsFile,
+  scopedStoreDir,
+} from '@editor/vault'
+import { createYjsEngine } from '@editor/sync'
 import {
   isAuthRefusalForAdoptedMount,
   resolveRoomRelay,
@@ -51,7 +59,15 @@ afterEach(() => {
 /**
  * A vault holding one mount at `team/` whose desc says `needs-token`: the
  * peer-side adopt's resting state when this device holds no key for the room.
+ *
+ * The mount is SEEDED — it has a folder blob naming the room's own guid for
+ * `plan.md`, which is what an adopt leaves behind when this device held the
+ * subtree before someone shared it. That distinction decides what a later
+ * paste does: a seeded mount merges in place (`enableSharing`), while one that
+ * has never held the room pulls it (`MountDesc.neverHeld`, device-link N3).
  */
+const PLAN_GUID = '11111111-2222-4333-8444-555555555555'
+
 async function bootWithNeedsToken(): Promise<Workspace> {
   const adapter = new MemVaultAdapter()
   await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
@@ -60,6 +76,13 @@ async function bootWithNeedsToken(): Promise<Workspace> {
   await new MountsFile(storeDir.io('mounts.json')).save([
     { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
   ])
+  const engine = createYjsEngine()
+  const seed = engine.createDoc('mounts-test-seed')
+  seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+  await scopedStoreDir(storeDir, `${ROOM}/`)
+    .io(docBlobName(FOLDER_DOC_KEY))
+    .writeAtomic(engine.encodeUpdateSince(seed, null))
+  seed.destroy()
   const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
   open = ws
   return ws
@@ -154,9 +177,15 @@ describe('resolveRoomRelay: which credential reaches which relay (R5)', () => {
       })
     }
     // Same relay, spelled differently — the normaliser, not string equality.
+    // ...and the URL that comes back is the VAULT's own spelling, not the
+    // entry's. They name the same relay, so this was harmless until it wasn't:
+    // the entry is written by any peer of the root room, and returning its
+    // spelling persisted an attacker-chosen near-match into mounts.json and
+    // into every provider URL built from it. The token is the vault's; so is
+    // the address it is sent to.
     expect(
       resolveRoomRelay({ ...base, url: 'ws://Relay.TEST/', provenance: 'adopted', exactToken: '' })
-    ).toEqual({ url: 'ws://Relay.TEST/', token: 'DEVICE-KEY' })
+    ).toEqual({ url: OURS, token: 'DEVICE-KEY' })
   })
 
   it('NEVER sends the device token to another relay — the credential leak (A1)', () => {

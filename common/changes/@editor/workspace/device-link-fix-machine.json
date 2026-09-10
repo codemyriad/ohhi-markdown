@@ -44,6 +44,32 @@
       "packageName": "@editor/workspace",
       "comment": "Internal: the adopt/absorb machine's boot recovery only settles a mount it could actually finish, records where a dissolved inner mount folds to, and takes a subtree's stores with its map keys; the paste-to-activate rule moved out of the web shell into a lifecycle machine (activateMount).",
       "type": "none"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A shared folder your device has the files for but has never fetched from the room no longer republishes those files as its own. It fetches the room's copy instead, so pasting a link can never overwrite what the person who shared it has.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Pasting a link into a shared folder whose key the relay had already refused now actually reconnects with the new key, instead of quietly keeping the refused one while the folder claimed to be shared.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Pasting the same link twice no longer restarts the fetch that is already running.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A shared folder that was renamed on another device now shows the right state straight away when your key still works for it, rather than reading “Link needed” while it syncs.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Internal: bootFlagsFor derives firstJoin/neverHeld together at every site that builds a mount; an adopted mount refuses the fresh-vault enrol while a relay is attached; enableSharing re-keys; the credential rule moved to libs/workspace so the shim and the device-link harness share one copy; boot sweeps drop orphan and stale namespaces while keeping their journals.",
+      "type": "none"
     }
-  ]
+  ],
+  "packageName": "@editor/workspace"
 }

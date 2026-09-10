@@ -127,6 +127,14 @@ export class VaultSession {
   }
 
   private refreshMountRoots(): void {
+    // The MAP term alone, deliberately. `mountRootsFrom` takes descs too, and
+    // a host that has them passes both — but a VaultSession is given one
+    // folder doc and no mount table, and the two terms answer different
+    // questions here. mounts.json says which mounts this DEVICE runs; the map
+    // says which boundaries THIS ROOM declares, which is exactly the set of
+    // paths this session must not touch. A desc for a mount in another room
+    // is none of this session's business, and a mount root the map does not
+    // declare is not a boundary in the map this session is reading.
     this.mountRoots = mountRootsFrom([], this.folderDoc.getMap().entries())
   }
 
@@ -381,12 +389,28 @@ export class VaultSession {
    * tell peers to remove the bytes, and the bytes are the survivor's (the
    * ghost-entry rule's reasoning, S10 Q5). Mount entries are excluded — their
    * guid is a ROOM guid and the same room at two paths is a mount move, which
-   * the adopt machine owns.
+   * the adopt machine owns — and so is everything at or under one, and
+   * everything that is not `text`; see the guards.
    */
   private dedupeGuidKeys(current: Map<string, FileEntry>): void {
+    // The same two guards every other pass over this map carries. Both are
+    // about not acting on someone else's rows:
+    //
+    //  - anything at or under a `kind:'mount'` boundary belongs to a mount
+    //    session on this device, and a key there is a GHOST the adopt
+    //    machine's sweep resolves by guid (rename inside the mount, import,
+    //    replay the delete). Electing a winner here would hard-delete the
+    //    very key that sweep is about to read, and the two rooms would then
+    //    disagree about where the file went.
+    //  - only `text`. A concurrent rename splitting a guid across two keys is
+    //    reconstructed by the passes below from `previous`, and those passes
+    //    move text. Nothing moves a `binary` or a `dir` by guid, so collapsing
+    //    one here deletes a live key that no pass will ever put back.
+    this.refreshMountRoots()
     const byGuid = new Map<string, string[]>()
     for (const [path, entry] of current) {
-      if (entry.deleted || entry.kind === 'mount') continue
+      if (entry.deleted || entry.kind !== 'text') continue
+      if (this.underMount(path)) continue
       const seen = byGuid.get(entry.guid)
       if (seen) seen.push(path)
       else byGuid.set(entry.guid, [path])

@@ -10,5 +10,6 @@
       "comment": "A note that starts syncing after its folder is already connected no longer shows as offline while it is plainly in sync.",
       "type": "patch"
     }
-  ]
+  ],
+  "packageName": "@editor/workspace"
 }

@@ -112,6 +112,7 @@ export async function recoverMounts(
   await dropOrphanNamespaces(vaultDir, mountsFile)
 }
 
+
 /**
  * Drop store namespaces no desc names any more.
  *
@@ -126,21 +127,28 @@ export async function recoverMounts(
  * exists — without one, mounts.json is not yet a statement about what this
  * vault holds (a first boot writes blobs before it writes the desc), and
  * wiping on that basis would throw away the durable CRDT state of a vault
- * whose mount table simply had not been written yet.
+ * whose mount table simply had not been written yet. The orphan's JOURNAL is
+ * kept: pre-images are not derived state (golden rule 1).
  */
 async function dropOrphanNamespaces(vaultDir: StoreDir, mountsFile: MountsFile): Promise<void> {
   const descs = await mountsFile.load()
   const root = descs.find((m) => m.path === '')
   if (!root) return
   const known = new Set(descs.map((m) => m.room))
-  const orphans = new Set<string>()
   for (const name of await vaultDir.list()) {
     const slash = name.indexOf('/')
     if (slash === -1) continue // mounts.json and friends live at the top
-    const room = name.slice(0, slash)
-    if (!known.has(room)) orphans.add(room)
+    if (known.has(name.slice(0, slash))) continue
+    // The JOURNAL is not derived state. Every Editor-initiated disk write
+    // records its pre-image there first (golden rule 1), and those entries are
+    // the only copy of what a file looked like before we touched it — the
+    // undo of last resort, and the thing an operator reaches for when a sync
+    // did something they did not expect. The doc blobs and LCA records of a
+    // room nobody names any more are safe to drop; the receipts for the bytes
+    // that room wrote to THIS disk are not, and they cost a few KB.
+    if (name.slice(slash + 1).startsWith('journal/')) continue
+    await vaultDir.remove(name)
   }
-  for (const room of orphans) await wipeStoreDir(vaultDir, `${room}/`)
 }
 
 export interface AbsorbOptions {
@@ -196,7 +204,16 @@ export async function absorbMount(
       if (!at || at.deleted || at.kind !== 'dir') {
         m.set(desc.path, { guid: crypto.randomUUID(), kind: 'dir' })
       }
-      for (const [p, e] of entries) m.set(`${desc.path}/${p}`, e)
+      for (const [p, e] of entries) {
+        // Never restore a child `kind:'mount'` entry (the live twin,
+        // `announceAbsorb`, filters them for the same reason). A dissolved
+        // mount's map can still name an inner one, and putting that back
+        // announces a room that no longer exists — carrying a stale seed that
+        // every peer would then adopt from. Depth 1 is the rule; the inner
+        // mount's own dissolve is what puts its FILES here.
+        if (e.kind === 'mount') continue
+        m.set(`${desc.path}/${p}`, e)
+      }
     }, 'local')
     await rootDir
       .io(docBlobName(FOLDER_DOC_KEY))
@@ -282,7 +299,7 @@ export async function rollforwardDetach(
             guid: desc.room,
             kind: 'mount',
             ...(desc.relay ? { relay: desc.relay.url } : {}),
-            ...(mountSeed.byteLength <= MAX_SEED_BYTES ? { seed: toBase64(mountSeed) } : {}),
+            ...seedField(mountSeed),
           })
         }
       }, 'local')
@@ -328,13 +345,18 @@ async function repairAbsorbedEntry(
   }
 }
 
-/** base64 of a Yjs update (see `MAX_SEED_BYTES` in mount-session.ts). */
-function toBase64(bytes: Uint8Array): string {
+/**
+ * The `seed` field for a restated mount entry, or nothing when the encoded
+ * form is over the cap — measured on the BASE64, which is what travels
+ * (`MAX_SEED_BYTES` in mount-session.ts).
+ */
+function seedField(bytes: Uint8Array): { seed?: string } {
   let binary = ''
   for (let i = 0; i < bytes.length; i += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   }
-  return btoa(binary)
+  const encoded = btoa(binary)
+  return encoded.length <= MAX_SEED_BYTES ? { seed: encoded } : {}
 }
 
 async function loadFolderBlob(

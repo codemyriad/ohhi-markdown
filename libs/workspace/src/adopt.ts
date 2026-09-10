@@ -71,6 +71,31 @@ export interface AdoptedMountOptions {
   onPullProgress?: (progress: PullProgress) => void
 }
 
+/**
+ * The two boot flags a settled desc implies, derived in ONE place.
+ *
+ * `neverHeld` says this device holds none of the room's content. What follows
+ * from it depends entirely on whether a credential resolved, and the pair must
+ * be derived together or the mount takes a third path that is neither:
+ *
+ *  - with a token → `firstJoin`: PULL the room (awaited, watchdogged).
+ *  - without one → `neverHeld`: boot empty, enrol nothing, wait for a paste.
+ *  - neither flag, `neverHeld` desc, and a token → the namespace is empty, so
+ *    `tryDurableReopen` returns false and boot falls into the FRESH-VAULT
+ *    branch: `enrollFolder` mints new guids for the files on disk and pushes
+ *    them into the live room, LWW-clobbering the owner's entries. That is the
+ *    exact shape of the bug `neverHeld` was introduced to prevent, reached
+ *    through the door that was left open — every boot site derives both flags
+ *    from here so there is no second reading.
+ */
+export function bootFlagsFor(
+  desc: { neverHeld?: boolean },
+  relay: RelayConfig | null
+): { firstJoin?: true; neverHeld?: true } {
+  if (desc.neverHeld !== true) return {}
+  return relay ? { firstJoin: true } : { neverHeld: true }
+}
+
 /** Why the host is being told something happened (it owns the wording). */
 export type AdoptNoticeKind =
   /** A peer's carve was adopted and is connected. */
@@ -360,7 +385,6 @@ async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<voi
   //    where its room lives — files kept on disk, marked, never a lie about
   //    being "offline" (S10 Q2).
   const relay = ctx.relayFor({ room, path, relay: entry.relay, provenance: 'adopted' })
-  await ctx.mountsFile.setStatus(room, relay ? 'active' : 'needs-token')
   // Nothing of the room's content here AND a credential to pull with ⇒ this
   // device holds none of it (a foreign share that arrived as a mount entry, a
   // device linked after the carve, a wiped one, or an announcement over the
@@ -374,14 +398,31 @@ async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<voi
   // returned in 1 ms with 0 rows), and a `needs-token` mount must not carry a
   // map it cannot fill. The detach is durable by now, so there is nothing
   // left for the rollforward to read.
-  if (neverHeld) await wipeStoreDir(ctx.vaultDir, `${room}/`)
+  //
+  // The wipe runs under a RECOVERABLE status, not a settled one. Settling
+  // first and wiping after left a crash in between with a desc that says
+  // `active` over a namespace holding the seeded folder blob and nothing
+  // else — which the next boot's `tryDurableReopen` wins with, giving the
+  // mount a map it has no content for and no pull to fill it. 'joining' rolls
+  // back (drop the namespace and the desc) and the boot pass re-adopts, which
+  // is exactly the retry this wants.
+  if (neverHeld) {
+    await ctx.mountsFile.setStatus(room, 'joining')
+    await wipeStoreDir(ctx.vaultDir, `${room}/`)
+    await ctx.mountsFile.upsertWith(room, (existing) => ({
+      ...existing!,
+      status: relay ? 'active' : 'needs-token',
+      neverHeld: true,
+    }))
+  } else {
+    await ctx.mountsFile.setStatus(room, relay ? 'active' : 'needs-token')
+  }
   const session = await ctx.buildSession({
     room,
     path,
     provenance: 'adopted',
     ...(relay ? { relay } : {}),
-    firstJoin: neverHeld && !!relay,
-    ...(neverHeld && !relay ? { neverHeld: true } : {}),
+    ...bootFlagsFor({ neverHeld }, relay),
   })
   ctx.attachMount(path, session)
   ctx.root().clearMountPreImage(path)
@@ -588,12 +629,18 @@ async function rekeyMount(
     relay: entry.relay ?? desc.relay?.url,
     provenance: desc.provenance,
   })
-  if (!relay) await ctx.mountsFile.setStatus(desc.room, 'needs-token')
+  // Settle the status BOTH ways, as repair and re-point do. Only ever
+  // downgrading meant a mount that regained its credential in the move — the
+  // entry now names this vault's own relay, so the device token reaches it —
+  // ran a live provider while its desc, and therefore the tree, still said
+  // "Link needed". Sync state that lies (golden rule 4).
+  await ctx.mountsFile.setStatus(desc.room, relay ? 'active' : 'needs-token')
   const next = await ctx.buildSession({
     room: desc.room,
     path: entry.path,
     provenance: desc.provenance,
     ...(relay ? { relay } : {}),
+    ...bootFlagsFor(desc, relay),
   })
   ctx.attachMount(entry.path, next)
   ctx.notify?.({ kind: 'mount-moved', path: entry.path, room: desc.room })
@@ -637,12 +684,19 @@ async function repointMount(
     relay: entry.relay,
     provenance: 'adopted',
   })
+  // `neverHeld` travels with the namespace it describes. The loser's stores
+  // are copied verbatim into the winner's room, so whatever they hold — the
+  // room's content, or nothing at all — is what the winner now holds. Dropping
+  // the flag here told the next boot the mount had content when it had a map
+  // and nothing behind it, and told the next paste to merge when it had to
+  // pull.
   await ctx.mountsFile.upsert({
     room: entry.room,
     path: entry.path,
     provenance: 'adopted',
     ...(entry.relay ? { relay: { url: entry.relay } } : {}),
     status: relay ? 'active' : 'needs-token',
+    ...(loser.neverHeld ? { neverHeld: true } : {}),
   })
   await ctx.mountsFile.removeMount(loser.room)
   await wipeStoreDir(ctx.vaultDir, `${loser.room}/`)
@@ -652,19 +706,35 @@ async function repointMount(
     path: entry.path,
     provenance: 'adopted',
     ...(relay ? { relay } : {}),
+    ...bootFlagsFor(loser, relay),
   })
   ctx.attachMount(entry.path, next)
   ctx.notify?.({ kind: 'room-repointed', path: entry.path, room: entry.room })
 }
 
 /**
- * Re-state a mount entry a concurrent rename/delete removed from the map. The
- * seed comes from the LIVE mount: an entry re-stated without one would tell
- * every peer to pull a room they already hold (S10 Q1).
+ * Re-state a mount entry a concurrent rename/delete removed from the map.
+ *
+ * The seed is the delicate half. Re-announcing this session's own folder
+ * state is right only when the session can vouch for it — when it actually
+ * holds the room. On a `neverHeld` device the mount's folder doc is EMPTY,
+ * and publishing that as the room's seed tells every other peer the room is
+ * empty: the owner's real seed is overwritten by a device that has never seen
+ * the content. So, in order:
+ *
+ *  1. the bytes this device last SAW announced for that path — the same value
+ *     every peer already applied, which is what "repair" should mean; then
+ *  2. this session's own state, but only if it holds anything at all;
+ *  3. no seed, which degrades a fresh peer to a pull rather than to a lie.
  */
 async function repairEntry(ctx: AdoptContext, desc: MountDesc): Promise<void> {
-  const seed = ctx.mounts().get(desc.path)?.folderState()
-  await ctx.root().setMountEntry(desc.path, desc.room, desc.relay?.url, seed)
+  const mount = ctx.mounts().get(desc.path)
+  const remembered = ctx.root().rememberedSeed(desc.path)
+  const own =
+    desc.neverHeld !== true && mount && mount.mapEntries().length > 0
+      ? mount.folderState()
+      : undefined
+  await ctx.root().setMountEntry(desc.path, desc.room, desc.relay?.url, remembered ?? own)
 }
 
 // --------------------------------------------------------- the ghost sweep
