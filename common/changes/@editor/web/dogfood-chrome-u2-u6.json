@@ -24,6 +24,11 @@
       "packageName": "@editor/web",
       "comment": "Settings are organised in tabs (General, Appearance, Sync, Vaults & shares, Developer); the relay URL is validated, each form has its own Save, and closing with unsaved changes asks first.",
       "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "Every surface passes an automated accessibility check: menus and tabs are real keyboard widgets, icon buttons carry their label as a tooltip on hover and focus, and faded text was raised to a readable contrast.",
+      "type": "minor"
     }
   ],
   "packageName": "@editor/web"
