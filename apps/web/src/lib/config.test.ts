@@ -17,6 +17,7 @@ import {
   removeVault,
   roomRelay,
   roomToken,
+  roomTokenKind,
   saveUser,
   setDefaultRelay,
   setOperatorSecret,
@@ -226,6 +227,37 @@ describe('device-link grants (device-link-shaping A4-B)', () => {
     expect(roomRelay('known-r')).toBe('ws://local-relay')
     expect(roomToken('new-r')).toBe('bundle-token')
     expect(roomRelay('new-r')).toBe('ws://bundle-relay')
+  })
+
+  it('merged grants are folder tokens; only the vault link itself is a device key', () => {
+    setRoomToken('root-r', 'device-token', 'ws://relay', 'device')
+    mergeGrants([{ room: 'team-r', relay: 'ws://relay', token: 'team-token' }])
+    expect(roomTokenKind('root-r')).toBe('device')
+    expect(roomTokenKind('team-r')).toBe('folder')
+    expect(roomTokenKind('never-seen')).toBe('')
+  })
+
+  it('a token stored before N1 reads as a FOLDER token (the safe default)', () => {
+    seed('editor:config', {
+      version: 2,
+      vaults: [],
+      lastRoom: null,
+      defaultRelay: 'ws://relay',
+      operatorSecret: '',
+      shares: [],
+      tokensByRoom: { 'legacy-r': 'legacy-token' },
+    })
+    expect(roomToken('legacy-r')).toBe('legacy-token')
+    // Never 'device': a folder token that reached the vault would be exactly
+    // the leak R5 forbids, and no pre-N1 build ever minted a device token.
+    expect(roomTokenKind('legacy-r')).toBe('folder')
+  })
+
+  it('a kind survives a reload, and setRoomToken keeps it when not restated', () => {
+    setRoomToken('root-r', 'device-token', 'ws://relay', 'device')
+    setRoomToken('root-r', 'rotated-token') // a re-mint, same credential kind
+    expect(roomToken('root-r')).toBe('rotated-token')
+    expect(roomTokenKind('root-r')).toBe('device')
   })
 
   it('a merged bundle survives a reload and re-bundles unchanged', () => {

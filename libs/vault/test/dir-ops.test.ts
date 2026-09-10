@@ -276,4 +276,47 @@ describe('nested mounts: mount entries are an opaque boundary (L1 fixture, N1)',
     duo.a.session.dispose()
     duo.b.session.dispose()
   })
+
+  it('mount-entry-is-inert: a bare mount entry produces no disk effect at all', async () => {
+    // The narrow pin for session.ts's two passes: kind:'mount' is skipped by
+    // the text pass and by the dir pass, so an entry announcing a nested share
+    // never mkdirs, never removes, never enrolls. (The carve case above adds
+    // the subtree deletion; this one isolates the entry itself.)
+    const duo = await makeDuo({ 'keep.md': 'k' })
+    const beforeB = await disk(duo.b.adapter)
+
+    duo.a.folder.transactMap((m) => {
+      m.set('elsewhere', { guid: 'other-room', kind: 'mount', relay: 'ws://relay.test' })
+    }, 'local')
+    await deliver(duo)
+
+    expect(duo.b.folder.getMap().get('elsewhere')?.kind).toBe('mount')
+    expect(await disk(duo.b.adapter)).toEqual(beforeB)
+
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
+
+  it('hard-delete-under-mount-root-removes-no-bytes (the tombstone asymmetry)', async () => {
+    // The asymmetry the whole ghost-entry rule rests on, measured on the peer
+    // that has NOT yet received the mount entry — the one the policy protects.
+    // A tombstone makes that peer journal the pre-image and delete the file;
+    // a hard delete is invisible to it, because onRemoteMapChange iterates
+    // `current`. That is why keys under a mount root are hard-deleted and
+    // deletes everywhere else stay tombstones.
+    const duo = await makeDuo({ 'team/plan.md': 'plan', 'team/notes/deep.md': 'deep' })
+
+    duo.a.folder.transactMap((m) => {
+      m.delete('team/plan.md') // the ghost rule's write
+      const tomb = m.get('team/notes/deep.md')!
+      m.set('team/notes/deep.md', { ...tomb, deleted: true }) // an ordinary delete
+    }, 'local')
+    await deliver(duo)
+
+    expect(new TextDecoder().decode((await duo.b.adapter.read('team/plan.md'))!)).toBe('plan')
+    expect(await duo.b.adapter.read('team/notes/deep.md')).toBeNull()
+
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
 })

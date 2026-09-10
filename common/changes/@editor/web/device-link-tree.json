@@ -1,0 +1,30 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/web",
+      "comment": "A shared folder that arrives from another of your devices shows up in the file tree like one you shared yourself, and one still being attached or folded back says which it is doing.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "A shared folder this device has no link for is marked \"Link needed\" instead of being reported as offline: its files are all there and editable, nothing pretends to be syncing, and \"Add link…\" — in the tree's menu or beside the note in the sidebar — starts it syncing where it stands, without re-downloading anything.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "Folders of a vault that is shared as a whole can now be shared with other people; the menu no longer refuses them. Sharing a folder inside a shared folder is still refused, and still says why.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "A shared folder's own root can no longer be renamed, moved, dragged or deleted from the file tree — the menu says why instead of letting the share be pulled out from under itself.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "The tree's Shared / Local filter counts a shared folder as shared even while it is waiting for its link.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@editor/web"
+}

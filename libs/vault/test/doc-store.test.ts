@@ -18,12 +18,15 @@ class CountingStoreDir implements StoreDir {
   constructor(private inner: StoreDir) {}
   io(name: string) {
     const io = this.inner.io(name)
+    // Binding names THIS dir: a store that addresses siblings (the per-record
+    // LCA store) must route those writes back through the counter.
     return {
       read: io.read,
       writeAtomic: async (bytes: Uint8Array) => {
         this.writes.set(name, (this.writes.get(name) ?? 0) + 1)
         await io.writeAtomic(bytes)
       },
+      binding: { dir: this, name },
     }
   }
   remove(name: string) {
@@ -47,6 +50,7 @@ class FailingStoreDir implements StoreDir {
         this.writesLeft--
         await io.writeAtomic(bytes)
       },
+      binding: { dir: this, name },
     }
   }
   remove(name: string) {
@@ -223,7 +227,8 @@ describe('Invariant D crash fixture', () => {
   }
 
   it('with the guard, no crash point ever reverts disk (k = writes surviving the edit era)', async () => {
-    // Writes during the edit-era reconcile: [0]=doc blob (guard flush), [1]=lca.json.
+    // Writes during the edit-era reconcile: [0]=doc blob (guard flush),
+    // [1]=the g0 LCA record file (`lca/g0.json`).
     for (const k of [0, 1, 2]) {
       const mem = new MemStoreDir()
       const fail = new FailingStoreDir(mem)

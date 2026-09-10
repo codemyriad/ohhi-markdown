@@ -10,6 +10,7 @@
   import VaultManager from './lib/components/VaultManager.svelte'
   import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
   import { configForMemory, configForSession, newFolderGuid } from './lib/boot.js'
+  import AddLinkDialog from './lib/components/AddLinkDialog.svelte'
   import AddShareDialog from './lib/components/AddShareDialog.svelte'
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte'
   import FolderShareDialog from './lib/components/FolderShareDialog.svelte'
@@ -536,6 +537,33 @@
   // ---- M5: add-share, unshare/unmount, cross-mount move confirms ----
   /** Join-a-share dialog, with the folder it was asked from ('' = vault root). */
   let addShareOpen = $state<{ dir: string } | null>(null)
+  /**
+   * Add-link dialog for a `needs-token` mount (device-link N1): the mount is
+   * already here, only its key is missing.
+   */
+  let addLinkPath = $state<string | null>(null)
+  const addLinkMount = $derived(
+    addLinkPath && workspace
+      ? (workspace.ui.mounts.find((m) => m.path === addLinkPath) ?? null)
+      : null
+  )
+
+  /**
+   * Activate a needs-token mount in place. The failure is reported twice on
+   * purpose: as a notice (so it is in Activity, like every other workspace
+   * error, chrome U5) and rethrown so the dialog keeps the paste and shows the
+   * reason where the user is looking.
+   */
+  async function addMountLink(path: string, link: string): Promise<void> {
+    if (!workspace) return
+    try {
+      await workspace.addMountLink(path, link)
+      refreshLists()
+    } catch (err) {
+      workspace.notify({ level: 'error', text: err instanceof Error ? err.message : String(err), path })
+      throw err
+    }
+  }
   let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
   let unmountConfirm = $state<string | null>(null)
   let moveConfirm = $state<{ from: string; to: string; leavingShared: boolean } | null>(null)
@@ -607,6 +635,10 @@
       addShareOpen = { dir: op.dir }
       return
     }
+    if (op.type === 'add-link') {
+      addLinkPath = op.path
+      return
+    }
     if (op.type === 'unshare') {
       const provenance =
         workspace.ui.mounts.find((m) => m.path === op.path)?.provenance ?? 'carved'
@@ -667,6 +699,7 @@
       treeOp.type === 'move-to' ||
       treeOp.type === 'share-folder' ||
       treeOp.type === 'add-share' ||
+      treeOp.type === 'add-link' ||
       treeOp.type === 'unshare' ||
       treeOp.type === 'unmount'
     )
@@ -889,6 +922,7 @@
               onManage={(mountPath) => (folderSharePath = mountPath)}
               onShareFolder={(dir) => (folderSharePath = dir)}
               onAddShare={(dir) => (addShareOpen = { dir })}
+              onAddLink={(mountPath) => (addLinkPath = mountPath)}
             />
           {:else if id === 'activity' && workspace}
             <ActivitySection
@@ -925,6 +959,15 @@
       initialDest={addShareOpen.dir ? `${addShareOpen.dir}/` : ''}
       onJoin={(link, dest) => workspace!.addShareMount(link, dest)}
       onClose={() => (addShareOpen = null)}
+    />
+  {/if}
+
+  {#if addLinkPath}
+    <AddLinkDialog
+      path={addLinkPath}
+      room={addLinkMount?.room ?? ''}
+      onAdd={(link) => addMountLink(addLinkPath!, link)}
+      onClose={() => (addLinkPath = null)}
     />
   {/if}
 

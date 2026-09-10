@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MemStoreDir, wipeStoreDir } from '../src/store-dir.js'
+import { MemStoreDir, scopedStoreDir, wipeStoreDir } from '../src/store-dir.js'
 import { NodeStoreDir } from '../src/node-adapter.js'
 import type { StoreDir } from '../src/store-dir.js'
 
@@ -46,6 +46,19 @@ function storeDirContract(name: string, make: () => Promise<{ dir: StoreDir; cle
       expect(await made.dir.list('room-a/docs/')).toEqual(['room-a/docs/g1.bin'])
     })
 
+    it('io() names the dir and the name it came from (StoreIo.binding)', async () => {
+      const made = await make()
+      cleanup = made.cleanup
+      // Stores that address SIBLING files (the per-record LCA store) recover
+      // their namespace from this — a dir whose io() drops it silently sends
+      // them back to the whole-file layout.
+      const io = made.dir.io('room-a/lca.json')
+      expect(io.binding?.name).toBe('room-a/lca.json')
+      expect(io.binding?.dir).toBe(made.dir)
+      await io.binding!.dir.io('room-a/lca/g1.json').writeAtomic(enc('rec'))
+      expect(await made.dir.list('room-a/')).toEqual(['room-a/lca/g1.json'])
+    })
+
     it('remove drops the file; removing a missing name is a no-op', async () => {
       const made = await make()
       cleanup = made.cleanup
@@ -82,6 +95,20 @@ storeDirContract('NodeStoreDir', async () => {
     dir: new NodeStoreDir(root),
     cleanup: () => rm(root, { recursive: true, force: true }),
   }
+})
+
+describe('scopedStoreDir', () => {
+  it('binds io to the VIEW, so sibling writes stay prefix-relative and route through base', async () => {
+    const base = new MemStoreDir()
+    const scoped = scopedStoreDir(base, 'room-a/')
+    const io = scoped.io('lca.json')
+    expect(io.binding?.dir).toBe(scoped)
+    expect(io.binding?.name).toBe('lca.json')
+
+    await io.binding!.dir.io('lca/g1.json').writeAtomic(enc('rec'))
+    expect(await scoped.list('lca/')).toEqual(['lca/g1.json'])
+    expect(await base.list()).toEqual(['room-a/lca/g1.json']) // written through base
+  })
 })
 
 describe('NodeStoreDir specifics', () => {

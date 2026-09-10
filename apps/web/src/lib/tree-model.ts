@@ -10,7 +10,7 @@
  * the locale.
  */
 import { getLL } from '@editor/i18n'
-import type { FileRow } from './workspace.svelte.js'
+import type { FileRow, MountUiStatus } from './workspace.svelte.js'
 
 export interface TreeNode {
   /** Basename shown in the tree. */
@@ -99,26 +99,42 @@ export type TreeOp =
   | { type: 'unmount'; path: string }
   /** Join someone's share as a new folder INSIDE `dir` ('' = vault root). */
   | { type: 'add-share'; dir: string }
+  /**
+   * Paste the link for a mount this device holds no token for (N1,
+   * `status:'needs-token'`) — activates it in place, no re-seed.
+   */
+  | { type: 'add-link'; path: string }
 
 // ---- provenance filter (R3.2, M4) ----
 
 export type TreeFilter = 'all' | 'local' | 'shared'
 
 /**
- * Filter rows by share provenance. `sharedRoots` are the mount roots; a
- * shared root vault makes everything shared. Ancestor dirs of surviving rows
- * re-derive inside buildTree, so filtering never breaks the tree shape.
+ * Filter rows by share provenance.
+ *
+ * Classification is by `ui.mounts` — the mount roots and their status — and
+ * never by whether a mount session is relay-attached (`isShared()`): a
+ * `needs-token` mount has no relay, no link and no providers, and its files
+ * are SHARED all the same (spike S10 Q2). A shared root vault makes
+ * everything shared. Ancestor dirs of surviving rows re-derive inside
+ * buildTree, so filtering never breaks the tree shape.
  */
 export function filterRows(
   rows: { path: string; kind: string }[],
   filter: TreeFilter,
-  sharedRoots: string[],
+  mounts: MountLike[],
   rootShared: boolean
 ): typeof rows {
   if (filter === 'all') return rows
+  const roots = mountRoots(mounts)
   const isShared = (path: string): boolean =>
-    rootShared || sharedRoots.some((root) => path === root || path.startsWith(`${root}/`))
+    rootShared || roots.some((root) => path === root || path.startsWith(`${root}/`))
   return rows.filter((r) => (filter === 'shared' ? isShared(r.path) : !isShared(r.path)))
+}
+
+/** Every shared subtree's root path, whatever state the mount is in. */
+export function mountRoots(mounts: MountLike[]): string[] {
+  return mounts.filter((m) => m.path !== '' && m.provenance !== 'local').map((m) => m.path)
 }
 
 /** The directory a tree operation should target for a given selection. */
@@ -131,10 +147,15 @@ export function containingDir(path: string | null, kind?: 'dir' | 'text' | 'bina
 
 // ---- context menu (2026-09-07) ----
 
-/** The mount facts the menu needs; `MountInfo` satisfies it structurally. */
+/** The mount facts the menu and the filter need; `MountInfo` satisfies it structurally. */
 export interface MountLike {
   path: string
   provenance: 'local' | 'carved' | 'joined' | 'adopted'
+  /**
+   * Absent ⇒ 'active'. 'needs-token' is a mount this device holds no key for;
+   * 'adopting' / 'absorbing' are the peer-side machines mid-run (N1).
+   */
+  status?: MountUiStatus
 }
 
 /** What was right-clicked: a row, or the tree's empty space (= vault root). */
@@ -155,6 +176,7 @@ export type TreeMenuAction =
   | 'unshare'
   | 'unmount'
   | 'add-share'
+  | 'add-link'
 
 export interface TreeMenuItem {
   action: TreeMenuAction
@@ -172,16 +194,15 @@ export interface TreeMenuItem {
 }
 
 /**
- * Why folder sharing is refused inside a whole-vault share. The V1 no-nested-
- * shares guard (spike S8, "The mount model") — stated in the menu rather than
- * enforced by an absent button.
+ * Sharing a folder of a shared vault is no longer refused: with depth-1
+ * nesting (device-link-shaping A5) the root mount is the one mount that may
+ * contain mounts, so the V1 "this vault is already shared as a whole" reason
+ * is gone along with the guard. Folder-in-folder nesting is still refused,
+ * and still says so.
  */
-export const shareBlockedRootShared = (): string => getLL().web.tree.reason.share_root_shared()
-
 function shareItem(path: string, ctx: { mounts: MountLike[]; rootShared: boolean }): TreeMenuItem {
   const t = getLL().web.tree
   const item: TreeMenuItem = { action: 'share', label: t.menu.share() }
-  if (ctx.rootShared) return { ...item, disabled: true, reason: shareBlockedRootShared() }
   const inside = ctx.mounts.find((m) => m.path !== '' && path.startsWith(`${m.path}/`))
   if (inside) {
     return { ...item, disabled: true, reason: t.reason.share_inside({ path: inside.path }) }
@@ -193,18 +214,16 @@ function shareItem(path: string, ctx: { mounts: MountLike[]; rootShared: boolean
   return item
 }
 
-export const addShareBlockedRootShared = (): string =>
-  getLL().web.tree.reason.add_share_root_shared()
-
 /**
  * "Add a shared folder here…" (chrome-shaping U3): joining lands a NEW mount
- * inside `dir`, so the same no-nesting rule as sharing applies — stated, not
- * hidden.
+ * inside `dir`, so the same folder-in-folder no-nesting rule as sharing
+ * applies — stated, not hidden. A shared (device-linked) root is fine:
+ * depth-1 nesting (device-link-shaping A5) lets the root hold mounts, and
+ * `joinMount` announces the new mount to the root's peers.
  */
-function addShareItem(dir: string, ctx: { mounts: MountLike[]; rootShared: boolean }): TreeMenuItem {
+function addShareItem(dir: string, ctx: { mounts: MountLike[] }): TreeMenuItem {
   const t = getLL().web.tree
   const item: TreeMenuItem = { action: 'add-share', label: t.menu.add_share() }
-  if (ctx.rootShared) return { ...item, disabled: true, reason: addShareBlockedRootShared() }
   const inside = ctx.mounts.find((m) => m.path !== '' && (dir === m.path || dir.startsWith(`${m.path}/`)))
   if (inside) {
     return { ...item, disabled: true, reason: t.reason.add_share_inside({ path: inside.path }) }
@@ -235,22 +254,69 @@ export function treeMenuItems(
       { action: 'delete', label: t.delete(), danger: true, separatorBefore: true },
     ]
   }
-  const mount = ctx.mounts.find((m) => m.path === target.path) ?? null
+  const mnt = getLL().web.mounts
+  const mount = ctx.mounts.find((m) => m.path === target.path && m.provenance !== 'local') ?? null
+  const status: MountUiStatus = mount?.status ?? 'active'
+  const busy = status === 'adopting' || status === 'absorbing'
+  /**
+   * A mount root is a folder owned by ANOTHER mount session: renaming, moving
+   * or deleting it from the tree would pull the share out from under itself —
+   * and inside a shared parent it would tell every peer something untrue
+   * (spike S10 Q5, the rename races). Refused where the user asks, with the
+   * reason, never by an absent item.
+   */
+  const rootRule = (reason: string): Pick<TreeMenuItem, 'disabled' | 'reason'> =>
+    mount ? { disabled: true, reason } : {}
   const items: TreeMenuItem[] = [
     { action: 'new-file', label: t.new_file() },
     { action: 'new-folder', label: t.new_folder() },
-    { action: 'rename', label: t.rename(), separatorBefore: true },
-    { action: 'move', label: t.move() },
+    {
+      action: 'rename',
+      label: t.rename(),
+      separatorBefore: true,
+      ...rootRule(mnt.reason.mount_root_rename({ path: target.path })),
+    },
+    { action: 'move', label: t.move(), ...rootRule(mnt.reason.mount_root_move({ path: target.path })) },
   ]
-  if (mount) {
+  if (mount && status === 'needs-token') {
+    // Keep + mark (shaping decision 4): the files are here and usable, the
+    // share is real, only the key is missing — so the only sharing action is
+    // the one that supplies it, and the rest say why they are inert.
+    items.push({ action: 'add-link', label: mnt.add_link(), separatorBefore: true })
+    items.push({
+      action: 'manage',
+      label: t.manage_tokens(),
+      disabled: true,
+      reason: mnt.reason.link_needed(),
+    })
+    items.push({ action: 'unmount', label: t.unmount() })
+  } else if (mount && busy) {
+    items.push({
+      action: 'manage',
+      label: t.manage_tokens(),
+      disabled: true,
+      reason: status === 'absorbing' ? mnt.reason.folding_back() : mnt.reason.attaching(),
+      separatorBefore: true,
+    })
+  } else if (mount) {
     items.push({ action: 'manage', label: t.manage_tokens(), separatorBefore: true })
     items.push({ action: 'unshare', label: t.unshare() })
-    if (mount.provenance === 'joined') items.push({ action: 'unmount', label: t.unmount() })
+    // 'adopted' is someone else's carve arriving through the parent room — it
+    // drops the same way a joined mount does.
+    if (mount.provenance === 'joined' || mount.provenance === 'adopted') {
+      items.push({ action: 'unmount', label: t.unmount() })
+    }
   } else {
     items.push({ ...shareItem(target.path, ctx), separatorBefore: true })
   }
   items.push(addShareItem(target.path, ctx))
-  items.push({ action: 'delete', label: t.delete(), danger: true, separatorBefore: true })
+  items.push({
+    action: 'delete',
+    label: t.delete(),
+    danger: true,
+    separatorBefore: true,
+    ...rootRule(mnt.reason.mount_root_delete({ path: target.path })),
+  })
   return items
 }
 
@@ -269,10 +335,19 @@ export type DropPlan = { ok: true; to: string } | { ok: false; reason: string }
 export function planDrop(
   from: string,
   toDir: string,
-  existing: Iterable<string> = []
+  existing: Iterable<string> = [],
+  mountRootPaths: Iterable<string> = []
 ): DropPlan {
   const t = getLL().web.tree.drop
   if (!from) return { ok: false, reason: t.nothing() }
+  // A mount root belongs to its own mount session (N1): dragging it would move
+  // the share out from under itself, so the drag refuses for the same reason
+  // the menu disables Move… — stated on the row the pointer is over.
+  for (const root of mountRootPaths) {
+    if (root !== '' && root === from) {
+      return { ok: false, reason: getLL().web.mounts.reason.mount_root_move({ path: from }) }
+    }
+  }
   const cut = from.lastIndexOf('/')
   const name = from.slice(cut + 1)
   const parent = cut === -1 ? '' : from.slice(0, cut)

@@ -223,11 +223,14 @@ test('the tree context menu renames, and drag-and-drop rearranges', async ({ pag
   await expect(page.getByTestId('file-item:notes/thoughts.md')).toBeVisible()
 
   // The memory contract attaches the relay to the ROOT mount, so this vault is
-  // shared as a whole — folder sharing is refused, and the menu SAYS SO rather
-  // than hiding the item (the hidden rule is what this menu replaced).
+  // shared as a whole — which since depth-1 nesting (device-link N1, shaping
+  // A5) no longer blocks folder shares: the root mount is the one mount that
+  // may contain mounts, so Share… is offered, not refused. Folder-in-folder
+  // nesting is still refused, and the menu still SAYS SO rather than hiding
+  // the item (the hidden rule is what this menu replaced).
   await page.getByTestId('dir-item:notes').click({ button: 'right' })
-  await expect(page.getByTestId('tree-menu:share')).toHaveAttribute('aria-disabled', 'true')
-  await expect(page.getByTestId('tree-menu-reason:share')).toContainText('already shared as a whole')
+  await expect(page.getByTestId('tree-menu:share')).not.toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByTestId('tree-menu-reason:share')).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('tree-context-menu')).toHaveCount(0)
 })

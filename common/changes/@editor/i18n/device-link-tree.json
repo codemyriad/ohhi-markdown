@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/i18n",
+      "comment": "New English text for shared folders that came from another device: link needed, add link, attaching, folding back, why a shared folder's root cannot be renamed or deleted, and the warning that a device link is a full-access key to the vault.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/i18n"
+}

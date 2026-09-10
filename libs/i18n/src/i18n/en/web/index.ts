@@ -115,10 +115,10 @@ const tree = {
     add_share: 'Add a shared folder here…',
   },
   reason: {
-    share_root_shared: 'This vault is already shared as a whole — folder shares need an unshared vault.',
+    // No `share_root_shared`: a shared vault no longer blocks folder shares —
+    // a mount may live inside the root mount (device-link-shaping A5, depth 1).
     share_inside: "Already inside the shared folder '{path:string}' — shared folders cannot nest.",
     share_contains: "Contains the shared folder '{path:string}' — shared folders cannot nest.",
-    add_share_root_shared: 'This vault is already shared as a whole — a joined folder needs an unshared vault.',
     add_share_inside: "Inside the shared folder '{path:string}' — shared folders cannot nest.",
   },
   drop: {
@@ -381,6 +381,64 @@ const share = {
   },
 }
 
+/**
+ * Nested shares (device-link N1): what a mount root says when it did NOT come
+ * from this device — adopted from a peer's carve, mid-machine, or holding no
+ * link yet. A `needs-token` mount is a fully functional LOCAL folder that
+ * happens to know where its room lives, so the copy never says "offline"
+ * (spike S10 Q2): not connected because this device has no key is a different
+ * fact from not connected, and the pill would be lying either way.
+ */
+const mounts = {
+  link_needed: 'Link needed',
+  link_needed_title:
+    'Shared folder — this device holds no link for it, so nothing here syncs. The files stay on disk; add the link to start syncing.',
+  link_needed_sr: 'Shared folder, link needed',
+  attaching: 'Attaching…',
+  attaching_title: 'Attaching this shared folder — its files are moving into their own synced space.',
+  folding_back: 'Folding back…',
+  folding_back_title: 'Folding this shared folder back into the vault — its files become local notes.',
+  add_link: 'Add link…',
+  rail_link_needed: 'Shared folder — link needed',
+  reason: {
+    link_needed: 'This device holds no link for this shared folder yet — add the link first.',
+    attaching: 'This shared folder is still being attached.',
+    folding_back: 'This shared folder is being folded back into the vault.',
+    mount_root_rename:
+      "'{path:string}' is the root of a shared folder — rename it where it was shared, not here.",
+    mount_root_move:
+      "'{path:string}' is the root of a shared folder — moving it would move it out of the share.",
+    mount_root_delete:
+      "'{path:string}' is the root of a shared folder — stop sharing it first, then delete the folder.",
+    depth_limit:
+      "'{path:string}' is inside a shared folder — shared folders cannot nest, so it was folded into the outer one.",
+    mount_moved: "'{path:string}' was moved on another device.",
+    room_repointed:
+      "'{path:string}' was shared from two devices at once — this device followed the one everyone else sees.",
+  },
+  dialog: {
+    title: 'Add the link for {path:string}',
+    description:
+      'This folder is shared, but this device holds no link for it. Paste the link and it starts syncing where it stands — nothing is re-downloaded and no file on disk changes.',
+    link: 'Share link',
+    link_placeholder: 'editor1:…',
+    link_invalid: 'That doesn’t look like a share link — they start with "editor1:".',
+    wrong_room: 'That link is for a different shared folder — paste the link for {path:string}.',
+    adding: 'Adding…',
+    add: 'Add link',
+  },
+}
+
+/**
+ * Device linking (device-link-shaping R5): the vault's own link is a
+ * full-access credential for ONE person's devices, and the product says so at
+ * the point of copying — folder links never grant the vault.
+ */
+const device_link = {
+  full_access_warning:
+    'A device link is a full-access key to this vault. Never give it to anyone else.',
+}
+
 const tokens = {
   title: 'Tokens',
   loading: 'loading…',
@@ -480,6 +538,8 @@ const web = {
   vault_switcher,
   settings,
   share,
+  mounts,
+  device_link,
   tokens,
   breaker,
   review,

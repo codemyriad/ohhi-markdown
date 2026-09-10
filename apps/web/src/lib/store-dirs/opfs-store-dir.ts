@@ -68,6 +68,7 @@ export class OpfsStoreDir implements StoreDir {
         await writable.write(bytes as Uint8Array<ArrayBuffer>)
         await writable.close()
       },
+      binding: { dir: this, name },
     }
   }
 

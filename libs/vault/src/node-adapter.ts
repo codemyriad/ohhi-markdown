@@ -171,6 +171,7 @@ export class NodeStoreDir implements StoreDir {
         }
         await fsRename(tmp, full)
       },
+      binding: { dir: this, name },
     }
   }
 

@@ -8,7 +8,7 @@
    */
   import { LL } from '@editor/i18n/i18n-svelte'
   import { listShares, type RelayShare } from '../relay-admin.js'
-  import { onlineIn, relayHost, shareStateFor, type MountLike } from '../share-status.js'
+  import { mountTone, onlineIn, relayHost, shareStateFor, type MountLike } from '../share-status.js'
   import { decodeShareLink } from '../share-link.js'
 
   interface Props {
@@ -30,6 +30,8 @@
     onManage: (mountPath: string) => void
     onShareFolder: (dir: string) => void
     onAddShare: (dir: string) => void
+    /** Paste the link for a `needs-token` mount (device-link N1). */
+    onAddLink: (mountPath: string) => void
   }
 
   let {
@@ -46,9 +48,11 @@
     onManage,
     onShareFolder,
     onAddShare,
+    onAddLink,
   }: Props = $props()
 
   const t = $derived($LL.web.note)
+  const mnt = $derived($LL.web.mounts)
   const dir = $derived(path && path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
   const share = $derived(shareStateFor(path ?? '', mounts, rootShared, rootRoom))
   const host = $derived.by(() => {
@@ -68,27 +72,43 @@
     share.kind === 'local' && dir !== '' && !rootShared
   )
   const sharedMountCount = $derived(mounts.filter((m) => m.provenance !== 'local').length)
-  /** "Shared by you · relay.example.com" — the state, with the host when known. */
+  /** Only a mount with a relay has presence, access or anything to be in sync with. */
+  const connected = $derived(share.kind === 'shared' && share.status === 'active')
+  /**
+   * "Shared by you · relay.example.com" — the state, with the host when known.
+   *
+   * A `needs-token` mount reads "Shared folder — link needed" and NEVER
+   * "offline": it is not disconnected, it is unkeyed, and the files are all
+   * here (spike S10 Q2). The transient adopt/absorb states say what they are
+   * doing. An `adopted` mount is a share of this vault that arrived from
+   * another of your devices, so it reads like a carve.
+   */
   const shareLine = $derived.by(() => {
     if (share.kind === 'local') return t.local_device()
+    if (share.status === 'needs-token') return mnt.rail_link_needed()
+    if (share.status === 'adopting') return mnt.attaching()
+    if (share.status === 'absorbing') return mnt.folding_back()
     const state =
-      share.provenance === 'carved'
-        ? t.shared_by_you()
-        : share.provenance === 'joined'
-          ? t.shared_with_you()
-          : t.shared_whole()
+      share.provenance === 'root'
+        ? t.shared_whole()
+        : mountTone(share.provenance) === 'yours'
+          ? t.shared_by_you()
+          : t.shared_with_you()
     return host ? t.with_host({ state, host }) : state
   })
 
   // ---- access list (carved mounts only: our relay, our secret) ----
   let tokens = $state<RelayShare[] | null>(null)
   let tokensError = $state('')
-  const canListAccess = $derived(share.kind === 'shared' && share.provenance === 'carved' && secret !== '')
+  /** Ours to manage: a carve, or a carve of ours adopted from another device. */
+  const ownShare = $derived(
+    share.kind === 'shared' && share.status === 'active' && mountTone(share.provenance) === 'yours' && share.provenance !== 'root'
+  )
 
   $effect(() => {
     void revision
     const s = share
-    if (!(s.kind === 'shared' && s.provenance === 'carved') || !secret) {
+    if (!ownShare || s.kind !== 'shared' || !secret) {
       tokens = null
       tokensError = ''
       return
@@ -133,14 +153,14 @@
       <dd class="truncate font-ed-mono">{dir || t.vault_root()}</dd>
       <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
       <dd data-testid="share-state">{shareLine}</dd>
-      {#if share.kind === 'shared'}
+      {#if share.kind === 'shared' && connected}
         <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.online_here()}</dt>
         <dd data-testid="presence">
           {#if online.length === 0}{t.only_you()}{:else}{online.join(', ')}{/if}
         </dd>
         <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.access()}</dt>
         <dd data-testid="share-access">
-          {#if share.provenance === 'joined'}
+          {#if !ownShare && share.provenance !== 'root'}
             {t.access_joined()}
           {:else if share.provenance === 'root'}
             {t.access_root()}
@@ -172,14 +192,24 @@
     </dl>
 
     <div class="flex flex-wrap gap-1.5">
-      {#if share.kind === 'shared' && share.provenance !== 'root'}
+      {#if share.kind === 'shared' && share.status === 'needs-token'}
+        <button
+          type="button"
+          data-testid="note-add-link"
+          onclick={() => onAddLink(share.mountPath)}
+          class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {mnt.add_link()}
+        </button>
+      {/if}
+      {#if connected && share.kind === 'shared' && share.provenance !== 'root'}
         <button
           type="button"
           data-testid="note-manage-sharing"
           onclick={() => onManage(share.mountPath)}
           class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
         >
-          {share.provenance === 'carved' ? t.manage_sharing() : t.details()}
+          {ownShare ? t.manage_sharing() : t.details()}
         </button>
       {/if}
       {#if canShareHere}

@@ -27,10 +27,23 @@ export async function recoverMounts(
     if (action === 'rollback') {
       // Spike Q1/Q4 rollback: the half-made mount's stores are derived state —
       // drop them and the entry; the parent map was never touched.
+      //
+      // 'adopting:seeding' (N1) rolls back the same way, and means something
+      // narrower than "undo": the carve is NOT this device's to undo — the
+      // mount entry is a foreign-origin fact in a room we are a peer of. So
+      // the derived half goes and the boot pass, seeing "mount entry at P, no
+      // desc", adopts again from step 2. That boot-time trigger is required,
+      // not an optimisation (spike S10 Q1).
       for (const name of await vaultDir.list(`${desc.room}/`)) await vaultDir.remove(name)
       await mountsFile.removeMount(desc.room)
-    } else if (desc.status === 'carving:detaching') {
-      await rollforwardCarveDetach(vaultDir, engine, root, desc)
+    } else if (desc.status === 'carving:detaching' || desc.status === 'adopting:detaching') {
+      // The mount namespace is complete by this point in BOTH machines — the
+      // detaching status is only ever written after seeding finished — so the
+      // surgery is identical: scrub the parent namespace using the seeded
+      // mount folder blob as the membership authority. A mount with no token
+      // is settled back to 'needs-token' by the host, which is the only side
+      // that knows whether a credential exists.
+      await rollforwardDetach(vaultDir, engine, root, desc)
       await mountsFile.setStatus(desc.room, 'active')
     } else {
       // unsharing:* rollforward (spike S8 Q6): 'absorbing' re-runs the absorb
@@ -39,14 +52,32 @@ export async function recoverMounts(
       // entry. An unmount writes 'unsharing:disconnecting' directly (no
       // absorb — its files stay on disk and re-enroll as local via the root's
       // delta scan).
-      if (desc.status === 'unsharing:absorbing') {
+      if (desc.status === 'unsharing:absorbing' || desc.status === 'absorbing') {
         if (!root) continue // can't absorb without a root desc; retry next boot
-        await absorbMount(vaultDir, engine, root.room, desc)
+        // 'absorbing' is the PEER's row (N1): the same idempotent store copy,
+        // with the map left alone — on a peer the map is the owner's, and
+        // re-setting entries a blob-loaded temp doc holds could resurrect a
+        // key the live map has since moved (spike S10 Q1(b)).
+        await absorbMount(vaultDir, engine, root.room, desc, {
+          writeMap: desc.status === 'unsharing:absorbing',
+        })
       }
       for (const name of await vaultDir.list(`${desc.room}/`)) await vaultDir.remove(name)
       await mountsFile.removeMount(desc.room)
     }
   }
+}
+
+export interface AbsorbOptions {
+  /**
+   * Write the parent folder blob's entries (default true). FALSE on a peer
+   * whose owner already announced the absorb on the live map, and false in
+   * the peer-side machine generally: every re-`set` is a fresh local op its
+   * folder provider ships back to the room, and the transaction runs against
+   * a blob-loaded temp doc, so a peer whose live map has since moved on would
+   * resurrect the stale key at its next reopen (spike S10 Q1(b)).
+   */
+  writeMap?: boolean
 }
 
 /**
@@ -63,7 +94,8 @@ export async function absorbMount(
   vaultDir: StoreDir,
   engine: SyncEngine,
   rootRoom: string,
-  desc: Pick<MountDesc, 'room' | 'path'>
+  desc: Pick<MountDesc, 'room' | 'path'>,
+  opts: AbsorbOptions = {}
 ): Promise<void> {
   const mountDir = scopedStoreDir(vaultDir, `${desc.room}/`)
   const rootDir = scopedStoreDir(vaultDir, `${rootRoom}/`)
@@ -75,18 +107,29 @@ export async function absorbMount(
     .entries()
     .filter(([, e]) => !e.deleted)
 
-  const rootFolder = await loadFolderBlob(engine, rootDir, `absorb-root:${desc.room}`)
-  if (!rootFolder) {
+  const rootFolder = (opts.writeMap ?? true)
+    ? await loadFolderBlob(engine, rootDir, `absorb-root:${desc.room}`)
+    : null
+  if (rootFolder) {
+    rootFolder.transactMap((m) => {
+      // REPLACE a `kind:'mount'` entry at the mount root with a dir entry.
+      // The old guard skipped any existing key, so the owner's unshare left a
+      // mount entry pointing at a room it had just dissolved — every peer
+      // would keep adopting a mount that no longer exists (spike S10 Q1's
+      // "one bug fixed"). An existing dir entry keeps its guid.
+      const at = m.get(desc.path)
+      if (!at || at.deleted || at.kind !== 'dir') {
+        m.set(desc.path, { guid: crypto.randomUUID(), kind: 'dir' })
+      }
+      for (const [p, e] of entries) m.set(`${desc.path}/${p}`, e)
+    }, 'local')
+    await rootDir
+      .io(docBlobName(FOLDER_DOC_KEY))
+      .writeAtomic(engine.encodeUpdateSince(rootFolder, null))
+  } else if (opts.writeMap ?? true) {
     mountFolder.destroy()
     return // no root blob (fresh-vault edge): the delta scan re-enrolls from disk
   }
-  rootFolder.transactMap((m) => {
-    if (!m.get(desc.path)) m.set(desc.path, { guid: crypto.randomUUID(), kind: 'dir' })
-    for (const [p, e] of entries) m.set(`${desc.path}/${p}`, e)
-  }, 'local')
-  await rootDir
-    .io(docBlobName(FOLDER_DOC_KEY))
-    .writeAtomic(engine.encodeUpdateSince(rootFolder, null))
 
   const rootLcas = new JsonFileLcaStore(rootDir.io('lca.json'))
   const mountLcas = new JsonFileLcaStore(mountDir.io('lca.json'))
@@ -99,16 +142,17 @@ export async function absorbMount(
   }
 
   mountFolder.destroy()
-  rootFolder.destroy()
+  rootFolder?.destroy()
 }
 
 /**
- * Re-run carve step 5 against the durable stores: the crashed session's map
+ * Re-run the detach (carve step 5, or the peer's adopt step 5) against the
+ * durable stores: the crashed session's map
  * transaction may or may not have been flushed, so delete the subtree from
  * the ROOT namespace (folder blob keys, LCA records, doc blobs) using the
  * fully-seeded mount namespace as the membership authority. Idempotent.
  */
-async function rollforwardCarveDetach(
+export async function rollforwardDetach(
   vaultDir: StoreDir,
   engine: SyncEngine,
   root: MountDesc | null,

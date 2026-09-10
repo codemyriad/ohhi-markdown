@@ -12,6 +12,16 @@
  * carveFolder() runs the spike S8 Q1 state machine: mint (caller-supplied
  * secret via config), statuses in mounts.json, seed → detach → activate, then
  * mounts the new session live. Tokens live in config only (never in descs).
+ *
+ * Nested mounts, depth 1 (N1, device-link-shaping A2/A3/A5): the root mount
+ * may be relay-attached, so a carve or a join inside it ANNOUNCES itself as a
+ * `kind:'mount'` entry in the root map, and this shim runs the peer side of
+ * that announcement — `reconcileMountEntries` from libs/workspace, wired to
+ * the root's live mount-entry hook and to a boot pass. Two derived things
+ * follow: the ignore set is `mounts.json ∪ the root map's mount entries`
+ * (recomputed, never accumulated), and `ui.mounts` is a projection of
+ * mounts.json, so a mount being adopted, waiting for a key, or folded back
+ * says so rather than appearing and disappearing.
  */
 import { getLL } from '@editor/i18n'
 import type { DivergenceReview, StoreDir, VaultAdapter } from '@editor/vault'
@@ -19,12 +29,16 @@ import {
   BlobDocStore,
   FileJournal,
   ignoringAdapter,
+  isRecoverable,
   JsonFileLcaStore,
   lcaGuard,
   MountsFile,
+  mountRootsFrom,
   scopedAdapter,
   scopedStoreDir,
+  type MountDesc,
   type MountProvenance,
+  type MountStatus,
 } from '@editor/vault'
 import { createYjsEngine, type EngineDoc } from '@editor/sync'
 import type { Awareness } from 'y-protocols/awareness'
@@ -35,15 +49,27 @@ import {
   joinMount,
   MountRegistry,
   MountSession,
+  reconcileMountEntries,
   recoverMounts,
   unmountMount,
   unshareMount,
+  type AdoptContext,
+  type AdoptNotice,
   type DocInspection,
   type FileRow,
   type MountStats,
   type RelayConfig,
 } from '@editor/workspace'
-import { defaultRelay, getVault, operatorSecret, roomToken, setRoomToken } from './config.js'
+import {
+  defaultRelay,
+  getVault,
+  mergeGrants,
+  operatorSecret,
+  roomRelay,
+  roomToken,
+  roomTokenKind,
+  setRoomToken,
+} from './config.js'
 import { colorFor } from './params.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
@@ -273,10 +299,27 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const registry = new MountRegistry()
+  /**
+   * The root mount. Declared here, before anything derived from it: the ignore
+   * set reads the root's map on every refresh, and the FIRST refresh happens
+   * during boot, before the session exists.
+   */
+  let rootSession: MountSession | null = null
   /** Sessions currently booting before their registry.add (pruning guard). */
   let mountsBooting = 0
-  /** Live mount roots the root adapter must ignore (read on every call). */
+  /**
+   * Live mount roots the root adapter must ignore. Derived, never accumulated:
+   * `mounts.json ∪ the root map's kind:'mount' entries` (spike S10 Q6). Both
+   * terms are load-bearing and in opposite directions — the map term covers
+   * the window between a peer's carve landing and this device writing a desc
+   * (which is exactly when a boot delta scan would re-enrol the subtree), the
+   * desc term covers the mirror-image window in an absorb. MUTATED IN PLACE,
+   * never reassigned: ignoringAdapter closes over this object and consults it
+   * on every call, including inside the watch callback.
+   */
   const ignoreSet = new Set<string>()
+  /** Copyable link per room, kept across mount-list rebuilds. */
+  const linkByRoom = new Map<string, string>()
   /** Which session owns a review's doc (resolveReview routing). */
   const reviewOwner = new Map<string, MountSession>()
   /** Which session raised the held breaker batch. */
@@ -286,6 +329,44 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   const mountsFile = new MountsFile(cfg.storeDir.io('mounts.json'))
   await recoverMounts(cfg.storeDir, mountsFile, engine)
+
+  /** mounts.json as this shim last read it (the ignore set's first term). */
+  let descs: MountDesc[] = await mountsFile.load()
+
+  /** A desc's lifecycle status, as the tree and rail say it (N1). */
+  const uiStatus = (status: MountStatus): MountUiStatus => {
+    if (status === 'needs-token') return 'needs-token'
+    if (status === 'active') return 'active'
+    if (status === 'absorbing' || status.startsWith('unsharing:')) return 'absorbing'
+    return 'adopting' // carving:* / joining / adopting:* — a mount being made
+  }
+
+  const refreshIgnore = (): void => {
+    const next = mountRootsFrom(descs, rootSession?.mapEntries() ?? [])
+    ignoreSet.clear()
+    for (const p of next) ignoreSet.add(p)
+  }
+
+  /** ui.mounts is a projection of mounts.json — statuses included. */
+  const refreshMounts = (): void => {
+    ui.mounts = descs
+      .filter((d) => d.path !== '')
+      .map((d) => ({
+        path: d.path,
+        room: d.room,
+        provenance: d.provenance,
+        link: linkByRoom.get(d.room) ?? null,
+        status: uiStatus(d.status),
+      }))
+      .sort((a, b) => a.path.localeCompare(b.path))
+  }
+
+  /** Re-read the mount table after any lifecycle write, then re-derive. */
+  const reloadMounts = async (): Promise<void> => {
+    descs = await mountsFile.load()
+    refreshIgnore()
+    refreshMounts()
+  }
 
   /** guid → path, as the index last saw it. Drives the create/delete/rename diff. */
   const indexed = new Map<string, string>()
@@ -341,7 +422,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // shows the shared folder.
     for (const info of ui.mounts) {
       if (!rows.some((r) => r.path === info.path)) {
-        rows.push({ path: info.path, guid: `mount:${info.room}`, kind: 'dir' })
+        // 'mount', not 'dir' (N1): inside a relay-attached root this row comes
+        // from the parent map as a mount entry, and a mount root should not
+        // change kind depending on whether the vault happens to be shared.
+        rows.push({ path: info.path, guid: `mount:${info.room}`, kind: 'mount' })
       }
     }
     rows.sort((a, b) => a.path.localeCompare(b.path))
@@ -459,6 +543,18 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           ui.reviews = ui.reviews.filter((r) => r.guid !== guid)
         },
         onShared: (link) => opts.onShared?.(link),
+        ...(opts.path === ''
+          ? {
+              // Synchronous, inside the observer: the derived ignore set must
+              // hide a mount root the instant a peer announces it, not at the
+              // end of the adopt (spike S10 Q6).
+              onMapChanged: () => refreshIgnore(),
+              // The adopt machine's LIVE entry point. The session queues this
+              // on its map-work chain AHEAD of its own map scan, and awaits
+              // the promise — so no scan adopts the guids an adopt is moving.
+              onMountEntries: () => (adoptReady ? runReconcile() : undefined),
+            }
+          : {}),
         onError: (err) => {
           console.error('[workspace]', err)
           notify({
@@ -475,14 +571,123 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     registry.all().find((h) => h.session.room === room)?.session ??
     (rootSession?.room === room ? rootSession : null)
 
-  // ---- boot every mount from mounts.json ----
+  // ---- the peer-side adopt / absorb machine (N1) ----
 
-  const descs = await mountsFile.load()
-  for (const desc of descs) {
-    if (desc.path !== '' && desc.status === 'active') ignoreSet.add(desc.path)
+  /** False until the first boot finishes: the machine needs a live root. */
+  let adoptReady = false
+
+  const adoptNotice = (n: AdoptNotice): void => {
+    const t = getLL().web.workspace
+    switch (n.kind) {
+      case 'needs-token':
+        notify({ level: 'warn', text: t.no_token({ path: n.path }), path: n.path })
+        return
+      case 'depth-limit':
+        notify({ level: 'warn', text: getLL().web.mounts.reason.depth_limit({ path: n.path }), path: n.path })
+        return
+      case 'mount-moved':
+        notify({ level: 'info', text: getLL().web.mounts.reason.mount_moved({ path: n.path }), path: n.path })
+        return
+      case 'room-repointed':
+        notify({
+          level: 'warn',
+          text: getLL().web.mounts.reason.room_repointed({ path: n.path }),
+          path: n.path,
+        })
+        return
+      default:
+        return // adopted / absorbed / adopt-cancelled: the tree says it
+    }
   }
 
-  let rootSession: MountSession | null = null
+  const adoptContext = (): AdoptContext => ({
+    vaultDir: cfg.storeDir,
+    mountsFile,
+    engine,
+    root: () => rootSession!,
+    rootRoom: cfg.room,
+    mounts: () =>
+      new Map(
+        registry
+          .all()
+          .filter((h) => h.mountPath !== '')
+          .map((h) => [h.mountPath, h.session])
+      ),
+    relayFor: relayForRoom,
+    buildSession: (o) =>
+      buildMount({
+        room: o.room,
+        path: o.path,
+        provenance: o.provenance,
+        ...(o.relay ? { relay: o.relay } : {}),
+        ...(o.firstJoin ? { firstJoin: true } : {}),
+        onShared: (link) => {
+          linkByRoom.set(o.room, link)
+          refreshMounts()
+        },
+      }),
+    attachMount: (path, session) => {
+      registry.add(path, session)
+      refreshTree()
+    },
+    detachMount: (path) => {
+      const resolved = registry.resolve(path)
+      const session = resolved?.mountPath === path ? resolved.session : null
+      registry.remove(path)
+      return session
+    },
+    withRootDown: async (fn) => {
+      registry.remove('')
+      await rootSession!.shutdown()
+      await fn()
+      await rebuildRoot()
+    },
+    refreshIgnore: reloadMounts,
+    notify: adoptNotice,
+  })
+
+  /** One pass at a time: the live hook and the boot pass share this chain. */
+  let adoptWork: Promise<void> = Promise.resolve()
+  const runReconcile = (): Promise<void> => {
+    adoptWork = adoptWork
+      .then(() => reconcileMountEntries(adoptContext()))
+      .then(() => reloadMounts())
+      .then(() => refreshTree())
+      .catch((err) => {
+        console.error('[workspace] mount reconcile', err)
+        notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
+      })
+    return adoptWork
+  }
+
+  // ---- boot every mount from mounts.json ----
+
+  /**
+   * The credential for a room, in the order spike S10 Q2 fixes (R5 lives
+   * here): an exact token for the room always wins — it is the most specific
+   * statement of what this device was given, and may be read-only for exactly
+   * that folder. Failing that, and ONLY for a room carved out of this vault,
+   * the vault's own token is tried when it is a DEVICE token: that is A4-A
+   * working, and it is why no paste is needed for a folder carved after the
+   * devices were linked. A folder token never becomes a vault token — the
+   * fallback only ever reaches upward, and only for the `device` kind.
+   */
+  const relayForRoom = (m: {
+    room: string
+    relay?: string
+    provenance: MountProvenance
+  }): RelayConfig | null => {
+    const url = m.relay || roomRelay(m.room) || defaultRelay()
+    const exact = roomToken(m.room)
+    if (exact) return { url, token: exact }
+    if (m.provenance === 'carved' || m.provenance === 'adopted') {
+      const rootToken = roomToken(cfg.room)
+      if (rootToken && roomTokenKind(cfg.room) === 'device') return { url, token: rootToken }
+    }
+    return null
+  }
+
+  refreshIgnore()
   rootSession = await buildMount({
     room: cfg.room,
     path: '',
@@ -492,32 +697,51 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     onShared: () => (ui.shared = true),
   })
   registry.add('', rootSession)
+  refreshIgnore()
 
   for (const desc of descs) {
-    if (desc.path === '' || desc.status !== 'active') continue
-    const token = roomToken(desc.room)
-    if (desc.relay && !token) {
+    // Settled mounts only: an interrupted one was already rolled back or
+    // forward by recoverMounts, and a duplicate path is a re-point that
+    // crashed mid-swap — the map names the winner, so leave the other alone
+    // (the boot pass below resolves it).
+    if (desc.path === '' || isRecoverable(desc.status)) continue
+    if (registry.resolve(desc.path)?.mountPath === desc.path) continue
+    const relay = desc.relay
+      ? relayForRoom({ room: desc.room, relay: desc.relay.url, provenance: desc.provenance })
+      : null
+    if (desc.relay && !relay) {
+      // Not an error: a mount with no key is a fully functional LOCAL mount
+      // that knows where its room lives. The tree marks it; the pill is never
+      // told it is "offline", which would promise a reconnection (S10 Q2).
+      if (desc.status !== 'needs-token') await mountsFile.setStatus(desc.room, 'needs-token')
       notify({
-        level: 'error',
+        level: 'warn',
         text: getLL().web.workspace.no_token({ path: desc.path }),
         path: desc.path,
       })
     }
-    const relay = desc.relay && token ? { url: desc.relay.url, token } : undefined
-    const info: MountInfo = { path: desc.path, room: desc.room, provenance: desc.provenance, link: null, status: 'active' }
-    ui.mounts = [...ui.mounts, info]
     const session = await buildMount({
       room: desc.room,
       path: desc.path,
       provenance: desc.provenance,
-      relay,
+      ...(relay ? { relay } : {}),
       onShared: (link) => {
-        info.link = link
-        ui.mounts = ui.mounts.map((m) => (m.room === desc.room ? { ...m, link } : m))
+        linkByRoom.set(desc.room, link)
+        refreshMounts()
       },
     })
     registry.add(desc.path, session)
   }
+  await reloadMounts()
+
+  // The adopt machine's BOOT pass (spike S10 Q1, entry point 2): after
+  // recoverMounts and after the root has restored its folder blob, join the
+  // root map's mount entries against mounts.json. This is what gives a device
+  // that was closed during a peer's carve its trigger on reopen — and what
+  // turns an `adopting:seeding` rollback into a retry rather than a subtree
+  // stranded in the wrong namespace.
+  adoptReady = true
+  await runReconcile()
 
   ui.phase = 'ready'
   refreshTree()
@@ -541,6 +765,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const doCarve = async (path: string): Promise<string> => {
     const t = getLL().web.workspace
     const row = ui.files.find((f) => f.path === path)
+    // A mount root is already its own share — sharing it again would be a
+    // mount inside a mount, which depth 1 forbids.
+    if (row?.kind === 'mount') throw new Error(t.overlaps())
     if (!row || row.kind !== 'dir') throw new Error(t.only_folders())
     const resolved = registry.resolve(path)
     if (!resolved || resolved.mountPath !== '') {
@@ -548,6 +775,19 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     }
     for (const m of ui.mounts) {
       if (m.path === path || m.path.startsWith(`${path}/`) || path.startsWith(`${m.path}/`)) {
+        throw new Error(t.overlaps())
+      }
+    }
+    // ui.mounts is what THIS device runs; the root map is what everyone
+    // agreed. A folder another peer carved seconds ago is a mount entry here
+    // before it is a desc, and carving into it would make a mount inside a
+    // mount on every device (spike S10 Q5 row 11's prevention-at-the-source).
+    for (const entry of rootSession!.mountEntries()) {
+      if (
+        entry.path === path ||
+        entry.path.startsWith(`${path}/`) ||
+        path.startsWith(`${entry.path}/`)
+      ) {
         throw new Error(t.overlaps())
       }
     }
@@ -562,8 +802,13 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const minted = await mintShare(relayUrl, secret, {
       folderGuid: room,
       label: `${vaultName}/${path}`,
+      // Ancestry, ALWAYS — not only when this vault is relay-attached
+      // (spike S10 Q3). The edge is advisory structure, not a credential, and
+      // recording it now is what lets a device linked LATER connect to a
+      // folder carved EARLIER without a paste.
+      parent: cfg.room,
     })
-    setRoomToken(room, minted.token)
+    setRoomToken(room, minted.token, relayUrl, 'folder')
 
     // The carve destroys the root's doc instances for the subtree — release
     // any editor holding one, and re-select through the new mount after.
@@ -583,19 +828,19 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       addIgnore: (prefix) => ignoreSet.add(prefix),
     })
 
-    const info: MountInfo = { path, room, provenance: 'carved', link: null, status: 'active' }
-    ui.mounts = [...ui.mounts, info]
+    await reloadMounts()
     const session = await buildMount({
       room,
       path,
       provenance: 'carved',
       relay: { url: relayUrl, token: minted.token },
       onShared: (link) => {
-        info.link = link
-        ui.mounts = ui.mounts.map((m) => (m.room === room ? { ...m, link } : m))
+        linkByRoom.set(room, link)
+        refreshMounts()
       },
     })
     registry.add(path, session)
+    await reloadMounts()
     refreshTree()
     if (reselect) select(reselect)
     return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
@@ -609,8 +854,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (target.room === cfg.room || ui.mounts.some((m) => m.room === target.room)) {
       throw new Error(getLL().web.workspace.already_joined())
     }
-    const info: MountInfo = { path: dest, room: target.room, provenance: 'joined', link: null, status: 'active' }
-    let added = false
     try {
       const session = await joinMount({
         vaultDir: cfg.storeDir,
@@ -620,12 +863,16 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         existingMountPaths: ui.mounts.map((m) => m.path),
         mountPath: dest,
         room: target.room,
+        // The FOREIGN relay: inside a shared root the destination detach
+        // announces this mount to the root's peers, and they must be told
+        // where it actually lives (spike S10 Q7).
+        relayUrl: target.relay,
         addIgnore: (p) => ignoreSet.add(p),
         removeIgnore: (p) => ignoreSet.delete(p),
-        buildSession: () => {
-          // Visible (with its badge row) while the pull runs.
-          ui.mounts = [...ui.mounts, info]
-          added = true
+        buildSession: async () => {
+          // Visible (with its badge row) while the pull runs: the 'joining'
+          // desc renders as a mount being made.
+          await reloadMounts()
           return buildMount({
             room: target.room,
             path: dest,
@@ -633,31 +880,40 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
             relay: { url: target.relay, token: target.token },
             firstJoin: true,
             onShared: (l) => {
-              info.link = l
-              ui.mounts = ui.mounts.map((m) => (m.room === target.room ? { ...m, link: l } : m))
+              linkByRoom.set(target.room, l)
+              refreshMounts()
             },
           })
         },
       })
-      setRoomToken(target.room, target.token)
+      setRoomToken(target.room, target.token, target.relay, 'folder')
+      if (target.grants.length > 0) mergeGrants(target.grants)
       registry.add(dest, session)
+      await reloadMounts()
       refreshTree()
     } catch (err) {
-      if (added) ui.mounts = ui.mounts.filter((m) => m.room !== target.room)
+      await reloadMounts()
       refreshTree()
       throw err
     }
   }
 
-  /** Rebuild the root session from its (surgically updated) durable stores. */
+  /**
+   * Rebuild the root session from its (surgically updated) durable stores.
+   * The relay goes back on (N1): a rebuilt root that quietly lost it would
+   * stop announcing carves and stop hearing peers — sync state that lies by
+   * omission, and the mechanism the whole nested-mount machine rides on.
+   */
   const rebuildRoot = async (): Promise<void> => {
     rootSession = await buildMount({
       room: cfg.room,
       path: '',
       provenance: 'local',
+      ...(cfg.relay ? { relay: cfg.relay } : {}),
       onShared: () => (ui.shared = true),
     })
     registry.add('', rootSession)
+    refreshIgnore()
   }
 
   const mountAt = (path: string): MountInfo => {
@@ -689,8 +945,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       root: rootSession!,
       removeIgnore: (p) => ignoreSet.delete(p),
     })
-    ui.mounts = ui.mounts.filter((m) => m.room !== info.room)
     await rebuildRoot()
+    await reloadMounts()
     refreshTree()
   }
 
@@ -708,10 +964,63 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       mount,
       removeIgnore: (p) => ignoreSet.delete(p),
     })
-    ui.mounts = ui.mounts.filter((m) => m.room !== info.room)
+    await reloadMounts()
     // The files are on disk and newly visible to the root — enroll them now
     // (a big folder legitimately trips the breaker dialog here).
     await rootSession!.rescan()
+    refreshTree()
+  }
+
+  /**
+   * Paste the link for a mount this device holds but has no key for (spike
+   * S10 Q2). Two shapes, one rule: a SEEDED mount activates in place through
+   * `enableSharing` — same guids as the room's, so providers connect and the
+   * CRDT merges whatever was edited while token-less, with nothing re-read
+   * from disk and no doc destroyed. An EMPTY one (a foreign share that
+   * arrived as a mount entry, or a device whose stores were wiped) has
+   * nothing to merge, so it is rebuilt as a `firstJoin` and pulls its room
+   * through the existing awaited machinery.
+   */
+  const doAddMountLink = async (path: string, link: string): Promise<void> => {
+    const t = getLL().web.workspace
+    const info = ui.mounts.find((m) => m.path === path)
+    if (!info) throw new Error(t.not_shared({ path }))
+    const target = decodeShareLink(link)
+    if (target.room !== info.room) {
+      throw new Error(getLL().web.mounts.dialog.wrong_room({ path }))
+    }
+    const resolved = registry.resolve(path)
+    const session = resolved?.mountPath === path ? resolved.session : null
+    if (!session) throw new Error(t.not_shared({ path }))
+
+    setRoomToken(target.room, target.token, target.relay, target.kind)
+    if (target.grants.length > 0) mergeGrants(target.grants)
+    const relay: RelayConfig = { url: target.relay, token: target.token }
+
+    if (session.files().length > 0) {
+      session.enableSharing(relay)
+      // enableSharing writes its own desc fire-and-forget; state the status
+      // here so the mount stops reading as "link needed" the moment the paste
+      // lands, not one flush later. The session's own write merges to the
+      // same value (it now has a relay).
+      await mountsFile.setStatus(info.room, 'active')
+    } else {
+      registry.remove(path)
+      await session.shutdown()
+      const next = await buildMount({
+        room: info.room,
+        path,
+        provenance: info.provenance,
+        relay,
+        firstJoin: true,
+        onShared: (l) => {
+          linkByRoom.set(info.room, l)
+          refreshMounts()
+        },
+      })
+      registry.add(path, next)
+    }
+    await reloadMounts()
     refreshTree()
   }
 
@@ -732,6 +1041,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     dropSelectionUnder(from)
     const row = ui.files.find((f) => f.path === from)
     if (!row) return
+    if (row.kind === 'mount') {
+      throw new Error(getLL().web.mounts.reason.mount_root_move({ path: from }))
+    }
     // Import into the target FIRST, tombstone the source after — a crash in
     // between leaves a visible duplicate (both journaled), never a loss.
     if (row.kind === 'dir') {
@@ -800,6 +1112,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       if (r) await r.session.createDir(r.rel)
     },
     renamePath: async (from, to) => {
+      if (ui.files.find((f) => f.path === from)?.kind === 'mount') {
+        throw new Error(getLL().web.mounts.reason.mount_root_rename({ path: from }))
+      }
       const r = registry.resolve(from)
       const rTo = registry.resolve(to)
       if (!r || !rTo) return
@@ -813,6 +1128,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     movePath: doMovePath,
     isCrossMount,
     deletePath: async (path) => {
+      if (ui.files.find((f) => f.path === path)?.kind === 'mount') {
+        throw new Error(getLL().web.mounts.reason.mount_root_delete({ path }))
+      }
       const r = registry.resolve(path)
       if (r) await r.session.deletePath(r.rel)
     },
@@ -821,9 +1139,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     resolveVanished: (guid, action) =>
       (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
     addShareMount: doJoinMount,
-    addMountLink: async () => {
-      throw new Error('addMountLink: not implemented yet (device-link N1 wave 2)')
-    },
+    addMountLink: doAddMountLink,
     unshare: doUnshare,
     unmount: doUnmount,
     carveFolder: doCarve,

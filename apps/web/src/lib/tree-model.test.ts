@@ -3,9 +3,9 @@ import {
   buildTree,
   containingDir,
   dirPaths,
+  filterRows,
+  mountRoots,
   planDrop,
-  addShareBlockedRootShared,
-  shareBlockedRootShared,
   treeMenuItems,
   type MountLike,
 } from './tree-model.js'
@@ -97,13 +97,14 @@ describe('treeMenuItems', () => {
     expect(items.find((i) => i.action === 'add-share')?.disabled).toBeUndefined()
   })
 
-  it('shows Share DISABLED, with the rule spelled out, in a root-shared vault', () => {
+  it('offers Share on a folder of a SHARED vault — depth-1 nesting removed that guard', () => {
+    // device-link-shaping A5: the root mount is the one mount that may contain
+    // mounts, so "this vault is already shared as a whole" is gone with the
+    // throw it explained. Folder-in-folder nesting is still refused, below.
     const items = treeMenuItems({ kind: 'dir', path: 'notes' }, { mounts: [], rootShared: true })
     const share = items.find((i) => i.action === 'share')!
-    // Visible-but-inert, never hidden: the hidden rule is what confused people.
-    expect(share.disabled).toBe(true)
-    expect(share.reason).toBe(shareBlockedRootShared())
-    expect(share.reason).toContain('already shared as a whole')
+    expect(share.disabled).toBeUndefined()
+    expect(share.reason).toBeUndefined()
   })
 
   it('refuses Share for folders that would nest with an existing mount', () => {
@@ -140,8 +141,10 @@ describe('treeMenuItems', () => {
     expect(onRoot.find((i) => i.action === 'add-share')!.reason).toContain("'team'")
     const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts: carved, rootShared: false })
     expect(inside.find((i) => i.action === 'add-share')!.disabled).toBe(true)
+    // A shared (device-linked) root may hold mounts (device-link-shaping A5):
+    // Add-a-shared-folder is offered plainly there, and joinMount announces it.
     const rootShared = treeMenuItems({ kind: 'root' }, { mounts: [], rootShared: true })
-    expect(rootShared.find((i) => i.action === 'add-share')!.reason).toBe(addShareBlockedRootShared())
+    expect(rootShared.find((i) => i.action === 'add-share')!.disabled).toBeUndefined()
     // Outside any mount it is offered plainly.
     const plainDir = treeMenuItems({ kind: 'dir', path: 'notes' }, { mounts: carved, rootShared: false })
     expect(plainDir.find((i) => i.action === 'add-share')!.disabled).toBeUndefined()
@@ -154,10 +157,123 @@ describe('treeMenuItems', () => {
     )
   })
 
+
+  it('cannot rename, move or delete a mount root — the reason is stated, the item stays', () => {
+    const carved: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })
+    for (const action of ['rename', 'move', 'delete'] as const) {
+      const item = items.find((i) => i.action === action)!
+      expect(item.disabled).toBe(true)
+      expect(item.reason).toContain("'team'")
+      expect(item.reason).toContain('shared folder')
+    }
+    // A plain folder is untouched by the rule.
+    const plainItems = treeMenuItems({ kind: 'dir', path: 'notes' }, { mounts: carved, rootShared: false })
+    expect(plainItems.find((i) => i.action === 'rename')!.disabled).toBeUndefined()
+    expect(plainItems.find((i) => i.action === 'delete')!.disabled).toBeUndefined()
+  })
+
+  it('offers Add link… on a needs-token mount root, and says why the rest is inert', () => {
+    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })
+    expect(items.map((i) => i.action)).toEqual([
+      'new-file',
+      'new-folder',
+      'rename',
+      'move',
+      'add-link',
+      'manage',
+      'unmount',
+      'add-share',
+      'delete',
+    ])
+    // The one action that supplies what is missing is the only live one.
+    expect(items.find((i) => i.action === 'add-link')!.disabled).toBeUndefined()
+    const manage = items.find((i) => i.action === 'manage')!
+    expect(manage.disabled).toBe(true)
+    expect(manage.reason).toContain('no link')
+    // Unshare is not offered: you cannot stop a share you hold no key to.
+    expect(items.find((i) => i.action === 'unshare')).toBeUndefined()
+  })
+
+  it('offers nothing to act on while a mount is adopting or absorbing', () => {
+    for (const [status, word] of [
+      ['adopting', 'attached'],
+      ['absorbing', 'folded back'],
+    ] as const) {
+      const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status }]
+      const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })
+      const manage = items.find((i) => i.action === 'manage')!
+      expect(manage.disabled).toBe(true)
+      expect(manage.reason).toContain(word)
+      expect(items.find((i) => i.action === 'add-link')).toBeUndefined()
+      expect(items.find((i) => i.action === 'unshare')).toBeUndefined()
+      expect(items.find((i) => i.action === 'unmount')).toBeUndefined()
+    }
+  })
+
+  it('treats an ACTIVE adopted mount like a share of your own that can also be dropped', () => {
+    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'active' }]
+    expect(actions({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })).toEqual([
+      'new-file',
+      'new-folder',
+      'rename',
+      'move',
+      'manage',
+      'unshare',
+      'unmount',
+      'add-share',
+      'delete',
+    ])
+  })
+
+  it('still refuses Share inside a needs-token mount — mounts do not nest', () => {
+    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts, rootShared: true })
+    expect(inside.find((i) => i.action === 'share')!.disabled).toBe(true)
+    expect(inside.find((i) => i.action === 'share')!.reason).toContain("'team'")
+  })
+
+
   it('marks delete as dangerous and separates the sharing group', () => {
     const items = treeMenuItems({ kind: 'dir', path: 'notes' }, plain)
     expect(items.find((i) => i.action === 'delete')?.danger).toBe(true)
     expect(items.find((i) => i.action === 'share')?.separatorBefore).toBe(true)
+  })
+})
+
+
+describe('filterRows — provenance is ui.mounts, not isShared()', () => {
+  const rows = [
+    { path: 'team/a.md', kind: 'text' },
+    { path: 'notes/b.md', kind: 'text' },
+  ]
+
+  it('keeps a needs-token mount SHARED: it has no relay, its files are still not local', () => {
+    // spike S10 Q2: filtering on the session's isShared() would file these
+    // under "Local only", which is the one thing they are not.
+    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    expect(filterRows(rows, 'shared', mounts, false).map((r) => r.path)).toEqual(['team/a.md'])
+    expect(filterRows(rows, 'local', mounts, false).map((r) => r.path)).toEqual(['notes/b.md'])
+    expect(filterRows(rows, 'all', mounts, false)).toHaveLength(2)
+  })
+
+  it('counts every row as shared in a root-shared vault, and ignores the root mount entry', () => {
+    const mounts: MountLike[] = [{ path: '', provenance: 'local' }]
+    expect(filterRows(rows, 'shared', mounts, true)).toHaveLength(2)
+    expect(filterRows(rows, 'shared', mounts, false)).toHaveLength(0)
+  })
+})
+
+describe('mountRoots', () => {
+  it('is every shared subtree, whatever state it is in, never the root mount', () => {
+    expect(
+      mountRoots([
+        { path: '', provenance: 'local' },
+        { path: 'team', provenance: 'carved' },
+        { path: 'design', provenance: 'adopted', status: 'needs-token' },
+      ])
+    ).toEqual(['team', 'design'])
   })
 })
 
@@ -202,5 +318,14 @@ describe('planDrop', () => {
 
   it('refuses when nothing is being dragged', () => {
     expect(planDrop('', 'notes').ok).toBe(false)
+  })
+
+  it('refuses to drag a mount root out of where its share lives', () => {
+    const plan = planDrop('team', 'archive', [], ['team'])
+    expect(plan.ok).toBe(false)
+    expect(plan).toMatchObject({ reason: expect.stringContaining('shared folder') })
+    // Files INSIDE it still move freely, and other folders are unaffected.
+    expect(planDrop('team/n.md', 'archive', [], ['team']).ok).toBe(true)
+    expect(planDrop('notes', 'archive', [], ['team']).ok).toBe(true)
   })
 })

@@ -73,9 +73,23 @@ export interface MountEvents {
    * fire: the carver already knows. Always emitted AFTER `onFiles`, so a host
    * that renders from rows has the mount row before it hears about the mount.
    *
-   * This is the trigger for the peer-side adopt/absorb machine.
+   * This is the trigger for the peer-side adopt/absorb machine. A promise the
+   * handler returns is AWAITED on the session's serialized map-work chain,
+   * ahead of the map scan for that same change — so an adopt or an absorb
+   * never interleaves with the scan adopting the very guids it is moving.
    */
-  onMountEntries?: (entries: MountEntryInfo[]) => void
+  onMountEntries?: (entries: MountEntryInfo[]) => void | Promise<void>
+  /**
+   * The folder map changed, fired SYNCHRONOUSLY inside the observer before any
+   * await (N1, S10 Q6). The host recomputes its derived ignore set here —
+   * `mounts.json ∪ the map's kind:'mount' entries` — so a mount root a peer
+   * just announced is hidden from this instruction on, well before this
+   * device has a desc of its own to derive it from.
+   *
+   * Must not throw and must not do I/O: it runs inside a CRDT transaction
+   * callback.
+   */
+  onMapChanged?: () => void
   /** Sorted unique presence names from the folder-doc awareness. */
   onPresence?: (names: string[]) => void
   onReview?: (review: DivergenceReview) => void

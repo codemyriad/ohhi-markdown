@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A large shared folder now opens in the browser: every note in a vault rides one connection to the relay instead of one each, so a vault of more than a couple of hundred notes no longer runs into the browser's limit on simultaneous connections.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Waiting for a folder to arrive costs nothing while it waits — the app now listens for each note instead of checking twenty thousand times a second, which is what made a big first sync feel sluggish.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A relay that has gone quiet is reported rather than waited on: a first sync is given as long as it keeps making progress, and is only given up on once nothing has arrived for twenty seconds.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/workspace"
+}

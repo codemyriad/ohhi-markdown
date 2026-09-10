@@ -78,6 +78,7 @@ export class TauriStoreDir implements StoreDir {
         // gives rename atomicity (readers see old or fully-written new).
         await fsRename(tmp, full)
       },
+      binding: { dir: this, name },
     }
   }
 

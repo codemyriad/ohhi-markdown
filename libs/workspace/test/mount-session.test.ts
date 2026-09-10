@@ -75,7 +75,9 @@ async function bootLocal(seed: Record<string, string>) {
       onFiles: (rows) => {
         files = rows
       },
-      onMountEntries: (entries) => mountEmissions.push(entries),
+      onMountEntries: (entries) => {
+        mountEmissions.push(entries)
+      },
       onError: (err) => errors.push(err),
     },
   }

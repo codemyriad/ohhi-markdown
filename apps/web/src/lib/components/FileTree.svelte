@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity'
-  import { ChevronsDownUp, FilePlus, FolderPlus, ListFilter, Users } from '@lucide/svelte'
+  import { ChevronsDownUp, FilePlus, FolderPlus, KeyRound, ListFilter, Users } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
   import { pillStatus, type PillStatus, type SyncRecord } from '../sync-record.svelte.js'
@@ -10,6 +10,7 @@
     containingDir,
     dirPaths,
     filterRows,
+    mountRoots,
     planDrop,
     treeMenuItems,
     type TreeFilter,
@@ -19,6 +20,7 @@
     type TreeOp,
   } from '../tree-model.js'
   import { inRelayMount, mountRollup, rowStatus } from '../tree-status.js'
+  import { inQuietMount, mountHasRelay, mountTone } from '../share-status.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
@@ -59,15 +61,25 @@
   let host = $state<HTMLElement>()
 
   const t = $derived($LL.web.tree)
+  const m = $derived($LL.web.mounts)
   const FILTER_VALUES: TreeFilter[] = ['all', 'local', 'shared']
   let filter = $state<TreeFilter>('all')
 
-  const mountByPath = $derived(new Map(mounts.map((m) => [m.path, m])))
-  const mountPaths = $derived(mounts.map((m) => m.path))
-  const tree = $derived(buildTree(filterRows(files, filter, mountPaths, rootShared) as FileRow[]))
-  /** Per mount root: the worst of its docs + its folder doc (Fork 3 B1). */
+  const mountByPath = $derived(new Map(mounts.map((mo) => [mo.path, mo])))
+  /**
+   * Two lists on purpose. The provenance filter counts EVERY mount — a
+   * needs-token mount's files are shared, not local (spike S10 Q2) — while
+   * only a mount with a relay may carry a pill or feed a rollup.
+   */
+  const relayPaths = $derived(mounts.filter(mountHasRelay).map((mo) => mo.path))
+  const tree = $derived(buildTree(filterRows(files, filter, mounts, rootShared) as FileRow[]))
+  /** Per RELAY-attached mount root: the worst of its docs + its folder doc (Fork 3 B1). */
   const rollups = $derived(
-    new Map(mounts.map((m) => [m.path, mountRollup(files, records, m.path, m.room)]))
+    new Map(
+      mounts
+        .filter(mountHasRelay)
+        .map((mo) => [mo.path, mountRollup(files, records, mo.path, mo.room)])
+    )
   )
   const collapsed = new SvelteSet<string>()
   /** Last-clicked directory — where the toolbar's New note / New folder create. */
@@ -80,7 +92,11 @@
   function statusFor(node: TreeNode): PillStatus | null {
     const rec = records[node.guid]
     if (!rec) return null
-    return rowStatus(pillStatus(rec), inRelayMount(node.path, mountPaths, rootShared))
+    // Inside a mount with no relay there is nothing to be in sync with: those
+    // records never connect, and an offline dot would blame the network for a
+    // missing key (spike S10 Q2, golden rule 4).
+    if (inQuietMount(node.path, mounts)) return null
+    return rowStatus(pillStatus(rec), inRelayMount(node.path, relayPaths, rootShared))
   }
 
   function clickDir(node: TreeNode): void {
@@ -164,6 +180,20 @@
       return
     }
     if (target.kind === 'root') return
+    // F2 / Delete bypass the menu, so they need the menu's refusal: a mount
+    // root is owned by another mount session and cannot be renamed or deleted
+    // from the tree. The reason is spoken, not swallowed.
+    if (mountByPath.has(target.path) && (e.key === 'F2' || e.key === 'Delete')) {
+      e.preventDefault()
+      onNotice(
+        'warn',
+        e.key === 'F2'
+          ? m.reason.mount_root_rename({ path: target.path })
+          : m.reason.mount_root_delete({ path: target.path }),
+        target.path
+      )
+      return
+    }
     if (e.key === 'F2') {
       e.preventDefault()
       onOp({ type: 'rename', path: target.path, kind: target.kind })
@@ -193,6 +223,9 @@
         break
       case 'add-share':
         onOp({ type: 'add-share', dir: path })
+        break
+      case 'add-link':
+        onOp({ type: 'add-link', path })
         break
       case 'rename':
       case 'move':
@@ -227,6 +260,8 @@
   let refusal = $state<{ dir: string; reason: string } | null>(null)
   let dropped = false
   const allPaths = $derived(new Set(files.map((f) => f.path)))
+  /** Mount roots: undraggable, for the same reason Move… is disabled on them. */
+  const rootPaths = $derived(mountRoots(mounts))
 
   function dragStart(e: DragEvent, path: string): void {
     dragging = path
@@ -250,7 +285,7 @@
   function dragOver(e: DragEvent, dir: string): void {
     e.stopPropagation()
     if (dragging === null) return
-    const plan = planDrop(dragging, dir, allPaths)
+    const plan = planDrop(dragging, dir, allPaths, rootPaths)
     if (!plan.ok) {
       dropDir = null
       if (refusal?.dir !== dir || refusal.reason !== plan.reason) {
@@ -272,7 +307,7 @@
     dragging = null
     dropDir = null
     refusal = null
-    const plan = planDrop(from, dir, allPaths)
+    const plan = planDrop(from, dir, allPaths, rootPaths)
     if (plan.ok) onOp({ type: 'move-to', from, to: plan.to })
   }
 
@@ -352,7 +387,8 @@
           <!-- The shared subtree's extent, without a dot on every row (Fork 3 B3). -->
           <span
             aria-hidden="true"
-            class="pointer-events-none absolute top-7 bottom-0 w-0.5 {mount.provenance === 'carved'
+            class="pointer-events-none absolute top-7 bottom-0 w-0.5 {mountTone(mount.provenance) ===
+            'yours'
               ? 'bg-primary/40'
               : 'bg-secondary/40'}"
             style="left: {indent(depth) + 5}px"
@@ -391,22 +427,57 @@
               {refusal.reason}
             </span>
           {:else if mount}
+            {@const tone = mountTone(mount.provenance)}
+            {@const state = mount.status ?? 'active'}
             {@const online = (presenceByRoom[mount.room] ?? []).length}
-            {@const whose = mount.provenance === 'carved' ? t.shared_by_you() : t.shared_with_you()}
+            {@const whose = tone === 'yours' ? t.shared_by_you() : t.shared_with_you()}
             <span class="ml-auto flex shrink-0 items-center gap-1.5">
-              <SyncPill status={rollups.get(node.path) ?? 'offline'} testid="sync-pill:{node.path}" />
-              <span
-                data-testid="mount-badge:{node.path}"
-                title={online ? t.online_title({ whose, count: online }) : whose}
-                class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium
-                  {mount.provenance === 'carved'
-                  ? 'bg-primary text-primary-content'
-                  : 'bg-secondary text-secondary-content'}"
-              >
-                <Users size={12} aria-hidden="true" />
-                {#if online}<span aria-hidden="true">{online}</span>{/if}
-                <span class="sr-only">{online ? t.online_sr({ whose, count: online }) : whose}</span>
-              </span>
+              {#if state === 'active'}
+                <SyncPill
+                  status={rollups.get(node.path) ?? 'offline'}
+                  testid="sync-pill:{node.path}"
+                />
+                <span
+                  data-testid="mount-badge:{node.path}"
+                  data-state="active"
+                  title={online ? t.online_title({ whose, count: online }) : whose}
+                  class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium
+                    {tone === 'yours'
+                    ? 'bg-primary text-primary-content'
+                    : 'bg-secondary text-secondary-content'}"
+                >
+                  <Users size={12} aria-hidden="true" />
+                  {#if online}<span aria-hidden="true">{online}</span>{/if}
+                  <span class="sr-only">{online ? t.online_sr({ whose, count: online }) : whose}</span>
+                </span>
+              {:else if state === 'needs-token'}
+                <!-- No pill, by design: this mount has no relay to be in sync
+                     with, so it is not offline — this device has no key for it
+                     (spike S10 Q2). Provenance-tinted like the badge it
+                     replaces, with its own icon so the two never read alike. -->
+                <span
+                  data-testid="mount-badge:{node.path}"
+                  data-state="needs-token"
+                  title={m.link_needed_title()}
+                  class="inline-flex items-center gap-0.5 rounded border border-dashed px-1 py-0.5 text-[10px] font-medium text-base-content
+                    {tone === 'yours' ? 'border-primary bg-primary/10' : 'border-secondary bg-secondary/10'}"
+                >
+                  <KeyRound size={12} aria-hidden="true" />
+                  <span aria-hidden="true">{m.link_needed()}</span>
+                  <span class="sr-only">{m.link_needed_sr()}</span>
+                </span>
+              {:else}
+                <!-- Transient, and quiet with it: the adopt/absorb machines
+                     finish on their own and there is nothing to act on. -->
+                <span
+                  data-testid="mount-badge:{node.path}"
+                  data-state={state}
+                  title={state === 'adopting' ? m.attaching_title() : m.folding_back_title()}
+                  class="inline-flex items-center gap-0.5 rounded border border-base-300 px-1 py-0.5 text-[10px] text-base-content/70 italic"
+                >
+                  {state === 'adopting' ? m.attaching() : m.folding_back()}
+                </span>
+              {/if}
             </span>
           {/if}
         </button>

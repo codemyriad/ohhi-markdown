@@ -1,0 +1,35 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/web",
+      "comment": "A shared folder that appeared from another device shows what it is doing — arriving, waiting for its link, or being folded back — instead of appearing and disappearing.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "Pasting the link for a shared folder that is waiting for one starts it syncing where it stands: no re-download, no file on disk changed.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "The root of a shared folder can no longer be renamed, moved, deleted or shared again from the tree — each refusal says why.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "Sharing a folder now records which vault it came from, so a device you link later can open that folder without you pasting its link.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "A vault link and a folder link are told apart when stored, so a folder's key can never be used to reach the whole vault.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "A vault that stops sharing one of its folders stays connected afterwards, instead of quietly going offline until the app was restarted.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@editor/web"
+}

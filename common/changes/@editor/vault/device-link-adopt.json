@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "A shared folder that is being folded back into a vault on one of your other devices is recorded as such, so an interrupted fold-back is finished at the next start instead of being started over.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/vault"
+}

@@ -163,11 +163,11 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
   // synthesise it, so the toast is not asserted here.
   await expect(page.getByTestId('drop-refusal')).toHaveCount(0)
 
-  // Add a shared folder: the tree menu states the rule (this vault is shared as a whole);
-  // the command palette opens the dialog regardless.
+  // Add a shared folder: offered from the tree menu even in a shared vault
+  // (depth-1 nesting, device-link-shaping A5); the command palette opens the
+  // same dialog.
   await page.getByTestId('tree-root').click({ button: 'right', position: { x: 30, y: 320 } })
-  await expect(page.getByTestId('tree-menu:add-share')).toHaveAttribute('aria-disabled', 'true')
-  await expect(page.getByTestId('tree-menu-reason:add-share')).toContainText('shared as a whole')
+  await expect(page.getByTestId('tree-menu:add-share')).not.toHaveAttribute('aria-disabled', 'true')
   await page.keyboard.press('Escape')
   await page.keyboard.press('ControlOrMeta+Shift+p')
   await page.getByTestId('command-palette-input').fill('shared folder')

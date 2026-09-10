@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { SyncRecordSnapshot } from './pill-status.js'
-import { onlineIn, relayHost, scopedRollup, shareStateFor, type MountLike } from './share-status.js'
+import {
+  inQuietMount,
+  mountHasRelay,
+  mountTone,
+  onlineIn,
+  quietMountRoots,
+  relayHost,
+  scopedRollup,
+  shareStateFor,
+  type MountLike,
+} from './share-status.js'
 
 const rec = (over: Partial<SyncRecordSnapshot> = {}): SyncRecordSnapshot => ({
   connected: true,
@@ -24,6 +34,7 @@ describe('shareStateFor', () => {
       room: 'r-team',
       mountPath: 'team',
       link: 'editor1:abc',
+      status: 'active',
     })
     expect(shareStateFor('inbox/shared/x.md', mounts, false, 'root')).toMatchObject({
       provenance: 'joined',
@@ -40,6 +51,50 @@ describe('shareStateFor', () => {
       room: 'root',
       mountPath: '',
       link: 'editor1:root',
+      status: 'active',
+    })
+  })
+})
+
+describe('mount state — what a mount with no key is, and is not', () => {
+  const needsToken: MountLike = {
+    path: 'design',
+    room: 'r-design',
+    provenance: 'adopted',
+    link: null,
+    status: 'needs-token',
+  }
+
+  it('says whose a share is: an adopted carve reads like your own, a join like theirs', () => {
+    expect(mountTone('carved')).toBe('yours')
+    expect(mountTone('adopted')).toBe('yours')
+    expect(mountTone('root')).toBe('yours')
+    expect(mountTone('joined')).toBe('theirs')
+  })
+
+  it('gives only an ACTIVE mount a relay to be in sync with', () => {
+    expect(mountHasRelay({ provenance: 'carved' })).toBe(true)
+    expect(mountHasRelay({ provenance: 'carved', status: 'active' })).toBe(true)
+    expect(mountHasRelay({ provenance: 'adopted', status: 'needs-token' })).toBe(false)
+    expect(mountHasRelay({ provenance: 'adopted', status: 'adopting' })).toBe(false)
+    expect(mountHasRelay({ provenance: 'adopted', status: 'absorbing' })).toBe(false)
+    expect(mountHasRelay({ provenance: 'local' })).toBe(false)
+  })
+
+  it('keeps every row of a keyless mount out of the pills', () => {
+    const all = [...mounts, needsToken]
+    expect(quietMountRoots(all)).toEqual(['design'])
+    expect(inQuietMount('design', all)).toBe(true)
+    expect(inQuietMount('design/deep/a.md', all)).toBe(true)
+    expect(inQuietMount('designs/a.md', all)).toBe(false)
+    expect(inQuietMount('team/a.md', all)).toBe(false)
+  })
+
+  it('reports the mount status on the share state, so the rail can say "link needed"', () => {
+    expect(shareStateFor('design/a.md', [needsToken], true, 'root')).toMatchObject({
+      kind: 'shared',
+      provenance: 'adopted',
+      status: 'needs-token',
     })
   })
 })
@@ -83,5 +138,34 @@ describe('scopedRollup — the header pill only claims what has a relay', () => 
 
   it('counts everything in a root-shared vault', () => {
     expect(scopedRollup(files, { a: rec(), b: rec({ connected: false }) }, [], true)).toBe('offline')
+  })
+
+  it('never lets a keyless mount drag the rollup offline — not even in a root-shared vault', () => {
+    // spike S10 Q2 + golden rule 4: a needs-token mount's records are
+    // {connected:false} forever because this device has no key, which is not
+    // the same fact as a relay that went away. They are not an input at all.
+    const keyless: MountLike[] = [
+      { path: 'design', room: 'r-design', provenance: 'adopted', link: null, status: 'needs-token' },
+    ]
+    const withDesign = [...files, { path: 'design/x.md', kind: 'text', guid: 'd' }]
+    const records = {
+      a: rec(),
+      b: rec(),
+      d: rec({ connected: false }),
+      '//folder:r-design': rec({ connected: false }),
+    }
+    expect(scopedRollup(withDesign, records, keyless, true)).toBe('green')
+    // And with nothing else shared, the header still says "nothing shared" in
+    // words rather than showing a pill for a folder that cannot sync.
+    expect(scopedRollup(withDesign, records, keyless, false)).toBeNull()
+  })
+
+  it('counts an adopted mount exactly like a carved one once it is active', () => {
+    const adopted: MountLike[] = [
+      { path: 'team', room: 'r-team', provenance: 'adopted', link: null, status: 'active' },
+    ]
+    expect(scopedRollup(files, { a: rec({ pendingLocal: true }), b: rec() }, adopted, false)).toBe(
+      'yellow'
+    )
   })
 })

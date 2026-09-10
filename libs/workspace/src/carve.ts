@@ -47,6 +47,7 @@ export interface CarveOptions {
 }
 
 export async function carveFolder(opts: CarveOptions): Promise<void> {
+  const targetDir = scopedStoreDir(opts.vaultDir, `${opts.room}/`)
   await opts.mountsFile.upsert({
     room: opts.room,
     path: opts.mountPath,
@@ -54,14 +55,20 @@ export async function carveFolder(opts: CarveOptions): Promise<void> {
     relay: { url: opts.relayUrl },
     status: 'carving:seeding',
   })
-  await opts.root.seedCarveStores(opts.mountPath, scopedStoreDir(opts.vaultDir, `${opts.room}/`))
+  await opts.root.seedCarveStores(opts.mountPath, targetDir)
   await opts.mountsFile.setStatus(opts.room, 'carving:detaching')
   opts.addIgnore(opts.mountPath)
   // Relay-attached parent → announce the mount to its peers in the same
   // transaction as the deletion (A2). A private vault has no peers to tell.
+  //
+  // `targetDir` closes the seed→detach window (S10 Q5 row 2): carveFolder
+  // pauses nothing, so between the seed above and the detach below a remote
+  // update or a keystroke can land in a doc whose state was already copied.
+  // The detach re-flushes each doc's CURRENT state before destroying it.
   await opts.root.detachSubtree(
     opts.mountPath,
-    opts.root.isShared() ? { room: opts.room, relay: opts.relayUrl } : undefined
+    opts.root.isShared() ? { room: opts.room, relay: opts.relayUrl } : undefined,
+    { targetDir }
   )
   await opts.mountsFile.setStatus(opts.room, 'active')
 }

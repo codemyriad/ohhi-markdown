@@ -109,8 +109,12 @@ describe('join-as-mount — guards (L1 fixture 5)', () => {
     await expect(joinMount({ ...opts, mountPath: 'busy' })).rejects.toThrow(/not empty/)
     await expect(joinMount({ ...opts, mountPath: 'other-mount/sub' })).rejects.toThrow(/overlaps/)
     await expect(joinMount({ ...opts, mountPath: '' })).rejects.toThrow(/destination/)
+    // A SHARED root is no longer a guard (N1, device-link-shaping A5) — the
+    // join proceeds and rolls back on the pull failure like any other, and the
+    // announcement it made is retracted with it.
     vault.root.enableSharing({ url: 'ws://relay.test', token: 't' })
-    await expect(joinMount({ ...opts, mountPath: DEST })).rejects.toThrow(/itself shared/)
+    await expect(joinMount({ ...opts, mountPath: DEST })).rejects.toThrow(/should not build/)
+    expect(vault.root.mountEntries()).toEqual([])
     // No guard failure left anything behind.
     expect((await vault.mountsFile.load()).some((m) => m.room === ROOM)).toBe(false)
     expect(await dir.list(`${ROOM}/`)).toEqual([])

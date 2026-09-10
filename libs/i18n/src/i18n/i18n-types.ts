@@ -359,10 +359,6 @@ export type NamespaceWebTranslation = {
 		}
 		reason: {
 			/**
-			 * T​h​i​s​ ​v​a​u​l​t​ ​i​s​ ​a​l​r​e​a​d​y​ ​s​h​a​r​e​d​ ​a​s​ ​a​ ​w​h​o​l​e​ ​—​ ​f​o​l​d​e​r​ ​s​h​a​r​e​s​ ​n​e​e​d​ ​a​n​ ​u​n​s​h​a​r​e​d​ ​v​a​u​l​t​.
-			 */
-			share_root_shared: string
-			/**
 			 * A​l​r​e​a​d​y​ ​i​n​s​i​d​e​ ​t​h​e​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​'​{​p​a​t​h​}​'​ ​—​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​c​a​n​n​o​t​ ​n​e​s​t​.
 			 * @param {string} path
 			 */
@@ -372,10 +368,6 @@ export type NamespaceWebTranslation = {
 			 * @param {string} path
 			 */
 			share_contains: RequiredParams<'path'>
-			/**
-			 * T​h​i​s​ ​v​a​u​l​t​ ​i​s​ ​a​l​r​e​a​d​y​ ​s​h​a​r​e​d​ ​a​s​ ​a​ ​w​h​o​l​e​ ​—​ ​a​ ​j​o​i​n​e​d​ ​f​o​l​d​e​r​ ​n​e​e​d​s​ ​a​n​ ​u​n​s​h​a​r​e​d​ ​v​a​u​l​t​.
-			 */
-			add_share_root_shared: string
 			/**
 			 * I​n​s​i​d​e​ ​t​h​e​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​'​{​p​a​t​h​}​'​ ​—​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​c​a​n​n​o​t​ ​n​e​s​t​.
 			 * @param {string} path
@@ -1219,6 +1211,130 @@ export type NamespaceWebTranslation = {
 			confirm: string
 		}
 	}
+	mounts: {
+		/**
+		 * L​i​n​k​ ​n​e​e​d​e​d
+		 */
+		link_needed: string
+		/**
+		 * S​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​h​o​l​d​s​ ​n​o​ ​l​i​n​k​ ​f​o​r​ ​i​t​,​ ​s​o​ ​n​o​t​h​i​n​g​ ​h​e​r​e​ ​s​y​n​c​s​.​ ​T​h​e​ ​f​i​l​e​s​ ​s​t​a​y​ ​o​n​ ​d​i​s​k​;​ ​a​d​d​ ​t​h​e​ ​l​i​n​k​ ​t​o​ ​s​t​a​r​t​ ​s​y​n​c​i​n​g​.
+		 */
+		link_needed_title: string
+		/**
+		 * S​h​a​r​e​d​ ​f​o​l​d​e​r​,​ ​l​i​n​k​ ​n​e​e​d​e​d
+		 */
+		link_needed_sr: string
+		/**
+		 * A​t​t​a​c​h​i​n​g​…
+		 */
+		attaching: string
+		/**
+		 * A​t​t​a​c​h​i​n​g​ ​t​h​i​s​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​i​t​s​ ​f​i​l​e​s​ ​a​r​e​ ​m​o​v​i​n​g​ ​i​n​t​o​ ​t​h​e​i​r​ ​o​w​n​ ​s​y​n​c​e​d​ ​s​p​a​c​e​.
+		 */
+		attaching_title: string
+		/**
+		 * F​o​l​d​i​n​g​ ​b​a​c​k​…
+		 */
+		folding_back: string
+		/**
+		 * F​o​l​d​i​n​g​ ​t​h​i​s​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​b​a​c​k​ ​i​n​t​o​ ​t​h​e​ ​v​a​u​l​t​ ​—​ ​i​t​s​ ​f​i​l​e​s​ ​b​e​c​o​m​e​ ​l​o​c​a​l​ ​n​o​t​e​s​.
+		 */
+		folding_back_title: string
+		/**
+		 * A​d​d​ ​l​i​n​k​…
+		 */
+		add_link: string
+		/**
+		 * S​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​l​i​n​k​ ​n​e​e​d​e​d
+		 */
+		rail_link_needed: string
+		reason: {
+			/**
+			 * T​h​i​s​ ​d​e​v​i​c​e​ ​h​o​l​d​s​ ​n​o​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​y​e​t​ ​—​ ​a​d​d​ ​t​h​e​ ​l​i​n​k​ ​f​i​r​s​t​.
+			 */
+			link_needed: string
+			/**
+			 * T​h​i​s​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​i​s​ ​s​t​i​l​l​ ​b​e​i​n​g​ ​a​t​t​a​c​h​e​d​.
+			 */
+			attaching: string
+			/**
+			 * T​h​i​s​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​i​s​ ​b​e​i​n​g​ ​f​o​l​d​e​d​ ​b​a​c​k​ ​i​n​t​o​ ​t​h​e​ ​v​a​u​l​t​.
+			 */
+			folding_back: string
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​t​h​e​ ​r​o​o​t​ ​o​f​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​r​e​n​a​m​e​ ​i​t​ ​w​h​e​r​e​ ​i​t​ ​w​a​s​ ​s​h​a​r​e​d​,​ ​n​o​t​ ​h​e​r​e​.
+			 * @param {string} path
+			 */
+			mount_root_rename: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​t​h​e​ ​r​o​o​t​ ​o​f​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​m​o​v​i​n​g​ ​i​t​ ​w​o​u​l​d​ ​m​o​v​e​ ​i​t​ ​o​u​t​ ​o​f​ ​t​h​e​ ​s​h​a​r​e​.
+			 * @param {string} path
+			 */
+			mount_root_move: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​t​h​e​ ​r​o​o​t​ ​o​f​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​s​t​o​p​ ​s​h​a​r​i​n​g​ ​i​t​ ​f​i​r​s​t​,​ ​t​h​e​n​ ​d​e​l​e​t​e​ ​t​h​e​ ​f​o​l​d​e​r​.
+			 * @param {string} path
+			 */
+			mount_root_delete: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​i​n​s​i​d​e​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​c​a​n​n​o​t​ ​n​e​s​t​,​ ​s​o​ ​i​t​ ​w​a​s​ ​f​o​l​d​e​d​ ​i​n​t​o​ ​t​h​e​ ​o​u​t​e​r​ ​o​n​e​.
+			 * @param {string} path
+			 */
+			depth_limit: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​w​a​s​ ​m​o​v​e​d​ ​o​n​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e​.
+			 * @param {string} path
+			 */
+			mount_moved: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​w​a​s​ ​s​h​a​r​e​d​ ​f​r​o​m​ ​t​w​o​ ​d​e​v​i​c​e​s​ ​a​t​ ​o​n​c​e​ ​—​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​o​l​l​o​w​e​d​ ​t​h​e​ ​o​n​e​ ​e​v​e​r​y​o​n​e​ ​e​l​s​e​ ​s​e​e​s​.
+			 * @param {string} path
+			 */
+			room_repointed: RequiredParams<'path'>
+		}
+		dialog: {
+			/**
+			 * A​d​d​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			title: RequiredParams<'path'>
+			/**
+			 * T​h​i​s​ ​f​o​l​d​e​r​ ​i​s​ ​s​h​a​r​e​d​,​ ​b​u​t​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​h​o​l​d​s​ ​n​o​ ​l​i​n​k​ ​f​o​r​ ​i​t​.​ ​P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​a​n​d​ ​i​t​ ​s​t​a​r​t​s​ ​s​y​n​c​i​n​g​ ​w​h​e​r​e​ ​i​t​ ​s​t​a​n​d​s​ ​—​ ​n​o​t​h​i​n​g​ ​i​s​ ​r​e​-​d​o​w​n​l​o​a​d​e​d​ ​a​n​d​ ​n​o​ ​f​i​l​e​ ​o​n​ ​d​i​s​k​ ​c​h​a​n​g​e​s​.
+			 */
+			description: string
+			/**
+			 * S​h​a​r​e​ ​l​i​n​k
+			 */
+			link: string
+			/**
+			 * e​d​i​t​o​r​1​:​…
+			 */
+			link_placeholder: string
+			/**
+			 * T​h​a​t​ ​d​o​e​s​n​’​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​s​h​a​r​e​ ​l​i​n​k​ ​—​ ​t​h​e​y​ ​s​t​a​r​t​ ​w​i​t​h​ ​"​e​d​i​t​o​r​1​:​"​.
+			 */
+			link_invalid: string
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​i​s​ ​f​o​r​ ​a​ ​d​i​f​f​e​r​e​n​t​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​—​ ​p​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			wrong_room: RequiredParams<'path'>
+			/**
+			 * A​d​d​i​n​g​…
+			 */
+			adding: string
+			/**
+			 * A​d​d​ ​l​i​n​k
+			 */
+			add: string
+		}
+	}
+	device_link: {
+		/**
+		 * A​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​i​s​ ​a​ ​f​u​l​l​-​a​c​c​e​s​s​ ​k​e​y​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​.​ ​N​e​v​e​r​ ​g​i​v​e​ ​i​t​ ​t​o​ ​a​n​y​o​n​e​ ​e​l​s​e​.
+		 */
+		full_access_warning: string
+	}
 	tokens: {
 		/**
 		 * T​o​k​e​n​s
@@ -1802,10 +1918,6 @@ export type TranslationFunctions = {
 			}
 			reason: {
 				/**
-				 * This vault is already shared as a whole — folder shares need an unshared vault.
-				 */
-				share_root_shared: () => LocalizedString
-				/**
 				 * Already inside the shared folder '{path}' — shared folders cannot nest.
 				 */
 				share_inside: (arg: { path: string }) => LocalizedString
@@ -1813,10 +1925,6 @@ export type TranslationFunctions = {
 				 * Contains the shared folder '{path}' — shared folders cannot nest.
 				 */
 				share_contains: (arg: { path: string }) => LocalizedString
-				/**
-				 * This vault is already shared as a whole — a joined folder needs an unshared vault.
-				 */
-				add_share_root_shared: () => LocalizedString
 				/**
 				 * Inside the shared folder '{path}' — shared folders cannot nest.
 				 */
@@ -2626,6 +2734,122 @@ export type TranslationFunctions = {
 				 */
 				confirm: () => LocalizedString
 			}
+		}
+		mounts: {
+			/**
+			 * Link needed
+			 */
+			link_needed: () => LocalizedString
+			/**
+			 * Shared folder — this device holds no link for it, so nothing here syncs. The files stay on disk; add the link to start syncing.
+			 */
+			link_needed_title: () => LocalizedString
+			/**
+			 * Shared folder, link needed
+			 */
+			link_needed_sr: () => LocalizedString
+			/**
+			 * Attaching…
+			 */
+			attaching: () => LocalizedString
+			/**
+			 * Attaching this shared folder — its files are moving into their own synced space.
+			 */
+			attaching_title: () => LocalizedString
+			/**
+			 * Folding back…
+			 */
+			folding_back: () => LocalizedString
+			/**
+			 * Folding this shared folder back into the vault — its files become local notes.
+			 */
+			folding_back_title: () => LocalizedString
+			/**
+			 * Add link…
+			 */
+			add_link: () => LocalizedString
+			/**
+			 * Shared folder — link needed
+			 */
+			rail_link_needed: () => LocalizedString
+			reason: {
+				/**
+				 * This device holds no link for this shared folder yet — add the link first.
+				 */
+				link_needed: () => LocalizedString
+				/**
+				 * This shared folder is still being attached.
+				 */
+				attaching: () => LocalizedString
+				/**
+				 * This shared folder is being folded back into the vault.
+				 */
+				folding_back: () => LocalizedString
+				/**
+				 * '{path}' is the root of a shared folder — rename it where it was shared, not here.
+				 */
+				mount_root_rename: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' is the root of a shared folder — moving it would move it out of the share.
+				 */
+				mount_root_move: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' is the root of a shared folder — stop sharing it first, then delete the folder.
+				 */
+				mount_root_delete: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' is inside a shared folder — shared folders cannot nest, so it was folded into the outer one.
+				 */
+				depth_limit: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' was moved on another device.
+				 */
+				mount_moved: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' was shared from two devices at once — this device followed the one everyone else sees.
+				 */
+				room_repointed: (arg: { path: string }) => LocalizedString
+			}
+			dialog: {
+				/**
+				 * Add the link for {path}
+				 */
+				title: (arg: { path: string }) => LocalizedString
+				/**
+				 * This folder is shared, but this device holds no link for it. Paste the link and it starts syncing where it stands — nothing is re-downloaded and no file on disk changes.
+				 */
+				description: () => LocalizedString
+				/**
+				 * Share link
+				 */
+				link: () => LocalizedString
+				/**
+				 * editor1:…
+				 */
+				link_placeholder: () => LocalizedString
+				/**
+				 * That doesn’t look like a share link — they start with "editor1:".
+				 */
+				link_invalid: () => LocalizedString
+				/**
+				 * That link is for a different shared folder — paste the link for {path}.
+				 */
+				wrong_room: (arg: { path: string }) => LocalizedString
+				/**
+				 * Adding…
+				 */
+				adding: () => LocalizedString
+				/**
+				 * Add link
+				 */
+				add: () => LocalizedString
+			}
+		}
+		device_link: {
+			/**
+			 * A device link is a full-access key to this vault. Never give it to anyone else.
+			 */
+			full_access_warning: () => LocalizedString
 		}
 		tokens: {
 			/**

@@ -30,6 +30,13 @@ export type MountStatus =
   /** Peer-side adopt (N1): scrubbing the subtree from the parent namespace. */
   | 'adopting:detaching'
   /**
+   * Peer-side absorb (N1): the owner unshared, and this device is folding the
+   * mount's stores back into the parent namespace. The same surgery as
+   * 'unsharing:absorbing', minus the map transaction — on a peer the map is
+   * the owner's and only the stores are ours (spike S10 Q1(b)).
+   */
+  | 'absorbing'
+  /**
    * Steady state, NOT a recovery state: the mount's stores exist and its files
    * stay on disk under an ignored prefix, but no token for the room is held on
    * this device, so no providers start. Boot must neither roll it back nor
@@ -75,6 +82,9 @@ const RECOVERY: Record<RecoverableMountStatus, MountRecovery['action']> = {
   // map, so a rolled-back adopt simply re-adopts at the next boot.
   'adopting:seeding': 'rollback',
   'adopting:detaching': 'rollforward',
+  // Peer-side absorb: the store copy is idempotent, so an interrupted one
+  // re-runs and then disconnects — the owner's row with writeMap:false.
+  absorbing: 'rollforward',
 }
 
 export class MountsFile {
@@ -96,6 +106,20 @@ export class MountsFile {
   /** Insert or replace the desc for `desc.room`. */
   upsert(desc: MountDesc): Promise<void> {
     return this.mutate((mounts) => [...mounts.filter((m) => m.room !== desc.room), desc])
+  }
+
+  /**
+   * Insert or MERGE the desc for `room`: `make` is handed the stored desc (if
+   * any) INSIDE the serialized read-modify-write, so a caller that needs to
+   * preserve fields it does not own — a relay URL it has no token for, a
+   * `needs-token` status only the host can lift (N1, spike S10 Q2) — never
+   * reads a desc that a concurrent transition has since replaced.
+   */
+  upsertWith(room: string, make: (existing: MountDesc | undefined) => MountDesc): Promise<void> {
+    return this.mutate((mounts) => [
+      ...mounts.filter((m) => m.room !== room),
+      make(mounts.find((m) => m.room === room)),
+    ])
   }
 
   removeMount(room: string): Promise<void> {

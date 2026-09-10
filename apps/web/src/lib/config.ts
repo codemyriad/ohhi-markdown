@@ -11,7 +11,7 @@
  * also heal values double-JSON-encoded by earlier builds).
  */
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
-import type { ShareGrant } from './share-link.js'
+import type { ShareGrant, ShareKind } from './share-link.js'
 import type { BuiltinTheme } from '@editor/ui/tokens'
 
 /** How to (re)build the VaultAdapter for a session. */
@@ -46,6 +46,13 @@ export interface StoredShare {
 
 export const DEFAULT_RELAY = 'ws://localhost:8787'
 
+/** One room's stored credential. */
+export interface RoomToken {
+  token: string
+  /** Absent ⇒ 'folder' (every token stored before N1). */
+  kind?: ShareKind
+}
+
 interface AppConfigV2 {
   version: 2
   vaults: VaultEntry[]
@@ -59,8 +66,17 @@ interface AppConfigV2 {
    * Bearer token per room for shares this device created or joined (M4).
    * Tokens NEVER live in mounts.json/folder maps (parent D4: descs are
    * advisory, never an auth source) — only here, in app config.
+   *
+   * The `kind` (device-link-shaping A4-A, spike S10 Q2) is what makes the
+   * ancestry fallback safe: a DEVICE token for the root room is one the relay
+   * also accepts in rooms carved out of that vault, so a mount with no token
+   * of its own may use it. A FOLDER token never reaches beyond its own room —
+   * on the client (the fallback is gated on the kind) and on the relay (a
+   * folder token never consults ancestry). Values written before N1 are bare
+   * strings and read as `{ token, kind: 'folder' }`: the conservative default,
+   * and the truth for every token the pre-N1 app ever minted.
    */
-  tokensByRoom: Record<string, string>
+  tokensByRoom: Record<string, RoomToken>
   /**
    * Relay URL per room, parallel to `tokensByRoom` (device-link-shaping
    * A4-B): a device link bundles {room, relay, token} triples, and the room
@@ -224,7 +240,7 @@ export function loadConfig(): AppConfigV2 {
     // Fields added after v2 shipped — backfill for configs written before
     // M4 (tokens) and before N2 (relay URLs). The blob's version does not
     // move: every addition here is optional and defaulted on read.
-    existing.tokensByRoom ??= {}
+    existing.tokensByRoom = normalizeTokens(existing.tokensByRoom)
     existing.relayByRoom ??= {}
     return existing
   }
@@ -234,6 +250,27 @@ export function loadConfig(): AppConfigV2 {
   const migrated = migrateV1()
   writeJson(K_CONFIG, migrated)
   return migrated
+}
+
+/**
+ * Read `tokensByRoom` in either shape. N1 gave each entry a `kind`; a config
+ * written before it holds bare strings, which are folder tokens by definition
+ * (the device kind did not exist yet). Migrating on read rather than bumping
+ * the blob version keeps every other addition here additive — the same way
+ * `tokensByRoom` itself arrived in M4.
+ */
+function normalizeTokens(raw: unknown): Record<string, RoomToken> {
+  const out: Record<string, RoomToken> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [room, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') {
+      if (value) out[room] = { token: value, kind: 'folder' }
+    } else if (value && typeof value === 'object' && typeof (value as RoomToken).token === 'string') {
+      const { token, kind } = value as RoomToken
+      if (token) out[room] = { token, ...(kind === 'device' ? { kind } : { kind: 'folder' }) }
+    }
+  }
+  return out
 }
 
 function save(cfg: AppConfigV2): void {
@@ -363,7 +400,18 @@ export function setOperatorSecret(secret: string): void {
 
 /** Bearer token for a room this device created/joined a share of ('' = none). */
 export function roomToken(room: string): string {
-  return loadConfig().tokensByRoom[room] ?? ''
+  return loadConfig().tokensByRoom[room]?.token ?? ''
+}
+
+/**
+ * What KIND of token this device holds for a room ('' = none). A 'device'
+ * token is the vault's own credential and the relay accepts it in rooms
+ * carved out of that vault; a 'folder' token is exact-match, always.
+ */
+export function roomTokenKind(room: string): ShareKind | '' {
+  const held = loadConfig().tokensByRoom[room]
+  if (!held) return ''
+  return held.kind ?? 'folder'
 }
 
 /** Relay the room's token belongs to ('' = unknown; see relayByRoom). */
@@ -375,9 +423,13 @@ export function roomRelay(room: string): string {
  * Remember a room's token, and the relay it is a credential for when the
  * caller knows it. Passing a blank relay leaves a remembered one alone.
  */
-export function setRoomToken(room: string, token: string, relay?: string): void {
+export function setRoomToken(room: string, token: string, relay?: string, kind?: ShareKind): void {
   const cfg = loadConfig()
-  cfg.tokensByRoom[room] = token
+  if (token) {
+    cfg.tokensByRoom[room] = { token, kind: kind ?? cfg.tokensByRoom[room]?.kind ?? 'folder' }
+  } else {
+    delete cfg.tokensByRoom[room]
+  }
   if (relay?.trim()) cfg.relayByRoom[room] = relay.trim()
   save(cfg)
 }
@@ -393,7 +445,8 @@ export function grantsForBundle(): ShareGrant[] {
   const cfg = loadConfig()
   const fallback = cfg.defaultRelay || DEFAULT_RELAY
   const out: ShareGrant[] = []
-  for (const [room, token] of Object.entries(cfg.tokensByRoom)) {
+  for (const [room, held] of Object.entries(cfg.tokensByRoom)) {
+    const token = held?.token
     if (!token) continue
     const relay =
       cfg.relayByRoom[room] ??
@@ -420,7 +473,9 @@ export function mergeGrants(grants: readonly ShareGrant[]): string[] {
   for (const g of grants) {
     if (!g?.room || !g.token) continue
     if (cfg.tokensByRoom[g.room]) continue
-    cfg.tokensByRoom[g.room] = g.token
+    // Grants are always folder credentials: only the link's own top-level
+    // token is the device key (spike S10 Q7).
+    cfg.tokensByRoom[g.room] = { token: g.token, kind: 'folder' }
     if (g.relay) cfg.relayByRoom[g.room] = g.relay
     stored.push(g.room)
   }

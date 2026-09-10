@@ -9,6 +9,7 @@ export {
   MemJournal,
   MemLcaStore,
   type StoreIo,
+  type StoreIoBinding,
 } from './stores.js'
 export {
   enrollFolder,
