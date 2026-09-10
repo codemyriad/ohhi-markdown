@@ -1,0 +1,15 @@
+# Cloudflare Pages response headers for the hosted web app. Policy and threat
+# model: docs/desktop-builds.md. Must match the desktop policy in
+# apps/desktop/src-tauri/tauri.conf.json apart from Tauri's IPC sources
+# (apps/desktop/scripts/check-csp.mjs enforces it).
+#
+# The sha256 is the inline pre-paint theme script in apps/web/index.html; after
+# editing that script, `rushx build` in apps/web, then `check-csp.mjs --print`.
+# A stale hash only blocks that script (a flash of the wrong theme).
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-jIHxGACQ0V+FGLy0L9RmTTLGQqdtrLFm+C9qjgKEG9c='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), display-capture=(), browsing-topics=()

@@ -34,6 +34,11 @@ cd apps/desktop && rushx dev
 For a production bundle, build the web app first (`cd apps/web && rushx build`,
 output in `apps/web/dist` = `frontendDist`), then `cd apps/desktop && rushx build`.
 
+Release builds (tag `v*` → draft GitHub Release), teammate install notes and
+the webview's Content Security Policy: [`docs/desktop-builds.md`](../../docs/desktop-builds.md).
+The CSP covers built apps only (`tauri dev` loads the Vite server directly), so
+check a CSP change with `tauri build --debug --no-bundle`.
+
 ## How the web app detects Tauri
 
 When running inside this shell, Tauri injects `window.__TAURI_INTERNALS__` into
