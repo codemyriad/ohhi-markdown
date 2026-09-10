@@ -3,6 +3,7 @@
  * the pill component renders f(syncRecord) and contains no further logic.
  * Status table: docs/architecture/sync.md ("syncRecord and the pill").
  */
+import { getLL } from '@editor/i18n'
 
 export type PillStatus = 'green' | 'yellow' | 'red' | 'offline'
 
@@ -37,21 +38,16 @@ export function worstStatus(statuses: PillStatus[]): PillStatus {
 }
 
 /**
- * Title text per status. Green deliberately says "synced (relay)" — relay
- * receipt, not durable ack; durable-ack honesty lands V2 (plans/V1-plan.md,
- * deviations).
+ * The pill's copy lives in the dictionary (`web.pill.*`); these read it
+ * through `getLL()` because this module is not a component. Green
+ * deliberately says "synced (relay)" — relay receipt, not durable ack;
+ * durable-ack honesty lands V2 (plans/V1-plan.md, deviations).
  */
 /** Short inline label beside the dot (the status bar). Same claims as the titles. */
-export const PILL_LABELS: Record<PillStatus, string> = {
-  green: 'synced',
-  yellow: 'syncing',
-  red: 'diverged',
-  offline: 'offline',
+export function pillLabel(status: PillStatus): string {
+  return getLL().web.pill.label[status]()
 }
 
-export const PILL_TITLES: Record<PillStatus, string> = {
-  green: 'synced (relay)',
-  yellow: 'working — ops or disk flush in flight',
-  red: 'diverged — review required',
-  offline: 'offline — edits safe locally, nothing reaching the relay',
+export function pillTitle(status: PillStatus): string {
+  return getLL().web.pill.title[status]()
 }

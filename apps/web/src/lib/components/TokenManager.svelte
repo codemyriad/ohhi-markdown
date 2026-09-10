@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { listShares, mintShare, revokeShare, type RelayShare } from '../relay-admin.js'
 
   interface Props {
@@ -9,6 +10,7 @@
 
   let { relayUrl, secret, room }: Props = $props()
 
+  const t = $derived($LL.web.tokens)
   let tokens = $state<RelayShare[] | null>(null)
   let error = $state('')
   let busy = $state(false)
@@ -60,31 +62,31 @@
 </script>
 
 <div data-testid="token-manager" class="mt-2 border-t border-base-300 pt-2">
-  <h3 class="text-[10px] font-semibold tracking-wide text-base-content/70 uppercase">Tokens</h3>
+  <h3 class="text-[10px] font-semibold tracking-wide text-base-content/70 uppercase">{t.title()}</h3>
   {#if error}
     <p class="mt-1 text-xs text-error" data-testid="token-error">{error}</p>
   {/if}
   {#if tokens === null}
-    <p class="mt-1 text-xs text-base-content/70">loading…</p>
+    <p class="mt-1 text-xs text-base-content/70">{t.loading()}</p>
   {:else if tokens.length === 0}
-    <p class="mt-1 text-xs text-base-content/70">no tokens for this folder</p>
+    <p class="mt-1 text-xs text-base-content/70">{t.none()}</p>
   {:else}
     <ul class="mt-1 space-y-1">
-      {#each tokens as t (t.token)}
-        <li class="flex items-center gap-2 text-xs" data-testid="token-row:{t.label ?? t.token.slice(0, 8)}">
-          <span class="min-w-0 flex-1 truncate text-base-content/80" title={t.token}>
-            {t.label ?? `${t.token.slice(0, 8)}…`}
+      {#each tokens as tok (tok.token)}
+        <li class="flex items-center gap-2 text-xs" data-testid="token-row:{tok.label ?? tok.token.slice(0, 8)}">
+          <span class="min-w-0 flex-1 truncate text-base-content/80" title={tok.token}>
+            {tok.label ?? `${tok.token.slice(0, 8)}…`}
           </span>
-          {#if t.readOnly}
-            <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/70">read-only</span>
+          {#if tok.readOnly}
+            <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/70">{t.read_only()}</span>
           {/if}
           <button
-            data-testid="revoke-token:{t.label ?? t.token.slice(0, 8)}"
+            data-testid="revoke-token:{tok.label ?? tok.token.slice(0, 8)}"
             disabled={busy}
-            onclick={() => void revoke(t.token)}
+            onclick={() => void revoke(tok.token)}
             class="rounded px-1.5 py-0.5 text-error hover:bg-error/10 disabled:opacity-50"
           >
-            revoke
+            {t.revoke()}
           </button>
         </li>
       {/each}
@@ -94,12 +96,12 @@
     <input
       data-testid="new-token-label"
       bind:value={newLabel}
-      placeholder="label (e.g. laptop, Sam)"
+      placeholder={t.label_placeholder()}
       class="min-w-0 flex-1 rounded border border-base-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
     />
     <label class="flex items-center gap-1 text-[10px] text-base-content/70">
       <input type="checkbox" bind:checked={newReadOnly} data-testid="new-token-readonly" />
-      read-only
+      {t.read_only()}
     </label>
     <button
       data-testid="mint-token"
@@ -107,10 +109,8 @@
       onclick={() => void mint()}
       class="rounded bg-base-200 px-2 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300 disabled:opacity-50"
     >
-      mint
+      {t.mint()}
     </button>
   </div>
-  <p class="mt-1 text-[10px] text-base-content/70">
-    Revoking blocks new connections; already-connected peers stay until they reconnect.
-  </p>
+  <p class="mt-1 text-[10px] text-base-content/70">{t.revoke_hint()}</p>
 </div>

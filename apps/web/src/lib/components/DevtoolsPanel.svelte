@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Workspace, WorkspaceInspection } from '../workspace.svelte.js'
   import type { MountStats } from '@editor/workspace'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { pillStatus } from '../pill-status.js'
 
   interface Props {
@@ -9,6 +10,7 @@
 
   let { workspace }: Props = $props()
 
+  const t = $derived($LL.web.devtools)
   let open = $state(true)
   let insp = $state.raw<WorkspaceInspection | null>(null)
   let stats = $state.raw<MountStats[]>([])
@@ -37,32 +39,32 @@
   }
 
   function age(at: number | null): string {
-    if (at === null) return 'never'
+    if (at === null) return t.never()
     const s = Math.max(0, Math.round((Date.now() - at) / 1000))
-    return s < 1 ? 'just now' : `${s}s ago`
+    return s < 1 ? t.just_now() : t.seconds_ago({ count: s })
   }
 </script>
 
 <section
   data-testid="devtools-panel"
-  aria-label="Sync devtools"
+  aria-label={t.title()}
   class="fixed inset-x-0 bottom-0 z-10 border-t border-warning/40 bg-warning/10 font-mono text-[11px] text-base-content"
 >
   <header class="flex items-center gap-3 px-3 py-1">
-    <h2 class="font-semibold tracking-wide text-warning uppercase">Sync devtools</h2>
-    <span class="truncate text-base-content/70">{selected ?? 'no file selected'}</span>
+    <h2 class="font-semibold tracking-wide text-warning uppercase">{t.title()}</h2>
+    <span class="truncate text-base-content/70">{selected ?? t.no_file()}</span>
     <div class="ml-auto flex items-center gap-2">
       <button
         data-testid="devtools-refresh"
         onclick={() => tick++}
         class="rounded px-2 py-0.5 text-warning hover:bg-warning/15"
       >
-        refresh
+        {t.refresh()}
       </button>
       <button
         onclick={() => (open = !open)}
         aria-expanded={open}
-        aria-label={open ? 'Collapse devtools' : 'Expand devtools'}
+        aria-label={open ? t.collapse() : t.expand()}
         class="rounded px-2 py-0.5 text-warning hover:bg-warning/15"
       >
         {open ? '▾' : '▴'}
@@ -106,7 +108,7 @@
             <div data-testid="devtools-blob">
               {insp.blob
                 ? `${insp.blob.present ? `${insp.blob.bytes}b` : 'absent'} · flushed ${age(insp.blob.lastFlushAt)}`
-                : 'no doc store'}
+                : t.no_doc_store()}
             </div>
           </div>
           <div>
@@ -115,13 +117,13 @@
               {#each insp.journal.recent as e, i (i)}
                 <li>{new Date(e.at).toISOString().slice(11, 19)} · {e.bytes}b</li>
               {:else}
-                <li class="text-base-content/70">no pre-images yet</li>
+                <li class="text-base-content/70">{t.no_preimages()}</li>
               {/each}
             </ul>
           </div>
         </div>
       {:else}
-        <p class="py-1 text-base-content/70">Select a text file to inspect its disk ↔ CRDT state.</p>
+        <p class="py-1 text-base-content/70">{t.select_file()}</p>
       {/if}
 
       <footer

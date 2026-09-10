@@ -6,6 +6,7 @@
    * There is no user identity until device-key tokens (parent D4): access is
    * links and the labels you gave them, never people, and the copy says so.
    */
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { listShares, type RelayShare } from '../relay-admin.js'
   import { onlineIn, relayHost, shareStateFor, type MountLike } from '../share-status.js'
   import { decodeShareLink } from '../share-link.js'
@@ -47,6 +48,7 @@
     onAddShare,
   }: Props = $props()
 
+  const t = $derived($LL.web.note)
   const dir = $derived(path && path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
   const share = $derived(shareStateFor(path ?? '', mounts, rootShared, rootRoom))
   const host = $derived.by(() => {
@@ -65,6 +67,18 @@
   const canShareHere = $derived(
     share.kind === 'local' && dir !== '' && !rootShared
   )
+  const sharedMountCount = $derived(mounts.filter((m) => m.provenance !== 'local').length)
+  /** "Shared by you · relay.example.com" — the state, with the host when known. */
+  const shareLine = $derived.by(() => {
+    if (share.kind === 'local') return t.local_device()
+    const state =
+      share.provenance === 'carved'
+        ? t.shared_by_you()
+        : share.provenance === 'joined'
+          ? t.shared_with_you()
+          : t.shared_whole()
+    return host ? t.with_host({ state, host }) : state
+  })
 
   // ---- access list (carved mounts only: our relay, our secret) ----
   let tokens = $state<RelayShare[] | null>(null)
@@ -98,71 +112,59 @@
 
 <div data-testid="note-section" class="flex flex-col gap-3 px-3 py-2 text-xs text-base-content/80">
   {#if !path}
-    <p class="text-base-content/70">No note open.</p>
+    <p class="text-base-content/70">{t.no_note()}</p>
     <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Vault</dt>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.vault()}</dt>
       <dd class="truncate">{vaultName}</dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Sharing</dt>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
       <dd data-testid="share-state">
-        {#if rootShared}Shared as a whole{:else if mounts.some((m) => m.provenance !== 'local')}
-          {mounts.filter((m) => m.provenance !== 'local').length} shared
-          {mounts.filter((m) => m.provenance !== 'local').length === 1 ? 'folder' : 'folders'}
-        {:else}Local vault — nothing shared{/if}
+        {#if rootShared}{t.shared_whole()}{:else if sharedMountCount > 0}
+          {t.shared_folders({ count: sharedMountCount })}
+        {:else}{t.local_nothing_shared()}{/if}
       </dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Online</dt>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.online()}</dt>
       <dd data-testid="presence">
-        {#if presenceAll.length === 0}Only you{:else}{presenceAll.join(', ')}{/if}
+        {#if presenceAll.length === 0}{t.only_you()}{:else}{presenceAll.join(', ')}{/if}
       </dd>
     </dl>
   {:else}
     <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Folder</dt>
-      <dd class="truncate font-ed-mono">{dir || '(vault root)'}</dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Sharing</dt>
-      <dd data-testid="share-state">
-        {#if share.kind === 'local'}
-          Local — only on this device
-        {:else if share.provenance === 'carved'}
-          Shared by you{#if host} · {host}{/if}
-        {:else if share.provenance === 'joined'}
-          Shared with you{#if host} · {host}{/if}
-        {:else}
-          Shared as a whole{#if host} · {host}{/if}
-        {/if}
-      </dd>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.folder()}</dt>
+      <dd class="truncate font-ed-mono">{dir || t.vault_root()}</dd>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
+      <dd data-testid="share-state">{shareLine}</dd>
       {#if share.kind === 'shared'}
-        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Online here</dt>
+        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.online_here()}</dt>
         <dd data-testid="presence">
-          {#if online.length === 0}Only you{:else}{online.join(', ')}{/if}
+          {#if online.length === 0}{t.only_you()}{:else}{online.join(', ')}{/if}
         </dd>
-        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">Access</dt>
+        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.access()}</dt>
         <dd data-testid="share-access">
           {#if share.provenance === 'joined'}
-            Managed by whoever shared it with you.
+            {t.access_joined()}
           {:else if share.provenance === 'root'}
-            The whole vault's links — see Settings.
+            {t.access_root()}
           {:else if !secret}
-            Set the relay operator secret in Settings to list the links.
+            {t.access_needs_secret()}
           {:else if tokensError}
             <span class="text-error">{tokensError}</span>
           {:else if tokens === null}
-            Loading links…
+            {t.access_loading()}
           {:else if tokens.length === 0}
-            No links — nobody else can open this yet.
+            {t.access_none()}
           {:else}
             <ul class="space-y-0.5">
-              {#each tokens as t (t.token)}
+              {#each tokens as tok (tok.token)}
                 <li class="flex items-center gap-1.5">
-                  <span class="truncate">{t.label ?? `${t.token.slice(0, 8)}…`}</span>
-                  {#if t.readOnly}
-                    <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/70">read-only</span>
+                  <span class="truncate">{tok.label ?? `${tok.token.slice(0, 8)}…`}</span>
+                  {#if tok.readOnly}
+                    <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/70">{t.read_only()}</span>
                   {/if}
                 </li>
               {/each}
             </ul>
             <p class="mt-1 text-[10px] text-base-content/70">
-              {tokens.length} {tokens.length === 1 ? 'link' : 'links'} — anyone holding one can open this folder.
-              Links, not people: there are no accounts yet.
+              {t.access_count({ count: tokens.length })}
             </p>
           {/if}
         </dd>
@@ -177,7 +179,7 @@
           onclick={() => onManage(share.mountPath)}
           class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
         >
-          {share.provenance === 'carved' ? 'Manage sharing…' : 'Details…'}
+          {share.provenance === 'carved' ? t.manage_sharing() : t.details()}
         </button>
       {/if}
       {#if canShareHere}
@@ -187,7 +189,7 @@
           onclick={() => onShareFolder(dir)}
           class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
         >
-          Share this folder…
+          {t.share_folder()}
         </button>
       {/if}
       {#if share.kind === 'local' && !rootShared}
@@ -197,7 +199,7 @@
           onclick={() => onAddShare(dir)}
           class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
         >
-          Add a shared folder here…
+          {t.add_share_here()}
         </button>
       {/if}
     </div>

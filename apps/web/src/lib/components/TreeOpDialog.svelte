@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LL } from '@editor/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   interface Props {
@@ -14,6 +15,7 @@
 
   let { mode, path, kind, dirs, onConfirm, onCancel }: Props = $props()
 
+  const t = $derived($LL.web.tree_op)
   const basename = $derived(path.slice(path.lastIndexOf('/') + 1))
   const parentDir = $derived(path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
 
@@ -29,13 +31,15 @@
   const title = $derived(
     mode === 'new-folder'
       ? path
-        ? `New folder in ${path}`
-        : 'New folder'
+        ? t.new_folder_in({ path })
+        : t.new_folder()
       : mode === 'rename'
-        ? `Rename ${basename}`
+        ? t.rename({ name: basename })
         : mode === 'move'
-          ? `Move ${basename}`
-          : `Delete ${kind === 'dir' ? 'folder' : 'file'} ${basename}?`
+          ? t.move({ name: basename })
+          : kind === 'dir'
+            ? t.delete_folder({ name: basename })
+            : t.delete_file({ name: basename })
   )
 
   const confirmDisabled = $derived(
@@ -67,30 +71,25 @@
       <input
         data-testid="tree-op-name"
         bind:value={name}
-        aria-label={mode === 'rename' ? 'New name' : 'Folder name'}
+        aria-label={mode === 'rename' ? t.new_name() : t.folder_name()}
         class="w-full rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
       />
     {:else if mode === 'move'}
       <label class="block">
-        <span class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">Destination</span>
+        <span class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.destination()}</span>
         <select
           data-testid="tree-op-dest"
           bind:value={dest}
           class="mt-1 w-full rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
         >
           {#each targets as d (d)}
-            <option value={d}>{d === '' ? '(vault root)' : d}</option>
+            <option value={d}>{d === '' ? t.vault_root() : d}</option>
           {/each}
         </select>
       </label>
     {:else}
       <p class="text-sm text-base-content/70">
-        {#if kind === 'dir'}
-          Everything inside is removed for you and for everyone sharing it. Pre-images are
-          journaled and files can be restored.
-        {:else}
-          Removed for you and for everyone sharing it. The pre-image is journaled.
-        {/if}
+        {kind === 'dir' ? t.delete_folder_body() : t.delete_file_body()}
       </p>
     {/if}
 
@@ -101,7 +100,7 @@
         onclick={onCancel}
         class="rounded border border-base-300 px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200"
       >
-        Cancel
+        {$LL.common.cancel()}
       </button>
       <button
         type="submit"
@@ -112,7 +111,13 @@
             ? 'bg-error text-error-content hover:bg-error/90'
             : 'bg-primary text-primary-content hover:bg-primary/90'}"
       >
-        {mode === 'delete' ? 'Delete' : mode === 'move' ? 'Move' : mode === 'rename' ? 'Rename' : 'Create'}
+        {mode === 'delete'
+          ? t.confirm.delete()
+          : mode === 'move'
+            ? t.confirm.move()
+            : mode === 'rename'
+              ? t.confirm.rename()
+              : t.confirm.create()}
       </button>
     </div>
   </form>

@@ -4,8 +4,8 @@ import {
   containingDir,
   dirPaths,
   planDrop,
-  ADD_SHARE_BLOCKED_ROOT_SHARED,
-  SHARE_BLOCKED_ROOT_SHARED,
+  addShareBlockedRootShared,
+  shareBlockedRootShared,
   treeMenuItems,
   type MountLike,
 } from './tree-model.js'
@@ -102,7 +102,8 @@ describe('treeMenuItems', () => {
     const share = items.find((i) => i.action === 'share')!
     // Visible-but-inert, never hidden: the hidden rule is what confused people.
     expect(share.disabled).toBe(true)
-    expect(share.reason).toBe(SHARE_BLOCKED_ROOT_SHARED)
+    expect(share.reason).toBe(shareBlockedRootShared())
+    expect(share.reason).toContain('already shared as a whole')
   })
 
   it('refuses Share for folders that would nest with an existing mount', () => {
@@ -140,7 +141,7 @@ describe('treeMenuItems', () => {
     const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts: carved, rootShared: false })
     expect(inside.find((i) => i.action === 'add-share')!.disabled).toBe(true)
     const rootShared = treeMenuItems({ kind: 'root' }, { mounts: [], rootShared: true })
-    expect(rootShared.find((i) => i.action === 'add-share')!.reason).toBe(ADD_SHARE_BLOCKED_ROOT_SHARED)
+    expect(rootShared.find((i) => i.action === 'add-share')!.reason).toBe(addShareBlockedRootShared())
     // Outside any mount it is offered plainly.
     const plainDir = treeMenuItems({ kind: 'dir', path: 'notes' }, { mounts: carved, rootShared: false })
     expect(plainDir.find((i) => i.action === 'add-share')!.disabled).toBeUndefined()

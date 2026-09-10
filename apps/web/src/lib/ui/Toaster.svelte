@@ -2,6 +2,7 @@
   /** The live region the `toast()` helper writes into. Mount once, in the shell. */
   import { melt } from '@melt-ui/svelte'
   import { X } from '@lucide/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { toaster } from './toaster.js'
 
   const {
@@ -22,7 +23,7 @@
 <div
   use:portal
   role="region"
-  aria-label="Notifications"
+  aria-label={$LL.web.ui.notifications()}
   class="fixed right-4 bottom-4 z-[60] flex w-80 max-w-[calc(100%-2rem)] flex-col gap-2"
 >
   {#each $toasts as t (t.id)}
@@ -42,7 +43,7 @@
       </div>
       <button
         use:melt={$close(t.id)}
-        aria-label="Dismiss notification"
+        aria-label={$LL.web.ui.dismiss_notification()}
         class="shrink-0 rounded p-0.5 text-base-content/70 hover:bg-base-200 hover:text-base-content"
       >
         <X size={14} aria-hidden="true" />

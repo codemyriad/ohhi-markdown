@@ -5,7 +5,8 @@
    * Chris keeps) and the open note's own sync pill — pure `f(record)`, same
    * as everywhere else.
    */
-  import { PILL_LABELS, type PillStatus } from '../pill-status.js'
+  import { LL } from '@editor/i18n/i18n-svelte'
+  import { pillLabel, type PillStatus } from '../pill-status.js'
   import SyncPill from './SyncPill.svelte'
 
   interface Props {
@@ -23,11 +24,10 @@
 >
   {#if hasNote}
     <span data-testid="word-count" class="tabular-nums">
-      {wordCount}
-      {wordCount === 1 ? 'word' : 'words'}
+      {$LL.web.status_bar.words({ count: wordCount })}
     </span>
     {#if noteStatus}
-      <SyncPill status={noteStatus} testid="sync-pill-note" label={PILL_LABELS[noteStatus]} />
+      <SyncPill status={noteStatus} testid="sync-pill-note" label={pillLabel(noteStatus)} />
     {/if}
   {/if}
 </footer>

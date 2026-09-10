@@ -3,7 +3,13 @@
  * from the workspace's flat rows. Directories come from BOTH dir entries
  * (first-class since M3) and file-path prefixes — maps written before dir
  * entries existed still render a full tree.
+ *
+ * The menu labels, refusal reasons and drop refusals are dictionary keys
+ * (`web.tree.*`), read through `getLL()` at call time: this module is not a
+ * component, and the tests run it on node after `test-setup.ts` has loaded
+ * the locale.
  */
+import { getLL } from '@editor/i18n'
 import type { FileRow } from './workspace.svelte.js'
 
 export interface TreeNode {
@@ -168,33 +174,25 @@ export interface TreeMenuItem {
  * shares guard (spike S8, "The mount model") — stated in the menu rather than
  * enforced by an absent button.
  */
-export const SHARE_BLOCKED_ROOT_SHARED =
-  'This vault is already shared as a whole — folder shares need an unshared vault.'
+export const shareBlockedRootShared = (): string => getLL().web.tree.reason.share_root_shared()
 
 function shareItem(path: string, ctx: { mounts: MountLike[]; rootShared: boolean }): TreeMenuItem {
-  const item: TreeMenuItem = { action: 'share', label: 'Share…' }
-  if (ctx.rootShared) return { ...item, disabled: true, reason: SHARE_BLOCKED_ROOT_SHARED }
+  const t = getLL().web.tree
+  const item: TreeMenuItem = { action: 'share', label: t.menu.share() }
+  if (ctx.rootShared) return { ...item, disabled: true, reason: shareBlockedRootShared() }
   const inside = ctx.mounts.find((m) => m.path !== '' && path.startsWith(`${m.path}/`))
   if (inside) {
-    return {
-      ...item,
-      disabled: true,
-      reason: `Already inside the shared folder '${inside.path}' — shared folders cannot nest.`,
-    }
+    return { ...item, disabled: true, reason: t.reason.share_inside({ path: inside.path }) }
   }
   const contains = ctx.mounts.find((m) => m.path.startsWith(`${path}/`))
   if (contains) {
-    return {
-      ...item,
-      disabled: true,
-      reason: `Contains the shared folder '${contains.path}' — shared folders cannot nest.`,
-    }
+    return { ...item, disabled: true, reason: t.reason.share_contains({ path: contains.path }) }
   }
   return item
 }
 
-export const ADD_SHARE_BLOCKED_ROOT_SHARED =
-  'This vault is already shared as a whole — a joined folder needs an unshared vault.'
+export const addShareBlockedRootShared = (): string =>
+  getLL().web.tree.reason.add_share_root_shared()
 
 /**
  * "Add a shared folder here…" (chrome-shaping U3): joining lands a NEW mount
@@ -202,15 +200,12 @@ export const ADD_SHARE_BLOCKED_ROOT_SHARED =
  * hidden.
  */
 function addShareItem(dir: string, ctx: { mounts: MountLike[]; rootShared: boolean }): TreeMenuItem {
-  const item: TreeMenuItem = { action: 'add-share', label: 'Add a shared folder here…' }
-  if (ctx.rootShared) return { ...item, disabled: true, reason: ADD_SHARE_BLOCKED_ROOT_SHARED }
+  const t = getLL().web.tree
+  const item: TreeMenuItem = { action: 'add-share', label: t.menu.add_share() }
+  if (ctx.rootShared) return { ...item, disabled: true, reason: addShareBlockedRootShared() }
   const inside = ctx.mounts.find((m) => m.path !== '' && (dir === m.path || dir.startsWith(`${m.path}/`)))
   if (inside) {
-    return {
-      ...item,
-      disabled: true,
-      reason: `Inside the shared folder '${inside.path}' — shared folders cannot nest.`,
-    }
+    return { ...item, disabled: true, reason: t.reason.add_share_inside({ path: inside.path }) }
   }
   return item
 }
@@ -223,36 +218,37 @@ export function treeMenuItems(
   target: TreeMenuTarget,
   ctx: { mounts: MountLike[]; rootShared: boolean }
 ): TreeMenuItem[] {
+  const t = getLL().web.tree.menu
   if (target.kind === 'root') {
     return [
-      { action: 'new-file', label: 'New file' },
-      { action: 'new-folder', label: 'New folder' },
+      { action: 'new-file', label: t.new_file() },
+      { action: 'new-folder', label: t.new_folder() },
       { ...addShareItem('', ctx), separatorBefore: true },
     ]
   }
   if (target.kind !== 'dir') {
     return [
-      { action: 'rename', label: 'Rename…' },
-      { action: 'move', label: 'Move…' },
-      { action: 'delete', label: 'Delete…', danger: true, separatorBefore: true },
+      { action: 'rename', label: t.rename() },
+      { action: 'move', label: t.move() },
+      { action: 'delete', label: t.delete(), danger: true, separatorBefore: true },
     ]
   }
   const mount = ctx.mounts.find((m) => m.path === target.path) ?? null
   const items: TreeMenuItem[] = [
-    { action: 'new-file', label: 'New file' },
-    { action: 'new-folder', label: 'New folder' },
-    { action: 'rename', label: 'Rename…', separatorBefore: true },
-    { action: 'move', label: 'Move…' },
+    { action: 'new-file', label: t.new_file() },
+    { action: 'new-folder', label: t.new_folder() },
+    { action: 'rename', label: t.rename(), separatorBefore: true },
+    { action: 'move', label: t.move() },
   ]
   if (mount) {
-    items.push({ action: 'manage', label: 'Manage tokens…', separatorBefore: true })
-    items.push({ action: 'unshare', label: 'Unshare…' })
-    if (mount.provenance === 'joined') items.push({ action: 'unmount', label: 'Unmount…' })
+    items.push({ action: 'manage', label: t.manage_tokens(), separatorBefore: true })
+    items.push({ action: 'unshare', label: t.unshare() })
+    if (mount.provenance === 'joined') items.push({ action: 'unmount', label: t.unmount() })
   } else {
     items.push({ ...shareItem(target.path, ctx), separatorBefore: true })
   }
   items.push(addShareItem(target.path, ctx))
-  items.push({ action: 'delete', label: 'Delete…', danger: true, separatorBefore: true })
+  items.push({ action: 'delete', label: t.delete(), danger: true, separatorBefore: true })
   return items
 }
 
@@ -273,19 +269,20 @@ export function planDrop(
   toDir: string,
   existing: Iterable<string> = []
 ): DropPlan {
-  if (!from) return { ok: false, reason: 'nothing is being dragged' }
+  const t = getLL().web.tree.drop
+  if (!from) return { ok: false, reason: t.nothing() }
   const cut = from.lastIndexOf('/')
   const name = from.slice(cut + 1)
   const parent = cut === -1 ? '' : from.slice(0, cut)
-  if (toDir === from) return { ok: false, reason: `'${name}' cannot be dropped onto itself` }
+  if (toDir === from) return { ok: false, reason: t.onto_itself({ name }) }
   // Covers every descendant: only a folder can be a path prefix of a dir.
   if (toDir.startsWith(`${from}/`)) {
-    return { ok: false, reason: `'${name}' cannot move inside itself` }
+    return { ok: false, reason: t.inside_itself({ name }) }
   }
-  if (toDir === parent) return { ok: false, reason: `'${name}' is already there` }
+  if (toDir === parent) return { ok: false, reason: t.already_there({ name }) }
   const to = toDir ? `${toDir}/${name}` : name
   // A Set stays a Set: this runs on every `dragover`, which fires constantly.
   const taken = existing instanceof Set ? existing : new Set(existing)
-  if (taken.has(to)) return { ok: false, reason: `'${to}' already exists` }
+  if (taken.has(to)) return { ok: false, reason: t.exists({ path: to }) }
   return { ok: true, to }
 }

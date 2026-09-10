@@ -6,6 +6,7 @@
    * hotkey; the rows exist so the keys are discoverable.
    */
   import { Command, FileSearch, Search } from '@lucide/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
 
   interface Props {
     bindings: { quickOpen: string; search: string; commands: string }
@@ -16,14 +17,15 @@
 
   let { bindings, onQuickOpen, onSearch, onCommands }: Props = $props()
 
+  const t = $derived($LL.web.actions)
   const rows = $derived([
-    { id: 'open-quick-open', icon: FileSearch, label: 'Open note', binding: bindings.quickOpen, run: onQuickOpen },
-    { id: 'open-search', icon: Search, label: 'Search', binding: bindings.search, run: onSearch },
-    { id: 'open-commands', icon: Command, label: 'Commands', binding: bindings.commands, run: onCommands },
+    { id: 'open-quick-open', icon: FileSearch, label: t.open_note(), binding: bindings.quickOpen, run: onQuickOpen },
+    { id: 'open-search', icon: Search, label: t.search(), binding: bindings.search, run: onSearch },
+    { id: 'open-commands', icon: Command, label: t.commands(), binding: bindings.commands, run: onCommands },
   ])
 </script>
 
-<nav aria-label="Navigate" data-testid="actions" class="flex flex-col gap-0.5 border-b border-base-300 p-2">
+<nav aria-label={t.label()} data-testid="actions" class="flex flex-col gap-0.5 border-b border-base-300 p-2">
   {#each rows as r (r.id)}
     <button
       type="button"

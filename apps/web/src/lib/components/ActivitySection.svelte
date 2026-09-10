@@ -6,6 +6,7 @@
    * tools toggle lives at its foot, next to the diagnostics it enables.
    */
   import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
   import { formatTime, type Notice } from '../notices.js'
 
   interface Props {
@@ -18,13 +19,14 @@
 
   let { notices, devtools, onOpenPath, onClear, onDevtools }: Props = $props()
 
+  const t = $derived($LL.web.activity)
   const ICON = { error: CircleAlert, warn: TriangleAlert, info: Info } as const
   const TONE = { error: 'text-error', warn: 'text-base-content/80', info: 'text-base-content/70' } as const
 </script>
 
 <div data-testid="activity-section" class="flex flex-col text-xs text-base-content/80">
   {#if notices.length === 0}
-    <p class="px-3 py-2 text-base-content/70">Nothing to report this session.</p>
+    <p class="px-3 py-2 text-base-content/70">{t.empty()}</p>
   {:else}
     <ol class="divide-y divide-base-200">
       {#each notices as n (n.id)}
@@ -40,7 +42,7 @@
                   type="button"
                   onclick={() => onOpenPath(n.path!)}
                   class="truncate rounded px-1 font-ed-mono hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
-                  title="Open {n.path}"
+                  title={t.open_path({ path: n.path })}
                 >
                   {n.path}
                 </button>
@@ -57,7 +59,7 @@
         onclick={onClear}
         class="rounded px-2 py-0.5 text-[10px] text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
       >
-        Clear
+        {t.clear()}
       </button>
     </div>
   {/if}
@@ -68,7 +70,7 @@
       checked={devtools}
       onchange={(e) => onDevtools(e.currentTarget.checked)}
     />
-    Developer tools
-    <span class="text-[10px] text-base-content/70">— the sync inspector</span>
+    {t.devtools()}
+    <span class="text-[10px] text-base-content/70">{t.devtools_hint()}</span>
   </label>
 </div>

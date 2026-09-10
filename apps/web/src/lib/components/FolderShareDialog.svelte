@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { LL } from '@editor/i18n/i18n-svelte'
   import type { MountInfo } from '../workspace.svelte.js'
+  import { escapeHtml } from '../html.js'
   import Dialog from '../ui/Dialog.svelte'
   import TokenManager from './TokenManager.svelte'
 
@@ -17,6 +19,7 @@
 
   let { path, mount, relayUrl, secret, onShare, onClose }: Props = $props()
 
+  const t = $derived($LL.web.share.folder)
   let busy = $state(false)
   let error = $state('')
   let carvedLink = $state<string | null>(null)
@@ -48,13 +51,10 @@
   }
 </script>
 
-<Dialog title="Share {path}" width="sm" testid="folder-share-dialog" {onClose}>
+<Dialog title={t.title({ path })} width="sm" testid="folder-share-dialog" {onClose}>
   <div>
     {#if link || mount}
-      <p class="mt-2 text-xs text-base-content/70">
-        This folder is shared — everything inside it syncs to anyone holding the link. The rest
-        of the vault stays local.
-      </p>
+      <p class="mt-2 text-xs text-base-content/70">{t.is_shared()}</p>
       {#if link}
         <div class="mt-2 flex items-center gap-1">
           <input
@@ -68,7 +68,7 @@
             onclick={copy}
             class="rounded bg-success/15 px-2 py-1 text-xs font-medium text-success hover:bg-success/25"
           >
-            {copied ? 'Copied!' : 'Copy'}
+            {copied ? t.copied() : t.copy()}
           </button>
         </div>
       {/if}
@@ -76,14 +76,14 @@
         <TokenManager {relayUrl} {secret} room={mount.room} />
       {/if}
     {:else}
+      <!-- The sentence carries inline markup, so it renders as html with the
+           relay URL escaped and passed as an argument (the Edible pattern). -->
       <p class="mt-2 text-xs text-base-content/70">
-        Sharing carves this folder into its own synced space on
-        <span class="font-mono">{relayUrl}</span>: everything inside syncs to anyone holding the
-        link; everything outside stays local to this vault. No files are moved or changed.
+        {@html t.carve_help({ relay: `<span class="font-mono">${escapeHtml(relayUrl)}</span>` })}
       </p>
       {#if !secret}
         <p class="mt-2 text-xs text-warning" data-testid="folder-share-needs-secret">
-          Set the relay operator secret in Settings to create shares in-app.
+          {t.needs_secret()}
         </p>
       {/if}
       {#if error}
@@ -95,7 +95,7 @@
         onclick={() => void share()}
         class="mt-3 w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
       >
-        {busy ? 'Sharing…' : 'Share this folder'}
+        {busy ? t.sharing() : t.share()}
       </button>
     {/if}
 
@@ -104,7 +104,7 @@
       onclick={onClose}
       class="mt-3 w-full rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
     >
-      Close
+      {$LL.common.close()}
     </button>
   </div>
 </Dialog>
