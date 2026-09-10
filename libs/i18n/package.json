@@ -1,0 +1,30 @@
+{
+  "name": "@editor/i18n",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./i18n-svelte": "./src/i18n/i18n-svelte.ts",
+    "./i18n-util": "./src/i18n/i18n-util.ts",
+    "./i18n-util.async": "./src/i18n/i18n-util.async.ts",
+    "./i18n-util.sync": "./src/i18n/i18n-util.sync.ts"
+  },
+  "scripts": {
+    "typesafe-i18n": "typesafe-i18n",
+    "generate": "typesafe-i18n --no-watch",
+    "check": "typesafe-i18n --no-watch && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "svelte": "^5.0.0",
+    "typesafe-i18n": "~5.26.2",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "typesafe-i18n": "~5.26.2"
+  }
+}

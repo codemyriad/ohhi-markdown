@@ -58,6 +58,9 @@ importers:
       '@editor/editor-lang':
         specifier: workspace:*
         version: link:../../libs/editor-lang
+      '@editor/i18n':
+        specifier: workspace:*
+        version: link:../../libs/i18n
       '@editor/index':
         specifier: workspace:*
         version: link:../../libs/index
@@ -88,6 +91,9 @@ importers:
       '@tauri-apps/plugin-fs':
         specifier: ^2.0.0
         version: 2.5.1
+      typesafe-i18n:
+        specifier: ~5.26.2
+        version: 5.26.2(typescript@5.9.3)
       y-protocols:
         specifier: ^1.0.6
         version: 1.0.7(yjs@13.6.31)
@@ -223,6 +229,21 @@ importers:
       '@codemirror/lang-markdown':
         specifier: ^6.3.0
         version: 6.5.0
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@22.19.21)(jiti@2.7.0)(jsdom@28.1.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)
+
+  ../../libs/i18n:
+    devDependencies:
+      svelte:
+        specifier: ^5.0.0
+        version: 5.56.3
+      typesafe-i18n:
+        specifier: ~5.26.2
+        version: 5.26.2(typescript@5.9.3)
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
@@ -1928,6 +1949,12 @@ packages:
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
+  typesafe-i18n@5.26.2:
+    resolution: {integrity: sha512-2QAriFmiY5JwUAJtG7yufoE/XZ1aFBY++wj7YFS2yo89a3jLBfKoWSdq5JfQYk1V2BS7V2c/u+KEcaCQoE65hw==}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=3.5.1'
+
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
@@ -3558,6 +3585,10 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
+
+  typesafe-i18n@5.26.2(typescript@5.9.3):
+    dependencies:
+      typescript: 5.9.3
 
   typescript@5.9.3: {}
 
