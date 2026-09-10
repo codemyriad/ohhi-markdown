@@ -68,6 +68,18 @@ the point of refusal: `planDrop`'s reason renders on the hovered row
 tree's context menu (`Share…`, `Add a shared folder here…`, disabled-with-
 reason where mounts would nest) and the command palette — never in the header.
 
+**Sharing and presence live where the thing is (chrome U4, Fork 2 C)**: the
+rail's *This note* section (`NoteSection.svelte`) says where the open note
+lives, whether that place is Local / Shared by you / Shared with you (+ relay
+host), who is online **there** (`ui.presenceByRoom`, per room — the union
+`ui.presence` survives only as the count on the rail icon), and who holds
+access — **links and the labels you gave them, never people**: there is no
+identity until device-key tokens, and the copy says so. The header pill is
+`scopedRollup` (`lib/share-status.ts`, pure): fed only by docs that have a
+relay; with nothing shared it renders "Local vault · nothing shared" in
+words, because a pill for an absence reads as a problem. A shared folder's
+tree badge carries its online count.
+
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
 **Component tests** live beside the primitive (`Dialog.test.ts`), start with `// @vitest-environment jsdom`, drive through `@testing-library/svelte` + `user-event`, and assert roles, names, focus and keys — never internals. A stateful primitive gets a harness in `src/lib/ui/test-harness/`. **The axe gate** is `apps/web/e2e/a11y.spec.ts`: it fails the e2e run on any violation, on every surface it opens; do not switch a rule off to pass it — list the reason and the slice that lifts it.

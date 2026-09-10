@@ -176,3 +176,27 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('add-share-dialog')).toHaveCount(0)
 })
+
+test('the rail says where the open note lives, who is online there, and the header no longer carries presence', async ({
+  page,
+}) => {
+  await openApp(page, 'chrome-note', 'e2e-token')
+  const section = page.getByTestId('rail-section:note')
+  await expect(section).toContainText('No note open')
+  // This memory vault is shared as a whole (the relay is on the root mount).
+  await expect(section.getByTestId('share-state')).toContainText('Shared as a whole')
+
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await expect(section).toContainText('notes')
+  await expect(section.getByTestId('share-state')).toContainText('Shared as a whole')
+  await expect(section.getByTestId('presence')).toBeVisible()
+  await expect(page.locator('header').getByTestId('presence')).toHaveCount(0)
+  // The access line is honest about what a root share can say here.
+  await expect(section.getByTestId('share-access')).toContainText('links')
+
+  // The rail's icon carries the online count once someone is here.
+  await page.getByTestId('rail-collapse').click()
+  await expect(page.getByTestId('rail-icon:note')).toBeVisible()
+  await page.getByTestId('rail-icon:note').click()
+  await expect(section).toBeVisible()
+})

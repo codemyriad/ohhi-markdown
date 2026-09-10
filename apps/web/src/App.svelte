@@ -39,7 +39,7 @@
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
-  import { pillStatus, worstStatus } from './lib/sync-record.svelte.js'
+  import { pillStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type Workspace } from './lib/workspace.svelte.js'
   import { wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
   import LinksPanel from './lib/components/LinksPanel.svelte'
@@ -55,7 +55,9 @@
   import Breadcrumb from './lib/components/Breadcrumb.svelte'
   import RightRail, { type RailSection } from './lib/components/RightRail.svelte'
   import StatusBar from './lib/components/StatusBar.svelte'
-  import { Link2, PanelLeft, PanelRight, Settings } from '@lucide/svelte'
+  import { Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
+  import NoteSection from './lib/components/NoteSection.svelte'
+  import { scopedRollup } from './lib/share-status.js'
   import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
   import { TREE_WIDTH, toggleFolded } from './lib/layout.js'
 
@@ -87,8 +89,14 @@
   let treeWidth = $state(savedLayout.treeWidth)
   let railOpen = $state(savedLayout.railOpen)
   let railFolded = $state<string[]>(savedLayout.railFolded)
-  /** Rail sections; U4 (This note) and U5 (Activity) append rows here. */
-  const railSections: RailSection[] = [{ id: 'links', label: 'Links', icon: Link2 }]
+  /** Rail sections; U5 (Activity) appends a row here. */
+  const railSections = $derived<RailSection[]>([
+    { id: 'links', label: 'Links', icon: Link2 },
+    // The one place the presence union survives: as a count on the icon.
+    { id: 'note', label: 'This note', icon: Users, badge: workspace?.ui.presence.length || undefined },
+  ])
+  /** Bumped when a share dialog closes so the note section refetches its access list. */
+  let shareRevision = $state(0)
   const linksVisible = $derived(railOpen && !railFolded.includes('links'))
   /** A folder the breadcrumb asked the navigator to show (new object per click). */
   let revealDir = $state<{ path: string } | null>(null)
@@ -648,8 +656,15 @@
   const currentVaultName = $derived(
     workspace ? (getVault(workspace.room)?.name ?? 'Vault') : 'Vault'
   )
+  /**
+   * The header rollup, fed only by docs that have a relay to be in sync WITH
+   * (chrome U4). Null = nothing is shared, and the header says so in words:
+   * a pill for an absence would read as a problem.
+   */
   const globalStatus = $derived(
-    workspace ? worstStatus(Object.values(workspace.ui.records).map(pillStatus)) : 'offline'
+    workspace
+      ? scopedRollup(workspace.ui.files, workspace.ui.records, workspace.ui.mounts, workspace.ui.shared)
+      : null
   )
   const selectedPath = $derived(workspace?.ui.selectedPath ?? null)
   const selectedDoc = $derived(workspace && selectedPath ? workspace.docForPath(selectedPath) : null)
@@ -717,18 +732,17 @@
       />
       <Breadcrumb path={selectedPath} onReveal={revealInTree} />
       <div class="ml-auto flex min-w-0 items-center gap-3">
-        <!-- Presence and the error string leave the header in U4/U5. -->
-        <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
-          {#each workspace.ui.presence as name (name)}
-            <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
-          {/each}
-        </div>
+        <!-- The error string leaves the header in U5. -->
         {#if workspace.ui.error}
           <span class="max-w-sm truncate text-xs text-error" data-testid="workspace-error">
             {workspace.ui.error}
           </span>
         {/if}
-        <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
+        {#if globalStatus}
+          <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
+        {:else}
+          <span data-testid="sync-summary" class="text-xs text-base-content/70">Local vault · nothing shared</span>
+        {/if}
         <IconButton
           label={railOpen ? 'Hide sidebar' : 'Show sidebar'}
           icon={PanelRight}
@@ -764,6 +778,7 @@
               selected={selectedPath}
               mounts={workspace.ui.mounts}
               rootShared={workspace.ui.shared}
+              presenceByRoom={workspace.ui.presenceByRoom}
               reveal={revealDir}
               onSelect={(path) => openPath(path)}
               onOp={handleTreeOp}
@@ -839,6 +854,22 @@
               path={selectedPath}
               onOpen={openPath}
               onCreate={(target) => void createFromLink(target)}
+            />
+          {:else if id === 'note' && workspace}
+            <NoteSection
+              path={selectedPath}
+              vaultName={currentVaultName}
+              mounts={workspace.ui.mounts}
+              rootShared={workspace.ui.shared}
+              rootRoom={workspace.room}
+              presenceByRoom={workspace.ui.presenceByRoom}
+              presenceAll={workspace.ui.presence}
+              relayUrl={relayDefault}
+              secret={opSecret}
+              revision={shareRevision}
+              onManage={(mountPath) => (folderSharePath = mountPath)}
+              onShareFolder={(dir) => (folderSharePath = dir)}
+              onAddShare={(dir) => (addShareOpen = { dir })}
             />
           {/if}
         {/snippet}
@@ -928,7 +959,10 @@
       relayUrl={relayDefault}
       secret={opSecret}
       onShare={carveFolderShare}
-      onClose={() => (folderSharePath = null)}
+      onClose={() => {
+        folderSharePath = null
+        shareRevision++
+      }}
     />
   {/if}
   {#if nav.palette.mode}

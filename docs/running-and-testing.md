@@ -162,7 +162,9 @@ the word count and the note's own pill. The tree test (U3) needs the
 dot in the tree; the toolbar is icons with names; collapse-all, the filter
 menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
 drop's reason on the hovered row, and *Add a shared folder* (disabled with its
-rule in a root-shared vault; reachable from the palette).
+rule in a root-shared vault; reachable from the palette). The note-section
+test (U4) checks the rail says where the open note lives and who is online
+there, and that the header no longer carries presence.
 
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
 practice) over the vault manager, the workspace with a note open, quick-open,

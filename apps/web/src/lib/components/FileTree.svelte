@@ -33,14 +33,25 @@
     mounts: MountInfo[]
     /** The whole vault is shared (badge/filter treat everything as shared). */
     rootShared: boolean
+    /** Names online per room — the count on a shared folder's badge (chrome U4). */
+    presenceByRoom?: Record<string, string[]>
     /** A folder to expand, focus as the context and scroll to (a NEW object each time). */
     reveal?: { path: string } | null
     onSelect: (path: string) => void
     onOp: (op: TreeOp) => void
   }
 
-  let { files, records, selected, mounts, rootShared, reveal = null, onSelect, onOp }: Props =
-    $props()
+  let {
+    files,
+    records,
+    selected,
+    mounts,
+    rootShared,
+    presenceByRoom = {},
+    reveal = null,
+    onSelect,
+    onOp,
+  }: Props = $props()
 
   let host = $state<HTMLElement>()
 
@@ -383,20 +394,21 @@
               {refusal.reason}
             </span>
           {:else if mount}
+            {@const online = (presenceByRoom[mount.room] ?? []).length}
+            {@const whose = mount.provenance === 'carved' ? 'Shared by you' : 'Shared with you'}
             <span class="ml-auto flex shrink-0 items-center gap-1.5">
               <SyncPill status={rollups.get(node.path) ?? 'offline'} testid="sync-pill:{node.path}" />
               <span
                 data-testid="mount-badge:{node.path}"
-                title={mount.provenance === 'carved' ? 'Shared by you' : 'Shared with you'}
-                class="inline-flex items-center rounded px-1 py-0.5
+                title="{whose}{online ? ` · ${online} online` : ''}"
+                class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium
                   {mount.provenance === 'carved'
                   ? 'bg-primary text-primary-content'
                   : 'bg-secondary text-secondary-content'}"
               >
                 <Users size={12} aria-hidden="true" />
-                <span class="sr-only">
-                  {mount.provenance === 'carved' ? 'shared by you' : 'shared with you'}
-                </span>
+                {#if online}<span aria-hidden="true">{online}</span>{/if}
+                <span class="sr-only">{whose}{online ? `, ${online} online` : ''}</span>
               </span>
             </span>
           {/if}

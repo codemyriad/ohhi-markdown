@@ -97,7 +97,10 @@ export interface WorkspaceUi {
   phase: 'connecting' | 'ready'
   error: string
   files: FileRow[]
+  /** Names online anywhere in this workspace (the union of every room). */
   presence: string[]
+  /** Names online per room, so the shell can say WHICH shared folder someone is in (chrome U4). */
+  presenceByRoom: Record<string, string[]>
   reviews: DivergenceReview[]
   selectedPath: string | null
   /** Per-doc sync records keyed by doc GUID (+ per-mount folder keys) — guids are rename-stable (M3). */
@@ -220,6 +223,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     error: '',
     files: [],
     presence: [],
+    presenceByRoom: {},
     reviews: [],
     selectedPath: null,
     records: {},
@@ -344,6 +348,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const names = new Set<string>()
     for (const list of presenceByRoom.values()) for (const n of list) names.add(n)
     ui.presence = [...names].sort()
+    ui.presenceByRoom = Object.fromEntries(
+      [...presenceByRoom.entries()].map(([room, list]) => [room, [...list].sort()])
+    )
   }
 
   interface MountOpts {
