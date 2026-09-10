@@ -161,6 +161,7 @@ anyway since it already sits in the highest-priority normal layer.
 | `--cursor-line-background` | `--ed-active-line` |
 | `--checkbox-color` / `--checklist-done-color` | `--ed-checkbox` / `--ed-checkbox-done` |
 | `--table-header-background` / `--table-row-even-background` | `--ed-table-header-bg` / `--ed-table-row-alt-bg` |
+| `--background-modifier-cover` | `--ed-scrim` (the dialog scrim — a colour of its own because DaisyUI's `neutral` is the ink colour in dark themes) |
 
 No equivalent exists for `--ed-sync-*` — that is the point (band C).
 

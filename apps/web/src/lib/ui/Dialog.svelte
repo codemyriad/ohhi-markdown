@@ -118,7 +118,8 @@
 
 {#if $open}
   <div use:melt={$portalled}>
-    <div use:melt={$overlay} class="fixed inset-0 {Z[layer]} bg-neutral/40"></div>
+    <!-- A scrim token, not `neutral`: that is the ink colour in dark themes. -->
+    <div use:melt={$overlay} class="fixed inset-0 {Z[layer]} bg-ed-scrim backdrop-blur-[1px]"></div>
     <div
       use:melt={$content}
       data-testid={testid}

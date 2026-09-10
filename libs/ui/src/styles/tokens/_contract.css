@@ -118,6 +118,10 @@
     --ed-selection-blur: #1d7f9c14;
     --ed-caret: #1d7f9c;
     --ed-active-line: #00000006;
+    /* The dialog scrim. A colour of its own because DaisyUI's `neutral` is the
+     * INK colour in dark themes — a 40% haze of it over a dark UI reads as fog.
+     * Near-black at low alpha in light themes, black at half alpha in dark. */
+    --ed-scrim: #14181d4d;
     --ed-gutter-bg: transparent;
     --ed-gutter-fg: #b0bac5;
     --ed-gutter-active-fg: #55606f;

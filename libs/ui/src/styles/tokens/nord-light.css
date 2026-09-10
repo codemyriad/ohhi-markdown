@@ -53,6 +53,7 @@
 @layer editor.tokens {
   [data-theme="nord-light"] {
     --ed-surface: #ffffff;
+    --ed-scrim: #2e34404d; /* dialog scrim */
     --ed-ink: #434c5e;                   /* --text-normal (dark2), 8.6:1 */
     --ed-ink-muted: #4c566a;             /* ⚠ 7.3:1 */
     /* ⚠ upstream inverted --text-faint (dark0) darker than --text-normal */

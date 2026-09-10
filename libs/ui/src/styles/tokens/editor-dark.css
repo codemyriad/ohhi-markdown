@@ -53,6 +53,7 @@
 @layer editor.tokens {
   [data-theme="editor-dark"] {
     --ed-surface: #14181d;
+    --ed-scrim: #00000080; /* dialog scrim */
     --ed-ink: #dce3ea;
     --ed-ink-muted: #9aa6b4;
     --ed-ink-faint: #6a7482;

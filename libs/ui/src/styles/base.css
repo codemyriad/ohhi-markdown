@@ -62,6 +62,7 @@
   --color-ed-sync-offline-fg: var(--ed-sync-offline-fg);
 
   --color-ed-surface: var(--ed-surface);
+  --color-ed-scrim: var(--ed-scrim);
   --color-ed-ink: var(--ed-ink);
   --color-ed-ink-muted: var(--ed-ink-muted);
   --color-ed-ink-faint: var(--ed-ink-faint);
