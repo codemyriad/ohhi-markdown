@@ -1,0 +1,14 @@
+# Template timer; `vault-snapshot.sh install <vault> [minutes]` enables one
+# instance per vault and writes its interval into a drop-in
+# (vault-snapshot@<instance>.timer.d/interval.conf), replacing this default.
+[Unit]
+Description=Snapshot Editor vault %f every few minutes
+
+[Timer]
+OnCalendar=*:0/10
+# Catch up on a run missed while the machine was off or asleep.
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
