@@ -129,6 +129,7 @@ Do not add more per-PR Playwright specs for collab paths — push the scenario d
 - Use realistic props and interact via **roles** and `userEvent` rather than reaching into component internals.
 - For event-driven or stateful components, wrap the component in a small **test harness** Svelte file (`src/lib/ui/test-harness/` for the primitives), track emitted events via explicit harness state, and assert on that — not on implementation details.
 - Reference suite: `apps/web/src/lib/ui/*.test.ts` (Dialog, DropdownMenu, IconButton, Tabs, the form field).
+- Strings: `src/test-setup.ts` loads the `en` dictionary, so `$LL`/`getLL()` resolve in tests. Prefer building expectations from the dictionary (`i18nObject('en')` — Edible's rule) over pasting English literals; the e2e specs still assert literals today, which is tolerated because `en` is the base and the text is byte-identical.
 - Accessibility beyond one component is the **axe gate**, `apps/web/e2e/a11y.spec.ts` — part of `rushx e2e`.
 
 ### Store and pure-function tests
