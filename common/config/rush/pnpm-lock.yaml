@@ -372,6 +372,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
+      fast-check:
+        specifier: ^4.8.0
+        version: 4.8.0
       typescript:
         specifier: ^5.8.0
         version: 5.9.3

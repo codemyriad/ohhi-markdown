@@ -260,6 +260,43 @@ describe('device-link grants (device-link-shaping A4-B)', () => {
     expect(roomTokenKind('root-r')).toBe('device')
   })
 
+  it('the N2 link round-trip: bundle here, merge there, re-bundle from there', () => {
+    // Device A holds the vault's device key and two folder tokens.
+    setRoomToken('vault-r', 'device-token', 'wss://relay.example', 'device')
+    setRoomToken('team-r', 'team-token', 'wss://relay.example', 'folder')
+    setRoomToken('design-r', 'design-token', 'wss://cynthia.example', 'folder')
+    const bundle = grantsForBundle().filter((g) => g.room !== 'vault-r')
+    expect(bundle).toEqual([
+      { room: 'team-r', relay: 'wss://relay.example', token: 'team-token' },
+      { room: 'design-r', relay: 'wss://cynthia.example', token: 'design-token' },
+    ])
+
+    // Device B: the link's grants merge BEFORE the boot, then the link's own
+    // token is stored as the DEVICE key for the root room (App.linkThisDevice).
+    seed('editor:config', {
+      version: 2,
+      vaults: [],
+      lastRoom: null,
+      defaultRelay: 'ws://localhost:8787',
+      operatorSecret: '',
+      shares: [],
+      tokensByRoom: {},
+    })
+    expect(mergeGrants(bundle)).toEqual(['team-r', 'design-r'])
+    setRoomToken('vault-r', 'device-token', 'wss://relay.example', 'device')
+
+    expect(roomTokenKind('vault-r')).toBe('device')
+    expect(roomTokenKind('team-r')).toBe('folder')
+    expect(roomTokenKind('design-r')).toBe('folder')
+    expect(roomRelay('design-r')).toBe('wss://cynthia.example')
+    // B could now link a third device and hand on exactly what it holds.
+    expect(grantsForBundle()).toEqual([
+      { room: 'team-r', relay: 'wss://relay.example', token: 'team-token' },
+      { room: 'design-r', relay: 'wss://cynthia.example', token: 'design-token' },
+      { room: 'vault-r', relay: 'wss://relay.example', token: 'device-token' },
+    ])
+  })
+
   it('a merged bundle survives a reload and re-bundles unchanged', () => {
     const grants = [
       { room: 'a-r', relay: 'ws://relay-a', token: 'a-token' },

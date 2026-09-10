@@ -19,6 +19,8 @@
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
     onJoin: (name: string, link: string) => void
+    /** Open the "Link this device…" dialog (device-link N2, A1). */
+    onLinkDevice: (name: string) => void
     onBack: () => void
     onSettings: () => void
   }
@@ -38,6 +40,7 @@
     onOpenFolder,
     onCreateBrowserVault,
     onJoin,
+    onLinkDevice,
     onBack,
     onSettings,
   }: Props = $props()
@@ -132,7 +135,7 @@
               >
                 <span class="block truncate text-sm font-medium text-base-content">
                   {entry.name}
-                  {#if entry.relay}<span class="ml-1 text-xs font-normal text-primary">{t.shared_badge()}</span>{/if}
+                  {#if entry.relay}<span class="ml-1 text-xs font-normal text-primary">{t.linked_badge()}</span>{/if}
                 </span>
                 <span class="block truncate font-mono text-xs text-base-content/70">{sub(entry)}</span>
               </button>
@@ -203,6 +206,21 @@
   </section>
 
   {#if !browserBlocked}
+    <!-- Device linking, before joining a folder share: this is the one that
+         brings a WHOLE vault onto this device (device-link N2, A1). -->
+    <section class="mt-8">
+      <h2 class="text-sm font-semibold text-base-content">{t.link_device()}</h2>
+      <p class="mt-1 text-xs text-base-content/70">{t.link_device_hint()}</p>
+      <button
+        data-testid="open-link-device"
+        disabled={busy}
+        onclick={() => onLinkDevice(displayName)}
+        class="mt-3 rounded border border-base-300 px-4 py-2 text-sm font-medium text-base-content/80 hover:bg-base-200 disabled:opacity-50"
+      >
+        {t.link_device_open()}
+      </button>
+    </section>
+
     <section class="mt-8">
       <h2 class="text-sm font-semibold text-base-content">{t.join_share()}</h2>
       <p class="mt-1 text-xs text-base-content/70">{t.join_hint()}</p>

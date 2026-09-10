@@ -31,7 +31,7 @@
  * error to report, just a reconnect loop, which is what the `whenSynced`
  * backstop and the stall watchdog below are for.
  */
-import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider'
+import { HocuspocusProvider, HocuspocusProviderWebsocket, WebSocketStatus } from '@hocuspocus/provider'
 import { Awareness } from 'y-protocols/awareness'
 import type * as Y from 'yjs'
 import type { EngineDoc } from '@editor/sync'
@@ -175,6 +175,15 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
   if (opts.socket) {
     provider = new HocuspocusProvider({ ...shared, websocketProvider: opts.socket.websocket })
     provider.attach()
+    // Hocuspocus emits `status` on the SOCKET's transitions only. A doc that
+    // attaches to an ALREADY-OPEN socket is handed `onOpen` (so it syncs at
+    // once) but never a status event — `HocuspocusProviderWebsocket.attach`,
+    // 4.1.2 — so its record would sit at connected:false while the doc is
+    // plainly live. That is golden rule 4 in reverse: a pill reading
+    // "offline" about a doc that is syncing. Seed it from the socket instead.
+    // (Only reachable with a shared socket: a managed one is created here and
+    // is never already open.)
+    if (opts.socket.websocket.status === WebSocketStatus.Connected) opts.record.connected = true
   } else if (opts.webSocketPolyfill) {
     ownedSocket = new HocuspocusProviderWebsocket({
       url: opts.relay,

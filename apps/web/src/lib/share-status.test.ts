@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { SyncRecordSnapshot } from './pill-status.js'
 import {
   inQuietMount,
+  isForeignMount,
   mountHasRelay,
   mountTone,
+  sameRelay,
   onlineIn,
   quietMountRoots,
   relayHost,
@@ -35,6 +37,7 @@ describe('shareStateFor', () => {
       mountPath: 'team',
       link: 'editor1:abc',
       status: 'active',
+      foreign: false,
     })
     expect(shareStateFor('inbox/shared/x.md', mounts, false, 'root')).toMatchObject({
       provenance: 'joined',
@@ -44,7 +47,7 @@ describe('shareStateFor', () => {
     expect(shareStateFor('notes/a.md', mounts, false, 'root')).toEqual({ kind: 'local' })
   })
 
-  it('reports a root-shared vault as shared as a whole', () => {
+  it('reports a LINKED vault as the root mount — never foreign, it is yours', () => {
     expect(shareStateFor('notes/a.md', [], true, 'root', 'editor1:root')).toEqual({
       kind: 'shared',
       provenance: 'root',
@@ -52,7 +55,49 @@ describe('shareStateFor', () => {
       mountPath: '',
       link: 'editor1:root',
       status: 'active',
+      foreign: false,
     })
+  })
+
+  it('carries a mount’s foreign flag through, so the tone can use it', () => {
+    const theirs = [{ ...mounts[0]!, foreign: true }]
+    expect(shareStateFor('team/a.md', theirs, false, 'root')).toMatchObject({ foreign: true })
+  })
+})
+
+describe('whose share is this — isForeignMount (device-link N2)', () => {
+  const OURS = 'wss://relay.example'
+
+  it('a joined mount is always somebody else’s: this device pasted their link', () => {
+    expect(isForeignMount({ provenance: 'joined', relay: OURS }, OURS)).toBe(true)
+    expect(isForeignMount({ provenance: 'joined' }, OURS)).toBe(true)
+  })
+
+  it('a carved mount is always ours: this vault carved it', () => {
+    expect(isForeignMount({ provenance: 'carved', relay: 'wss://elsewhere' }, OURS)).toBe(false)
+  })
+
+  it('a local mount is not shared at all', () => {
+    expect(isForeignMount({ provenance: 'local' }, OURS)).toBe(false)
+  })
+
+  it('an adopted mount is told apart by the relay its room lives on', () => {
+    // A carve of yours from another device: minted on this vault's relay.
+    expect(isForeignMount({ provenance: 'adopted', relay: OURS }, OURS)).toBe(false)
+    // Cynthia's share, joined on your other device and announced with HER
+    // relay (spike S10 Q7) — the discriminator the N1 gap was missing.
+    expect(isForeignMount({ provenance: 'adopted', relay: 'wss://cynthia.example' }, OURS)).toBe(true)
+    // Nothing recorded: nothing says it is foreign, so it is not claimed to be.
+    expect(isForeignMount({ provenance: 'adopted' }, OURS)).toBe(false)
+  })
+
+  it('the same relay written differently is still the same relay', () => {
+    expect(sameRelay('wss://relay.example', 'wss://relay.example/')).toBe(true)
+    expect(sameRelay('wss://Relay.Example', 'wss://relay.example')).toBe(true)
+    expect(sameRelay('ws://localhost:8787', 'ws://localhost:8788')).toBe(false)
+    expect(sameRelay('', 'wss://relay.example')).toBe(false)
+    // Not a URL at all: compared as text rather than thrown on.
+    expect(sameRelay('not a url', 'not a url')).toBe(true)
   })
 })
 
@@ -70,6 +115,15 @@ describe('mount state — what a mount with no key is, and is not', () => {
     expect(mountTone('adopted')).toBe('yours')
     expect(mountTone('root')).toBe('yours')
     expect(mountTone('joined')).toBe('theirs')
+  })
+
+  it('an adopted mount that is FOREIGN reads as theirs (device-link N2)', () => {
+    // The N1 gap, closed: both arrive as `adopted` on the second device, and
+    // only the flag tells the two apart.
+    expect(mountTone('adopted', false)).toBe('yours')
+    expect(mountTone('adopted', true)).toBe('theirs')
+    // The flag never promotes: your own carve stays yours.
+    expect(mountTone('carved', false)).toBe('yours')
   })
 
   it('gives only an ACTIVE mount a relay to be in sync with', () => {

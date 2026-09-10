@@ -574,6 +574,10 @@ export type NamespaceWebTranslation = {
 		 */
 		add_share: string
 		/**
+		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e​…
+		 */
+		link_device: string
+		/**
 		 * B​a​c​k
 		 */
 		back: string
@@ -694,6 +698,14 @@ export type NamespaceWebTranslation = {
 		 */
 		shared_whole: string
 		/**
+		 * S​y​n​c​e​d​ ​t​o​ ​y​o​u​r​ ​d​e​v​i​c​e​s
+		 */
+		synced_to_devices: string
+		/**
+		 * O​n​ ​y​o​u​r​ ​d​e​v​i​c​e​s
+		 */
+		on_your_devices: string
+		/**
 		 * {​c​o​u​n​t​}​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​{​{​s​}​}
 		 * @param {number} count
 		 */
@@ -796,9 +808,9 @@ export type NamespaceWebTranslation = {
 		 */
 		your_vaults: string
 		/**
-		 * s​h​a​r​e​d
+		 * l​i​n​k​e​d
 		 */
-		shared_badge: string
+		linked_badge: string
 		/**
 		 * b​r​o​w​s​e​r​ ​v​a​u​l​t
 		 */
@@ -877,6 +889,18 @@ export type NamespaceWebTranslation = {
 		 * R​e​c​e​n​t​ ​s​h​a​r​e​s
 		 */
 		recent_shares: string
+		/**
+		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e
+		 */
+		link_device: string
+		/**
+		 * A​l​r​e​a​d​y​ ​h​a​v​e​ ​t​h​i​s​ ​v​a​u​l​t​ ​o​n​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e​?​ ​P​a​s​t​e​ ​i​t​s​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​a​n​d​ ​t​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​a​r​r​i​v​e​s​ ​h​e​r​e​.
+		 */
+		link_device_hint: string
+		/**
+		 * L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​…
+		 */
+		link_device_open: string
 		errors: {
 			/**
 			 * T​h​a​t​ ​d​o​e​s​n​'​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​v​a​l​i​d​ ​s​h​a​r​e​ ​l​i​n​k​.
@@ -1334,6 +1358,198 @@ export type NamespaceWebTranslation = {
 		 * A​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​i​s​ ​a​ ​f​u​l​l​-​a​c​c​e​s​s​ ​k​e​y​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​.​ ​N​e​v​e​r​ ​g​i​v​e​ ​i​t​ ​t​o​ ​a​n​y​o​n​e​ ​e​l​s​e​.
 		 */
 		full_access_warning: string
+		/**
+		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e
+		 */
+		section: string
+		/**
+		 * S​y​n​c​ ​t​h​i​s​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​t​o​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e​ ​o​f​ ​y​o​u​r​ ​o​w​n​.​ ​T​h​e​ ​o​t​h​e​r​ ​d​e​v​i​c​e​ ​p​u​l​l​s​ ​a​ ​c​o​p​y​ ​a​n​d​ ​t​h​e​ ​t​w​o​ ​s​t​a​y​ ​i​n​ ​s​t​e​p​ ​—​ ​i​n​c​l​u​d​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​s​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​ ​o​t​h​e​r​ ​p​e​o​p​l​e​.
+		 */
+		section_help: string
+		/**
+		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e​…
+		 */
+		open: string
+		/**
+		 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​—​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​i​s​ ​a​ ​k​e​y​ ​t​o​ ​o​n​e​ ​v​a​u​l​t​.
+		 */
+		needs_vault: string
+		/**
+		 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​a​b​o​v​e​ ​t​o​ ​c​r​e​a​t​e​ ​d​e​v​i​c​e​ ​l​i​n​k​s​.
+		 */
+		needs_secret: string
+		/**
+		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e
+		 */
+		title: string
+		/**
+		 * C​r​e​a​t​e​ ​a​ ​l​i​n​k​ ​h​e​r​e​,​ ​t​h​e​n​ ​p​a​s​t​e​ ​i​t​ ​o​n​ ​y​o​u​r​ ​o​t​h​e​r​ ​d​e​v​i​c​e​.​ ​T​h​a​t​ ​d​e​v​i​c​e​ ​p​u​l​l​s​ ​t​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​i​n​t​o​ ​a​n​ ​e​m​p​t​y​ ​f​o​l​d​e​r​ ​a​n​d​ ​s​t​a​y​s​ ​i​n​ ​s​y​n​c​ ​f​r​o​m​ ​t​h​e​n​ ​o​n​.
+		 */
+		description: string
+		/**
+		 * W​h​i​c​h​ ​d​e​v​i​c​e​ ​i​s​ ​t​h​i​s​ ​f​o​r​?
+		 */
+		label: string
+		/**
+		 * e​.​g​.​ ​l​a​p​t​o​p
+		 */
+		label_placeholder: string
+		/**
+		 * C​r​e​a​t​e​ ​d​e​v​i​c​e​ ​l​i​n​k
+		 */
+		create: string
+		/**
+		 * C​r​e​a​t​i​n​g​…
+		 */
+		creating: string
+		/**
+		 * D​e​v​i​c​e​ ​l​i​n​k
+		 */
+		link: string
+		/**
+		 * C​o​p​y
+		 */
+		copy: string
+		/**
+		 * C​o​p​i​e​d​!
+		 */
+		copied: string
+		/**
+		 * O​n​ ​t​h​e​ ​o​t​h​e​r​ ​d​e​v​i​c​e​,​ ​c​h​o​o​s​e​ ​"​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​…​"​ ​i​n​ ​t​h​e​ ​v​a​u​l​t​ ​m​a​n​a​g​e​r​ ​a​n​d​ ​p​a​s​t​e​ ​i​t​.
+		 */
+		next_step: string
+		/**
+		 * D​e​v​i​c​e​ ​l​i​n​k​s
+		 */
+		links_title: string
+		/**
+		 * L​o​a​d​i​n​g​…
+		 */
+		links_loading: string
+		/**
+		 * N​o​ ​d​e​v​i​c​e​ ​l​i​n​k​s​ ​y​e​t​.
+		 */
+		links_none: string
+		/**
+		 * u​n​n​a​m​e​d​ ​d​e​v​i​c​e
+		 */
+		unnamed: string
+		/**
+		 * r​e​v​o​k​e
+		 */
+		revoke: string
+		/**
+		 * R​e​v​o​k​e​ ​t​h​e​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​{​l​a​b​e​l​}
+		 * @param {string} label
+		 */
+		revoke_device: RequiredParams<'label'>
+		/**
+		 * R​e​v​o​k​i​n​g​ ​b​l​o​c​k​s​ ​n​e​w​ ​c​o​n​n​e​c​t​i​o​n​s​;​ ​a​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​i​s​ ​c​o​n​n​e​c​t​e​d​ ​r​i​g​h​t​ ​n​o​w​ ​s​t​a​y​s​ ​u​n​t​i​l​ ​i​t​ ​r​e​c​o​n​n​e​c​t​s​.
+		 */
+		revoke_hint: string
+		/**
+		 * L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e
+		 */
+		join_title: string
+		/**
+		 * P​a​s​t​e​ ​t​h​e​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​y​o​u​ ​w​a​n​t​ ​h​e​r​e​.​ ​T​h​i​s​ ​d​e​v​i​c​e​ ​p​u​l​l​s​ ​t​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​—​ ​n​o​t​e​s​ ​a​n​d​ ​f​o​l​d​e​r​s​,​ ​i​n​c​l​u​d​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​s​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​.
+		 */
+		join_description: string
+		/**
+		 * D​e​v​i​c​e​ ​l​i​n​k
+		 */
+		join_link: string
+		/**
+		 * e​d​i​t​o​r​1​:​…
+		 */
+		join_link_placeholder: string
+		/**
+		 * T​h​a​t​ ​d​o​e​s​n​’​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​l​i​n​k​ ​—​ ​t​h​e​y​ ​s​t​a​r​t​ ​w​i​t​h​ ​"​e​d​i​t​o​r​1​:​"​.
+		 */
+		join_link_invalid: string
+		/**
+		 * T​h​a​t​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​l​i​n​k​,​ ​n​o​t​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​.​ ​O​p​e​n​ ​a​ ​v​a​u​l​t​ ​a​n​d​ ​u​s​e​ ​"​A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​h​e​r​e​…​"​ ​f​o​r​ ​i​t​.
+		 */
+		join_not_device: string
+		/**
+		 * Y​o​u​ ​w​i​l​l​ ​b​e​ ​a​s​k​e​d​ ​f​o​r​ ​a​ ​f​o​l​d​e​r​ ​t​o​ ​p​u​t​ ​t​h​e​ ​v​a​u​l​t​ ​i​n​.​ ​I​t​ ​m​u​s​t​ ​b​e​ ​e​m​p​t​y​.
+		 */
+		join_hint_desktop: string
+		/**
+		 * T​h​e​ ​v​a​u​l​t​ ​i​s​ ​s​t​o​r​e​d​ ​p​r​i​v​a​t​e​l​y​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​.
+		 */
+		join_hint_browser: string
+		/**
+		 * L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e
+		 */
+		join_submit: string
+		/**
+		 * L​i​n​k​i​n​g​…
+		 */
+		join_working: string
+		/**
+		 * ‘​{​p​a​t​h​}​’​ ​i​s​ ​n​o​t​ ​e​m​p​t​y​ ​—​ ​p​i​c​k​ ​a​n​ ​e​m​p​t​y​ ​f​o​l​d​e​r​ ​f​o​r​ ​t​h​e​ ​v​a​u​l​t​ ​t​o​ ​a​r​r​i​v​e​ ​i​n​.
+		 * @param {string} path
+		 */
+		not_empty: RequiredParams<'path'>
+		/**
+		 * T​h​a​t​ ​v​a​u​l​t​ ​i​s​ ​a​l​r​e​a​d​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​,​ ​a​s​ ​‘​{​n​a​m​e​}​’​ ​—​ ​o​p​e​n​ ​i​t​ ​i​n​s​t​e​a​d​.
+		 * @param {string} name
+		 */
+		already_linked: RequiredParams<'name'>
+		/**
+		 * L​i​n​k​i​n​g​ ​t​h​i​s​ ​d​e​v​i​c​e
+		 */
+		panel_title: string
+		/**
+		 * V​a​u​l​t
+		 */
+		panel_vault: string
+		/**
+		 * D​e​s​t​i​n​a​t​i​o​n
+		 */
+		panel_destination: string
+		/**
+		 * L​i​n​k​ ​p​r​o​g​r​e​s​s
+		 */
+		progress_label: string
+		/**
+		 * S​t​a​r​t​i​n​g​…
+		 */
+		starting: string
+		/**
+		 * P​u​l​l​i​n​g​ ​{​t​o​t​a​l​}​ ​n​o​t​e​{​{​s​}​}​ ​f​r​o​m​ ​t​h​e​ ​r​e​l​a​y​…
+		 * @param {number} total
+		 */
+		phase_pull: RequiredParams<'total'>
+		/**
+		 * W​r​i​t​i​n​g​ ​f​i​l​e​s​ ​i​n​t​o​ ​{​d​e​s​t​}​…
+		 * @param {string} dest
+		 */
+		phase_write: RequiredParams<'dest'>
+		/**
+		 * {​d​o​n​e​}​ ​o​f​ ​{​t​o​t​a​l​}
+		 * @param {number} done
+		 * @param {number} total
+		 */
+		counts: RequiredParams<'done' | 'total'>
+		/**
+		 * I​m​a​g​e​s​ ​a​n​d​ ​P​D​F​s​ ​w​i​l​l​ ​n​o​t​ ​a​r​r​i​v​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​y​e​t​ ​—​ ​o​n​l​y​ ​n​o​t​e​s​ ​a​n​d​ ​f​o​l​d​e​r​s​ ​s​y​n​c​.​ ​T​h​e​y​ ​s​t​a​y​ ​o​n​ ​t​h​e​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​h​a​s​ ​t​h​e​m​.
+		 */
+		attachments: string
+		/**
+		 * L​i​n​k​i​n​g​ ​f​a​i​l​e​d​.
+		 */
+		failed: string
+		/**
+		 * T​r​y​ ​a​g​a​i​n
+		 */
+		retry: string
+		/**
+		 * T​h​i​s​ ​d​e​v​i​c​e​ ​h​o​l​d​s​ ​{​c​o​u​n​t​}​ ​s​h​a​r​e​d​-​f​o​l​d​e​r​ ​l​i​n​k​s​ ​—​ ​t​o​o​ ​m​a​n​y​ ​t​o​ ​b​u​n​d​l​e​ ​i​n​t​o​ ​o​n​e​ ​d​e​v​i​c​e​ ​l​i​n​k​.​ ​T​h​e​ ​o​t​h​e​r​ ​d​e​v​i​c​e​ ​w​i​l​l​ ​a​s​k​ ​f​o​r​ ​e​a​c​h​ ​o​f​ ​t​h​e​m​ ​o​n​c​e​.
+		 * @param {number} count
+		 */
+		too_many_grants: RequiredParams<'count'>
 	}
 	tokens: {
 		/**
@@ -2121,6 +2337,10 @@ export type TranslationFunctions = {
 			 */
 			add_share: () => LocalizedString
 			/**
+			 * Link a device…
+			 */
+			link_device: () => LocalizedString
+			/**
 			 * Back
 			 */
 			back: () => LocalizedString
@@ -2239,6 +2459,14 @@ export type TranslationFunctions = {
 			 */
 			shared_whole: () => LocalizedString
 			/**
+			 * Synced to your devices
+			 */
+			synced_to_devices: () => LocalizedString
+			/**
+			 * On your devices
+			 */
+			on_your_devices: () => LocalizedString
+			/**
 			 * {count} shared folder{{s}}
 			 */
 			shared_folders: (arg: { count: number }) => LocalizedString
@@ -2337,9 +2565,9 @@ export type TranslationFunctions = {
 			 */
 			your_vaults: () => LocalizedString
 			/**
-			 * shared
+			 * linked
 			 */
-			shared_badge: () => LocalizedString
+			linked_badge: () => LocalizedString
 			/**
 			 * browser vault
 			 */
@@ -2416,6 +2644,18 @@ export type TranslationFunctions = {
 			 * Recent shares
 			 */
 			recent_shares: () => LocalizedString
+			/**
+			 * Link a device
+			 */
+			link_device: () => LocalizedString
+			/**
+			 * Already have this vault on another device? Paste its device link and the whole vault arrives here.
+			 */
+			link_device_hint: () => LocalizedString
+			/**
+			 * Link this device…
+			 */
+			link_device_open: () => LocalizedString
 			errors: {
 				/**
 				 * That doesn't look like a valid share link.
@@ -2850,6 +3090,190 @@ export type TranslationFunctions = {
 			 * A device link is a full-access key to this vault. Never give it to anyone else.
 			 */
 			full_access_warning: () => LocalizedString
+			/**
+			 * Link a device
+			 */
+			section: () => LocalizedString
+			/**
+			 * Sync this whole vault to another device of your own. The other device pulls a copy and the two stay in step — including the folders you share with other people.
+			 */
+			section_help: () => LocalizedString
+			/**
+			 * Link a device…
+			 */
+			open: () => LocalizedString
+			/**
+			 * Open a vault first — a device link is a key to one vault.
+			 */
+			needs_vault: () => LocalizedString
+			/**
+			 * Set the relay operator secret above to create device links.
+			 */
+			needs_secret: () => LocalizedString
+			/**
+			 * Link a device
+			 */
+			title: () => LocalizedString
+			/**
+			 * Create a link here, then paste it on your other device. That device pulls the whole vault into an empty folder and stays in sync from then on.
+			 */
+			description: () => LocalizedString
+			/**
+			 * Which device is this for?
+			 */
+			label: () => LocalizedString
+			/**
+			 * e.g. laptop
+			 */
+			label_placeholder: () => LocalizedString
+			/**
+			 * Create device link
+			 */
+			create: () => LocalizedString
+			/**
+			 * Creating…
+			 */
+			creating: () => LocalizedString
+			/**
+			 * Device link
+			 */
+			link: () => LocalizedString
+			/**
+			 * Copy
+			 */
+			copy: () => LocalizedString
+			/**
+			 * Copied!
+			 */
+			copied: () => LocalizedString
+			/**
+			 * On the other device, choose "Link this device…" in the vault manager and paste it.
+			 */
+			next_step: () => LocalizedString
+			/**
+			 * Device links
+			 */
+			links_title: () => LocalizedString
+			/**
+			 * Loading…
+			 */
+			links_loading: () => LocalizedString
+			/**
+			 * No device links yet.
+			 */
+			links_none: () => LocalizedString
+			/**
+			 * unnamed device
+			 */
+			unnamed: () => LocalizedString
+			/**
+			 * revoke
+			 */
+			revoke: () => LocalizedString
+			/**
+			 * Revoke the device link {label}
+			 */
+			revoke_device: (arg: { label: string }) => LocalizedString
+			/**
+			 * Revoking blocks new connections; a device that is connected right now stays until it reconnects.
+			 */
+			revoke_hint: () => LocalizedString
+			/**
+			 * Link this device
+			 */
+			join_title: () => LocalizedString
+			/**
+			 * Paste the device link from the vault you want here. This device pulls the whole vault — notes and folders, including the folders shared with you.
+			 */
+			join_description: () => LocalizedString
+			/**
+			 * Device link
+			 */
+			join_link: () => LocalizedString
+			/**
+			 * editor1:…
+			 */
+			join_link_placeholder: () => LocalizedString
+			/**
+			 * That doesn’t look like a link — they start with "editor1:".
+			 */
+			join_link_invalid: () => LocalizedString
+			/**
+			 * That is a folder link, not a device link. Open a vault and use "Add a shared folder here…" for it.
+			 */
+			join_not_device: () => LocalizedString
+			/**
+			 * You will be asked for a folder to put the vault in. It must be empty.
+			 */
+			join_hint_desktop: () => LocalizedString
+			/**
+			 * The vault is stored privately in this browser.
+			 */
+			join_hint_browser: () => LocalizedString
+			/**
+			 * Link this device
+			 */
+			join_submit: () => LocalizedString
+			/**
+			 * Linking…
+			 */
+			join_working: () => LocalizedString
+			/**
+			 * ‘{path}’ is not empty — pick an empty folder for the vault to arrive in.
+			 */
+			not_empty: (arg: { path: string }) => LocalizedString
+			/**
+			 * That vault is already on this device, as ‘{name}’ — open it instead.
+			 */
+			already_linked: (arg: { name: string }) => LocalizedString
+			/**
+			 * Linking this device
+			 */
+			panel_title: () => LocalizedString
+			/**
+			 * Vault
+			 */
+			panel_vault: () => LocalizedString
+			/**
+			 * Destination
+			 */
+			panel_destination: () => LocalizedString
+			/**
+			 * Link progress
+			 */
+			progress_label: () => LocalizedString
+			/**
+			 * Starting…
+			 */
+			starting: () => LocalizedString
+			/**
+			 * Pulling {total} note{{s}} from the relay…
+			 */
+			phase_pull: (arg: { total: number }) => LocalizedString
+			/**
+			 * Writing files into {dest}…
+			 */
+			phase_write: (arg: { dest: string }) => LocalizedString
+			/**
+			 * {done} of {total}
+			 */
+			counts: (arg: { done: number, total: number }) => LocalizedString
+			/**
+			 * Images and PDFs will not arrive on this device yet — only notes and folders sync. They stay on the device that has them.
+			 */
+			attachments: () => LocalizedString
+			/**
+			 * Linking failed.
+			 */
+			failed: () => LocalizedString
+			/**
+			 * Try again
+			 */
+			retry: () => LocalizedString
+			/**
+			 * This device holds {count} shared-folder links — too many to bundle into one device link. The other device will ask for each of them once.
+			 */
+			too_many_grants: (arg: { count: number }) => LocalizedString
 		}
 		tokens: {
 			/**

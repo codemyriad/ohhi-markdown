@@ -4,7 +4,7 @@
  * sync-pill honesty (+ binary badge). Two browser contexts share one relay.
  */
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
-import { encodeShareLink } from '../src/lib/share-link.js'
+import { encodeDeviceLink } from '../src/lib/share-link.js'
 
 const RELAY = 'ws://localhost:8799'
 const ROOM = 'e2eroom'
@@ -69,24 +69,39 @@ test('a bad token fails fast with a real message, not eternal connecting', async
   await context.close()
 })
 
-test('join via share link into OPFS: materializes, co-edits, and reopens', async ({ browser }) => {
+test('link a device into OPFS: the panel, then materialize, co-edit and reopen', async ({ browser }) => {
   test.setTimeout(90_000) // reload + re-join is heavier than the memory paths
 
   // Alice seeds the room's content to the relay (memory backend).
   const alice = await openPeer(browser, 'seed', 'Alice')
 
-  // Bob joins through a share link → OPFS-backed vault (the O3 path). The link
-  // is a deep-link into the landing screen; he names himself and joins.
-  const link = encodeShareLink({ relay: RELAY, room: ROOM, token: TOKEN })
+  // Bob links this device (device-link N2, A1) → OPFS-backed vault. A DEVICE
+  // link, not a folder link: it carries the whole vault, and it is the route
+  // the vault manager offers for one.
+  const link = encodeDeviceLink({ relay: RELAY, room: ROOM, token: TOKEN })
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
-  await page.goto(`/?share=${encodeURIComponent(link)}`)
+  await page.goto('/')
   await page.getByTestId('manager-name').fill('Bob')
-  await page.getByTestId('join-share').click()
+  await page.getByTestId('open-link-device').click()
+  await expect(page.getByTestId('link-device-dialog')).toBeVisible()
+  await page.getByTestId('link-device-input').fill(link)
+  await page.getByTestId('link-device-submit').click()
+
+  // The joiner is told what is happening while the vault arrives — including
+  // the plain statement that images and PDFs will not (decision 6). No editor
+  // surface until the boot resolves.
+  await expect(page.getByTestId('join-progress')).toBeVisible()
+  await expect(page.getByTestId('join-attachments')).toContainText('Images and PDFs')
+  await expect(page.getByTestId('editor-pane')).toHaveCount(0)
 
   // Relay content materialized into the OPFS vault.
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
+  // The vault is LINKED, not "shared": the rail says so in the vault's own words.
+  await expect(page.getByTestId('rail-section:note').getByTestId('share-state')).toContainText(
+    'Synced to your devices'
+  )
 
   // Live propagation Alice → Bob over the joined OPFS vault.
   await openFile(alice.page)
@@ -103,8 +118,8 @@ test('join via share link into OPFS: materializes, co-edits, and reopens', async
     timeout: 15_000,
   })
 
-  // Reopen with the RELAY UNREACHABLE (slice M1): the ?share= param was
-  // cleared on join, so a reload rehydrates the persisted session — and with
+  // Reopen with the RELAY UNREACHABLE (slice M1): the link was never in the
+  // URL, so a reload rehydrates the persisted session — and with
   // durable stores the vault boots from OPFS alone. Only websockets are
   // severed (setOffline would block the dev server too); the pre-M1
   // wipe+re-pull path would show an empty vault here. A flag flips the route

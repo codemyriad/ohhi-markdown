@@ -58,11 +58,14 @@ import {
   type DocInspection,
   type FileRow,
   type MountStats,
+  type PullProgress,
   type RelayConfig,
 } from '@editor/workspace'
 import {
   defaultRelay,
   getVault,
+  upsertVault,
+  grantsForBundle,
   mergeGrants,
   operatorSecret,
   roomRelay,
@@ -75,9 +78,10 @@ import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
 import { appendNotice, type Notice, type NoticeInput } from './notices.js'
-import { decodeShareLink, encodeShareLink } from './share-link.js'
+import { decodeShareLink, encodeDeviceLink, encodeShareLink } from './share-link.js'
+import { isForeignMount } from './share-status.js'
 
-export { FOLDER_RECORD_KEY, type FileRow, type RelayConfig }
+export { FOLDER_RECORD_KEY, type FileRow, type PullProgress, type RelayConfig }
 
 /**
  * The index's write side, as the workspace needs it. Structurally
@@ -110,6 +114,14 @@ export interface WorkspaceConfig {
    * Obsidian, git and Claude Code writing the same files.
    */
   index?: IndexSink
+  /**
+   * First-join progress for the ROOT mount, reported BEFORE this promise
+   * resolves (device-link N2). `ui.pull` carries the same value, but a linked
+   * device spends its whole first minute inside `setupWorkspace` — there is no
+   * `ui` to read yet, so the panel is fed through here and told `null` when
+   * the boot is done.
+   */
+  onPull?: (progress: PullProgress | null) => void
 }
 
 /** A shared subtree of this workspace, for badges/filter/share management. */
@@ -128,6 +140,13 @@ export interface MountInfo {
   provenance: MountProvenance
   link: string | null
   status: MountUiStatus
+  /**
+   * Someone ELSE's share, mounted here — as opposed to a folder of this vault
+   * shared by you (device-link N2, the gap share-status.ts recorded in N1).
+   * See `isForeignMount`: a joined mount is always foreign; an adopted one is
+   * foreign when its room lives on a relay other than this vault's.
+   */
+  foreign: boolean
 }
 
 export interface WorkspaceUi {
@@ -144,15 +163,22 @@ export interface WorkspaceUi {
   /** Per-doc sync records keyed by doc GUID (+ per-mount folder keys) — guids are rename-stable (M3). */
   records: Record<string, SyncRecord>
   /**
-   * True once the ROOT mount has a relay — i.e. the whole vault is shared.
-   * Reachable only by joining a whole-vault link or by the memory URL
-   * contract: the app stopped offering root promotion on 2026-09-07 (folder
-   * shares are the route, and a root share blocks them — spike S8's V1
-   * no-nested-shares guard). Still load-bearing: the header says "shared", the
-   * tree's provenance filter treats everything as shared, and the context
-   * menu explains why Share… is refused on a folder.
+   * True once the ROOT mount has a relay — the whole vault syncs to this
+   * person's own devices. It is *device linking*, not sharing (device-link
+   * N2, decision 2): the copy reads "Synced to your devices", never "shared",
+   * because sharing is what you do with other people, folder by folder
+   * (dogfood decision #8 stands). Set by `linkDevice()`, by joining a device
+   * link, or by the memory URL contract.
+   *
+   * Load-bearing beyond the copy: the tree's provenance filter treats
+   * everything as relay-backed, and the rollup is fed by every doc.
    */
-  shared: boolean
+  linked: boolean
+  /**
+   * A first join in flight (root mount), else null — the two-phase panel's
+   * whole input. Cleared when the boot resolves.
+   */
+  pull: PullProgress | null
   /** Shared subtrees (carved/joined mounts), excluding the root mount. */
   mounts: MountInfo[]
   /** Held mass-change batch awaiting confirm/dismiss (M3), else null. */
@@ -203,10 +229,18 @@ export interface Workspace {
   unshare(path: string): Promise<void>
   /** Drop a joined mount; its files stay and become local notes. */
   unmount(path: string): Promise<void>
-  // NOTE: no root-promotion method. `MountSession.enableSharing` still exists
-  // in libs/workspace (it is how a relay-attached root announces its link, and
-  // libs/workspace's carve/join tests drive it), but the app no longer exposes
-  // a way to promote the whole vault — see WorkspaceUi.shared.
+  /**
+   * Link a device (device-link-shaping A1, slice N2): mint a `kind:'device'`
+   * token for the ROOT room, attach the root to the relay if it is not
+   * already, and return the copyable link — the root token plus the grants
+   * this device holds for its mounts (A4-B), so shared folders arrive already
+   * connected on the other device.
+   *
+   * The ONE place the root is promoted. It is not "share this vault": a
+   * device link is a full-access credential for one person's own devices, and
+   * the copy beside it says so (R5).
+   */
+  linkDevice(label: string): Promise<string>
   /**
    * Carve `path` (a folder of the root mount) into its own shared mount:
    * mints a token (operator secret from Settings), runs the spike S8 Q1
@@ -274,7 +308,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     reviews: [],
     selectedPath: null,
     records: {},
-    shared: false,
+    linked: false,
+    pull: null,
     mounts: [],
     breaker: null,
   })
@@ -327,6 +362,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   /** Per-room presence, unioned into ui.presence. */
   const presenceByRoom = new Map<string, string[]>()
 
+  /**
+   * The ROOT mount's relay. Mutable because `linkDevice()` attaches one to a
+   * vault that booted without: `rebuildRoot` (unshare/absorb surgery) reads
+   * this, and a root that quietly lost its relay would stop announcing carves
+   * and stop hearing peers — sync state lying by omission (N1's rule, N2's
+   * new way of reaching it).
+   */
+  let rootRelay: RelayConfig | undefined = cfg.relay
+
   const mountsFile = new MountsFile(cfg.storeDir.io('mounts.json'))
   await recoverMounts(cfg.storeDir, mountsFile, engine)
 
@@ -347,8 +391,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     for (const p of next) ignoreSet.add(p)
   }
 
+  /**
+   * This vault's own relay — the one its rooms are minted on. A mount whose
+   * room lives somewhere else is somebody else's share (see isForeignMount).
+   */
+  const rootRelayUrl = (): string => rootRelay?.url || roomRelay(cfg.room) || defaultRelay()
+
   /** ui.mounts is a projection of mounts.json — statuses included. */
   const refreshMounts = (): void => {
+    const rootRelay = rootRelayUrl()
     ui.mounts = descs
       .filter((d) => d.path !== '')
       .map((d) => ({
@@ -357,6 +408,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         provenance: d.provenance,
         link: linkByRoom.get(d.room) ?? null,
         status: uiStatus(d.status),
+        foreign: isForeignMount(
+          { provenance: d.provenance, relay: d.relay?.url || roomRelay(d.room) },
+          rootRelay
+        ),
       }))
       .sort((a, b) => a.path.localeCompare(b.path))
   }
@@ -545,6 +600,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         onShared: (link) => opts.onShared?.(link),
         ...(opts.path === ''
           ? {
+              // The two-phase first-join line (N2). Root only: this is the
+              // whole-vault pull the joiner stares at, and it is reported
+              // BEFORE setupWorkspace resolves — hence the config callback
+              // alongside the ui field. A nested mount's own pull gets its own
+              // line later (spike S10 Q4, acceptance note on Q1 step 6).
+              onPullProgress: (progress) => {
+                ui.pull = progress
+                cfg.onPull?.(progress)
+              },
               // Synchronous, inside the observer: the derived ignore set must
               // hide a mount root the instant a peer announces it, not at the
               // end of the adopt (spike S10 Q6).
@@ -692,9 +756,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     room: cfg.room,
     path: '',
     provenance: 'local',
-    relay: cfg.relay,
+    relay: rootRelay,
     firstJoin: cfg.firstJoin,
-    onShared: () => (ui.shared = true),
+    onShared: () => (ui.linked = true),
   })
   registry.add('', rootSession)
   refreshIgnore()
@@ -744,6 +808,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   await runReconcile()
 
   ui.phase = 'ready'
+  ui.pull = null
+  cfg.onPull?.(null)
   refreshTree()
 
   /** The session (if any) currently holding an open path. */
@@ -846,6 +912,60 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
   }
 
+  /**
+   * Above this many held tokens the bundle stops being a link and starts
+   * being a payload (spike S10 Q7 §Size): emit the device link WITHOUT
+   * grants and say so — the ancestry grant (A4-A) covers this vault's own
+   * carves anyway, and a foreign share costs one paste.
+   */
+  const MAX_BUNDLED_GRANTS = 50
+
+  /**
+   * Link a device (A1 + A4-B). Mint a DEVICE token for the root room, promote
+   * the root to relay-attached if it is not already — the one place that
+   * happens — remember the credential, and hand back the link with the grants
+   * this device holds. R5 lives in the copy beside the link, not here.
+   */
+  const doLinkDevice = async (label: string): Promise<string> => {
+    const t = getLL().web.workspace
+    const secret = operatorSecret()
+    if (!secret) throw new Error(t.needs_secret())
+    const relayUrl = rootRelayUrl()
+    const vaultName = getVault(cfg.room)?.name ?? 'vault'
+    // Mint FIRST: a failure leaves nothing promoted and nothing persisted.
+    const minted = await mintShare(relayUrl, secret, {
+      folderGuid: cfg.room,
+      kind: 'device',
+      label: label.trim() || vaultName,
+    })
+    setRoomToken(cfg.room, minted.token, relayUrl, 'device')
+    const relay: RelayConfig = { url: relayUrl, token: minted.token }
+    rootRelay = relay
+    if (!rootSession!.isShared()) {
+      rootSession!.enableSharing(relay)
+      ui.linked = true
+    }
+    // The next boot reads the root's relay off the VAULT ENTRY (boot.ts), not
+    // off mounts.json — without this the link works for one session and the
+    // vault reopens unlinked.
+    const entry = getVault(cfg.room)
+    if (entry) upsertVault({ ...entry, relay })
+    refreshMounts()
+    // The codec drops a grant for the link's own room, so the root token is
+    // never doubled; a device that holds too many is told, never truncated.
+    const held = grantsForBundle().filter((g) => g.room !== cfg.room)
+    const tooMany = held.length > MAX_BUNDLED_GRANTS
+    if (tooMany) {
+      notify({ level: 'warn', text: getLL().web.device_link.too_many_grants({ count: held.length }) })
+    }
+    return encodeDeviceLink({
+      relay: relayUrl,
+      room: cfg.room,
+      token: minted.token,
+      grants: tooMany ? [] : held,
+    })
+  }
+
   // ---- M5: join-as-mount, unshare/unmount, cross-mount moves ----
 
   const doJoinMount = async (link: string, destPath: string): Promise<void> => {
@@ -909,8 +1029,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       room: cfg.room,
       path: '',
       provenance: 'local',
-      ...(cfg.relay ? { relay: cfg.relay } : {}),
-      onShared: () => (ui.shared = true),
+      ...(rootRelay ? { relay: rootRelay } : {}),
+      onShared: () => (ui.linked = true),
     })
     registry.add('', rootSession)
     refreshIgnore()
@@ -1143,6 +1263,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     unshare: doUnshare,
     unmount: doUnmount,
     carveFolder: doCarve,
+    linkDevice: doLinkDevice,
     confirmBreaker: async () => {
       ui.breaker = null
       await (breakerOwner ?? rootSession!).confirmBreaker()

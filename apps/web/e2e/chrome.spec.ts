@@ -4,6 +4,7 @@
  * vault contract, like v2.spec.ts.
  */
 import { expect, test, type Page } from '@playwright/test'
+import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
 
 const RELAY = 'ws://localhost:8799'
 
@@ -183,12 +184,14 @@ test('the rail says where the open note lives, who is online there, and the head
   await openApp(page, 'chrome-note', 'e2e-token')
   const section = page.getByTestId('rail-section:note')
   await expect(section).toContainText('No note open')
-  // This memory vault is shared as a whole (the relay is on the root mount).
-  await expect(section.getByTestId('share-state')).toContainText('Shared as a whole')
+  // The relay is on the ROOT mount, so this vault is LINKED — never "shared"
+  // (device-link N2, decision 2): the vault-level line and the per-note line
+  // are the two halves of that.
+  await expect(section.getByTestId('share-state')).toContainText('Synced to your devices')
 
   await page.getByTestId('file-item:notes/welcome.md').click()
   await expect(section).toContainText('notes')
-  await expect(section.getByTestId('share-state')).toContainText('Shared as a whole')
+  await expect(section.getByTestId('share-state')).toContainText('On your devices')
   await expect(section.getByTestId('presence')).toBeVisible()
   await expect(page.locator('header').getByTestId('presence')).toHaveCount(0)
   // The access line is honest about what a root share can say here.
@@ -270,4 +273,70 @@ test('settings are tabs: keyboard between them, validated forms with their own S
   await page.getByTestId('settings-tab:sync').click()
   await expect(page.getByTestId('settings-relay')).toHaveValue('wss://relay.example.test')
   await page.getByTestId('settings-close').click()
+})
+
+test('link a device: the manager refuses a folder link, and the panel reports a failure with a retry', async ({
+  page,
+}) => {
+  // The manager, with no vault remembered — where a NEW device starts.
+  await page.goto('/')
+  await expect(page.getByTestId('open-link-device')).toBeVisible()
+  await page.getByTestId('manager-name').fill('Chris')
+  await page.getByTestId('open-link-device').click()
+  await expect(page.getByTestId('link-device-dialog')).toBeVisible()
+
+  // A folder link is refused AT THE FIELD, with the reason and the affordance
+  // that does want it (device-link-shaping R5: folder links never grant a vault).
+  await page
+    .getByTestId('link-device-input')
+    .fill(encodeShareLink({ relay: RELAY, room: 'team-room', token: 'a'.repeat(64) }))
+  await page.getByTestId('link-device-submit').click()
+  await expect(page.getByTestId('field-errors:link')).toContainText('folder link')
+
+  // A device link the relay does not know: the panel comes up, then says what
+  // went wrong and offers a retry — never a dead end, never a blank minute.
+  await page
+    .getByTestId('link-device-input')
+    .fill(encodeDeviceLink({ relay: RELAY, room: 'chrome-unknown-room', token: 'nope' }))
+  await page.getByTestId('link-device-submit').click()
+  await expect(page.getByTestId('join-progress')).toBeVisible()
+  await expect(page.getByTestId('join-attachments')).toContainText('Images and PDFs')
+  await expect(page.getByTestId('join-error')).toContainText('rejected', { timeout: 20_000 })
+  await expect(page.getByTestId('join-retry')).toBeVisible()
+
+  await page.getByTestId('join-cancel').click()
+  await expect(page.getByTestId('open-link-device')).toBeVisible()
+})
+
+test('settings › sync offers device linking, and asks for the operator secret first', async ({
+  page,
+}) => {
+  await openApp(page, 'chrome-device-link')
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:sync').click()
+  const section = page.getByTestId('settings-device-link')
+  await expect(section).toContainText('Link a device')
+
+  // No operator secret: the refusal names the thing to set, and there is no
+  // button that would fail on being pressed.
+  await expect(page.getByTestId('settings-link-device-needs-secret')).toBeVisible()
+  await expect(page.getByTestId('settings-link-device')).toHaveCount(0)
+
+  // With a secret typed, the button appears — and leaving for the dialog SAVES
+  // the form first (the dialog mints with the secret from config).
+  await page.getByTestId('settings-secret').fill('e2e-operator-secret')
+  await page.getByTestId('settings-link-device').click()
+  await expect(page.getByTestId('settings-panel')).toHaveCount(0)
+  await expect(page.getByTestId('device-link-dialog')).toBeVisible()
+  // The R5 sentence rides with the LINK, so before one exists the dialog shows
+  // the way to make one, not a warning about a key nobody holds yet.
+  await expect(page.getByTestId('create-device-link')).toBeVisible()
+  await page.getByTestId('close-device-link').click()
+  await expect(page.getByTestId('device-link-dialog')).toHaveCount(0)
+
+  // The command palette reaches the same dialog.
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Link a device')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('device-link-dialog')).toBeVisible()
 })

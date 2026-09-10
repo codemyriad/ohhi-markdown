@@ -60,13 +60,21 @@ import {
 } from '@editor/vault'
 import type { EngineDoc, FileEntry, SyncEngine } from '@editor/sync'
 import type { Awareness } from 'y-protocols/awareness'
-import { connectDoc, whenSynced, type DocConnection } from './providers.js'
+import {
+  connectDoc,
+  createRoomSocket,
+  ProgressTracker,
+  whenSynced,
+  type DocConnection,
+  type RoomSocket,
+} from './providers.js'
 import {
   FOLDER_RECORD_KEY,
   type CollabUser,
   type FileRow,
   type MountEntryInfo,
   type MountEvents,
+  type PullProgress,
   type RelayConfig,
   type SyncRecordFields,
 } from './types.js'
@@ -198,6 +206,21 @@ export class MountSession {
   private openPath: string | null = null
   private authFailure: string | null = null
   private sharedLink: string | null = null
+  /**
+   * ONE multiplexed relay connection for every doc of this mount (spike S10
+   * Q4 §"Connection model"): a socket per doc put a 1,029-note vault on 1,030
+   * of them, over the browser's global cap. Built lazily — the first
+   * `connectDoc` after a relay exists — and rebuilt when `enableSharing`
+   * repoints the mount at a different relay or token.
+   */
+  private roomSocket: RoomSocket | null = null
+  /** The first join's pull group: shared counts + one no-progress watchdog. */
+  private pull: ProgressTracker | null = null
+  /** Docs the map says this room holds — the denominator for BOTH phases. */
+  private pullTotal = 0
+  /** Files materialized so far; non-null phase means the write phase is live. */
+  private pullWritten = 0
+  private pullPhase: PullProgress['phase'] | null = null
 
   static async create(cfg: MountSessionConfig): Promise<MountSession> {
     const session = new MountSession(cfg)
@@ -746,6 +769,11 @@ export class MountSession {
     this.conns.clear()
     this.folderConn?.destroy()
     this.folderConn = null
+    // The shared socket closes LAST: each doc detaches from it first, so the
+    // relay unloads the documents one by one instead of seeing the connection
+    // vanish under them.
+    this.roomSocket?.destroy()
+    this.roomSocket = null
     // Best-effort tail flush: the debounced blob writes run continuously
     // during the session, so this only catches the last debounce window (a
     // page close can't await it either way — bounded loss, spike S8 Q2).
@@ -772,6 +800,8 @@ export class MountSession {
     this.conns.clear()
     this.folderConn?.destroy()
     this.folderConn = null
+    this.roomSocket?.destroy() // after the per-doc detaches, never before
+    this.roomSocket = null
     const ds = this.cfg.docStore
     if (ds) {
       await ds.flushAll()
@@ -912,10 +942,15 @@ export class MountSession {
       const was = this.mapSnapshot.get(entry.path)
       if (was && was.kind === 'mount' && !was.deleted) continue // not new
       const pre = `${entry.path}/`
+      // TOMBSTONES ARE KEPT. They are not membership — `seedCarveStores` drops
+      // them — but they are the only record that a note under `P` was deleted:
+      // an LCA record outlives a delete, and the adopt's orphan-LCA fallback
+      // would otherwise resurrect every such note into the new mount (S10 Q1
+      // "Membership"; see `membershipFor`).
       this.mountPreImages.set(
         entry.path,
         [...this.mapSnapshot.entries()].filter(
-          ([p, e]) => !e.deleted && e.kind !== 'mount' && (p === entry.path || p.startsWith(pre))
+          ([p, e]) => e.kind !== 'mount' && (p === entry.path || p.startsWith(pre))
         )
       )
     }
@@ -1020,6 +1055,12 @@ export class MountSession {
    * carries a guid the mount owns, because a peer moved the file out. Re-enrol
    * it here with a FRESH guid — content identity never crosses rooms — which
    * replaces the stale key in one transaction.
+   *
+   * Only meaningful on the device that MADE the move, which is the only one
+   * whose disk already holds the destination: `enrollOne` returns silently on
+   * a null read, so on a peer this is deliberately a no-op and the mount's
+   * guid stays in the parent map (see the skipped
+   * `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`).
    */
   async reenrollPath(path: string): Promise<void> {
     await this.enrollOne(path)
@@ -1117,11 +1158,57 @@ export class MountSession {
     }
   }
 
+  /**
+   * Report first-join progress. Derived convenience: a listener that throws
+   * must not be able to break the pull (same rule as emitDocChanged).
+   */
+  private emitPull(phase: PullProgress['phase'], done: number, total: number): void {
+    if (!this.events.onPullProgress) return
+    try {
+      this.events.onPullProgress({ phase, done, total })
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /**
+   * One file written to disk during the first join's materialize. The
+   * reconciler already emits exactly one `materialized` action per file, so
+   * this is a count, not an estimate.
+   */
+  private notePullWrite(): void {
+    if (this.pullPhase !== 'write') return
+    this.pullWritten++
+    this.emitPull('write', this.pullWritten, this.pullTotal)
+  }
+
+  /**
+   * This mount's shared relay connection, opened on first use. Every doc of
+   * the room rides it (Hocuspocus routes by document name and still runs
+   * `onAuthenticate` per document), so a mount costs ONE socket, not one per
+   * note — the browser's global WebSocket cap is ~200-255 (S10 Q4).
+   */
+  private ensureSocket(): RoomSocket | undefined {
+    if (!this.relay) return undefined
+    const { url, token } = this.relay
+    if (this.roomSocket && (this.roomSocket.relay !== url || this.roomSocket.token !== token)) {
+      // Repointed by enableSharing: the old socket carries the old credential
+      // and no live doc (attachProvider only ever adds to the current one).
+      this.roomSocket.destroy()
+      this.roomSocket = null
+    }
+    this.roomSocket ??= createRoomSocket(url, token, {
+      ...(this.cfg.webSocketPolyfill ? { webSocketPolyfill: this.cfg.webSocketPolyfill } : {}),
+    })
+    return this.roomSocket
+  }
+
   /** Connect a relay provider for one doc. No-op without a relay. */
   private attachProvider(guid: string, path: string): void {
     if (!this.relay || this.conns.has(guid)) return
     const doc = this.docs.get(guid)
     if (!doc) return
+    const socket = this.ensureSocket()
     this.conns.set(
       guid,
       connectDoc({
@@ -1132,7 +1219,7 @@ export class MountSession {
         user: this.user,
         record: this.recordFor(guid),
         onAuthFailed: (reason) => this.reportAuthFailure(reason),
-        webSocketPolyfill: this.cfg.webSocketPolyfill,
+        ...(socket ? { socket } : {}),
       })
     )
   }
@@ -1238,7 +1325,10 @@ export class MountSession {
           // 'materialized' writes disk from the CRDT and emits no doc update,
           // so routeDocUpdate never fires for it. Re-emit here so a listener
           // sees every state change, not just the ones that moved the CRDT.
-          if (action === 'materialized') this.emitDocChanged(guid, path, 'materialize')
+          if (action === 'materialized') {
+            this.emitDocChanged(guid, path, 'materialize')
+            this.notePullWrite()
+          }
         },
         onPathsRenamed: (moves) => {
           for (const { from, to } of moves) {
@@ -1332,6 +1422,7 @@ export class MountSession {
   /** Create the folder-doc provider + presence wiring. Idempotent; no-op without a relay. */
   private connectFolder(): DocConnection | null {
     if (this.folderConn || !this.relay) return this.folderConn
+    const socket = this.ensureSocket()
     this.folderConn = connectDoc({
       relay: this.relay.url,
       name: `${this.room}/folder`,
@@ -1340,7 +1431,7 @@ export class MountSession {
       user: this.user,
       record: this.recordFor(FOLDER_RECORD_KEY),
       onAuthFailed: (reason) => this.reportAuthFailure(reason),
-      webSocketPolyfill: this.cfg.webSocketPolyfill,
+      ...(socket ? { socket } : {}),
     })
     this.folderConn.awareness.on('change', () => this.updatePresence())
     this.folderConn.awareness.on('update', () => this.updatePresence())
@@ -1365,38 +1456,73 @@ export class MountSession {
     if (this.cfg.firstJoin) {
       const folderProvider = this.connectFolder()
       if (!folderProvider) throw new Error('a first join requires a relay')
-      // Folder doc first; "synced" alone is not enough — the seeder may arrive
-      // later, so also wait for the map to be non-empty. Auth rejection fails
-      // fast with a real message instead of timing out as "connecting…".
-      await whenSynced(
-        folderProvider.provider,
-        () => this.folderDoc.getMap().entries().some(([, e]) => !e.deleted),
-        60_000,
-        () => this.authFailure
-      )
-      this.adoptionEnabled = true
-      await this.queueMapScan() // creates per-file docs + providers
-      await Promise.all(
-        [...this.conns.values()].map((c) => whenSynced(c.provider, undefined, 60_000, () => this.authFailure))
-      )
-      // No wipe: a first join's destination is fresh by construction, and a
-      // stores-lost rejoin keeps its disk — joinFolder binds byte-identical
-      // files and reports anything else as a problem, never deleting content
-      // (the pre-M1 wipe here destroyed offline edits; see spike S8 Q3/Q4).
-      const { problems } = await joinFolder(this.engine, this.adapter, this.folderDoc, this.docs, this.lcaStore)
-      if (problems.length > 0) {
-        this.pushError(
-          new Error(`join problems: ${problems.map((p) => `${p.path} (${p.reason})`).join(', ')}`)
+      // The pull group: one no-progress watchdog for the whole phase, on THIS
+      // session's injected clock (golden rule 5). Its abort rejects the waits
+      // below, so a dead relay surfaces through the ordinary boot error path
+      // rather than as a minute of silence (spike S10 Q4 §"Timeout").
+      const pull = new ProgressTracker({
+        clock: this.clock,
+        onProgress: ({ synced, total }) => this.emitPull('pull', synced, total),
+      })
+      this.pull = pull
+      this.pullPhase = 'pull'
+      try {
+        // Folder doc first; "synced" alone is not enough — the seeder may arrive
+        // later, so also wait for the map to be non-empty. Auth rejection fails
+        // fast with a real message instead of timing out as "connecting…".
+        await whenSynced(
+          folderProvider.provider,
+          () => this.folderDoc.getMap().entries().some(([, e]) => !e.deleted),
+          60_000,
+          () => this.authFailure,
+          { clock: this.clock }
         )
-      }
-      await this.restartSession()
-      // Materialize relay content onto the joiner's vault backend — dirs too:
-      // the map arrived before the session started, so onRemoteMapChange never
-      // saw the initial dir entries (M3).
-      await this.syncDirs()
-      for (const guid of this.docs.keys()) {
-        const path = this.pathForGuid(guid)
-        if (path) await this.reconcileClosedDoc(guid, path)
+        // The denominator, the instant the map is in hand (< 50 ms measured),
+        // and the rows with it: `refreshFiles` otherwise waits for the boot
+        // promise, so the host has nothing to render for the whole pull.
+        this.pullTotal = this.folderDoc
+          .getMap()
+          .entries()
+          .filter(([, e]) => e.kind === 'text' && !e.deleted).length
+        pull.setTotal(this.pullTotal)
+        this.refreshFiles()
+        this.adoptionEnabled = true
+        await this.queueMapScan() // creates per-file docs + providers
+        await Promise.all(
+          [...this.conns.values()].map((c) =>
+            whenSynced(c.provider, undefined, 60_000, () => this.authFailure, {
+              clock: this.clock,
+              progress: pull,
+            })
+          )
+        )
+        // Phase 2 — the one that costs ~92% of the wall clock, counted from
+        // the reconciler's own `materialized` actions.
+        this.pullPhase = 'write'
+        this.emitPull('write', 0, this.pullTotal)
+        // No wipe: a first join's destination is fresh by construction, and a
+        // stores-lost rejoin keeps its disk — joinFolder binds byte-identical
+        // files and reports anything else as a problem, never deleting content
+        // (the pre-M1 wipe here destroyed offline edits; see spike S8 Q3/Q4).
+        const { problems } = await joinFolder(this.engine, this.adapter, this.folderDoc, this.docs, this.lcaStore)
+        if (problems.length > 0) {
+          this.pushError(
+            new Error(`join problems: ${problems.map((p) => `${p.path} (${p.reason})`).join(', ')}`)
+          )
+        }
+        await this.restartSession()
+        // Materialize relay content onto the joiner's vault backend — dirs too:
+        // the map arrived before the session started, so onRemoteMapChange never
+        // saw the initial dir entries (M3).
+        await this.syncDirs()
+        for (const guid of this.docs.keys()) {
+          const path = this.pathForGuid(guid)
+          if (path) await this.reconcileClosedDoc(guid, path)
+        }
+      } finally {
+        pull.dispose()
+        this.pull = null
+        this.pullPhase = null
       }
     } else {
       // Fresh vault: enroll disk (one-time seeding). Any attached relay (the

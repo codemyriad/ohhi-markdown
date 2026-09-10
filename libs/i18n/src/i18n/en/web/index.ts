@@ -177,6 +177,7 @@ const commands = {
   delete_note: 'Delete current note…',
   move_note: 'Move current note…',
   add_share: 'Add a shared folder…',
+  link_device: 'Link a device…',
   back: 'Back',
   forward: 'Forward',
   toggle_navigator: 'Toggle file navigator',
@@ -214,6 +215,14 @@ const note = {
   access: 'Access',
   vault_root: '(vault root)',
   shared_whole: 'Shared as a whole',
+  /**
+   * The linked-vault pair (device-link N2). The vault-level line says what
+   * the vault IS ("Synced to your devices"); the per-note line says where
+   * THIS note lives ("On your devices"). Neither says "shared" — sharing is
+   * what you do with other people, folder by folder.
+   */
+  synced_to_devices: 'Synced to your devices',
+  on_your_devices: 'On your devices',
   shared_folders: '{count:number} shared folder{{s}}',
   local_nothing_shared: 'Local vault — nothing shared',
   only_you: 'Only you',
@@ -242,7 +251,11 @@ const manager = {
   your_name: 'Your name',
   name_placeholder: 'Anonymous',
   your_vaults: 'Your vaults',
-  shared_badge: 'shared',
+  /**
+   * A vault entry with a relay: since N2 that means LINKED to your own
+   * devices (the legacy whole-vault join reads the same way, and it is).
+   */
+  linked_badge: 'linked',
   browser_vault: 'browser vault',
   memory_vault: 'memory',
   remove: 'Remove {name:string} from this list',
@@ -265,6 +278,10 @@ const manager = {
   link_placeholder: 'editor1:…',
   join: 'Join',
   recent_shares: 'Recent shares',
+  link_device: 'Link a device',
+  link_device_hint:
+    'Already have this vault on another device? Paste its device link and the whole vault arrives here.',
+  link_device_open: 'Link this device…',
   errors: {
     invalid_link: "That doesn't look like a valid share link.",
     forget_partial:
@@ -430,13 +447,75 @@ const mounts = {
 }
 
 /**
- * Device linking (device-link-shaping R5): the vault's own link is a
- * full-access credential for ONE person's devices, and the product says so at
- * the point of copying — folder links never grant the vault.
+ * Device linking (device-link-shaping A1/R5, slice N2): the vault's own link
+ * is a full-access credential for ONE person's devices, and the product says
+ * so at the point of copying — folder links never grant the vault.
+ *
+ * The word is LINKED, never "shared": sharing is what you do with other
+ * people, folder by folder (decision #8 stands). A linked vault is
+ * "Synced to your devices"; a note in one reads "On your devices".
  */
 const device_link = {
   full_access_warning:
     'A device link is a full-access key to this vault. Never give it to anyone else.',
+  // ---- Settings › Sync ----
+  section: 'Link a device',
+  section_help:
+    'Sync this whole vault to another device of your own. The other device pulls a copy and the two stay in step — including the folders you share with other people.',
+  open: 'Link a device…',
+  needs_vault: 'Open a vault first — a device link is a key to one vault.',
+  needs_secret: 'Set the relay operator secret above to create device links.',
+  // ---- the owner's dialog ----
+  title: 'Link a device',
+  description:
+    'Create a link here, then paste it on your other device. That device pulls the whole vault into an empty folder and stays in sync from then on.',
+  label: 'Which device is this for?',
+  label_placeholder: 'e.g. laptop',
+  create: 'Create device link',
+  creating: 'Creating…',
+  link: 'Device link',
+  copy: 'Copy',
+  copied: 'Copied!',
+  next_step: 'On the other device, choose "Link this device…" in the vault manager and paste it.',
+  links_title: 'Device links',
+  links_loading: 'Loading…',
+  links_none: 'No device links yet.',
+  unnamed: 'unnamed device',
+  revoke: 'revoke',
+  revoke_device: 'Revoke the device link {label:string}',
+  revoke_hint:
+    'Revoking blocks new connections; a device that is connected right now stays until it reconnects.',
+  // ---- the new device's dialog ----
+  join_title: 'Link this device',
+  join_description:
+    'Paste the device link from the vault you want here. This device pulls the whole vault — notes and folders, including the folders shared with you.',
+  join_link: 'Device link',
+  join_link_placeholder: 'editor1:…',
+  join_link_invalid: 'That doesn’t look like a link — they start with "editor1:".',
+  join_not_device:
+    'That is a folder link, not a device link. Open a vault and use "Add a shared folder here…" for it.',
+  join_hint_desktop: 'You will be asked for a folder to put the vault in. It must be empty.',
+  join_hint_browser: 'The vault is stored privately in this browser.',
+  join_submit: 'Link this device',
+  join_working: 'Linking…',
+  not_empty: '‘{path:string}’ is not empty — pick an empty folder for the vault to arrive in.',
+  already_linked: 'That vault is already on this device, as ‘{name:string}’ — open it instead.',
+  // ---- the joiner's progress panel ----
+  panel_title: 'Linking this device',
+  panel_vault: 'Vault',
+  panel_destination: 'Destination',
+  progress_label: 'Link progress',
+  starting: 'Starting…',
+  phase_pull: 'Pulling {total:number} note{{s}} from the relay…',
+  phase_write: 'Writing files into {dest:string}…',
+  counts: '{done:number} of {total:number}',
+  attachments:
+    'Images and PDFs will not arrive on this device yet — only notes and folders sync. They stay on the device that has them.',
+  failed: 'Linking failed.',
+  retry: 'Try again',
+  /** Spike S10 Q7 §Size: say it, never truncate the bundle in silence. */
+  too_many_grants:
+    'This device holds {count:number} shared-folder links — too many to bundle into one device link. The other device will ask for each of them once.',
 }
 
 const tokens = {

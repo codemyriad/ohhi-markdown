@@ -1,0 +1,24 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A synced folder now uses one relay connection for all of its notes instead of one per note, so a vault of more than a couple of hundred notes can sync in a browser at all.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A first sync of a whole vault reports its progress in two phases — notes arriving from the relay, then files being written to disk — so a device being linked can show a real count instead of a spinner.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A relay that goes quiet during a first sync is now reported after twenty seconds of silence rather than waited on for a minute, and a sync that is still arriving is never cut off.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A note that starts syncing after its folder is already connected no longer shows as offline while it is plainly in sync.",
+      "type": "patch"
+    }
+  ]
+}

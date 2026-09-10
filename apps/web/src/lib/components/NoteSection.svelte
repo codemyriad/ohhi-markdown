@@ -16,7 +16,8 @@
     path: string | null
     vaultName: string
     mounts: MountLike[]
-    rootShared: boolean
+    /** The whole vault is on the relay — LINKED to your own devices (N2). */
+    rootLinked: boolean
     rootRoom: string
     presenceByRoom: Record<string, string[]>
     /** Everyone online anywhere in the workspace. */
@@ -38,7 +39,7 @@
     path,
     vaultName,
     mounts,
-    rootShared,
+    rootLinked,
     rootRoom,
     presenceByRoom,
     presenceAll,
@@ -54,7 +55,7 @@
   const t = $derived($LL.web.note)
   const mnt = $derived($LL.web.mounts)
   const dir = $derived(path && path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
-  const share = $derived(shareStateFor(path ?? '', mounts, rootShared, rootRoom))
+  const share = $derived(shareStateFor(path ?? '', mounts, rootLinked, rootRoom))
   const host = $derived.by(() => {
     if (share.kind !== 'shared') return null
     if (share.link) {
@@ -68,9 +69,7 @@
   })
   const online = $derived(share.kind === 'shared' ? onlineIn(presenceByRoom, share.room) : [])
   /** Sharing a folder needs a folder, an unshared vault, and no mount around it. */
-  const canShareHere = $derived(
-    share.kind === 'local' && dir !== '' && !rootShared
-  )
+  const canShareHere = $derived(share.kind === 'local' && dir !== '')
   const sharedMountCount = $derived(mounts.filter((m) => m.provenance !== 'local').length)
   /** Only a mount with a relay has presence, access or anything to be in sync with. */
   const connected = $derived(share.kind === 'shared' && share.status === 'active')
@@ -90,8 +89,10 @@
     if (share.status === 'absorbing') return mnt.folding_back()
     const state =
       share.provenance === 'root'
-        ? t.shared_whole()
-        : mountTone(share.provenance) === 'yours'
+        ? // Not "shared as a whole": the vault is on the relay because it is
+          // linked to your own devices (N2, decision 2).
+          t.on_your_devices()
+        : mountTone(share.provenance, share.foreign) === 'yours'
           ? t.shared_by_you()
           : t.shared_with_you()
     return host ? t.with_host({ state, host }) : state
@@ -102,7 +103,10 @@
   let tokensError = $state('')
   /** Ours to manage: a carve, or a carve of ours adopted from another device. */
   const ownShare = $derived(
-    share.kind === 'shared' && share.status === 'active' && mountTone(share.provenance) === 'yours' && share.provenance !== 'root'
+    share.kind === 'shared' &&
+      share.status === 'active' &&
+      mountTone(share.provenance, share.foreign) === 'yours' &&
+      share.provenance !== 'root'
   )
 
   $effect(() => {
@@ -138,7 +142,7 @@
       <dd class="truncate">{vaultName}</dd>
       <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
       <dd data-testid="share-state">
-        {#if rootShared}{t.shared_whole()}{:else if sharedMountCount > 0}
+        {#if rootLinked}{t.synced_to_devices()}{:else if sharedMountCount > 0}
           {t.shared_folders({ count: sharedMountCount })}
         {:else}{t.local_nothing_shared()}{/if}
       </dd>
@@ -222,7 +226,7 @@
           {t.share_folder()}
         </button>
       {/if}
-      {#if share.kind === 'local' && !rootShared}
+      {#if share.kind === 'local'}
         <button
           type="button"
           data-testid="note-add-share"

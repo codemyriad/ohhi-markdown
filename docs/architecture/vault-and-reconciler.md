@@ -121,6 +121,15 @@ Create/rename/delete flow through the folder doc both directions: a local rename
 the path binding (same GUID — content history survives renames); a remote map change
 renames on disk through the same journaled, atomic write path.
 
+**Mount entries** (N1, device-link-shaping A2): a fourth entry kind, `mount`, marks a
+subtree that has become its own room — `{kind:'mount', guid:<room>, relay:<url>}` at the
+mount root, written in the *same* transaction that removes the subtree's keys. It is a
+boundary, not a file: enrollment, the delta scan and the reconciler never look at or
+under it, because those paths belong to another mount session on this device. It is also
+the announcement channel — a peer of the parent room learns from that one entry that the
+subtree moved, and adopts it (spike S10 Q1). Advisory as ever: the entry carries the
+room and the relay, never a token.
+
 ## Escalation thresholds
 
 Auto-ingest is for routine external edits. The reconciler escalates to review — same

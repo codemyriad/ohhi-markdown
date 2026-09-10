@@ -387,8 +387,10 @@
           <!-- The shared subtree's extent, without a dot on every row (Fork 3 B3). -->
           <span
             aria-hidden="true"
-            class="pointer-events-none absolute top-7 bottom-0 w-0.5 {mountTone(mount.provenance) ===
-            'yours'
+            class="pointer-events-none absolute top-7 bottom-0 w-0.5 {mountTone(
+              mount.provenance,
+              mount.foreign
+            ) === 'yours'
               ? 'bg-primary/40'
               : 'bg-secondary/40'}"
             style="left: {indent(depth) + 5}px"
@@ -427,7 +429,7 @@
               {refusal.reason}
             </span>
           {:else if mount}
-            {@const tone = mountTone(mount.provenance)}
+            {@const tone = mountTone(mount.provenance, mount.foreign)}
             {@const state = mount.status ?? 'active'}
             {@const online = (presenceByRoom[mount.room] ?? []).length}
             {@const whose = tone === 'yours' ? t.shared_by_you() : t.shared_with_you()}

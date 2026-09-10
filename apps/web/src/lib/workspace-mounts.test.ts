@@ -64,15 +64,24 @@ describe('the shim: mounts.json drives ui.mounts (N1)', () => {
     const ws = await bootWithNeedsToken()
 
     expect(ws.ui.mounts).toEqual([
-      { path: 'team', room: ROOM, provenance: 'adopted', link: null, status: 'needs-token' },
+      {
+        path: 'team',
+        room: ROOM,
+        provenance: 'adopted',
+        link: null,
+        status: 'needs-token',
+        // Its room lives on a relay this vault has nothing to do with, so it
+        // reads as somebody else's share (device-link N2, `isForeignMount`).
+        foreign: true,
+      },
     ])
     // "Keep + mark": the folder is in the tree and its note is openable — a
     // folder that vanished because a token is missing would be the dishonesty
     // golden rule 4 forbids (spike S10 Q2).
     expect(ws.ui.files.map((r) => r.path)).toContain('team/plan.md')
     expect(ws.docForPath('team/plan.md')?.getText()).toBe('shared plan\n')
-    // Nothing about it reads as "shared": no link, and no relay was attached.
-    expect(ws.ui.shared).toBe(false)
+    // Nothing about it reads as linked: no link, and no relay was attached.
+    expect(ws.ui.linked).toBe(false)
   })
 
   it('refuses to carve, rename, move or delete a mount ROOT', async () => {

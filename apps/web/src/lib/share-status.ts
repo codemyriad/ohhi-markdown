@@ -14,26 +14,73 @@ export interface MountLike {
   link: string | null
   /** Absent ⇒ 'active' (N1: 'needs-token' | 'adopting' | 'absorbing'). */
   status?: MountUiStatus
+  /** Absent ⇒ not foreign. See `isForeignMount` (device-link N2). */
+  foreign?: boolean
 }
 
 /**
- * Whose share this is, for the copy and the provenance tint. 'adopted' is a
- * share that arrived through the parent room — with depth-1 nesting the
- * parent is always the vault's own root mount, so it is a folder shared from
- * one of *your* devices and reads like a carve.
+ * Whose share this is, for the copy and the provenance tint.
  *
- * GAP (device-link N1): a foreign share joined on device A also arrives on
- * device B as `provenance:'adopted'` (spike S10 Q7), and today's contract
- * carries nothing that tells the two apart — no `foreign` flag on MountInfo,
- * no root-mount provenance in `WorkspaceUi`. When N2 lands `ui.linked` (or
- * MountInfo grows the flag), thread it in here and 'theirs' follows.
+ * 'adopted' is a share that arrived through the parent room. With depth-1
+ * nesting the parent is always the vault's own root mount, so an adopted
+ * mount is EITHER a folder you carved on another of your devices (yours) OR a
+ * foreign share you joined there (theirs) — the gap N1 recorded here. The
+ * discriminator is `foreign`, computed once by `isForeignMount` and carried
+ * on MountInfo.
  */
 export type MountTone = 'yours' | 'theirs'
 
-export function mountTone(provenance: MountLike['provenance'] | 'root'): MountTone {
+export function mountTone(
+  provenance: MountLike['provenance'] | 'root',
+  foreign = false
+): MountTone {
+  if (foreign) return 'theirs'
   return provenance === 'carved' || provenance === 'adopted' || provenance === 'root'
     ? 'yours'
     : 'theirs'
+}
+
+/** Two relay URLs naming the same relay (trailing slash / case of the host). */
+export function sameRelay(a: string, b: string): boolean {
+  const norm = (url: string): string => {
+    const trimmed = url.trim().replace(/\/+$/, '')
+    try {
+      const parsed = new URL(trimmed)
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/+$/, '')}`.toLowerCase()
+    } catch {
+      return trimmed.toLowerCase()
+    }
+  }
+  return !!a && !!b && norm(a) === norm(b)
+}
+
+/**
+ * Is this mount SOMEONE ELSE'S share, rather than a folder of this vault?
+ *
+ * The rule, kept as simple as it can be while staying honest (device-link N2,
+ * spike S10 Q7):
+ *
+ * - `joined` — this device pasted a link someone gave it. Foreign, always.
+ * - `carved` — this device carved it out of this vault. Ours, always.
+ * - `adopted` — it arrived as a `kind:'mount'` entry in the root map, and the
+ *   entry carries the relay its room lives on. A room carved out of THIS
+ *   vault is minted on this vault's relay (`doCarve`), and a share someone
+ *   else made lives on theirs (`joinMount` announces the foreign relay
+ *   deliberately, S10 Q7) — so the relay is the discriminator.
+ * - `local` — not shared at all.
+ *
+ * The honest limit, stated rather than hidden: a foreign share that happens
+ * to live on the SAME relay as this vault reads as yours. The exact answer is
+ * the relay's ancestry edge (A4-A, `rooms(child,parent)`), which the client
+ * cannot query today; when it can, this function is the one place to change.
+ */
+export function isForeignMount(
+  m: { provenance: MountLike['provenance']; relay?: string },
+  rootRelay: string
+): boolean {
+  if (m.provenance === 'joined') return true
+  if (m.provenance !== 'adopted') return false
+  return !!m.relay && !sameRelay(m.relay, rootRelay)
 }
 
 /**
@@ -61,21 +108,26 @@ export type ShareState =
   | { kind: 'local' }
   | {
       kind: 'shared'
-      /** 'root' = the whole vault is shared (legacy joins / the memory contract). */
+      /**
+       * 'root' = the whole vault is on the relay — since N2 that means
+       * LINKED to your own devices, and the copy says so.
+       */
       provenance: 'carved' | 'joined' | 'adopted' | 'root'
       room: string
-      /** The mount root ('' for a root share). */
+      /** The mount root ('' for the root mount). */
       mountPath: string
       link: string | null
-      /** The mount's lifecycle state; a root share is always 'active'. */
+      /** The mount's lifecycle state; the root mount is always 'active'. */
       status: MountUiStatus
+      /** Someone else's share (see isForeignMount); never true for 'root'. */
+      foreign: boolean
     }
 
 /** The share state of `path` ('' = the vault itself). */
 export function shareStateFor(
   path: string,
   mounts: MountLike[],
-  rootShared: boolean,
+  rootLinked: boolean,
   rootRoom: string,
   rootLink: string | null = null
 ): ShareState {
@@ -90,10 +142,19 @@ export function shareStateFor(
       mountPath: mount.path,
       link: mount.link,
       status: mount.status ?? 'active',
+      foreign: mount.foreign === true,
     }
   }
-  if (rootShared) {
-    return { kind: 'shared', provenance: 'root', room: rootRoom, mountPath: '', link: rootLink, status: 'active' }
+  if (rootLinked) {
+    return {
+      kind: 'shared',
+      provenance: 'root',
+      room: rootRoom,
+      mountPath: '',
+      link: rootLink,
+      status: 'active',
+      foreign: false,
+    }
   }
   return { kind: 'local' }
 }
@@ -115,12 +176,12 @@ export function onlineIn(presenceByRoom: Record<string, string[]>, room: string)
 
 /**
  * The header rollup, fed only by docs that have a relay to be in sync WITH:
- * every doc in a root-shared vault, else the docs (and folder docs) under the
+ * every doc in a LINKED vault, else the docs (and folder docs) under the
  * carved/joined/adopted mounts. `null` means nothing is shared — the header
  * says so in words rather than showing a pill for an absence.
  *
  * A mount with no relay yet (`needs-token`, `adopting`, `absorbing`) is
- * excluded whole — its docs AND its folder doc — even in a root-shared vault:
+ * excluded whole — its docs AND its folder doc — even in a linked vault:
  * those records never connect, and letting them drag the rollup to offline
  * would report a missing key as a broken relay (spike S10 Q2, golden rule 4).
  */
@@ -128,23 +189,23 @@ export function scopedRollup(
   files: { path: string; kind: string; guid: string }[],
   records: Record<string, SyncRecordSnapshot>,
   mounts: MountLike[],
-  rootShared: boolean
+  rootLinked: boolean
 ): PillStatus | null {
   const shared = mounts.filter((m) => m.path !== '' && mountHasRelay(m))
   const quiet = mounts.filter((m) => m.path !== '' && !mountHasRelay(m))
-  if (!rootShared && shared.length === 0) return null
+  if (!rootLinked && shared.length === 0) return null
   const statuses: PillStatus[] = []
   for (const [key, rec] of Object.entries(records)) {
     if (key.startsWith('//folder:')) {
       const room = key.slice('//folder:'.length)
       if (quiet.some((m) => m.room === room)) continue
-      if (rootShared || shared.some((m) => m.room === room)) statuses.push(pillStatus(rec))
+      if (rootLinked || shared.some((m) => m.room === room)) statuses.push(pillStatus(rec))
     }
   }
   for (const f of files) {
     if (f.kind !== 'text') continue
     if (quiet.some((m) => f.path === m.path || f.path.startsWith(`${m.path}/`))) continue
-    const inShared = rootShared || shared.some((m) => f.path.startsWith(`${m.path}/`))
+    const inShared = rootLinked || shared.some((m) => f.path.startsWith(`${m.path}/`))
     if (!inShared) continue
     const rec = records[f.guid]
     if (rec) statuses.push(pillStatus(rec))

@@ -284,6 +284,8 @@ export function defaultCommands(actions: {
   moveNote: () => void
   newFolder: () => void
   addShare: () => void
+  /** Device linking (N2, A1): opens the device-link dialog. */
+  linkDevice: () => void
 }): Command[] {
   // Titles resolve at registration (the locale is loaded before the shell
   // mounts); a locale switch re-registers, the way Edible re-runs its load.
@@ -299,6 +301,7 @@ export function defaultCommands(actions: {
     { id: 'file.delete', title: t.delete_note(), group: g.file(), keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
     { id: 'file.move', title: t.move_note(), group: g.file(), keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
     { id: 'share.add', title: t.add_share(), group: g.share(), run: actions.addShare },
+    { id: 'share.link-device', title: t.link_device(), group: g.share(), run: actions.linkDevice },
     // Mod+[ / Mod+] are Chris's own Obsidian bindings for navigation history.
     { id: 'nav.back', title: t.back(), group: g.navigate(), keys: 'Mod+[', run: actions.back },
     { id: 'nav.forward', title: t.forward(), group: g.navigate(), keys: 'Mod+]', run: actions.forward },

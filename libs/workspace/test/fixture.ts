@@ -9,10 +9,11 @@
  *
  * `bootDuo` (spike S10 Q5 "Where the fixtures go") is the two-device version:
  * two vaults over two MemVaultAdapters and two MemStoreDirs, wired to one
- * another by a `RoomNet` — a TestNetwork-shaped simulator that connects doc
- * instances BY NAME, which is what a relay room is. No relay process, no
- * sockets: mount rooms appear and disappear as the machines carve and absorb,
- * and the net links them the moment both sides create a doc of that name.
+ * another by a `RoomNet` — a TestNetwork-shaped simulator of a relay, routing
+ * by `${room}/${docName}` exactly as the providers do and keeping its own
+ * durable copy of every doc. No relay process, no sockets: mount rooms appear
+ * and disappear as the machines carve and absorb, and the net links them the
+ * moment both sides create a doc of that name. `Cut` adds the kill -9.
  */
 import { createYjsEngine, type EngineDoc, type FileEntry, type SyncEngine } from '@editor/sync'
 import {
@@ -74,6 +75,105 @@ export function crashingDir(base: StoreDir, budget: number): StoreDir {
   }
 }
 
+/**
+ * The kill -9, armed at a write. `crashingDir` is the same idea with a fixed
+ * budget; a `Cut` is shared by a device's stores AND its disk so both stop at
+ * the same instant, and it THROWS rather than dropping quietly — a device that
+ * keeps computing over a dead disk reaches states no crash can produce, so the
+ * throw is what makes the model honest. Its network does not stop: an update
+ * already handed to the relay is durable there, which is exactly what makes
+ * crash recovery interesting.
+ */
+export interface Cut {
+  /** Let `budget` more mutating ops land, then kill the next one. */
+  cutAfter: (budget: number) => void
+  /** Restore durability (the reboot). */
+  restore: () => void
+  /**
+   * Stop throwing and just swallow writes. The dying process still has to be
+   * TORN DOWN in this harness (`dispose` ends with a best-effort `flushAll`),
+   * and that teardown must neither reach the disk nor raise.
+   */
+  silence: () => void
+  /** True when the write should land; throws `injected-crash` at the kill. */
+  spend: () => boolean
+  /** Mutating ops seen since the last `restore()` — the crash budget's range. */
+  writes: () => number
+}
+
+/** Is this the injected kill, or a real failure to re-raise? */
+export function isInjectedCrash(err: unknown): boolean {
+  return err instanceof Error && err.message === 'injected-crash'
+}
+
+export function makeCut(): Cut {
+  let left = Number.POSITIVE_INFINITY
+  let seen = 0
+  let loud = true
+  return {
+    spend: () => {
+      seen++
+      if (left > 0) {
+        left--
+        return true
+      }
+      if (loud) throw new Error('injected-crash')
+      return false
+    },
+    cutAfter: (budget) => {
+      left = budget
+      loud = true
+    },
+    silence: () => {
+      loud = false
+    },
+    restore: () => {
+      left = Number.POSITIVE_INFINITY
+      loud = true
+      seen = 0
+    },
+    writes: () => seen,
+  }
+}
+
+/** A device's stores behind a `Cut`. */
+export function cuttableDir(base: StoreDir, cut: Cut = makeCut()): StoreDir {
+  return {
+    io: (name): StoreIo => {
+      const io = base.io(name)
+      return {
+        read: () => io.read(),
+        writeAtomic: async (bytes) => {
+          if (cut.spend()) await io.writeAtomic(bytes)
+        },
+      }
+    },
+    remove: async (name) => {
+      if (cut.spend()) await base.remove(name)
+    },
+    list: (prefix) => base.list(prefix),
+  }
+}
+
+/** A device's DISK behind the same `Cut` as its stores. */
+export function cuttableAdapter(base: VaultAdapter, cut: Cut): VaultAdapter {
+  const kill = async <T,>(fn: () => Promise<T>): Promise<T | void> => {
+    if (cut.spend()) return fn()
+  }
+  return {
+    list: () => base.list(),
+    listDirs: () => base.listDirs(),
+    read: (path) => base.read(path),
+    watch: (cb) => base.watch(cb),
+    writeAtomic: (path, bytes) => kill(() => base.writeAtomic(path, bytes)),
+    rename: (from, to) => kill(() => base.rename(from, to)),
+    remove: (path) => kill(() => base.remove(path)),
+    mkdir: (path) => kill(() => base.mkdir(path)),
+    removeDir: (path) => kill(() => base.removeDir(path)),
+    renameDir: (from, to) => kill(() => base.renameDir(from, to)),
+  }
+}
+
 export async function seedAdapter(files: Record<string, string>): Promise<MemVaultAdapter> {
   const adapter = new MemVaultAdapter()
   for (const [path, text] of Object.entries(files)) {
@@ -121,59 +221,142 @@ interface Frame {
 }
 
 /**
- * A relay room, simulated: doc instances that share a NAME exchange updates.
- * Frames are queued, never dropped (a partition delays delivery, exactly like
- * a relay holding updates for an offline peer), and a doc joining late is
- * handed the other side's full state — the sync handshake, in one frame.
+ * A relay room, simulated: doc instances that share a NAME exchange updates
+ * through a HUB — the relay's own copy of the document.
+ *
+ * The hub is what makes this a relay rather than a mesh, and it is load-bearing
+ * for crash tests: an update a device sent while online is durable at the relay
+ * the moment it lands there, so when that device is killed before its own store
+ * write and reboots, the hub hands its work straight back. A peer-to-peer
+ * queue would instead lose it unless some other device happened to have
+ * received it first, which is not how any of this works in production.
+ *
+ * Frames are queued, never dropped (a partition delays delivery, exactly like a
+ * relay holding updates for an offline peer), and a doc joining is handed the
+ * hub's full state — the sync handshake, in one frame. A device that is offline
+ * cannot reach the hub either: its updates wait in an outbox and flush on heal.
  */
 export class RoomNet {
   private byName = new Map<string, Map<string, EngineDoc>>()
   private queue: Frame[] = []
   private offline = new Set<string>()
+  /** Which devices have actually RECEIVED a frame for each doc name. */
+  private delivered = new Map<string, Set<string>>()
+  /** The relay's durable copy of each doc. */
+  private hub = new Map<string, EngineDoc>()
+  /** Updates a device made while offline, waiting to reach the hub. */
+  private outbox = new Map<string, { name: string; update: Uint8Array }[]>()
 
   constructor(private engine: SyncEngine) {}
 
   /** Attach `doc` as `id`'s instance of the room doc called `name`. */
   join(id: string, name: string, doc: EngineDoc): void {
-    const peers = this.byName.get(name) ?? new Map<string, EngineDoc>()
-    for (const [otherId, other] of peers) {
-      if (otherId === id) continue
-      this.queue.push({ to: id, name, update: this.engine.encodeUpdateSince(other, null) })
-      this.queue.push({ to: otherId, name, update: this.engine.encodeUpdateSince(doc, null) })
+    // ':' keeps the hub off any device's own naming — it is the relay, not a peer.
+    let hub = this.hub.get(name)
+    if (!hub) {
+      hub = this.engine.createDoc(`hub:${name}`)
+      this.hub.set(name, hub)
     }
+    const peers = this.byName.get(name) ?? new Map<string, EngineDoc>()
+    this.queue.push({ to: id, name, update: this.engine.encodeUpdateSince(hub, null) })
     peers.set(id, doc) // replaces this device's previous instance (a rebuild)
     this.byName.set(name, peers)
+    this.send(id, name, this.engine.encodeUpdateSince(doc, null))
     this.engine.onUpdate(doc, (update, origin) => {
       if (origin === 'remote') return
       if (this.byName.get(name)?.get(id) !== doc) return // a stale instance
-      for (const otherId of this.byName.get(name)?.keys() ?? []) {
-        if (otherId !== id) this.queue.push({ to: otherId, name, update })
-      }
+      this.send(id, name, update)
     })
+  }
+
+  /** One device's update: durable at the hub (if reachable), then fanned out. */
+  private send(id: string, name: string, update: Uint8Array): void {
+    if (this.offline.has(id)) {
+      const box = this.outbox.get(id) ?? []
+      box.push({ name, update })
+      this.outbox.set(id, box)
+      return
+    }
+    const hub = this.hub.get(name)
+    if (hub) this.engine.applyUpdate(hub, update, 'remote')
+    for (const otherId of this.byName.get(name)?.keys() ?? []) {
+      if (otherId !== id) this.queue.push({ to: otherId, name, update })
+    }
   }
 
   /** Hold every frame for `id` until `online` (an offline device). */
   setOffline(id: string, off: boolean): void {
-    if (off) this.offline.add(id)
-    else this.offline.delete(id)
+    if (off) {
+      this.offline.add(id)
+      return
+    }
+    this.offline.delete(id)
+    const box = this.outbox.get(id) ?? []
+    this.outbox.delete(id)
+    for (const { name, update } of box) this.send(id, name, update)
   }
 
   /** Deliver every deliverable frame, including ones they cause. */
   deliverAll(): void {
     for (let guard = 0; guard < 10_000; guard++) {
-      const idx = this.queue.findIndex((f) => !this.offline.has(f.to))
-      if (idx === -1) return
-      const frame = this.queue.splice(idx, 1)[0]!
-      const doc = this.byName.get(frame.name)?.get(frame.to)
-      if (!doc) continue
-      try {
-        this.engine.applyUpdate(doc, frame.update, 'remote')
-      } catch {
-        // A doc destroyed between queueing and delivery (a shutdown mid-flight)
-        // is not an error: its successor gets the state on join.
-      }
+      if (!this.deliverOne()) return
     }
     throw new Error('RoomNet.deliverAll did not quiesce')
+  }
+
+  /**
+   * Deliver the OLDEST deliverable frame. Partial delivery is where the
+   * interesting interleavings live: a peer that has seen the carve's
+   * transaction but not the edit that raced it, and vice versa.
+   */
+  deliverOne(): boolean {
+    const idx = this.queue.findIndex((f) => !this.offline.has(f.to))
+    if (idx === -1) return false
+    const frame = this.queue.splice(idx, 1)[0]!
+    const doc = this.byName.get(frame.name)?.get(frame.to)
+    if (!doc) return true
+    const seen = this.delivered.get(frame.name) ?? new Set<string>()
+    seen.add(frame.to)
+    this.delivered.set(frame.name, seen)
+    try {
+      this.engine.applyUpdate(doc, frame.update, 'remote')
+    } catch {
+      // A doc destroyed between queueing and delivery (a shutdown mid-flight)
+      // is not an error: its successor gets the state on join.
+    }
+    return true
+  }
+
+  /** Deliver at most `count` frames (the fuzz's `deliver(n)` command). */
+  deliverSome(count: number): void {
+    for (let i = 0; i < count; i++) if (!this.deliverOne()) return
+  }
+
+  /** Frames still in flight (deliverable or held for an offline device). */
+  pending(): number {
+    return this.queue.length
+  }
+
+  /** Is this device cut off from the relay right now? */
+  isOffline(id: string): boolean {
+    return this.offline.has(id)
+  }
+
+  /** Doc names with frames still in flight. */
+  pendingNames(): string[] {
+    return [...new Set(this.queue.map((f) => f.name))]
+  }
+
+  /**
+   * Devices that have received at least one frame for `name`. Two docs holding
+   * the same VALUE is not the same as two docs sharing a HISTORY: an adopt
+   * seeds the mount's folder doc locally, so until the room's copies have
+   * actually exchanged updates, a hard delete on one side is invisible to the
+   * other's independent ops. Callers that need "these two have merged" ask
+   * here, not by comparing entries.
+   */
+  deliveredTo(name: string): ReadonlySet<string> {
+    return this.delivered.get(name) ?? new Set<string>()
   }
 }
 
@@ -184,8 +367,10 @@ function tapEngine(base: SyncEngine, onDoc: (name: string, doc: EngineDoc) => vo
     createDoc: (name: string) => {
       const doc = base.createDoc(name)
       // Throwaway temp docs (carve-tmp:, absorb-*, recover-*) carry a ':' and
-      // are never room docs — they must not be wired to anything.
-      if (!name.includes(':')) onDoc(name, doc)
+      // are never room docs — they must not be wired to anything. Neither is
+      // VaultSession's `empty-baseline`, which is read for its heads and
+      // destroyed inside one function.
+      if (!name.includes(':') && name !== 'empty-baseline') onDoc(name, doc)
       return doc
     },
   }
@@ -211,13 +396,25 @@ export interface BootedVault {
   reconcile: () => Promise<void>
   /** Re-read mounts.json into the mirror and recompute the ignore set. */
   refreshDescs: () => Promise<void>
+  /**
+   * The shim's `rebuildRoot`: build a fresh root session over the (already
+   * shut down) root namespace. `unshareMount` shuts the root down and leaves
+   * the caller to rebuild it — that is the seam.
+   */
+  rebuildRoot: () => Promise<void>
   /** The live instance of a room doc by name (`<room>/folder`, or a guid). */
   docFor: (name: string) => EngineDoc | null
   events: {
-    reviews: { guid: string; path: string; reason: string }[]
+    reviews: { guid: string; path: string; reason: string; mine: string; theirs: string }[]
     notices: AdoptNotice[]
     /** Every mount the adopt machine asked for, and whether it wanted a pull. */
     builds: { room: string; path: string; firstJoin: boolean }[]
+    /**
+     * Anything a session pushed through `onError`. Swallowing these was
+     * invisible: `MountSession` reports every failed tree op that way, and a
+     * fuzz run that quietly ate them would call a broken rename a pass.
+     */
+    errors: unknown[]
   }
   makeSession: (
     room: string,
@@ -245,6 +442,13 @@ export interface BootOptions {
    * by hand turn it off so the two passes cannot race.
    */
   autoAdopt?: boolean
+  /**
+   * Config merged into every session this device builds, by mount root ('' is
+   * the root mount) — the seam a test needs to lower `thresholds` or listen
+   * for `onBreaker` on a mount the ADOPT machine built (S10 Q5 row 9), which
+   * no caller ever gets a chance to configure.
+   */
+  sessionDefaults?: (mountPath: string) => Partial<MountSessionConfig>
 }
 
 /** Boot every mount from mounts.json — the web shim's multi-mount wiring. */
@@ -259,10 +463,21 @@ export async function bootVault(
   /** Latest instance of every room doc this device created (tests reach for
    *  the root folder doc to replay another peer's transaction). */
   const docsByName = new Map<string, EngineDoc>()
-  const engine = tapEngine(opts.engine ?? createYjsEngine(), (name, doc) => {
-    docsByName.set(name, doc)
-    opts.net?.join(deviceId, name, doc)
-  })
+  const baseEngine = opts.engine ?? createYjsEngine()
+  /**
+   * A relay routes by `${room}/${docName}` (`attachProvider`), so the net must
+   * too: a file doc is created under its bare guid, and keying the channel on
+   * that alone would wire two DIFFERENT rooms that hold the same guid into one
+   * — which is exactly the premise of the double-carve race (S10 Q5 row 10)
+   * and would hide a namespace that failed to move. Folder docs already carry
+   * their room in the name.
+   */
+  const engineFor = (room: string | null): SyncEngine =>
+    tapEngine(baseEngine, (name, doc) => {
+      docsByName.set(name, doc)
+      opts.net?.join(deviceId, room !== null && !name.includes('/') ? `${room}/${name}` : name, doc)
+    })
+  const engine = engineFor(null)
   const mountsFile = new MountsFile(vaultDir.io('mounts.json'))
   await recoverMounts(vaultDir, mountsFile, engine)
 
@@ -277,7 +492,7 @@ export async function bootVault(
     }
     return rec
   }
-  const events: BootedVault['events'] = { reviews: [], notices: [], builds: [] }
+  const events: BootedVault['events'] = { reviews: [], notices: [], builds: [], errors: [] }
   const mounts = new Map<string, MountSession>()
   let root: MountSession | null = null
 
@@ -300,9 +515,10 @@ export async function bootVault(
     extra?: Partial<MountSessionConfig>
   ): Promise<MountSession> => {
     const dir = scopedStoreDir(vaultDir, `${room}/`)
-    const docStore = new BlobDocStore(engine, dir, clock)
+    const roomEngine = engineFor(room)
+    const docStore = new BlobDocStore(roomEngine, dir, clock)
     return MountSession.create({
-      engine,
+      engine: roomEngine,
       adapter,
       user: { name: deviceId, color: '#000' },
       room,
@@ -315,9 +531,18 @@ export async function bootVault(
       recordFor,
       webSocketPolyfill: DeadSocket,
       makeShareLink: (relay, room_) => `link:${relay.url}:${room_}`,
+      ...opts.sessionDefaults?.(mountPath),
       ...extra,
       events: {
-        onReview: (r) => events.reviews.push({ guid: r.guid, path: r.path, reason: r.reason }),
+        onError: (err) => events.errors.push(err),
+        onReview: (r) =>
+          events.reviews.push({
+            guid: r.guid,
+            path: r.path,
+            reason: r.reason,
+            mine: r.mine,
+            theirs: r.theirs,
+          }),
         ...(mountPath === ''
           ? {
               onMapChanged: () => refreshIgnore(),
@@ -327,6 +552,7 @@ export async function bootVault(
               onMountEntries: () => (opts.autoAdopt === false ? undefined : reconcile()),
             }
           : {}),
+        ...opts.sessionDefaults?.(mountPath).events,
         ...extra?.events,
       },
     })
@@ -362,6 +588,17 @@ export async function bootVault(
     })
   }
 
+  /**
+   * The shim's rebuildRoot. Re-attaches the relay: a rebuilt root that forgot
+   * it was shared would stop announcing carves and stop repairing mount
+   * entries (`reconcileMountEntries`'s `shared` gate) — the absorb path goes
+   * through here, and a mount is often carved again afterwards.
+   */
+  const rebuildRoot = async (): Promise<void> => {
+    root = await makeSession(rootRoom, ignoringAdapter(base, ignore), '')
+    if (opts.rootRelay) root.enableSharing(opts.rootRelay)
+  }
+
   const ctx: AdoptContext = {
     vaultDir,
     mountsFile,
@@ -382,7 +619,7 @@ export async function bootVault(
     withRootDown: async (fn) => {
       await root!.shutdown()
       await fn()
-      root = await makeSession(rootRoom, ignoringAdapter(base, ignore), '')
+      await rebuildRoot()
     },
     refreshIgnore: reloadDescs,
     notify: (n) => events.notices.push(n),
@@ -402,8 +639,7 @@ export async function bootVault(
   }
 
   refreshIgnore()
-  root = await makeSession(rootRoom, ignoringAdapter(base, ignore), '')
-  if (opts.rootRelay) root.enableSharing(opts.rootRelay)
+  await rebuildRoot()
   for (const desc of descs) {
     if (desc.path === '' || isRecoverable(desc.status)) continue
     const relay = relayFor({ room: desc.room, relay: desc.relay?.url })
@@ -438,6 +674,7 @@ export async function bootVault(
     ],
     reconcile,
     refreshDescs: reloadDescs,
+    rebuildRoot,
     docFor: (name) => docsByName.get(name) ?? null,
     events,
     makeSession,
@@ -457,8 +694,31 @@ export interface Duo {
   engine: SyncEngine
   /** Deliver every queued frame, settle both devices' async work. */
   deliver: () => Promise<void>
+  /**
+   * Deliver at most `count` frames and let both devices act on them —
+   * partial delivery, the fuzz's `deliver(n)`. Unlike `deliver()` this does
+   * NOT loop to quiescence: what a device has not been told, it does not know.
+   */
+  deliverSome: (count: number) => Promise<void>
+  /** Advance both clocks and let debounced work run. */
+  tick: (ms: number) => Promise<void>
   /** Reboot one device from its durable stores (a restart, not a wipe). */
   reboot: (which: 'a' | 'b') => Promise<BootedVault>
+  /**
+   * Cut one device's durability after `budget` more store writes, let it run
+   * (so the crash lands mid-machine), then reboot it. The in-memory half is
+   * discarded exactly as a kill -9 discards it; the durable half is a prefix.
+   */
+  crash: (which: 'a' | 'b', budget: number) => Promise<BootedVault>
+  /** The device handle by key, whichever generation is current. */
+  dev: (which: 'a' | 'b') => BootedVault
+  /**
+   * Link a THIRD device: an empty folder and empty stores joining the same
+   * root room (S10 Q5 rows 14-16). It boots with nothing durable, the room's
+   * map arrives over the net, and `scanMap` materializes the vault — which is
+   * what a device link is once the token is in hand. It joins `deliver()`.
+   */
+  link: (id: string, tokens?: Map<string, RelayConfig>) => Promise<BootedVault>
   dispose: () => void
 }
 
@@ -470,6 +730,9 @@ export interface DuoOptions {
   /** Rooms each device holds a token for (the root's is added for both). */
   tokensA?: Map<string, RelayConfig>
   tokensB?: Map<string, RelayConfig>
+  /** Session config by mount root, for each device (see `sessionDefaults`). */
+  defaultsA?: (mountPath: string) => Partial<MountSessionConfig>
+  defaultsB?: (mountPath: string) => Partial<MountSessionConfig>
 }
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
@@ -492,10 +755,18 @@ export async function bootDuo(opts: DuoOptions): Promise<Duo> {
   tokensA.set(rootRoom, rootRelay)
   tokensB.set(rootRoom, rootRelay)
 
-  const adapterA = await seedAdapter(opts.files)
-  const adapterB = await seedAdapter(opts.files)
-  const dirA = new MemStoreDir()
-  const dirB = new MemStoreDir()
+  const rawAdapterA = await seedAdapter(opts.files)
+  const rawAdapterB = await seedAdapter(opts.files)
+  const rawA = new MemStoreDir()
+  const rawB = new MemStoreDir()
+  // Every device's stores AND disk sit behind one Cut; durability is only ever
+  // cut by an explicit `crash()`, so a run that never crashes is unchanged.
+  const cutA = makeCut()
+  const cutB = makeCut()
+  const dirA = cuttableDir(rawA, cutA)
+  const dirB = cuttableDir(rawB, cutB)
+  const adapterA = cuttableAdapter(rawAdapterA, cutA)
+  const adapterB = cuttableAdapter(rawAdapterB, cutB)
 
   // The two-device bootstrap, done honestly: A enrolls the vault ONCE and B
   // starts from A's durable state, so both devices hold the same guids and the
@@ -503,42 +774,59 @@ export async function bootDuo(opts: DuoOptions): Promise<Duo> {
   // own enrollment instead would mint a second guid per file and merge two
   // independent histories over one path, which reads as every note's text
   // twice: the double-ingestion hazard, not something to model as normal.
-  const seeder = await bootVault(adapterA, dirA, rootRoom, { deviceId: 'seed' })
+  const seeder = await bootVault(rawAdapterA, rawA, rootRoom, { deviceId: 'seed' })
   seeder.dispose()
   await settle()
-  for (const name of await dirA.list()) {
-    const bytes = await dirA.io(name).read()
-    if (bytes) await dirB.io(name).writeAtomic(bytes)
+  for (const name of await rawA.list()) {
+    const bytes = await rawA.io(name).read()
+    if (bytes) await rawB.io(name).writeAtomic(bytes)
   }
 
-  const a = await bootVault(adapterA, dirA, rootRoom, {
-    net,
-    deviceId: 'A',
-    engine,
-    rootRelay,
-    tokens: tokensA,
-  })
-  const b = await bootVault(adapterB, dirB, rootRoom, {
-    net,
-    deviceId: 'B',
-    engine,
-    rootRelay,
-    tokens: tokensB,
-  })
+  const boot = async (which: 'a' | 'b'): Promise<BootedVault> => {
+    const next = await bootVault(
+      which === 'a' ? adapterA : adapterB,
+      which === 'a' ? dirA : dirB,
+      rootRoom,
+      {
+        net,
+        deviceId: which === 'a' ? 'A' : 'B',
+        engine,
+        rootRelay,
+        tokens: which === 'a' ? tokensA : tokensB,
+        ...((which === 'a' ? opts.defaultsA : opts.defaultsB)
+          ? { sessionDefaults: (which === 'a' ? opts.defaultsA : opts.defaultsB)! }
+          : {}),
+      }
+    )
+    if (which === 'a') devA = next
+    else devB = next
+    return next
+  }
 
-  let devA = a
-  let devB = b
+  let devA!: BootedVault
+  let devB!: BootedVault
+  await boot('a')
+  await boot('b')
+
+  /** Devices linked into this room after the duo booted (rows 14-16). */
+  const linked: BootedVault[] = []
+  const all = (): BootedVault[] => [devA, devB, ...linked]
+
   const deliver = async (): Promise<void> => {
     for (let i = 0; i < 8; i++) {
       net.deliverAll()
       await settle()
-      devA.clock.advance(100)
-      devB.clock.advance(100)
+      for (const dev of all()) dev.clock.advance(100)
       await settle()
-      await devA.reconcile()
-      await devB.reconcile()
+      for (const dev of all()) await dev.reconcile()
       await settle()
     }
+  }
+  const reboot = async (which: 'a' | 'b'): Promise<BootedVault> => {
+    ;(which === 'a' ? devA : devB).dispose()
+    const next = await boot(which)
+    await next.reconcile()
+    return next
   }
   return {
     get a(): BootedVault {
@@ -550,29 +838,68 @@ export async function bootDuo(opts: DuoOptions): Promise<Duo> {
     net,
     engine,
     deliver,
-    reboot: async (which) => {
-      const old = which === 'a' ? devA : devB
-      old.dispose()
-      const next = await bootVault(
-        which === 'a' ? adapterA : adapterB,
-        which === 'a' ? dirA : dirB,
-        rootRoom,
-        {
-          net,
-          deviceId: which === 'a' ? 'A' : 'B',
-          engine,
-          rootRelay,
-          tokens: which === 'a' ? tokensA : tokensB,
+    deliverSome: async (count) => {
+      net.deliverSome(count)
+      await settle()
+      for (const dev of all()) await dev.reconcile()
+      await settle()
+    },
+    tick: async (ms) => {
+      for (const dev of all()) dev.clock.advance(ms)
+      await settle()
+    },
+    dev: (which) => (which === 'a' ? devA : devB),
+    reboot,
+    crash: async (which, budget) => {
+      const cut = which === 'a' ? cutA : cutB
+      const dev = which === 'a' ? devA : devB
+      cut.cutAfter(budget)
+      try {
+        // Let the kill land wherever the device's own work reaches it, then
+        // stop: the throw unwinds whatever machine was running, which is the
+        // point. Anything that is NOT the injected crash is a real failure and
+        // is re-raised once the reboot has restored a sane world.
+        net.deliverAll()
+        await settle()
+        dev.clock.advance(100)
+        await settle()
+        await dev.reconcile()
+        await settle()
+      } catch (err) {
+        if (!isInjectedCrash(err)) {
+          cut.restore()
+          dev.dispose()
+          await boot(which)
+          throw err
         }
-      )
+      }
+      // Dispose while STILL cut. `MountSession.dispose` ends with a best-effort
+      // `flushAll`, and letting that land would hand the "crashed" device a
+      // graceful shutdown: its folder blob and every doc blob would reach the
+      // disk after the kill, which is the opposite of what is being tested.
+      cut.silence()
+      dev.dispose()
+      await settle()
+      cut.restore()
+      const next = await boot(which)
       await next.reconcile()
-      if (which === 'a') devA = next
-      else devB = next
       return next
     },
+    link: async (id, tokens) => {
+      const linkTokens = tokens ?? new Map<string, RelayConfig>()
+      linkTokens.set(rootRoom, rootRelay)
+      const dev = await bootVault(new MemVaultAdapter(), cuttableDir(new MemStoreDir()), rootRoom, {
+        net,
+        deviceId: id,
+        engine,
+        rootRelay,
+        tokens: linkTokens,
+      })
+      linked.push(dev)
+      return dev
+    },
     dispose: () => {
-      devA.dispose()
-      devB.dispose()
+      for (const dev of all()) dev.dispose()
     },
   }
 }

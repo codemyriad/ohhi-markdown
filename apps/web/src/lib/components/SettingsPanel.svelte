@@ -40,11 +40,19 @@
     readAppFile?: (path: string) => Promise<string | null>
     /** Which tab to open on; General by default. */
     initialTab?: 'general' | 'appearance' | 'sync' | 'vaults' | 'developer'
+    /**
+     * Open the device-link dialog (device-link N2, A1). Absent when no vault
+     * is open — there is nothing to link. The dialog is the HOST's, not a
+     * nested one: minting promotes the root mount, and a dialog inside a
+     * dialog is a focus trap inside a focus trap.
+     */
+    onLinkDevice?: () => void
   }
 
-  let { onClose, readAppFile, initialTab = 'general' }: Props = $props()
+  let { onClose, readAppFile, initialTab = 'general', onLinkDevice }: Props = $props()
 
   const t = $derived($LL.web.settings)
+  const dl = $derived($LL.web.device_link)
   const TABS = $derived(
     (['general', 'appearance', 'sync', 'vaults', 'developer'] as const).map((value) => ({
       value,
@@ -125,11 +133,12 @@
     return false
   }
 
-  async function saveAllAndClose(): Promise<void> {
+  /** Persist every dirty form; false (and a tab switch) if one is invalid. */
+  async function saveAll(): Promise<boolean> {
     if (general.dirty) {
       if (!(await general.submit(({ name }) => saveUser(name)))) {
         tab = 'general'
-        return
+        return false
       }
     }
     if (sync.dirty) {
@@ -139,10 +148,26 @@
       })
       if (!ok) {
         tab = 'sync'
-        return
+        return false
       }
     }
-    onClose()
+    return true
+  }
+
+  async function saveAllAndClose(): Promise<void> {
+    if (await saveAll()) onClose()
+  }
+
+  /**
+   * Leaving settings for the device-link dialog SAVES first. Minting reads the
+   * operator secret from config, so handing the dialog an unsaved one would
+   * fail with "set the operator secret" while the user is looking at the
+   * secret they just typed — and the dirty guard cannot fire, because the host
+   * closes this dialog rather than the user dismissing it.
+   */
+  async function linkDeviceFromSettings(): Promise<void> {
+    if (dirty && !(await saveAll())) return
+    onLinkDevice?.()
   }
 
   function discardAndClose(): void {
@@ -304,6 +329,31 @@
               {#if !sync.dirty}<span class="text-xs text-base-content/70">{$LL.common.saved()}</span>{/if}
             </div>
           </form>
+          <!-- Device linking (N2, A1). Its own section, below the relay
+               settings it depends on — and outside the form, because it is an
+               action against the relay, not a preference to save. -->
+          <section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-device-link">
+            <h3 class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+              {dl.section()}
+            </h3>
+            <p class="mt-1 text-xs text-base-content/70">{dl.section_help()}</p>
+            {#if !onLinkDevice}
+              <p class="mt-2 text-xs text-base-content/70">{dl.needs_vault()}</p>
+            {:else if !sync.data.secret.trim()}
+              <p class="mt-2 text-xs text-warning" data-testid="settings-link-device-needs-secret">
+                {dl.needs_secret()}
+              </p>
+            {:else}
+              <button
+                type="button"
+                data-testid="settings-link-device"
+                onclick={() => void linkDeviceFromSettings()}
+                class="mt-2 rounded border border-base-300 px-3 py-1.5 text-xs font-medium text-base-content/80 hover:bg-base-200"
+              >
+                {dl.open()}
+              </button>
+            {/if}
+          </section>
         {:else if id === 'vaults'}
           <section>
             <h3 class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.vaults.vaults()}</h3>

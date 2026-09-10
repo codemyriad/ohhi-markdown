@@ -313,11 +313,24 @@ async function membershipFor(
 ): Promise<[string, FileEntry][]> {
   const prefix = `${entry.path}/`
   const out = new Map<string, FileEntry>()
-  for (const [path, e] of ctx.root().mountPreImage(entry.path) ?? []) out.set(path, e)
+  /**
+   * Paths the pre-image knew were DELETED. A delete tombstones the map entry
+   * and removes the file, but it leaves the LCA record behind — and the
+   * carve's transaction hard-deletes the tombstone from the map, so by the
+   * time this runs there is nothing left saying "gone". Without this set the
+   * orphan-LCA term below reads that record as membership and RESURRECTS the
+   * note into the new mount: alive in the room's map, materialized back onto
+   * the carver's disk, and a `vanished` review on every other device.
+   */
+  const buried = new Set<string>()
+  for (const [path, e] of ctx.root().mountPreImage(entry.path) ?? []) {
+    if (e.deleted) buried.add(path)
+    else out.set(path, e)
+  }
   const live = new Map(ctx.root().mapEntries())
   for (const rec of await ctx.root().lcaRecords()) {
     if (rec.path !== entry.path && !rec.path.startsWith(prefix)) continue
-    if (out.has(rec.path)) continue
+    if (out.has(rec.path) || buried.has(rec.path)) continue
     const inMap = live.get(rec.path)
     if (inMap && inMap.kind !== 'mount') continue // still the parent's file
     out.set(rec.path, { guid: rec.guid, kind: 'text' })
@@ -437,9 +450,17 @@ async function repointMount(
   const session = ctx.detachMount(loser.path)
   await session?.shutdown()
   await wipeStoreDir(ctx.vaultDir, `${entry.room}/`)
-  for (const name of await ctx.vaultDir.list(`${loser.room}/`)) {
-    const bytes = await ctx.vaultDir.io(`${loser.room}/${name}`).read()
-    if (bytes) await ctx.vaultDir.io(`${entry.room}/${name}`).writeAtomic(bytes)
+  // `StoreDir.list(prefix)` returns FULL names (that is what makes
+  // `wipeStoreDir`'s `remove(name)` correct), so the copy goes through scoped
+  // views rather than re-prefixing by hand. Getting that wrong copied NOTHING,
+  // and the mount then rebuilt itself from an empty namespace: fresh guids for
+  // files the winner's room already had, i.e. every note twice on merge, with
+  // this device's edits stranded in the orphan room.
+  const from = scopedStoreDir(ctx.vaultDir, `${loser.room}/`)
+  const to = scopedStoreDir(ctx.vaultDir, `${entry.room}/`)
+  for (const name of await from.list()) {
+    const bytes = await from.io(name).read()
+    if (bytes) await to.io(name).writeAtomic(bytes)
   }
   const relay = ctx.relayFor({
     room: entry.room,
@@ -516,8 +537,14 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
       )?.[1]
       if (!session) continue
       const rel = session.pathOfGuid(entry.guid)!
-      // Bytes are already at the destination (the peer moved the file), so
-      // nothing is copied: re-enrol here with a fresh guid, tombstone there.
+      // Re-enrol here with a fresh guid, tombstone there. On the device that
+      // MADE the move the bytes are already at the destination, so nothing is
+      // copied. On a peer that merely LEARNED about it they are still under
+      // the mount root and the re-enrol is a no-op, which leaves the mount's
+      // guid live in the parent map (tombstoned in the room, so no invariant
+      // fires) over a doc this device can only fill from the mover — see the
+      // skipped `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`, which is a
+      // design question for S10 Q5 row 5, not a local fix.
       await ctx.root().reenrollPath(path)
       await session.deletePath(rel)
       ctx.notify?.({ kind: 'mount-moved', path, room: session.room })

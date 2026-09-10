@@ -58,6 +58,18 @@ export interface MountEntryInfo {
   relay?: string
 }
 
+/**
+ * Where a first join has got to. `pull` = waiting on the relay, `write` =
+ * writing the pulled content into the vault folder. `done`/`total` are
+ * counted in DOCS (the map's non-deleted text entries), so the two phases
+ * share one denominator and a panel can render both determinately.
+ */
+export interface PullProgress {
+  phase: 'pull' | 'write'
+  done: number
+  total: number
+}
+
 /** UI-facing events; every mutation the host must mirror into its view state. */
 export interface MountEvents {
   /** Full row list after any folder-map change (sorted by path). */
@@ -109,6 +121,17 @@ export interface MountEvents {
   onDocChanged?: (guid: string, path: string, origin: unknown) => void
   /** Fired when the mount becomes shared (join boot, or enableSharing). */
   onShared?: (link: string) => void
+  /**
+   * First-join progress, in the two phases the measurement found (spike S10
+   * Q4 §"Where the progress signal comes from"): `pull` counts doc providers
+   * whose first `synced` has landed, `write` counts files materialized onto
+   * disk — which is where ~92% of the wait goes and what nothing reported.
+   *
+   * `total` is 0 until the folder doc syncs and the map hands over the
+   * denominator; both phases share it. Emitted only while a `firstJoin` boot
+   * is running; fire-and-forget (a progress line must never break a pull).
+   */
+  onPullProgress?: (progress: PullProgress) => void
   /**
    * Mass-change breaker (spike S8 Q3 + watch batches, unified in M3): more
    * than massChangePaths files changed at once — boot delta or live watch

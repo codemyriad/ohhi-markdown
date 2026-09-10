@@ -1,6 +1,6 @@
 ---
-status: V1 design — update as built
-date: 2026-06-12
+status: V1 design + share kinds / room ancestry as built (N1, N3)
+date: 2026-09-10
 ---
 
 # Relay — apps/relay design (V1)
@@ -23,12 +23,14 @@ rule 1). The one thing it *is* authoritative for: who may access which share.
   for token checks, stock SQLite persistence (V1 explicitly uses stock persistence —
   slices: "D4 (static-token auth, stock persistence)").
 - **Doc naming: `<folderGuid>/<docGuid>`.** Every Hocuspocus doc name carries its
-  folder scope, so authorization is a prefix check: a connection authenticated for a
-  share may only open docs under that share's folder GUID. The folder doc itself is
-  just another doc under the same prefix.
+  folder scope, so authorization starts as a prefix check: a connection authenticated
+  for a share may open docs under that share's folder GUID. The folder doc
+  (`<folderGuid>/folder`) is just another doc under the same prefix. A *device* token
+  reaches one step further — see [Auth](#auth-and-the-share-lifecycle).
 - **Folder-GUID scoping is enforced relay-side**, from the shares table — never from
   doc contents. The folder Y.Doc's path→GUID map is advisory metadata for clients (file
-  tree rendering, rename propagation); treating client-writable CRDT state as an auth
+  tree rendering, rename propagation, and since N1 the `kind:'mount'` entry that says
+  a subtree moved to its own room); treating client-writable CRDT state as an auth
   source was shape C's privilege-escalation bug, and D4 exists to kill it.
 
 ```mermaid
@@ -36,41 +38,127 @@ sequenceDiagram
     participant C as Client (syncProvider)
     participant R as apps/relay (Hocuspocus v4)
     participant S as SQLite (shares + doc state, Fly volume)
-    C->>R: connect (doc "<folderGuid>/<docGuid>", bearer token)
-    R->>S: onAuthenticate — token valid for this folderGuid?
-    alt token matches share
-        R-->>C: accepted
+    C->>R: open doc "<folderGuid>/<docGuid>" (bearer token)
+    R->>S: onAuthenticate — token's share, then (device kind only) room ancestry
+    alt in scope, or reachable from a device token's room
+        R-->>C: accepted (read-only flag from the share)
         C->>R: sync step 1 (my state vector)
         R-->>C: missing updates + relay state vector
         C->>R: missing updates
         R->>S: persist doc state
         R-->>C: broadcast to other connections on this doc
     else no match / revoked
-        R-->>C: connection refused / closed
+        R-->>C: permission-denied for THIS doc (the socket stays up)
     end
 ```
 
 ## Auth and the share lifecycle
 
-V1 auth = **static per-share bearer tokens** checked in `onAuthenticate` against the
-**relay-authoritative shares table** in SQLite (assumed minimal columns: share id,
-folder GUID, token hash, created/revoked — anything richer waits for a need):
+Auth = **static per-share bearer tokens** checked in `onAuthenticate` against the
+**relay-authoritative shares table** in SQLite. Two tables carry it (`db.ts`):
 
-1. **Create share** — the sharing device calls an authenticated relay CLI/API (the only
-   mutation path; nothing in the CRDT plane can touch the table): registers the folder
-   GUID, gets back a token.
-2. **Token → joiner** — handed out out-of-band (V1: paste it). The joiner's provider
-   presents it; `onAuthenticate` scopes the connection to that folder GUID.
+- **`shares`** — `{ token, folder_guid, read_only, label, created_at, kind }`. `kind`
+  arrived with device linking (N1/N3, device-link-shaping **A4-A**) and is the only
+  thing that decides how far a token reaches:
+  - **`folder`** (the default, and what every token minted before N3 reads as): exact
+    room. A folder token never reaches the vault the folder was carved out of, nor a
+    sibling carve of that vault. This is requirement **R5**, and it is enforced here
+    rather than trusted to a client.
+  - **`device`** — one person's own devices. It reaches its own room *and* any room
+    whose recorded ancestry leads back to it, so a folder carved **after** the devices
+    were linked needs no new paste.
+- **`rooms`** — `{ child_guid PRIMARY KEY, parent_guid }`: which room was carved out of
+  which. Written by the mint (below), never by anything in the CRDT plane.
+
+**The rule, exactly** (`server.ts`, `onAuthenticate`), for doc name `<room>/<docGuid>`:
+
+1. Look the token up. Unknown ⇒ refused.
+2. **Prefix check**: `documentName` is `<share.folder_guid>/folder` or starts with
+   `<share.folder_guid>/` ⇒ accepted.
+3. Otherwise, **only when `share.kind === 'device'`**: walk `ancestorsOf(<room>)` — the
+   `rooms` chain, nearest parent first — and accept if it contains the token's room.
+   The walk is bounded at `MAX_ANCESTRY_HOPS = 8` and cycle-guarded, so a corrupt or
+   malicious edge set costs a fixed number of indexed lookups per authentication.
+   Depth 1 is all the product creates today (only the root mount may contain mounts);
+   the 8 is headroom for any-depth nesting, which is Later.
+4. Otherwise refused. Never the reverse direction: a child's token never reaches its
+   parent, so a folder share's scope (**R1**) is unchanged by any of this.
+5. `read_only` is **orthogonal**: it flips `connectionConfig.readOnly` on whatever the
+   rule accepted, so a read-only *device* token is read-only in **every** room it
+   reaches, including rooms carved after it was minted. There is no way to express
+   "read-write in my vault, read-only in `team/`" — a known limit, recorded rather than
+   discovered later.
+
+**Ancestry is structure, not a credential.** A row in `rooms` grants nothing; only
+`shares` grants access. Recording that `team/` was carved out of a vault is safe even
+when nobody holds a device token for that vault, which is why the carve path records the
+edge **always** rather than only for relay-attached roots.
+
+**The mint** (`admin.ts`, guarded by `Authorization: Bearer <OPERATOR_SECRET>`; with no
+secret configured the `/shares` routes answer 404 and the CLI is the only mutation
+path):
+`POST /shares { folderGuid, label?, readOnly?, kind?: 'folder'|'device', parent? }`
+→ `{ token, folderGuid, readOnly, label, kind, parent? }`. Validation: `kind` must be
+one of the two; `parent` must be non-empty when present and must differ from
+`folderGuid`; **`parent` together with `kind:'device'` is refused** — a device token is
+minted for a root room, never for a child. The ancestry edge is written *after* a
+successful mint, so a failed mint leaves no edge behind, and a re-mint for the same room
+restates the same edge (`ON CONFLICT(child_guid) DO UPDATE`). Re-minting a room under a
+*different* parent silently re-points it; unreachable at depth 1, and if it ever becomes
+reachable the honest behaviour is to refuse the re-parent rather than move it.
+
+**Migration is additive.** `CREATE TABLE IF NOT EXISTS rooms` adds the table;
+`migrate()` `ALTER TABLE`s `kind` onto a `shares` written before it existed; a NULL
+`kind` reads as `'folder'`, so an old dogfood token keeps exact-match semantics and
+never silently becomes a device credential. Rooms carved **before** N3 have no ancestry
+edge and stay unreachable by a device token until someone re-mints them with a `parent`
+— not worth a backfill, because the link bundle (A4-B) and paste-once (A4-C) already
+cover every pre-existing room.
+
+The lifecycle around it is unchanged:
+
+1. **Create share** — the sharing device calls the authenticated admin API or the relay
+   CLI (the only mutation paths; nothing in the CRDT plane can touch the table):
+   registers the folder GUID (plus `kind`/`parent`), gets back a token.
+2. **Token → joiner** — handed out out-of-band (paste a share link). The joiner's
+   provider presents it per document; the rule above scopes what it can open. Tokens
+   never travel in a folder map or a mount desc (shaping **D4**): they live in the
+   pasting device's own config.
 3. **Joiner seeds nothing** — first connection pulls relay state into a clean/identical
    folder under the single-seeder rule
    ([vault-and-reconciler.md](vault-and-reconciler.md), Enrollment; the full join state
    machine is Spike S1).
-4. **Revocation/change closes live connections** (D4) — a removed share doesn't linger
-   as an open socket. Per-note shares get a minimal metadata side-channel (name only),
-   not the whole folder map.
+4. **Revocation blocks the NEXT connection, not the live one.** `DELETE /shares/<token>`
+   removes the share row, so every subsequent `onAuthenticate` for that token is
+   refused; connections that are already open keep syncing until they reconnect. That is
+   dogfood **R4.3**, still deferred, and it is pinned by a test rather than assumed
+   (`libs/workspace/test/device-link-auth.test.ts`). Revocation also does **not** delete
+   the room's ancestry edge — the edge is structure, and it grants nothing on its own;
+   a re-mint for the same room therefore needs no re-parenting.
 
 This *is* a control plane — kept tiny and honest rather than pretended away (shaping
 decision log, Sharing/auth).
+
+### The connection model: one socket per room, auth per document
+
+A mount opens **one** WebSocket for its room and rides every document of that room on
+it (`libs/workspace/src/providers.ts`; the measurement that forced it is spike S10-Q4 —
+a socket per doc put a 1,029-note vault on 1,030 concurrent sockets, over the browser's
+~200-255 global cap). Hocuspocus v4 multiplexes by document name, and the server runs
+`onAuthenticate` **per document**, not per connection: a rejection is answered with a
+`permission-denied` addressed to that document only, leaving the socket and every other
+document on it untouched (verified against `@hocuspocus/server` 4.1.2 and exercised
+against the real relay in `libs/workspace/test/providers.test.ts`).
+
+Two consequences worth stating:
+
+- A **device** token is checked once per document it opens, so the ancestry walk runs on
+  every doc of every carved room — hence the bound and the index on `rooms(child_guid)`.
+- A refusal is **permanent, not a reconnect loop**: the client surfaces it through
+  `reportAuthFailure` as a stated error ("the relay rejected this token"), and a mount
+  that has no credential at all is not connected at all — it runs provider-less in the
+  `needs-token` state rather than pretending to be offline (spike S10 Q2, golden
+  rule 4).
 
 ## What the relay can and cannot read
 
@@ -117,7 +205,7 @@ Each of these is deferred with a pointer, not forgotten:
 |---|---|---|
 | **Update log** (append-on-message hook, snapshot+truncate compaction) | Honestly custom code; lands V2 before dogfood history accumulates. V1 keeps stock doc-state persistence. | shaping D4a |
 | **Per-device acked heads / durable-ack green** | y-protocol has no per-update acks; the wire-level extension is undesigned. V1 pill keys green off provider-synced and says so ([sync.md](sync.md)). | shaping D11, Spike S4 |
-| **Device-key (Ed25519) auth** | Static per-share tokens suffice for a two-client tracer; device principals arrive at team onboarding. | shaping D4 |
+| **Device-key (Ed25519) auth** | Static per-share tokens suffice; device principals arrive at team onboarding. The `kind:'device'` token is the V1→V2 bridge — the first credential that means "a person's devices" rather than "a folder". | shaping D4, device-link-shaping A4-A |
 | **Folder-level head summary** ("is anything stale?" without 5k sessions) | Scale problem V1 doesn't have. | shaping D4a, Spike S5 |
 | **Attachment/blob sync** | Binaries are excluded + badged in V1; CAS LWW blobs in V2. | shaping D2f |
 | **Relay-side agents** | Trigger: first need for agents in sessions with no desktop peer. | slices Later |
@@ -134,4 +222,7 @@ auth upgrade, or E2EE pivot has to carry. V1's relay should stay boring.
 - Primers: [05-sync-and-relay](../primers/05-sync-and-relay.md),
   [01-crdts-and-yjs](../primers/01-crdts-and-yjs.md).
 - Plans: [shaping.md](../../plans/shaping.md) D4/D4a, Spikes S1/S4/S5, decision log
-  (Sync server, Sharing/auth); [slices.md](../../plans/slices.md) V1 wiring, V2 scope.
+  (Sync server, Sharing/auth); [slices.md](../../plans/slices.md) V1 wiring, V2 scope;
+  [device-link-shaping.md](../../plans/device-link-shaping.md) A4-A/R5 and
+  [spike-s10-nested-mounts.md](../../plans/spike-s10-nested-mounts.md) Q3 for the share
+  kinds, the ancestry contract and the token lookup order on the client.

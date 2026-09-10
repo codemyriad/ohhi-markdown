@@ -4,6 +4,7 @@ export {
   type FileRow,
   type MountEntryInfo,
   type MountEvents,
+  type PullProgress,
   type RelayConfig,
   type SyncRecordFields,
 } from './types.js'
