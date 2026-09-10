@@ -12,9 +12,9 @@ companion to [architecture/testing.md](architecture/testing.md), which explains
 *why* the test harness is shaped the way it is — this doc is just *how to run it*.
 
 > **Where things are.** Rush monorepo. Apps in `apps/` (`relay`, `web`,
-> `desktop`), libraries in `libs/` (`sync`, `vault`, `testkit`, `editor`).
-> `rushx <script>` runs a project's `package.json` script from inside that
-> project folder.
+> `desktop`), libraries in `libs/` (`sync`, `vault`, `testkit`, `editor`,
+> `i18n` — the app's dictionaries). `rushx <script>` runs a project's
+> `package.json` script from inside that project folder.
 
 ---
 
@@ -80,6 +80,7 @@ Run per project with `rushx test`:
 | `libs/ui` | the **theme contract** — every theme defines the sync tokens, they stay visually distinct (including under deuteranopia), foregrounds clear 4.5:1, no presence colour sits near the diverged red, and the sync tokens are unlayered |
 | `libs/index` | the **backend conformance suite** — paging, cursors, ranking, link resolution, rename/delete propagation. Written against the interface, so any future backend passes it or is not a valid backend |
 | `libs/editor-lang` | the wikilink grammar, through the real lezer pipeline |
+| `libs/i18n` | the **dictionary contract** — every key is a non-empty string with typed arguments, the generated types describe the base dictionary (fails with "regenerate" when a group was added without `rushx generate`), and `i18nObject('en')` / `getLL()` translate |
 | `apps/relay` | share-token auth + folder-GUID scoping, sqlite persistence |
 | `apps/web` | `pill-status` truth table, tree model, share links, config, the command registry — plus **component tests** for the `src/lib/ui/` primitives (jsdom + Svelte Testing Library: Escape/click-outside/focus-return on dialogs, arrow keys on menus and tabs, tooltip on focus, the form field's ARIA wiring) |
 
@@ -90,7 +91,7 @@ cd libs/vault && rushx test      # one project
 Or run every unit suite from the repo root in one go:
 
 ```sh
-for p in libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
+for p in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
          libs/editor-lang apps/relay apps/web; do
   (cd "$p" && rushx test) || break
 done
@@ -194,7 +195,25 @@ CI never run it.)
 ```sh
 cd apps/web && rushx check       # svelte-check
 cd apps/relay && rushx check     # tsc --noEmit
+cd libs/i18n && rushx check      # regenerates the typesafe-i18n output, then tsc --noEmit
 ```
+
+### The dictionaries (typesafe-i18n)
+
+Every user-facing string in `apps/web` is a key in `libs/i18n/src/i18n/en/`
+(`index.ts` = the root `common` group, `web/index.ts` = the shell). The typed
+accessors are **generated** and committed:
+
+```sh
+cd libs/i18n && rushx generate        # one-shot: i18n-types.ts, i18n-util*.ts, i18n-svelte.ts
+cd libs/i18n && rushx typesafe-i18n   # the same, in watch mode while you edit the dictionary
+```
+
+Add a key, regenerate, then use it as `$LL.web.<group>.<key>()` in a
+component or `getLL().web.…` in a module. A key referenced but not generated
+fails `rushx check` in `apps/web`; a group added but not generated fails
+`rushx test` in `libs/i18n`. Conventions and the no-hardcoded-strings rule:
+`.claude/skills/ui-development`.
 
 ---
 
@@ -487,7 +506,7 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 rush install
 
 # all unit tests
-for p in libs/sync libs/testkit libs/vault apps/relay apps/web; do (cd "$p" && rushx test) || break; done
+for p in libs/i18n libs/sync libs/testkit libs/vault apps/relay apps/web; do (cd "$p" && rushx test) || break; done
 
 # end-to-end browser smoke (self-contained)
 cd apps/web && rushx e2e
