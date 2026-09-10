@@ -91,6 +91,9 @@ export class TauriVaultAdapter implements VaultAdapter {
     const walk = async (relDir: string): Promise<void> => {
       for (const entry of await readDir(this.abs(relDir))) {
         if (IGNORED.has(entry.name)) continue
+        // A crash can leave a writeAtomic temp behind; it must never enroll as
+        // a note (the watcher below and the node adapter skip it too).
+        if (entry.name.includes('.editor-tmp-')) continue
         const relPath = relDir ? `${relDir}/${entry.name}` : entry.name
         if (entry.isDirectory) {
           await walk(relPath)

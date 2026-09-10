@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { HardDrive } from '@lucide/svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
 
@@ -23,6 +24,11 @@
     onLinkDevice: (name: string) => void
     onBack: () => void
     onSettings: () => void
+    /** The browser-storage note, decided by App; null = hidden. `outcome` is the user's own ask. */
+    storageNote: { canAsk: boolean; outcome: 'refused' | 'granted' | null } | null
+    /** Must call `persist()` synchronously: Firefox wants the click's gesture. */
+    onKeepStorage: () => void
+    onDismissStorage: () => void
   }
 
   let {
@@ -43,9 +49,13 @@
     onLinkDevice,
     onBack,
     onSettings,
+    storageNote,
+    onKeepStorage,
+    onDismissStorage,
   }: Props = $props()
 
   const t = $derived($LL.web.manager)
+  const st = $derived($LL.web.storage)
 
   // Seeded once from the initial prop values; these fields are then user-owned.
   // svelte-ignore state_referenced_locally
@@ -164,6 +174,52 @@
           </li>
         {/each}
       </ul>
+    </section>
+  {/if}
+
+  {#if storageNote}
+    <!-- A note, not an alert: the browser's refusal is nobody's fault. The
+         outcome line is a live region, rendered before it changes. -->
+    <section
+      aria-labelledby="storage-note-title"
+      data-testid="storage-note"
+      class="mt-8 rounded border border-base-300 bg-base-200 px-4 py-3 text-base-content"
+    >
+      <h2 id="storage-note-title" class="flex items-center gap-2 text-sm font-semibold">
+        <HardDrive class="size-4 shrink-0" aria-hidden="true" />
+        {st.title()}
+      </h2>
+      {#if storageNote.outcome !== 'granted'}
+        <p class="mt-1 text-xs">{st.body()}</p>
+        <p class="mt-1 text-xs">{st.advice()}</p>
+      {/if}
+      <p role="status" data-testid="storage-note-outcome" class="text-xs {storageNote.outcome ? 'mt-2' : ''}">
+        {storageNote.outcome === 'granted'
+          ? st.granted()
+          : storageNote.outcome === 'refused'
+            ? st.refused()
+            : ''}
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        {#if storageNote.canAsk}
+          <button
+            type="button"
+            data-testid="storage-keep"
+            onclick={onKeepStorage}
+            class="rounded border border-base-300 bg-base-100 px-3 py-1.5 text-xs font-medium text-base-content hover:bg-base-300"
+          >
+            {st.ask()}
+          </button>
+        {/if}
+        <button
+          type="button"
+          data-testid="storage-dismiss"
+          onclick={onDismissStorage}
+          class="rounded px-3 py-1.5 text-xs text-base-content hover:bg-base-300"
+        >
+          {st.dismiss()}
+        </button>
+      </div>
     </section>
   {/if}
 

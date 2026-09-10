@@ -915,6 +915,72 @@ export type NamespaceWebTranslation = {
 		 */
 		manage: string
 	}
+	storage: {
+		/**
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e
+		 */
+		title: string
+		/**
+		 * B​r​o​w​s​e​r​s​ ​c​a​n​ ​d​e​l​e​t​e​ ​a​ ​s​i​t​e​'​s​ ​s​t​o​r​a​g​e​ ​t​o​ ​f​r​e​e​ ​u​p​ ​s​p​a​c​e​,​ ​a​n​d​ ​t​h​i​s​ ​o​n​e​ ​h​a​s​n​'​t​ ​p​r​o​m​i​s​e​d​ ​t​o​ ​k​e​e​p​ ​E​d​i​t​o​r​'​s​.​ ​N​o​t​e​s​ ​t​h​a​t​ ​a​r​e​n​'​t​ ​i​n​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​e​x​i​s​t​ ​o​n​l​y​ ​h​e​r​e​.
+		 */
+		body: string
+		/**
+		 * F​o​r​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​u​s​e​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.​ ​T​h​e​ ​b​r​o​w​s​e​r​ ​i​s​ ​b​e​s​t​ ​f​o​r​ ​j​o​i​n​i​n​g​ ​t​e​a​m​ ​f​o​l​d​e​r​s​.
+		 */
+		advice: string
+		/**
+		 * A​s​k​ ​t​h​e​ ​b​r​o​w​s​e​r​ ​t​o​ ​k​e​e​p​ ​i​t
+		 */
+		ask: string
+		/**
+		 * T​h​e​ ​b​r​o​w​s​e​r​ ​s​a​i​d​ ​n​o​.​ ​T​h​a​t​'​s​ ​i​t​s​ ​o​w​n​ ​c​a​l​l​,​ ​o​f​t​e​n​ ​b​a​s​e​d​ ​o​n​ ​h​o​w​ ​m​u​c​h​ ​y​o​u​ ​u​s​e​ ​t​h​e​ ​s​i​t​e​ ​—​ ​b​o​o​k​m​a​r​k​i​n​g​ ​o​r​ ​i​n​s​t​a​l​l​i​n​g​ ​E​d​i​t​o​r​ ​c​a​n​ ​h​e​l​p​.​ ​Y​o​u​ ​c​a​n​ ​a​s​k​ ​a​g​a​i​n​ ​a​n​y​ ​t​i​m​e​.
+		 */
+		refused: string
+		/**
+		 * D​o​n​e​ ​—​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​h​a​s​ ​p​r​o​m​i​s​e​d​ ​t​o​ ​k​e​e​p​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e​.
+		 */
+		granted: string
+		/**
+		 * D​i​s​m​i​s​s
+		 */
+		dismiss: string
+		/**
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e​,​ ​a​n​d​ ​n​o​t​e​s​ ​o​u​t​s​i​d​e​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​e​x​i​s​t​ ​o​n​l​y​ ​h​e​r​e​ ​—​ ​f​o​r​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​u​s​e​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.​ ​S​e​t​t​i​n​g​s​ ​›​ ​V​a​u​l​t​s​ ​&​ ​s​h​a​r​e​s​ ​c​a​n​ ​a​s​k​ ​t​h​e​ ​b​r​o​w​s​e​r​ ​a​g​a​i​n​ ​o​r​ ​t​u​r​n​ ​t​h​i​s​ ​r​e​m​i​n​d​e​r​ ​o​f​f​.
+		 */
+		notice: string
+		settings: {
+			/**
+			 * S​t​o​r​a​g​e​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+			 */
+			heading: string
+			/**
+			 * C​h​e​c​k​i​n​g​…
+			 */
+			checking: string
+			/**
+			 * K​e​p​t​ ​—​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​h​a​s​ ​p​r​o​m​i​s​e​d​ ​n​o​t​ ​t​o​ ​c​l​e​a​r​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e​.
+			 */
+			kept: string
+			/**
+			 * N​o​t​ ​g​u​a​r​a​n​t​e​e​d​ ​—​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e​ ​t​o​ ​f​r​e​e​ ​u​p​ ​s​p​a​c​e​.
+			 */
+			best_effort: string
+			/**
+			 * N​o​t​ ​g​u​a​r​a​n​t​e​e​d​ ​—​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​c​a​n​'​t​ ​b​e​ ​a​s​k​e​d​ ​t​o​ ​k​e​e​p​ ​E​d​i​t​o​r​'​s​ ​s​t​o​r​a​g​e​.
+			 */
+			unsupported: string
+			/**
+			 * U​s​i​n​g​ ​{​u​s​e​d​}​ ​o​f​ ​t​h​e​ ​{​q​u​o​t​a​}​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​a​l​l​o​w​s​.
+			 * @param {string} quota
+			 * @param {string} used
+			 */
+			usage: RequiredParams<'quota' | 'used'>
+			/**
+			 * R​e​m​i​n​d​ ​m​e​ ​a​b​o​u​t​ ​t​h​i​s
+			 */
+			remind: string
+		}
+	}
 	settings: {
 		/**
 		 * S​e​t​t​i​n​g​s
@@ -2694,6 +2760,70 @@ export type TranslationFunctions = {
 			 * Manage vaults…
 			 */
 			manage: () => LocalizedString
+		}
+		storage: {
+			/**
+			 * This browser may clear Editor's storage
+			 */
+			title: () => LocalizedString
+			/**
+			 * Browsers can delete a site's storage to free up space, and this one hasn't promised to keep Editor's. Notes that aren't in a shared folder exist only here.
+			 */
+			body: () => LocalizedString
+			/**
+			 * For your own notes, use the desktop app. The browser is best for joining team folders.
+			 */
+			advice: () => LocalizedString
+			/**
+			 * Ask the browser to keep it
+			 */
+			ask: () => LocalizedString
+			/**
+			 * The browser said no. That's its own call, often based on how much you use the site — bookmarking or installing Editor can help. You can ask again any time.
+			 */
+			refused: () => LocalizedString
+			/**
+			 * Done — this browser has promised to keep Editor's storage.
+			 */
+			granted: () => LocalizedString
+			/**
+			 * Dismiss
+			 */
+			dismiss: () => LocalizedString
+			/**
+			 * This browser may clear Editor's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Vaults & shares can ask the browser again or turn this reminder off.
+			 */
+			notice: () => LocalizedString
+			settings: {
+				/**
+				 * Storage in this browser
+				 */
+				heading: () => LocalizedString
+				/**
+				 * Checking…
+				 */
+				checking: () => LocalizedString
+				/**
+				 * Kept — this browser has promised not to clear Editor's storage.
+				 */
+				kept: () => LocalizedString
+				/**
+				 * Not guaranteed — this browser may clear Editor's storage to free up space.
+				 */
+				best_effort: () => LocalizedString
+				/**
+				 * Not guaranteed — this browser can't be asked to keep Editor's storage.
+				 */
+				unsupported: () => LocalizedString
+				/**
+				 * Using {used} of the {quota} this browser allows.
+				 */
+				usage: (arg: { quota: string, used: string }) => LocalizedString
+				/**
+				 * Remind me about this
+				 */
+				remind: () => LocalizedString
+			}
 		}
 		settings: {
 			/**

@@ -43,6 +43,13 @@
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
+  import {
+    askToKeepStorage,
+    initStorage,
+    setStorageReminder,
+    storageState,
+    storageWarning,
+  } from './lib/storage.svelte.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink, shareLinkErrorText } from './lib/share-link.js'
   import { pillStatus } from './lib/sync-record.svelte.js'
@@ -99,6 +106,47 @@
   /** ?debug=1 forces the sync devtools on for this session (M6). */
   const debugForced = url.get('debug') === '1'
   let devtools = $state(debugForced || devtoolsEnabled())
+
+  // ---- browser storage (lib/storage-persistence.ts) ----
+  const storageReady = initStorage() // the launch check-then-ask; a no-op under Tauri
+  /** The manager note's own ask was granted: the note stays up to say so. */
+  let storageGranted = $state(false)
+  // On the manager a browser vault is always at stake: creating, joining and
+  // linking a device all make one.
+  const storageNote = $derived.by(() => {
+    if (storageGranted) return { canAsk: false, outcome: 'granted' as const }
+    if (!storageWarning(hasOpfs())) return null
+    return {
+      canAsk: storageState.state === 'best-effort',
+      outcome: storageState.refused ? ('refused' as const) : null,
+    }
+  })
+
+  function keepStorage(): void {
+    // Straight from the click, so persist() carries the gesture (Firefox).
+    void askToKeepStorage().then(() => {
+      if (storageState.state === 'persisted') storageGranted = true
+    })
+  }
+
+  function dismissStorage(): void {
+    if (storageGranted) storageGranted = false
+    else setStorageReminder(false)
+  }
+
+  // One reminder per session, on whichever surface comes first: the manager's
+  // note, or a single notice when the app reopens straight into a browser vault.
+  let storageReminded = false
+  $effect(() => {
+    if (view === 'manager' && storageNote) storageReminded = true
+  })
+
+  async function remindAboutStorage(ws: Workspace): Promise<void> {
+    await storageReady
+    if (storageReminded || workspace !== ws || !storageWarning(true)) return
+    storageReminded = true
+    ws.notify({ level: 'warn', text: $LL.web.storage.notice() })
+  }
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()
@@ -338,6 +386,7 @@
       refreshLists()
       joining = null
       view = 'workspace'
+      if (entry.vault.kind === 'opfs') void remindAboutStorage(ws)
     } catch (err) {
       if (gen !== bootGen) return
       failure = { room: entry.room, message: err instanceof Error ? err.message : String(err) }
@@ -896,6 +945,9 @@
     }}
     onBack={() => (view = 'workspace')}
     onSettings={() => (settingsOpen = true)}
+    {storageNote}
+    onKeepStorage={keepStorage}
+    onDismissStorage={dismissStorage}
   />
 {:else if view === 'connecting' || !workspace}
   {#if joining}

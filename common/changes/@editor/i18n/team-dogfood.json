@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/i18n",
+      "comment": "Wording for the browser-storage note, reminder and Settings section.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@editor/i18n"
+}

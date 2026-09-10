@@ -129,6 +129,31 @@ test('the owner device-link dialog is accessible', async ({ page }) => {
   await expectAccessible(page, 'device link dialog')
 })
 
+/**
+ * The browser-storage note and its Settings section, in a browser that refuses
+ * persistence — the state with the most on screen (note, refusal, retry,
+ * reminder).
+ */
+test('the browser-storage note and its Settings section are accessible', async ({ page }) => {
+  await page.addInitScript(() => {
+    const refuse = async (): Promise<boolean> => false
+    Object.defineProperty(navigator.storage, 'persisted', { value: refuse })
+    Object.defineProperty(navigator.storage, 'persist', { value: refuse })
+  })
+  await page.goto('/')
+  await expect(page.getByTestId('storage-note')).toBeVisible()
+  await expectAccessible(page, 'storage note')
+
+  await page.getByTestId('storage-keep').click()
+  await expect(page.getByTestId('storage-note-outcome')).toContainText('The browser said no')
+  await expectAccessible(page, 'storage note (refused)')
+
+  await page.getByTestId('manager-settings').click()
+  await page.getByTestId('settings-tab:vaults').click()
+  await expect(page.getByTestId('settings-storage-status')).toContainText('Not guaranteed')
+  await expectAccessible(page, 'settings: storage in this browser')
+})
+
 test('the link-this-device dialog and the join progress panel are accessible', async ({ page }) => {
   // The manager with no vault open — where a NEW device starts.
   await page.goto('/')

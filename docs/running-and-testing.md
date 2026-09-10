@@ -308,6 +308,22 @@ returns to the manager, and **⚙** opens Settings (display name, default relay,
 relay operator secret for the upcoming in-app share minting, remembered
 shares/vaults).
 
+**The default relay is set at build time.** `VITE_DEFAULT_RELAY=wss://… rushx
+build` (or a git-ignored `apps/web/.env.local`, see `apps/web/.env.example`)
+sets the relay a fresh install proposes for new shares; unset or malformed →
+`ws://localhost:8787`. A relay saved in Settings › Sync always wins; an install
+that never saved one follows each new build's default.
+
+**Browser storage.** A browser vault lives in storage the browser may clear
+unless it has promised to keep it. At launch the web app checks
+`navigator.storage.persisted()` and, if false, asks once with `persist()`.
+While the answer is no, the manager shows a dismissible note with *Ask the
+browser to keep it*, a workspace reopened straight into a browser vault gets
+one notice per session, and Settings › Vaults & shares shows the status,
+usage and the reminder switch. None of this runs in the desktop app. To see
+the note in Chromium, use a fresh profile (a well-used site may already hold
+the grant).
+
 **File tree (M3).** The sidebar is a real nested tree: folders collapse
 (click a focused folder to toggle), and empty folders are first-class — they
 enroll, sync, and materialize on peers like files (`mkdir` is part of the
