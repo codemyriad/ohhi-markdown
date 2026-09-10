@@ -56,6 +56,18 @@ and U5's *Activity* land. Layout state (`treeOpen`, `treeWidth`, `railOpen`,
 persisted through `config.ts` like the theme; the width persists on gesture
 end, never per pointer-move.
 
+**The tree's sync policy (chrome U3, Fork 3) is a pure module**,
+`lib/tree-status.ts`: a file row shows its pill only when it is *not* green
+(inside a shared folder) or only when *diverged* (outside one — a local file's
+"offline" is the absence of a relay, not a state); a mount root carries the
+rollup of its docs + its folder doc; a 2 px guide in the provenance tint marks
+the shared subtree. Do not put status logic in `FileTree.svelte` — extend
+`rowStatus` / `mountRollup` and their tests. Refusals explain themselves at
+the point of refusal: `planDrop`'s reason renders on the hovered row
+(`drop-refusal`) and as a toast on `dragend`. Sharing actions live in the
+tree's context menu (`Share…`, `Add a shared folder here…`, disabled-with-
+reason where mounts would nest) and the command palette — never in the header.
+
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
 **Component tests** live beside the primitive (`Dialog.test.ts`), start with `// @vitest-environment jsdom`, drive through `@testing-library/svelte` + `user-event`, and assert roles, names, focus and keys — never internals. A stateful primitive gets a harness in `src/lib/ui/test-harness/`. **The axe gate** is `apps/web/e2e/a11y.spec.ts`: it fails the e2e run on any violation, on every surface it opens; do not switch a rule off to pass it — list the reason and the slice that lifts it.

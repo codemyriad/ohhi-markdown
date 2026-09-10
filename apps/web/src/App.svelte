@@ -37,7 +37,7 @@
   import { forgetVaultState } from './lib/vault-adapter.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
-  import { dirPaths, type TreeOp } from './lib/tree-model.js'
+  import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
   import { pillStatus, worstStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type Workspace } from './lib/workspace.svelte.js'
@@ -121,6 +121,21 @@
       settings: () => (settingsOpen = true),
       back: () => travel(navHistory.back()),
       forward: () => travel(navHistory.forward()),
+      hasNote: () => workspace?.ui.selectedPath != null,
+      deleteNote: () => {
+        const path = workspace?.ui.selectedPath
+        if (path) treeOp = { type: 'delete', path, kind: 'text' }
+      },
+      moveNote: () => {
+        const path = workspace?.ui.selectedPath
+        if (path) treeOp = { type: 'move', path, kind: 'text' }
+      },
+      newFolder: () => {
+        if (workspace) treeOp = { type: 'new-folder', dir: containingDir(workspace.ui.selectedPath, 'text') }
+      },
+      addShare: () => {
+        if (workspace) addShareOpen = { dir: '' }
+      },
     })
   )
 
@@ -487,7 +502,8 @@
   }
 
   // ---- M5: add-share, unshare/unmount, cross-mount move confirms ----
-  let addShareOpen = $state(false)
+  /** Join-a-share dialog, with the folder it was asked from ('' = vault root). */
+  let addShareOpen = $state<{ dir: string } | null>(null)
   let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
   let unmountConfirm = $state<string | null>(null)
   let moveConfirm = $state<{ from: string; to: string; leavingShared: boolean } | null>(null)
@@ -555,6 +571,10 @@
       folderSharePath = op.path
       return
     }
+    if (op.type === 'add-share') {
+      addShareOpen = { dir: op.dir }
+      return
+    }
     if (op.type === 'unshare') {
       const provenance =
         workspace.ui.mounts.find((m) => m.path === op.path)?.provenance ?? 'carved'
@@ -614,6 +634,7 @@
       treeOp.type === 'new-file' ||
       treeOp.type === 'move-to' ||
       treeOp.type === 'share-folder' ||
+      treeOp.type === 'add-share' ||
       treeOp.type === 'unshare' ||
       treeOp.type === 'unmount'
     )
@@ -696,7 +717,7 @@
       />
       <Breadcrumb path={selectedPath} onReveal={revealInTree} />
       <div class="ml-auto flex min-w-0 items-center gap-3">
-        <!-- Presence, the error string and Add share leave the header in U4/U5. -->
+        <!-- Presence and the error string leave the header in U4/U5. -->
         <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
           {#each workspace.ui.presence as name (name)}
             <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
@@ -707,14 +728,6 @@
             {workspace.ui.error}
           </span>
         {/if}
-        <button
-          data-testid="add-share"
-          onclick={() => (addShareOpen = true)}
-          class="rounded bg-base-200 px-2.5 py-1 text-xs font-medium text-base-content/80 hover:bg-base-300"
-          title="Join a shared folder into this vault"
-        >
-          Add share
-        </button>
         <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
         <IconButton
           label={railOpen ? 'Hide sidebar' : 'Show sidebar'}
@@ -846,8 +859,9 @@
   {#if addShareOpen}
     <AddShareDialog
       dirs={dirPaths(workspace.ui.files)}
+      initialDest={addShareOpen.dir ? `${addShareOpen.dir}/` : ''}
       onJoin={(link, dest) => workspace!.addShareMount(link, dest)}
-      onClose={() => (addShareOpen = false)}
+      onClose={() => (addShareOpen = null)}
     />
   {/if}
 

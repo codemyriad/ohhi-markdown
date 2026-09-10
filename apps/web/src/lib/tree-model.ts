@@ -89,6 +89,8 @@ export type TreeOp =
   | { type: 'share-folder'; path: string }
   | { type: 'unshare'; path: string }
   | { type: 'unmount'; path: string }
+  /** Join someone's share as a new folder INSIDE `dir` ('' = vault root). */
+  | { type: 'add-share'; dir: string }
 
 // ---- provenance filter (R3.2, M4) ----
 
@@ -144,6 +146,7 @@ export type TreeMenuAction =
   | 'manage'
   | 'unshare'
   | 'unmount'
+  | 'add-share'
 
 export interface TreeMenuItem {
   action: TreeMenuAction
@@ -190,6 +193,28 @@ function shareItem(path: string, ctx: { mounts: MountLike[]; rootShared: boolean
   return item
 }
 
+export const ADD_SHARE_BLOCKED_ROOT_SHARED =
+  'This vault is already shared as a whole — a joined folder needs an unshared vault.'
+
+/**
+ * "Add a shared folder here…" (chrome-shaping U3): joining lands a NEW mount
+ * inside `dir`, so the same no-nesting rule as sharing applies — stated, not
+ * hidden.
+ */
+function addShareItem(dir: string, ctx: { mounts: MountLike[]; rootShared: boolean }): TreeMenuItem {
+  const item: TreeMenuItem = { action: 'add-share', label: 'Add a shared folder here…' }
+  if (ctx.rootShared) return { ...item, disabled: true, reason: ADD_SHARE_BLOCKED_ROOT_SHARED }
+  const inside = ctx.mounts.find((m) => m.path !== '' && (dir === m.path || dir.startsWith(`${m.path}/`)))
+  if (inside) {
+    return {
+      ...item,
+      disabled: true,
+      reason: `Inside the shared folder '${inside.path}' — shared folders cannot nest.`,
+    }
+  }
+  return item
+}
+
 /**
  * The context-menu items for a tree target. Pure: the menu component renders
  * whatever this returns and maps `action` back to a `TreeOp`.
@@ -202,6 +227,7 @@ export function treeMenuItems(
     return [
       { action: 'new-file', label: 'New file' },
       { action: 'new-folder', label: 'New folder' },
+      { ...addShareItem('', ctx), separatorBefore: true },
     ]
   }
   if (target.kind !== 'dir') {
@@ -225,6 +251,7 @@ export function treeMenuItems(
   } else {
     items.push({ ...shareItem(target.path, ctx), separatorBefore: true })
   }
+  items.push(addShareItem(target.path, ctx))
   items.push({ action: 'delete', label: 'Delete…', danger: true, separatorBefore: true })
   return items
 }

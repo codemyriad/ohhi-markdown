@@ -134,7 +134,9 @@ What it asserts: edits propagate both ways, presence shows both users, concurren
 typing converges, offline drops the sync pill honestly and reconnect reconverges,
 binary files are badged not synced, and a **bad token fails fast with a visible
 error** (not an eternal "connecting…"). The relay it spawns uses a throwaway
-temp db and the fixed share `e2eroom:e2e-token` (see `e2e/start-relay.mjs`);
+temp db and two fixed shares — `e2eroom:e2e-token` for the collab smoke and
+`chrome-tree:chrome-token` for the chrome tree test (`SEED_SHARE` takes a
+comma-separated list; see `e2e/start-relay.mjs`);
 the web app is built and served on `localhost:4173`, the relay on
 `ws://localhost:8799`.
 
@@ -155,7 +157,12 @@ to icons and reopens to the section clicked, `Mod+ArrowRight` toggles it; the
 navigator resizes from the keyboard (its handle is a valued `separator`),
 hides on `Mod+ArrowLeft`, and the layout survives a reload; the breadcrumb
 names the open note and reveals its folder in the tree; the status bar carries
-the word count and the note's own pill.
+the word count and the note's own pill. The tree test (U3) needs the
+`chrome-tree` room: a synced note is green in the status bar and carries no
+dot in the tree; the toolbar is icons with names; collapse-all, the filter
+menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
+drop's reason on the hovered row, and *Add a shared folder* (disabled with its
+rule in a root-shared vault; reachable from the palette).
 
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
 practice) over the vault manager, the workspace with a note open, quick-open,

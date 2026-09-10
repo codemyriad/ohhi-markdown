@@ -13,10 +13,12 @@
     dirs: string[]
     /** Runs the join; resolves when the mount is live. */
     onJoin: (link: string, destPath: string) => Promise<void>
+    /** Prefilled destination ('team/' when opened from the tree on 'team'). */
+    initialDest?: string
     onClose: () => void
   }
 
-  let { dirs, onJoin, onClose }: Props = $props()
+  let { dirs, onJoin, initialDest = '', onClose }: Props = $props()
 
   const schema = z.object({
     link: z
@@ -25,7 +27,8 @@
       .refine(looksLikeShareLink, 'That doesn’t look like a share link — they start with "editor1:".'),
     dest: z.string().trim().min(1, 'Pick a folder for the shared content to live in.'),
   })
-  const form = createForm(schema, { link: '', dest: '' })
+  // svelte-ignore state_referenced_locally -- seed only; the form owns it after
+  const form = createForm(schema, { link: '', dest: initialDest })
 
   async function join(): Promise<void> {
     if (await form.submit(({ link, dest }) => onJoin(link, dest))) onClose()

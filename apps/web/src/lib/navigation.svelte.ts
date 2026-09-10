@@ -278,12 +278,23 @@ export function defaultCommands(actions: {
   settings: () => void
   back: () => void
   forward: () => void
+  /** Chrome U3: file ops on the OPEN note (Chris's Mod+Shift+R / Mod+Shift+A rebinds). */
+  hasNote: () => boolean
+  deleteNote: () => void
+  moveNote: () => void
+  newFolder: () => void
+  addShare: () => void
 }): Command[] {
   return [
     { id: 'nav.quick-open', title: 'Open note…', group: 'Navigate', keys: 'Mod+o', run: actions.quickOpen },
     { id: 'nav.command-palette', title: 'Command palette', group: 'Navigate', keys: 'Mod+Shift+p', run: actions.commandPalette },
     { id: 'nav.search', title: 'Search in vault', group: 'Navigate', keys: 'Mod+Shift+f', run: actions.search },
     { id: 'file.new', title: 'New note', group: 'File', keys: 'Mod+n', run: actions.newNote },
+    { id: 'file.new-folder', title: 'New folder', group: 'File', keys: 'Mod+Shift+n', run: actions.newFolder },
+    // Chris's own Obsidian bindings: app:delete-file and file-explorer:move-file.
+    { id: 'file.delete', title: 'Delete current note…', group: 'File', keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
+    { id: 'file.move', title: 'Move current note…', group: 'File', keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
+    { id: 'share.add', title: 'Add a shared folder…', group: 'Share', run: actions.addShare },
     // Mod+[ / Mod+] are Chris's own Obsidian bindings for navigation history.
     { id: 'nav.back', title: 'Back', group: 'Navigate', keys: 'Mod+[', run: actions.back },
     { id: 'nav.forward', title: 'Forward', group: 'Navigate', keys: 'Mod+]', run: actions.forward },

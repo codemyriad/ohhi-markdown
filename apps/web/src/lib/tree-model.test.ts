@@ -4,6 +4,7 @@ import {
   containingDir,
   dirPaths,
   planDrop,
+  ADD_SHARE_BLOCKED_ROOT_SHARED,
   SHARE_BLOCKED_ROOT_SHARED,
   treeMenuItems,
   type MountLike,
@@ -69,7 +70,7 @@ describe('treeMenuItems', () => {
   const plain = { mounts: [] as MountLike[], rootShared: false }
 
   it('offers only creation on the tree background (vault root)', () => {
-    expect(actions({ kind: 'root' }, plain)).toEqual(['new-file', 'new-folder'])
+    expect(actions({ kind: 'root' }, plain)).toEqual(['new-file', 'new-folder', 'add-share'])
   })
 
   it('offers rename/move/delete on a file, and no sharing', () => {
@@ -89,9 +90,11 @@ describe('treeMenuItems', () => {
       'rename',
       'move',
       'share',
+      'add-share',
       'delete',
     ])
     expect(items.find((i) => i.action === 'share')?.disabled).toBeUndefined()
+    expect(items.find((i) => i.action === 'add-share')?.disabled).toBeUndefined()
   })
 
   it('shows Share DISABLED, with the rule spelled out, in a root-shared vault', () => {
@@ -124,8 +127,23 @@ describe('treeMenuItems', () => {
       'move',
       'manage',
       'unshare',
+      'add-share',
       'delete',
     ])
+  })
+
+  it('refuses Add-a-shared-folder where a joined mount would nest, with the rule spelled out', () => {
+    const carved: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const onRoot = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })
+    expect(onRoot.find((i) => i.action === 'add-share')!.disabled).toBe(true)
+    expect(onRoot.find((i) => i.action === 'add-share')!.reason).toContain("'team'")
+    const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts: carved, rootShared: false })
+    expect(inside.find((i) => i.action === 'add-share')!.disabled).toBe(true)
+    const rootShared = treeMenuItems({ kind: 'root' }, { mounts: [], rootShared: true })
+    expect(rootShared.find((i) => i.action === 'add-share')!.reason).toBe(ADD_SHARE_BLOCKED_ROOT_SHARED)
+    // Outside any mount it is offered plainly.
+    const plainDir = treeMenuItems({ kind: 'dir', path: 'notes' }, { mounts: carved, rootShared: false })
+    expect(plainDir.find((i) => i.action === 'add-share')!.disabled).toBeUndefined()
   })
 
   it('adds Unmount only for a joined mount', () => {

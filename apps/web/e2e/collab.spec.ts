@@ -94,10 +94,12 @@ test('join via share link into OPFS: materializes, co-edits, and reopens', async
   await typeAtTop(alice.page, 'OPFS-JOIN ')
   await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
 
+  // The OPEN note's pill lives in the status bar (chrome U3: tree rows go
+  // quiet once green — the folder's rollup vouches for them).
   // Wait for Bob's flush to settle (green = disk written, and Invariant D
   // means the durable doc blob was flushed BEFORE that LCA advance) so the
   // relay-less reload below must serve the edit from OPFS stores alone.
-  await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute('data-status', 'green', {
+  await expect(page.getByTestId('sync-pill-note')).toHaveAttribute('data-status', 'green', {
     timeout: 15_000,
   })
 
@@ -127,7 +129,7 @@ test('join via share link into OPFS: materializes, co-edits, and reopens', async
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
   await openFile(page)
   await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
-  await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute('data-status', 'green', {
+  await expect(page.getByTestId('sync-pill-note')).toHaveAttribute('data-status', 'green', {
     timeout: 30_000,
   })
 
@@ -167,7 +169,7 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
 
   // Idle → pills go green on both sides (green = synced with relay).
   for (const page of [alice.page, bob.page]) {
-    await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute(
+    await expect(page.getByTestId('sync-pill-note')).toHaveAttribute(
       'data-status',
       'green',
       { timeout: 15_000 }
@@ -178,7 +180,7 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
   await bob.context.setOffline(true)
   await typeAtTop(bob.page, 'OFFLINE-EDIT ')
   // Green must drop immediately — pending local ops can't be claimed synced.
-  await expect(bob.page.getByTestId(`sync-pill:${FILE}`)).not.toHaveAttribute(
+  await expect(bob.page.getByTestId('sync-pill-note')).not.toHaveAttribute(
     'data-status',
     'green',
     { timeout: 10_000 }
@@ -188,7 +190,7 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
     timeout: 30_000,
   })
   for (const page of [alice.page, bob.page]) {
-    await expect(page.getByTestId(`sync-pill:${FILE}`)).toHaveAttribute(
+    await expect(page.getByTestId('sync-pill-note')).toHaveAttribute(
       'data-status',
       'green',
       { timeout: 30_000 }

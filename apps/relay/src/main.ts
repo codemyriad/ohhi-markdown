@@ -16,14 +16,18 @@ mkdirSync(dataDir, { recursive: true })
 // Unset, the /shares routes answer 404 and the CLI is the only mutation path.
 const relay = createRelay({ dbPath, port, operatorSecret: process.env.OPERATOR_SECRET })
 
-// Dev/e2e convenience: SEED_SHARE="<folderGuid>:<token>" pre-creates a share
-// idempotently. Never set this in production.
+// Dev/e2e convenience: SEED_SHARE="<folderGuid>:<token>[,<folderGuid>:<token>…]"
+// pre-creates shares idempotently. Never set this in production.
 if (process.env.SEED_SHARE) {
-  const [folderGuid, token] = process.env.SEED_SHARE.split(':')
-  if (!folderGuid || !token) throw new Error('SEED_SHARE must be "<folderGuid>:<token>"')
-  if (!relay.db.getShare(token)) {
-    relay.db.addShare({ token, folderGuid, label: 'seeded (SEED_SHARE)' })
-    console.log(`seeded share for folder ${folderGuid}`)
+  for (const pair of process.env.SEED_SHARE.split(',')) {
+    const [folderGuid, token] = pair.trim().split(':')
+    if (!folderGuid || !token) {
+      throw new Error('SEED_SHARE must be "<folderGuid>:<token>" pairs, comma-separated')
+    }
+    if (!relay.db.getShare(token)) {
+      relay.db.addShare({ token, folderGuid, label: 'seeded (SEED_SHARE)' })
+      console.log(`seeded share for folder ${folderGuid}`)
+    }
   }
 }
 

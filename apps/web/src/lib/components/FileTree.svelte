@@ -1,10 +1,13 @@
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity'
-  import { pillStatus, type SyncRecord } from '../sync-record.svelte.js'
+  import { ChevronsDownUp, FilePlus, FolderPlus, ListFilter, Users } from '@lucide/svelte'
+  import { melt } from '@melt-ui/svelte'
+  import { pillStatus, type PillStatus, type SyncRecord } from '../sync-record.svelte.js'
   import type { FileRow, MountInfo } from '../workspace.svelte.js'
   import {
     buildTree,
     containingDir,
+    dirPaths,
     filterRows,
     planDrop,
     treeMenuItems,
@@ -14,6 +17,11 @@
     type TreeNode,
     type TreeOp,
   } from '../tree-model.js'
+  import { inRelayMount, mountRollup, rowStatus } from '../tree-status.js'
+  import DropdownMenu from '../ui/DropdownMenu.svelte'
+  import IconButton from '../ui/IconButton.svelte'
+  import MenuItem from '../ui/MenuItem.svelte'
+  import { toast } from '../ui/toaster.js'
   import SyncPill from './SyncPill.svelte'
   import TreeContextMenu from './TreeContextMenu.svelte'
 
@@ -21,7 +29,7 @@
     files: FileRow[]
     records: Record<string, SyncRecord>
     selected: string | null
-    /** Shared subtrees (mount roots) — badges + the provenance filter (R3.2). */
+    /** Shared subtrees (mount roots) — badges, rollups and the provenance filter (R3.2). */
     mounts: MountInfo[]
     /** The whole vault is shared (badge/filter treat everything as shared). */
     rootShared: boolean
@@ -36,32 +44,34 @@
 
   let host = $state<HTMLElement>()
 
-  $effect(() => {
-    if (!reveal) return
-    const path = reveal.path
-    const segments = path.split('/')
-    for (let i = 1; i <= segments.length; i++) collapsed.delete(segments.slice(0, i).join('/'))
-    contextDir = path
-    host
-      ?.querySelector<HTMLElement>(`[data-testid="dir-item:${CSS.escape(path)}"]`)
-      ?.scrollIntoView({ block: 'nearest' })
-  })
-
+  const FILTERS: { value: TreeFilter; label: string }[] = [
+    { value: 'all', label: 'All notes' },
+    { value: 'local', label: 'Local only' },
+    { value: 'shared', label: 'Shared only' },
+  ]
   let filter = $state<TreeFilter>('all')
+
   const mountByPath = $derived(new Map(mounts.map((m) => [m.path, m])))
-  const tree = $derived(
-    buildTree(
-      filterRows(files, filter, mounts.map((m) => m.path), rootShared) as FileRow[]
-    )
+  const mountPaths = $derived(mounts.map((m) => m.path))
+  const tree = $derived(buildTree(filterRows(files, filter, mountPaths, rootShared) as FileRow[]))
+  /** Per mount root: the worst of its docs + its folder doc (Fork 3 B1). */
+  const rollups = $derived(
+    new Map(mounts.map((m) => [m.path, mountRollup(files, records, m.path, m.room)]))
   )
   const collapsed = new SvelteSet<string>()
-  /** Last-clicked directory — where the header's "+ file"/"+ folder" create. */
+  /** Last-clicked directory — where the toolbar's New note / New folder create. */
   let contextDir = $state<string | null>(null)
 
-  /** Where "+ file" / "+ folder" create. */
-  const targetDir = $derived(
-    contextDir !== null ? contextDir : containingDir(selected, 'text')
-  )
+  /** Where New note / New folder create. */
+  const targetDir = $derived(contextDir !== null ? contextDir : containingDir(selected, 'text'))
+  const inLabel = $derived(targetDir ? ` in ${targetDir}` : '')
+
+  /** The pill a file row shows, if any: quiet when good, loud when not (Fork 3 B2/B4). */
+  function statusFor(node: TreeNode): PillStatus | null {
+    const rec = records[node.guid]
+    if (!rec) return null
+    return rowStatus(pillStatus(rec), inRelayMount(node.path, mountPaths, rootShared))
+  }
 
   function clickDir(node: TreeNode): void {
     if (contextDir === node.path) {
@@ -76,6 +86,21 @@
     contextDir = null
     onSelect(path)
   }
+
+  function collapseAll(): void {
+    for (const d of dirPaths(files)) collapsed.add(d)
+  }
+
+  $effect(() => {
+    if (!reveal) return
+    const path = reveal.path
+    const segments = path.split('/')
+    for (let i = 1; i <= segments.length; i++) collapsed.delete(segments.slice(0, i).join('/'))
+    contextDir = path
+    host
+      ?.querySelector<HTMLElement>(`[data-testid="dir-item:${CSS.escape(path)}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  })
 
   // ---- context menu ----
 
@@ -119,9 +144,23 @@
     }
   }
 
-  /** Shift+F10 / the Menu key — the keyboard route to the same menu. */
-  function menuKey(e: KeyboardEvent, target: TreeMenuTarget): void {
-    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) openMenu(e, target)
+  /**
+   * Row keys: Shift+F10 / Menu open the same menu; F2 renames and Delete
+   * deletes (through the same dialogs the menu uses) — chrome U3.
+   */
+  function rowKey(e: KeyboardEvent, target: TreeMenuTarget): void {
+    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+      openMenu(e, target)
+      return
+    }
+    if (target.kind === 'root') return
+    if (e.key === 'F2') {
+      e.preventDefault()
+      onOp({ type: 'rename', path: target.path, kind: target.kind })
+    } else if (e.key === 'Delete') {
+      e.preventDefault()
+      onOp({ type: 'delete', path: target.path, kind: target.kind })
+    }
   }
 
   function closeMenu(): void {
@@ -141,6 +180,9 @@
         break
       case 'new-folder':
         onOp({ type: 'new-folder', dir: path })
+        break
+      case 'add-share':
+        onOp({ type: 'add-share', dir: path })
         break
       case 'rename':
       case 'move':
@@ -167,41 +209,61 @@
   let dragging = $state<string | null>(null)
   /** Highlighted drop directory; '' is the tree's root area, null is none. */
   let dropDir = $state<string | null>(null)
+  /**
+   * The refusal under the pointer, shown on the row itself while dragging
+   * (browsers show no `title` mid-drag) and as a notice if the drag ends
+   * there — the reason exists in `planDrop`; it used to be thrown away.
+   */
+  let refusal = $state<{ dir: string; reason: string } | null>(null)
+  let dropped = false
   const allPaths = $derived(new Set(files.map((f) => f.path)))
 
   function dragStart(e: DragEvent, path: string): void {
     dragging = path
+    dropped = false
     e.dataTransfer?.setData('text/plain', path)
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   }
 
   function dragEnd(): void {
+    if (!dropped && refusal) {
+      toast({ level: 'warn', title: 'Not moved', description: refusal.reason })
+    }
     dragging = null
     dropDir = null
+    refusal = null
+    dropped = false
   }
 
   /**
    * A drop target lights up only when the move is actually legal — the pointer
-   * carries the refusal (no drop cursor) rather than a dialog after the fact.
+   * carries the refusal (no drop cursor), and the row says why.
    */
   function dragOver(e: DragEvent, dir: string): void {
     e.stopPropagation()
     if (dragging === null) return
-    if (!planDrop(dragging, dir, allPaths).ok) {
+    const plan = planDrop(dragging, dir, allPaths)
+    if (!plan.ok) {
       dropDir = null
+      if (refusal?.dir !== dir || refusal.reason !== plan.reason) {
+        refusal = { dir, reason: plan.reason }
+      }
       return
     }
     e.preventDefault()
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
     dropDir = dir
+    refusal = null
   }
 
   function drop(e: DragEvent, dir: string): void {
     e.preventDefault()
     e.stopPropagation()
     const from = dragging ?? e.dataTransfer?.getData('text/plain') ?? ''
+    dropped = true
     dragging = null
     dropDir = null
+    refusal = null
     const plan = planDrop(from, dir, allPaths)
     if (plan.ok) onOp({ type: 'move-to', from, to: plan.to })
   }
@@ -211,7 +273,10 @@
     const to = e.relatedTarget
     if (to instanceof Node && e.currentTarget instanceof Node && e.currentTarget.contains(to)) return
     dropDir = null
+    refusal = null
   }
+
+  const indent = (depth: number): number => 8 + depth * 14
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -222,48 +287,69 @@
   class="flex h-full flex-col overflow-y-auto"
   ondragleave={treeLeave}
 >
-  <div class="flex items-center gap-1 border-b border-base-300 px-2 py-2">
+  <div class="flex items-center gap-0.5 border-b border-base-300 px-2 py-1">
     <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/70 uppercase">Files</h2>
-    <button
-      data-testid="new-file"
+    <IconButton
+      label="New note{inLabel}"
+      icon={FilePlus}
+      testid="new-file"
       onclick={() => onOp({ type: 'new-file', dir: targetDir })}
-      title="New file{targetDir ? ` in ${targetDir}` : ''}"
-      class="rounded bg-base-200 px-1.5 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-300"
-    >
-      + file
-    </button>
-    <button
-      data-testid="new-folder"
+    />
+    <IconButton
+      label="New folder{inLabel}"
+      icon={FolderPlus}
+      testid="new-folder"
       onclick={() => onOp({ type: 'new-folder', dir: targetDir })}
-      title="New folder{targetDir ? ` in ${targetDir}` : ''}"
-      class="rounded bg-base-200 px-1.5 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-300"
-    >
-      + folder
-    </button>
-  </div>
-  <div
-    class="flex items-center gap-0.5 border-b border-base-200 px-2 py-1"
-    role="radiogroup"
-    aria-label="Filter by sharing"
-  >
-    {#each [['all', 'All'], ['local', 'Local'], ['shared', 'Shared']] as const as [value, label] (value)}
-      <button
-        role="radio"
-        aria-checked={filter === value}
-        data-testid="tree-filter:{value}"
-        onclick={() => (filter = value)}
-        class="rounded px-1.5 py-0.5 text-[10px] font-medium
-          {filter === value ? 'bg-primary text-primary-content' : 'text-base-content/70 hover:bg-base-200'}"
-      >
-        {label}
-      </button>
-    {/each}
+    />
+    <IconButton
+      label="Collapse all folders"
+      icon={ChevronsDownUp}
+      testid="collapse-all"
+      onclick={collapseAll}
+    />
+    <DropdownMenu placement="bottom-end" testid="tree-filter-menu">
+      {#snippet trigger(t)}
+        <button
+          use:melt={t}
+          data-testid="tree-filter"
+          class="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary
+            {filter !== 'all' ? 'bg-base-200 text-base-content' : ''}"
+        >
+          <ListFilter size={14} aria-hidden="true" />
+          <span class="sr-only">Filter:</span>
+          <span>{filter === 'all' ? 'All' : filter === 'local' ? 'Local' : 'Shared'}</span>
+        </button>
+      {/snippet}
+      {#snippet children({ item })}
+        {#each FILTERS as f (f.value)}
+          <MenuItem
+            {item}
+            checked={filter === f.value}
+            testid="tree-filter:{f.value}"
+            onSelect={() => (filter = f.value)}
+          >
+            {f.label}
+          </MenuItem>
+        {/each}
+      {/snippet}
+    </DropdownMenu>
   </div>
 
   {#snippet nodeView(node: TreeNode, depth: number)}
     {@const target = { kind: node.kind, path: node.path } as TreeMenuTarget}
-    <li role="none">
+    {@const mount = node.kind === 'dir' ? mountByPath.get(node.path) : undefined}
+    <li role="none" class={mount ? 'relative' : ''}>
       {#if node.kind === 'dir'}
+        {#if mount}
+          <!-- The shared subtree's extent, without a dot on every row (Fork 3 B3). -->
+          <span
+            aria-hidden="true"
+            class="pointer-events-none absolute top-7 bottom-0 w-0.5 {mount.provenance === 'carved'
+              ? 'bg-primary/40'
+              : 'bg-secondary/40'}"
+            style="left: {indent(depth) + 5}px"
+          ></span>
+        {/if}
         <button
           role="treeitem"
           aria-expanded={!collapsed.has(node.path)}
@@ -272,34 +358,46 @@
           draggable="true"
           onclick={() => clickDir(node)}
           oncontextmenu={(e) => openMenu(e, target)}
-          onkeydown={(e) => menuKey(e, target)}
+          onkeydown={(e) => rowKey(e, target)}
           ondragstart={(e) => dragStart(e, node.path)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, node.path)}
           ondrop={(e) => drop(e, node.path)}
-          style="padding-left: {8 + depth * 14}px"
-          class="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm
+          style="padding-left: {indent(depth) - 2}px"
+          class="flex w-full items-center gap-1 border-l-2 py-1 pr-3 text-left text-sm
             {dropDir === node.path
-            ? 'inset-ring-2 inset-ring-primary bg-primary/10 text-base-content'
+            ? 'inset-ring-2 inset-ring-primary border-transparent bg-primary/10 text-base-content'
             : contextDir === node.path
-              ? 'bg-base-200 text-base-content'
-              : 'text-base-content/80 hover:bg-base-200'}"
+              ? 'border-primary text-base-content'
+              : 'border-transparent text-base-content/80 hover:bg-base-200'}"
         >
-          <span class="inline-block w-3 text-[10px] text-base-content/70"
+          <span class="inline-block w-3 text-[10px] text-base-content/70" aria-hidden="true"
             >{collapsed.has(node.path) ? '▸' : '▾'}</span
           >
           <span class="truncate font-medium">{node.name}</span>
-          {#if mountByPath.has(node.path)}
-            {@const m = mountByPath.get(node.path)!}
+          {#if refusal?.dir === node.path}
             <span
-              data-testid="mount-badge:{node.path}"
-              title={m.provenance === 'carved' ? 'shared by you' : 'shared with you'}
-              class="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide
-                {m.provenance === 'carved'
-                ? 'bg-primary text-primary-content'
-                : 'bg-secondary text-secondary-content'}"
+              data-testid="drop-refusal"
+              class="ml-auto truncate text-[10px] text-base-content/70 italic"
             >
-              shared
+              {refusal.reason}
+            </span>
+          {:else if mount}
+            <span class="ml-auto flex shrink-0 items-center gap-1.5">
+              <SyncPill status={rollups.get(node.path) ?? 'offline'} testid="sync-pill:{node.path}" />
+              <span
+                data-testid="mount-badge:{node.path}"
+                title={mount.provenance === 'carved' ? 'Shared by you' : 'Shared with you'}
+                class="inline-flex items-center rounded px-1 py-0.5
+                  {mount.provenance === 'carved'
+                  ? 'bg-primary text-primary-content'
+                  : 'bg-secondary text-secondary-content'}"
+              >
+                <Users size={12} aria-hidden="true" />
+                <span class="sr-only">
+                  {mount.provenance === 'carved' ? 'shared by you' : 'shared with you'}
+                </span>
+              </span>
             </span>
           {/if}
         </button>
@@ -311,6 +409,7 @@
           </ul>
         {/if}
       {:else if node.kind === 'text'}
+        {@const status = statusFor(node)}
         <button
           role="treeitem"
           aria-selected={selected === node.path}
@@ -318,19 +417,21 @@
           draggable="true"
           onclick={() => clickFile(node.path)}
           oncontextmenu={(e) => openMenu(e, target)}
-          onkeydown={(e) => menuKey(e, target)}
+          onkeydown={(e) => rowKey(e, target)}
           ondragstart={(e) => dragStart(e, node.path)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, containingDir(node.path, 'text'))}
           ondrop={(e) => drop(e, containingDir(node.path, 'text'))}
           aria-current={selected === node.path ? 'true' : undefined}
-          style="padding-left: {8 + depth * 14 + 12}px"
+          style="padding-left: {indent(depth) + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm
-            {selected === node.path ? 'bg-primary/10 font-medium text-base-content' : 'text-base-content hover:bg-base-200'}"
+            {selected === node.path
+            ? 'bg-primary/10 font-medium text-base-content'
+            : 'text-base-content hover:bg-base-200'}"
         >
           <span class="truncate">{node.name}</span>
-          {#if records[node.guid]}
-            <SyncPill status={pillStatus(records[node.guid])} testid="sync-pill:{node.path}" />
+          {#if status}
+            <SyncPill {status} testid="sync-pill:{node.path}" />
           {/if}
         </button>
       {:else}
@@ -344,12 +445,12 @@
           data-testid="file-item:{node.path}"
           draggable="true"
           oncontextmenu={(e) => openMenu(e, target)}
-          onkeydown={(e) => menuKey(e, target)}
+          onkeydown={(e) => rowKey(e, target)}
           ondragstart={(e) => dragStart(e, node.path)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, containingDir(node.path, 'binary'))}
           ondrop={(e) => drop(e, containingDir(node.path, 'binary'))}
-          style="padding-left: {8 + depth * 14 + 12}px"
+          style="padding-left: {indent(depth) + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-base-content/70"
         >
           <span class="truncate">{node.name}</span>
