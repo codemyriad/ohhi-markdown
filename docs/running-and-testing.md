@@ -81,7 +81,7 @@ Run per project with `rushx test`:
 | `libs/index` | the **backend conformance suite** — paging, cursors, ranking, link resolution, rename/delete propagation. Written against the interface, so any future backend passes it or is not a valid backend |
 | `libs/editor-lang` | the wikilink grammar, through the real lezer pipeline |
 | `apps/relay` | share-token auth + folder-GUID scoping, sqlite persistence |
-| `apps/web` | `pill-status` truth table, tree model, share links, config, the command registry |
+| `apps/web` | `pill-status` truth table, tree model, share links, config, the command registry — plus **component tests** for the `src/lib/ui/` primitives (jsdom + Svelte Testing Library: Escape/click-outside/focus-return on dialogs, arrow keys on menus and tabs, tooltip on focus, the form field's ARIA wiring) |
 
 ```sh
 cd libs/vault && rushx test      # one project
@@ -149,6 +149,11 @@ note, drag-and-drop moves it between folders, and a folder's disabled Share…
 still states its rule** — and **a user theme can neither repaint nor hide the
 sync pill**, which is asserted by actually attacking it rather than assumed from
 the cascade.
+
+`e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
+practice) over the vault manager, the workspace with a note open, quick-open,
+the tree's context menu, a rename dialog, the vault menu and settings. Any
+violation fails the run and prints the offending node with the rule.
 
 `e2e/shots.spec.ts` is a screenshot pass over all four themes, for eyeballing
 rather than gating:

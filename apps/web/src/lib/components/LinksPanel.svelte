@@ -53,15 +53,15 @@
   class="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l border-base-300 bg-base-100"
 >
   {#if !path}
-    <p class="p-4 text-xs text-base-content/60">Open a note to see its links.</p>
+    <p class="p-4 text-xs text-base-content/70">Open a note to see its links.</p>
   {:else}
     <section class="border-b border-base-200 p-3">
-      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/60 uppercase">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
         Backlinks
         <span data-testid="backlink-count" class="ml-1 font-normal">{backlinks.length}</span>
       </h2>
       {#if backlinks.length === 0}
-        <p class="text-xs text-base-content/50">No note links here yet.</p>
+        <p class="text-xs text-base-content/70">No note links here yet.</p>
       {:else}
         <ul class="space-y-2">
           {#each bySource as [source, refs] (source)}
@@ -90,12 +90,12 @@
     </section>
 
     <section class="p-3">
-      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/60 uppercase">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
         Outgoing
         <span data-testid="outgoing-count" class="ml-1 font-normal">{outgoing.length}</span>
       </h2>
       {#if outgoing.length === 0}
-        <p class="text-xs text-base-content/50">This note links nowhere yet.</p>
+        <p class="text-xs text-base-content/70">This note links nowhere yet.</p>
       {:else}
         <ul class="space-y-1">
           {#each resolved as link (link.offset)}
@@ -113,7 +113,7 @@
         </ul>
         {#if unresolved.length > 0}
           <h3
-            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/50 uppercase"
+            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
             Not created yet
           </h3>
@@ -135,7 +135,7 @@
         {/if}
         {#if missingEmbeds.length > 0}
           <h3
-            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/50 uppercase"
+            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
           >
             Missing attachments
           </h3>
@@ -144,7 +144,7 @@
               <li
                 data-testid="missing-embed:{link.target}"
                 title="No file at this path — attachments are not created from a link"
-                class="truncate text-xs text-base-content/50 line-through"
+                class="truncate text-xs text-base-content/70 line-through"
               >
                 {link.target}
               </li>

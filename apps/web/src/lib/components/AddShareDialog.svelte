@@ -1,5 +1,12 @@
 <script lang="ts">
+  import { z } from 'zod'
   import { looksLikeShareLink } from '../share-link.js'
+  import { createForm } from '../ui/form.svelte.js'
+  import Description from '../ui/Description.svelte'
+  import Dialog from '../ui/Dialog.svelte'
+  import Field from '../ui/Field.svelte'
+  import FieldErrors from '../ui/FieldErrors.svelte'
+  import TextControl from '../ui/TextControl.svelte'
 
   interface Props {
     /** Existing dirs, offered as destination suggestions. */
@@ -11,74 +18,76 @@
 
   let { dirs, onJoin, onClose }: Props = $props()
 
-  let link = $state('')
-  let dest = $state('')
-  let busy = $state(false)
-  let error = $state('')
-
-  const ready = $derived(looksLikeShareLink(link) && dest.trim() !== '')
+  const schema = z.object({
+    link: z
+      .string()
+      .trim()
+      .refine(looksLikeShareLink, 'That doesn’t look like a share link — they start with "editor1:".'),
+    dest: z.string().trim().min(1, 'Pick a folder for the shared content to live in.'),
+  })
+  const form = createForm(schema, { link: '', dest: '' })
 
   async function join(): Promise<void> {
-    busy = true
-    error = ''
-    try {
-      await onJoin(link, dest)
-      onClose()
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err)
-    } finally {
-      busy = false
-    }
+    if (await form.submit(({ link, dest }) => onJoin(link, dest))) onClose()
   }
 </script>
 
-<div
-  role="dialog"
-  aria-modal="true"
-  aria-label="Add a shared folder"
-  data-testid="add-share-dialog"
-  class="fixed inset-0 z-20 flex items-center justify-center bg-neutral/40"
+<Dialog
+  title="Add a shared folder"
+  description="Paste a share link and pick where it lives in this vault. The folder must be new or empty — it fills with the shared content and stays in sync alongside your local notes."
+  testid="add-share-dialog"
+  {onClose}
 >
-  <div class="w-96 rounded border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
-    <h2 class="text-sm font-semibold">Add a shared folder</h2>
-    <p class="mt-1 text-xs text-base-content/70">
-      Paste a share link and pick where it lives in this vault. The folder must be new or empty —
-      it fills with the shared content and stays in sync alongside your local notes.
-    </p>
-
-    <label class="mt-3 block">
-      <span class="text-[10px] font-semibold tracking-wide text-base-content/60 uppercase">Share link</span>
-      <textarea
-        data-testid="add-share-link"
-        bind:value={link}
-        rows="2"
+  <!-- novalidate: the schema is the validator; the browser's own bubbles
+       would pre-empt it and never fire submit for an empty required field. -->
+  <form
+    class="space-y-3"
+    novalidate
+    onsubmit={(e) => {
+      e.preventDefault()
+      void join()
+    }}
+  >
+    <Field name="link" errors={form.errorsFor('link')} required>
+      <TextControl
+        label="Share link"
+        multiline
+        rows={2}
+        mono
+        bind:value={form.data.link}
+        onblur={() => form.touch('link')}
         placeholder="editor1:…"
-        class="mt-0.5 w-full rounded border border-base-300 px-2 py-1 font-mono text-[11px] focus:border-primary focus:outline-none"
-      ></textarea>
-    </label>
+        testid="add-share-link"
+        class="text-[11px]"
+      />
+      <FieldErrors />
+    </Field>
 
-    <label class="mt-2 block">
-      <span class="text-[10px] font-semibold tracking-wide text-base-content/60 uppercase">
-        Destination folder
-      </span>
-      <input
-        data-testid="add-share-dest"
-        bind:value={dest}
+    <Field name="dest" errors={form.errorsFor('dest')} required>
+      <TextControl
+        label="Destination folder"
+        mono
+        bind:value={form.data.dest}
+        onblur={() => form.touch('dest')}
         list="add-share-dirs"
         placeholder="e.g. shared/team"
-        class="mt-0.5 w-full rounded border border-base-300 px-2 py-1 font-mono text-xs focus:border-primary focus:outline-none"
+        testid="add-share-dest"
+        class="text-xs"
       />
       <datalist id="add-share-dirs">
         {#each dirs as d (d)}<option value={d}></option>{/each}
       </datalist>
-    </label>
+      <Description>A new folder, or an existing empty one.</Description>
+      <FieldErrors />
+    </Field>
 
-    {#if error}
-      <p class="mt-2 text-xs text-error" data-testid="add-share-error">{error}</p>
+    {#if form.formError}
+      <p class="text-xs text-error" role="alert" data-testid="add-share-error">{form.formError}</p>
     {/if}
 
-    <div class="mt-3 flex justify-end gap-2">
+    <div class="flex justify-end gap-2">
       <button
+        type="button"
         data-testid="add-share-cancel"
         onclick={onClose}
         class="rounded border border-base-300 px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200"
@@ -86,13 +95,13 @@
         Cancel
       </button>
       <button
+        type="submit"
         data-testid="add-share-join"
-        disabled={!ready || busy}
-        onclick={() => void join()}
+        disabled={form.busy}
         class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
       >
-        {busy ? 'Joining…' : 'Join into this vault'}
+        {form.busy ? 'Joining…' : 'Join into this vault'}
       </button>
     </div>
-  </div>
-</div>
+  </form>
+</Dialog>

@@ -10,7 +10,7 @@
    * loading state. That absence is the feature (parent R4.1).
    */
   import type { Snippet } from 'svelte'
-  import Modal from './Modal.svelte'
+  import Dialog from '../ui/Dialog.svelte'
 
   export interface PaletteRow {
     /** Stable key AND what Enter acts on. */
@@ -111,7 +111,16 @@
   }
 </script>
 
-<Modal layer="palette" align="top" label={placeholder} {testid} {width} {onClose}>
+<Dialog
+  layer="palette"
+  align="top"
+  title={placeholder}
+  hideTitle
+  flush
+  {testid}
+  width={width === 'lg' ? 'xl' : 'md'}
+  {onClose}
+>
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div onkeydown={onKeydown} role="none">
     <input
@@ -123,11 +132,11 @@
       autocomplete="off"
       spellcheck="false"
       class="w-full border-b border-base-300 bg-transparent px-4 py-3 text-sm text-base-content
-        placeholder:text-base-content/40 focus:outline-none"
+        placeholder:text-base-content/70 focus:outline-none"
     />
 
     {#if rows.length === 0}
-      <p data-testid="{testid}-empty" class="px-4 py-6 text-center text-xs text-base-content/60">
+      <p data-testid="{testid}-empty" class="px-4 py-6 text-center text-xs text-base-content/70">
         {empty ?? 'No matches'}
       </p>
     {:else}
@@ -155,13 +164,13 @@
                       >{:else}{seg.text}{/if}{/each}
                 </span>
                 {#if row.hint}
-                  <span class="shrink-0 font-ed-mono text-[10px] text-base-content/50"
+                  <span class="shrink-0 font-ed-mono text-[10px] text-base-content/70"
                     >{row.hint}</span
                   >
                 {/if}
               </span>
               {#if row.subtitle}
-                <span class="truncate text-xs text-base-content/60">{row.subtitle}</span>
+                <span class="truncate text-xs text-base-content/70">{row.subtitle}</span>
               {/if}
               {#each row.detail ?? [] as line}
                 <span class="truncate font-ed-mono text-[11px] text-base-content/70">
@@ -177,9 +186,9 @@
     {/if}
 
     {#if footer}
-      <div class="border-t border-base-300 px-4 py-2 text-[11px] text-base-content/50">
+      <div class="border-t border-base-300 px-4 py-2 text-[11px] text-base-content/70">
         {@render footer()}
       </div>
     {/if}
   </div>
-</Modal>
+</Dialog>

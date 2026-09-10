@@ -48,6 +48,7 @@
   import { NavHistory } from './lib/nav-history.js'
   import { touchPath } from './lib/recent.js'
   import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
+  import Toaster from './lib/ui/Toaster.svelte'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
@@ -629,7 +630,7 @@
   />
 {:else if view === 'connecting' || !workspace}
   <main
-    class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/60"
+    class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/70"
     data-testid="connecting"
   >
     <span>connecting…</span>
@@ -646,6 +647,8 @@
 {:else}
   <div class="flex h-screen flex-col bg-base-100 text-base-content">
     <header class="flex items-center gap-4 border-b border-base-300 bg-base-100 px-4 py-2">
+      <!-- The page's one h1: the vault. U2's breadcrumb makes it visible. -->
+      <h1 class="sr-only">{currentVaultName}</h1>
       <VaultSwitcher
         current={{ room: workspace.room, name: currentVaultName }}
         {vaults}
@@ -655,7 +658,7 @@
           view = 'manager'
         }}
       />
-      <span class="text-xs text-base-content/40">{workspace.ui.shared ? 'shared' : 'local'}</span>
+      <span class="text-xs text-base-content/70">{workspace.ui.shared ? 'shared' : 'local'}</span>
       <div data-testid="presence" class="flex items-center gap-2 text-xs text-base-content/70">
         {#each workspace.ui.presence as name (name)}
           <span class="rounded-full bg-base-200 px-2 py-0.5">{name}</span>
@@ -695,12 +698,12 @@
           data-testid="open-settings"
           onclick={() => (settingsOpen = true)}
           aria-label="Settings"
-          class="rounded px-2 py-1 text-sm text-base-content/60 hover:bg-base-200"
+          class="rounded px-2 py-1 text-sm text-base-content/70 hover:bg-base-200"
         >
           ⚙
         </button>
         {#if selectedPath}
-          <span data-testid="word-count" class="text-xs tabular-nums text-base-content/50">
+          <span data-testid="word-count" class="text-xs tabular-nums text-base-content/70">
             {wordCount}
             {wordCount === 1 ? 'word' : 'words'}
           </span>
@@ -737,7 +740,7 @@
             />
           {/key}
         {:else}
-          <div class="flex h-full items-center justify-center text-sm text-base-content/40">
+          <div class="flex h-full items-center justify-center text-sm text-base-content/70">
             select a file to start editing
           </div>
         {/if}
@@ -857,6 +860,8 @@
     <DevtoolsPanel {workspace} />
   {/if}
 {/if}
+
+<Toaster />
 
 {#if settingsOpen}
   <SettingsPanel

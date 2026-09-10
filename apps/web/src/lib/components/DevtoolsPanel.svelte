@@ -50,7 +50,7 @@
 >
   <header class="flex items-center gap-3 px-3 py-1">
     <h2 class="font-semibold tracking-wide text-warning uppercase">Sync devtools</h2>
-    <span class="truncate text-base-content/60">{selected ?? 'no file selected'}</span>
+    <span class="truncate text-base-content/70">{selected ?? 'no file selected'}</span>
     <div class="ml-auto flex items-center gap-2">
       <button
         data-testid="devtools-refresh"
@@ -75,13 +75,13 @@
       {#if insp && record}
         <div class="grid grid-cols-2 gap-x-6 gap-y-0.5 md:grid-cols-3">
           <div>
-            <h3 class="mt-1 font-semibold text-base-content/60">record → pill: {pillStatus(record)}</h3>
+            <h3 class="mt-1 font-semibold text-base-content/70">record → pill: {pillStatus(record)}</h3>
             <div data-testid="devtools-record">
               connected {record.connected} · synced {record.synced}<br />
               pendingLocal {record.pendingLocal} · diskMatchesCrdt {record.diskMatchesCrdt}<br />
               diverged {record.diverged} · provider {insp.providerAttached ? 'attached' : 'none'}
             </div>
-            <h3 class="mt-2 font-semibold text-base-content/60">mount</h3>
+            <h3 class="mt-2 font-semibold text-base-content/70">mount</h3>
             <div>
               room <span class="select-all">{insp.mount.room.slice(0, 8)}…</span> at
               '{insp.mount.path || '/'}' · guid
@@ -89,7 +89,7 @@
             </div>
           </div>
           <div>
-            <h3 class="mt-1 font-semibold text-base-content/60">
+            <h3 class="mt-1 font-semibold text-base-content/70">
               disk ↔ crdt {insp.doc?.equalsLca === true
                 ? '· heads equal'
                 : insp.doc?.equalsLca === false
@@ -102,7 +102,7 @@
               {insp.lca?.baseTextLength ?? '—'}ch · doc {insp.doc?.textLength ?? '—'}ch<br />
               eol {insp.lca?.eol ?? '—'} · bom {insp.lca?.bom ?? '—'}
             </div>
-            <h3 class="mt-2 font-semibold text-base-content/60">doc blob</h3>
+            <h3 class="mt-2 font-semibold text-base-content/70">doc blob</h3>
             <div data-testid="devtools-blob">
               {insp.blob
                 ? `${insp.blob.present ? `${insp.blob.bytes}b` : 'absent'} · flushed ${age(insp.blob.lastFlushAt)}`
@@ -110,18 +110,18 @@
             </div>
           </div>
           <div>
-            <h3 class="mt-1 font-semibold text-base-content/60">journal ({insp.journal.count})</h3>
+            <h3 class="mt-1 font-semibold text-base-content/70">journal ({insp.journal.count})</h3>
             <ul data-testid="devtools-journal">
               {#each insp.journal.recent as e, i (i)}
                 <li>{new Date(e.at).toISOString().slice(11, 19)} · {e.bytes}b</li>
               {:else}
-                <li class="text-base-content/40">no pre-images yet</li>
+                <li class="text-base-content/70">no pre-images yet</li>
               {/each}
             </ul>
           </div>
         </div>
       {:else}
-        <p class="py-1 text-base-content/60">Select a text file to inspect its disk ↔ CRDT state.</p>
+        <p class="py-1 text-base-content/70">Select a text file to inspect its disk ↔ CRDT state.</p>
       {/if}
 
       <footer

@@ -25,6 +25,19 @@ if [ -n "$violations" ]; then
   echo "$violations" >&2
   exit 1
 fi
+# Contrast floor (chrome-shaping R1, the axe gate): `text-base-content` at 60%
+# opacity or less measures under 4.5:1 on the light theme (/60 → 4.19:1 on
+# white, /40 → 2.41:1), so muted text is /70 at the least. A control that is
+# genuinely inactive (WCAG 1.4.3 exempts it) marks its line `contrast-exempt`.
+floor=$(grep -rnE 'text-base-content/[1-6]0\b' apps/web/src libs/editor/src --include='*.svelte' 2>/dev/null \
+  | grep -v 'contrast-exempt' \
+  | grep -vE ':[0-9]+: *(\*|//|<!--)' \
+  || true)
+if [ -n "$floor" ]; then
+  echo "Muted text below the contrast floor — use text-base-content/70 or higher (see .claude/skills/ui-development):" >&2
+  echo "$floor" >&2
+  exit 1
+fi
 # Second gate: the token contract must not accumulate tokens nothing reads.
 # `libs/ui/src/styles/tokens/_contract.css` is a PUBLISHED contract — a theme
 # author writes against it — so a token in there that no consumer resolves is a

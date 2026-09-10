@@ -26,9 +26,26 @@ This project uses:
 - **Svelte 5** – runes-based reactivity (`$props`, `$state`, `$derived`, `$effect`, etc.).
 - **Tailwind CSS v4** – utility-first CSS, CSS-first configuration (`@theme`, `@plugin`, `@layer`).
 - **DaisyUI v5** – standard CSS components, `dui-` prefixed (the Edible convention). Adopted in slice V2a.
+- **Melt UI** (`@melt-ui/svelte` 0.86 builders + the `@melt-ui/pp` preprocessor, as Edible) – every overlay, menu, tooltip and tab list. Adopted in chrome-shaping slice U1.
+- **lucide** (`@lucide/svelte`) – icons. Always `aria-hidden="true"`, always beside a label (see `IconButton`).
+- **zod** – form schemas; validation state via `createForm` (below). **Not Superforms**: it is built for SvelteKit form actions and this app has none (`plans/chrome-shaping.md` Fork 1).
 - **CodeMirror 6** – the editor surface (see the integration pattern below).
 
-**Melt UI is still not a dependency** — adopt it when a slice actually needs a complex headless primitive; don't add it speculatively.
+### The primitives — `apps/web/src/lib/ui/` (read before building any chrome)
+
+| Primitive | Use it for | Never |
+|---|---|---|
+| `Dialog` | every overlay: scrim, z-scale, portal, focus trap + restore, Escape, click-outside, `aria-labelledby`/`describedby` from `title`/`description` | a hand-rolled `fixed inset-0` |
+| `DropdownMenu` + `MenuItem` + `MenuSeparator` | any list of actions behind a trigger — arrows, Home/End, typeahead, Escape, focus back on the trigger | a `role="menu"` div with an `onclick` |
+| `Tooltip` | a label on hover **and keyboard focus**; the child spreads the trigger attrs itself (`focus` does not bubble) | `title=` as the only label |
+| `IconButton` | an icon-only control: `aria-label` + tooltip from one `label`; `showLabel` for rail rows | an `<button>` with only an SVG in it |
+| `Tabs` | one tab stop, arrows move, only the active panel in the DOM | a row of buttons toggling `{#if}`s |
+| `Toaster` + `toast()` | announcing a notice without stealing focus (`role=status`, polite) | an inline error string in the header |
+| `createForm` + `Field` / `TextControl` / `CheckControl` / `FieldErrors` / `Description` | any form with a rule in it — the field wires `aria-invalid`, `aria-required` and `aria-describedby` (description + errors) exactly as Edible's `form-field` builder does | inputs with ad-hoc `error` spans |
+
+**Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
+
+**Component tests** live beside the primitive (`Dialog.test.ts`), start with `// @vitest-environment jsdom`, drive through `@testing-library/svelte` + `user-event`, and assert roles, names, focus and keys — never internals. A stateful primitive gets a harness in `src/lib/ui/test-harness/`. **The axe gate** is `apps/web/e2e/a11y.spec.ts`: it fails the e2e run on any violation, on every surface it opens; do not switch a rule off to pass it — list the reason and the slice that lifts it.
 
 **Where things live**: `libs/ui` (tokens + themes, CSS only), `libs/editor`
 (the CM6 surface and its theme), `libs/editor-lang` (markdown language
@@ -55,11 +72,19 @@ Storybook is not set up; add it later if needed.
   `border-blue-500`, `bg-black/30`. `scripts/check-design-tokens.sh` fails the
   build on them. A single one makes a panel ignore the theme, and it is
   invisible until someone switches to dark.
+- **Muted text is `text-base-content/70` at the least — the contrast floor.**
+  `/60` measures 4.19:1 on the light theme and `/40` 2.41:1; both fail WCAG AA
+  and the axe gate. `scripts/check-design-tokens.sh` fails the build below
+  `/70`. Hierarchy comes from size, weight and case, not from fading text.
+  A genuinely inactive control (WCAG 1.4.3 exempts it) marks the line
+  `contrast-exempt`. Likewise **never `text-primary` on a `bg-primary/N`
+  tint** (3.8:1): a solid chip is `bg-primary text-primary-content` — the
+  pairs DaisyUI guarantees — and a tinted row keeps body ink.
 - **Never put a literal colour in a CM6 theme object.** `EditorView.theme()`
   injects one global stylesheet that never re-runs; use `var(--ed-*)`.
-- **Never re-implement an overlay.** Use `Modal.svelte` (scrim, z-scale,
-  Escape, backdrop click, focus trap + restore) and `Palette.svelte` for
-  anything list-and-filter shaped.
+- **Never re-implement an overlay.** Use `Dialog` from `src/lib/ui/` (scrim,
+  z-scale, Escape, click-outside, focus trap + restore) and `Palette.svelte`
+  for anything list-and-filter shaped.
 - **The sync tokens are unlayered on purpose.** Don't "tidy" them into a
   `@layer`: that is what stops an injected user theme from repainting the pill.
 - Adding a token means adding it to `libs/ui/src/styles/tokens/_contract.css`
@@ -165,16 +190,17 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
   - Use the CSS-first configuration with `@theme` and other modern Tailwind features.
   - `@theme inline` is mandatory for any token whose value is another `var()`.
   - Avoid bespoke inline styles when utilities suffice.
-- **Accessibility**:
+- **Accessibility** (the standard is Edible's; the gate is axe):
   - Use semantic elements and roles:
-    - Buttons and links with proper roles and labels.
-    - Dialogs, alerts, and forms with appropriate aria attributes (the divergence-review UI is a dialog; treat it as one).
+    - Buttons and links with proper roles and labels; icon-only controls through `IconButton`.
+    - Dialogs, alerts, menus, tabs and forms through the `src/lib/ui/` primitives — they carry the ARIA.
   - Ensure keyboard navigation works:
-    - Focus is visible and logical.
+    - Focus is visible (`focus-visible:outline-2 focus-visible:outline-primary`) and logical.
     - No keyboard traps (mind the CM6 boundary — Escape should be able to leave the editor).
   - This directly supports:
     - Screen-reader usage.
     - Automated tests that rely on `getByRole` and `getByLabelText`.
+    - The `a11y.spec.ts` gate, which runs axe on every surface it opens.
 
 ---
 
@@ -183,6 +209,7 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
 Key UI locations in this repo:
 
 - **Svelte 5 app**: `apps/web` (hosted by the `apps/desktop` Tauri shell)
+- **Shell primitives**: `apps/web/src/lib/ui/` (Melt-backed Dialog / menus / Tooltip / IconButton / Tabs / Toaster / form fields)
 - **Editor wrapper + CM6 integration**: `libs/editor` (vendored y-codemirror.next lives with it)
 - **Sync provider and sync records**: `libs/sync`
 - **Ground truth for UI decisions**: `/plans/shaping.md` (D3 editor, D11 sync state) and `/plans/slices.md` (V1 UI affordances)

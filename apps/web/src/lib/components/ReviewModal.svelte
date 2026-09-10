@@ -4,6 +4,7 @@
     tryCleanMerge,
     type DivergenceReview,
   } from '@editor/vault'
+  import Dialog from '../ui/Dialog.svelte'
 
   interface Props {
     review: DivergenceReview
@@ -38,20 +39,20 @@
   }
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-neutral/50 p-4">
-  <div
-    data-testid="review-modal"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Divergence review: {review.path}"
-    class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg bg-base-100 shadow-xl"
-  >
-    <header class="border-b border-base-300 px-4 py-3">
-      <h2 class="text-sm font-semibold text-base-content">Divergence review — {review.path}</h2>
-      <p class="mt-0.5 text-xs text-base-content/60">
-        reason: {review.reason}. Nothing is written to disk until you resolve.
-      </p>
-    </header>
+<!-- A review must be RESOLVED, never dismissed: no Escape, no scrim click.
+     Nothing is written to disk while it is open. -->
+<Dialog
+  title="Divergence review — {review.path}"
+  description="reason: {review.reason}. Nothing is written to disk until you resolve."
+  closeOnEscape={false}
+  closeOnOutsideClick={false}
+  layer="review"
+  width="lg"
+  flush
+  testid="review-modal"
+  onClose={() => {}}
+>
+  <div class="flex min-h-0 flex-col border-t border-base-300">
 
     {#if vanished}
       <div class="flex-1 overflow-y-auto px-4 py-3">
@@ -153,4 +154,4 @@
     </footer>
     {/if}
   </div>
-</div>
+</Dialog>

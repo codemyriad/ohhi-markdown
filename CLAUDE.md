@@ -18,7 +18,9 @@ Rush monorepo (same conventions as the Edible repo). Packages are created per-sl
 
 Packages beyond V1's set, created by their slices: `libs/workspace` (M1),
 `libs/ui` (V2a — design tokens + themes), `libs/index` (V2b — the derived
-index), `libs/editor-lang` (V2c — wikilink grammar).
+index), `libs/editor-lang` (V2c — wikilink grammar). The shell's component
+primitives (Melt UI + lucide: `Dialog`, menus, `Tooltip`, `IconButton`,
+`Tabs`, `Toaster`, form fields) live in `apps/web/src/lib/ui/` (chrome U1).
 
 Toolchain: Rush 5.153.0, pnpm 10.17.0, Node 22.12 (`.nvmrc`). Use `rush install` / `rushx <script>`; see `.claude/skills/monorepo-rush`.
 
@@ -30,7 +32,7 @@ Toolchain: Rush 5.153.0, pnpm 10.17.0, Node 22.12 (`.nvmrc`). Use `rush install`
 4. **Sync state never lies.** The pill is a pure `f(syncRecord)`; green requires durable (fsynced) relay ack. Tested under partition in the harness.
 5. **Injected clock/scheduler in all Editor-owned sync, reconciler and index code** (lint-enforced across `libs/sync`, `libs/vault`, `libs/index`; a documented `clock-exempt` marker covers diagnostics that schedule nothing) — deterministic simulation is the foundation of the test harness.
 6. **Collab correctness is tested, not hoped:** L0 fast-check model tests, L1 reconciler fuzz (memfs, `fuzz-crashers/` corpus), L2 two-context Playwright smoke. See `.claude/skills/testing`.
-7. **The UI renders through design tokens, never raw palette utilities.** One token layer drives the Svelte chrome and the CodeMirror surface alike; the sync-honesty tokens are unlayered so no user theme can repaint the pill (golden rule 4, expressed in the cascade). `scripts/check-design-tokens.sh` is a build gate. See `docs/theming.md`.
+7. **The UI renders through design tokens, never raw palette utilities.** One token layer drives the Svelte chrome and the CodeMirror surface alike; the sync-honesty tokens are unlayered so no user theme can repaint the pill (golden rule 4, expressed in the cascade). `scripts/check-design-tokens.sh` is a build gate, and `apps/web/e2e/a11y.spec.ts` (axe over every shell surface) gates accessibility the same way — no overlay, menu or icon control outside `apps/web/src/lib/ui/`. See `docs/theming.md` and `.claude/skills/ui-development`.
 8. **The index is derived, never a system of record.** Droppable by construction: losing it costs a rebuild, never data. One writer path, and every query is Promise-returning + paged so the SQLite backend behind `v2-shaping.md` Fork 1's trigger stays a swap.
 
 ## Skills

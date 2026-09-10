@@ -60,14 +60,14 @@
 </script>
 
 <div data-testid="token-manager" class="mt-2 border-t border-base-300 pt-2">
-  <h3 class="text-[10px] font-semibold tracking-wide text-base-content/60 uppercase">Tokens</h3>
+  <h3 class="text-[10px] font-semibold tracking-wide text-base-content/70 uppercase">Tokens</h3>
   {#if error}
     <p class="mt-1 text-xs text-error" data-testid="token-error">{error}</p>
   {/if}
   {#if tokens === null}
-    <p class="mt-1 text-xs text-base-content/40">loading…</p>
+    <p class="mt-1 text-xs text-base-content/70">loading…</p>
   {:else if tokens.length === 0}
-    <p class="mt-1 text-xs text-base-content/40">no tokens for this folder</p>
+    <p class="mt-1 text-xs text-base-content/70">no tokens for this folder</p>
   {:else}
     <ul class="mt-1 space-y-1">
       {#each tokens as t (t.token)}
@@ -76,7 +76,7 @@
             {t.label ?? `${t.token.slice(0, 8)}…`}
           </span>
           {#if t.readOnly}
-            <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/60">read-only</span>
+            <span class="rounded border border-base-300 px-1 text-[10px] text-base-content/70">read-only</span>
           {/if}
           <button
             data-testid="revoke-token:{t.label ?? t.token.slice(0, 8)}"
@@ -97,7 +97,7 @@
       placeholder="label (e.g. laptop, Sam)"
       class="min-w-0 flex-1 rounded border border-base-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
     />
-    <label class="flex items-center gap-1 text-[10px] text-base-content/60">
+    <label class="flex items-center gap-1 text-[10px] text-base-content/70">
       <input type="checkbox" bind:checked={newReadOnly} data-testid="new-token-readonly" />
       read-only
     </label>
@@ -110,7 +110,7 @@
       mint
     </button>
   </div>
-  <p class="mt-1 text-[10px] text-base-content/40">
+  <p class="mt-1 text-[10px] text-base-content/70">
     Revoking blocks new connections; already-connected peers stay until they reconnect.
   </p>
 </div>

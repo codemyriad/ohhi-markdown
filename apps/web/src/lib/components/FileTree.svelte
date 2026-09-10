@@ -206,7 +206,7 @@
   ondragleave={treeLeave}
 >
   <div class="flex items-center gap-1 border-b border-base-300 px-2 py-2">
-    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/60 uppercase">Files</h2>
+    <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/70 uppercase">Files</h2>
     <button
       data-testid="new-file"
       onclick={() => onOp({ type: 'new-file', dir: targetDir })}
@@ -236,7 +236,7 @@
         data-testid="tree-filter:{value}"
         onclick={() => (filter = value)}
         class="rounded px-1.5 py-0.5 text-[10px] font-medium
-          {filter === value ? 'bg-primary/15 text-primary' : 'text-base-content/60 hover:bg-base-200'}"
+          {filter === value ? 'bg-primary text-primary-content' : 'text-base-content/70 hover:bg-base-200'}"
       >
         {label}
       </button>
@@ -263,12 +263,12 @@
           style="padding-left: {8 + depth * 14}px"
           class="flex w-full items-center gap-1 py-1 pr-3 text-left text-sm
             {dropDir === node.path
-            ? 'inset-ring-2 inset-ring-primary bg-primary/10 text-primary'
+            ? 'inset-ring-2 inset-ring-primary bg-primary/10 text-base-content'
             : contextDir === node.path
               ? 'bg-base-200 text-base-content'
               : 'text-base-content/80 hover:bg-base-200'}"
         >
-          <span class="inline-block w-3 text-[10px] text-base-content/40"
+          <span class="inline-block w-3 text-[10px] text-base-content/70"
             >{collapsed.has(node.path) ? '▸' : '▾'}</span
           >
           <span class="truncate font-medium">{node.name}</span>
@@ -279,8 +279,8 @@
               title={m.provenance === 'carved' ? 'shared by you' : 'shared with you'}
               class="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide
                 {m.provenance === 'carved'
-                ? 'bg-primary/15 text-primary'
-                : 'bg-secondary/15 text-secondary'}"
+                ? 'bg-primary text-primary-content'
+                : 'bg-secondary text-secondary-content'}"
             >
               shared
             </span>
@@ -309,7 +309,7 @@
           aria-current={selected === node.path ? 'true' : undefined}
           style="padding-left: {8 + depth * 14 + 12}px"
           class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm
-            {selected === node.path ? 'bg-primary/10 font-medium text-primary' : 'text-base-content hover:bg-base-200'}"
+            {selected === node.path ? 'bg-primary/10 font-medium text-base-content' : 'text-base-content hover:bg-base-200'}"
         >
           <span class="truncate">{node.name}</span>
           {#if records[node.guid]}
@@ -333,12 +333,12 @@
           ondragover={(e) => dragOver(e, containingDir(node.path, 'binary'))}
           ondrop={(e) => drop(e, containingDir(node.path, 'binary'))}
           style="padding-left: {8 + depth * 14 + 12}px"
-          class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-base-content/40"
+          class="flex w-full items-center justify-between gap-2 py-1.5 pr-3 text-sm text-base-content/70"
         >
           <span class="truncate">{node.name}</span>
           <span
             data-testid="binary-badge:{node.path}"
-            class="shrink-0 rounded border border-base-300 px-1.5 py-0.5 text-[10px] tracking-wide text-base-content/60 uppercase"
+            class="shrink-0 rounded border border-base-300 px-1.5 py-0.5 text-[10px] tracking-wide text-base-content/70 uppercase"
           >
             not synced
           </span>

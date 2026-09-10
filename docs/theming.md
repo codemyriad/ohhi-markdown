@@ -67,6 +67,11 @@ Colour is never the only channel: `SyncPill.svelte` also carries a `title`, an
 - **No raw palette utilities in components.** `scripts/check-design-tokens.sh`
   is a build gate: a single `bg-white` makes one panel ignore the theme, and the
   failure is invisible until someone switches to dark.
+- **Muted text stops at `/70`.** The same script fails `text-base-content` at
+  60% opacity or below: on `editor-light`, `/60` is 4.19:1 and `/40` is 2.41:1
+  against 4.5:1 required. `text-primary` on a `bg-primary/15` tint is 3.8:1 for
+  the same reason — solid chips use the `primary`/`primary-content` pair. The
+  axe gate (`apps/web/e2e/a11y.spec.ts`) measures this on the rendered app.
 
 ## Theme switching
 

@@ -125,8 +125,11 @@ Do not add more per-PR Playwright specs for collab paths — push the scenario d
 
 ### Component tests
 
+- Start the file with `// @vitest-environment jsdom` — `apps/web`'s vitest runs on node by default so the pure-module suites keep their own `localStorage` stubs. `src/test-setup.ts` loads the jest-dom matchers and stubs `ResizeObserver` / `scrollIntoView` (jsdom has no layout; Melt's positioning needs neither to be real).
 - Use realistic props and interact via **roles** and `userEvent` rather than reaching into component internals.
-- For event-driven components, wrap the component in a small **test harness** Svelte file, track emitted events via explicit harness state, and assert on that — not on implementation details.
+- For event-driven or stateful components, wrap the component in a small **test harness** Svelte file (`src/lib/ui/test-harness/` for the primitives), track emitted events via explicit harness state, and assert on that — not on implementation details.
+- Reference suite: `apps/web/src/lib/ui/*.test.ts` (Dialog, DropdownMenu, IconButton, Tabs, the form field).
+- Accessibility beyond one component is the **axe gate**, `apps/web/e2e/a11y.spec.ts` — part of `rushx e2e`.
 
 ### Store and pure-function tests
 

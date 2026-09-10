@@ -120,7 +120,7 @@
       onclick={() => pick(item)}
       class="block w-full px-3 py-1.5 text-left text-sm
         {item.disabled
-        ? 'cursor-default text-base-content/35'
+        ? /* contrast-exempt: inactive control */ 'cursor-default text-base-content/35'
         : item.danger
           ? 'text-error hover:bg-error/10 focus:bg-error/10'
           : 'text-base-content/85 hover:bg-base-200 focus:bg-base-200'} focus:outline-none"
@@ -129,7 +129,7 @@
       {#if item.disabled && item.reason}
         <span
           data-testid="tree-menu-reason:{item.action}"
-          class="mt-0.5 block text-[10px] leading-snug text-wrap text-base-content/50"
+          class="mt-0.5 block text-[10px] leading-snug text-wrap text-base-content/70"
         >
           {item.reason}
         </span>

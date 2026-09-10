@@ -70,6 +70,9 @@ export function createMarkdownEditor(
     markdown({ extensions: [WikiLink] }),
     ...wikiLinkExtensions(),
     EditorView.lineWrapping,
+    // CM6 renders the content as role="textbox"; without a name it is an
+    // unlabelled input to assistive tech (and to the axe gate).
+    EditorView.contentAttributes.of({ 'aria-label': 'Note text' }),
     editorTheme(opts.dark ?? false),
   ]
   if (opts.readOnly) {

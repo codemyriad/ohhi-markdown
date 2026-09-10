@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MountInfo } from '../workspace.svelte.js'
+  import Dialog from '../ui/Dialog.svelte'
   import TokenManager from './TokenManager.svelte'
 
   interface Props {
@@ -47,18 +48,8 @@
   }
 </script>
 
-<div
-  role="dialog"
-  aria-modal="true"
-  aria-label="Share folder"
-  data-testid="folder-share-dialog"
-  class="fixed inset-0 z-20 flex items-center justify-center bg-neutral/40"
->
-  <div class="w-96 rounded border border-base-300 bg-base-100 p-4 text-base-content shadow-xl">
-    <h2 class="text-sm font-semibold">
-      Share <span class="font-mono text-primary">{path}</span>
-    </h2>
-
+<Dialog title="Share {path}" width="sm" testid="folder-share-dialog" {onClose}>
+  <div>
     {#if link || mount}
       <p class="mt-2 text-xs text-base-content/70">
         This folder is shared — everything inside it syncs to anyone holding the link. The rest
@@ -116,4 +107,4 @@
       Close
     </button>
   </div>
-</div>
+</Dialog>

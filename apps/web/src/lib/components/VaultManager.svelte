@@ -102,7 +102,7 @@
   {/if}
 
   <label class="mt-6 block">
-    <span class="text-xs font-semibold tracking-wide text-base-content/60 uppercase">Your name</span>
+    <span class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">Your name</span>
     <input
       data-testid="manager-name"
       bind:value={name}
@@ -132,7 +132,7 @@
                   {entry.name}
                   {#if entry.relay}<span class="ml-1 text-xs font-normal text-primary">shared</span>{/if}
                 </span>
-                <span class="block truncate font-mono text-xs text-base-content/60">{sub(entry)}</span>
+                <span class="block truncate font-mono text-xs text-base-content/70">{sub(entry)}</span>
               </button>
               <button
                 data-testid="remove-vault:{entry.room}"
@@ -141,7 +141,7 @@
                 aria-label="Remove {entry.name} from this list"
                 class="shrink-0 rounded px-2 py-1 text-xs {confirmRemove === entry.room
                   ? 'bg-error text-error-content hover:bg-error/90'
-                  : 'text-base-content/40 hover:bg-base-200 hover:text-base-content/80'}"
+                  : 'text-base-content/70 hover:bg-base-200 hover:text-base-content/80'}"
               >
                 {confirmRemove === entry.room ? 'Remove?' : '✕'}
               </button>
@@ -171,7 +171,7 @@
   <section class="mt-8">
     <h2 class="text-sm font-semibold text-base-content">Add a vault</h2>
     {#if isTauri}
-      <p class="mt-1 text-xs text-base-content/60">
+      <p class="mt-1 text-xs text-base-content/70">
         Pick a folder on disk (use the dialog's New Folder to create a fresh vault).
       </p>
       <button
@@ -188,7 +188,7 @@
         Chrome, Edge, or Firefox.
       </p>
     {:else}
-      <p class="mt-1 text-xs text-base-content/60">A new vault stored privately in this browser.</p>
+      <p class="mt-1 text-xs text-base-content/70">A new vault stored privately in this browser.</p>
       <div class="mt-3 flex gap-2">
         <input
           data-testid="new-vault-name"
@@ -214,7 +214,7 @@
   {#if !browserBlocked}
     <section class="mt-8">
       <h2 class="text-sm font-semibold text-base-content">Join a share</h2>
-      <p class="mt-1 text-xs text-base-content/60">
+      <p class="mt-1 text-xs text-base-content/70">
         Paste a share link someone sent you — it opens as a new vault.
       </p>
       <textarea
@@ -234,7 +234,7 @@
       </button>
 
       {#if shares.length > 0}
-        <h3 class="mt-4 text-xs font-semibold tracking-wide text-base-content/60 uppercase">Recent shares</h3>
+        <h3 class="mt-4 text-xs font-semibold tracking-wide text-base-content/70 uppercase">Recent shares</h3>
         <ul class="mt-1 space-y-1">
           {#each shares as share (share.room)}
             <li>
