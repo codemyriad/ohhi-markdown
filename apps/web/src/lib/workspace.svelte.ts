@@ -87,12 +87,21 @@ export interface WorkspaceConfig {
 }
 
 /** A shared subtree of this workspace, for badges/filter/share management. */
+/**
+ * UI-facing mount state (device-link N1). 'needs-token' = a mount whose
+ * stores exist but this device holds no token: a fully functional LOCAL
+ * mount that knows where its room lives — never rendered as "offline"
+ * (spike S10 Q2). 'adopting' / 'absorbing' = the peer-side machines running.
+ */
+export type MountUiStatus = 'active' | 'needs-token' | 'adopting' | 'absorbing'
+
 export interface MountInfo {
   /** Workspace-relative mount root ('' = the whole vault). */
   path: string
   room: string
   provenance: MountProvenance
   link: string | null
+  status: MountUiStatus
 }
 
 export interface WorkspaceUi {
@@ -157,6 +166,13 @@ export interface Workspace {
   resolveVanished(guid: string, action: 'restore' | 'remove'): Promise<void>
   /** Join a share link as a mount at `destPath` (empty/new folder). */
   addShareMount(link: string, destPath: string): Promise<void>
+  /**
+   * Paste a share link for an existing `needs-token` mount at `path` (spike
+   * S10 Q2): stores the token and activates the mount in place — no re-seed.
+   * The link's room must equal the mount's room; otherwise refused with the
+   * reason.
+   */
+  addMountLink(path: string, link: string): Promise<void>
   /** Fold a shared mount back into the vault (files stay, sharing ends). */
   unshare(path: string): Promise<void>
   /** Drop a joined mount; its files stay and become local notes. */
@@ -488,7 +504,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       })
     }
     const relay = desc.relay && token ? { url: desc.relay.url, token } : undefined
-    const info: MountInfo = { path: desc.path, room: desc.room, provenance: desc.provenance, link: null }
+    const info: MountInfo = { path: desc.path, room: desc.room, provenance: desc.provenance, link: null, status: 'active' }
     ui.mounts = [...ui.mounts, info]
     const session = await buildMount({
       room: desc.room,
@@ -567,7 +583,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       addIgnore: (prefix) => ignoreSet.add(prefix),
     })
 
-    const info: MountInfo = { path, room, provenance: 'carved', link: null }
+    const info: MountInfo = { path, room, provenance: 'carved', link: null, status: 'active' }
     ui.mounts = [...ui.mounts, info]
     const session = await buildMount({
       room,
@@ -593,7 +609,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (target.room === cfg.room || ui.mounts.some((m) => m.room === target.room)) {
       throw new Error(getLL().web.workspace.already_joined())
     }
-    const info: MountInfo = { path: dest, room: target.room, provenance: 'joined', link: null }
+    const info: MountInfo = { path: dest, room: target.room, provenance: 'joined', link: null, status: 'active' }
     let added = false
     try {
       const session = await joinMount({
@@ -805,6 +821,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     resolveVanished: (guid, action) =>
       (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
     addShareMount: doJoinMount,
+    addMountLink: async () => {
+      throw new Error('addMountLink: not implemented yet (device-link N1 wave 2)')
+    },
     unshare: doUnshare,
     unmount: doUnmount,
     carveFolder: doCarve,
