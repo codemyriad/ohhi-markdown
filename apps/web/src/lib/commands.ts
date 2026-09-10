@@ -8,7 +8,10 @@
  * properly now is the reason those are cheap later.
  *
  * Bindings default to the ones Chris has actually rebound in Obsidian, so the
- * muscle memory transfers (measured: 17 custom hotkeys in .obsidian/hotkeys.json).
+ * muscle memory transfers (measured: 17 custom hotkeys in .obsidian/hotkeys.json)
+ * — and every one of them is overridable per device (tab-groups R1.3): the
+ * registry merges `config.hotkeys` over the defaults, `null` meaning "no key".
+ * Defaults for everything, then the user's own, is the whole policy.
  *
  * Pure and DOM-free so it is unit-testable without a browser (parent R6): the
  * component layer only calls `matchBinding` with a real KeyboardEvent's fields
@@ -98,12 +101,97 @@ export function formatBinding(binding: string, mac: boolean): string {
   return [...mods.filter(Boolean), key].join('+')
 }
 
+/**
+ * A user's per-device binding overrides: command id → binding, or `null` for
+ * "this command has no key". Persisted in config (`config.hotkeys`), merged
+ * over the defaults by the registry — Obsidian's `hotkeys.json`, R1.3.
+ */
+export type BindingOverrides = Record<string, string | null>
+
+/**
+ * Tolerant read of a stored override map. Anything that is not a parseable
+ * binding string or an explicit `null` is dropped, so a hand-edited config
+ * degrades to "the defaults" rather than to a command nobody can reach and
+ * no screen can explain.
+ */
+export function normalizeOverrides(raw: unknown): BindingOverrides {
+  const out: BindingOverrides = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!id) continue
+    if (value === null) out[id] = null
+    else if (typeof value === 'string' && parseBinding(value)) out[id] = value
+  }
+  return out
+}
+
+/**
+ * The binding a key press describes, for the "record a shortcut" affordance
+ * in Settings — the inverse of `eventMatches`. Null for a press that is only
+ * modifiers (the user is still reaching for the key).
+ *
+ * Off mac there is one Mod, so a held Ctrl is recorded as `Mod`; on mac Cmd
+ * is `Mod` and Ctrl is its own modifier, which is what makes `Ctrl+Mod+Left`
+ * expressible there.
+ */
+export function bindingFromEvent(e: KeyEventLike, mac: boolean): string | null {
+  const key = e.key
+  if (!key || ['Control', 'Meta', 'Shift', 'Alt', 'OS', 'AltGraph', 'Dead'].includes(key)) return null
+  const mod = mac ? e.metaKey : e.ctrlKey
+  const ctrl = mac ? e.ctrlKey : false
+  const parts = [ctrl ? 'Ctrl' : '', mod ? 'Mod' : '', e.altKey ? 'Alt' : '', e.shiftKey ? 'Shift' : '']
+  // A single character is stored lowercase (parseBinding lowercases anyway);
+  // named keys keep their KeyboardEvent spelling so `ArrowLeft` stays legible.
+  return [...parts.filter(Boolean), key.length === 1 ? key.toLowerCase() : key].join('+')
+}
+
+/** One row of the Settings > Hotkeys table: what a command is bound to, and why. */
+export interface CommandBinding {
+  id: string
+  title: string
+  /** Palette/Settings grouping label; '' when the command declares none. */
+  group: string
+  /** The binding the command ships with; '' when it ships unbound. */
+  defaultKeys: string
+  /** `defaultKeys` rendered for a human; '' when it ships unbound. */
+  defaultDisplay: string
+  /** The binding in force, in the `Mod+Shift+K` form; '' when unbound. */
+  keys: string
+  /** `keys` rendered for a human (`⌘⇧P` / `Ctrl+Shift+P`); '' when unbound. */
+  display: string
+  /** True when the user's override — not the default — produced `keys`. */
+  overridden: boolean
+}
+
 export class CommandRegistry {
   private commands = new Map<string, Command>()
+  private overrides: BindingOverrides = {}
+  /** True while Settings is RECORDING a chord: no key may run a command. */
+  private suspended = false
   private readonly mac: boolean
 
   constructor(mac = isMac()) {
     this.mac = mac
+  }
+
+  /**
+   * Replace the user's overrides (R1.3). Tolerant by construction, so the
+   * caller can hand over whatever config holds; `null` means "unbound", an
+   * absent id means "keep the default".
+   */
+  setOverrides(raw: unknown): void {
+    this.overrides = normalizeOverrides(raw)
+  }
+
+  /**
+   * Suspend matching while a binding is being recorded in Settings.
+   *
+   * Global hotkeys are handled in the CAPTURE phase, so the shell sees the
+   * chord before the field the user is pressing it into does — without this,
+   * recording `Mod+W` would close the tab it is being bound to.
+   */
+  setSuspended(on: boolean): void {
+    this.suspended = on
   }
 
   register(...commands: Command[]): void {
@@ -119,25 +207,73 @@ export class CommandRegistry {
     return [...this.commands.values()].filter((c) => !c.when || c.when())
   }
 
+  /** The binding a command ships with, or '' when it ships unbound. */
+  defaultKeys(id: string): string {
+    return this.commands.get(id)?.keys ?? ''
+  }
+
+  /**
+   * The binding in force: the user's override when there is one, else the
+   * default. '' means unbound — either because the command ships without a
+   * key or because the user cleared it (`null`).
+   */
+  effectiveKeys(id: string): string {
+    if (!this.commands.has(id)) return ''
+    const override = this.overrides[id]
+    if (override === null) return ''
+    return override ?? this.defaultKeys(id)
+  }
+
   /** Display binding for a command, or '' when unbound. */
   binding(id: string): string {
-    const keys = this.commands.get(id)?.keys
+    const keys = this.effectiveKeys(id)
     return keys ? formatBinding(keys, this.mac) : ''
+  }
+
+  /**
+   * The binding a key press describes, on THIS registry's platform — the
+   * inverse of `match`, for Settings' "record a shortcut". Keeping it here
+   * means one answer to "are we on a mac" for the whole app.
+   */
+  bindingFor(e: KeyEventLike): string | null {
+    return bindingFromEvent(e, this.mac)
+  }
+
+  /**
+   * Every registered command as a Settings row, in registration order —
+   * INCLUDING commands whose `when` guard is currently false and commands
+   * that ship unbound. A guard says when a command can run, not whether the
+   * user may bind it, and a key you cannot see is a key you cannot change.
+   */
+  bindings(): CommandBinding[] {
+    return [...this.commands.values()].map((c) => ({
+      id: c.id,
+      title: c.title,
+      group: c.group ?? '',
+      defaultKeys: c.keys ?? '',
+      defaultDisplay: c.keys ? formatBinding(c.keys, this.mac) : '',
+      keys: this.effectiveKeys(c.id),
+      display: this.binding(c.id),
+      overridden: c.id in this.overrides,
+    }))
   }
 
   /**
    * The command a key event triggers, or null.
    *
-   * Later registrations win, so a rebind is a re-register rather than a
-   * removal. Guarded commands are skipped, not matched-and-ignored — the key
-   * must fall through to the editor when the command does not apply.
+   * Later registrations win when two commands share a key, so a rebind is a
+   * re-register rather than a removal. Guarded commands are skipped, not
+   * matched-and-ignored — the key must fall through to the editor when the
+   * command does not apply.
    */
   match(e: KeyEventLike): Command | null {
+    if (this.suspended) return null
     let hit: Command | null = null
     for (const command of this.commands.values()) {
-      if (!command.keys) continue
+      const keys = this.effectiveKeys(command.id)
+      if (!keys) continue
       if (command.when && !command.when()) continue
-      const parsed = parseBinding(command.keys)
+      const parsed = parseBinding(keys)
       if (parsed && eventMatches(parsed, e, this.mac)) hit = command
     }
     return hit

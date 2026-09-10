@@ -67,6 +67,26 @@ Origin tags matter downstream: the editor binding ignores its own echoes, the sy
 can distinguish disk-ingested ops in telemetry, and L1 fixtures assert that origin
 `'disk'` transactions never loop back out as spurious disk writes.
 
+## Editor ownership: the open set
+
+`ReconcileContext.openPaths` is the one input that suppresses a row of the matrix: while
+a path is in it, the *CRDT-advanced* case noops (`reconciler.ts`) and the editor's own
+debounced flush is the single writer for that file. The set is a **set of open paths per
+mount**, not one path: since tab groups, N panes can hold N notes and two panes can hold
+the same one (spike S9). `MountSession.setOpenPaths(rels)` takes the whole set each time
+and diffs it — a path that entered runs `VaultSession.markOpen`, a path that left has its
+pending flush debounce cancelled and runs `reconcileClosedDoc` (`markClosed` → reconcile).
+The **last-view rule** falls out of that: two views over one note collapse to one member,
+so nothing closes while any view still holds it, and the last view to leave is the one
+that closes the doc and flushes its bytes. The refcount itself lives in the shell
+(`apps/web/src/lib/workspace.svelte.ts`, `setLiveViews`), which derives it from the pane
+tree and hands each mount its own slice; the reconciler, `MountSession` and the pane model
+each know only their own half. Ownership is rekeyed, never dropped, by a rename
+(`onPathsRenamed` maps the set prefix-wise), is released by a delete before the bytes go,
+and is re-marked after a session restart — the L1 fixture
+`libs/workspace/test/multi-view-lifecycle.test.ts` asserts all four, plus "no edit lost"
+and "no open doc materialized over", for every open/close/rename/delete/unshare ordering.
+
 ## The LCA record and the iron rule
 
 One record per enrolled file, in `lcaStore` — the **durable** app-data store

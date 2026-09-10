@@ -10,6 +10,7 @@ import {
   loadShares,
   loadUser,
   grantsForBundle,
+  hotkeys,
   mergeGrants,
   operatorSecret,
   purgeRooms,
@@ -18,8 +19,10 @@ import {
   roomRelay,
   roomToken,
   roomTokenKind,
+  resetHotkey,
   saveUser,
   setDefaultRelay,
+  setHotkey,
   setOperatorSecret,
   setRoomToken,
   touchVault,
@@ -306,6 +309,43 @@ describe('device-link grants (device-link-shaping A4-B)', () => {
     expect(grantsForBundle()).toEqual(grants)
     // Merging the same bundle twice stores nothing new (idempotent paste).
     expect(mergeGrants(grants)).toEqual([])
+  })
+})
+
+describe('hotkey overrides (tab-groups R1.3)', () => {
+  it('remembers an override and clears one with null', () => {
+    setHotkey('tab.close', 'Mod+Shift+w')
+    setHotkey('nav.back', null)
+    expect(hotkeys()).toEqual({ 'tab.close': 'Mod+Shift+w', 'nav.back': null })
+  })
+
+  it('reset forgets the override, leaving the others alone', () => {
+    setHotkey('tab.close', 'Mod+Shift+w')
+    setHotkey('nav.back', null)
+    resetHotkey('tab.close')
+    expect(hotkeys()).toEqual({ 'nav.back': null })
+    resetHotkey('never.bound')
+    expect(hotkeys()).toEqual({ 'nav.back': null })
+  })
+
+  it('refuses to store a binding no resolver could read', () => {
+    setHotkey('tab.close', 'Hyper+W')
+    expect(hotkeys()).toEqual({})
+  })
+
+  it('reads a config written before hotkeys existed, and a garbage map', () => {
+    expect(hotkeys()).toEqual({})
+    const cfg = loadConfig() as unknown as Record<string, unknown>
+    cfg.hotkeys = { good: 'Mod+g', bad: 'Nope+g', worse: 12 }
+    seed('editor:config', cfg)
+    expect(hotkeys()).toEqual({ good: 'Mod+g' })
+  })
+
+  it('survives alongside the rest of the blob', () => {
+    setDefaultRelay('wss://relay.example')
+    setHotkey('tab.new', 'Mod+t')
+    expect(defaultRelay()).toBe('wss://relay.example')
+    expect(hotkeys()).toEqual({ 'tab.new': 'Mod+t' })
   })
 })
 

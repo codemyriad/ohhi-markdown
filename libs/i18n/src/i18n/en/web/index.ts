@@ -299,6 +299,7 @@ const settings = {
   tabs: {
     general: 'General',
     appearance: 'Appearance',
+    hotkeys: 'Hotkeys',
     sync: 'Sync',
     vaults: 'Vaults & shares',
     developer: 'Developer',
@@ -320,6 +321,30 @@ const settings = {
     custom_help:
       'Reads {path:string} from the open vault. Start from {template:string}; {import_rule:string} and remote {url:string} are stripped, and the sync-status colours cannot be overridden.',
     needs_vault: 'Open a vault first — custom themes live inside it.',
+  },
+  /**
+   * Settings > Hotkeys (tab-groups R1.3): every registered command, the key
+   * in force, and a field to change it. "Mod" is spelled out wherever the
+   * user has to type it — it is the one piece of syntax the field requires.
+   */
+  hotkeys: {
+    intro:
+      'Every command and the key that runs it. Changes apply immediately and stay on this device.',
+    syntax: 'Type a shortcut like {example:string}, or press Record and hit the keys. {mod:string} is Cmd on a Mac and Ctrl everywhere else; leave the field empty to remove the shortcut.',
+    ungrouped: 'Other',
+    none: 'No commands are registered yet.',
+    unbound: 'No shortcut',
+    shortcut_for: 'Shortcut for {command:string}',
+    placeholder: 'Mod+Shift+P',
+    invalid: 'Not a shortcut — use modifiers and one key, like {example:string}.',
+    default_is: 'Default: {binding:string}',
+    default_none: 'No default shortcut',
+    record: 'Record',
+    record_for: 'Record a shortcut for {command:string}',
+    recording: 'Press the keys…',
+    stop_recording: 'Stop recording {command:string}',
+    reset: 'Reset',
+    reset_for: 'Reset {command:string} to its default shortcut',
   },
   sync: {
     relay: 'Default relay',

@@ -142,5 +142,19 @@
     /* Not the ported #9c5335: it sits ~55 units from the diverged red, close
      * enough for a peer's caret to read as a conflict marker. */
     --ed-presence-8: #a8327d;
+
+    /* Tab-group slots (W2): the same eight hues this file already darkens for
+     * headings and links (h6 blue, h3 green, h4 purple, h2 yellow, a deeper
+     * teal, frost3, the accent rust, and presence's magenta), so a chip reads
+     * as part of the theme. Every one clears 3:1 on white and stays clear of
+     * the aurora red. */
+    --ed-group-1: #4c6f8e;
+    --ed-group-2: #6a8a52;
+    --ed-group-3: #8c5f86;
+    --ed-group-4: #a17c2f;
+    --ed-group-5: #2f6f6e;
+    --ed-group-6: #5e81ac;
+    --ed-group-7: #9c5335;
+    --ed-group-8: #a8327d;
   }
 }

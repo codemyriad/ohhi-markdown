@@ -15,7 +15,7 @@ import { EditorView, keymap } from '@codemirror/view'
 import type { Awareness } from 'y-protocols/awareness'
 import type { EngineDoc } from '@editor/sync'
 import { WikiLink, wikiLinkExtensions } from '@editor/editor-lang'
-import { createCollabExtensions, type CollabUser } from './binding.js'
+import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
@@ -34,6 +34,23 @@ export interface MarkdownEditorOptions {
    * array or the caller will churn the compartment on every render.
    */
   extensions?: Extension[]
+  /**
+   * The doc's undo manager, owned by the host so the stack outlives this view
+   * (tab-groups B2: a tab switch destroys the view, not the history). Omit it
+   * and yCollab mints a view-lifetime one, as before.
+   */
+  undoManager?: CollabUndoManager
+}
+
+/**
+ * Where a view was when it went away: enough to put a tab back exactly where
+ * its reader left it (tab-groups B2). Plain data — it is persisted with the
+ * pane tree, so it must survive JSON.
+ */
+export interface EditorResumeState {
+  cursor: { anchor: number; head: number }
+  /** `scrollDOM.scrollTop`, in pixels. */
+  scroll: number
 }
 
 export interface MarkdownEditorHandle {
@@ -48,6 +65,13 @@ export interface MarkdownEditorHandle {
    * changed since the hit was computed) lands at the end rather than throwing.
    */
   reveal(offset: number): void
+  /**
+   * The resume point of this view — read it BEFORE the view is destroyed
+   * (tab-groups B2).
+   */
+  capture(): EditorResumeState
+  /** Put a captured resume point back. Clamped to the current document. */
+  restore(state: EditorResumeState): void
   destroy(): void
 }
 
@@ -60,7 +84,7 @@ export function createMarkdownEditor(
     // this is what actually makes yUndo win over @codemirror/commands' undo.
     // (It also works today only because history() is not installed; do not
     // rely on position alone when adding keymaps — use Prec.high.)
-    ...createCollabExtensions(opts.doc, opts.awareness, opts.user),
+    ...createCollabExtensions(opts.doc, opts.awareness, opts.user, opts.undoManager),
     hostCompartment.of(opts.extensions ?? []),
     keymap.of(defaultKeymap),
     // Wikilinks are part of the language here, not an optional extra: 29% of
@@ -101,6 +125,28 @@ export function createMarkdownEditor(
         scrollIntoView: false,
       })
       view.focus()
+    },
+    capture() {
+      const { anchor, head } = view.state.selection.main
+      return { cursor: { anchor, head }, scroll: view.scrollDOM.scrollTop }
+    },
+    restore(state) {
+      const max = view.state.doc.length
+      const clamp = (n: number): number => Math.max(0, Math.min(n, max))
+      view.dispatch({
+        selection: { anchor: clamp(state.cursor.anchor), head: clamp(state.cursor.head) },
+        // The saved scroll is the resume point, not the caret: scrolling to
+        // the selection here would fight the assignment below.
+        scrollIntoView: false,
+      })
+      // A view mounted this tick has no measured height yet, so assigning
+      // scrollTop now would clamp to 0. requestMeasure runs after layout.
+      view.requestMeasure({
+        read: () => state.scroll,
+        write: (top) => {
+          view.scrollDOM.scrollTop = top
+        },
+      })
     },
     destroy: () => view.destroy(),
   }

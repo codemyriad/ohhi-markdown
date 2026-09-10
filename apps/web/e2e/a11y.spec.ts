@@ -78,6 +78,12 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await page.getByTestId('open-settings').click()
   await expect(page.getByTestId('settings-panel')).toBeVisible()
   await expectAccessible(page, 'settings')
+  // Only the open tab's panel is in the DOM, so the tab with the most controls
+  // per row (Hotkeys: a field, a toggle and a reset for every command) has to
+  // be opened to be scanned at all.
+  await page.getByTestId('settings-tab:hotkeys').click()
+  await expect(page.getByTestId('settings-hotkeys')).toBeVisible()
+  await expectAccessible(page, 'settings hotkeys')
   await page.getByTestId('settings-close').click()
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
 

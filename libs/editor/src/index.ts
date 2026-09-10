@@ -5,9 +5,15 @@
  * ('@editor/editor/src/MarkdownEditor.svelte') so this entry stays pure TS
  * and `tsc --noEmit` needs no Svelte awareness.
  */
-export { createCollabExtensions, type CollabUser } from './binding.js'
+export {
+  createCollabExtensions,
+  createUndoManager,
+  type CollabUndoManager,
+  type CollabUser,
+} from './binding.js'
 export {
   createMarkdownEditor,
+  type EditorResumeState,
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
 } from './markdown-editor.js'

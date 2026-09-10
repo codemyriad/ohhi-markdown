@@ -15,6 +15,13 @@
     rows?: number
     /** Monospace: links, URLs, paths. */
     mono?: boolean
+    /**
+     * Keep the label for assistive tech but not on screen — for a control in
+     * a dense row that is already titled by the row itself (Settings >
+     * Hotkeys). The label still exists and still names the control; only its
+     * pixels go away.
+     */
+    hideLabel?: boolean
     testid?: string
   }
 
@@ -24,6 +31,7 @@
     multiline = false,
     rows = 2,
     mono = false,
+    hideLabel = false,
     testid,
     class: klass = '',
     ...rest
@@ -40,7 +48,12 @@
   )
 </script>
 
-<label for={attrs.id} class="block text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+<label
+  for={attrs.id}
+  class={hideLabel
+    ? 'sr-only'
+    : 'block text-xs font-semibold tracking-wide text-base-content/70 uppercase'}
+>
   {label}{#if field.required}<span aria-hidden="true" class="text-error"> *</span>{/if}
 </label>
 {#if multiline}

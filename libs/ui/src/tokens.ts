@@ -29,6 +29,15 @@ export const THEME_LABELS: Record<BuiltinTheme, string> = {
 export const PRESENCE_SLOTS = 8
 
 /**
+ * How many tab-group slots a theme defines (--ed-group-1 … -8).
+ *
+ * A group's `color` is this slot NUMBER, never a hex: the chip paints itself
+ * with `var(--ed-group-N)` so switching theme retints every group, and a
+ * device-local group survives a theme change with its identity intact.
+ */
+export const GROUP_SLOTS = 8
+
+/**
  * Read a custom property off an element (default: <html>), trimmed.
  * Returns '' when the property is unset or when there is no DOM.
  */

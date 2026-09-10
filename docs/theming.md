@@ -14,7 +14,7 @@ Everything hangs off `data-theme` on `<html>`.
 | Band | What | Owner | Cascade |
 |---|---|---|---|
 | **A — Chrome** | DaisyUI v5 semantic tokens: `--color-base-100/200/300`, `--color-base-content`, `primary`/`secondary`/`accent`/`neutral`, `info`/`success`/`warning`/`error` (each with a `-content` pair), `--radius-*`, `--size-*`, `--border`, `--depth`, `--noise` | `@plugin "daisyui/theme"` in `libs/ui/src/styles/tokens/*.css` | DaisyUI's own layers |
-| **B — Editor** | `--ed-*`: surface/ink/measure, h1–h6, emphasis, code + 9 syntax slots, links and wikilinks, tags, frontmatter, block furniture, selection/caret/gutter, peer-cursor chrome, `--ed-presence-1..8` | `libs/ui/src/styles/tokens/` | `@layer editor.tokens`, overridable by `@layer editor.user` |
+| **B — Editor** | `--ed-*`: surface/ink/measure, h1–h6, emphasis, code + 9 syntax slots, links and wikilinks, tags, frontmatter, block furniture, selection/caret/gutter, peer-cursor chrome, `--ed-presence-1..8`, `--ed-group-1..8` | `libs/ui/src/styles/tokens/` | `@layer editor.tokens`, overridable by `@layer editor.user` |
 | **C — Honesty** | `--ed-sync-ok` / `-pending` / `-diverged` / `-offline` (+ `-fg`) | `libs/ui/src/styles/sync-tokens.css` | **UNLAYERED** |
 
 **Band C is defended twice, because once is not enough.** Cascade layers only
@@ -72,6 +72,28 @@ Colour is never the only channel: `SyncPill.svelte` also carries a `title`, an
   against 4.5:1 required. `text-primary` on a `bg-primary/15` tint is 3.8:1 for
   the same reason — solid chips use the `primary`/`primary-content` pair. The
   axe gate (`apps/web/e2e/a11y.spec.ts`) measures this on the rendered app.
+
+## Group colours (`--ed-group-1..8`)
+
+The eight colours a **tab group** can be painted in (W2, tab-groups-shaping
+Fork 5-B): a chip's dot, its tint, and the 2 px cap over its tabs. A group
+stores the slot *number*, never a hex, so switching theme retints every group
+and a device-local group keeps its identity.
+
+**Group colour is taste, not honesty** — a user theme may retint the whole
+band, and two people's "CS reading" groups being different colours costs
+nothing. Three things are not taste, and `theme-contract.test.ts` asserts
+them: the band exists in every theme, the eight are far enough apart to tell
+apart, and none of them is the **diverged red** — the same reservation the
+presence band carries, because red means "your document diverged" in every
+Editor theme. Each slot also clears 3:1 against `--color-base-100`; the dot is
+a non-text graphic and WCAG 1.4.11 is the bar.
+
+Separation from `--ed-sync-ok` / `-pending` / `-offline` is deliberately *not*
+asserted: in the Nord themes the palette's own green and yellow **are** its
+sync ok and pending (as they already are for `--ed-presence-2/4`), and a chip
+that carries the name you gave it, in the tab strip, is not the pill in the
+status bar.
 
 ## Theme switching
 
@@ -187,6 +209,7 @@ Everything else is Nord's own value. These are not port bugs.
 | both | `--ed-wikilink-unresolved` | (Nord has none) | dark `#a888a0`, light `#9a5b3d` | Same reservation, same test. Nord contains no WARM colour that is both near its link orange and clear of its aurora red, so dark goes cool. |
 | nord-dark | `--ed-marker` | `#8fbcbb` (frost0) | `#4c566a` (nord3) | `--ed-marker` is the dimmed syntax mark (`#`, `*`, `>`), not the ordered-list number it was first mapped from. |
 | nord-dark | `--ed-presence-8` | `#d08770` | `#cbb69a` | Nord's orange sits ~42 units from its red — too close under the rule above. Nord does not contain eight hues that all clear the red. |
+| nord-dark | `--ed-group-7` | `#d08770` | `#d08770` (kept) | The same orange stays in the GROUP band. A presence colour is an unlabelled 2 px caret that can appear anywhere in the text; a group colour always arrives with the group's name, so the floor there is "not the conflict colour" (42 units) rather than presence's "nowhere near it" (60). |
 | nord-dark | `--ed-sync-diverged-fg` | `#2e3440` | `#140a0c` | Nord's darkest background reaches only 3.05:1 on aurora red; "diverged" is the label that most needs reading. |
 | nord-light | `--ed-code-fg` | `#88c0d0` (1.9:1) | `#3b6e7d` (5.7:1) | Unreadable on white. |
 | nord-light | `--ed-h1` … `--ed-h6` | aurora hues (h2 was 1.6:1) | darkened, hue preserved | Same. |

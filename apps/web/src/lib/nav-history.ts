@@ -5,11 +5,11 @@
  * without a way back is a trap rather than a feature.
  *
  * History holds PATHS, not guids, because it is a record of "where I was
- * looking", and a path is what the user recognises. A rename therefore leaves
- * a stale entry — handled by dropping entries that no longer exist rather than
- * by tracking identity (spike S9-Q4 revisits this when panes each own a
- * history; guids would break the other way, since a cross-mount move mints a
- * fresh one).
+ * looking", and a path is what the user recognises. Guids would break the
+ * other way round: a cross-mount move mints a fresh one, while a rename is
+ * something the shell can see and map (spike S9-Q4 — answered: per TAB,
+ * paths, `rename` below). A path that vanished for any other reason is
+ * dropped by `prune`.
  *
  * Pure and DOM-free so it is unit-testable (parent R6).
  */
@@ -53,7 +53,20 @@ export class NavHistory {
     return this.entries[this.at]
   }
 
-  /** Drop entries for paths that no longer exist (deletes, renames). */
+  /**
+   * Repoint entries after a rename or move. Prefix-wise: renaming a FOLDER
+   * moves every path under it, and the trail must survive that — it is the
+   * same notes in the same order (spike S9-Q4). Positions are preserved, so
+   * back/forward stays where it was.
+   */
+  rename(from: string, to: string): void {
+    const prefix = `${from}/`
+    this.entries = this.entries.map((p) =>
+      p === from ? to : p.startsWith(prefix) ? `${to}/${p.slice(prefix.length)}` : p
+    )
+  }
+
+  /** Drop entries for paths that no longer exist (deletes). */
   prune(live: ReadonlySet<string>): void {
     const current = this.entries[this.at]
     const kept = this.entries.filter((p) => live.has(p))

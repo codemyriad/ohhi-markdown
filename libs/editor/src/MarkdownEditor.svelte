@@ -4,7 +4,7 @@
   import type { EngineDoc } from '@editor/sync'
   import type { Awareness } from 'y-protocols/awareness'
   import { createMarkdownEditor, type MarkdownEditorHandle } from './markdown-editor.js'
-  import type { CollabUser } from './binding.js'
+  import type { CollabUndoManager, CollabUser } from './binding.js'
 
   interface Props {
     doc: EngineDoc
@@ -21,6 +21,20 @@
      * nothing.
      */
     reveal?: { offset: number } | null
+    /**
+     * The doc's undo manager, owned by the shell so the stack outlives this
+     * view (tab-groups B2). Read untracked like `dark`/`extensions`: it
+     * belongs to the doc, so it only ever changes when `doc` does.
+     */
+    undoManager?: CollabUndoManager | null
+    /**
+     * The view's lifecycle handle. Called with the handle once CM6 is mounted
+     * — `restore()` a resume point here — and once more with `null`
+     * immediately BEFORE the view is destroyed, at which point the handle you
+     * were given at mount is still live: that is where `capture()` runs
+     * (tab-groups B2).
+     */
+    onhandle?: (handle: MarkdownEditorHandle | null) => void
   }
 
   let {
@@ -31,6 +45,8 @@
     dark = false,
     extensions = [],
     reveal = null,
+    undoManager = null,
+    onhandle,
   }: Props = $props()
 
   let host = $state<HTMLDivElement>()
@@ -42,6 +58,8 @@
   // flip nor a new extension set rebinds the Y.Text.
   $effect(() => {
     if (!host) return
+    const manager = untrack(() => undoManager)
+    const report = untrack(() => onhandle)
     const h = createMarkdownEditor(host, {
       doc,
       awareness,
@@ -49,9 +67,13 @@
       readOnly,
       dark: untrack(() => dark),
       extensions: untrack(() => extensions),
+      ...(manager ? { undoManager: manager } : {}),
     })
     handle = h
+    report?.(h)
     return () => {
+      // Before destroy(): the shell's `capture()` needs a live view.
+      report?.(null)
       h.destroy()
       handle = null
     }

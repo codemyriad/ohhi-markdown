@@ -141,7 +141,7 @@ describe('MountSession (local mode)', () => {
 
   it('flushes an open doc edit to disk after the debounce', async () => {
     const h = await bootLocal({ 'note.md': 'v1' })
-    h.session.setOpenPath('note.md')
+    h.session.setOpenPaths(new Set(['note.md']))
     h.session.docForPath('note.md')!.transact((t) => t.insert(2, '-edited'), 'local')
     h.clock.advance(1000) // FLUSH_DEBOUNCE_MS is 800
     await Promise.resolve() // let the flush promise chain settle

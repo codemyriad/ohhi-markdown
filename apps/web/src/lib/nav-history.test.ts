@@ -49,6 +49,51 @@ describe('NavHistory', () => {
     expect(h.snapshot().entries).toEqual(['a.md', 'c.md'])
   })
 
+  it('repoints a renamed file everywhere it appears', () => {
+    const h = new NavHistory()
+    h.push('a.md')
+    h.push('old.md')
+    h.push('c.md')
+    h.push('old.md')
+    h.rename('old.md', 'new.md')
+    expect(h.snapshot().entries).toEqual(['a.md', 'new.md', 'c.md', 'new.md'])
+  })
+
+  it('repoints every path under a renamed folder, and nothing else', () => {
+    const h = new NavHistory()
+    h.push('notes/a.md')
+    h.push('notes/deep/b.md')
+    h.push('notesy/c.md') // a sibling whose name merely starts the same
+    h.push('notes')
+    h.rename('notes', 'archive/notes')
+    expect(h.snapshot().entries).toEqual([
+      'archive/notes/a.md',
+      'archive/notes/deep/b.md',
+      'notesy/c.md',
+      'archive/notes',
+    ])
+  })
+
+  it('leaves back/forward exactly where it was across a rename', () => {
+    const h = new NavHistory()
+    h.push('a.md')
+    h.push('b.md')
+    h.push('c.md')
+    h.back() // at b.md
+    h.rename('b.md', 'renamed.md')
+    expect(h.snapshot().at).toBe(1)
+    expect(h.back()).toBe('a.md')
+    expect(h.forward()).toBe('renamed.md')
+    expect(h.forward()).toBe('c.md')
+  })
+
+  it('is a no-op for a path it has never seen', () => {
+    const h = new NavHistory()
+    h.push('a.md')
+    h.rename('other.md', 'moved.md')
+    expect(h.snapshot().entries).toEqual(['a.md'])
+  })
+
   it('keeps the cursor on the current path when pruning around it', () => {
     const h = new NavHistory()
     h.push('a.md')

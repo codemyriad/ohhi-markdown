@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_THEMES, DARK_THEMES, PRESENCE_SLOTS, THEME_LABELS } from './tokens.js'
+import { BUILTIN_THEMES, DARK_THEMES, GROUP_SLOTS, PRESENCE_SLOTS, THEME_LABELS } from './tokens.js'
 
 const here = fileURLToPath(new URL('./styles/', import.meta.url))
 /** Source, comments stripped: these assertions are about DECLARATIONS, and a
@@ -38,6 +38,19 @@ function declaredTokens(css: string): Set<string> {
 /** The `[data-theme="name"] { … }` block body, or '' when absent. */
 function themeBlock(css: string, name: string): string {
   const start = css.indexOf(`[data-theme="${name}"]`)
+  if (start === -1) return ''
+  const open = css.indexOf('{', start)
+  let depth = 0
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === '{') depth++
+    else if (css[i] === '}' && --depth === 0) return css.slice(open + 1, i)
+  }
+  return ''
+}
+
+/** The `@plugin "daisyui/theme" { … }` body — where band A's --color-* live. */
+function daisyBlock(css: string): string {
+  const start = css.indexOf('@plugin "daisyui/theme"')
   if (start === -1) return ''
   const open = css.indexOf('{', start)
   let depth = 0
@@ -278,6 +291,87 @@ describe('sync honesty (band C)', () => {
           `${theme}: presence slot ${i} (${peer}) is too close to diverged (${diverged})`
         ).toBeGreaterThan(60)
       }
+    }
+  })
+})
+
+/**
+ * Tab-group colours (W2, tab-groups-shaping Fork 5-B).
+ *
+ * A group colour is TASTE — a user theme may retint the whole band, and two
+ * people's "CS reading" groups being different colours costs nothing. Three
+ * things are not taste, and they are what this asserts:
+ *
+ *  - the band exists in every theme, so a chip is never `background: ""`;
+ *  - the eight are telling apart, or the colour carries no information;
+ *  - none of them is the diverged red. Red means "your document diverged" in
+ *    every Editor theme (the same reservation the presence band carries).
+ *
+ * NOT asserted: separation from ok / pending / offline. In nord-* the theme's
+ * own green and yellow ARE its sync ok and pending (as they already are for
+ * --ed-presence-2/4), and a named chip in a tab strip is not the pill in the
+ * status bar. Red is the reservation that matters, and it is checked here.
+ */
+describe('tab-group colours (band B)', () => {
+  /** Where a theme's group slots are declared: its own block, else the contract. */
+  const groupSource = (theme: string): string => {
+    const block = themeBlock(THEME_CSS[theme], theme)
+    return block.includes('--ed-group-1') ? block : CONTRACT
+  }
+  const slots = (theme: string): string[] =>
+    Array.from({ length: GROUP_SLOTS }, (_, i) => tokenValue(groupSource(theme), `--ed-group-${i + 1}`)!)
+
+  it('every theme defines all eight group slots', () => {
+    for (const theme of BUILTIN_THEMES) {
+      for (let i = 1; i <= GROUP_SLOTS; i++) {
+        expect(tokenValue(groupSource(theme), `--ed-group-${i}`), `${theme} group ${i}`).toBeTruthy()
+      }
+    }
+  })
+
+  it('keeps the eight slots distinguishable from each other', () => {
+    // 20 is a "not the same colour" floor, not a design target: nord-dark's
+    // tightest pair is Nord's own two frost blues (#88c0d0 / #8fbcbb, 22
+    // units), and a faithful port is worth more than a rounder number.
+    for (const theme of BUILTIN_THEMES) {
+      const values = slots(theme)
+      for (let i = 0; i < values.length; i++) {
+        for (let j = i + 1; j < values.length; j++) {
+          expect(
+            colorDistance(values[i], values[j]),
+            `${theme}: group ${i + 1} (${values[i]}) and ${j + 1} (${values[j]}) are too close`
+          ).toBeGreaterThan(20)
+        }
+      }
+    }
+  })
+
+  it('never puts a group colour near the diverged colour', () => {
+    // Looser than presence's 60 on purpose: a peer's caret is an unlabelled
+    // 2px bar that can appear anywhere in the text, while a group chip always
+    // carries the name you gave it. nord-dark's Nord orange (#d08770) sits 42
+    // units from Nord's aurora red and is the closest any theme comes.
+    for (const theme of BUILTIN_THEMES) {
+      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      slots(theme).forEach((value, i) => {
+        expect(
+          colorDistance(value, diverged),
+          `${theme}: group ${i + 1} (${value}) reads as the diverged colour (${diverged})`
+        ).toBeGreaterThan(35)
+      })
+    }
+  })
+
+  it('clears 3:1 against the chrome surface it is painted on', () => {
+    // The chip's swatch is a 9px dot on --color-base-100 and its tab cap a
+    // 2px rule: a non-text graphic, so WCAG 1.4.11's 3:1 is the bar.
+    for (const theme of BUILTIN_THEMES) {
+      const base = tokenValue(daisyBlock(THEME_CSS[theme]), '--color-base-100')!
+      expect(base, `${theme} declares no --color-base-100`).toBeTruthy()
+      slots(theme).forEach((value, i) => {
+        expect(contrastRatio(value, base), `${theme} group ${i + 1} (${value}) on ${base}`)
+          .toBeGreaterThanOrEqual(3)
+      })
     }
   })
 })

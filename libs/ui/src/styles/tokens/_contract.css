@@ -147,5 +147,28 @@
     --ed-presence-6: #a8327d;
     --ed-presence-7: #1f7a68;
     --ed-presence-8: #55606f;
+
+    /* --- tab groups (W2) -------------------------------------------------
+     * Eight slots a user picks from when naming a group of tabs — a chip's
+     * dot, its tint and the 2px cap over its tabs. TASTE, not honesty: a user
+     * theme may retint the whole band (unlike --ed-sync-*), which is why it
+     * lives in @layer editor.tokens with everything else in band B.
+     *
+     * HOUSE RULE, asserted by theme-contract.test.ts: no group colour may sit
+     * near --ed-sync-diverged. Red means "your document diverged" in every
+     * theme, and a chip you chose for a reading list must not read as one.
+     * Each slot also clears 3:1 against --color-base-100 (the dot is a 9px
+     * fill on the surface) and is distinguishable from the other seven.
+     *
+     * These :root values ARE editor-light's, exactly as the presence band
+     * above; the other three themes restate the set in their own family. */
+    --ed-group-1: #1d7f9c;
+    --ed-group-2: #4a7a2e;
+    --ed-group-3: #7d3fa8;
+    --ed-group-4: #8a6300;
+    --ed-group-5: #0f6e63;
+    --ed-group-6: #2f6fbf;
+    --ed-group-7: #9c5335;
+    --ed-group-8: #a8327d;
   }
 }

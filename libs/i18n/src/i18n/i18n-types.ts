@@ -938,6 +938,10 @@ export type NamespaceWebTranslation = {
 			 */
 			appearance: string
 			/**
+			 * H​o​t​k​e​y​s
+			 */
+			hotkeys: string
+			/**
 			 * S​y​n​c
 			 */
 			sync: string
@@ -1006,6 +1010,80 @@ export type NamespaceWebTranslation = {
 			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​—​ ​c​u​s​t​o​m​ ​t​h​e​m​e​s​ ​l​i​v​e​ ​i​n​s​i​d​e​ ​i​t​.
 			 */
 			needs_vault: string
+		}
+		hotkeys: {
+			/**
+			 * E​v​e​r​y​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​k​e​y​ ​t​h​a​t​ ​r​u​n​s​ ​i​t​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​i​m​m​e​d​i​a​t​e​l​y​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 */
+			intro: string
+			/**
+			 * T​y​p​e​ ​a​ ​s​h​o​r​t​c​u​t​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​,​ ​o​r​ ​p​r​e​s​s​ ​R​e​c​o​r​d​ ​a​n​d​ ​h​i​t​ ​t​h​e​ ​k​e​y​s​.​ ​{​m​o​d​}​ ​i​s​ ​C​m​d​ ​o​n​ ​a​ ​M​a​c​ ​a​n​d​ ​C​t​r​l​ ​e​v​e​r​y​w​h​e​r​e​ ​e​l​s​e​;​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​ ​e​m​p​t​y​ ​t​o​ ​r​e​m​o​v​e​ ​t​h​e​ ​s​h​o​r​t​c​u​t​.
+			 * @param {string} example
+			 * @param {string} mod
+			 */
+			syntax: RequiredParams<'example' | 'mod'>
+			/**
+			 * O​t​h​e​r
+			 */
+			ungrouped: string
+			/**
+			 * N​o​ ​c​o​m​m​a​n​d​s​ ​a​r​e​ ​r​e​g​i​s​t​e​r​e​d​ ​y​e​t​.
+			 */
+			none: string
+			/**
+			 * N​o​ ​s​h​o​r​t​c​u​t
+			 */
+			unbound: string
+			/**
+			 * S​h​o​r​t​c​u​t​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} command
+			 */
+			shortcut_for: RequiredParams<'command'>
+			/**
+			 * M​o​d​+​S​h​i​f​t​+​P
+			 */
+			placeholder: string
+			/**
+			 * N​o​t​ ​a​ ​s​h​o​r​t​c​u​t​ ​—​ ​u​s​e​ ​m​o​d​i​f​i​e​r​s​ ​a​n​d​ ​o​n​e​ ​k​e​y​,​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​.
+			 * @param {string} example
+			 */
+			invalid: RequiredParams<'example'>
+			/**
+			 * D​e​f​a​u​l​t​:​ ​{​b​i​n​d​i​n​g​}
+			 * @param {string} binding
+			 */
+			default_is: RequiredParams<'binding'>
+			/**
+			 * N​o​ ​d​e​f​a​u​l​t​ ​s​h​o​r​t​c​u​t
+			 */
+			default_none: string
+			/**
+			 * R​e​c​o​r​d
+			 */
+			record: string
+			/**
+			 * R​e​c​o​r​d​ ​a​ ​s​h​o​r​t​c​u​t​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} command
+			 */
+			record_for: RequiredParams<'command'>
+			/**
+			 * P​r​e​s​s​ ​t​h​e​ ​k​e​y​s​…
+			 */
+			recording: string
+			/**
+			 * S​t​o​p​ ​r​e​c​o​r​d​i​n​g​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} command
+			 */
+			stop_recording: RequiredParams<'command'>
+			/**
+			 * R​e​s​e​t
+			 */
+			reset: string
+			/**
+			 * R​e​s​e​t​ ​{​c​o​m​m​a​n​d​}​ ​t​o​ ​i​t​s​ ​d​e​f​a​u​l​t​ ​s​h​o​r​t​c​u​t
+			 * @param {string} command
+			 */
+			reset_for: RequiredParams<'command'>
 		}
 		sync: {
 			/**
@@ -2692,6 +2770,10 @@ export type TranslationFunctions = {
 				 */
 				appearance: () => LocalizedString
 				/**
+				 * Hotkeys
+				 */
+				hotkeys: () => LocalizedString
+				/**
 				 * Sync
 				 */
 				sync: () => LocalizedString
@@ -2755,6 +2837,72 @@ export type TranslationFunctions = {
 				 * Open a vault first — custom themes live inside it.
 				 */
 				needs_vault: () => LocalizedString
+			}
+			hotkeys: {
+				/**
+				 * Every command and the key that runs it. Changes apply immediately and stay on this device.
+				 */
+				intro: () => LocalizedString
+				/**
+				 * Type a shortcut like {example}, or press Record and hit the keys. {mod} is Cmd on a Mac and Ctrl everywhere else; leave the field empty to remove the shortcut.
+				 */
+				syntax: (arg: { example: string, mod: string }) => LocalizedString
+				/**
+				 * Other
+				 */
+				ungrouped: () => LocalizedString
+				/**
+				 * No commands are registered yet.
+				 */
+				none: () => LocalizedString
+				/**
+				 * No shortcut
+				 */
+				unbound: () => LocalizedString
+				/**
+				 * Shortcut for {command}
+				 */
+				shortcut_for: (arg: { command: string }) => LocalizedString
+				/**
+				 * Mod+Shift+P
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * Not a shortcut — use modifiers and one key, like {example}.
+				 */
+				invalid: (arg: { example: string }) => LocalizedString
+				/**
+				 * Default: {binding}
+				 */
+				default_is: (arg: { binding: string }) => LocalizedString
+				/**
+				 * No default shortcut
+				 */
+				default_none: () => LocalizedString
+				/**
+				 * Record
+				 */
+				record: () => LocalizedString
+				/**
+				 * Record a shortcut for {command}
+				 */
+				record_for: (arg: { command: string }) => LocalizedString
+				/**
+				 * Press the keys…
+				 */
+				recording: () => LocalizedString
+				/**
+				 * Stop recording {command}
+				 */
+				stop_recording: (arg: { command: string }) => LocalizedString
+				/**
+				 * Reset
+				 */
+				reset: () => LocalizedString
+				/**
+				 * Reset {command} to its default shortcut
+				 */
+				reset_for: (arg: { command: string }) => LocalizedString
 			}
 			sync: {
 				/**

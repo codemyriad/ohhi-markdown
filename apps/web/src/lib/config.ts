@@ -10,6 +10,7 @@
  * are then ignored; `editor:user` stays its own key (the name helpers below
  * also heal values double-JSON-encoded by earlier builds).
  */
+import { normalizeOverrides, parseBinding, type BindingOverrides } from './commands.js'
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
 import type { BuiltinTheme } from '@editor/ui/tokens'
@@ -96,6 +97,13 @@ interface AppConfigV2 {
   theme?: ThemePref
   /** Rails, navigator width, folded rail sections (chrome U2). Device-level, like theme. */
   layout?: Partial<LayoutPrefs>
+  /**
+   * Per-command binding overrides (tab-groups R1.3), Obsidian's
+   * `hotkeys.json`: `null` clears a default, an absent id keeps it. Additive
+   * and tolerant on read like `layout` — a config written before this shipped
+   * simply has none, and garbage in one entry never costs the others.
+   */
+  hotkeys?: BindingOverrides
 }
 
 /**
@@ -128,7 +136,8 @@ function store(): Storage | null {
   }
 }
 
-function readJson<T>(key: string): T | null {
+/** Shared with the other device-local stores (workspace-layout.ts). */
+export function readJson<T>(key: string): T | null {
   const s = store()
   if (!s) return null
   const raw = s.getItem(key)
@@ -140,7 +149,7 @@ function readJson<T>(key: string): T | null {
   }
 }
 
-function writeJson(key: string, value: unknown): void {
+export function writeJson(key: string, value: unknown): void {
   const s = store()
   if (!s) return
   try {
@@ -379,6 +388,40 @@ export function layoutPrefs(): LayoutPrefs {
 export function setLayoutPrefs(patch: Partial<LayoutPrefs>): void {
   const cfg = loadConfig()
   cfg.layout = { ...normalizeLayout(cfg.layout), ...patch }
+  save(cfg)
+}
+
+// ---- hotkeys (tab-groups R1.3) ----
+
+/**
+ * The user's binding overrides, normalized. Hand it to
+ * `CommandRegistry.setOverrides` — the registry, not this module, is what
+ * merges them over the command table.
+ */
+export function hotkeys(): BindingOverrides {
+  return normalizeOverrides(loadConfig().hotkeys)
+}
+
+/**
+ * Bind a command to `keys`, or to nothing at all (`null`). An unparseable
+ * binding is refused rather than stored: the Settings field validates before
+ * calling, and a value that no resolver can read would look bound and behave
+ * unbound.
+ */
+export function setHotkey(id: string, keys: string | null): void {
+  if (!id) return
+  if (typeof keys === 'string' && !parseBinding(keys)) return
+  const cfg = loadConfig()
+  cfg.hotkeys = { ...normalizeOverrides(cfg.hotkeys), [id]: keys }
+  save(cfg)
+}
+
+/** Forget an override; the command goes back to the binding it ships with. */
+export function resetHotkey(id: string): void {
+  const cfg = loadConfig()
+  const next = normalizeOverrides(cfg.hotkeys)
+  delete next[id]
+  cfg.hotkeys = next
   save(cfg)
 }
 

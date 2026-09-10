@@ -132,5 +132,18 @@
     --ed-presence-6: #d19a66;
     --ed-presence-7: #56d1b0;
     --ed-presence-8: #b0b7c3;
+
+    /* Tab-group slots (W2): this theme's own accents — primary blue, the
+     * string green, the keyword purple, the number amber, the code teal, a
+     * rose it has no other use for, the accent orange and the neutral slate.
+     * All eight clear the diverged red by 76 units or more. */
+    --ed-group-1: #58b4d1;
+    --ed-group-2: #a3d18b;
+    --ed-group-3: #c792ea;
+    --ed-group-4: #e5c07b;
+    --ed-group-5: #7fd0c4;
+    --ed-group-6: #e58fb0;
+    --ed-group-7: #d19a66;
+    --ed-group-8: #b0b7c3;
   }
 }

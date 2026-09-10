@@ -203,7 +203,13 @@ export class MountSession {
   private sessionRef: VaultSession | null = null
   private adoptionEnabled = false
   private mapWork: Promise<void> = Promise.resolve()
-  private openPath: string | null = null
+  /**
+   * Paths a live EDITOR VIEW currently holds open (spike S9 Q1). A set, not
+   * one path: N panes can hold N notes, and the same note can be open in two
+   * of them. The refcount itself is the host's (the web facade derives it
+   * from the pane tree); this session owns the POLICY the set drives.
+   */
+  private readonly openPaths = new Set<string>()
   private authFailure: string | null = null
   private sharedLink: string | null = null
   /**
@@ -302,21 +308,37 @@ export class MountSession {
     return guid ? (this.conns.get(guid)?.awareness ?? null) : null
   }
 
-  /** Editor lifecycle: the open path's file is owned by the editor (no materialize). */
-  setOpenPath(path: string | null): void {
-    if (this.openPath === path) return
-    const prevPath = this.openPath
-    this.openPath = path // before flush routing so prev counts as closed
-    if (prevPath) {
-      const prevGuid = this.guidFor(prevPath)
-      if (prevGuid) {
-        this.debounces.get(prevGuid)?.()
-        this.debounces.delete(prevGuid)
-        void this.reconcileClosedDoc(prevGuid, prevPath)
-      }
+  /**
+   * Editor lifecycle: every path in `rels` is owned by a live view, so the
+   * reconciler must not materialize over it (`reconciler.ts` noops for any
+   * path in `ctx.openPaths`; the flush is what writes those bytes out).
+   *
+   * The caller passes the WHOLE set every time and this diffs it — a path
+   * that entered is marked open, a path that LEFT has its pending flush
+   * debounce cancelled and is reconciled closed. Two views over one note
+   * collapse to one member, so the last view to leave is the one that closes
+   * the doc, and nothing is suppressed while another view still holds it
+   * (spike S9 Q2).
+   */
+  setOpenPaths(rels: ReadonlySet<string>): void {
+    const opened: string[] = []
+    const closed: string[] = []
+    for (const rel of rels) if (!this.openPaths.has(rel)) opened.push(rel)
+    for (const rel of this.openPaths) if (!rels.has(rel)) closed.push(rel)
+    if (opened.length === 0 && closed.length === 0) return
+    // Mutate BEFORE the routing below, so a path that just left counts as
+    // closed for anything routeDocUpdate sees in between.
+    this.openPaths.clear()
+    for (const rel of rels) this.openPaths.add(rel)
+    for (const rel of closed) {
+      const guid = this.guidFor(rel)
+      if (!guid) continue
+      this.debounces.get(guid)?.()
+      this.debounces.delete(guid)
+      void this.reconcileClosedDoc(guid, rel)
     }
-    if (path) {
-      const guid = this.guidFor(path)
+    for (const rel of opened) {
+      const guid = this.guidFor(rel)
       if (guid) this.sessionRef?.markOpen(guid)
     }
   }
@@ -464,8 +486,13 @@ export class MountSession {
       return
     }
     try {
-      if (this.openPath === path || (entry.kind === 'dir' && this.openPath?.startsWith(`${path}/`))) {
-        this.setOpenPath(null)
+      // Views on the doomed subtree let go first: the delete journals and
+      // removes the bytes, and a still-"open" path would keep the reconciler
+      // off a file that no longer exists.
+      const doomed = (rel: string): boolean =>
+        rel === path || (entry.kind === 'dir' && rel.startsWith(`${path}/`))
+      if ([...this.openPaths].some(doomed)) {
+        this.setOpenPaths(new Set([...this.openPaths].filter((rel) => !doomed(rel))))
       }
       if (entry.kind === 'dir') await this.sessionRef?.deleteDir(path)
       else await this.sessionRef?.deleteFile(path)
@@ -1137,7 +1164,7 @@ export class MountSession {
     this.emitDocChanged(guid, path, origin)
     if (origin === 'seed' || origin === 'disk') return
     this.recordFor(guid).diskMatchesCrdt = false
-    if (this.openPath === path) {
+    if (this.openPaths.has(path)) {
       this.debounceDoc(guid, FLUSH_DEBOUNCE_MS, () => void this.flushOpenDoc(guid, path))
     } else {
       this.debounceDoc(guid, CLOSED_RECONCILE_MS, () => void this.reconcileClosedDoc(guid, path))
@@ -1331,8 +1358,11 @@ export class MountSession {
           }
         },
         onPathsRenamed: (moves) => {
+          // Rekey in place: a renamed file is the SAME doc still held by the
+          // same view, so ownership must follow the path rather than lapse
+          // (which would let the reconciler materialize over the buffer).
           for (const { from, to } of moves) {
-            if (this.openPath === from) this.openPath = to
+            if (this.openPaths.delete(from)) this.openPaths.add(to)
           }
           this.events.onPathsRenamed?.(moves)
         },
@@ -1393,8 +1423,11 @@ export class MountSession {
     this.sessionRef?.dispose()
     this.sessionRef = this.makeSession()
     await this.sessionRef.start()
-    if (this.openPath) {
-      const guid = this.guidFor(this.openPath)
+    // The new VaultSession starts with an empty ctx.openPaths — re-mark every
+    // path a view still holds, or the first foreign update materializes over
+    // a live buffer.
+    for (const rel of this.openPaths) {
+      const guid = this.guidFor(rel)
       if (guid) this.sessionRef.markOpen(guid)
     }
   }

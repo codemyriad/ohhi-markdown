@@ -42,7 +42,7 @@ import {
 } from '@editor/vault'
 import { createYjsEngine, type EngineDoc } from '@editor/sync'
 import type { Awareness } from 'y-protocols/awareness'
-import type { CollabUser } from '@editor/editor'
+import { createUndoManager, type CollabUndoManager, type CollabUser } from '@editor/editor'
 import {
   carveFolder as runCarve,
   FOLDER_RECORD_KEY,
@@ -193,7 +193,26 @@ export interface Workspace {
   notify(input: NoticeInput): void
   docForPath(path: string): EngineDoc | null
   awarenessForPath(path: string): Awareness | null
+  /**
+   * The open-doc refcount (tab-groups B3, spike S9 Q1): the paths that
+   * currently have a live CodeMirror view — the active tab of every pane on
+   * screen. Diffed per mount and handed to `MountSession.setOpenPaths`, so
+   * the LAST view to leave a note is what closes its doc.
+   */
+  setLiveViews(paths: ReadonlySet<string>): void
+  /**
+   * One selected path is one live view: `setLiveViews` plus
+   * `ui.selectedPath`. The single-editor shell's entry point; the pane shell
+   * calls the two halves itself.
+   */
   select(path: string | null): void
+  /**
+   * The undo manager for a note's doc, minted on first ask and shared by
+   * every view of it (tab-groups B2). Owned here rather than by a view, so
+   * undo survives a tab switch and two panes on one note share a stack.
+   * Null for a path with no doc (a folder, an unknown path).
+   */
+  undoManagerFor(path: string): CollabUndoManager | null
   /**
    * Create a note inside `dir` ('' = vault root) and select it. With no
    * `name` the note is auto-named `untitled-N.md`; with one it is created at
@@ -812,20 +831,95 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   cfg.onPull?.(null)
   refreshTree()
 
-  /** The session (if any) currently holding an open path. */
-  let openIn: MountSession | null = null
+  // The open-doc refcount lives HERE (spike S9 Q1): the pane model stays pure
+  // and knows nothing about docs, `MountSession` stays per-mount and knows
+  // nothing about panes, and this shim is the only thing that sees both.
+
+  /** Workspace paths with a live view right now. */
+  let liveViews: ReadonlySet<string> = new Set<string>()
+  /** What each session was last told to hold open (which mounts to un-tell). */
+  let liveByMount = new Map<MountSession, Set<string>>()
+  const NO_RELS: ReadonlySet<string> = new Set<string>()
+
+  const setLiveViews = (paths: ReadonlySet<string>): void => {
+    const next = new Map<MountSession, Set<string>>()
+    for (const path of paths) {
+      const resolved = registry.resolve(path)
+      if (!resolved) continue // no mount owns it: nothing to hold open
+      const rels = next.get(resolved.session)
+      if (rels) rels.add(resolved.rel)
+      else next.set(resolved.session, new Set([resolved.rel]))
+    }
+    const mounted = new Set(registry.all().map((h) => h.session))
+    for (const session of liveByMount.keys()) {
+      // The empty set is not a no-op: it is what runs the last view's
+      // reconcileClosedDoc (S9 Q2). A session already OUT of the registry is
+      // being torn down and must not be spoken to again.
+      if (!next.has(session) && mounted.has(session)) session.setOpenPaths(NO_RELS)
+    }
+    for (const [session, rels] of next) session.setOpenPaths(rels)
+    liveByMount = next
+    liveViews = new Set(paths)
+  }
+
+  /**
+   * Re-tell every mount which of its files a view holds. The unshare/unmount
+   * machines replace session objects, and a fresh MountSession's open set is
+   * empty — without this a note open in another pane would be materializable
+   * over the moment its mount was rebuilt.
+   */
+  const reapplyLiveViews = (): void => {
+    liveByMount = new Map()
+    setLiveViews(liveViews)
+  }
 
   const select = (path: string | null): void => {
-    if (ui.selectedPath === path) return
-    ui.selectedPath = path // before flush routing so prev counts as closed
-    const resolved = path ? registry.resolve(path) : null
-    if (openIn && openIn !== resolved?.session) openIn.setOpenPath(null)
-    if (resolved) {
-      resolved.session.setOpenPath(resolved.rel)
-      openIn = resolved.session
-    } else {
-      openIn = null
+    ui.selectedPath = path
+    setLiveViews(path ? new Set([path]) : NO_RELS)
+  }
+
+  /**
+   * One Y.UndoManager per doc guid (tab-groups B2). Keyed by GUID, not path,
+   * so a rename keeps the stack and two panes on one note share it.
+   */
+  const undoManagers = new Map<string, CollabUndoManager>()
+
+  const undoManagerFor = (path: string): CollabUndoManager | null => {
+    const resolved = registry.resolve(path)
+    const doc = resolved ? resolved.session.docForPath(resolved.rel) : null
+    if (!doc) return null
+    let manager = undoManagers.get(doc.guid)
+    if (!manager) {
+      manager = createUndoManager(doc)
+      undoManagers.set(doc.guid, manager)
     }
+    return manager
+  }
+
+  /** Drop the managers for a subtree whose doc instances are about to die. */
+  const releaseUndoManagersUnder = (prefix: string): void => {
+    for (const row of ui.files) {
+      if (row.path !== prefix && !row.path.startsWith(`${prefix}/`)) continue
+      undoManagers.get(row.guid)?.destroy()
+      undoManagers.delete(row.guid)
+    }
+  }
+
+  /**
+   * Release every live view at or under `prefix` (and the selection with it),
+   * and drop the undo stacks that go with them. The carve/unshare/unmount/
+   * cross-move machines DESTROY the doc instances underneath, so the views
+   * must let go first — the last one out is what cancels the pending flush
+   * debounce and closes the doc (spike S9 Q3). Returns the paths released, so
+   * a caller that means to re-open them after the surgery can.
+   */
+  const dropLiveViewsUnder = (prefix: string): string[] => {
+    const under = (p: string): boolean => p === prefix || p.startsWith(`${prefix}/`)
+    const held = [...liveViews].filter(under)
+    if (held.length > 0) setLiveViews(new Set([...liveViews].filter((p) => !under(p))))
+    if (ui.selectedPath && under(ui.selectedPath)) ui.selectedPath = null
+    releaseUndoManagersUnder(prefix)
+    return held
   }
 
   const doCarve = async (path: string): Promise<string> => {
@@ -877,12 +971,12 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     setRoomToken(room, minted.token, relayUrl, 'folder')
 
     // The carve destroys the root's doc instances for the subtree — release
-    // any editor holding one, and re-select through the new mount after.
+    // every view holding one, and re-open them through the new mount after.
     const reselect =
       ui.selectedPath && (ui.selectedPath === path || ui.selectedPath.startsWith(`${path}/`))
         ? ui.selectedPath
         : null
-    if (reselect) select(null)
+    const held = dropLiveViewsUnder(path)
 
     await runCarve({
       root: rootSession!,
@@ -908,7 +1002,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     registry.add(path, session)
     await reloadMounts()
     refreshTree()
-    if (reselect) select(reselect)
+    if (held.length > 0) setLiveViews(new Set([...liveViews, ...held]))
+    if (reselect) ui.selectedPath = reselect
     return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
   }
 
@@ -1042,15 +1137,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     return info
   }
 
-  const dropSelectionUnder = (path: string): void => {
-    if (ui.selectedPath && (ui.selectedPath === path || ui.selectedPath.startsWith(`${path}/`))) {
-      select(null)
-    }
-  }
-
   const doUnshare = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    dropSelectionUnder(path)
+    dropLiveViewsUnder(path)
     const mount = registry.resolve(path)!.session
     // Both sessions leave the registry before the stop-the-world surgery.
     registry.remove(path)
@@ -1068,11 +1157,12 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     await rebuildRoot()
     await reloadMounts()
     refreshTree()
+    reapplyLiveViews() // the root is a NEW session; views elsewhere still hold it
   }
 
   const doUnmount = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    dropSelectionUnder(path)
+    dropLiveViewsUnder(path)
     const mount = registry.resolve(path)!.session
     registry.remove(path)
     await unmountMount({
@@ -1125,6 +1215,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       // same value (it now has a relay).
       await mountsFile.setStatus(info.room, 'active')
     } else {
+      // Same rule as unshare: this branch shuts the session down and destroys
+      // its doc instances, so any view holding one lets go first.
+      dropLiveViewsUnder(path)
       registry.remove(path)
       await session.shutdown()
       const next = await buildMount({
@@ -1158,7 +1251,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       await src.session.renamePath(src.rel, dst.rel)
       return
     }
-    dropSelectionUnder(from)
+    dropLiveViewsUnder(from)
     const row = ui.files.find((f) => f.path === from)
     if (!row) return
     if (row.kind === 'mount') {
@@ -1200,7 +1293,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       return r ? r.session.awarenessForPath(r.rel) : null
     },
+    setLiveViews,
     select,
+    undoManagerFor,
     createFile: async (dir = '', name, text) => {
       // Route on the FULL TARGET PATH, never on `dir` alone. A prefixed name
       // (`[[team/plan]]` → name='team/plan.md', dir='') targets a path that a
@@ -1288,6 +1383,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const bytes = await cfg.adapter.read(rel)
       return bytes ? new TextDecoder().decode(bytes) : null
     },
-    dispose: () => registry.dispose(),
+    dispose: () => {
+      for (const manager of undoManagers.values()) manager.destroy()
+      undoManagers.clear()
+      registry.dispose()
+    },
   }
 }

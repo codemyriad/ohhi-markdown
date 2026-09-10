@@ -9,9 +9,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   CommandRegistry,
+  bindingFromEvent,
   eventMatches,
   formatBinding,
   isMac,
+  normalizeOverrides,
   parseBinding,
   type KeyEventLike,
 } from './commands.js'
@@ -114,6 +116,122 @@ describe('CommandRegistry', () => {
     registry.register({ id: 'b', title: 'B', run: () => {} })
     expect(registry.binding('a')).toBe('Ctrl+Shift+P')
     expect(registry.binding('b')).toBe('')
+  })
+})
+
+describe('binding overrides (R1.3)', () => {
+  const registry = (): CommandRegistry => {
+    const r = new CommandRegistry(false)
+    r.register(
+      { id: 'a', title: 'A', group: 'Pane', keys: 'Mod+o', run: () => {} },
+      { id: 'b', title: 'B', group: 'Pane', run: () => {} }
+    )
+    return r
+  }
+
+  it('lets an override win over the default, for matching and for display', () => {
+    const r = registry()
+    r.setOverrides({ a: 'Alt+=' })
+    expect(r.match(key({ key: '=', altKey: true }))?.id).toBe('a')
+    expect(r.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
+    expect(r.binding('a')).toBe('Alt+=')
+  })
+
+  it('binds a command that ships without a key', () => {
+    const r = registry()
+    r.setOverrides({ b: 'Mod+Shift+g' })
+    expect(r.match(key({ key: 'g', ctrlKey: true, shiftKey: true }))?.id).toBe('b')
+    expect(r.binding('b')).toBe('Ctrl+Shift+G')
+  })
+
+  it('unbinds on null — the key falls through to the editor', () => {
+    const r = registry()
+    r.setOverrides({ a: null })
+    expect(r.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
+    expect(r.binding('a')).toBe('')
+    expect(r.bindings()[0]).toMatchObject({ keys: '', defaultKeys: 'Mod+o', overridden: true })
+  })
+
+  it('restores the default when the override is dropped', () => {
+    const r = registry()
+    r.setOverrides({ a: 'Alt+=' })
+    r.setOverrides({})
+    expect(r.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
+    expect(r.bindings()[0].overridden).toBe(false)
+  })
+
+  it('ignores an unparseable override and keeps the default', () => {
+    const r = registry()
+    r.setOverrides({ a: 'Hyper+K', b: 42, c: 'Mod+j' })
+    expect(r.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
+    expect(r.binding('a')).toBe('Ctrl+O')
+    // An override for a command nobody registered is kept in the map (the
+    // command may register later) but resolves to nothing today.
+    expect(r.effectiveKeys('c')).toBe('')
+  })
+
+  it('lists every registered command, guarded-off ones included', () => {
+    const r = registry()
+    r.register({ id: 'c', title: 'C', keys: 'Mod+k', run: () => {}, when: () => false })
+    expect(r.bindings().map((row) => row.id)).toEqual(['a', 'b', 'c'])
+    expect(r.available().map((cmd) => cmd.id)).toEqual(['a', 'b'])
+    expect(r.bindings()[1]).toMatchObject({ id: 'b', group: 'Pane', keys: '', display: '' })
+  })
+
+  it('sees a command registered after the overrides were set', () => {
+    const r = registry()
+    r.setOverrides({ later: 'Mod+9' })
+    r.register({ id: 'later', title: 'Later', run: () => {} })
+    expect(r.match(key({ key: '9', ctrlKey: true }))?.id).toBe('later')
+  })
+
+  it('records a chord on its own platform, so Settings never re-decides', () => {
+    const mac = new CommandRegistry(true)
+    expect(registry().bindingFor(key({ key: 'k', ctrlKey: true }))).toBe('Mod+k')
+    expect(mac.bindingFor(key({ key: 'k', ctrlKey: true }))).toBe('Ctrl+k')
+  })
+
+  it('matches nothing at all while a chord is being recorded', () => {
+    const r = registry()
+    r.setSuspended(true)
+    expect(r.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
+    r.setSuspended(false)
+    expect(r.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
+  })
+})
+
+describe('normalizeOverrides', () => {
+  it('keeps parseable strings and explicit nulls, drops the rest', () => {
+    expect(normalizeOverrides({ a: 'Mod+o', b: null, c: 'Hyper+K', d: 7, '': 'Mod+p' })).toEqual({
+      a: 'Mod+o',
+      b: null,
+    })
+  })
+
+  it('reads a missing or garbage map as no overrides', () => {
+    expect(normalizeOverrides(undefined)).toEqual({})
+    expect(normalizeOverrides('nope')).toEqual({})
+  })
+})
+
+describe('bindingFromEvent', () => {
+  it('round-trips through parseBinding, so what is recorded is what matches', () => {
+    const e = key({ key: 'W', ctrlKey: true, shiftKey: true })
+    const binding = bindingFromEvent(e, false)!
+    expect(binding).toBe('Mod+Shift+w')
+    expect(eventMatches(parseBinding(binding)!, e, false)).toBe(true)
+  })
+
+  it('separates Cmd from Ctrl on mac and collapses them elsewhere', () => {
+    expect(bindingFromEvent(key({ key: 'ArrowLeft', metaKey: true, ctrlKey: true }), true)).toBe(
+      'Ctrl+Mod+ArrowLeft'
+    )
+    expect(bindingFromEvent(key({ key: 'ArrowLeft', ctrlKey: true }), false)).toBe('Mod+ArrowLeft')
+  })
+
+  it('waits through a modifier-only press', () => {
+    expect(bindingFromEvent(key({ key: 'Control', ctrlKey: true }), false)).toBeNull()
+    expect(bindingFromEvent(key({ key: 'Shift', shiftKey: true }), false)).toBeNull()
   })
 })
 

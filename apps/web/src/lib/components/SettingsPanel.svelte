@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * Settings (chrome-shaping U6): five tabs, each short. General and Sync are
-   * schema-validated forms with their own Save; Appearance, Vaults & shares
-   * and Developer act immediately. Closing with unsaved changes prompts
+   * Settings (chrome-shaping U6): six tabs, each short. General and Sync are
+   * schema-validated forms with their own Save; Appearance, Hotkeys, Vaults &
+   * shares and Developer act immediately. Closing with unsaved changes prompts
    * rather than silently persisting or silently dropping them.
    */
   import { z } from 'zod'
@@ -11,18 +11,22 @@
     DEFAULT_RELAY,
     defaultRelay,
     devtoolsEnabled,
+    hotkeys,
     listVaults,
     loadShares,
     loadUser,
     operatorSecret,
     removeShare,
     removeVault,
+    resetHotkey,
     saveUser,
     setDefaultRelay,
     setDevtools,
+    setHotkey,
     setOperatorSecret,
     type ThemePref,
   } from '../config.js'
+  import { parseBinding, type CommandBinding, type CommandRegistry } from '../commands.js'
   import { BUILTIN_THEMES, THEME_LABELS } from '@editor/ui/tokens'
   import { escapeHtml } from '../html.js'
   import { applyTheme, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
@@ -39,7 +43,14 @@
     /** Reads Editor's own `.editor/` directory; absent when no vault is open. */
     readAppFile?: (path: string) => Promise<string | null>
     /** Which tab to open on; General by default. */
-    initialTab?: 'general' | 'appearance' | 'sync' | 'vaults' | 'developer'
+    initialTab?: 'general' | 'appearance' | 'hotkeys' | 'sync' | 'vaults' | 'developer'
+    /**
+     * The shell's one command registry (tab-groups R1.3). The Hotkeys tab
+     * reads the table from it and writes overrides back through it, so there
+     * is one command table in the app and Settings is a view of it — a panel
+     * with its own copy would drift the day a slice registers a command.
+     */
+    registry: CommandRegistry
     /**
      * Open the device-link dialog (device-link N2, A1). Absent when no vault
      * is open — there is nothing to link. The dialog is the HOST's, not a
@@ -49,12 +60,12 @@
     onLinkDevice?: () => void
   }
 
-  let { onClose, readAppFile, initialTab = 'general', onLinkDevice }: Props = $props()
+  let { onClose, readAppFile, initialTab = 'general', onLinkDevice, registry }: Props = $props()
 
   const t = $derived($LL.web.settings)
   const dl = $derived($LL.web.device_link)
   const TABS = $derived(
-    (['general', 'appearance', 'sync', 'vaults', 'developer'] as const).map((value) => ({
+    (['general', 'appearance', 'hotkeys', 'sync', 'vaults', 'developer'] as const).map((value) => ({
       value,
       label: t.tabs[value](),
       testid: `settings-tab:${value}`,
@@ -107,6 +118,110 @@
     customError = (await useCustomTheme(customName, readAppFile)) ?? ''
   }
 
+  // ---- Hotkeys (tab-groups R1.3) ----
+  /**
+   * Rows come from the registry, not from a table of our own, and every edit
+   * goes straight to config: a hotkey has nothing to validate against a
+   * server and nothing to batch, so a Save button would only add a way to
+   * lose the change. Reset is the undo.
+   */
+  // svelte-ignore state_referenced_locally -- seed only; refreshHotkeys re-reads
+  let hotkeyRows = $state<CommandBinding[]>(registry.bindings())
+  /** What the user has typed per row, seeded from the binding in force. */
+  // svelte-ignore state_referenced_locally -- seed only; refreshHotkeys re-seeds
+  let drafts = $state<Record<string, string>>(seedDrafts(hotkeyRows))
+  let hotkeyErrors = $state<Record<string, string>>({})
+  /** The row currently swallowing key presses to record a chord, if any. */
+  let recording = $state<string | null>(null)
+  /** Row id → the wrapper around its input, so Record can focus what it records into. */
+  const fields = $state<Record<string, HTMLElement | undefined>>({})
+
+  const EXAMPLE_BINDING = 'Mod+Shift+P'
+
+  function seedDrafts(rows: CommandBinding[]): Record<string, string> {
+    return Object.fromEntries(rows.map((row) => [row.id, row.keys]))
+  }
+
+  function refreshHotkeys(): void {
+    registry.setOverrides(hotkeys())
+    hotkeyRows = registry.bindings()
+    drafts = seedDrafts(hotkeyRows)
+    // Every field is showing the truth again; an error about text that is no
+    // longer in the box would be the only thing left lying.
+    hotkeyErrors = {}
+  }
+
+  /** Commands in registration order, bucketed by their palette group. */
+  const hotkeyGroups = $derived.by(() => {
+    const out: { label: string; rows: CommandBinding[] }[] = []
+    for (const row of hotkeyRows) {
+      const label = row.group || t.hotkeys.ungrouped()
+      const bucket = out.find((b) => b.label === label)
+      if (bucket) bucket.rows.push(row)
+      else out.push({ label, rows: [row] })
+    }
+    return out
+  })
+
+  function commitHotkey(row: CommandBinding): void {
+    const typed = (drafts[row.id] ?? '').trim()
+    if (typed && !parseBinding(typed)) {
+      hotkeyErrors[row.id] = t.hotkeys.invalid({ example: EXAMPLE_BINDING })
+      return
+    }
+    hotkeyErrors[row.id] = ''
+    // Typing the default back (or clearing a command that ships unbound) is
+    // the same thing as Reset — no override is stored for what already holds.
+    if (typed === row.defaultKeys) resetHotkey(row.id)
+    else setHotkey(row.id, typed || null)
+    refreshHotkeys()
+  }
+
+  function resetRow(row: CommandBinding): void {
+    hotkeyErrors[row.id] = ''
+    resetHotkey(row.id)
+    refreshHotkeys()
+  }
+
+  function startRecording(row: CommandBinding): void {
+    hotkeyErrors[row.id] = ''
+    recording = row.id
+    // Global hotkeys are handled in the capture phase, so without this the
+    // chord being recorded would ALSO run whatever it is currently bound to.
+    registry.setSuspended(true)
+    // Recording happens IN the field: the chord lands where the user can see
+    // it, correct it and tab away from, and it needs no pointer.
+    queueMicrotask(() => fields[row.id]?.querySelector('input')?.focus())
+  }
+
+  function stopRecording(): void {
+    recording = null
+    registry.setSuspended(false)
+  }
+
+  function onRecordKey(row: CommandBinding, e: KeyboardEvent): void {
+    // Tab is how a keyboard user leaves the field; it must never be recorded.
+    if (e.key === 'Tab') {
+      stopRecording()
+      return
+    }
+    // Escape belongs to the dialog's dismissal path, and `beforeClose` turns
+    // it into "cancel the recording" (see there). Swallowing it here instead
+    // would leave the dialog no way to tell a cancel from a close.
+    if (e.key === 'Escape') return
+    e.preventDefault()
+    e.stopPropagation()
+    const binding = registry.bindingFor(e)
+    if (!binding) return // modifiers only — the user is still reaching
+    drafts[row.id] = binding
+    stopRecording()
+    commitHotkey(row)
+  }
+
+  // A dialog can close mid-recording (Escape elsewhere, Save and close); the
+  // registry must not stay suspended when it does.
+  $effect(() => () => registry.setSuspended(false))
+
   // ---- Vaults & shares ----
   let shares = $state(loadShares())
   let vaults = $state(listVaults())
@@ -128,6 +243,13 @@
   let pendingClose = $state(false)
 
   function beforeClose(): boolean {
+    // Escape while a chord is being recorded is aimed at the field, not at
+    // the dialog: the first press cancels the recording, a second one closes.
+    // (Dismissal policy is fixed at mount in `Dialog`, so the veto is the seam.)
+    if (recording !== null) {
+      stopRecording()
+      return false
+    }
     if (!dirty) return true
     pendingClose = true
     return false
@@ -282,6 +404,88 @@
               </p>
             {/if}
           </div>
+        {:else if id === 'hotkeys'}
+          <section data-testid="settings-hotkeys">
+            <p class="text-xs text-base-content/70">{t.hotkeys.intro()}</p>
+            <p class="mt-1 text-xs text-base-content/70">
+              {@html t.hotkeys.syntax({ example: code(EXAMPLE_BINDING), mod: code('Mod') })}
+            </p>
+            {#if hotkeyGroups.length === 0}
+              <p class="mt-3 text-xs text-base-content/70">{t.hotkeys.none()}</p>
+            {/if}
+            {#each hotkeyGroups as group (group.label)}
+              <h3 class="mt-4 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+                {group.label}
+              </h3>
+              <ul class="mt-1 space-y-2">
+                {#each group.rows as row (row.id)}
+                  <li data-testid="hotkey-row:{row.id}">
+                    <Field name={row.id} errors={hotkeyErrors[row.id] ? [hotkeyErrors[row.id]] : []}>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="min-w-0 flex-1 truncate text-sm text-base-content/80">{row.title}</span>
+                        <span
+                          data-testid="hotkey-binding:{row.id}"
+                          class="shrink-0 rounded border border-base-300 px-1.5 py-0.5 font-ed-mono text-xs text-base-content"
+                        >
+                          {row.display || t.hotkeys.unbound()}
+                        </span>
+                        <div class="w-44 shrink-0" bind:this={fields[row.id]}>
+                          <TextControl
+                            label={t.hotkeys.shortcut_for({ command: row.title })}
+                            hideLabel
+                            mono
+                            bind:value={drafts[row.id]}
+                            readonly={recording === row.id}
+                            placeholder={recording === row.id ? t.hotkeys.recording() : t.hotkeys.placeholder()}
+                            testid="hotkey-input:{row.id}"
+                            onkeydown={(e: KeyboardEvent) => {
+                              if (recording === row.id) onRecordKey(row, e)
+                              else if (e.key === 'Enter') {
+                                e.preventDefault()
+                                commitHotkey(row)
+                              }
+                            }}
+                            onblur={() => {
+                              if (recording === row.id) stopRecording()
+                              commitHotkey(row)
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          data-testid="hotkey-record:{row.id}"
+                          aria-pressed={recording === row.id}
+                          aria-label={recording === row.id
+                            ? t.hotkeys.stop_recording({ command: row.title })
+                            : t.hotkeys.record_for({ command: row.title })}
+                          onclick={() => (recording === row.id ? stopRecording() : startRecording(row))}
+                          class="shrink-0 rounded border border-base-300 px-2 py-1 text-xs font-medium text-base-content/80 hover:bg-base-200 aria-pressed:bg-primary aria-pressed:text-primary-content"
+                        >
+                          {recording === row.id ? t.hotkeys.recording() : t.hotkeys.record()}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="hotkey-reset:{row.id}"
+                          disabled={!row.overridden}
+                          aria-label={t.hotkeys.reset_for({ command: row.title })}
+                          onclick={() => resetRow(row)}
+                          class="shrink-0 rounded px-2 py-1 text-xs text-base-content/70 hover:bg-base-200 hover:text-base-content disabled:opacity-50"
+                        >
+                          {t.hotkeys.reset()}
+                        </button>
+                      </div>
+                      <Description>
+                        {row.defaultDisplay
+                          ? t.hotkeys.default_is({ binding: row.defaultDisplay })
+                          : t.hotkeys.default_none()}
+                      </Description>
+                      <FieldErrors />
+                    </Field>
+                  </li>
+                {/each}
+              </ul>
+            {/each}
+          </section>
         {:else if id === 'sync'}
           <form
             novalidate

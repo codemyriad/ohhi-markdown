@@ -51,6 +51,19 @@
   --ed-wikilink: #d08770;
   --ed-wikilink-unresolved: #a05359;
 
+  /* --- tab groups ------------------------------------------------------
+   * The eight colours a tab group can be painted in. Taste, not honesty:
+   * retint them freely. Keep them clear of the red your theme reads as
+   * "diverged", and give each one 3:1 against --color-base-100. */
+  --ed-group-1: #88c0d0;
+  --ed-group-2: #a3be8c;
+  --ed-group-3: #b48ead;
+  --ed-group-4: #ebcb8b;
+  --ed-group-5: #8fbcbb;
+  --ed-group-6: #81a1c1;
+  --ed-group-7: #d08770;
+  --ed-group-8: #cbb69a;
+
   /* --- editing state --------------------------------------------------- */
   --ed-selection: #bf616a99;
   --ed-caret: #bf616a;

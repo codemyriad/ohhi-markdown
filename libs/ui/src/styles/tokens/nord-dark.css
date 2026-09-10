@@ -153,5 +153,22 @@
      * family rather than one of its canonical fifteen. Second and last
      * documented deviation from the port — see docs/theming.md. */
     --ed-presence-8: #cbb69a;
+
+    /* Tab-group slots (W2): Nord's own frost + aurora, minus the aurora red
+     * band C reserves. Slot 7 KEEPS Nord's orange #d08770 even though the
+     * presence band above had to drop it: a presence colour is an unlabelled
+     * 2px caret that can appear anywhere in the text, while a group colour
+     * always arrives with the name you gave the group, so the floor here is
+     * "not the conflict colour" (42 units away) rather than presence's
+     * "nowhere near it". Slot 8 is presence's muted sand — Nord has fifteen
+     * hues and we need eight that all clear the red. */
+    --ed-group-1: #88c0d0;
+    --ed-group-2: #a3be8c;
+    --ed-group-3: #b48ead;
+    --ed-group-4: #ebcb8b;
+    --ed-group-5: #8fbcbb;
+    --ed-group-6: #81a1c1;
+    --ed-group-7: #d08770;
+    --ed-group-8: #cbb69a;
   }
 }
