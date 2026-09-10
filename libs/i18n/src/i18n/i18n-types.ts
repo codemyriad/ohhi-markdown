@@ -903,10 +903,6 @@ export type NamespaceWebTranslation = {
 		link_device_open: string
 		errors: {
 			/**
-			 * T​h​a​t​ ​d​o​e​s​n​'​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​v​a​l​i​d​ ​s​h​a​r​e​ ​l​i​n​k​.
-			 */
-			invalid_link: string
-			/**
 			 * V​a​u​l​t​ ​f​o​r​g​o​t​t​e​n​,​ ​b​u​t​ ​s​o​m​e​ ​o​f​ ​i​t​s​ ​s​y​n​c​ ​s​t​a​t​e​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​d​e​l​e​t​e​d​ ​(​{​m​e​s​s​a​g​e​}​)​.​ ​T​h​e​ ​l​e​f​t​o​v​e​r​s​ ​a​r​e​ ​i​n​e​r​t​ ​—​ ​r​e​o​p​e​n​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​ ​s​t​i​l​l​ ​s​t​a​r​t​s​ ​f​r​e​s​h​.
 			 * @param {string} message
 			 */
@@ -1098,6 +1094,32 @@ export type NamespaceWebTranslation = {
 		save_and_close: string
 	}
 	share: {
+		link_error: {
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​i​s​ ​d​a​m​a​g​e​d​ ​—​ ​c​o​p​y​ ​i​t​ ​a​g​a​i​n​ ​f​r​o​m​ ​t​h​e​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​m​a​d​e​ ​i​t​.
+			 */
+			malformed: string
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​i​s​ ​i​n​c​o​m​p​l​e​t​e​:​ ​i​t​ ​d​o​e​s​ ​n​o​t​ ​s​a​y​ ​w​h​i​c​h​ ​r​e​l​a​y​,​ ​f​o​l​d​e​r​ ​o​r​ ​k​e​y​ ​i​t​ ​i​s​ ​f​o​r​.​ ​C​o​p​y​ ​i​t​ ​a​g​a​i​n​ ​f​r​o​m​ ​t​h​e​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​m​a​d​e​ ​i​t​.
+			 */
+			missing_fields: string
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​w​a​s​ ​m​a​d​e​ ​b​y​ ​a​ ​n​e​w​e​r​ ​v​e​r​s​i​o​n​ ​o​f​ ​E​d​i​t​o​r​ ​—​ ​u​p​d​a​t​e​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​i​r​s​t​.
+			 */
+			unknown_kind: string
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​i​s​ ​d​a​m​a​g​e​d​:​ ​o​n​e​ ​o​f​ ​t​h​e​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​i​t​ ​c​a​r​r​i​e​s​ ​i​s​ ​m​i​s​s​i​n​g​ ​i​t​s​ ​r​e​l​a​y​,​ ​f​o​l​d​e​r​ ​o​r​ ​k​e​y​.​ ​M​a​k​e​ ​a​ ​n​e​w​ ​l​i​n​k​ ​o​n​ ​t​h​e​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​p​r​o​d​u​c​e​d​ ​i​t​.
+			 */
+			bad_grant: string
+			/**
+			 * T​h​a​t​ ​l​i​n​k​ ​c​l​a​i​m​s​ ​k​e​y​s​ ​f​o​r​ ​o​t​h​e​r​ ​f​o​l​d​e​r​s​,​ ​w​h​i​c​h​ ​o​n​l​y​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​m​a​y​ ​c​a​r​r​y​.​ ​D​o​ ​n​o​t​ ​u​s​e​ ​i​t​ ​—​ ​a​s​k​ ​f​o​r​ ​a​ ​n​e​w​ ​o​n​e​.
+			 */
+			grants_on_folder_link: string
+			/**
+			 * T​h​i​s​ ​f​o​l​d​e​r​ ​h​a​s​ ​n​o​ ​r​e​l​a​y​,​ ​r​o​o​m​ ​o​r​ ​k​e​y​ ​y​e​t​,​ ​s​o​ ​n​o​ ​l​i​n​k​ ​c​a​n​ ​b​e​ ​m​a​d​e​ ​f​o​r​ ​i​t​.
+			 */
+			incomplete_target: string
+		}
 		add: {
 			/**
 			 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r
@@ -1343,6 +1365,10 @@ export type NamespaceWebTranslation = {
 			 * @param {string} path
 			 */
 			wrong_room: RequiredParams<'path'>
+			/**
+			 * T​h​i​s​ ​i​s​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​—​ ​u​s​e​ ​"​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​"​ ​i​n​ ​t​h​e​ ​v​a​u​l​t​ ​m​a​n​a​g​e​r​ ​t​o​ ​p​u​t​ ​a​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 */
+			device_link_refused: string
 			/**
 			 * A​d​d​i​n​g​…
 			 */
@@ -1720,7 +1746,7 @@ export type NamespaceWebTranslation = {
 	}
 	workspace: {
 		/**
-		 * n​o​ ​t​o​k​e​n​ ​s​t​o​r​e​d​ ​f​o​r​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​'​{​p​a​t​h​}​'​ ​—​ ​r​e​j​o​i​n​ ​i​t​ ​v​i​a​ ​i​t​s​ ​s​h​a​r​e​ ​l​i​n​k
+		 * t​h​i​s​ ​d​e​v​i​c​e​ ​h​o​l​d​s​ ​n​o​ ​l​i​n​k​ ​f​o​r​ ​t​h​e​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​'​{​p​a​t​h​}​'​,​ ​s​o​ ​n​o​t​h​i​n​g​ ​i​n​ ​i​t​ ​s​y​n​c​s​ ​y​e​t​ ​—​ ​i​t​s​ ​f​i​l​e​s​ ​s​t​a​y​ ​o​n​ ​d​i​s​k​.​ ​O​p​e​n​ ​t​h​e​ ​f​o​l​d​e​r​'​s​ ​m​e​n​u​ ​a​n​d​ ​c​h​o​o​s​e​ ​“​A​d​d​ ​l​i​n​k​…​”​ ​t​o​ ​s​t​a​r​t​ ​i​t​ ​s​y​n​c​i​n​g​;​ ​n​o​t​h​i​n​g​ ​i​s​ ​r​e​-​d​o​w​n​l​o​a​d​e​d
 		 * @param {string} path
 		 */
 		no_token: RequiredParams<'path'>
@@ -2658,10 +2684,6 @@ export type TranslationFunctions = {
 			link_device_open: () => LocalizedString
 			errors: {
 				/**
-				 * That doesn't look like a valid share link.
-				 */
-				invalid_link: () => LocalizedString
-				/**
 				 * Vault forgotten, but some of its sync state could not be deleted ({message}). The leftovers are inert — reopening the folder still starts fresh.
 				 */
 				forget_partial: (arg: { message: string }) => LocalizedString
@@ -2844,6 +2866,32 @@ export type TranslationFunctions = {
 			save_and_close: () => LocalizedString
 		}
 		share: {
+			link_error: {
+				/**
+				 * That link is damaged — copy it again from the device that made it.
+				 */
+				malformed: () => LocalizedString
+				/**
+				 * That link is incomplete: it does not say which relay, folder or key it is for. Copy it again from the device that made it.
+				 */
+				missing_fields: () => LocalizedString
+				/**
+				 * That link was made by a newer version of Editor — update this device first.
+				 */
+				unknown_kind: () => LocalizedString
+				/**
+				 * That link is damaged: one of the shared folders it carries is missing its relay, folder or key. Make a new link on the device that produced it.
+				 */
+				bad_grant: () => LocalizedString
+				/**
+				 * That link claims keys for other folders, which only a device link may carry. Do not use it — ask for a new one.
+				 */
+				grants_on_folder_link: () => LocalizedString
+				/**
+				 * This folder has no relay, room or key yet, so no link can be made for it.
+				 */
+				incomplete_target: () => LocalizedString
+			}
 			add: {
 				/**
 				 * Add a shared folder
@@ -3075,6 +3123,10 @@ export type TranslationFunctions = {
 				 * That link is for a different shared folder — paste the link for {path}.
 				 */
 				wrong_room: (arg: { path: string }) => LocalizedString
+				/**
+				 * This is a device link — use "Link this device" in the vault manager to put a whole vault on this device.
+				 */
+				device_link_refused: () => LocalizedString
 				/**
 				 * Adding…
 				 */
@@ -3439,7 +3491,7 @@ export type TranslationFunctions = {
 		}
 		workspace: {
 			/**
-			 * no token stored for shared folder '{path}' — rejoin it via its share link
+			 * this device holds no link for the shared folder '{path}', so nothing in it syncs yet — its files stay on disk. Open the folder's menu and choose “Add link…” to start it syncing; nothing is re-downloaded
 			 */
 			no_token: (arg: { path: string }) => LocalizedString
 			/**

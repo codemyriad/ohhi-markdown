@@ -59,11 +59,17 @@ import {
   type AdoptedMountOptions,
   type AdoptNotice,
 } from '../src/adopt.js'
+import { activateMount } from '../src/activate.js'
 import { carveFolder } from '../src/carve.js'
 import { joinMount } from '../src/join.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
-import { FOLDER_RECORD_KEY, type RelayConfig, type SyncRecordFields } from '../src/types.js'
+import {
+  FOLDER_RECORD_KEY,
+  type PullProgress,
+  type RelayConfig,
+  type SyncRecordFields,
+} from '../src/types.js'
 
 export const enc = new TextEncoder()
 export const dec = new TextDecoder()
@@ -301,6 +307,8 @@ export interface Device {
   records: Map<string, SyncRecordFields>
   notices: AdoptNotice[]
   builds: BuildRecord[]
+  /** Two-phase progress reported by a pull someone pasted their way into. */
+  pulls: PullProgress[]
   errors: string[]
   descs: () => readonly MountDesc[]
   registry: () => { mountPath: string; session: MountSession }[]
@@ -346,6 +354,7 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
   const ignore = new Set<string>()
   const records = new Map<string, SyncRecordFields>()
   const notices: AdoptNotice[] = []
+  const pulls: PullProgress[] = []
   const builds: BuildRecord[] = []
   const errors: string[] = []
   const mounts = new Map<string, MountSession>()
@@ -456,6 +465,8 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
       provenance: o.provenance,
       ...(o.relay ? { relay: o.relay } : {}),
       ...(o.firstJoin ? { firstJoin: true } : {}),
+      ...(o.neverHeld ? { neverHeld: true } : {}),
+      ...(o.onPullProgress ? { events: { onPullProgress: o.onPullProgress } } : {}),
     })
   }
 
@@ -526,6 +537,9 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
         path: desc.path,
         provenance: desc.provenance,
         ...(relay ? { relay } : {}),
+        // Never held and still no key: boot empty, enrol nothing. The files
+        // under the mount root belong to a room this device has not seen (N3).
+        ...(desc.neverHeld && !relay ? { neverHeld: true } : {}),
       })
     )
   }
@@ -553,6 +567,7 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
     records,
     notices,
     builds,
+    pulls,
     errors,
     descs: () => descs,
     registry: () => [
@@ -654,12 +669,14 @@ export async function joinOn(dev: Device, opts: { dest: string; link: string }):
 
 /**
  * `doAddMountLink` (A4-C): paste the link for a mount this device holds but
- * has no key for. Two shapes, one rule — a SEEDED mount activates in place
- * through `enableSharing` (same guids as the room's, nothing re-read from
- * disk); an EMPTY one is rebuilt as a `firstJoin` and pulls its room.
+ * has no key for.
  *
- * This mirrors `apps/web/src/lib/workspace.svelte.ts`; the activation rule
- * itself lives only in the shim today (see the N3 report).
+ * The rule itself is `activateMount` in libs/workspace — the SAME machine the
+ * web shim calls, which is the point: this harness exists to catch the shim
+ * drifting, and a copy of the rule here would have hidden exactly the defect
+ * that moved it out (`activate.ts`'s header). What is mirrored is only the
+ * shell's half: decode the link, store the token and its grants, hand over
+ * the registry.
  */
 export async function addMountLink(dev: Device, path: string, link: string): Promise<void> {
   const info = dev.descs().find((d) => d.path === path)
@@ -671,24 +688,24 @@ export async function addMountLink(dev: Device, path: string, link: string): Pro
 
   dev.tokens.set(target.room, target.token, target.relay, target.kind)
   if (target.grants.length > 0) dev.tokens.mergeGrants(target.grants)
-  const relay: RelayConfig = { url: target.relay, token: target.token }
 
-  if (session.files().length > 0) {
-    session.enableSharing(relay)
-    await dev.mountsFile.setStatus(info.room, 'active')
-  } else {
-    dev.detach(path)
-    await session.shutdown()
-    const next = await dev.buildMount({
-      room: info.room,
-      path,
-      provenance: info.provenance,
-      relay,
-      firstJoin: true,
+  try {
+    await activateMount({
+      vaultDir: dev.vaultDir,
+      mountsFile: dev.mountsFile,
+      desc: info,
+      session,
+      relay: { url: target.relay, token: target.token },
+      buildSession: (o) => dev.buildMount(o),
+      detachMount: (p) => {
+        dev.detach(p)
+      },
+      attachMount: (p, next) => dev.attach(p, next),
+      onPullProgress: (progress) => dev.pulls.push(progress),
     })
-    dev.attach(path, next)
+  } finally {
+    await dev.refreshDescs()
   }
-  await dev.refreshDescs()
 }
 
 // ------------------------------------------------------------- assertions

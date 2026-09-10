@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import { getLL } from '@editor/i18n'
 import {
   decodeShareLink,
   encodeDeviceLink,
   encodeShareLink,
   looksLikeShareLink,
+  ShareLinkError,
+  shareLinkErrorText,
+  type ShareLinkErrorCode,
 } from './share-link.js'
+
+/**
+ * Every refusal is asserted by CODE, never by the English it renders as:
+ * the code is the contract the dialogs and the notice path map through, and
+ * the sentence is the dictionary's business.
+ */
+function codeOf(run: () => unknown): ShareLinkErrorCode {
+  try {
+    run()
+  } catch (err) {
+    if (err instanceof ShareLinkError) return err.code
+    throw err
+  }
+  throw new Error('expected a ShareLinkError, nothing was thrown')
+}
 
 describe('share-link codec', () => {
   const target = {
@@ -42,16 +61,16 @@ describe('share-link codec', () => {
   })
 
   it('rejects malformed input', () => {
-    expect(() => decodeShareLink('editor1:@@@not-base64@@@')).toThrow()
-    expect(() => decodeShareLink('')).toThrow()
+    expect(codeOf(() => decodeShareLink('editor1:@@@not-base64@@@'))).toBe('malformed')
+    expect(codeOf(() => decodeShareLink(''))).toBe('malformed')
     // Valid base64 of the wrong shape.
-    expect(() => decodeShareLink(`editor1:${btoa('{"nope":true}')}`)).toThrow(/missing/)
+    expect(codeOf(() => decodeShareLink(`editor1:${btoa('{"nope":true}')}`))).toBe('missing_fields')
   })
 
   it('refuses to encode an incomplete target', () => {
-    expect(() => encodeShareLink({ relay: '', room: 'r', token: 't' })).toThrow()
-    expect(() => encodeShareLink({ relay: 'x', room: '', token: 't' })).toThrow()
-    expect(() => encodeShareLink({ relay: 'x', room: 'r', token: '' })).toThrow()
+    expect(codeOf(() => encodeShareLink({ relay: '', room: 'r', token: 't' }))).toBe('incomplete_target')
+    expect(codeOf(() => encodeShareLink({ relay: 'x', room: '', token: 't' }))).toBe('incomplete_target')
+    expect(codeOf(() => encodeShareLink({ relay: 'x', room: 'r', token: '' }))).toBe('incomplete_target')
   })
 })
 
@@ -116,40 +135,68 @@ describe('device links (device-link-shaping A4-B)', () => {
       ['not-a-grant'],
     ]
     for (const grantList of bad) {
-      expect(() =>
-        encodeDeviceLink({ ...device, grants: grantList as never })
-      ).toThrow(/grant/)
+      expect(codeOf(() => encodeDeviceLink({ ...device, grants: grantList as never }))).toBe(
+        'bad_grant'
+      )
       // …and the same on the way in, where the link came from elsewhere.
       const forged = `editor1:${btoa(
         JSON.stringify({ v: 1, relay: 'ws://r', room: 'v', token: 't', kind: 'device', grants: grantList })
       )}`
-      expect(() => decodeShareLink(forged)).toThrow(/grant/)
+      expect(codeOf(() => decodeShareLink(forged))).toBe('bad_grant')
     }
     const notAnArray = `editor1:${btoa(
       JSON.stringify({ v: 1, relay: 'ws://r', room: 'v', token: 't', kind: 'device', grants: 'nope' })
     )}`
-    expect(() => decodeShareLink(notAnArray)).toThrow(/grant/)
+    expect(codeOf(() => decodeShareLink(notAnArray))).toBe('bad_grant')
   })
 
   it('refuses grants on a folder link (R5: a folder share never carries the vault)', () => {
-    expect(() => encodeShareLink({ ...device, kind: 'folder' })).toThrow(/device link/)
-    expect(() => encodeShareLink({ ...device })).toThrow(/device link/) // kind absent ⇒ folder
+    expect(codeOf(() => encodeShareLink({ ...device, kind: 'folder' }))).toBe('grants_on_folder_link')
+    // kind absent ⇒ folder
+    expect(codeOf(() => encodeShareLink({ ...device }))).toBe('grants_on_folder_link')
     const forged = `editor1:${btoa(
       JSON.stringify({ v: 1, relay: 'ws://r', room: 'v', token: 't', grants: [grants[0]] })
     )}`
-    expect(() => decodeShareLink(forged)).toThrow(/device link/)
+    expect(codeOf(() => decodeShareLink(forged))).toBe('grants_on_folder_link')
   })
 
   it('rejects an unknown kind rather than guessing', () => {
     const forged = `editor1:${btoa(
       JSON.stringify({ v: 1, relay: 'ws://r', room: 'v', token: 't', kind: 'admin' })
     )}`
-    expect(() => decodeShareLink(forged)).toThrow(/kind/)
+    expect(codeOf(() => decodeShareLink(forged))).toBe('unknown_kind')
   })
 
   it('a device link with no grants is still a device link', () => {
     const decoded = decodeShareLink(encodeDeviceLink({ relay: 'ws://r', room: 'v', token: 't' }))
     expect(decoded.kind).toBe('device')
     expect(decoded.grants).toEqual([])
+  })
+})
+
+describe('shareLinkErrorText — what the rendering sites show', () => {
+  const codes: ShareLinkErrorCode[] = [
+    'malformed',
+    'missing_fields',
+    'unknown_kind',
+    'bad_grant',
+    'grants_on_folder_link',
+    'incomplete_target',
+  ]
+
+  it('renders every code from the dictionary, never the code itself', () => {
+    for (const code of codes) {
+      const text = shareLinkErrorText(new ShareLinkError(code))
+      expect(text).toBe(getLL().web.share.link_error[code]())
+      expect(text).not.toContain(code)
+    }
+  })
+
+  it('passes anything that is not a share-link failure straight through', () => {
+    // The relay's and the workspace's own errors are already translated.
+    expect(shareLinkErrorText(new Error('the relay rejected this token'))).toBe(
+      'the relay rejected this token'
+    )
+    expect(shareLinkErrorText('not even an error')).toBe('not even an error')
   })
 })

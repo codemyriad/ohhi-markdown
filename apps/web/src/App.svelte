@@ -44,7 +44,7 @@
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
-  import { decodeShareLink } from './lib/share-link.js'
+  import { decodeShareLink, shareLinkErrorText } from './lib/share-link.js'
   import { pillStatus } from './lib/sync-record.svelte.js'
   import { setupWorkspace, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
   import { wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
@@ -471,8 +471,10 @@
     let target: ReturnType<typeof decodeShareLink>
     try {
       target = decodeShareLink(link)
-    } catch {
-      failure = { room: null, message: $LL.web.manager.errors.invalid_link() }
+    } catch (err) {
+      // The codec throws a code; the manager is a rendering site, so it says
+      // WHICH way the link is unusable rather than "invalid link".
+      failure = { room: null, message: shareLinkErrorText(err) }
       busy = false
       return
     }
@@ -483,7 +485,7 @@
       try {
         await linkThisDevice(link)
       } catch (err) {
-        failure = { room: null, message: err instanceof Error ? err.message : String(err) }
+        failure = { room: null, message: shareLinkErrorText(err) }
         busy = false
       }
       return
@@ -691,7 +693,7 @@
       await workspace.addMountLink(path, link)
       refreshLists()
     } catch (err) {
-      workspace.notify({ level: 'error', text: err instanceof Error ? err.message : String(err), path })
+      workspace.notify({ level: 'error', text: shareLinkErrorText(err), path })
       throw err
     }
   }

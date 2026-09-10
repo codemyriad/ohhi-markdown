@@ -6,10 +6,11 @@
  * fast-check generates a command script over `bootDuo`: carve, unshare, paste
  * a token, create/delete/move inside and across the mount boundary, edit while
  * partitioned, deliver partially, tick, reboot, and cut a device's durability
- * mid-machine (a kill -9) and reboot it. Tree renames are behind a flag — see
- * `RENAMES` — and one device at a time reshapes a tree; both exclusions name
- * the open crasher they stand in for, and both are things `nested.test.ts`
- * covers directly.
+ * mid-machine (a kill -9) and reboot it. Two exclusions are gone with the
+ * crashers they stood in for: unshare is back on (0008), and a carve no
+ * longer waits for both copies of the room's map to have merged (0003). Two
+ * remain, each behind a flag and each naming its open counterexample —
+ * `RENAMES` (0006, 0009), `RESHAPE_BOTH` (0010) and `CARVE_INFLIGHT` (0011).
  *
  * Blocking invariants:
  *  - A6, after EVERY awaited command, on BOTH devices (`checkInvariants`):
@@ -53,23 +54,82 @@ const FILES: Record<string, string> = {
 const RUNS = Number(process.env['NESTED_FUZZ_RUNS'] ?? 60)
 const CMDS = Number(process.env['NESTED_FUZZ_CMDS'] ?? 22)
 /**
- * Two command families are OFF by default, each because it re-reports an OPEN
- * crasher on every run instead of finding new ones. `NESTED_FUZZ_OPEN=1` turns
- * both back on — and this flag goes away when those crashers are un-skipped.
+ * **Unshare is ON.** It was off while `fuzz-crashers/0008` was open (after an
+ * unshare round trip the two devices' copies of a note stopped being
+ * connected, so every later edit was one-sided). That is fixed — a shut-down
+ * session no longer finishes its queued map work — and the crasher is
+ * un-skipped, so the command earns its place again.
  *
- *  - **Tree renames** — crashers 0004 (two peers renaming concurrently split
- *    one guid across two paths and diverge the disks) and 0006 (a rename
- *    interrupted by a crash duplicates the note). Both are `libs/vault`'s, not
- *    N1's. The rename paths N1 owns — the ghost rule's rename branch, S10 Q5
- *    rows 3 and 4 — are directed fixtures in `nested.test.ts`.
- *  - **Unshare** — crasher 0008: after an unshare round trip the two devices'
- *    copies of a note stop being connected, so every later edit is one-sided.
- *    Deterministic, no race needed, and unshare/absorb is covered directly by
- *    three fixtures in `nested.test.ts` plus crasher 0005.
+ * **Tree renames stay off** (`NESTED_FUZZ_RENAMES=1` turns them on). Crasher
+ * 0004 (two peers renaming concurrently split one guid across two paths) is
+ * fixed, but two more remain open and both are `libs/vault`'s remote-rename
+ * and rename-durability paths rather than this slice's:
+ *
+ *  - `fuzz-crashers/0006` — a rename interrupted by a crash duplicates the
+ *    note: the disk move lands before the map transaction and the folder
+ *    blob's flush is debounced behind both.
+ *  - `fuzz-crashers/0009` — two dir renames delivered in one batch leave the
+ *    file EMPTY on the peer: the intermediate path is in neither map by the
+ *    time the peer looks, so its remote-change pass materializes an empty doc
+ *    at the destination instead of moving the bytes it already has. Found by
+ *    this suite the moment renames were tried again with 0004 fixed.
+ *
+ * The rename paths this slice owns — the ghost rule's rename branch, S10 Q5
+ * rows 3 and 4 — are directed fixtures in `nested.test.ts`.
  */
-const OPEN = process.env['NESTED_FUZZ_OPEN'] === '1'
-const RENAMES = OPEN
-const UNSHARE = OPEN
+const RENAMES = process.env['NESTED_FUZZ_RENAMES'] === '1'
+const UNSHARE = true
+/**
+ * **Two devices reshaping trees concurrently** — off, and this is the one
+ * exclusion that got NARROWER rather than disappearing. Crashers 0004 (two
+ * peers renaming concurrently) and 0005 (a resurrected entry never coming
+ * back) are both fixed, so the gate was lifted; at 300 runs it produced a new
+ * divergence, and one this slice does not own:
+ *
+ *     NESTED_FUZZ_RESHAPE=1 NESTED_FUZZ_SEED=1305091765 \
+ *       NESTED_FUZZ_PATH=30:10:13:3:13:16:15:13:12:11:13:11 rushx test
+ *     → [carve(a), deleteDir(b), deleteDir(b), deliver(1)]
+ *     → disks diverged on team/notes/deep.md — A holds the note, B holds an
+ *       EMPTY file at the same path, with no review on either side.
+ *
+ * A whole-folder delete racing a carve, delivered a frame at a time: the peer
+ * ends up materializing an empty doc over bytes it already had. Same shape as
+ * crashers 0002 and 0009 — `libs/vault`'s remote-change pass writing a
+ * destination it has no content for — so it is tracked with them rather than
+ * fixed here, and the gate goes back on so this suite keeps finding NEW
+ * failures instead of re-reporting that one.
+ *
+ * The replay reproduces about two runs in three: which side of the race wins
+ * turns on Yjs client ids and freshly minted guids, neither of which the seed
+ * fixes. Run it a few times.
+ */
+const RESHAPE_BOTH = process.env['NESTED_FUZZ_RESHAPE'] === '1'
+/**
+ * **Carving while an update is still in flight** — off, and for a hazard in
+ * the product rather than in this suite. The gate used to stand for
+ * `fuzz-crashers/0003` (the peer's independently-seeded folder doc); the
+ * announced seed retired that reason, and lifting it found a different one:
+ *
+ *     NESTED_FUZZ_CARVE_INFLIGHT=1 NESTED_FUZZ_SEED=-2104536920 \
+ *       NESTED_FUZZ_PATH=207:2:1:3:3:12:12:14:14:18:18:20:1:8:14:16:16:16:14:14 \
+ *       rushx test
+ *     → [edit(b), carve(a), crash(b, 0), deliver(1)]
+ *     → marker [m0] lost
+ *
+ * B edits a note ONLINE, so the update is durable at the relay in the ROOT
+ * room. A carves that folder before the update reaches it, and seeds the new
+ * room from its own state. B is killed before its own blob flush, so on
+ * reboot B restores the pre-edit doc — and the only surviving copy of that
+ * edit is a document in a room nothing subscribes to any more. Spike S10 Q5
+ * row 1 already calls the `<rootRoom>/<guid>` copies left behind "orphans
+ * (relay-GC, Later)"; this says one of them can be the newest copy of a note.
+ *
+ * A carve cannot be made to wait for a room to be quiet in the product, so
+ * the answer is a design decision for the plan (the carver could pull the
+ * subtree's docs to their heads before seeding, or the adopting peer could
+ * re-fetch the old room's copies once) — not a patch here.
+ */
+const CARVE_INFLIGHT = process.env['NESTED_FUZZ_CARVE_INFLIGHT'] === '1'
 
 /**
  * Replay: `NESTED_FUZZ_SEED=… NESTED_FUZZ_PATH=… rushx test l1-nested-fuzz`
@@ -80,6 +140,23 @@ const REPLAY = {
   ...(process.env['NESTED_FUZZ_SEED'] ? { seed: Number(process.env['NESTED_FUZZ_SEED']) } : {}),
   ...(process.env['NESTED_FUZZ_PATH'] ? { path: process.env['NESTED_FUZZ_PATH'] } : {}),
   ...(process.env['NESTED_FUZZ_SEED'] ? { endOnFailure: true } : {}),
+}
+
+/**
+ * May a command reshape this session's tree (rename / create / delete / move)?
+ * One device at a time while the two are out of step — see `RESHAPE_BOTH`.
+ *
+ * The other half this gate used to carry is gone: it also required both
+ * copies of the room's map to have exchanged updates first, because each
+ * device seeded an adopted mount's folder doc as its own independent history
+ * (`fuzz-crashers/0003`). The announced seed fixed that, so a freshly-adopted
+ * mount can be reshaped while the two devices are still catching up.
+ */
+function reshapable(world: World, dev: Which): boolean {
+  if (RESHAPE_BOTH) return true
+  if (world.reshaper !== null && world.reshaper !== dev) return false
+  world.reshaper = dev
+  return true
 }
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
@@ -100,20 +177,7 @@ interface World {
   reviewText: string[]
   errors: unknown[]
   seq: number
-  /**
-   * Which device last reshaped a tree while the two were out of step. Two
-   * devices renaming concurrently put one guid at two paths and diverge the
-   * disks — `fuzz-crashers/0004-concurrent-rename-splits-a-guid.spec.ts`, a
-   * plain `libs/vault` bug this suite found and does not own. Carve and
-   * unshare join the same exclusion, for
-   * `fuzz-crashers/0005-unshare-resurrect-never-restores.spec.ts`: an unshare
-   * re-states its whole subtree on the map, and a peer that deleted a file in
-   * it meanwhile never gets it back.
-   *
-   * So: one device at a time reshapes, and the flag clears the moment the two
-   * agree again. The races this excludes are the ones `nested.test.ts` pins
-   * directly (rows 3-9); what is left here is everything nobody wrote down.
-   */
+  /** Which device last reshaped a tree while the two were out of step. */
   reshaper: Which | null
 }
 
@@ -183,41 +247,6 @@ function mapDigest(dev: BootedVault, room: string): string | null {
       .map(([p, e]) => `${p}:${e.guid}:${e.kind}${e.deleted ? ':D' : ''}`)
       .sort()
   )
-}
-
-/**
- * May a command reshape this session's tree (rename / create / delete / move)?
- *
- * Only once BOTH devices' copies of that room's map agree — which is exactly
- * the point at which the two folder-doc histories have merged. Before it, a
- * peer's adopt seed is an INDEPENDENT history, so a hard delete (which is how
- * a rename removes its source) does not apply to it and the old key comes back
- * on both devices, permanently divergent. That window is the open design
- * question in `fuzz-crashers/0003-adopt-seed-resurrects-renamed-key.spec.ts`;
- * excluding it here is what lets this suite keep finding NEW failures instead
- * of re-reporting that one. The root room is never affected — its history is
- * shared from the two-device bootstrap on.
- */
-function reshapable(world: World, dev: Which, session: MountSession): boolean {
-  if (world.reshaper !== null && world.reshaper !== dev) return false
-  if (session.room !== ROOT_ROOM && !merged(world, session.room)) return false
-  world.reshaper = dev
-  return true
-}
-
-/**
- * Have both devices' copies of this room's folder doc actually exchanged
- * updates? Equal ENTRIES are not enough: each device seeds an adopted mount's
- * folder doc from its own state, so the two are independent histories that
- * merge as a union — a hard delete on one side (which is how a rename removes
- * its source, and how a tombstone is set) has nothing to delete on the other.
- * Once a frame has landed each way the histories are one, and ordinary
- * concurrency rules apply again. See crasher 0003.
- */
-function merged(world: World, room: string): boolean {
-  if (room === ROOT_ROOM) return true
-  const seen = world.duo.net.deliveredTo(`${room}/folder`)
-  return seen.has('A') && seen.has('B')
 }
 
 /**
@@ -355,15 +384,14 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
       await duo.crash(cmd.dev, cmd.after)
       break
     case 'carve': {
-      // Only carve from a fully delivered, in-step state. The adopt seeds the
-      // mount from the PEER's PRE-IMAGE of the subtree; anything still in
-      // flight makes that pre-image a different key set from the carver's
-      // membership, and the two independent seed histories then merge as a
-      // union — crasher 0003's open design question, reached from whichever
-      // side happens to be behind.
-      if (!quiet(world)) return
+      // Only from a fully delivered, in-step state — see `CARVE_INFLIGHT` for
+      // the counterexample that keeps it that way. The ORIGINAL reason (the
+      // peer's independently-seeded folder doc, `fuzz-crashers/0003`) is gone:
+      // the announced seed removed the peer's opinion from the seeding
+      // entirely. What is left is a product hazard, not a harness one.
+      if (!CARVE_INFLIGHT && !quiet(world)) return
       const target = pick(carvable(dev), cmd.idx)
-      if (!target || !reshapable(world, cmd.dev, dev.root)) return
+      if (!target || !reshapable(world, cmd.dev)) return
       const room = `room-${world.seq++}`
       // The carver always holds the token it minted. Whether the PEER does is
       // half the interest: with one it adopts `active`, without one it adopts
@@ -393,9 +421,7 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
         })
         .sort((x, y) => `${x.w}${x.path}`.localeCompare(`${y.w}${y.path}`))
       const chosen = pick(owned, cmd.idx)
-      if (!UNSHARE || !chosen || !quiet(world) || !reshapable(world, chosen.w, chosen.dev.root)) {
-        return
-      }
+      if (!UNSHARE || !chosen || !quiet(world) || !reshapable(world, chosen.w)) return
       const owner = chosen.dev
       const mount = owner.mounts.get(chosen.path)!
       owner.mounts.delete(chosen.path)
@@ -450,7 +476,7 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
     case 'renameFile': {
       if (!RENAMES) return
       const row = pick(rowsOf(dev, 'text'), cmd.idx)
-      if (!row || !reshapable(world, cmd.dev, row.session)) return
+      if (!row || !reshapable(world, cmd.dev)) return
       const dir = row.rel.includes('/') ? `${row.rel.slice(0, row.rel.lastIndexOf('/'))}/` : ''
       await row.session.renamePath(row.rel, `${dir}r${world.seq++}.md`)
       break
@@ -458,7 +484,7 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
     case 'renameDir': {
       if (!RENAMES) return
       const row = pick(renamableDirs(dev), cmd.idx)
-      if (!row || !reshapable(world, cmd.dev, row.session)) return
+      if (!row || !reshapable(world, cmd.dev)) return
       const parent = row.rel.includes('/') ? `${row.rel.slice(0, row.rel.lastIndexOf('/'))}/` : ''
       await row.session.renamePath(row.rel, `${parent}d${world.seq++}`)
       break
@@ -466,7 +492,7 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
     case 'createInside': {
       const handles = dev.registry()
       const handle = pick(handles, cmd.idx)
-      if (!handle || !reshapable(world, cmd.dev, handle.session)) return
+      if (!handle || !reshapable(world, cmd.dev)) return
       const marker = `[m${world.seq++}]`
       const made = await handle.session.createFile('', `n${world.seq++}.md`, `${marker}\n`)
       if (made) world.markers.set(marker, guidAt(handle.session, made) ?? '')
@@ -474,20 +500,20 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
     }
     case 'deleteInside': {
       const row = pick(rowsOf(dev, 'text'), cmd.idx)
-      if (!row || !reshapable(world, cmd.dev, row.session)) return
+      if (!row || !reshapable(world, cmd.dev)) return
       await row.session.deletePath(row.rel)
       break
     }
     case 'deleteDir': {
       const row = pick(renamableDirs(dev), cmd.idx)
-      if (!row || !reshapable(world, cmd.dev, row.session)) return
+      if (!row || !reshapable(world, cmd.dev)) return
       await row.session.deletePath(row.rel)
       break
     }
     case 'moveOut': {
       // Mount → root, in-app: import with a FRESH guid, tombstone the source.
       const row = pick(rowsOf(dev, 'text').filter((r) => r.mountPath !== ''), cmd.idx)
-      if (!row || !reshapable(world, cmd.dev, row.session)) return
+      if (!row || !reshapable(world, cmd.dev)) return
       const bytes = await row.session.readFileBytes(row.rel)
       if (!bytes) return
       await dev.root.importFile(`moved${world.seq++}.md`, bytes)
@@ -503,7 +529,7 @@ async function runCmd(world: World, cmd: Cmd, tokens: Record<Which, Map<string, 
       )
       if (!row) return
       const target = dev.mounts.get(mountPath)!
-      if (!reshapable(world, cmd.dev, target)) return
+      if (!reshapable(world, cmd.dev)) return
       const bytes = await row.session.readFileBytes(row.rel)
       if (!bytes) return
       await target.importFile(`moved${world.seq++}.md`, bytes)
@@ -627,14 +653,14 @@ describe('L1 nested-mount fuzz', () => {
             // A6, after every command, on both devices — the interesting
             // failures are transient (a guid in two maps for one tick means
             // some device could reconcile the same file twice).
-            checkInvariants(duo.a)
-            checkInvariants(duo.b)
+            await checkInvariants(duo.a)
+            await checkInvariants(duo.b)
           }
 
           await stabilize(world)
           collect(world)
-          checkInvariants(duo.a)
-          checkInvariants(duo.b)
+          await checkInvariants(duo.a)
+          await checkInvariants(duo.b)
 
           const [fa, fb] = [liveFiles(duo.a), liveFiles(duo.b)]
 

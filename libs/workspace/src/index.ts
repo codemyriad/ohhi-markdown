@@ -23,11 +23,14 @@ export {
   type WhenSyncedOptions,
 } from './providers.js'
 export {
+  MAX_SEED_BYTES,
   MountSession,
   type DetachOptions,
   type DocInspection,
   type MountSessionConfig,
   type MountStats,
+  type SeedOptions,
+  type SeedResult,
 } from './mount-session.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
 export {
@@ -38,6 +41,7 @@ export {
 } from './vault-boot.js'
 export {
   mountInvariants,
+  mountStoreInvariants,
   reconcileMountEntries,
   sweepGhosts,
   type AdoptContext,
@@ -45,6 +49,7 @@ export {
   type AdoptNotice,
   type AdoptNoticeKind,
 } from './adopt.js'
+export { activateMount, type ActivateMountOptions } from './activate.js'
 export { carveFolder, type CarveOptions } from './carve.js'
 export { joinMount, type JoinMountOptions } from './join.js'
 export { unmountMount, unshareMount, type UnshareOptions } from './unshare.js'

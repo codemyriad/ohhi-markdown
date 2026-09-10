@@ -108,6 +108,19 @@ export interface MountSessionConfig {
   mountPath?: string
   /** Recorded in the mount desc; default: 'joined' when firstJoin, else 'local'. */
   provenance?: MountProvenance
+  /**
+   * This device has never held the room's content and has no credential for
+   * it yet (`MountDesc.neverHeld`, spike S10 Q2 + N3's empty-adopt finding).
+   * Boot with an EMPTY map and no delta scan: the files under the mount root
+   * belong to a room this session cannot see, and enrolling them with fresh
+   * guids would LWW-clobber the owner's entries at the next paste.
+   *
+   * "Keep + mark", read exactly: the bytes stay on disk, untouched and
+   * unmanaged, and the tree marks the folder as needing a link. Listing them
+   * as managed rows would be the dishonest half — they are not this mount's
+   * files until the pull says so.
+   */
+  neverHeld?: boolean
   thresholds?: Partial<ReconcileThresholds>
   /** Stable reactive record factory, keyed by doc GUID + FOLDER_RECORD_KEY (guids are rename-stable). */
   recordFor: (key: string) => SyncRecordFields
@@ -116,6 +129,50 @@ export interface MountSessionConfig {
   makeShareLink: (relay: RelayConfig, room: string) => string
   /** Non-browser hosts pass their WebSocket impl through to providers. */
   webSocketPolyfill?: unknown
+}
+
+/** How a mount namespace is seeded (spike S10 Q1 step 3). */
+export interface SeedOptions {
+  /**
+   * The ANNOUNCED seed: base64 of the announcer's own folder-doc state
+   * (`FileEntry.seed`). Applied to a fresh doc, so every device's copy of the
+   * room's map is the SAME Yjs history — the fix for `fuzz-crashers/0003`,
+   * where N independently-seeded folder docs merged as a union and no hard
+   * delete could ever remove another device's copy of a key.
+   */
+  seed?: string
+  /**
+   * Explicit membership, for a seeding that is not driven by an announcement.
+   * The carver passes nothing (its live map is the authority).
+   */
+  entries?: readonly (readonly [string, FileEntry])[]
+}
+
+/** What `seedCarveStores` wrote, and what the caller's detach needs next. */
+export interface SeedResult {
+  /**
+   * The subtree that moved, as `[workspace-relative path, entry]` — the
+   * carver's live map filtered, or the announced seed rebased under the mount
+   * root. This is the membership the parent teardown works from.
+   */
+  members: readonly (readonly [string, FileEntry])[]
+  /**
+   * The seeded folder doc's full state — what the announcer puts in the map
+   * entry so every other device seeds the identical history.
+   */
+  seed: Uint8Array
+  /**
+   * Did this device actually contribute the room's CONTENT — a doc blob or an
+   * LCA record for at least one text member?
+   *
+   * False means the namespace is a map with nothing behind it: a device that
+   * linked after the carve, or whose app data was wiped. Such a mount must
+   * PULL rather than merge, and must never enrol the files sitting under its
+   * root, which belong to a room it has not seen (`MountDesc.neverHeld`). A
+   * membership with no text in it at all counts as held: there is no history
+   * to duplicate, and the seeded map already covers the files.
+   */
+  held: boolean
 }
 
 /** What a PEER's detach needs beyond the carver's (spike S10 Q1 step 5). */
@@ -242,6 +299,7 @@ export class MountSession {
     this.folderDoc = cfg.engine.createDoc(`${cfg.room}/folder`)
 
     this.folderDoc.getMap().observe((origin) => {
+      if (this.stopped) return // torn down; nothing here is ours any more
       this.guidPaths = null // any map change can move a guid's path
       // Only a FOREIGN map change can tell us about someone else's carve or
       // unshare; our own carve wrote the entry itself (N1, shaping A2/A3).
@@ -493,37 +551,70 @@ export class MountSession {
   async seedCarveStores(
     prefix: string,
     targetDir: StoreDir,
-    entries?: readonly (readonly [string, FileEntry])[]
-  ): Promise<void> {
+    opts?: SeedOptions
+  ): Promise<SeedResult> {
     const pre = `${prefix}/`
-    const subtree = (entries ?? this.folderDoc.getMap().entries()).filter(
-      ([p, e]) => !e.deleted && e.kind !== 'mount' && (p === prefix || p.startsWith(pre))
-    )
-
     // Temp doc under a throwaway name — never `${room}/folder`, which the new
     // mount's own MountSession will create as its instance later.
     const tmp = this.engine.createDoc(`carve-tmp:${crypto.randomUUID()}`)
     const store = new BlobDocStore(this.engine, targetDir, this.clock)
     try {
-      tmp.transactMap((m) => {
-        for (const [path, entry] of subtree) {
-          if (path === prefix) continue // the carved dir itself becomes the new vault root
-          m.set(path.slice(pre.length), entry)
+      /** `[relative key in the mount, workspace path, entry]`. */
+      const seeded: [string, string, FileEntry][] = []
+      if (opts?.seed !== undefined) {
+        // ONE history on every device: apply the announcer's own folder state
+        // instead of re-`set`ting the entries ourselves. Two independently
+        // seeded folder docs merge as a UNION, so a hard delete on one side —
+        // which is how a rename removes its source and how the ghost rule
+        // removes a key — has nothing to delete on the other, and the two
+        // maps diverge permanently (`fuzz-crashers/0003`).
+        this.engine.applyUpdate(tmp, decodeSeed(opts.seed), 'seed')
+        for (const [rel, entry] of tmp.getMap().entries()) {
+          if (entry.deleted || entry.kind === 'mount') continue
+          seeded.push([rel, `${prefix}/${rel}`, entry])
         }
-      }, 'seed')
+      } else {
+        const subtree = (opts?.entries ?? this.folderDoc.getMap().entries()).filter(
+          ([p, e]) => !e.deleted && e.kind !== 'mount' && (p === prefix || p.startsWith(pre))
+        )
+        tmp.transactMap((m) => {
+          for (const [path, entry] of subtree) {
+            if (path === prefix) continue // the carved dir itself becomes the new vault root
+            m.set(path.slice(pre.length), entry)
+          }
+        }, 'seed')
+        for (const [path, entry] of subtree) {
+          if (path === prefix) continue
+          seeded.push([path.slice(pre.length), path, entry])
+        }
+      }
       store.track(FOLDER_DOC_KEY, tmp)
       await store.flush(FOLDER_DOC_KEY)
 
       const lcas = new JsonFileLcaStore(targetDir.io('lca.json'))
-      for (const [path, entry] of subtree) {
+      let texts = 0
+      let copied = 0
+      for (const [rel, , entry] of seeded) {
         if (entry.kind !== 'text') continue
+        texts++
+        // Blob BEFORE the LCA (Invariant D): a crash between them must leave a
+        // doc at least as new as its baseline, never the reverse.
         const doc = this.docs.get(entry.guid)
         if (doc) {
           store.track(entry.guid, doc)
           await store.flush(entry.guid)
+          copied++
         }
         const lca = await this.lcaStore.get(entry.guid)
-        if (lca) await lcas.put({ ...lca, path: path.slice(pre.length) })
+        if (lca) {
+          await lcas.put({ ...lca, path: rel })
+          if (!doc) copied++
+        }
+      }
+      return {
+        members: seeded.map(([, full, entry]) => [full, entry] as const),
+        seed: this.engine.encodeUpdateSince(tmp, null),
+        held: copied > 0 || (seeded.length > 0 && texts === 0),
       }
     } finally {
       store.dispose()
@@ -541,7 +632,8 @@ export class MountSession {
    *
    * `mount` (N1, device-link-shaping A2) makes the SAME transaction announce
    * where the subtree went: a `kind:'mount'` entry replaces the dir entry at
-   * `prefix`. One transaction, one observer, one ordering — every peer of this
+   * `prefix`, carrying the SEED — the new room's folder state, so every peer
+   * builds the identical history rather than its own (S10 Q1, crasher 0003). One transaction, one observer, one ordering — every peer of this
    * room learns about the nested share atomically with the deletion, instead
    * of seeing keys vanish and re-enrolling the files with fresh guids. Pass it
    * whenever this mount is relay-attached; a private vault needs no
@@ -555,7 +647,7 @@ export class MountSession {
    */
   async detachSubtree(
     prefix: string,
-    mount?: { room: string; relay?: string },
+    mount?: { room: string; relay?: string; seed?: Uint8Array },
     opts?: DetachOptions
   ): Promise<void> {
     const pre = `${prefix}/`
@@ -565,8 +657,22 @@ export class MountSession {
       .getMap()
       .entries()
       .filter(([p]) => p === prefix || p.startsWith(pre))
-    /** Membership — what gets torn down (and re-flushed) per doc. */
-    const doomed = (opts?.entries ?? live).filter(([p]) => p === prefix || p.startsWith(pre))
+    /** Membership — what is re-flushed into the target namespace. */
+    const members = (opts?.entries ?? live).filter(([p]) => p === prefix || p.startsWith(pre))
+    /**
+     * What gets torn down per doc: the membership PLUS anything else this
+     * session still holds under the prefix. The two differ on a peer — a file
+     * this device enrolled under `P/` while the carver was elsewhere is in our
+     * map and not in their seed. Its key goes with the transaction below
+     * either way, so leaving its doc, provider, LCA and blob behind would
+     * strand them in a namespace whose map no longer mentions it (M5); the
+     * mount's own delta scan picks the file up from disk with a fresh guid,
+     * which is the ghost rule's import branch by another route.
+     */
+    const doomedGuids = new Set<string>()
+    for (const [, entry] of [...members, ...live]) {
+      if (entry.kind === 'text') doomedGuids.add(entry.guid)
+    }
 
     // Close the seed→detach window (S10 Q1 step 5, Q5 row 2). Between the seed
     // and here this session is still live and, in a shared parent, still
@@ -576,7 +682,7 @@ export class MountSession {
     // CURRENT state into the target namespace is the whole fix, and it applies
     // to the carver exactly as much as to the peer (carveFolder pauses
     // nothing — spike S8 Q1's "paused parent session" was never true).
-    if (opts?.targetDir) await this.reflushInto(opts.targetDir, prefix, doomed)
+    if (opts?.targetDir) await this.reflushInto(opts.targetDir, prefix, members)
 
     // A peer must not delete the mount entry at the root: that key is the
     // OWNER's announcement, and this session is only tidying the residue the
@@ -590,30 +696,12 @@ export class MountSession {
         if (writeMap && mount) {
           // Replaces the dir entry at `prefix`, deleted just above. The guid IS
           // the room; the relay URL is not a secret, the token never travels.
-          m.set(prefix, {
-            guid: mount.room,
-            kind: 'mount',
-            ...(mount.relay ? { relay: mount.relay } : {}),
-          })
+          m.set(prefix, mountEntry(mount.room, mount.relay, mount.seed))
         }
       }, 'local')
     }
 
-    for (const [, entry] of doomed) {
-      if (entry.kind !== 'text') continue
-      const guid = entry.guid
-      this.debounces.get(guid)?.()
-      this.debounces.delete(guid)
-      this.conns.get(guid)?.destroy()
-      this.conns.delete(guid)
-      this.tracked.delete(guid)
-      this.cfg.docStore?.untrack(guid)
-      await this.cfg.docStore?.remove(guid)
-      await this.lcaStore.remove(guid)
-      const doc = this.docs.get(guid)
-      this.docs.delete(guid)
-      doc?.destroy()
-    }
+    await this.detachDocs([...doomedGuids])
 
     // Shorten the rollforward window: the map deletion is durable now, not at
     // the next debounce tick (crash between txn and flush is still covered by
@@ -621,6 +709,40 @@ export class MountSession {
     await this.cfg.docStore?.flush(FOLDER_DOC_KEY)
     await this.restartSession()
     this.refreshFiles()
+  }
+
+  /**
+   * Per-doc teardown: this session stops owning these guids. Providers,
+   * debounces, blob, LCA record and the doc instance all go — the whole of
+   * what "the subtree's authority moved" means in the stores.
+   *
+   * Public because the GHOST SWEEP needs exactly this (S10 Q5): a ghost key
+   * hard-deleted from the parent map leaves the parent's live doc, provider,
+   * LCA record and blob behind for a guid the mount now owns, which is one
+   * guid with durable state in two namespaces — invisible to a map-only
+   * invariant, and a doc the parent's next boot would resurrect.
+   */
+  async detachDocs(guids: readonly string[], restart = false): Promise<void> {
+    if (guids.length === 0) return
+    for (const guid of guids) {
+      this.debounces.get(guid)?.()
+      this.debounces.delete(guid)
+      this.conns.get(guid)?.destroy()
+      this.conns.delete(guid)
+      this.tracked.delete(guid)
+      this.cfg.docStore?.untrack(guid)
+      // Blob BEFORE the LCA (Invariant D): the residue of a crash between the
+      // two must never be a baseline with no doc behind it.
+      await this.cfg.docStore?.remove(guid)
+      await this.lcaStore.remove(guid)
+      const doc = this.docs.get(guid)
+      this.docs.delete(guid)
+      doc?.destroy()
+    }
+    // VaultSession learns its per-path bookkeeping only in start(), and it
+    // shares this `docs` map by reference — a caller that is not about to
+    // restart anyway must ask for one here.
+    if (restart) await this.restartSession()
   }
 
   /**
@@ -648,7 +770,10 @@ export class MountSession {
           await store.flush(entry.guid)
         }
         const lca = await this.lcaStore.get(entry.guid)
-        if (lca) await lcas.put({ ...lca, path: path === prefix ? path : path.slice(pre.length) })
+        // `path === prefix` is the mount root's OWN key: subtree-relative that
+        // is '', which is what seedCarveStores writes. Keeping the full path
+        // here wrote a second, differently-keyed record for the same guid.
+        if (lca) await lcas.put({ ...lca, path: path === prefix ? '' : path.slice(pre.length) })
       }
     } finally {
       store.dispose()
@@ -762,6 +887,7 @@ export class MountSession {
 
   dispose(): void {
     if (this.shutdownDone) return
+    this.stopped = true
     for (const cancel of this.debounces.values()) cancel()
     this.debounces.clear()
     this.sessionRef?.dispose()
@@ -782,6 +908,23 @@ export class MountSession {
   }
 
   private shutdownDone = false
+  /**
+   * Set the INSTANT teardown begins, and the guard on every queued map-work
+   * entry point.
+   *
+   * `shutdown()` is called from the middle of a map-work chain — the peer's
+   * absorb runs inside `onMountEntries`, and `queueMapScan` has already been
+   * queued BEHIND it by the same observer callback. Without this, that scan
+   * ran on the shut-down session: `docs` had just been cleared, so `adoptEntry`
+   * re-created a doc for every entry in the map, wrote a NEVER_ON_DISK LCA
+   * over the record the absorb had just copied in, and attached a relay
+   * provider to a doc instance nobody would ever read again — while the
+   * rebuilt session's instance for the same guid was left off the room.
+   *
+   * That is `fuzz-crashers/0008`: after an unshare round trip, every later
+   * edit was one-sided, with no partition, no crash and no review.
+   */
+  private stopped = false
 
   /**
    * Orderly, awaitable teardown (unshare/unmount, spike S8 Q6): flush blobs
@@ -792,6 +935,7 @@ export class MountSession {
    */
   async shutdown(): Promise<void> {
     if (this.shutdownDone) return
+    this.stopped = true
     for (const cancel of this.debounces.values()) cancel()
     this.debounces.clear()
     this.sessionRef?.dispose()
@@ -886,7 +1030,14 @@ export class MountSession {
       .getMap()
       .entries()
       .filter(([, e]) => e.kind === 'mount' && !e.deleted)
-      .map(([path, e]): MountEntryInfo => ({ path, room: e.guid, ...(e.relay ? { relay: e.relay } : {}) }))
+      .map(
+        ([path, e]): MountEntryInfo => ({
+          path,
+          room: e.guid,
+          ...(e.relay ? { relay: e.relay } : {}),
+          ...(e.seed ? { seed: e.seed } : {}),
+        })
+      )
       .sort((a, b) => a.path.localeCompare(b.path))
   }
 
@@ -982,6 +1133,16 @@ export class MountSession {
       .filter(([, e]) => includeDeleted || !e.deleted)
   }
 
+  /**
+   * This mount's folder doc as one update — the SEED an announcement carries
+   * so every other device's copy of this room's map is the same history
+   * (S10 Q1). A join announces it after the pull, because only then does this
+   * device hold the room's real state.
+   */
+  folderState(): Uint8Array {
+    return this.engine.encodeUpdateSince(this.folderDoc, null)
+  }
+
   /** Path of a guid in this map, or null (rename-stable identity lookup). */
   pathOfGuid(guid: string): string | null {
     return this.pathForGuid(guid)
@@ -1000,7 +1161,7 @@ export class MountSession {
    */
   private queueMountEntries(entries: MountEntryInfo[]): void {
     const hook = this.events.onMountEntries
-    if (!hook) return
+    if (!hook || this.stopped) return
     this.mapWork = this.mapWork.then(() => hook(entries)).catch((err) => this.pushError(err))
   }
 
@@ -1042,9 +1203,14 @@ export class MountSession {
    * authority on WHERE it is — so the missing half is restated, not inferred
    * away as an unshare.
    */
-  async setMountEntry(path: string, room: string, relay?: string): Promise<void> {
+  async setMountEntry(
+    path: string,
+    room: string,
+    relay?: string,
+    seed?: Uint8Array
+  ): Promise<void> {
     this.folderDoc.transactMap((m) => {
-      m.set(path, { guid: room, kind: 'mount', ...(relay ? { relay } : {}) })
+      m.set(path, mountEntry(room, relay, seed))
     }, 'local')
     await this.cfg.docStore?.flush(FOLDER_DOC_KEY)
     this.refreshFiles()
@@ -1258,9 +1424,17 @@ export class MountSession {
   }
 
   private async scanMap(): Promise<void> {
+    if (this.stopped) return
     const adopted: { guid: string; path: string }[] = []
+    // A key at or under a mount boundary belongs to another session on this
+    // device (N1). `ignoringAdapter` filters list/listDirs/watch only, so the
+    // MAP side needs the guard of its own that `reconcileKnown` already has:
+    // adopting a ghost here would give the root a doc, an LCA and a provider
+    // for a guid the mount owns, in the wrong room.
+    const mountRoots = this.mountRoots()
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (entry.kind !== 'text' || entry.deleted) continue
+      if (this.underMount(path, mountRoots)) continue
       if (!this.docs.has(entry.guid)) {
         await this.adoptEntry(path, entry)
         adopted.push({ guid: entry.guid, path })
@@ -1276,6 +1450,7 @@ export class MountSession {
   }
 
   private queueMapScan(): Promise<void> {
+    if (this.stopped) return this.mapWork
     this.mapWork = this.mapWork.then(() => this.scanMap()).catch((err) => this.pushError(err))
     return this.mapWork
   }
@@ -1444,6 +1619,26 @@ export class MountSession {
   // ---- boot (the spike S8 Q3 machine — see header) ----
 
   private async boot(): Promise<void> {
+    if (this.cfg.neverHeld) {
+      // A mount this device has never held, with no credential yet (S10 Q2 +
+      // N3): boot EMPTY, and do NOT touch the durable state. The files under
+      // the mount root are the room's, not ours — enrolling them would mint
+      // fresh guids that LWW-clobber the owner's entries at the next paste —
+      // and the namespace may still hold the seeded map its adopt wrote as
+      // the crash rollforward's authority, which `persistBaseline` would
+      // overwrite with this session's empty one.
+      //
+      // "Keep + mark" read exactly (spike S10 Q2): the bytes stay on disk,
+      // untouched and unmanaged, and the tree marks the folder as needing a
+      // link. Listing them as managed rows would be the dishonest half —
+      // they are not this mount's files until the pull says so.
+      await this.restartSession()
+      this.adoptionEnabled = true
+      await this.writeMountDesc()
+      this.refreshFiles()
+      this.emitMountEntries(true)
+      return
+    }
     if (await this.tryDurableReopen()) {
       this.refreshFiles()
       // Boot emission (N1): the map may already carry mount entries a peer
@@ -1554,8 +1749,13 @@ export class MountSession {
     if (!(await ds.restore(FOLDER_DOC_KEY, this.folderDoc))) return false
     ds.track(FOLDER_DOC_KEY, this.folderDoc)
 
+    // Same guard as `reconcileKnown`/`scanMap` (N1): a text key that survived
+    // under a mount boundary — a ghost the sweep has not reached yet — must
+    // not get a doc, an LCA or a provider in THIS room at boot.
+    const mountRoots = this.mountRoots()
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (entry.kind !== 'text' || entry.deleted) continue
+      if (this.underMount(path, mountRoots)) continue
       const doc = this.engine.createDoc(entry.guid)
       this.docs.set(entry.guid, doc)
       const hadBlob = await ds.restore(entry.guid, doc)
@@ -1622,8 +1822,12 @@ export class MountSession {
     )
 
     // Pre-pass: which known files changed (or vanished) on disk while closed?
+    // Never another session's disk: a text entry under a mount boundary is a
+    // ghost, and reading it here would count it toward the mass-change
+    // breaker and then reconcile it in the wrong room.
     const changed: string[] = []
     for (const [path, entry] of textEntries) {
+      if (this.underMount(path, mountRoots)) continue
       const lca = await this.lcaStore.get(entry.guid)
       if (!lca) continue
       const bytes = await this.adapter.read(path)
@@ -1703,9 +1907,15 @@ export class MountSession {
     const batch = this.pendingBootBatch
     if (!batch) return
     this.pendingBootBatch = null
-    for (const path of batch.additions) await this.enrollOne(path)
-    if (batch.additions.length > 0) await this.restartSession()
+    // Re-derive the boundaries: a mount entry can have arrived while the batch
+    // sat waiting for a human, and a held batch must not enrol or reconcile
+    // into a subtree whose authority has since moved (N1).
+    const mountRoots = this.mountRoots()
+    const additions = batch.additions.filter((p) => !this.underMount(p, mountRoots))
+    for (const path of additions) await this.enrollOne(path)
+    if (additions.length > 0) await this.restartSession()
     for (const path of batch.changed) {
+      if (this.underMount(path, mountRoots)) continue
       const guid = this.guidFor(path)
       if (guid) await this.reconcileClosedDoc(guid, path)
     }
@@ -1791,12 +2001,17 @@ export class MountSession {
       // relay.
       const status: MountStatus =
         !this.relay && existing?.status === 'needs-token' ? 'needs-token' : 'active'
+      // `neverHeld` survives every reopen until this session has actually
+      // PULLED the room — a firstJoin boot is the only thing that clears it,
+      // because it is the only thing that puts the room's content here (N3).
+      const neverHeld = existing?.neverHeld === true && this.cfg.firstJoin !== true
       return {
         room: this.room,
         path: this.cfg.mountPath ?? '',
         provenance,
         ...(relay ? { relay } : {}),
         status,
+        ...(neverHeld ? { neverHeld: true } : {}),
       }
     })
   }
@@ -1834,6 +2049,43 @@ export class MountSession {
     await this.cfg.docStore?.flush(FOLDER_DOC_KEY)
     this.refreshFiles()
   }
+}
+
+/**
+ * Cap on the announced seed (spike S10 Q1). A folder-doc entry costs roughly
+ * 80-100 bytes encoded, so 64 KB is several hundred files: above it the map
+ * entry stops being advisory structure and starts being a payload every peer
+ * of the parent room carries forever. Over the cap the entry ships WITHOUT a
+ * seed, and a peer with a token pulls the room instead (`firstJoin`) while one
+ * without waits as `needs-token` over an empty namespace.
+ */
+export const MAX_SEED_BYTES = 64 * 1024
+
+/** A `kind:'mount'` entry, with the seed when it fits (S10 Q1). */
+function mountEntry(room: string, relay?: string, seed?: Uint8Array): FileEntry {
+  const encoded = seed && seed.byteLength <= MAX_SEED_BYTES ? encodeSeed(seed) : undefined
+  return {
+    guid: room,
+    kind: 'mount',
+    ...(relay ? { relay } : {}),
+    ...(encoded ? { seed: encoded } : {}),
+  }
+}
+
+/** base64 of a Yjs update, without assuming Node's Buffer or a DOM. */
+function encodeSeed(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return btoa(binary)
+}
+
+function decodeSeed(seed: string): Uint8Array {
+  const binary = atob(seed)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
 }
 
 /**

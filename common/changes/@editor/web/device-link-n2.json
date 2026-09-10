@@ -12,7 +12,7 @@
     },
     {
       "packageName": "@editor/web",
-      "comment": "A device being linked now shows what is happening: \"Pulling N notes from the relay…\", then \"Writing files into <folder>…\", each with a count — instead of an inert window for the whole wait.",
+      "comment": "A device being linked shows what is happening: \"Pulling N notes from the relay…\", then \"Writing files into <folder>…\", each with a count — instead of an inert window for the whole wait.",
       "type": "minor"
     },
     {
@@ -27,7 +27,7 @@
     },
     {
       "packageName": "@editor/web",
-      "comment": "A shared folder that arrived from another of your devices is now told apart from one somebody else shared with you, so \"Shared by you\" and \"Shared with you\" are right on every device.",
+      "comment": "A shared folder that arrived from another of your devices is told apart from one somebody else shared with you, so \"Shared by you\" and \"Shared with you\" are right on every device.",
       "type": "patch"
     },
     {
@@ -42,7 +42,7 @@
     },
     {
       "packageName": "@editor/web",
-      "comment": "Joining a vault no longer re-enables the manager's buttons while the vault is still arriving.",
+      "comment": "The vault manager no longer becomes clickable again while a vault is still arriving.",
       "type": "patch"
     }
   ]

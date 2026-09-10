@@ -15,7 +15,7 @@
    */
   import { z } from 'zod'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import { decodeShareLink, looksLikeShareLink } from '../share-link.js'
+  import { decodeShareLink, looksLikeShareLink, shareLinkErrorText } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'
   import Dialog from '../ui/Dialog.svelte'
@@ -58,7 +58,16 @@
   const form = createForm(schema, { link: initialLink })
 
   async function link(): Promise<void> {
-    if (await form.submit(({ link: value }) => onLink(value))) onClose()
+    // A refusal from the host may be a share-link code (a damaged bundle, a
+    // grant with no token); the rendering site turns it into a sentence.
+    const run = async (value: string): Promise<void> => {
+      try {
+        await onLink(value)
+      } catch (err) {
+        throw new Error(shareLinkErrorText(err))
+      }
+    }
+    if (await form.submit(({ link: value }) => run(value))) onClose()
   }
 </script>
 

@@ -10,8 +10,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MemStoreDir, MemVaultAdapter, MountsFile } from '@editor/vault'
-import { setupWorkspace, type Workspace } from './workspace.svelte.js'
-import { encodeShareLink } from './share-link.js'
+import {
+  isAuthRefusalForAdoptedMount,
+  resolveRoomRelay,
+  setupWorkspace,
+  type Workspace,
+} from './workspace.svelte.js'
+import { roomRelay, roomToken, setRoomToken } from './config.js'
+import { encodeDeviceLink, encodeShareLink } from './share-link.js'
 
 /** Minimal Storage over a Map — config.ts only needs get/set/removeItem. */
 class MemStorage {
@@ -116,5 +122,154 @@ describe('the shim: mounts.json drives ui.mounts (N1)', () => {
     expect(ws.ui.mounts[0]?.status).toBe('active')
     expect(ws.ui.files.find((r) => r.path === 'team/plan.md')!.guid).toBe(guidBefore)
     expect(ws.docForPath('team/plan.md')?.getText()).toBe('shared plan\n')
+  })
+})
+
+/**
+ * R5's credential rule (device-link-shaping R5, spike S10 Q2), stated as a
+ * table rather than driven through a socket: `resolveRoomRelay` IS what
+ * `relayForRoom` runs, so a row here is a claim about what this device would
+ * actually send, and to whom.
+ */
+describe('resolveRoomRelay: which credential reaches which relay (R5)', () => {
+  const OURS = 'ws://relay.test'
+  const THEIRS = 'wss://evil.example'
+  const base = {
+    rootToken: 'DEVICE-KEY',
+    rootTokenKind: 'device' as const,
+    rootRelayUrl: OURS,
+  }
+
+  it('an exact token for the room always wins, on any relay', () => {
+    expect(
+      resolveRoomRelay({ ...base, url: THEIRS, provenance: 'joined', exactToken: 'folder-tok' })
+    ).toEqual({ url: THEIRS, token: 'folder-tok' })
+  })
+
+  it('falls back to the DEVICE token for a carved/adopted room on THIS vault’s relay', () => {
+    for (const provenance of ['carved', 'adopted'] as const) {
+      expect(resolveRoomRelay({ ...base, url: OURS, provenance, exactToken: '' })).toEqual({
+        url: OURS,
+        token: 'DEVICE-KEY',
+      })
+    }
+    // Same relay, spelled differently — the normaliser, not string equality.
+    expect(
+      resolveRoomRelay({ ...base, url: 'ws://Relay.TEST/', provenance: 'adopted', exactToken: '' })
+    ).toEqual({ url: 'ws://Relay.TEST/', token: 'DEVICE-KEY' })
+  })
+
+  it('NEVER sends the device token to another relay — the credential leak (A1)', () => {
+    // A peer of the root room can write any `relay` it likes into a
+    // `kind:'mount'` entry; the map is advisory, never an auth source (D4).
+    for (const provenance of ['carved', 'adopted', 'joined', 'local'] as const) {
+      expect(
+        resolveRoomRelay({ ...base, url: THEIRS, provenance, exactToken: '' }),
+        provenance
+      ).toBeNull()
+    }
+  })
+
+  it('a FOLDER root token never reaches a mount, even on this vault’s relay', () => {
+    expect(
+      resolveRoomRelay({
+        ...base,
+        rootTokenKind: 'folder',
+        url: OURS,
+        provenance: 'adopted',
+        exactToken: '',
+      })
+    ).toBeNull()
+  })
+
+  it('a joined mount never uses the fallback: it is somebody else’s share', () => {
+    expect(
+      resolveRoomRelay({ ...base, url: OURS, provenance: 'joined', exactToken: '' })
+    ).toBeNull()
+  })
+})
+
+describe('addShareMount refuses a device link (A2)', () => {
+  it('says to use "Link this device" instead, and joins nothing', async () => {
+    const ws = await bootWithNeedsToken()
+    const deviceLink = encodeDeviceLink({
+      relay: RELAY,
+      room: 'someone-elses-vault',
+      token: 'DEVICE-KEY',
+      grants: [{ room: 'bonus-room', relay: RELAY, token: 'bonus' }],
+    })
+
+    await expect(ws.addShareMount(deviceLink, 'inbox')).rejects.toThrow(/device link/i)
+    // Nothing joined, and — the half that is the actual defect — no grant
+    // from the refused link was merged into this device's tokens.
+    expect(ws.ui.mounts.map((m) => m.path)).toEqual(['team'])
+    expect(localStorage.getItem('editor:config') ?? '').not.toContain('bonus')
+  })
+})
+
+describe('addShareMount refuses a destination inside another mount (M10)', () => {
+  it('refuses a destination under a mount root, and persists nothing', async () => {
+    const ws = await bootWithNeedsToken()
+    const link = encodeShareLink({ relay: RELAY, room: 'other-room', token: 'tok' })
+    await expect(ws.addShareMount(link, 'team/sub')).rejects.toThrow()
+    expect(ws.ui.mounts.map((m) => m.path)).toEqual(['team'])
+    // This vault has a desc for `team`, so `ui.mounts` alone catches it. The
+    // case `ui.mounts` CANNOT catch — a `kind:'mount'` entry another device
+    // announced that has no desc here yet — is proven at the machine, in
+    // libs/workspace's `join.test.ts` ("the ROOT MAP's mount entries overlap
+    // too"); the shim now passes `mapEntries` so both guards run.
+  })
+})
+
+describe('an auth refusal degrades an ADOPTED mount to needs-token (A1)', () => {
+  const REFUSAL = new Error(
+    'relay rejected this token (permission-denied) — check that the share exists on the relay'
+  )
+
+  it('degrades an adopted mount, and leaves every other case alone', () => {
+    const adopted = { provenance: 'adopted' as const, status: 'active' as const }
+    expect(isAuthRefusalForAdoptedMount(adopted, REFUSAL)).toBe(true)
+
+    // A mount THIS device pasted a token for: a refusal means the share was
+    // revoked or deleted, and "the relay said no" is the true story to leave
+    // on screen — `needs-token` would promise a paste that cannot help.
+    for (const provenance of ['joined', 'carved', 'local'] as const) {
+      expect(isAuthRefusalForAdoptedMount({ provenance, status: 'active' }, REFUSAL)).toBe(false)
+    }
+    // Already resting there: no repeated status write, no churn.
+    expect(isAuthRefusalForAdoptedMount({ ...adopted, status: 'needs-token' }, REFUSAL)).toBe(false)
+    // Any other error is just an error.
+    expect(isAuthRefusalForAdoptedMount(adopted, new Error('disk full'))).toBe(false)
+    expect(isAuthRefusalForAdoptedMount(undefined, REFUSAL)).toBe(false)
+  })
+})
+
+describe('unshare / unmount clear the room’s credential (A4)', () => {
+  it('unmount forgets the token, the relay URL and the remembered link', async () => {
+    const ws = await bootWithNeedsToken()
+    setRoomToken(ROOM, 'team-token', RELAY, 'folder')
+    expect(roomToken(ROOM)).toBe('team-token')
+
+    await ws.unmount('team')
+
+    // This device gave the share up: keeping a live key for the room would
+    // ride out in the next device link's grants and silently reconnect the
+    // moment a mount entry for it reappeared.
+    expect(roomToken(ROOM)).toBe('')
+    expect(roomRelay(ROOM)).toBe('')
+    expect(ws.ui.mounts).toEqual([])
+  })
+
+  it('unshare forgets it too — the room is dissolved', async () => {
+    const ws = await bootWithNeedsToken()
+    setRoomToken(ROOM, 'team-token', RELAY, 'folder')
+
+    await ws.unshare('team')
+
+    expect(roomToken(ROOM)).toBe('')
+    expect(roomRelay(ROOM)).toBe('')
+    expect(ws.ui.mounts).toEqual([])
+    // The content folded back into the vault, as unshare always does.
+    expect(ws.ui.files.map((r) => r.path)).toContain('team/plan.md')
   })
 })

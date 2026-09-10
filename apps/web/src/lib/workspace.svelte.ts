@@ -44,6 +44,7 @@ import { createYjsEngine, type EngineDoc } from '@editor/sync'
 import type { Awareness } from 'y-protocols/awareness'
 import type { CollabUser } from '@editor/editor'
 import {
+  activateMount,
   carveFolder as runCarve,
   FOLDER_RECORD_KEY,
   joinMount,
@@ -66,8 +67,8 @@ import {
   getVault,
   upsertVault,
   grantsForBundle,
-  mergeGrants,
   operatorSecret,
+  purgeRooms,
   roomRelay,
   roomToken,
   roomTokenKind,
@@ -78,8 +79,8 @@ import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
 import { appendNotice, type Notice, type NoticeInput } from './notices.js'
-import { decodeShareLink, encodeDeviceLink, encodeShareLink } from './share-link.js'
-import { isForeignMount } from './share-status.js'
+import { decodeShareLink, encodeDeviceLink, encodeShareLink, type ShareKind } from './share-link.js'
+import { isForeignMount, sameRelay } from './share-status.js'
 
 export { FOLDER_RECORD_KEY, type FileRow, type PullProgress, type RelayConfig }
 
@@ -147,6 +148,87 @@ export interface MountInfo {
    * foreign when its room lives on a relay other than this vault's.
    */
   foreign: boolean
+}
+
+/**
+ * The credential for a room, in the order spike S10 Q2 fixes (R5 lives here):
+ *
+ *  1. an exact token for the room always wins — it is the most specific
+ *     statement of what this device was given, and may be read-only for
+ *     exactly that folder;
+ *  2. else, for a `carved`/`adopted` room **that lives on THIS vault's own
+ *     relay**, the vault's own token when it is a DEVICE token — A4-A, the
+ *     reason a folder carved after linking needs no paste;
+ *  3. else none ⇒ `needs-token`.
+ *
+ * Rule 2's relay condition is R5, not decoration. Provenance alone cannot
+ * separate "carved out of my vault" from "a foreign share another of my
+ * devices joined" — on a peer BOTH are `'adopted'` — and a `kind:'mount'`
+ * entry is written by any peer of the root room, which chooses the entry's
+ * `relay` field freely (maps are advisory, never an auth source: shaping D4).
+ * Without the condition a peer of the root could write
+ * `{kind:'mount', relay:'wss://elsewhere'}` into the folder map and this
+ * device would open a socket there and hand over the VAULT's device token — a
+ * full-access credential for every room of this vault. The URL is persisted
+ * into mounts.json too, so it would re-leak on every boot.
+ *
+ * `sameRelay` is the same normaliser `isForeignMount` tints the tree with;
+ * here it gates the CREDENTIAL, which is the part that matters. Pure and
+ * exported so the rule is provable without a browser, a relay, or a socket.
+ */
+export function resolveRoomRelay(m: {
+  /** Where this room lives, already resolved (entry relay ▸ remembered ▸ default). */
+  url: string
+  provenance: MountProvenance
+  /** This device's token for THIS room ('' = none). */
+  exactToken: string
+  /** This device's token for the VAULT's root room ('' = none). */
+  rootToken: string
+  rootTokenKind: ShareKind | ''
+  /** This vault's own relay — the one its rooms are minted on. */
+  rootRelayUrl: string
+}): RelayConfig | null {
+  if (m.exactToken) return { url: m.url, token: m.exactToken }
+  const ancestryEligible = m.provenance === 'carved' || m.provenance === 'adopted'
+  if (
+    ancestryEligible &&
+    sameRelay(m.url, m.rootRelayUrl) &&
+    m.rootToken &&
+    m.rootTokenKind === 'device'
+  ) {
+    return { url: m.url, token: m.rootToken }
+  }
+  return null
+}
+
+/**
+ * A relay refusal on an ADOPTED mount is a MISSING KEY, not a broken relay
+ * (A1's second half — device-link N3's residual case).
+ *
+ * `resolveRoomRelay` can still hand the vault's device token to one kind of
+ * mount that will be refused: an adopted share that is somebody ELSE'S but
+ * happens to live on this vault's own relay — the case `isForeignMount`
+ * documents as its honest limit, since only the relay's ancestry edge knows
+ * the difference and the client cannot query it. Without this the mount sits
+ * in a permanent error at status `active`: "shared, not syncing", forever,
+ * with no action offered. Golden rule 4 forbids exactly that. Degrading to
+ * `needs-token` is the honest reading — a fully functional LOCAL mount that
+ * knows where its room lives and offers "Add link…" — and one paste fixes it.
+ *
+ * Only `adopted`: a `joined` or `carved` mount was given its exact token by
+ * this device, so a refusal there means the share was revoked or deleted, and
+ * "the relay said no" is the true story to leave on screen.
+ *
+ * Matched on `MountSession.reportAuthFailure`'s wording, which is the only
+ * signal a session surfaces for an auth outcome today.
+ */
+export function isAuthRefusalForAdoptedMount(
+  desc: { provenance: MountProvenance; status: MountStatus } | undefined,
+  err: unknown
+): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  if (!message.includes('relay rejected this token')) return false
+  return !!desc && desc.provenance === 'adopted' && desc.status !== 'needs-token'
 }
 
 export interface WorkspaceUi {
@@ -523,6 +605,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: MountProvenance
     relay?: RelayConfig
     firstJoin?: boolean
+    /**
+     * Boot with an empty map and no delta scan: a mount this device has never
+     * held and has no key for. Its files stay on disk, untouched and
+     * unmanaged, until a paste turns it into a firstJoin (spike S10 Q2 + N3).
+     */
+    neverHeld?: boolean
+    /** Progress for a pull a person is waiting on (the paste). */
+    onPullProgress?: (progress: PullProgress) => void
     onShared?: (link: string) => void
   }
 
@@ -552,6 +642,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       user,
       room: opts.room,
       firstJoin: opts.firstJoin,
+      neverHeld: opts.neverHeld,
       relay: opts.relay,
       clock: realClock,
       lcaStore,
@@ -598,6 +689,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           ui.reviews = ui.reviews.filter((r) => r.guid !== guid)
         },
         onShared: (link) => opts.onShared?.(link),
+        // A nested mount's own pull, when someone is waiting on it (the paste
+        // — `activateMount`). The root's own line below wins for the root.
+        ...(opts.onPullProgress ? { onPullProgress: opts.onPullProgress } : {}),
         ...(opts.path === ''
           ? {
               // The two-phase first-join line (N2). Root only: this is the
@@ -626,6 +720,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
             text: err instanceof Error ? err.message : String(err),
             path: opts.path || undefined,
           })
+          // A relay refusal on an adopted mount is a missing key: degrade the
+          // mount honestly instead of leaving it 'active' and permanently
+          // broken (A1's second half — see degradeOnAuthRefusal).
+          degradeOnAuthRefusal(opts.room, err)
         },
       },
     })
@@ -685,6 +783,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         provenance: o.provenance,
         ...(o.relay ? { relay: o.relay } : {}),
         ...(o.firstJoin ? { firstJoin: true } : {}),
+        ...(o.neverHeld ? { neverHeld: true } : {}),
+        ...(o.onPullProgress ? { onPullProgress: o.onPullProgress } : {}),
         onShared: (link) => {
           linkByRoom.set(o.room, link)
           refreshMounts()
@@ -726,29 +826,29 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   // ---- boot every mount from mounts.json ----
 
-  /**
-   * The credential for a room, in the order spike S10 Q2 fixes (R5 lives
-   * here): an exact token for the room always wins — it is the most specific
-   * statement of what this device was given, and may be read-only for exactly
-   * that folder. Failing that, and ONLY for a room carved out of this vault,
-   * the vault's own token is tried when it is a DEVICE token: that is A4-A
-   * working, and it is why no paste is needed for a folder carved after the
-   * devices were linked. A folder token never becomes a vault token — the
-   * fallback only ever reaches upward, and only for the `device` kind.
-   */
+  /** `resolveRoomRelay` bound to this vault's config (see the rule above it). */
   const relayForRoom = (m: {
     room: string
     relay?: string
     provenance: MountProvenance
-  }): RelayConfig | null => {
-    const url = m.relay || roomRelay(m.room) || defaultRelay()
-    const exact = roomToken(m.room)
-    if (exact) return { url, token: exact }
-    if (m.provenance === 'carved' || m.provenance === 'adopted') {
-      const rootToken = roomToken(cfg.room)
-      if (rootToken && roomTokenKind(cfg.room) === 'device') return { url, token: rootToken }
-    }
-    return null
+  }): RelayConfig | null =>
+    resolveRoomRelay({
+      url: m.relay || roomRelay(m.room) || defaultRelay(),
+      provenance: m.provenance,
+      exactToken: roomToken(m.room),
+      rootToken: roomToken(cfg.room),
+      rootTokenKind: roomTokenKind(cfg.room),
+      rootRelayUrl: rootRelayUrl(),
+    })
+
+  /** `isAuthRefusalForAdoptedMount` + the status write it implies (A1). */
+  const degradeOnAuthRefusal = (room: string, err: unknown): void => {
+    if (!isAuthRefusalForAdoptedMount(descs.find((d) => d.room === room), err)) return
+    void mountsFile
+      .setStatus(room, 'needs-token')
+      .then(() => reloadMounts())
+      .then(() => refreshTree())
+      .catch((e) => console.error('[workspace]', e))
   }
 
   refreshIgnore()
@@ -789,6 +889,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       path: desc.path,
       provenance: desc.provenance,
       ...(relay ? { relay } : {}),
+      // Never held and still no key: boot empty. The files under the mount
+      // root belong to a room this device has not seen, and enrolling them
+      // would mint fresh guids that clobber the owner's entries at the first
+      // paste (N3's empty-adopt finding).
+      ...(desc.neverHeld && !relay ? { neverHeld: true } : {}),
       onShared: (link) => {
         linkByRoom.set(desc.room, link)
         refreshMounts()
@@ -968,11 +1073,46 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   // ---- M5: join-as-mount, unshare/unmount, cross-mount moves ----
 
+  /**
+   * "Add a shared folder here…": join someone's FOLDER share as a subtree.
+   *
+   * Two refusals before anything is persisted:
+   *
+   *  - a DEVICE link is not a folder share (A2, R5). It is a full-access key
+   *    to a whole vault; joining it here would mount a vault inside a vault
+   *    and store a device-kind credential for a non-root room. It has its own
+   *    route — "Link this device…" in the vault manager — and the dictionary
+   *    says so in those words.
+   *  - a destination at or under a `kind:'mount'` entry in the ROOT MAP (M10),
+   *    the guard `doCarve` has had since N1. `ui.mounts` is what THIS device
+   *    runs; the map is what every peer of the root agreed, and a folder
+   *    another of this person's devices carved seconds ago is a mount entry
+   *    here before it is a desc. Joining into it would make a mount inside a
+   *    mount on every device (spike S10 Q5 row 11).
+   *
+   * Grants are NOT merged here, and that is deliberate: a folder link carries
+   * none (the codec refuses them, R5), so `mergeGrants` on this path could
+   * only ever act on a device link — the very thing the first refusal now
+   * rejects. Grants belong to the device-link join.
+   */
   const doJoinMount = async (link: string, destPath: string): Promise<void> => {
     const target = decodeShareLink(link)
     const dest = destPath.trim().replace(/^\/+|\/+$/g, '')
+    if (target.kind !== 'folder') {
+      throw new Error(getLL().web.mounts.dialog.device_link_refused())
+    }
     if (target.room === cfg.room || ui.mounts.some((m) => m.room === target.room)) {
       throw new Error(getLL().web.workspace.already_joined())
+    }
+    const mapEntries = rootSession!.mountEntries()
+    for (const entry of mapEntries) {
+      if (
+        dest === entry.path ||
+        dest.startsWith(`${entry.path}/`) ||
+        entry.path.startsWith(`${dest}/`)
+      ) {
+        throw new Error(getLL().web.workspace.overlaps())
+      }
     }
     try {
       const session = await joinMount({
@@ -981,6 +1121,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         root: rootSession!,
         baseAdapter: cfg.adapter,
         existingMountPaths: ui.mounts.map((m) => m.path),
+        mapEntries,
         mountPath: dest,
         room: target.room,
         // The FOREIGN relay: inside a shared root the destination detach
@@ -1007,7 +1148,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         },
       })
       setRoomToken(target.room, target.token, target.relay, 'folder')
-      if (target.grants.length > 0) mergeGrants(target.grants)
       registry.add(dest, session)
       await reloadMounts()
       refreshTree()
@@ -1048,6 +1188,17 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     }
   }
 
+  /**
+   * Stop sharing a folder this vault owns: the room is DISSOLVED and its
+   * content folds back into the root.
+   *
+   * The credential goes with it (A4). `tokensByRoom`/`relayByRoom` used to
+   * keep the room's bearer token forever, which is a live key to a room this
+   * vault no longer has any relationship with — it would ride out in the next
+   * device link's `grants` bundle, and a mount entry that re-named the room
+   * would find an "exact token" waiting and reconnect without a paste.
+   * `purgeRooms` drops the token, the relay URL and the remembered link.
+   */
   const doUnshare = async (path: string): Promise<void> => {
     const info = mountAt(path)
     dropSelectionUnder(path)
@@ -1065,11 +1216,21 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       root: rootSession!,
       removeIgnore: (p) => ignoreSet.delete(p),
     })
+    purgeRooms([info.room])
+    linkByRoom.delete(info.room)
     await rebuildRoot()
     await reloadMounts()
     refreshTree()
   }
 
+  /**
+   * Drop someone else's share from THIS device (the room lives on without
+   * us). Same credential rule as unshare (A4): this device gave the share up,
+   * so it keeps no key for it — otherwise the token outlives the mount in
+   * config, travels in the next device link's grants, and silently
+   * reconnects the room the moment an entry for it reappears. Re-joining is
+   * one paste of the link the sharer still holds.
+   */
   const doUnmount = async (path: string): Promise<void> => {
     const info = mountAt(path)
     dropSelectionUnder(path)
@@ -1084,6 +1245,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       mount,
       removeIgnore: (p) => ignoreSet.delete(p),
     })
+    purgeRooms([info.room])
+    linkByRoom.delete(info.room)
     await reloadMounts()
     // The files are on disk and newly visible to the root — enroll them now
     // (a big folder legitimately trips the breaker dialog here).
@@ -1093,55 +1256,81 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   /**
    * Paste the link for a mount this device holds but has no key for (spike
-   * S10 Q2). Two shapes, one rule: a SEEDED mount activates in place through
-   * `enableSharing` — same guids as the room's, so providers connect and the
-   * CRDT merges whatever was edited while token-less, with nothing re-read
-   * from disk and no doc destroyed. An EMPTY one (a foreign share that
-   * arrived as a mount entry, or a device whose stores were wiped) has
-   * nothing to merge, so it is rebuilt as a `firstJoin` and pulls its room
-   * through the existing awaited machinery.
+   * S10 Q2, A4-C).
+   *
+   * The RULE — merge in place through `enableSharing`, or rebuild as a
+   * `firstJoin` and pull — is `activateMount` in libs/workspace, not this
+   * shim: it is a lifecycle machine with a durable status and a rollback, and
+   * the N3 device-link harness drives the same one, so the two cannot drift.
+   * It also picks the branch on `MountDesc.neverHeld` rather than on "does
+   * this session list any files", which was wrong in the direction that loses
+   * data — see the header of `activate.ts`.
+   *
+   * What stays here is the shell's half: decoding the link, refusing the wrong
+   * kind of link, storing the token, the registry, and the progress line.
+   *
+   * A DEVICE link is refused (R5, the same rule `doJoinMount` applies): a
+   * device token is a credential for a whole vault that the relay also honours
+   * in rooms carved out of it, and storing one against a single folder's room
+   * would file vault-wide access under a folder — where `relayForRoom`'s
+   * exact-match rule would then hand it to that room, and the next device
+   * link's `grants` bundle would carry it onward. Grants are not merged here
+   * for the same reason: a folder link carries none (the codec refuses them),
+   * so merging could only ever act on the link this refusal rejects.
    */
   const doAddMountLink = async (path: string, link: string): Promise<void> => {
     const t = getLL().web.workspace
     const info = ui.mounts.find((m) => m.path === path)
     if (!info) throw new Error(t.not_shared({ path }))
     const target = decodeShareLink(link)
+    if (target.kind !== 'folder') {
+      throw new Error(getLL().web.mounts.dialog.device_link_refused())
+    }
     if (target.room !== info.room) {
       throw new Error(getLL().web.mounts.dialog.wrong_room({ path }))
     }
     const resolved = registry.resolve(path)
     const session = resolved?.mountPath === path ? resolved.session : null
-    if (!session) throw new Error(t.not_shared({ path }))
+    const desc = descs.find((d) => d.room === info.room && d.path === path)
+    if (!session || !desc) throw new Error(t.not_shared({ path }))
 
     setRoomToken(target.room, target.token, target.relay, target.kind)
-    if (target.grants.length > 0) mergeGrants(target.grants)
-    const relay: RelayConfig = { url: target.relay, token: target.token }
 
-    if (session.files().length > 0) {
-      session.enableSharing(relay)
-      // enableSharing writes its own desc fire-and-forget; state the status
-      // here so the mount stops reading as "link needed" the moment the paste
-      // lands, not one flush later. The session's own write merges to the
-      // same value (it now has a relay).
-      await mountsFile.setStatus(info.room, 'active')
-    } else {
-      registry.remove(path)
-      await session.shutdown()
-      const next = await buildMount({
-        room: info.room,
-        path,
-        provenance: info.provenance,
-        relay,
-        firstJoin: true,
-        onShared: (l) => {
-          linkByRoom.set(info.room, l)
-          refreshMounts()
+    try {
+      await activateMount({
+        vaultDir: cfg.storeDir,
+        mountsFile,
+        desc,
+        session,
+        relay: { url: target.relay, token: target.token },
+        buildSession: (o) =>
+          buildMount({
+            room: o.room,
+            path: o.path,
+            provenance: o.provenance,
+            ...(o.relay ? { relay: o.relay } : {}),
+            ...(o.firstJoin ? { firstJoin: true } : {}),
+            ...(o.neverHeld ? { neverHeld: true } : {}),
+            ...(o.onPullProgress ? { onPullProgress: o.onPullProgress } : {}),
+            onShared: (l) => {
+              linkByRoom.set(info.room, l)
+              refreshMounts()
+            },
+          }),
+        detachMount: (p) => registry.remove(p),
+        attachMount: (p, next) => registry.add(p, next),
+        // The pull is awaited and can take a while on a real vault (spike S10
+        // Q4), so it gets the same two-phase line a whole-vault link gets.
+        onPullProgress: (progress) => {
+          ui.pull = progress
+          cfg.onPull?.(progress)
         },
       })
-      registry.add(path, next)
+    } finally {
+      ui.pull = null
+      await reloadMounts()
+      refreshTree()
     }
-    await reloadMounts()
-    refreshTree()
   }
 
   const isCrossMount = (from: string, to: string): boolean => {

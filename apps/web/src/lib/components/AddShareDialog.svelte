@@ -1,7 +1,16 @@
 <script lang="ts">
+  /**
+   * "Add a shared folder here…" (chrome U3): join SOMEONE ELSE'S folder share
+   * into this vault at a destination of your choosing.
+   *
+   * A DEVICE link is refused at the field, with the reason (device-link R5):
+   * it is a full-access key to a whole vault, and mounting a vault as a
+   * folder of another vault is not a thing this product does. The workspace
+   * refuses it too; this is the refusal a person actually sees.
+   */
   import { z } from 'zod'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import { looksLikeShareLink } from '../share-link.js'
+  import { decodeShareLink, looksLikeShareLink, shareLinkErrorText } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'
   import Dialog from '../ui/Dialog.svelte'
@@ -23,15 +32,36 @@
 
   const t = $derived($LL.web.share.add)
 
+  /** A link we cannot decode is the FIRST rule's business, not this one's. */
+  function isNotDeviceLink(link: string): boolean {
+    try {
+      return decodeShareLink(link).kind !== 'device'
+    } catch {
+      return true
+    }
+  }
+
   const schema = z.object({
-    link: z.string().trim().refine(looksLikeShareLink, $LL.web.share.add.link_invalid()),
+    link: z
+      .string()
+      .trim()
+      .refine(looksLikeShareLink, $LL.web.share.add.link_invalid())
+      .refine(isNotDeviceLink, $LL.web.mounts.dialog.device_link_refused()),
     dest: z.string().trim().min(1, $LL.web.share.add.dest_required()),
   })
   // svelte-ignore state_referenced_locally -- seed only; the form owns it after
   const form = createForm(schema, { link: '', dest: initialDest })
 
   async function join(): Promise<void> {
-    if (await form.submit(({ link, dest }) => onJoin(link, dest))) onClose()
+    // The rendering site is where a codec error code becomes a sentence.
+    const run = async (link: string, dest: string): Promise<void> => {
+      try {
+        await onJoin(link, dest)
+      } catch (err) {
+        throw new Error(shareLinkErrorText(err))
+      }
+    }
+    if (await form.submit(({ link, dest }) => run(link, dest))) onClose()
   }
 </script>
 

@@ -109,6 +109,62 @@ describe('R5: a folder token never grants the vault, and a refusal is permanent'
   )
 
   it(
+    'a mount entry naming a FOREIGN relay never receives the device token',
+    async () => {
+      // The leak this pins (fix A1): a `kind:'mount'` entry in the root map
+      // is written by ANY peer of the root room and carries the relay its
+      // room lives on. The map is advisory, never an auth source (shaping
+      // D4), and on a peer both "a folder I carved on my other device" and "a
+      // foreign share my other device joined" arrive as `'adopted'` — so
+      // provenance alone cannot gate the vault's device key. The relay must.
+      const vault = crypto.randomUUID()
+      const carved = crypto.randomUUID()
+      const link = await mintShare(relay, { folderGuid: vault, kind: 'device' })
+      await mintShare(relay, { folderGuid: carved, parent: vault })
+
+      const tokens = new TokenStore(relay.url)
+      tokens.set(vault, link.token, relay.url, 'device')
+      const dev = await bootDevice({
+        id: 'R5',
+        adapter: new MemVaultAdapter(),
+        vaultDir: memDir(),
+        rootRoom: vault,
+        relayUrl: relay.url,
+        tokens,
+      })
+      const FOREIGN = 'wss://elsewhere.example/relay'
+      try {
+        // The control: a room carved out of THIS vault, on THIS vault's
+        // relay, is exactly what the device token is for (A4-A).
+        expect(
+          dev.relayFor({ room: carved, path: 'team', relay: relay.url, provenance: 'adopted' })
+        ).toEqual({ url: relay.url, token: link.token })
+
+        // …and the refusal. Same room, same provenance, a relay this vault
+        // has nothing to do with: no credential, so the mount rests in
+        // `needs-token` instead of opening a socket to `elsewhere` with a
+        // full-access key to this vault in hand.
+        for (const provenance of ['adopted', 'carved'] as const) {
+          expect(
+            dev.relayFor({ room: carved, path: 'team', relay: FOREIGN, provenance }),
+            provenance
+          ).toBeNull()
+        }
+
+        // An EXACT token still reaches any relay — it is the credential the
+        // sharer handed this device, scoped to their room and nothing else.
+        tokens.set(carved, 'their-folder-token', FOREIGN, 'folder')
+        expect(
+          dev.relayFor({ room: carved, path: 'team', relay: FOREIGN, provenance: 'adopted' })
+        ).toEqual({ url: FOREIGN, token: 'their-folder-token' })
+      } finally {
+        await dev.shutdown()
+      }
+    },
+    60_000
+  )
+
+  it(
     'reports a refusal once — a permanent error, not a reconnect loop',
     async () => {
       const vault = crypto.randomUUID()

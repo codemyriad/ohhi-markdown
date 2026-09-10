@@ -2,13 +2,8 @@
   "changes": [
     {
       "packageName": "@editor/i18n",
-      "comment": "Wording for device linking: creating and copying a link, linking a new device, the two-phase progress panel, and the reminder that images and PDFs do not travel yet.",
-      "type": "minor"
-    },
-    {
-      "packageName": "@editor/i18n",
-      "comment": "A vault on the relay is now described as linked to your devices rather than shared, everywhere it is mentioned.",
-      "type": "patch"
+      "comment": "Internal: English text for device linking, the progress panel, and the linked-vault wording. The outcome a person notices belongs to the app that renders it.",
+      "type": "none"
     }
   ]
 }

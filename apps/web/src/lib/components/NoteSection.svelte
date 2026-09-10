@@ -68,8 +68,19 @@
     return relayHost(relayUrl)
   })
   const online = $derived(share.kind === 'shared' ? onlineIn(presenceByRoom, share.room) : [])
-  /** Sharing a folder needs a folder, an unshared vault, and no mount around it. */
-  const canShareHere = $derived(share.kind === 'local' && dir !== '')
+  /**
+   * Inside a FOLDER mount — the one thing that rules sharing out here.
+   *
+   * A device-linked vault is not a mount around this note: with depth-1
+   * nesting (device-link-shaping A5) the root mount is the one mount that may
+   * contain mounts, so its folders can be shared and shares can be added
+   * inside it. The tree menu says exactly that (`tree-model.shareItem` /
+   * `addShareItem`); the rail must agree, or the same folder offers sharing
+   * in one surface and hides it in the other.
+   */
+  const inFolderMount = $derived(share.kind === 'shared' && share.provenance !== 'root')
+  /** Sharing a folder needs a folder, and no folder mount around it. */
+  const canShareHere = $derived(dir !== '' && !inFolderMount)
   const sharedMountCount = $derived(mounts.filter((m) => m.provenance !== 'local').length)
   /** Only a mount with a relay has presence, access or anything to be in sync with. */
   const connected = $derived(share.kind === 'shared' && share.status === 'active')
@@ -226,7 +237,7 @@
           {t.share_folder()}
         </button>
       {/if}
-      {#if share.kind === 'local'}
+      {#if !inFolderMount}
         <button
           type="button"
           data-testid="note-add-share"

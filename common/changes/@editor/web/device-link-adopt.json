@@ -2,22 +2,22 @@
   "changes": [
     {
       "packageName": "@editor/web",
-      "comment": "A shared folder that appeared from another device shows what it is doing — arriving, waiting for its link, or being folded back — instead of appearing and disappearing.",
+      "comment": "A shared folder that appeared from another of your devices says what it is doing — arriving, waiting for its link, or being folded back — instead of appearing and disappearing.",
       "type": "minor"
     },
     {
       "packageName": "@editor/web",
-      "comment": "Pasting the link for a shared folder that is waiting for one starts it syncing where it stands: no re-download, no file on disk changed.",
+      "comment": "Pasting the link for a shared folder that is waiting for one starts it syncing where it stands: nothing is re-downloaded and no file on disk changes.",
       "type": "minor"
     },
     {
       "packageName": "@editor/web",
-      "comment": "The root of a shared folder can no longer be renamed, moved, deleted or shared again from the tree — each refusal says why.",
+      "comment": "The root of a shared folder can no longer be renamed, moved, deleted or shared again from the file tree — each refusal says why, where you asked.",
       "type": "patch"
     },
     {
       "packageName": "@editor/web",
-      "comment": "Sharing a folder now records which vault it came from, so a device you link later can open that folder without you pasting its link.",
+      "comment": "Sharing a folder now records which vault it came from, so a device you link later opens that folder without you pasting its link.",
       "type": "minor"
     },
     {
@@ -27,7 +27,7 @@
     },
     {
       "packageName": "@editor/web",
-      "comment": "A vault that stops sharing one of its folders stays connected afterwards, instead of quietly going offline until the app was restarted.",
+      "comment": "Stopping sharing a folder no longer leaves the vault itself disconnected from your other devices until the next restart.",
       "type": "patch"
     }
   ],

@@ -259,9 +259,30 @@ describe('carve — happy path', () => {
     expect(rows.filter((r) => r.path === 'team' || r.path.startsWith('team/'))).toEqual([
       { path: 'team', guid: CARVE_ROOM, kind: 'mount' },
     ])
-    expect(vault.root.mountEntries()).toEqual([
+    const announced = vault.root.mountEntries()
+    expect(announced.map(({ path, room, relay }) => ({ path, room, relay }))).toEqual([
       { path: 'team', room: CARVE_ROOM, relay: RELAY_URL },
     ])
+    // ...and it carries the SEED: the new room's folder-doc state, so every
+    // peer applies ONE update instead of building a rival history of its own
+    // (S10 Q1; `fuzz-crashers/0003` is the failure without it). Decoding it
+    // must reproduce the mount's map exactly, keys and kinds.
+    const seed = announced[0]!.seed
+    expect(typeof seed).toBe('string')
+    const raw = atob(seed!)
+    const bytes = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+    const replica = vault.engine.createDoc(`seed-check:${CARVE_ROOM}`)
+    vault.engine.applyUpdate(replica, bytes, 'seed')
+    expect(
+      replica
+        .getMap()
+        .entries()
+        .filter(([, e]) => !e.deleted)
+        .map(([p, e]) => `${p}:${e.kind}`)
+        .sort()
+    ).toEqual(['notes/deep.md:text', 'notes:dir', 'plan.md:text'])
+    replica.destroy()
     expect((await mountsFile.load()).find((m) => m.room === CARVE_ROOM)).toMatchObject({
       path: 'team',
       provenance: 'carved',

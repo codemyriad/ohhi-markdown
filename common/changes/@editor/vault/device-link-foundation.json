@@ -2,12 +2,12 @@
   "changes": [
     {
       "packageName": "@editor/vault",
-      "comment": "A folder that someone shares out of a vault you also sync is left strictly alone on your disk: nothing is deleted, nothing is re-created, and its files are never picked back up as if they were yours.",
+      "comment": "A folder that someone shares out of a vault you also sync is left strictly alone on your disk: nothing is deleted, nothing is re-created, and its files are never picked up again as loose notes.",
       "type": "minor"
     },
     {
       "packageName": "@editor/vault",
-      "comment": "A shared folder whose link you do not hold yet is now a state the app can sit in safely — its files stay on disk and are never rolled back or re-fetched while it waits for the link.",
+      "comment": "A shared folder you hold no link for keeps its files on disk exactly as they are while it waits — nothing is rolled back, nothing is re-fetched.",
       "type": "minor"
     }
   ],

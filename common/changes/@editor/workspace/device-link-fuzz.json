@@ -7,7 +7,7 @@
     },
     {
       "packageName": "@editor/workspace",
-      "comment": "If two of your devices share the same folder at the same moment, the one that loses the tie now keeps its notes and any edits it had made in the meantime, instead of quietly starting the folder over with fresh copies.",
+      "comment": "If two of your devices share the same folder at the same moment, the one that loses the tie keeps its notes and any edits it had made in the meantime, instead of quietly starting the folder over with fresh copies.",
       "type": "patch"
     }
   ]

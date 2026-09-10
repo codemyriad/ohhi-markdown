@@ -2,8 +2,8 @@
   "changes": [
     {
       "packageName": "@editor/sync",
-      "comment": "A folder shared out of a vault that is itself synced now appears to everyone else in that vault as a shared folder, in the same instant it is carved out — instead of its files quietly going missing from their view.",
-      "type": "minor"
+      "comment": "Internal: the folder-map entry kinds gain the nested-share mount, so a shared folder can name the room it moved to. What a person notices is in the apps that read it.",
+      "type": "none"
     }
   ],
   "packageName": "@editor/sync"

@@ -2,12 +2,12 @@
   "changes": [
     {
       "packageName": "@editor/workspace",
-      "comment": "You can share a folder from inside a vault that is already synced elsewhere — the app no longer refuses with \"this vault is itself shared\".",
+      "comment": "You can share a folder from inside a vault that is already synced to your own devices — it used to be refused outright.",
       "type": "minor"
     },
     {
       "packageName": "@editor/workspace",
-      "comment": "When someone shares a folder out of a vault you sync, your copy is told where that folder went — as one atomic change, so no file is ever in two places at once and none is duplicated.",
+      "comment": "Sharing a folder tells the other devices on that vault where it went in the same step that moves it, so the folder is never briefly missing from their view.",
       "type": "minor"
     }
   ],

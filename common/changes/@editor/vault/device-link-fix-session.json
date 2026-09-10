@@ -1,0 +1,25 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "A note renamed on another device no longer causes an error on a device that has not written it to disk yet — it simply arrives at its new name.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "One file that fails to update from another device no longer stops the rest of the same batch: a deletion that travelled alongside it is applied instead of being silently skipped, so a file the vault says is gone is really gone.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "Renaming the same note (or folder) on two devices at once now settles on one name everywhere, instead of leaving the note filed under both names with the two devices holding different copies.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "A note that comes back after being deleted — which happens to every note in a folder you stop sharing — is now written back to disk on the device that deleted it, instead of showing in the list on both devices but existing on only one.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@editor/vault"
+}

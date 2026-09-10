@@ -123,18 +123,28 @@ export class RelayDb {
   // ---- room ancestry (device-link-shaping.md A4-A) ----
 
   /**
-   * Record that `child` was carved out of `parent`. Idempotent: re-minting a
-   * share for the same room (a re-share after a revoke) restates the edge
-   * rather than failing. Ancestry is advisory *structure*, never a
-   * credential — only `shares` grants access.
+   * Record that `child` was carved out of `parent`. **Write-once.** Idempotent
+   * for the same parent (a re-share after a revoke restates nothing and
+   * fails nothing), and a *different* parent is IGNORED here rather than
+   * overwritten: re-pointing an existing edge would re-parent a room under
+   * whoever minted last, and on a multi-vault relay behind one operator
+   * secret that hands the new parent's device tokens a victim vault's rooms.
+   * The mint refuses that case with a 409 before it ever gets here
+   * (`admin.ts`); this clause is the second half of the same rule, so no
+   * other caller can re-point an edge either.
+   *
+   * Ancestry is advisory *structure*, never a credential — only `shares`
+   * grants access. Returns true when the edge was written (or already read
+   * exactly this way), false when a different parent is on record.
    */
-  setRoomParent(child: string, parent: string): void {
+  setRoomParent(child: string, parent: string): boolean {
     this.db
       .prepare(
         `INSERT INTO rooms (child_guid, parent_guid) VALUES (?, ?)
-         ON CONFLICT(child_guid) DO UPDATE SET parent_guid = excluded.parent_guid`,
+         ON CONFLICT(child_guid) DO NOTHING`,
       )
       .run(child, parent)
+    return this.getRoomParent(child) === parent
   }
 
   getRoomParent(child: string): string | null {

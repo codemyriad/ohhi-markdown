@@ -12,12 +12,17 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  docBlobName,
+  FOLDER_DOC_KEY,
   MemStoreDir,
   MemVaultAdapter,
   MountsFile,
   scopedAdapter,
+  scopedStoreDir,
+  type MountDesc,
   type StoreDir,
 } from '@editor/vault'
+import { createYjsEngine, type FileEntry, type SyncEngine } from '@editor/sync'
 import {
   applyForeignCarve,
   applyForeignMap,
@@ -25,6 +30,7 @@ import {
   bootVault,
   carveOn,
   checkInvariants,
+  announcedMounts,
   crashingDir,
   dec,
   diskSnapshot,
@@ -32,7 +38,9 @@ import {
   seedAdapter,
   type BootedVault,
 } from './fixture.js'
+import { activateMount } from '../src/activate.js'
 import { carveFolder } from '../src/carve.js'
+import { recoverMounts } from '../src/vault-boot.js'
 import {
   reconcileMountEntries,
   type AdoptContext,
@@ -112,8 +120,8 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
 
       // Not one byte moved on B's disk.
       expect(await diskSnapshot(duo.b.adapter)).toEqual(beforeB)
-      checkInvariants(duo.b)
-      checkInvariants(duo.a)
+      await checkInvariants(duo.b)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -140,7 +148,7 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
       expect(mountRows(duo.b, 'team').map((r) => r.path)).toEqual(['notes/deep.md', 'plan.md'])
       expect(rootTextPaths(duo.b)).toEqual(new Set(['keep.md']))
       expect(await diskSnapshot(duo.b.adapter)).toEqual(before)
-      checkInvariants(duo.b)
+      await checkInvariants(duo.b)
     } finally {
       duo.dispose()
     }
@@ -164,7 +172,7 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
       expect(mountRows(duo.b, 'team').map((r) => r.path)).toEqual(['notes/deep.md', 'plan.md'])
       expect(mount.docForPath('plan.md')?.getText()).toBe(FILES['team/plan.md'])
       expect(duo.b.events.notices.some((n) => n.kind === 'needs-token')).toBe(true)
-      checkInvariants(duo.b)
+      await checkInvariants(duo.b)
 
       // The paste: enableSharing in place. Nothing re-seeds — same guids, same
       // blobs — and the desc merges to 'active' keeping its relay.
@@ -179,7 +187,7 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
         status: 'active',
         relay: { url: RELAY },
       })
-      checkInvariants(duo.b)
+      await checkInvariants(duo.b)
     } finally {
       duo.dispose()
     }
@@ -198,7 +206,9 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
       await reconcileMountEntries(
         adoptCtx(dev, {
           relay: { url: 'ws://cynthia.relay', token: 'guest-token' },
-          onBuild: (o) => built.push({ room: o.room, firstJoin: o.firstJoin }),
+          onBuild: (o) => {
+            built.push({ room: o.room, firstJoin: o.firstJoin })
+          },
         })
       )
 
@@ -222,7 +232,12 @@ describe('nested mounts — the peer adopts a live carve (S10 Q1)', () => {
       await dev.root.setMountEntry('guest', 'guest-room', 'ws://cynthia.relay')
       const built: { room: string; firstJoin?: boolean }[] = []
       await reconcileMountEntries(
-        adoptCtx(dev, { relay: null, onBuild: (o) => built.push({ room: o.room, firstJoin: o.firstJoin }) })
+        adoptCtx(dev, {
+          relay: null,
+          onBuild: (o) => {
+            built.push({ room: o.room, firstJoin: o.firstJoin })
+          },
+        })
       )
       // Never a firstJoin without a credential: the pull would hang on a
       // provider that is never allowed to connect.
@@ -271,7 +286,7 @@ describe('nested mounts — the owner unshares (S10 Q1(b))', () => {
         guids.get('team/plan.md')
       )
       expect(rebooted.root.docForPath('team/plan.md')?.getText()).toBe(FILES['team/plan.md'])
-      checkInvariants(rebooted)
+      await checkInvariants(rebooted)
     } finally {
       duo.dispose()
     }
@@ -321,7 +336,7 @@ describe('nested mounts — the owner unshares (S10 Q1(b))', () => {
       )
       expect(await diskSnapshot(duo.b.adapter)).toEqual(beforeB)
       expect(duo.b.events.notices.some((n) => n.kind === 'absorbed')).toBe(true)
-      checkInvariants(duo.b)
+      await checkInvariants(duo.b)
     } finally {
       duo.dispose()
     }
@@ -409,7 +424,7 @@ describe('nested mounts — joining inside a shared root announces (S10 Q7)', ()
 
       // The entry's relay is CYNTHIA's, not this vault's: a peer of the root
       // must be told where the nested share actually lives.
-      expect(vault.root.mountEntries()).toEqual([
+      expect(announcedMounts(vault.root)).toEqual([
         { path: 'guest', room: 'guest-room', relay: 'ws://cynthia.relay' },
       ])
     } finally {
@@ -457,7 +472,65 @@ describe('nested mounts — the ghost-entry rule (S10 Q5)', () => {
       const rootAll = dev.root.mapEntries(true).map(([p]) => p)
       expect(rootAll.filter((p) => p.startsWith('team/'))).toEqual([])
       expect(dev.root.mapEntries(true).find(([p]) => p === 'team')?.[1].kind).toBe('mount')
-      checkInvariants(dev)
+
+      // ...and so are the STORES behind them (M5). Removing the map key alone
+      // left the parent holding a live doc, a provider, an LCA record and a
+      // blob for a guid the mount now owns — one guid with durable state in
+      // two namespaces, which no map-only invariant can see and which the
+      // parent's next boot would restore as a rival copy.
+      const rootLcas = (await dev.root.lcaRecords()).map((r) => r.guid)
+      expect(rootLcas).not.toContain(plan)
+      expect(rootLcas).not.toContain('foreign-guid')
+      expect(dev.root.docForPath('team/renamed.md')).toBeNull()
+      expect(await dev.vaultDir.list('root-room/docs/')).not.toContain(
+        `root-room/docs/${encodeURIComponent(plan)}.bin`
+      )
+      await checkInvariants(dev)
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('takes the parent’s doc, provider, LCA and blob away with the key (M5)', async () => {
+    // The reachable shape: this device created a file under `team/` while it
+    // was closed, `bootScan` enrolled it into the ROOT with a fresh guid, and
+    // only then did the carve arrive. The seeded membership does not contain
+    // it, so the detach does not tear it down — it is a ghost, and the sweep
+    // imports it into the mount with a fresh guid.
+    //
+    // Removing the map key alone leaves the parent holding a live doc, a
+    // provider, an LCA record and a blob for a guid that has just been
+    // retired. Invisible to any map-only invariant, and the parent's next boot
+    // restores it as a rival copy of a note the mount already owns.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      // Enrolled by the ROOT, before anyone said `team/` was going anywhere.
+      await base.writeAtomic('team/offline.md', enc.encode('made while closed\n'))
+      await dev.root.rescan()
+      const stray = dev.root.files().find((r) => r.path === 'team/offline.md')!.guid
+      expect((await dev.root.lcaRecords()).map((r) => r.guid)).toContain(stray)
+
+      // The carve arrives, and its seed knows nothing about that file.
+      applyForeignCarve(dev, 'team', {
+        room: TEAM_ROOM,
+        relay: RELAY,
+        omit: ['team/offline.md'],
+      })
+      await reconcileMountEntries(adoptCtx(dev, { relay: TEAM_TOKEN }))
+
+      // It is in the mount now, under a guid of the mount's own...
+      const imported = dev.mounts.get('team')!.files().find((r) => r.path === 'offline.md')
+      expect(imported).toBeDefined()
+      expect(imported!.guid).not.toBe(stray)
+      // ...and the parent kept nothing of the old one.
+      expect(dev.root.mapEntries(true).some(([p]) => p === 'team/offline.md')).toBe(false)
+      expect((await dev.root.lcaRecords()).map((r) => r.guid)).not.toContain(stray)
+      expect(await dev.vaultDir.list('root-room/docs/')).not.toContain(
+        `root-room/docs/${encodeURIComponent(stray)}.bin`
+      )
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -478,7 +551,7 @@ describe('nested mounts — the ghost-entry rule (S10 Q5)', () => {
       expect(mount.files().some((r) => r.path === 'plan.md')).toBe(false)
       expect(await base.read('team/plan.md')).toBeNull()
       expect(dev.root.mapEntries(true).filter(([p]) => p.startsWith('team/'))).toEqual([])
-      checkInvariants(dev)
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -501,7 +574,7 @@ describe('nested mounts — the ghost-entry rule (S10 Q5)', () => {
       expect(moved).toBeDefined()
       expect(moved!.guid).not.toBe(plan) // fresh guid in the parent room
       expect(dev.mounts.get('team')!.files().some((r) => r.guid === plan)).toBe(false)
-      checkInvariants(dev)
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -535,7 +608,7 @@ describe('nested mounts — the LIVE trigger (S10 Q1 entry point 1)', () => {
       await settle()
       expect(dev.mounts.get('team')!.files().find((r) => r.guid === plan)?.path).toBe('renamed.md')
       expect(dev.root.mapEntries(true).filter(([p]) => p.startsWith('team/'))).toEqual([])
-      checkInvariants(dev)
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -543,54 +616,82 @@ describe('nested mounts — the LIVE trigger (S10 Q1 entry point 1)', () => {
 })
 
 describe('nested mounts — adopt crash matrix (L1 fixture)', () => {
-  it('killed after every possible store write, every reboot converges', async () => {
-    // The carve.test.ts matrix, mirrored onto the peer: a device that learns
-    // about someone else's carve is killed after every possible number of
-    // store writes, and every reboot must land converged.
-    for (let budget = 0; budget < 80; budget++) {
-      const base = await seedAdapter(FILES)
-      const dir = new MemStoreDir()
-      const before = await diskSnapshot(base)
+  // Two shapes of the same sweep. A PRIVATE root is the V1 case: nothing is
+  // announced anywhere, so a crash can only lose derived state. A SHARED root
+  // with its folder blob already flushed is the one that matters for N1 — the
+  // owner's `kind:'mount'` entry is DURABLE on this device before the kill, so
+  // every recovery path is working next to a key it must not touch. Deleting
+  // it there is a hard delete in this device's folder history, which its next
+  // reconnect ships back to the room and which dissolves the announcement for
+  // every peer of that room at once.
+  for (const shared of [false, true]) {
+    it(`killed after every possible store write, every reboot converges (${
+      shared ? 'shared root, announcement durable' : 'private root'
+    })`, async () => {
+      for (let budget = 0; budget < 120; budget++) {
+        const base = await seedAdapter(FILES)
+        const dir = new MemStoreDir()
+        const before = await diskSnapshot(base)
 
-      const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
-      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY })
-      let crashed = false
-      try {
-        await reconcileMountEntries(
-          adoptCtx({ ...dev, vaultDir: crashingDir(dir, budget) }, { relay: TEAM_TOKEN })
+        const dev = await bootVault(base, dir, 'root-room', {
+          autoAdopt: false,
+          ...(shared ? { rootRelay: TEAM_TOKEN } : {}),
+        })
+        applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY })
+        if (shared) {
+          // Past the doc-store debounce: the root folder blob now carries the
+          // mount entry, so the crash lands with the announcement durable.
+          dev.clock.advance(2_000)
+          await new Promise((r) => setTimeout(r, 0))
+        }
+        let crashed = false
+        try {
+          await reconcileMountEntries(
+            adoptCtx({ ...dev, vaultDir: crashingDir(dir, budget) }, { relay: TEAM_TOKEN })
+          )
+        } catch (err) {
+          crashed = true
+          expect(String(err)).toContain('injected-crash')
+        }
+        dev.dispose()
+
+        // Reboot from durable state only: recoverMounts, then the boot pass.
+        const reboot = await bootVault(base, dir, 'root-room', {
+          tokens: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+          ...(shared ? { rootRelay: TEAM_TOKEN } : {}),
+        })
+        await reboot.reconcile()
+
+        // Not a single disk byte changed, every desc settled, every file in
+        // exactly one map — and, because the mount entry is a fact of the room,
+        // the boot pass always finishes the adopt rather than abandoning it.
+        expect(await diskSnapshot(base)).toEqual(before)
+        await checkInvariants(reboot)
+        expect(mountRows(reboot, 'team').map((r) => r.path)).toEqual(['notes/deep.md', 'plan.md'])
+        expect(rootTextPaths(reboot)).toEqual(new Set(['keep.md']))
+        expect(reboot.mounts.get('team')!.docForPath('plan.md')?.getText()).toBe(
+          FILES['team/plan.md']
         )
-      } catch (err) {
-        crashed = true
-        expect(String(err)).toContain('injected-crash')
+        if (shared) {
+          // The announcement is still there, on every recovery path.
+          expect(announcedMounts(reboot.root)).toEqual([
+            { path: 'team', room: TEAM_ROOM, relay: RELAY },
+          ])
+        }
+        reboot.dispose()
+        if (!crashed) return // the whole matrix is covered
       }
-      dev.dispose()
-
-      // Reboot from durable state only: recoverMounts, then the boot pass.
-      const reboot = await bootVault(base, dir, 'root-room', {
-        tokens: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
-      })
-      await reboot.reconcile()
-
-      // Not a single disk byte changed, every desc settled, every file in
-      // exactly one map — and, because the mount entry is a fact of the room,
-      // the boot pass always finishes the adopt rather than abandoning it.
-      expect(await diskSnapshot(base)).toEqual(before)
-      checkInvariants(reboot)
-      expect(mountRows(reboot, 'team').map((r) => r.path)).toEqual(['notes/deep.md', 'plan.md'])
-      expect(rootTextPaths(reboot)).toEqual(new Set(['keep.md']))
-      expect(reboot.mounts.get('team')!.docForPath('plan.md')?.getText()).toBe(
-        FILES['team/plan.md']
-      )
-      reboot.dispose()
-      if (!crashed) return // the whole matrix is covered
-    }
-    throw new Error('crash budget never reached the happy path — raise the sweep bound')
-  }, 60_000)
+      throw new Error('crash budget never reached the happy path — raise the sweep bound')
+    }, 60_000)
+  }
 })
 
 /** StoreDir wrapper that runs `onWrite` before each write lands. */
 function hookDir(base: StoreDir, onWrite: (name: string, bytes: Uint8Array) => unknown): StoreDir {
-  return {
+  // The binding names THIS dir, not `base` (see StoreIo.binding): dropping it
+  // hands the LCA store the pre-S10 whole-file layout, so the hook would never
+  // see the per-record writes it exists to observe.
+  const dir: StoreDir = {
     io: (name) => {
       const io = base.io(name)
       return {
@@ -599,11 +700,13 @@ function hookDir(base: StoreDir, onWrite: (name: string, bytes: Uint8Array) => u
           await onWrite(name, bytes)
           await io.writeAtomic(bytes)
         },
+        binding: { dir, name },
       }
     },
     remove: (name) => base.remove(name),
     list: (prefix) => base.list(prefix),
   }
+  return dir
 }
 
 /** The adopt machine's context for a device, as the fixture wires it. */
@@ -611,7 +714,7 @@ function adoptCtx(
   dev: BootedVault,
   opts: {
     relay: RelayConfig | null
-    onBuild?: (o: AdoptedMountOptions) => void
+    onBuild?: (o: AdoptedMountOptions) => void | Promise<void>
     onNotice?: (kind: string) => void
   }
 ): AdoptContext {
@@ -623,10 +726,12 @@ function adoptCtx(
     rootRoom: 'root-room',
     mounts: () => dev.mounts,
     relayFor: () => opts.relay,
-    buildSession: (o) => {
+    buildSession: async (o) => {
       // firstJoin is RECORDED, not obeyed: it is an awaited provider pull and
       // this fixture's sockets never open. The decision is what is under test.
-      opts.onBuild?.(o)
+      // Awaited, so a caller can inspect the durable state as it stood when
+      // the machine asked for the session.
+      await opts.onBuild?.(o)
       return dev.makeSession(o.room, scopedAdapter(dev.adapter, o.path), o.path, {
         provenance: o.provenance,
         ...(o.relay ? { relay: o.relay } : {}),
@@ -688,8 +793,8 @@ describe('nested mounts — carve races carve (S10 Q5 rows 10/11)', () => {
 
       // The map is the statement everyone converges on: one entry, one room,
       // the same on both devices — whichever of the two Yjs's LWW picked.
-      const entries = duo.a.root.mountEntries()
-      expect(entries).toEqual(duo.b.root.mountEntries())
+      const entries = announcedMounts(duo.a.root)
+      expect(entries).toEqual(announcedMounts(duo.b.root))
       expect(entries).toHaveLength(1)
       const winner = entries[0]!.room
       expect([ROOM_A, ROOM_B]).toContain(winner)
@@ -715,7 +820,7 @@ describe('nested mounts — carve races carve (S10 Q5 rows 10/11)', () => {
         expect(text).toContain('[A-edit]')
         expect(text).toContain('[B-edit]')
         expect(text).toContain(FILES['team/plan.md']!.trim())
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
     } finally {
       duo.dispose()
@@ -744,7 +849,7 @@ describe('nested mounts — carve races carve (S10 Q5 rows 10/11)', () => {
 
       // The outer wins on both devices: one mount root, one entry in the map.
       for (const dev of [duo.a, duo.b]) {
-        expect(dev.root.mountEntries()).toEqual([
+        expect(announcedMounts(dev.root)).toEqual([
           { path: 'team', room: TEAM_ROOM, relay: RELAY },
         ])
         expect([...dev.mounts.keys()]).toEqual(['team'])
@@ -753,7 +858,7 @@ describe('nested mounts — carve races carve (S10 Q5 rows 10/11)', () => {
           { path: 'plan.md', guid: guids.get('team/plan.md')! },
           { path: 'sub/nested.md', guid: guids.get('team/sub/nested.md')! },
         ])
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
       // B's inner room is gone — its namespace folded into the outer mount's,
       // guid for guid, so nothing had to be re-imported.
@@ -790,9 +895,9 @@ describe('nested mounts — device links (S10 Q5 rows 14/15)', () => {
           new Map(dev.root.files().filter((r) => r.kind === 'text').map((r) => [r.path, r.guid]))
         ).toEqual(guids)
         expect(await diskSnapshot(dev.adapter)).toEqual(await diskSnapshot(duo.a.adapter))
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
-      checkInvariants(duo.a)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -828,7 +933,7 @@ describe('nested mounts — device links (S10 Q5 rows 14/15)', () => {
         { room: TEAM_ROOM, path: 'team', firstJoin: false },
       ])
       expect(await diskSnapshot(c.adapter)).toEqual(before)
-      checkInvariants(c)
+      await checkInvariants(c)
     } finally {
       duo.dispose()
     }
@@ -858,7 +963,7 @@ describe('nested mounts — device links (S10 Q5 rows 14/15)', () => {
       expect(new Set(c.root.files().filter((r) => r.kind === 'text').map((r) => r.path))).toEqual(
         new Set(['keep.md'])
       )
-      checkInvariants(c)
+      await checkInvariants(c)
     } finally {
       duo.dispose()
     }
@@ -895,7 +1000,7 @@ describe('nested mounts — the seed→detach window (S10 Q5 row 2)', () => {
       await dev.refreshDescs()
 
       expect(mount.docForPath('plan.md')?.getText()).toBe(LATE + FILES['team/plan.md'])
-      checkInvariants(dev)
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -924,7 +1029,7 @@ describe('nested mounts — the seed→detach window (S10 Q5 row 2)', () => {
       expect(dev.mounts.get('team')!.docForPath('plan.md')?.getText()).toBe(
         LATE + FILES['team/plan.md']
       )
-      checkInvariants(dev)
+      await checkInvariants(dev)
     } finally {
       dev.dispose()
     }
@@ -962,14 +1067,14 @@ describe('nested mounts — the mount root itself is raced (S10 Q5 row 3)', () =
       // The mount wins: the entry is still at `team`, and the stray copy is a
       // cross-boundary move OUT — a fresh guid in the parent, never a second
       // room holding the same one.
-      expect(duo.b.root.mountEntries()).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+      expect(announcedMounts(duo.b.root)).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
       const moved = duo.b.root.files().find((r) => r.path === 'crew/plan.md')
       expect(moved).toBeDefined()
       expect(moved!.guid).not.toBe(plan)
       expect(duo.b.mounts.get('team')!.files().some((r) => r.guid === plan)).toBe(false)
       expect(duo.b.events.notices.some((n) => n.kind === 'mount-moved')).toBe(true)
-      checkInvariants(duo.b)
-      checkInvariants(duo.a)
+      await checkInvariants(duo.b)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -984,12 +1089,12 @@ describe('nested mounts — the mount root itself is raced (S10 Q5 row 3)', () =
       applyForeignMap(duo.b, (m) => m.delete('team'))
       await duo.deliver()
 
-      expect(duo.b.root.mountEntries()).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+      expect(announcedMounts(duo.b.root)).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
       expect(duo.b.descs().find((d) => d.room === TEAM_ROOM)?.status).toBe('active')
       expect(mountRows(duo.b, 'team')).toEqual(rowsBefore)
       expect(rootTextPaths(duo.b)).toEqual(new Set(['keep.md']))
-      checkInvariants(duo.b)
-      checkInvariants(duo.a)
+      await checkInvariants(duo.b)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -997,50 +1102,63 @@ describe('nested mounts — the mount root itself is raced (S10 Q5 row 3)', () =
 })
 
 describe('nested mounts — a peer moves a file out mid-carve (S10 Q5 row 5)', () => {
-  // What converges today. The half that does NOT — the parent keeps the
-  // mount's guid, because on a peer the bytes are not at the destination and
-  // `reenrollPath` is a silent no-op — is pinned as a skipped design question
-  // in `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`.
-  it('the mount yields the file, both devices agree, and nothing is lost', async () => {
-    const duo = await bootDuo({
-      files: FILES,
-      tokensA: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
-      tokensB: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+  // The decided rule (spike S10 Q5 row 5, 2026-09-10): ONLY the device whose
+  // disk already holds the bytes at the destination performs the move-out —
+  // re-enrol there with a FRESH guid, tombstone inside the mount. Every other
+  // device does nothing and receives both halves.
+  //
+  // Both roles are asserted, and the run is parameterised over WHICH device
+  // carves, so the mover is once the carver's peer and once the other way
+  // round. Every device re-enrolling instead would mint a different guid per
+  // device over the same bytes and merge them as the note's text twice; the
+  // older "delete inside the mount anyway" left the mount's guid live in the
+  // parent map over a doc only the mover could fill (`fuzz-crashers/0001`).
+  for (const carver of ['a', 'b'] as const) {
+    const mover = carver === 'a' ? 'b' : 'a'
+    it(`${carver} carves, ${mover} moves the file out: one fresh guid, one copy of the text`, async () => {
+      const duo = await bootDuo({
+        files: FILES,
+        tokensA: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+        tokensB: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+      })
+      try {
+        await duo.deliver()
+        const plan = duo.a.root.files().find((r) => r.path === 'team/plan.md')!.guid
+
+        // The mover knows nothing of the carve yet and drags the file out.
+        duo.net.setOffline('A', true)
+        duo.net.setOffline('B', true)
+        await carveOn(duo.dev(carver), { path: 'team', room: TEAM_ROOM, token: 'team-token' })
+        await duo.dev(mover).root.renamePath('team/plan.md', 'other/plan.md')
+        duo.net.setOffline('A', false)
+        duo.net.setOffline('B', false)
+        await duo.deliver()
+
+        for (const dev of [duo.a, duo.b]) {
+          const who = dev.root.user.name
+          const moved = dev.root.files().find((r) => r.path === 'other/plan.md')
+          expect(moved, `other/plan.md missing on ${who}`).toBeDefined()
+          // Identity never crosses rooms: the guid the mount held is retired.
+          expect(moved!.guid, `guid reused on ${who}`).not.toBe(plan)
+          expect(dev.mounts.get('team')!.files().some((r) => r.path === 'plan.md')).toBe(false)
+          expect(dev.mounts.get('team')!.files().some((r) => r.guid === plan)).toBe(false)
+          // ...and the text is at the destination exactly once.
+          expect(dec.decode((await dev.adapter.read('other/plan.md'))!)).toBe(FILES['team/plan.md'])
+          expect(dev.root.docForPath('other/plan.md')?.getText()).toBe(FILES['team/plan.md'])
+          await checkInvariants(dev)
+        }
+        // Both devices agree on the new identity...
+        expect(duo.a.root.files().find((r) => r.path === 'other/plan.md')!.guid).toBe(
+          duo.b.root.files().find((r) => r.path === 'other/plan.md')!.guid
+        )
+        // ...and exactly one device claimed the move.
+        expect(duo.dev(mover).events.notices.some((n) => n.kind === 'mount-moved')).toBe(true)
+        expect(duo.dev(carver).events.notices.some((n) => n.kind === 'mount-moved')).toBe(false)
+      } finally {
+        duo.dispose()
+      }
     })
-    try {
-      await duo.deliver()
-      const plan = duo.b.root.files().find((r) => r.path === 'team/plan.md')!.guid
-
-      // B knows nothing of the carve yet and drags the file out of the folder.
-      duo.net.setOffline('A', true)
-      duo.net.setOffline('B', true)
-      await carveOn(duo.a, { path: 'team', room: TEAM_ROOM, token: 'team-token' })
-      await duo.b.root.renamePath('team/plan.md', 'other/plan.md')
-      duo.net.setOffline('A', false)
-      duo.net.setOffline('B', false)
-      await duo.deliver()
-
-      for (const dev of [duo.a, duo.b]) {
-        // The bytes are at the destination on both devices, in the PARENT map.
-        const moved = dev.root.files().find((r) => r.path === 'other/plan.md')
-        expect(moved, `other/plan.md missing on ${dev.root.user.name}`).toBeDefined()
-        expect(dev.mounts.get('team')!.files().some((r) => r.path === 'plan.md')).toBe(false)
-        expect(dec.decode((await dev.adapter.read('other/plan.md'))!)).toBe(FILES['team/plan.md'])
-        checkInvariants(dev)
-      }
-      // One guid for the path on both devices, and it is no longer LIVE in the
-      // room: the mount tombstoned it, so nothing claims it twice.
-      expect(duo.a.root.files().find((r) => r.path === 'other/plan.md')!.guid).toBe(
-        duo.b.root.files().find((r) => r.path === 'other/plan.md')!.guid
-      )
-      for (const dev of [duo.a, duo.b]) {
-        expect(dev.mounts.get('team')!.files().some((r) => r.guid === plan)).toBe(false)
-      }
-      expect(duo.a.events.notices.some((n) => n.kind === 'mount-moved')).toBe(true)
-    } finally {
-      duo.dispose()
-    }
-  })
+  }
 })
 
 describe('nested mounts — a peer deletes the whole folder (S10 Q5 row 9)', () => {
@@ -1084,7 +1202,7 @@ describe('nested mounts — a peer deletes the whole folder (S10 Q5 row 9)', () 
       // The parent keys go either way — hard-deleted, never tombstoned, so a
       // peer that has not adopted is never told to remove the file from disk.
       expect(duo.a.root.mapEntries(true).filter(([p]) => p.startsWith('team/'))).toEqual([])
-      checkInvariants(duo.a)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -1097,7 +1215,7 @@ describe('nested mounts — a peer deletes the whole folder (S10 Q5 row 9)', () 
       await duo.deliver()
       expect(mountRows(duo.a, 'team')).toEqual([])
       expect(await duo.a.adapter.read('team/plan.md')).toBeNull()
-      checkInvariants(duo.a)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -1111,7 +1229,7 @@ describe('nested mounts — a peer deletes the whole folder (S10 Q5 row 9)', () 
       expect(mountRows(duo.a, 'team').map((r) => r.path)).toEqual(['notes/deep.md', 'plan.md'])
       expect(dec.decode((await duo.a.adapter.read('team/plan.md'))!)).toBe(FILES['team/plan.md'])
       expect(duo.a.root.mapEntries(true).filter(([p]) => p.startsWith('team/'))).toEqual([])
-      checkInvariants(duo.a)
+      await checkInvariants(duo.a)
     } finally {
       duo.dispose()
     }
@@ -1128,4 +1246,639 @@ function hookedMounts(dir: StoreDir, onWrite: (json: string) => Promise<void>): 
       await io.writeAtomic(bytes)
     },
   })
+}
+
+// ---------------------------------------------------------------------------
+// Boot recovery: the rows that only a hand-built mounts.json can reach.
+// ---------------------------------------------------------------------------
+
+/** Write a folder blob for `room` holding exactly `entries`. */
+async function writeFolderBlob(
+  engine: SyncEngine,
+  dir: StoreDir,
+  room: string,
+  entries: Record<string, FileEntry>
+): Promise<void> {
+  const doc = engine.createDoc(`blob-fixture:${room}:${crypto.randomUUID()}`)
+  doc.transactMap((m) => {
+    for (const [path, entry] of Object.entries(entries)) m.set(path, entry)
+  }, 'seed')
+  await scopedStoreDir(dir, `${room}/`)
+    .io(docBlobName(FOLDER_DOC_KEY))
+    .writeAtomic(engine.encodeUpdateSince(doc, null))
+  doc.destroy()
+}
+
+/** Read a room's folder blob back as `path → entry`. */
+async function readFolderBlob(
+  engine: SyncEngine,
+  dir: StoreDir,
+  room: string
+): Promise<Map<string, FileEntry>> {
+  const bytes = await scopedStoreDir(dir, `${room}/`).io(docBlobName(FOLDER_DOC_KEY)).read()
+  if (!bytes) return new Map()
+  const doc = engine.createDoc(`blob-read:${room}:${crypto.randomUUID()}`)
+  engine.applyUpdate(doc, bytes, 'seed')
+  const out = new Map(doc.getMap().entries())
+  doc.destroy()
+  return out
+}
+
+describe('nested mounts — boot recovery of an interrupted adopt (S10 Q1)', () => {
+  const ROOT = 'root-room'
+
+  it('rolls the detach forward WITHOUT dissolving the owner’s announcement (C2)', async () => {
+    // The peer was killed during step 5. Its root folder blob already carries
+    // the owner's `kind:'mount'` entry (the carve transaction was flushed
+    // before the crash — a live shared root flushes on its own debounce), and
+    // the subtree keys are still there.
+    //
+    // Deleting that key here is not tidying: it is a hard delete written into
+    // THIS device's folder history, which its next reconnect ships back to the
+    // room. One peer's crash would retract the carve for everyone.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: ROOT, path: '', provenance: 'local', status: 'active' },
+      {
+        room: TEAM_ROOM,
+        path: 'team',
+        provenance: 'adopted',
+        relay: { url: RELAY },
+        status: 'adopting:detaching',
+      },
+    ])
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, ROOT, {
+      'keep.md': { guid: 'g-keep', kind: 'text' },
+      team: { guid: TEAM_ROOM, kind: 'mount', relay: RELAY },
+      'team/plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    const root = await readFolderBlob(engine, dir, ROOT)
+    expect(root.get('team')).toEqual({ guid: TEAM_ROOM, kind: 'mount', relay: RELAY })
+    expect(root.has('team/plan.md')).toBe(false)
+    expect((await mountsFile.load()).find((m) => m.room === TEAM_ROOM)?.status).toBe('active')
+  })
+
+  it('re-states the CARVER’s own announcement when its transaction was lost', async () => {
+    // The mirror row: on the device that carved, the map entry is ours to
+    // write, and the crash may have taken the transaction with it. mounts.json
+    // is the authority on WHETHER a mount exists — so re-state it, with the
+    // seed, or every peer would be told to pull a room it already holds.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: ROOT, path: '', provenance: 'local', status: 'active' },
+      {
+        room: TEAM_ROOM,
+        path: 'team',
+        provenance: 'carved',
+        relay: { url: RELAY },
+        status: 'carving:detaching',
+      },
+    ])
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, ROOT, {
+      team: { guid: 'g-dir', kind: 'dir' },
+      'team/plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    const entry = (await readFolderBlob(engine, dir, ROOT)).get('team')
+    expect(entry?.kind).toBe('mount')
+    expect(entry?.guid).toBe(TEAM_ROOM)
+    expect(entry?.seed).toBeTypeOf('string')
+  })
+
+  it('leaves an unfinishable detach for the next boot instead of calling it done (M3)', async () => {
+    // No mount folder blob: the seed never landed, so nothing says what moved
+    // and the rollforward has no membership authority. Declaring the mount
+    // 'active' here strands the subtree in the parent namespace forever,
+    // because no later boot would look at it again.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: ROOT, path: '', provenance: 'local', status: 'active' },
+      { room: TEAM_ROOM, path: 'team', provenance: 'adopted', status: 'adopting:detaching' },
+    ])
+    await writeFolderBlob(engine, dir, ROOT, {
+      team: { guid: TEAM_ROOM, kind: 'mount' },
+      'team/plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    expect((await mountsFile.load()).find((m) => m.room === TEAM_ROOM)?.status).toBe(
+      'adopting:detaching'
+    )
+    // ...and nothing was scrubbed on the strength of a membership nobody knows.
+    expect((await readFolderBlob(engine, dir, ROOT)).has('team/plan.md')).toBe(true)
+  })
+
+  it('folds an interrupted depth-1 dissolve into the OUTER mount, not the root (M6)', async () => {
+    // `dissolveNested` writes 'absorbing', whose recovery row defaults to the
+    // ROOT namespace — and the outer mount owns those paths. Without
+    // `absorbInto` the inner namespace lands in the root, putting one guid in
+    // two namespaces the moment the outer mount comes up.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: ROOT, path: '', provenance: 'local', status: 'active' },
+      { room: TEAM_ROOM, path: 'team', provenance: 'adopted', status: 'active' },
+      {
+        room: SUB_ROOM,
+        path: 'team/sub',
+        provenance: 'carved',
+        status: 'absorbing',
+        absorbInto: TEAM_ROOM,
+      },
+    ])
+    await writeFolderBlob(engine, dir, SUB_ROOM, {
+      'nested.md': { guid: 'g-nested', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, ROOT, { team: { guid: TEAM_ROOM, kind: 'mount' } })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    expect([...(await readFolderBlob(engine, dir, TEAM_ROOM)).keys()].sort()).toEqual([
+      'plan.md',
+      'sub',
+      'sub/nested.md',
+    ])
+    expect([...(await readFolderBlob(engine, dir, ROOT)).keys()]).toEqual(['team'])
+    expect(await dir.list(`${SUB_ROOM}/`)).toEqual([])
+  })
+
+  it('repairs a stale root blob that still names an absorbed mount', async () => {
+    // A peer writes 'absorbing' off the LIVE map; its own folder blob can
+    // still be pre-announcement. Left alone, the next boot's adopt pass reads
+    // a mount entry with no desc and adopts the subtree straight back into a
+    // room that no longer exists. A dir entry states the same conclusion the
+    // owner's announcement does — and a hard delete would not be ours to make.
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    const mountsFile = new MountsFile(dir.io('mounts.json'))
+    await mountsFile.save([
+      { room: ROOT, path: '', provenance: 'local', status: 'active' },
+      { room: TEAM_ROOM, path: 'team', provenance: 'adopted', status: 'absorbing' },
+    ])
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, ROOT, { team: { guid: TEAM_ROOM, kind: 'mount' } })
+
+    await recoverMounts(dir, mountsFile, engine)
+
+    const root = await readFolderBlob(engine, dir, ROOT)
+    expect(root.get('team')?.kind).toBe('dir')
+    // ...and nothing else in the root map was rewritten: on a peer the map is
+    // the owner's, so the subtree's entries arrive from the announcement, not
+    // from a blob-loaded temp doc that may already be behind the live map.
+    expect([...root.keys()]).toEqual(['team'])
+    expect((await mountsFile.load()).some((m) => m.room === TEAM_ROOM)).toBe(false)
+  })
+})
+
+describe('nested mounts — the guards that keep the root out of a mount (M4)', () => {
+  it('never adopts a ghost key under an in-flight mount root into the root namespace', async () => {
+    // The window: the mount entry has landed but this device has no desc yet,
+    // so the host's ignore set is derived from the map alone — and
+    // `ignoringAdapter` filters list/listDirs/watch, never the MAP. Every map
+    // reader needs the boundary check `reconcileKnown` already had.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false, rootRelay: TEAM_TOKEN })
+    try {
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY })
+      // A peer that had not adopted yet dropped a file into the subtree.
+      await base.writeAtomic('team/ghost.md', enc.encode('from another peer\n'))
+      applyForeignMap(dev, (m) => {
+        m.set('team/ghost.md', { guid: 'ghost-guid', kind: 'text' })
+      })
+      await settleTicks()
+
+      // scanMap must not have adopted it: no doc, no provider, no LCA record
+      // in the ROOT namespace for a guid whose subtree has moved.
+      expect(dev.root.docForPath('team/ghost.md')).toBeNull()
+      expect((await dev.root.lcaRecords()).map((r) => r.guid)).not.toContain('ghost-guid')
+
+      // ...and neither does the next boot: `tryDurableReopen` and `bootScan`'s
+      // changed pre-pass read the same map.
+      dev.dispose()
+      const reboot = await bootVault(base, dir, 'root-room', {
+        autoAdopt: false,
+        rootRelay: TEAM_TOKEN,
+      })
+      try {
+        expect(reboot.root.docForPath('team/ghost.md')).toBeNull()
+        expect((await reboot.root.lcaRecords()).map((r) => r.guid)).not.toContain('ghost-guid')
+        // The bytes are untouched — kept, not adopted and not deleted.
+        expect(await reboot.adapter.read('team/ghost.md')).not.toBeNull()
+      } finally {
+        reboot.dispose()
+      }
+    } catch (err) {
+      dev.dispose()
+      throw err
+    }
+  })
+
+  it('a held boot batch re-derives the boundaries before it enrols (M4)', async () => {
+    // The batch waits for a human, and a mount entry can arrive while it does.
+    // Enrolling then would mint root-room guids for files a mount now owns.
+    const base = await seedAdapter({ 'keep.md': 'root note\n' })
+    const dir = new MemStoreDir()
+    const first = await bootVault(base, dir, 'root-room', { rootRelay: TEAM_TOKEN })
+    first.dispose()
+    await settleTicks()
+
+    for (const [path, text] of Object.entries({
+      'extra/a.md': 'a\n',
+      'extra/b.md': 'b\n',
+      'extra/c.md': 'c\n',
+    })) {
+      await base.writeAtomic(path, enc.encode(text))
+    }
+
+    let held: string[] = []
+    const dev = await bootVault(base, dir, 'root-room', {
+      autoAdopt: false,
+      rootRelay: TEAM_TOKEN,
+      sessionDefaults: (mountPath) =>
+        mountPath === ''
+          ? { thresholds: { massChangePaths: 1 }, events: { onBreaker: (paths) => (held = paths) } }
+          : {},
+    })
+    try {
+      expect(held.sort()).toEqual(['extra/a.md', 'extra/b.md', 'extra/c.md'])
+      // ...and NOW a peer's carve of that very folder arrives.
+      applyForeignCarve(dev, 'extra', { room: TEAM_ROOM, relay: RELAY })
+      await dev.root.confirmBreaker()
+
+      expect(dev.root.files().map((r) => r.path).sort()).toEqual(['extra', 'keep.md'])
+      expect(dev.root.mapEntries().find(([p]) => p === 'extra')?.[1].kind).toBe('mount')
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — depth 1 does not fight the desc repair (M9)', () => {
+  it('dissolves an inner mount the outer already owns, instead of re-stating it', async () => {
+    // The reachable shape: this device carved `team/sub` while the root was
+    // shared, someone else carved `team` around it, and the device reboots
+    // holding BOTH descs with both entries in the root map.
+    //
+    // The depth-1 rule hard-deletes the inner ANNOUNCEMENT — but nothing used
+    // to move the inner mount's stores unless the OUTER was being adopted in
+    // that same pass. So the inner desc survived with no map entry, the
+    // desc-driven repair row put the entry straight back, and the two rows
+    // took turns forever over a mount inside a mount that no device can
+    // represent.
+    const base = await seedAdapter({
+      'keep.md': 'stays in the root vault\n',
+      'team/plan.md': 'shared plan\n',
+      'team/sub/nested.md': 'inner note\n',
+    })
+    const dir = new MemStoreDir()
+    const engine = createYjsEngine()
+    await new MountsFile(dir.io('mounts.json')).save([
+      { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+      {
+        room: TEAM_ROOM,
+        path: 'team',
+        provenance: 'adopted',
+        relay: { url: RELAY },
+        status: 'active',
+      },
+      {
+        room: SUB_ROOM,
+        path: 'team/sub',
+        provenance: 'carved',
+        relay: { url: RELAY },
+        status: 'active',
+      },
+    ])
+    await writeFolderBlob(engine, dir, SUB_ROOM, {
+      'nested.md': { guid: 'g-nested', kind: 'text' },
+    })
+    await writeFolderBlob(engine, dir, TEAM_ROOM, {
+      'plan.md': { guid: 'g-plan', kind: 'text' },
+      sub: { guid: SUB_ROOM, kind: 'mount', relay: RELAY },
+    })
+    await writeFolderBlob(engine, dir, 'root-room', {
+      'keep.md': { guid: 'g-keep', kind: 'text' },
+      team: { guid: TEAM_ROOM, kind: 'mount', relay: RELAY },
+      'team/sub': { guid: SUB_ROOM, kind: 'mount', relay: RELAY },
+    })
+
+    const dev = await bootVault(base, dir, 'root-room', {
+      autoAdopt: false,
+      rootRelay: TEAM_TOKEN,
+      tokens: new Map([
+        [TEAM_ROOM, TEAM_TOKEN],
+        [SUB_ROOM, { url: RELAY, token: 'tok-sub' }],
+      ]),
+    })
+    try {
+      await dev.reconcile()
+
+      expect(announcedMounts(dev.root)).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+      expect([...dev.mounts.keys()]).toEqual(['team'])
+      expect(dev.descs().some((d) => d.room === SUB_ROOM)).toBe(false)
+      expect(await dev.vaultDir.list(`${SUB_ROOM}/`)).toEqual([])
+      // The inner namespace folded into the OUTER mount, guid for guid.
+      expect(dev.mounts.get('team')!.files().map((r) => r.path).sort()).toEqual([
+        'plan.md',
+        'sub',
+        'sub/nested.md',
+      ])
+      await checkInvariants(dev)
+
+      // A second pass changes nothing — the row that used to re-state it.
+      await dev.reconcile()
+      expect(announcedMounts(dev.root)).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+      expect(dev.descs().some((d) => d.room === SUB_ROOM)).toBe(false)
+      await checkInvariants(dev)
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+describe('nested mounts — a peer deletes the folder while it is being carved (S10 Q5 row 9)', () => {
+  it('the mount survives on both devices and the delete replays inside it', async () => {
+    // Row 9 crossed with the carve itself. B deletes `team/` whole while A is
+    // carving it, so the key at `team` carries A's `kind:'mount'` entry AND
+    // B's dir tombstone, and Yjs's LWW hands it to one of them on every
+    // device at once.
+    //
+    // When the tombstone won, the announcement was gone everywhere: A kept
+    // running the mount it had just made, B never adopted, and the subtree
+    // lived on one device for good. The desc-driven repair row treated a
+    // tombstone as a settled state — it only ever fired on a MISSING key —
+    // so nothing put the announcement back.
+    const duo = await bootDuo({
+      files: FILES,
+      tokensA: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+      tokensB: new Map([[TEAM_ROOM, TEAM_TOKEN]]),
+      defaultsB: () => ({ thresholds: { massChangePaths: 50 } }),
+    })
+    try {
+      await duo.deliver()
+      duo.net.setOffline('A', true)
+      duo.net.setOffline('B', true)
+      await carveOn(duo.a, { path: 'team', room: TEAM_ROOM, token: 'team-token' })
+      await duo.b.root.deletePath('team')
+      duo.net.setOffline('A', false)
+      duo.net.setOffline('B', false)
+      await duo.deliver()
+
+      for (const dev of [duo.a, duo.b]) {
+        // The announcement stands on both devices, whoever won the key...
+        expect(announcedMounts(dev.root)).toEqual([{ path: 'team', room: TEAM_ROOM, relay: RELAY }])
+        expect([...dev.mounts.keys()]).toEqual(['team'])
+        await checkInvariants(dev)
+      }
+      // ...and B's delete was replayed INSIDE the mount rather than dropped,
+      // so the two rooms agree about what is left.
+      expect(mountRows(duo.a, 'team')).toEqual(mountRows(duo.b, 'team'))
+      expect(await diskSnapshot(duo.a.adapter)).toEqual(await diskSnapshot(duo.b.adapter))
+    } finally {
+      duo.dispose()
+    }
+  })
+})
+
+describe('nested mounts — the empty adopt and its paste (N3, spike S10 Q2)', () => {
+  const NEVER_HELD: MountDesc[] = [
+    { room: 'root-room', path: '', provenance: 'local', status: 'active' },
+    {
+      room: TEAM_ROOM,
+      path: 'team',
+      provenance: 'adopted',
+      relay: { url: RELAY },
+      status: 'needs-token',
+      neverHeld: true,
+    },
+  ]
+
+  it('boots with an empty map and enrols nothing from disk', async () => {
+    // The device whose app data was wiped but whose vault was kept. The files
+    // under `team/` are the room's; enrolling them would mint fresh guids that
+    // LWW-clobber the owner's entries at the first paste. "Keep + mark" means
+    // the bytes stay and the folder is marked — not that they are adopted.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save(NEVER_HELD)
+    const before = await diskSnapshot(base)
+
+    const dev = await bootVault(base, dir, 'root-room', { tokens: new Map() })
+    try {
+      expect(dev.mounts.get('team')!.files()).toEqual([])
+      expect(rootTextPaths(dev)).toEqual(new Set(['keep.md']))
+      expect(await diskSnapshot(base)).toEqual(before)
+      // Nothing durable was invented for it either.
+      expect(await dev.vaultDir.list(`${TEAM_ROOM}/`)).toEqual([])
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)).toMatchObject({
+        status: 'needs-token',
+        neverHeld: true,
+      })
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('the paste rebuilds it as an awaited firstJoin, not an enableSharing', async () => {
+    // The discriminator is `neverHeld`, not "does this session list files".
+    // An empty folder blob would let `tryDurableReopen` win over `firstJoin`
+    // and the awaited pull would never run — measured on the shim as a paste
+    // that returned in 1 ms with 0 rows.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save(NEVER_HELD)
+    const dev = await bootVault(base, dir, 'root-room', { tokens: new Map() })
+    try {
+      const desc = dev.descs().find((d) => d.room === TEAM_ROOM)!
+      dev.events.builds.length = 0 // only what the PASTE builds
+      await activateMount({
+        vaultDir: dev.vaultDir,
+        mountsFile: dev.mountsFile,
+        desc,
+        session: dev.mounts.get('team')!,
+        relay: TEAM_TOKEN,
+        buildSession: async (o) => {
+          const built = await dev.makeSession(o.room, scopedAdapter(dev.adapter, o.path), o.path, {
+            provenance: o.provenance,
+            ...(o.relay ? { relay: o.relay } : {}),
+          })
+          dev.events.builds.push({ room: o.room, path: o.path, firstJoin: o.firstJoin === true })
+          return built
+        },
+        detachMount: (p) => dev.mounts.delete(p),
+        attachMount: (p, next) => dev.mounts.set(p, next),
+      })
+      await dev.refreshDescs()
+
+      expect(dev.events.builds.filter((b) => b.room === TEAM_ROOM)).toEqual([
+        { room: TEAM_ROOM, path: 'team', firstJoin: true },
+      ])
+      const after = dev.descs().find((d) => d.room === TEAM_ROOM)!
+      expect(after.status).toBe('active')
+      expect(after.neverHeld).toBeUndefined()
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('pulls even when the session DOES list files — the desc decides, not the rows', async () => {
+    // The discriminator that lost data: "does this session list any files".
+    // A `neverHeld` mount whose boot enrolled the on-disk files under its root
+    // lists plenty — and every one of them is a fresh guid this device minted
+    // for a room it has never seen. `enableSharing` would push them into that
+    // room and LWW-clobber the owner's entries. The desc is the authority.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save(NEVER_HELD)
+    const dev = await bootVault(base, dir, 'root-room', { tokens: new Map() })
+    try {
+      const desc = dev.descs().find((d) => d.room === TEAM_ROOM)!
+      expect(desc.neverHeld).toBe(true)
+      // A session built WITHOUT the neverHeld guard: it enrols the disk.
+      dev.mounts.get('team')!.dispose()
+      const enrolled = await dev.makeSession(
+        TEAM_ROOM,
+        scopedAdapter(dev.adapter, 'team'),
+        'team',
+        { provenance: 'adopted' }
+      )
+      dev.mounts.set('team', enrolled)
+      expect(enrolled.files().length).toBeGreaterThan(0)
+
+      dev.events.builds.length = 0
+      await activateMount({
+        vaultDir: dev.vaultDir,
+        mountsFile: dev.mountsFile,
+        desc,
+        session: enrolled,
+        relay: TEAM_TOKEN,
+        buildSession: async (o) => {
+          dev.events.builds.push({ room: o.room, path: o.path, firstJoin: o.firstJoin === true })
+          return dev.makeSession(o.room, scopedAdapter(dev.adapter, o.path), o.path, {
+            provenance: o.provenance,
+            ...(o.relay ? { relay: o.relay } : {}),
+          })
+        },
+        detachMount: (p) => dev.mounts.delete(p),
+        attachMount: (p, next) => dev.mounts.set(p, next),
+      })
+
+      expect(dev.events.builds).toEqual([{ room: TEAM_ROOM, path: 'team', firstJoin: true }])
+      // ...and the guids it had minted went with the namespace.
+      expect(enrolled.isShared()).toBe(false)
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('an announcement over the seed cap pulls the room instead of inventing a map', async () => {
+    // Above 64 KB the `kind:'mount'` entry ships without its seed — the map is
+    // advisory structure, not a payload every peer of the parent room carries
+    // forever. There is then nothing shared to build the new room's history
+    // from, and building one from THIS device's own membership is exactly the
+    // independent-history bug the seed exists to prevent
+    // (`fuzz-crashers/0003`). So the namespace stays empty and the mount pulls.
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const before = await diskSnapshot(base)
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false })
+    try {
+      const built: AdoptedMountOptions[] = []
+      /** The mount's namespace as it stood when the machine asked for a session. */
+      let namespaceAtBuild: string[] = []
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY, seed: false })
+      await reconcileMountEntries(
+        adoptCtx(dev, {
+          relay: TEAM_TOKEN,
+          onBuild: async (o) => {
+            built.push(o)
+            namespaceAtBuild = await dev.vaultDir.list(`${TEAM_ROOM}/`)
+          },
+        })
+      )
+      await dev.refreshDescs()
+
+      expect(built.map((o) => ({ room: o.room, firstJoin: o.firstJoin === true }))).toEqual([
+        { room: TEAM_ROOM, firstJoin: true },
+      ])
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)?.neverHeld).toBe(true)
+      // Nothing of ours was left in the mount's namespace to merge with — in
+      // particular no folder blob, which would make `tryDurableReopen` win
+      // over the pull the machine just asked for.
+      expect(namespaceAtBuild).toEqual([])
+      // ...and nothing of the subtree was left in the parent's either.
+      expect(rootTextPaths(dev)).toEqual(new Set(['keep.md']))
+      expect((await dev.root.lcaRecords()).every((r) => !r.path.startsWith('team/'))).toBe(true)
+      // The files are untouched on disk the whole time (golden rule 1).
+      expect(await diskSnapshot(base)).toEqual(before)
+    } finally {
+      dev.dispose()
+    }
+  })
+
+  it('a SEEDED mount merges in place instead — no rebuild, no re-seed', async () => {
+    const base = await seedAdapter(FILES)
+    const dir = new MemStoreDir()
+    const dev = await bootVault(base, dir, 'root-room', { autoAdopt: false, tokens: new Map() })
+    try {
+      applyForeignCarve(dev, 'team', { room: TEAM_ROOM, relay: RELAY })
+      await reconcileMountEntries(adoptCtx(dev, { relay: null }))
+      const seeded = dev.mounts.get('team')!
+      expect(seeded.files().length).toBeGreaterThan(0)
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)?.neverHeld).toBeUndefined()
+
+      const built: string[] = []
+      const next = await activateMount({
+        vaultDir: dev.vaultDir,
+        mountsFile: dev.mountsFile,
+        desc: dev.descs().find((d) => d.room === TEAM_ROOM)!,
+        session: seeded,
+        relay: TEAM_TOKEN,
+        buildSession: async (o) => {
+          built.push(o.room)
+          throw new Error('a seeded mount must never be rebuilt')
+        },
+        detachMount: () => {},
+        attachMount: () => {},
+      })
+      expect(next).toBe(seeded) // the same session, with a relay on it
+      expect(built).toEqual([])
+      expect(seeded.isShared()).toBe(true)
+      await dev.refreshDescs()
+      expect(dev.descs().find((d) => d.room === TEAM_ROOM)?.status).toBe('active')
+    } finally {
+      dev.dispose()
+    }
+  })
+})
+
+/** Let queued map work (the session's own chain) run to quiescence. */
+async function settleTicks(rounds = 4): Promise<void> {
+  for (let i = 0; i < rounds; i++) await new Promise((r) => setTimeout(r, 0))
 }

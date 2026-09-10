@@ -29,6 +29,8 @@
  * callback.
  */
 import {
+  docBlobName,
+  FOLDER_DOC_KEY,
   isRecoverable,
   mountRootsFrom,
   scopedStoreDir,
@@ -41,7 +43,7 @@ import {
 import type { FileEntry, SyncEngine } from '@editor/sync'
 import { absorbMount } from './vault-boot.js'
 import type { MountSession } from './mount-session.js'
-import type { MountEntryInfo, RelayConfig } from './types.js'
+import type { MountEntryInfo, PullProgress, RelayConfig } from './types.js'
 
 /** What the host must build for a mount this machine decided to run. */
 export interface AdoptedMountOptions {
@@ -54,6 +56,19 @@ export interface AdoptedMountOptions {
   /** True only when there was nothing to seed AND a token is held — the mount
    * must PULL its room rather than merge with a namespace it built itself. */
   firstJoin?: boolean
+  /**
+   * Nothing to seed and NO token: boot the mount with an empty map and no
+   * delta scan. Its files stay on disk, untouched and unmanaged, until a
+   * paste turns it into a `firstJoin` — enrolling them here would mint fresh
+   * guids that clobber the room's entries at that paste (N3).
+   */
+  neverHeld?: boolean
+  /**
+   * Two-phase progress for a `firstJoin` the USER is waiting on (the paste —
+   * `activateMount`). Absent for a mount the adopt machine builds on its own,
+   * where nobody is watching.
+   */
+  onPullProgress?: (progress: PullProgress) => void
 }
 
 /** Why the host is being told something happened (it owns the wording). */
@@ -167,9 +182,23 @@ export async function reconcileMountEntries(ctx: AdoptContext): Promise<void> {
   const nested = entries.filter((e) => entries.some((o) => e.path.startsWith(`${o.path}/`)))
   if (nested.length > 0) {
     await ctx.root().hardDeletePaths(nested.map((e) => e.path))
-    for (const e of nested) ctx.notify?.({ kind: 'depth-limit', path: e.path, room: e.room })
+    for (const e of nested) {
+      // The hard delete removes the ANNOUNCEMENT; if this device also holds
+      // the inner mount, its stores must move too. Without this the inner
+      // desc survived with no map entry, and the desc-driven repair row below
+      // put the entry straight back — the two rows fighting forever, one map
+      // op per pass (M9). Only when the outer is a mount we already run: if
+      // it is not, `adoptMount` dissolves the inner as its own step 5b.
+      const outer = entries.find((o) => e.path.startsWith(`${o.path}/`))!
+      if (ctx.mounts().has(outer.path)) await dissolveNested(ctx, outer.path, outer.room)
+      ctx.notify?.({ kind: 'depth-limit', path: e.path, room: e.room })
+    }
   }
   const announced = entries.filter((e) => !nested.includes(e))
+  /** Mount roots that own other descs' paths — never repaired, only dissolved. */
+  const covered = (path: string): boolean =>
+    announced.some((e) => path.startsWith(`${e.path}/`)) ||
+    stable.some((d) => d.path !== path && path.startsWith(`${d.path}/`))
 
   // ---- map-driven rows ----
   for (const entry of announced) {
@@ -208,10 +237,22 @@ export async function reconcileMountEntries(ctx: AdoptContext): Promise<void> {
       await absorbAdopted(ctx, desc)
       continue
     }
-    if (!at && shared) {
-      // Key absent where we hold a mount: a concurrent rename or delete raced
+    if ((!at || at.deleted) && shared && !covered(desc.path)) {
+      // No LIVE key where we hold a mount: a concurrent rename or delete raced
       // the announcement. mounts.json is the authority on WHETHER a mount
-      // exists; re-state it in the map.
+      // exists; re-state it in the map — unless this desc sits UNDER another
+      // mount root, where the key's absence is the depth-1 rule doing its job
+      // and re-stating it would restart the fight (M9).
+      //
+      // A TOMBSTONE at `P` counts as absent, and that is not a detail: a peer
+      // that deleted the folder while someone else was carving it leaves one
+      // (S10 Q5 row 9 crossed with the carve), and Yjs's LWW can hand that
+      // tombstone the key on every device — including the carver's. Treating
+      // it as a settled state stranded the mount: its owner kept running it,
+      // every other device saw no announcement at all, and the subtree existed
+      // on one device only, for good. The mount is re-stated and the delete
+      // replays INSIDE it through the ghost rule's breaker, which is what row
+      // 9 says should happen to it.
       await repairEntry(ctx, desc)
     }
   }
@@ -228,11 +269,11 @@ export async function reconcileMountEntries(ctx: AdoptContext): Promise<void> {
  */
 async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<void> {
   const { path, room } = entry
-  const members = await membershipFor(ctx, entry)
   const targetDir = scopedStoreDir(ctx.vaultDir, `${room}/`)
 
   // 2. The desc first: a crash from here on is recoverable, and the ignore
   //    set now has a mounts.json term as well as its map term.
+  //
   await ctx.mountsFile.upsert({
     room,
     path,
@@ -242,11 +283,40 @@ async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<voi
   })
   await ctx.refreshIgnore()
 
-  // 3. Seed the mount namespace from OUR OWN parent namespace: same doc guids,
-  //    keys rebased subtree-relative, LCAs rebased, blobs flushed. No content
-  //    is copied between rooms and none is fetched.
-  await ctx.root().seedCarveStores(path, targetDir, members)
-  await ctx.mountsFile.setStatus(room, 'adopting:detaching')
+  // 3. Seed the mount namespace by APPLYING the announced seed: the new
+  //    room's folder doc, byte-identical on every device, so the histories
+  //    are one and a hard delete anywhere lands everywhere. Doc blobs and LCA
+  //    records for those guids come from OUR OWN parent namespace, so no
+  //    content is copied between rooms and none is fetched.
+  //
+  //    Above the size cap the announcement carries NO seed. Then there is
+  //    nothing safe to build a shared history from — a map this device wrote
+  //    itself is exactly the independent history the seed exists to prevent —
+  //    so the mount ends up with an EMPTY namespace and pulls the room
+  //    instead (or waits as `needs-token`). `membershipFor` still runs, but
+  //    only to say which of the parent's docs must stop being the parent's,
+  //    and only until the detach below is durable.
+  const seeded = await ctx.root().seedCarveStores(
+    path,
+    targetDir,
+    entry.seed !== undefined ? { seed: entry.seed } : { entries: await membershipFor(ctx, entry) }
+  )
+  const members = seeded.members
+  // `neverHeld` is decided here and nowhere else, on two grounds: an
+  // announcement with no seed (nothing shared to build from), or a seed this
+  // device could put no content behind — a device linked after the carve, or
+  // one whose app data was wiped. Either way the paste must PULL rather than
+  // merge, and no boot before it may enrol the files under `path`.
+  //
+  // The seeded blob still stands until step 6: it is what `rollforwardDetach`
+  // reads as the membership authority if the detach below is interrupted, and
+  // it is dropped the moment the mount is settled.
+  const neverHeld = entry.seed === undefined || !seeded.held
+  await ctx.mountsFile.upsertWith(room, (existing) => ({
+    ...existing!,
+    status: 'adopting:detaching',
+    ...(neverHeld ? { neverHeld: true } : {}),
+  }))
 
   // 5a. Precondition re-check (S10 Q5 row 13, the worst race): if the owner
   //     unshared while we were seeding, the detach below would hard-delete the
@@ -272,20 +342,46 @@ async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<voi
   //     seed→detach window (row 2).
   await ctx.root().detachSubtree(path, undefined, { entries: members, writeMap: false, targetDir })
 
+  // 5d. Strays: guids the parent still holds STORES for under `P/` that the
+  //     announced seed does not name — a file this device enrolled while the
+  //     carver was elsewhere. Their map keys went with the carve transaction,
+  //     so nothing will reference those records again; the file itself is
+  //     picked up from disk by the mount's own delta scan with a fresh guid.
+  //     Leaving them is not merely untidy: an LCA record under `P/` is what a
+  //     later adopt at this path reads as membership, which is how a deleted
+  //     note came back to life (`fuzz-crashers/0007`).
+  const seededGuids = new Set(members.map(([, e]) => e.guid))
+  const strays = (await ctx.root().lcaRecords())
+    .filter((r) => (r.path === path || r.path.startsWith(`${path}/`)) && !seededGuids.has(r.guid))
+    .map((r) => r.guid)
+  await ctx.root().detachDocs(strays)
+
   // 6. Token? Active. No token? A fully functional local mount that knows
   //    where its room lives — files kept on disk, marked, never a lie about
   //    being "offline" (S10 Q2).
   const relay = ctx.relayFor({ room, path, relay: entry.relay, provenance: 'adopted' })
   await ctx.mountsFile.setStatus(room, relay ? 'active' : 'needs-token')
+  // Nothing of the room's content here AND a credential to pull with ⇒ this
+  // device holds none of it (a foreign share that arrived as a mount entry, a
+  // device linked after the carve, a wiped one, or an announcement over the
+  // seed cap): the mount must pull its own room (S10 Q1 "firstJoin rule").
+  // With no credential it boots EMPTY and waits — never enrolling the files on
+  // disk, which are the room's.
+  //
+  // The seeded namespace goes first, and this is load-bearing in both
+  // branches: a folder blob makes `tryDurableReopen` win over `firstJoin`, so
+  // the awaited pull would never run (measured on the shim: the paste
+  // returned in 1 ms with 0 rows), and a `needs-token` mount must not carry a
+  // map it cannot fill. The detach is durable by now, so there is nothing
+  // left for the rollforward to read.
+  if (neverHeld) await wipeStoreDir(ctx.vaultDir, `${room}/`)
   const session = await ctx.buildSession({
     room,
     path,
     provenance: 'adopted',
     ...(relay ? { relay } : {}),
-    // Nothing to seed AND a credential to pull with ⇒ this device never held
-    // the subtree (a foreign share that arrived as a mount entry, or a wiped
-    // device): the mount must pull its own room (S10 Q1 "firstJoin rule").
-    firstJoin: members.length === 0 && !!relay,
+    firstJoin: neverHeld && !!relay,
+    ...(neverHeld && !relay ? { neverHeld: true } : {}),
   })
   ctx.attachMount(path, session)
   ctx.root().clearMountPreImage(path)
@@ -296,6 +392,12 @@ async function adoptMount(ctx: AdoptContext, entry: MountEntryInfo): Promise<voi
 /**
  * `M(P)` = (the map entries at/under P, as they were BEFORE the carve
  * transaction) ∪ (parent-namespace LCA records whose path is at/under `P/`).
+ *
+ * Since the seed landed this is the SEEDLESS path only, and it names what the
+ * parent must stop owning — never what the mount gets. Nothing is built from
+ * it: a membership this device computed for itself is exactly the independent
+ * history the seed exists to prevent (crasher 0003), and reading orphan LCA
+ * records as membership is what resurrected deleted notes (crasher 0007).
  *
  * The union is what makes the adopt idempotent across every crash point. The
  * map term is empty on the live path — the deletions and the mount entry
@@ -346,24 +448,84 @@ async function membershipFor(
  */
 async function dissolveNested(ctx: AdoptContext, path: string, room: string): Promise<void> {
   const prefix = `${path}/`
-  const inner = (await ctx.mountsFile.load()).filter(
-    (d) => d.path !== '' && d.path !== path && d.path.startsWith(prefix)
+  const descs = await ctx.mountsFile.load()
+  const inner = descs.filter(
+    (d) =>
+      d.path !== '' &&
+      d.path !== path &&
+      d.path.startsWith(prefix) &&
+      // An inner mount that is itself mid-transition belongs to a machine that
+      // is still running; folding it now would wipe a namespace being seeded.
+      !isRecoverable(d.status)
   )
+  if (inner.length === 0) return
+  /**
+   * Is the outer mount already RUNNING? Two callers, two shapes:
+   *
+   *  - from `adoptMount` step 5b it is not — the outer's namespace has just
+   *    been seeded and nothing holds it, so the fold is plain blob surgery.
+   *  - from the depth-1 row of the pass it is — this device already runs the
+   *    outer mount, so its folder blob belongs to a live session that would
+   *    overwrite the surgery at its next flush. The fold has to go through
+   *    that session's LIVE map instead, and the session has to come down for
+   *    the store copy and back up from the result (the same order
+   *    `unshareMount` uses, and for the same reason).
+   */
+  const outer = ctx.mounts().get(path) ?? null
+  const outerDesc = descs.find((d) => d.room === room)
+
   for (const desc of inner) {
+    const rel = desc.path.slice(prefix.length)
     const session = ctx.detachMount(desc.path)
+    const entries = outer ? (session?.mapEntries() ?? []) : []
     await session?.shutdown()
-    await ctx.mountsFile.setStatus(desc.room, 'absorbing')
-    // The outer mount has no live session yet, so its folder blob is ours to
-    // rewrite — writeMap:true is safe and necessary here.
-    await absorbMount(ctx.vaultDir, ctx.engine, room, {
-      room: desc.room,
-      path: desc.path.slice(prefix.length),
-    })
+    // Record WHERE it folds into before the status that recovers it: the
+    // 'absorbing' recovery row defaults to the ROOT namespace, and the root
+    // is the wrong destination here — the outer mount owns these paths, so a
+    // crash mid-copy would put one guid in two namespaces (M6).
+    await ctx.mountsFile.upsert({ ...desc, status: 'absorbing', absorbInto: room })
+    // The announcement, when there is someone to announce to: the inner
+    // mount's entries reappear in the OUTER room with their own guids, and the
+    // key at `rel` flips from mount back to dir.
+    if (outer) await outer.announceAbsorb(rel, entries)
+  }
+
+  // No live writer on the outer namespace while the stores move.
+  if (outer) {
+    ctx.detachMount(path)
+    await outer.shutdown()
+  }
+  for (const desc of inner) {
+    await absorbMount(
+      ctx.vaultDir,
+      ctx.engine,
+      room,
+      { room: desc.room, path: desc.path.slice(prefix.length) },
+      { writeMap: !outer }
+    )
     await wipeStoreDir(ctx.vaultDir, `${desc.room}/`)
     await ctx.mountsFile.removeMount(desc.room)
     ctx.notify?.({ kind: 'depth-limit', path: desc.path, room: desc.room })
   }
-  if (inner.length > 0) await ctx.refreshIgnore()
+  await ctx.refreshIgnore()
+
+  if (outer && outerDesc) {
+    const relay = ctx.relayFor({
+      room,
+      path,
+      ...(outerDesc.relay ? { relay: outerDesc.relay.url } : {}),
+      provenance: outerDesc.provenance,
+    })
+    ctx.attachMount(
+      path,
+      await ctx.buildSession({
+        room,
+        path,
+        provenance: outerDesc.provenance,
+        ...(relay ? { relay } : {}),
+      })
+    )
+  }
 }
 
 // -------------------------------------------------------------- the reverse
@@ -375,6 +537,10 @@ async function dissolveNested(ctx: AdoptContext, path: string, room: string): Pr
  * back in the map, which is how we found out.
  */
 async function absorbAdopted(ctx: AdoptContext, desc: MountDesc): Promise<void> {
+  // Every exit from a mount root must forget its captured pre-image, or the
+  // next announcement at the same path adopts against a stale subtree
+  // snapshot that has since been absorbed, renamed or re-pointed.
+  ctx.root().clearMountPreImage(desc.path)
   await ctx.mountsFile.setStatus(desc.room, 'absorbing')
   const session = ctx.detachMount(desc.path)
   await session?.shutdown()
@@ -405,6 +571,8 @@ async function rekeyMount(
 ): Promise<void> {
   const session = ctx.detachMount(desc.path)
   await session?.shutdown()
+  ctx.root().clearMountPreImage(desc.path)
+  ctx.root().clearMountPreImage(entry.path)
   await ctx.mountsFile.upsert({
     ...desc,
     path: entry.path,
@@ -449,6 +617,7 @@ async function repointMount(
 ): Promise<void> {
   const session = ctx.detachMount(loser.path)
   await session?.shutdown()
+  ctx.root().clearMountPreImage(entry.path)
   await wipeStoreDir(ctx.vaultDir, `${entry.room}/`)
   // `StoreDir.list(prefix)` returns FULL names (that is what makes
   // `wipeStoreDir`'s `remove(name)` correct), so the copy goes through scoped
@@ -488,9 +657,14 @@ async function repointMount(
   ctx.notify?.({ kind: 'room-repointed', path: entry.path, room: entry.room })
 }
 
-/** Re-state a mount entry a concurrent rename/delete removed from the map. */
+/**
+ * Re-state a mount entry a concurrent rename/delete removed from the map. The
+ * seed comes from the LIVE mount: an entry re-stated without one would tell
+ * every peer to pull a room they already hold (S10 Q1).
+ */
 async function repairEntry(ctx: AdoptContext, desc: MountDesc): Promise<void> {
-  await ctx.root().setMountEntry(desc.path, desc.room, desc.relay?.url)
+  const seed = ctx.mounts().get(desc.path)?.folderState()
+  await ctx.root().setMountEntry(desc.path, desc.room, desc.relay?.url, seed)
 }
 
 // --------------------------------------------------------- the ghost sweep
@@ -524,6 +698,8 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
 
   /** Parent keys to hard-delete, collected and removed in one transaction. */
   const doomed: string[] = []
+  /** Root-namespace docs whose authority has moved — torn down with the keys. */
+  const orphaned = new Set<string>()
   /** Deletes to replay inside each mount (breaker-held when large). */
   const deletes = new Map<string, string[]>()
 
@@ -537,15 +713,31 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
       )?.[1]
       if (!session) continue
       const rel = session.pathOfGuid(entry.guid)!
-      // Re-enrol here with a fresh guid, tombstone there. On the device that
-      // MADE the move the bytes are already at the destination, so nothing is
-      // copied. On a peer that merely LEARNED about it they are still under
-      // the mount root and the re-enrol is a no-op, which leaves the mount's
-      // guid live in the parent map (tombstoned in the room, so no invariant
-      // fires) over a doc this device can only fill from the mover — see the
-      // skipped `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`, which is a
-      // design question for S10 Q5 row 5, not a local fix.
+      // Cross-boundary move-out, and ONLY the device whose disk already holds
+      // the bytes at the destination may perform it (S10 Q5 row 5, decided
+      // 2026-09-10 — `fuzz-crashers/0001`). That device re-enrols the file
+      // here with a FRESH guid (identity never crosses rooms) and tombstones
+      // it inside the mount; every other device does nothing and receives
+      // BOTH halves as ordinary map updates.
+      //
+      // The alternative — every device re-enrolling — mints a different guid
+      // per device for the same bytes and merges them as the note's text
+      // twice; the older behaviour of deleting inside the mount anyway left
+      // the mount's guid live in the parent map over a doc this device could
+      // only ever fill from the mover. The gate is what makes one device
+      // responsible for one move.
+      if ((await ctx.root().readFileBytes(path)) === null) {
+        // Not this device's move to make. The guid is still the MOUNT's,
+        // though, so the parent must stop holding a doc, a provider, an LCA
+        // and a blob for it — otherwise the mover's replacement arrives on
+        // top of a rival copy this device invented (M5). The KEY is left
+        // alone: replacing it is the mover's half, and receiving that is
+        // this device's.
+        orphaned.add(entry.guid)
+        continue
+      }
       await ctx.root().reenrollPath(path)
+      orphaned.add(entry.guid)
       await session.deletePath(rel)
       ctx.notify?.({ kind: 'mount-moved', path, room: session.room })
       continue
@@ -554,6 +746,13 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
     const session = mounts.get(root)!
     const rel = path.slice(root.length + 1)
     doomed.push(path)
+    // Whatever the replay turns out to be, this guid is not the parent's any
+    // more — it is the mount's, or (the import branch) it is dead. Removing
+    // the map key alone left the parent holding a live doc, a provider, an
+    // LCA record and a blob for it: one guid with durable state in two
+    // namespaces, invisible to a map-only invariant, and a doc the parent's
+    // next boot would restore over the mount's (M5).
+    if (entry.kind === 'text') orphaned.add(entry.guid)
     if (entry.kind === 'mount') {
       // Depth-1 violation under a live mount: the outer wins, the key goes.
       ctx.notify?.({ kind: 'depth-limit', path, room: entry.guid })
@@ -589,7 +788,75 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
     ctx.notify?.({ kind: 'ghosts-held', path: root, room: session.room })
     await session.replayDeletes(rels)
   }
+  // Keys first, then the stores behind them: the residue of a crash between
+  // the two is an orphan blob nothing reads, never a key with no doc.
   await ctx.root().hardDeletePaths(doomed)
+  // Tear down a guid's parent-side state when a MOUNT owns it (whatever the
+  // parent map still says about it) or when nothing owns it any more. Keep it
+  // only while it is live in the parent map and no mount claims it — that is
+  // the concurrent-rename split (`fuzz-crashers/0004`), which is that key's
+  // own resolution to make, not this sweep's.
+  const inParent = new Set(ctx.root().mapEntries().map(([, e]) => e.guid))
+  const inMounts = new Set<string>()
+  for (const session of mounts.values()) {
+    for (const [, e] of session.mapEntries()) inMounts.add(e.guid)
+  }
+  await ctx
+    .root()
+    .detachDocs([...orphaned].filter((g) => inMounts.has(g) || !inParent.has(g)), true)
+}
+
+/**
+ * The STORE half of A6's invariant (M5): no guid holds durable state — a doc
+ * blob or an LCA record — in two mount namespaces at once.
+ *
+ * `mountInvariants` reads maps, and a map is only half the truth: a ghost key
+ * removed from the parent map leaves the parent's blob and LCA record behind
+ * for a guid the mount now owns, and the next boot restores a second, rival
+ * copy of that note in the wrong room. Nothing saw that until this check
+ * existed.
+ *
+ * Namespaces are read from the store dir, so a room whose desc is gone but
+ * whose files were not wiped shows up too. `rooms` restricts the check to the
+ * namespaces a device is supposed to have; anything else is reported as a
+ * leftover.
+ */
+export async function mountStoreInvariants(
+  vaultDir: StoreDir,
+  rooms: readonly string[]
+): Promise<string[]> {
+  const known = new Set(rooms)
+  /** guid → the rooms whose namespace holds durable state for it. */
+  const owners = new Map<string, Set<string>>()
+  const problems: string[] = []
+  const folderBlob = docBlobName(FOLDER_DOC_KEY)
+  for (const name of await vaultDir.list()) {
+    const slash = name.indexOf('/')
+    if (slash === -1) continue // mounts.json and friends live at the top
+    const room = name.slice(0, slash)
+    const rest = name.slice(slash + 1)
+    if (!known.has(room)) {
+      problems.push(`leftover store namespace '${room}/'`)
+      continue
+    }
+    if (rest === folderBlob) continue // one per room by construction
+    let guid: string | null = null
+    if (rest.startsWith('docs/') && rest.endsWith('.bin')) {
+      guid = decodeURIComponent(rest.slice('docs/'.length, -'.bin'.length))
+    } else if (rest.startsWith('lca/') && rest.endsWith('.json')) {
+      guid = decodeURIComponent(rest.slice('lca/'.length, -'.json'.length))
+    }
+    if (guid === null) continue // journal entries, a legacy lca.json, …
+    const set = owners.get(guid) ?? new Set<string>()
+    set.add(room)
+    owners.set(guid, set)
+  }
+  for (const [guid, inRooms] of owners) {
+    if (inRooms.size > 1) {
+      problems.push(`guid ${guid} has stores in rooms ${[...inRooms].sort().join(', ')}`)
+    }
+  }
+  return problems.sort()
 }
 
 /**

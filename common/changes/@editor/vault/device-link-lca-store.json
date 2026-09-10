@@ -2,12 +2,12 @@
   "changes": [
     {
       "packageName": "@editor/vault",
-      "comment": "Linking a second device, or joining a big shared vault, now takes seconds instead of a minute. Writing the vault to disk used to rewrite a copy of every note on your device for each note it saved; it now saves one note at a time, which is thousands of times less disk work and no longer gets dramatically slower as a vault grows.",
+      "comment": "Linking a second device, or joining a big shared vault, now takes seconds instead of a minute — and no longer gets dramatically slower as the vault grows.",
       "type": "minor"
     },
     {
       "packageName": "@editor/vault",
-      "comment": "The file-history journal keeps the same safety net — a snapshot of a file is always written before the app touches it — while doing a single write per snapshot instead of re-listing the whole history each time. Existing history is read and carried forward as it ages out.",
+      "comment": "Working in a vault with a long file history no longer slows down as that history grows. The safety net is unchanged: a snapshot of a file is still written before Editor touches it, and history written before this is carried forward.",
       "type": "minor"
     }
   ],

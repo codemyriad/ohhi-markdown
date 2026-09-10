@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "Internal: a mount desc records whether this device has ever held the room's content (`neverHeld`) and, for a dissolved inner mount, which room it folds into (`absorbInto`) — both read by the peer-side adopt/absorb machine and its boot recovery.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@editor/vault"
+}
