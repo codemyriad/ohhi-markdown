@@ -66,10 +66,47 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   await expectAccessible(page, 'pane mode bar')
   await page.keyboard.press('Escape')
 
-  // A tab's context menu — the keyboard equivalent of every drag gesture.
+  // A tab's context menu — the keyboard equivalent of every drag gesture —
+  // now carrying W2's group rows.
   await page.locator('[data-slot-kind="tab"]').first().click({ button: 'right' })
   await expect(page.getByTestId('tab-menu')).toBeVisible()
   await expectAccessible(page, 'tab context menu')
+  await page.keyboard.press('Escape')
+})
+
+test('the tab-group chrome is accessible', async ({ page }) => {
+  await openApp(page, 'a11y-groups')
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await page.getByTestId('file-item:notes/ideas.md').click()
+
+  // The manage popover: a text field, a radiogroup of eight swatches and the
+  // verb list, all inside one dialog.
+  await page.locator('[data-slot-kind="tab"]').first().click({ button: 'right' })
+  await page.getByTestId('tab-menu:new-group').click()
+  await expect(page.getByTestId('group-manage')).toBeVisible()
+  await page.getByTestId('group-name').fill('Edible')
+  await expectAccessible(page, 'manage group popover')
+  await page.keyboard.press('Escape')
+
+  // The strip with a chip in it. A `tablist` may own nothing but tabs, so the
+  // chip is a sibling of its group's tablist — this is the scan that says so.
+  await expect(page.locator('[data-testid^="group-chip:"]')).toHaveCount(1)
+  await expectAccessible(page, 'strip with a group chip')
+
+  // A folded chip carries a count, which has to read as more than a number.
+  await page.locator('[data-testid^="group-chip:"]').click()
+  await expectAccessible(page, 'folded group chip')
+  await page.locator('[data-testid^="group-chip:"]').click()
+
+  // The strip-end list, with an open group ticked and the two make-a-group rows.
+  await page.locator('[data-testid^="tab-more:"]').first().click()
+  await expect(page.getByTestId('groups-menu:show-all')).toBeVisible()
+  await expectAccessible(page, 'strip groups menu')
+
+  // …and the dialog behind Show all.
+  await page.getByTestId('groups-menu:show-all').click()
+  await expect(page.getByTestId('groups-all')).toBeVisible()
+  await expectAccessible(page, 'show all groups')
   await page.keyboard.press('Escape')
 })
 

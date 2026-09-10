@@ -276,3 +276,31 @@ describe('isMac', () => {
     expect(isMac('Linux x86_64')).toBe(false)
   })
 })
+
+describe('command providers', () => {
+  it('lists provided commands in the palette and runs them by id', () => {
+    const registry = new CommandRegistry(false)
+    let saved = ['work', 'reading']
+    const ran: string[] = []
+    registry.addProvider(() =>
+      saved.map((name) => ({ id: `group.open:${name}`, title: name, run: () => void ran.push(name) }))
+    )
+    expect(registry.available().map((c) => c.id)).toEqual(['group.open:work', 'group.open:reading'])
+    void registry.get('group.open:reading')?.run()
+    expect(ran).toEqual(['reading'])
+
+    // The set is re-read every time — that is the whole reason it is a provider.
+    saved = ['work']
+    expect(registry.available()).toHaveLength(1)
+    expect(registry.get('group.open:reading')).toBeUndefined()
+  })
+
+  it('keeps them out of the Hotkeys table and out of key matching', () => {
+    const registry = new CommandRegistry(false)
+    registry.addProvider(() => [
+      { id: 'group.open:x', title: 'x', keys: 'Mod+Shift+g', run: () => {} },
+    ])
+    expect(registry.bindings()).toEqual([])
+    expect(registry.match(key({ key: 'g', ctrlKey: true, shiftKey: true }))).toBeNull()
+  })
+})

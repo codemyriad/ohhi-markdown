@@ -437,6 +437,212 @@ export type NamespaceWebTranslation = {
 			reopen: string
 		}
 	}
+	groups: {
+		/**
+		 * U​n​t​i​t​l​e​d​ ​g​r​o​u​p
+		 */
+		untitled: string
+		chip: {
+			/**
+			 * F​o​l​d​ ​o​r​ ​u​n​f​o​l​d​ ​—​ ​r​i​g​h​t​-​c​l​i​c​k​ ​t​o​ ​m​a​n​a​g​e
+			 */
+			hint: string
+			/**
+			 * {​c​o​u​n​t​}​ ​t​a​b​{​{​s​}​}
+			 * @param {number} count
+			 */
+			tabs: RequiredParams<'count'>
+		}
+		manage: {
+			/**
+			 * M​a​n​a​g​e​ ​g​r​o​u​p
+			 */
+			title: string
+			/**
+			 * R​e​n​a​m​e​ ​i​t​,​ ​r​e​c​o​l​o​u​r​ ​i​t​,​ ​o​r​ ​p​u​t​ ​i​t​ ​a​w​a​y​ ​—​ ​c​l​o​s​i​n​g​ ​a​ ​g​r​o​u​p​ ​k​e​e​p​s​ ​i​t​ ​i​n​ ​t​h​e​ ​l​i​s​t​.
+			 */
+			description: string
+			/**
+			 * G​r​o​u​p​ ​n​a​m​e
+			 */
+			name: string
+			/**
+			 * C​o​l​o​u​r
+			 */
+			colour: string
+			/**
+			 * C​o​l​o​u​r​ ​{​n​}
+			 * @param {number} n
+			 */
+			colour_n: RequiredParams<'n'>
+			/**
+			 * N​e​w​ ​t​a​b​ ​i​n​ ​g​r​o​u​p
+			 */
+			new_tab: string
+			/**
+			 * C​o​p​y​ ​{​c​o​u​n​t​}​ ​l​i​n​k​{​{​s​}​}​ ​i​n​ ​g​r​o​u​p
+			 * @param {number} count
+			 */
+			copy_links: RequiredParams<'count'>
+			/**
+			 * F​o​l​d
+			 */
+			fold: string
+			/**
+			 * U​n​f​o​l​d
+			 */
+			unfold: string
+			/**
+			 * C​l​o​s​e​ ​g​r​o​u​p
+			 */
+			close: string
+			/**
+			 * S​t​a​y​s​ ​i​n​ ​t​h​e​ ​l​i​s​t
+			 */
+			close_hint: string
+			/**
+			 * U​n​g​r​o​u​p​ ​t​a​b​s
+			 */
+			ungroup: string
+			/**
+			 * D​e​l​e​t​e​ ​g​r​o​u​p
+			 */
+			'delete': string
+		}
+		delete_confirm: {
+			/**
+			 * D​e​l​e​t​e​ ​t​h​i​s​ ​g​r​o​u​p​?
+			 */
+			title: string
+			/**
+			 * {​n​a​m​e​}​ ​a​n​d​ ​i​t​s​ ​{​c​o​u​n​t​}​ ​t​a​b​{​{​s​}​}​ ​g​o​ ​f​o​r​ ​g​o​o​d​.​ ​C​l​o​s​e​ ​i​t​ ​i​n​s​t​e​a​d​ ​a​n​d​ ​i​t​ ​w​a​i​t​s​ ​i​n​ ​t​h​e​ ​l​i​s​t​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			body: RequiredParams<'count' | 'name'>
+			/**
+			 * D​e​l​e​t​e​ ​g​r​o​u​p
+			 */
+			confirm: string
+		}
+		menu: {
+			/**
+			 * O​p​e​n
+			 */
+			open: string
+			/**
+			 * I​n​ ​t​h​e​ ​l​i​s​t
+			 */
+			saved: string
+			/**
+			 * S​h​o​w​ ​a​l​l​…
+			 */
+			show_all: string
+			/**
+			 * O​p​e​n​ ​l​i​n​k​s​ ​o​f​ ​t​h​i​s​ ​n​o​t​e​ ​a​s​ ​a​ ​g​r​o​u​p
+			 */
+			open_links: string
+			/**
+			 * N​e​w​ ​g​r​o​u​p​ ​f​r​o​m​ ​a​c​t​i​v​e​ ​t​a​b
+			 */
+			new_from_active: string
+			/**
+			 * T​h​i​s​ ​n​o​t​e​ ​h​a​s​ ​n​o​ ​l​i​n​k​s​ ​t​o​ ​o​p​e​n​.
+			 */
+			no_links: string
+			/**
+			 * O​p​e​n​ ​a​ ​n​o​t​e​ ​i​n​ ​t​h​i​s​ ​p​a​n​e​ ​f​i​r​s​t
+			 */
+			needs_note: string
+		}
+		all: {
+			/**
+			 * T​a​b​ ​g​r​o​u​p​s
+			 */
+			title: string
+			/**
+			 * G​r​o​u​p​s​ ​o​p​e​n​ ​i​n​ ​a​ ​p​a​n​e​ ​a​r​e​ ​t​i​c​k​e​d​;​ ​t​h​e​ ​r​e​s​t​ ​a​r​e​ ​w​a​i​t​i​n​g​ ​i​n​ ​t​h​e​ ​l​i​s​t​.
+			 */
+			description: string
+			/**
+			 * N​o​ ​t​a​b​ ​g​r​o​u​p​s​ ​y​e​t​ ​—​ ​g​r​o​u​p​ ​a​ ​f​e​w​ ​t​a​b​s​ ​a​n​d​ ​t​h​e​y​ ​s​h​o​w​ ​u​p​ ​h​e​r​e​.
+			 */
+			empty: string
+			/**
+			 * {​c​o​u​n​t​}​ ​t​a​b​{​{​s​}​}​ ​·​ ​{​w​h​e​n​}
+			 * @param {number} count
+			 * @param {string} when
+			 */
+			meta: RequiredParams<'count' | 'when'>
+			/**
+			 * O​p​e​n
+			 */
+			open_state: string
+		}
+		tab_menu: {
+			/**
+			 * A​d​d​ ​t​o​ ​g​r​o​u​p
+			 */
+			add_to: string
+			/**
+			 * N​e​w​ ​g​r​o​u​p​…
+			 */
+			new_group: string
+			/**
+			 * R​e​m​o​v​e​ ​f​r​o​m​ ​g​r​o​u​p
+			 */
+			remove: string
+			/**
+			 * F​o​l​d​ ​g​r​o​u​p
+			 */
+			fold: string
+			/**
+			 * U​n​f​o​l​d​ ​g​r​o​u​p
+			 */
+			unfold: string
+			/**
+			 * C​l​o​s​e​ ​g​r​o​u​p
+			 */
+			close: string
+		}
+		/**
+		 * C​o​p​i​e​d​ ​{​c​o​u​n​t​}​ ​l​i​n​k​{​{​s​}​}​ ​f​r​o​m​ ​{​n​a​m​e​}
+		 * @param {number} count
+		 * @param {string} name
+		 */
+		copied: RequiredParams<'count' | 'name'>
+		/**
+		 * C​o​u​l​d​ ​n​o​t​ ​r​e​a​c​h​ ​t​h​e​ ​c​l​i​p​b​o​a​r​d​ ​—​ ​n​o​t​h​i​n​g​ ​w​a​s​ ​c​o​p​i​e​d​.
+		 */
+		copy_failed: string
+		commands: {
+			/**
+			 * N​e​w​ ​g​r​o​u​p​ ​f​r​o​m​ ​t​h​i​s​ ​t​a​b
+			 */
+			'new': string
+			/**
+			 * F​o​l​d​ ​/​ ​u​n​f​o​l​d​ ​g​r​o​u​p
+			 */
+			toggle: string
+			/**
+			 * C​l​o​s​e​ ​g​r​o​u​p
+			 */
+			close: string
+			/**
+			 * C​o​p​y​ ​g​r​o​u​p​ ​a​s​ ​l​i​n​k​s
+			 */
+			copy_links: string
+			/**
+			 * U​n​g​r​o​u​p​ ​t​a​b​s
+			 */
+			ungroup: string
+			/**
+			 * O​p​e​n​ ​g​r​o​u​p​:​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			open: RequiredParams<'name'>
+		}
+	}
 	mode: {
 		/**
 		 * P​a​n​e​ ​m​o​d​e​ ​k​e​y​s
@@ -875,6 +1081,10 @@ export type NamespaceWebTranslation = {
 			 * T​a​b
 			 */
 			tab: string
+			/**
+			 * G​r​o​u​p
+			 */
+			group: string
 		}
 		/**
 		 * O​p​e​n​ ​n​o​t​e​…
@@ -2692,6 +2902,202 @@ export type TranslationFunctions = {
 				reopen: () => LocalizedString
 			}
 		}
+		groups: {
+			/**
+			 * Untitled group
+			 */
+			untitled: () => LocalizedString
+			chip: {
+				/**
+				 * Fold or unfold — right-click to manage
+				 */
+				hint: () => LocalizedString
+				/**
+				 * {count} tab{{s}}
+				 */
+				tabs: (arg: { count: number }) => LocalizedString
+			}
+			manage: {
+				/**
+				 * Manage group
+				 */
+				title: () => LocalizedString
+				/**
+				 * Rename it, recolour it, or put it away — closing a group keeps it in the list.
+				 */
+				description: () => LocalizedString
+				/**
+				 * Group name
+				 */
+				name: () => LocalizedString
+				/**
+				 * Colour
+				 */
+				colour: () => LocalizedString
+				/**
+				 * Colour {n}
+				 */
+				colour_n: (arg: { n: number }) => LocalizedString
+				/**
+				 * New tab in group
+				 */
+				new_tab: () => LocalizedString
+				/**
+				 * Copy {count} link{{s}} in group
+				 */
+				copy_links: (arg: { count: number }) => LocalizedString
+				/**
+				 * Fold
+				 */
+				fold: () => LocalizedString
+				/**
+				 * Unfold
+				 */
+				unfold: () => LocalizedString
+				/**
+				 * Close group
+				 */
+				close: () => LocalizedString
+				/**
+				 * Stays in the list
+				 */
+				close_hint: () => LocalizedString
+				/**
+				 * Ungroup tabs
+				 */
+				ungroup: () => LocalizedString
+				/**
+				 * Delete group
+				 */
+				'delete': () => LocalizedString
+			}
+			delete_confirm: {
+				/**
+				 * Delete this group?
+				 */
+				title: () => LocalizedString
+				/**
+				 * {name} and its {count} tab{{s}} go for good. Close it instead and it waits in the list.
+				 */
+				body: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * Delete group
+				 */
+				confirm: () => LocalizedString
+			}
+			menu: {
+				/**
+				 * Open
+				 */
+				open: () => LocalizedString
+				/**
+				 * In the list
+				 */
+				saved: () => LocalizedString
+				/**
+				 * Show all…
+				 */
+				show_all: () => LocalizedString
+				/**
+				 * Open links of this note as a group
+				 */
+				open_links: () => LocalizedString
+				/**
+				 * New group from active tab
+				 */
+				new_from_active: () => LocalizedString
+				/**
+				 * This note has no links to open.
+				 */
+				no_links: () => LocalizedString
+				/**
+				 * Open a note in this pane first
+				 */
+				needs_note: () => LocalizedString
+			}
+			all: {
+				/**
+				 * Tab groups
+				 */
+				title: () => LocalizedString
+				/**
+				 * Groups open in a pane are ticked; the rest are waiting in the list.
+				 */
+				description: () => LocalizedString
+				/**
+				 * No tab groups yet — group a few tabs and they show up here.
+				 */
+				empty: () => LocalizedString
+				/**
+				 * {count} tab{{s}} · {when}
+				 */
+				meta: (arg: { count: number, when: string }) => LocalizedString
+				/**
+				 * Open
+				 */
+				open_state: () => LocalizedString
+			}
+			tab_menu: {
+				/**
+				 * Add to group
+				 */
+				add_to: () => LocalizedString
+				/**
+				 * New group…
+				 */
+				new_group: () => LocalizedString
+				/**
+				 * Remove from group
+				 */
+				remove: () => LocalizedString
+				/**
+				 * Fold group
+				 */
+				fold: () => LocalizedString
+				/**
+				 * Unfold group
+				 */
+				unfold: () => LocalizedString
+				/**
+				 * Close group
+				 */
+				close: () => LocalizedString
+			}
+			/**
+			 * Copied {count} link{{s}} from {name}
+			 */
+			copied: (arg: { count: number, name: string }) => LocalizedString
+			/**
+			 * Could not reach the clipboard — nothing was copied.
+			 */
+			copy_failed: () => LocalizedString
+			commands: {
+				/**
+				 * New group from this tab
+				 */
+				'new': () => LocalizedString
+				/**
+				 * Fold / unfold group
+				 */
+				toggle: () => LocalizedString
+				/**
+				 * Close group
+				 */
+				close: () => LocalizedString
+				/**
+				 * Copy group as links
+				 */
+				copy_links: () => LocalizedString
+				/**
+				 * Ungroup tabs
+				 */
+				ungroup: () => LocalizedString
+				/**
+				 * Open group: {name}
+				 */
+				open: (arg: { name: string }) => LocalizedString
+			}
+		}
 		mode: {
 			/**
 			 * Pane mode keys
@@ -3110,6 +3516,10 @@ export type TranslationFunctions = {
 				 * Tab
 				 */
 				tab: () => LocalizedString
+				/**
+				 * Group
+				 */
+				group: () => LocalizedString
 			}
 			/**
 			 * Open note…

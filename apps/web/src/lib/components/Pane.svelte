@@ -44,7 +44,7 @@
     reveal: { offset: number } | null
     groupChip?: Snippet<[Group, Pane]>
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
-    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }]>
+    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
   }
 
   let {
@@ -124,6 +124,17 @@
 
   /** The live handle, kept so `onhandle(null)` can still capture from it. */
   let handle: MarkdownEditorHandle | null = null
+
+  /**
+   * The same handle, offered to the shell on demand: a view reports its
+   * resume point on teardown, which is one beat after `closeGroup` and
+   * `closePane` have read the tab it belongs to.
+   */
+  $effect(() => {
+    const id = pane.id
+    panes.registerCapture(id, () => handle?.capture() ?? null)
+    return () => panes.registerCapture(id, null)
+  })
 
   /**
    * The view's lifecycle, from inside `MarkdownEditor`'s own creation effect —

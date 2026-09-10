@@ -113,6 +113,44 @@ export function paneCommands(a: PaneActions): Command[] {
 }
 
 /**
+ * Everything the shell must be able to do for a `group.*` command to exist
+ * (tab-groups W2). Kept apart from `PaneActions` because these are the shell's
+ * group half — the popover, the clipboard and the saved list — and the pane
+ * controller owns none of them on its own.
+ */
+export interface GroupActions {
+  /** Group the active tab and open the manage popover with the name selected. */
+  newFromActive(): void
+  toggle(): void
+  close(): void
+  copyLinks(): void
+  ungroup(): void
+  /** False when the focused pane's active tab is in no group: the four verbs
+   *  below have nothing to act on, so they are hidden and their key falls
+   *  through to the editor. */
+  hasGroup(): boolean
+}
+
+/**
+ * The group half of the command table (§Command table, `group.*`). Registered
+ * separately from `paneCommands` because it is W2's, and because the palette
+ * ALSO takes one row per saved group from a provider rather than from here —
+ * those ids come and go with the list (Fork 2-A).
+ */
+export function groupCommands(a: GroupActions): Command[] {
+  const t = getLL().web.groups.commands
+  const group = getLL().web.commands.groups.group()
+  const needsGroup = (): boolean => a.hasGroup()
+  return [
+    { id: 'group.new', title: t.new(), group, keys: 'Mod+Shift+g', run: a.newFromActive },
+    { id: 'group.toggle', title: t.toggle(), group, keys: 'Mod+Shift+e', when: needsGroup, run: a.toggle },
+    { id: 'group.close', title: t.close(), group, when: needsGroup, run: a.close },
+    { id: 'group.copy-links', title: t.copy_links(), group, when: needsGroup, run: a.copyLinks },
+    { id: 'group.ungroup', title: t.ungroup(), group, when: needsGroup, run: a.ungroup },
+  ]
+}
+
+/**
  * The label for an id the hint bar asks about that is NOT a command: the
  * families `h j k l` and `1–9` collapse onto, and the sub-mode rows
  * (`mode.ts` documents the five + four ids). Anything else answers '', and

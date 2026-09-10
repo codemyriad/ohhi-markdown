@@ -74,6 +74,13 @@ export function createNavigation(): {
    * colour in the editor and its attribution in the panels can never disagree.
    */
   resolveLink(target: string, fromPath?: string): string | null
+  /**
+   * Does more than one note in the vault carry this basename? What decides
+   * whether a copied group link needs its full path (tab-groups B8). Asked of
+   * the SAME `PathResolver` the editor's links resolve through, so a link
+   * copied out of a group resolves back to the note it came from.
+   */
+  ambiguousName(name: string): boolean
 } {
   const index = new MemoryIndex()
   const registry = new CommandRegistry()
@@ -240,6 +247,10 @@ export function createNavigation(): {
     resolveLink(target, fromPath) {
       refreshResolver()
       return resolver.resolve(target, fromPath)
+    },
+    ambiguousName(name) {
+      refreshResolver()
+      return resolver.candidates(name).length > 1
     },
     links,
     open(mode) {

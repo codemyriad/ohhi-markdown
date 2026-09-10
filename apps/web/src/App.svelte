@@ -60,8 +60,20 @@
   import DropZones from './lib/components/DropZones.svelte'
   import ModeBar from './lib/components/ModeBar.svelte'
   import PaneTree, { type PaneRender } from './lib/components/PaneTree.svelte'
+  import GroupChip from './lib/components/GroupChip.svelte'
+  import ManageGroupPopover from './lib/components/ManageGroupPopover.svelte'
+  import ShowAllGroupsDialog from './lib/components/ShowAllGroupsDialog.svelte'
+  import StripGroupsMenu from './lib/components/StripGroupsMenu.svelte'
+  import TabGroupMenuItems from './lib/components/TabGroupMenuItems.svelte'
   import { createPanes } from './lib/workspace-panes.svelte.js'
-  import { findPane } from './lib/panes.js'
+  import { createGroupUi } from './lib/group-ui.svelte.js'
+  import {
+    findPane,
+    type Group,
+    type Pane as PaneNode,
+    type Tab as PaneTab,
+  } from './lib/panes.js'
+  import type { MenuItemAttrs, MenuSeparatorAttrs } from './lib/ui/DropdownMenu.svelte'
   import { Bell, History, Link2, PanelLeft, PanelRight, Settings, Users } from '@lucide/svelte'
   import ActivitySection from './lib/components/ActivitySection.svelte'
   import HistorySection from './lib/components/HistorySection.svelte'
@@ -122,6 +134,35 @@
    */
   const panes = createPanes(realClock, nav.registry)
   nav.setOpener((path, opts) => openPath(path, opts))
+  /**
+   * Tab groups (W2). Everything a group needs from outside the pane tree —
+   * the index's ambiguity verdict and its outgoing links (R6), the notice log
+   * and the clipboard — is handed over here rather than reached for inside,
+   * so `group-ui` stays a module a test can drive.
+   */
+  const groups = createGroupUi(panes, {
+    ambiguousName: (name) => nav.ambiguousName(name),
+    outgoingPaths: async (path) => {
+      const guid = workspace?.ui.files.find((f) => f.path === path)?.guid
+      if (!guid) return []
+      const links = await nav.index.outgoing(guid, { limit: 200 })
+      const notes = new Set(
+        (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path)
+      )
+      const out: string[] = []
+      for (const ref of links.items) {
+        // An unresolved link is a note not written yet, and an embed of an
+        // image is not a note at all — neither is something to open.
+        const target = nav.resolveLink(ref.target, path)
+        if (target && notes.has(target) && target !== path && !out.includes(target)) {
+          out.push(target)
+        }
+      }
+      return out
+    },
+    notify: (input) => workspace?.notify(input),
+    write: (text) => navigator.clipboard.writeText(text),
+  })
 
   // ---- layout (chrome U2): device-level, persisted like the theme ----
   const savedLayout = layoutPrefs()
@@ -286,6 +327,13 @@
   // after the defaults so a later rebind of a shared key wins, as the registry
   // documents.
   nav.registry.register(...panes.commands())
+  // The `group.*` table (W2). Registered after the pane rows for the same
+  // reason they come after the defaults: a later registration wins a shared key.
+  nav.registry.register(...groups.commands())
+  // One palette row per SAVED group (Fork 2-A). A provider rather than
+  // registrations, because the ids come and go every time a group is closed
+  // or reopened — and a row nobody can predict is a row nobody can bind.
+  nav.registry.addProvider(() => groups.savedCommands())
   // The user's own bindings sit over those defaults (R1.3). Settings writes
   // config and re-applies them itself, so this is the boot read.
   nav.registry.setOverrides(hotkeys())
@@ -978,9 +1026,15 @@
           linkCandidates: () =>
             (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path),
           reveal: nav.pending.reveal,
+          groupChip,
+          tabMenuGroupItems,
+          moreMenuItems,
         }
       : null
   )
+  /** The group the manage popover is on, or null — it may have been closed. */
+  const managed = $derived(groups.manage ? panes.findGroup(groups.manage.groupId) : null)
+  const confirmingGroup = $derived(groups.confirming ? panes.findGroup(groups.confirming) : null)
   /** Zoom mounts one pane and nothing else — that is the whole memory story. */
   const treeRoot = $derived(
     (panes.layout.zoom ? findPane(panes.layout, panes.layout.zoom) : null) ?? panes.layout.tree
@@ -1345,6 +1399,46 @@
 
   <DropZones {panes} />
 
+  <!-- The group overlays. They live here, not in the strip, because the
+       popover is opened from four places (a chip, a tab's menu, the `▾` list
+       and `group.new`) and a pane is only one of them. -->
+  {#if groups.manage && managed}
+    {#key managed.id}
+      <ManageGroupPopover
+        group={managed}
+        {panes}
+        {groups}
+        fresh={groups.manage.fresh}
+        onDelete={() => groups.askDelete(managed.id)}
+        onClose={() => groups.closeManage()}
+      />
+    {/key}
+  {/if}
+
+  {#if groups.confirming && confirmingGroup}
+    <ConfirmDialog
+      title={$LL.web.groups.delete_confirm.title()}
+      body={$LL.web.groups.delete_confirm.body({
+        name: confirmingGroup.name || $LL.web.groups.untitled(),
+        count: confirmingGroup.tabIds.length,
+      })}
+      confirmLabel={$LL.web.groups.delete_confirm.confirm()}
+      danger
+      testid="group-delete-confirm"
+      onConfirm={() => groups.confirmDelete()}
+      onCancel={() => groups.cancelDelete()}
+    />
+  {/if}
+
+  {#if groups.showAll}
+    <ShowAllGroupsDialog
+      paneId={panes.layout.focus}
+      {groups}
+      now={() => realClock.now()}
+      onClose={() => groups.closeShowAll()}
+    />
+  {/if}
+
   {#if devtools}
     <DevtoolsPanel {workspace} />
   {/if}
@@ -1381,3 +1475,24 @@
     }}
   />
 {/if}
+
+<!-- The strip's three W2 seams, filled once for every pane: B1 left them as
+     snippet props so the group chrome could land without moving anything in
+     `TabStrip`. -->
+{#snippet groupChip(group: Group, pane: PaneNode)}
+  <GroupChip {group} {pane} {panes} onManage={(id) => groups.openManage(id)} />
+{/snippet}
+
+{#snippet tabMenuGroupItems(
+  attrs: { item: MenuItemAttrs; separator: MenuSeparatorAttrs },
+  tab: PaneTab
+)}
+  <TabGroupMenuItems {attrs} {tab} {panes} {groups} />
+{/snippet}
+
+{#snippet moreMenuItems(
+  attrs: { item: MenuItemAttrs; separator: MenuSeparatorAttrs },
+  pane: PaneNode
+)}
+  <StripGroupsMenu {attrs} {pane} {panes} {groups} now={() => realClock.now()} />
+{/snippet}

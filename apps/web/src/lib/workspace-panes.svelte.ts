@@ -23,11 +23,23 @@ import { untrack } from 'svelte'
 import { getLL } from '@editor/i18n'
 import type { Clock } from '@editor/vault'
 import type { Command, CommandRegistry } from './commands.js'
+import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
 import { familyTitle, paneCommands } from './pane-commands.js'
 import { slotsFrom, stripDrop } from './pane-drag.js'
 import * as tree from './panes.js'
-import type { ClosedTab, Dir, Layout, Pane, Rect, SavedGroup, Side, Tab } from './panes.js'
+import type {
+  ClosedTab,
+  Dir,
+  Group,
+  GroupColor,
+  Layout,
+  Pane,
+  Rect,
+  SavedGroup,
+  Side,
+  Tab,
+} from './panes.js'
 import {
   loadLayout,
   loadSavedGroups,
@@ -38,8 +50,12 @@ import type { Workspace } from './workspace.svelte.js'
 
 /** Layout writes are device-local and cheap; this only keeps a drag quiet. */
 const SAVE_DEBOUNCE_MS = 400
-/** Pointer travel before a press on a tab becomes a drag (B10). */
-const DRAG_THRESHOLD_PX = 6
+/**
+ * Pointer travel before a press on a tab or a chip becomes a drag (B10).
+ * Exported because a chip's own click handler has to tell the two apart: a
+ * drag that ends where it started would otherwise fold the group.
+ */
+export const DRAG_THRESHOLD_PX = 6
 /** One keyboard/mode resize step, in percent of the split. */
 const RESIZE_STEP_PCT = 5
 
@@ -50,6 +66,12 @@ export interface DragPayload {
   groupId: string | null
   label: string
   color: number | null
+}
+
+/** Where a tab was when its view went away: the cursor and the scroll (B2). */
+export interface Resume {
+  cursor: { anchor: number; head: number }
+  scroll: number
 }
 
 export interface Box {
@@ -125,13 +147,48 @@ export interface PaneShell {
 
   // ---- geometry the components own ----
   registerPane(paneId: string, el: HTMLElement | null): void
+  /**
+   * A pane's live view offers its resume point on demand (B2).
+   *
+   * A view only reports one when it is TORN DOWN, which is a beat too late
+   * for anything that SNAPSHOTS a tab: `closeGroup` and `closePane` read the
+   * tab's cursor before the teardown runs, and would tuck a stale one into
+   * the saved list. So the ops that keep a resume point ask for it first.
+   */
+  registerCapture(paneId: string, capture: (() => Resume | null) | null): void
   beginDrag(e: PointerEvent, payload: DragPayload): void
+
+  // ---- groups (W2, B4/B8) ----
+  /** A new group holding `tabId`; answers its id so the caller can name it. */
+  newGroup(tabId: string, paneId: string): string | null
+  addToGroup(tabId: string, groupId: string): void
+  removeFromGroup(tabId: string): void
+  renameGroup(groupId: string, name: string): void
+  recolorGroup(groupId: string, color: GroupColor): void
+  toggleGroup(groupId: string): void
+  /**
+   * To the list, not away (R2.2) — the ONE path *Close group* takes, whether
+   * it came from the chip's popover, a tab's menu or the mode, so a group can
+   * never be closed without landing in `savedGroups`.
+   */
+  closeGroup(groupId: string): void
+  ungroupGroup(groupId: string): void
+  /** The one destructive op; the caller confirms first (B4). */
+  deleteGroup(groupId: string): void
+  newTabInGroup(groupId: string): void
+  /** Reopen a saved group and drop it from the list — no duplicate on reopen. */
+  openSavedGroup(savedId: string, paneId?: string): void
+  groupFromLinks(name: string, paths: readonly string[], paneId?: string): void
+  /** The group holding the focused pane's active tab, or null. */
+  activeGroup(): Group | null
+  findGroup(groupId: string): Group | null
+  groupPaths(groupId: string): string[]
 
   // ---- vault events (B6/R5) ----
   onRenamed(moves: { from: string; to: string }[]): void
   closeUnder(prefix: string): void
   /** Capture the active view's resume point into its tab (B2). */
-  setResume(tabId: string, resume: { cursor: { anchor: number; head: number }; scroll: number }): void
+  setResume(tabId: string, resume: Resume): void
 }
 
 export function createPanes(
@@ -159,11 +216,42 @@ export function createPanes(
   /** Closed-tab stack for `tab.reopen`, newest last; session-only. */
   const closed: ClosedTab[] = []
   const paneEls = new Map<string, HTMLElement>()
+  const captures = new Map<string, () => Resume | null>()
   let cancelSave: (() => void) | null = null
 
   const now = (): number => clock.now()
 
+  /**
+   * Pull every live view's cursor and scroll into the tree, before something
+   * reads them. See `registerCapture`: a view reports on teardown, which is
+   * after `closeGroup`/`closePane` have already snapshotted the tab, and
+   * after the debounced write has already gone out.
+   */
+  function captureLive(): void {
+    let next = current
+    for (const [paneId, capture] of captures) {
+      const p = tree.findPane(next, paneId)
+      const t = p ? tree.activeTab(p) : null
+      if (!t) continue
+      const resume = capture()
+      if (!resume || sameResume(t, resume)) continue
+      next = tree.editLayout(next, (d) => {
+        const dt = tree.tabOf(d, t.id)
+        if (!dt) return
+        dt.cursor = { ...resume.cursor }
+        dt.scroll = resume.scroll
+      })
+    }
+    if (next !== current) commit(next)
+  }
+
+  const sameResume = (t: Tab, r: Resume): boolean =>
+    t.scroll === r.scroll && t.cursor?.anchor === r.cursor.anchor && t.cursor?.head === r.cursor.head
+
   function flushSave(): void {
+    // `captureLive` may commit, which schedules another save; cancelling
+    // AFTER it rather than before is what keeps this to one write.
+    captureLive()
     cancelSave?.()
     cancelSave = null
     if (vaultKey) saveLayout(vaultKey, current)
@@ -173,7 +261,7 @@ export function createPanes(
     cancelSave?.()
     cancelSave = clock.schedule(() => {
       cancelSave = null
-      if (vaultKey) saveLayout(vaultKey, current)
+      flushSave()
     }, SAVE_DEBOUNCE_MS)
   }
 
@@ -188,6 +276,39 @@ export function createPanes(
     if (!groups.length) return
     savedGroups = [...groups, ...savedGroups]
     if (vaultKey) saveSavedGroups(vaultKey, savedGroups)
+  }
+
+  /** Taking a group out of the list, which is what reopening one does. */
+  function dropSaved(savedId: string): void {
+    const next = savedGroups.filter((g) => g.id !== savedId)
+    if (next.length === savedGroups.length) return
+    savedGroups = next
+    if (vaultKey) saveSavedGroups(vaultKey, savedGroups)
+  }
+
+  /**
+   * The group the `group.*` verbs act on: the one holding the focused pane's
+   * active tab, else the pane's most recently used group.
+   *
+   * The fallback is what makes fold and unfold the same key — folding a group
+   * moves the active tab OUT of it (a folded tab has no view to sit in), so
+   * without it `group.toggle` could fold but never unfold.
+   */
+  function activeGroup(): Group | null {
+    const p = focused()
+    const held = p.active ? tree.groupOf(p, p.active) : null
+    if (held) return held
+    return [...p.groups].sort((a, b) => b.lastActive - a.lastActive)[0] ?? null
+  }
+
+  function closeGroupById(groupId: string): void {
+    // A group closed is a group SAVED (R2.2), so it has to carry the cursor
+    // the note is actually at, not the one it was at when the tab last lost
+    // its view.
+    captureLive()
+    const { layout: next, saved } = groupOps.closeGroup(current, groupId, ids, now())
+    if (saved) keepSaved([saved])
+    commit(next)
   }
 
   const focused = (): Pane => tree.focusedPane(current)
@@ -319,6 +440,7 @@ export function createPanes(
   // ---- strip affordances ----
 
   function closeTab(tabId: string): void {
+    captureLive()
     const snapshot = tree.closedTabOf(current, tabId)
     if (snapshot?.tab.path) closed.push(snapshot)
     commit(tree.closeTab(current, tabId, ids))
@@ -346,12 +468,14 @@ export function createPanes(
   }
 
   function closeOthersIn(paneId: string): void {
+    captureLive()
     const { layout: next, saved } = tree.closeOthers(current, paneId, ids, now())
     keepSaved(saved)
     commit(next)
   }
 
   function closePaneById(paneId: string): void {
+    captureLive()
     const { layout: next, saved } = tree.closePane(current, paneId, now())
     keepSaved(saved)
     commit(next)
@@ -409,6 +533,17 @@ export function createPanes(
 
   function applyDrop(target: DropTarget, payload: DragPayload): void {
     if (target.kind === 'none') return
+    // A chip drag moves the whole group, label and all (Decision 4). An edge
+    // drop is `splitWith`'s job either way — it already carries a group into
+    // the pane it makes — so only the strip and the centre are handled here.
+    if (payload.groupId && target.kind === 'strip') {
+      commit(groupOps.moveGroup(current, payload.groupId, target.paneId, target.at, ids, now()))
+      return
+    }
+    if (payload.groupId && target.kind === 'zone' && target.zone === 'center') {
+      commit(groupOps.moveGroup(current, payload.groupId, target.paneId, undefined, ids, now()))
+      return
+    }
     if (target.kind === 'strip') {
       let next = current
       payload.tabIds.forEach((tabId, i) => {
@@ -538,7 +673,13 @@ export function createPanes(
       e.stopPropagation()
       const next = modeStep(mode, e.key)
       mode = next.mode
-      if (next.command) void registry.get(next.command)?.run()
+      if (next.command) {
+        // A guarded-off command (the `group.*` verbs with no group to act on)
+        // is not runnable from its key, so it must not be runnable from its
+        // mode letter either.
+        const command = registry.get(next.command)
+        if (command && (!command.when || command.when())) void command.run()
+      }
       return true
     },
 
@@ -596,7 +737,63 @@ export function createPanes(
       else paneEls.delete(paneId)
     },
 
+    registerCapture(paneId, capture) {
+      if (capture) captures.set(paneId, capture)
+      else captures.delete(paneId)
+    },
+
     beginDrag,
+
+    newGroup(tabId, paneId) {
+      commit(groupOps.newGroup(current, paneId, tabId, ids, '', now()))
+      const p = tree.findPane(current, paneId)
+      return p ? (tree.groupOf(p, tabId)?.id ?? null) : null
+    },
+    addToGroup: (tabId, groupId) => commit(groupOps.addToGroup(current, tabId, groupId)),
+    removeFromGroup: (tabId) => commit(groupOps.removeFromGroup(current, tabId)),
+    renameGroup: (groupId, name) => commit(groupOps.renameGroup(current, groupId, name)),
+    recolorGroup: (groupId, color) => commit(groupOps.recolor(current, groupId, color)),
+    toggleGroup: (groupId) => commit(groupOps.toggleCollapsed(current, groupId, ids, now())),
+    closeGroup: closeGroupById,
+    ungroupGroup: (groupId) => commit(groupOps.ungroup(current, groupId)),
+    deleteGroup: (groupId) => commit(groupOps.deleteGroup(current, groupId, ids)),
+
+    newTabInGroup(groupId) {
+      const found = tree.findGroup(current, groupId)
+      if (!found) return
+      const { pane: p, group: g } = found
+      commit(
+        tree.editLayout(current, (d) => {
+          const dp = tree.findPane(d, p.id)
+          if (!dp) return
+          // After the group's LAST tab, so the new tab lands inside the run
+          // rather than beside it (`insertTab` joins the tab it follows).
+          const t = tree.insertTab(dp, tree.newTab(ids), g.tabIds[g.tabIds.length - 1] ?? null)
+          dp.active = t.id
+          d.focus = dp.id
+        })
+      )
+    },
+
+    openSavedGroup(savedId, paneId) {
+      const saved = savedGroups.find((g) => g.id === savedId)
+      if (!saved) return
+      commit(groupOps.openSaved(current, paneId ?? current.focus, saved, ids, now()))
+      // Out of the list the moment it is back on a strip: the two places a
+      // group can be are exclusive, so reopening twice cannot double it.
+      dropSaved(savedId)
+    },
+
+    groupFromLinks: (name, paths, paneId) =>
+      commit(groupOps.groupFromLinks(current, paneId ?? current.focus, name, [...paths], ids, now())),
+
+    activeGroup,
+    // Read through the RENDER signal, not the plain mirror: this one is asked
+    // from a `$derived` (the popover follows the group it is open on), so it
+    // has to re-run when the tree changes. Ops keep reading `current` — see
+    // the note on the pair above.
+    findGroup: (groupId) => tree.findGroup(rendered, groupId)?.group ?? null,
+    groupPaths: (groupId) => groupOps.groupPaths(current, groupId),
 
     onRenamed(moves) {
       let next = current
@@ -618,13 +815,7 @@ export function createPanes(
       // A capture that says nothing new is not a layout change: re-committing
       // the same cursor on every tab switch would churn the tree, and the
       // save, for nothing.
-      if (
-        held.scroll === resume.scroll &&
-        held.cursor?.anchor === resume.cursor.anchor &&
-        held.cursor?.head === resume.cursor.head
-      ) {
-        return
-      }
+      if (sameResume(held, resume)) return
       commit(
         tree.editLayout(current, (d) => {
           const t = tree.tabOf(d, tabId)

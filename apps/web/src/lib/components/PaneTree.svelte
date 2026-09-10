@@ -42,7 +42,7 @@
     reveal: { offset: number } | null
     groupChip?: Snippet<[Group, PaneNode]>
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
-    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }]>
+    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, PaneNode]>
   }
 
   interface Props {

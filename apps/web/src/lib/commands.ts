@@ -181,8 +181,16 @@ export interface CommandBinding {
   overridden: boolean
 }
 
+/**
+ * A source of commands whose SET changes with the app's state — one
+ * `group.open:<id>` per saved tab group (tab-groups Fork 2-A). They cannot be
+ * registered, because the ids come and go on every close and reopen.
+ */
+export type CommandProvider = () => Command[]
+
 export class CommandRegistry {
   private commands = new Map<string, Command>()
+  private providers: CommandProvider[] = []
   private overrides: BindingOverrides = {}
   /** True while Settings is RECORDING a chord: no key may run a command. */
   private suspended = false
@@ -216,13 +224,26 @@ export class CommandRegistry {
     for (const command of commands) this.commands.set(command.id, command)
   }
 
-  get(id: string): Command | undefined {
-    return this.commands.get(id)
+  /**
+   * Add a source of state-dependent commands (the saved tab groups). They
+   * show up in the palette and run by id, but take no part in `bindings()` or
+   * `match()`: an id nobody can predict is an id nobody can bind.
+   */
+  addProvider(provider: CommandProvider): void {
+    this.providers.push(provider)
   }
 
-  /** Commands whose `when` guard passes, in registration order. */
+  private provided(): Command[] {
+    return this.providers.flatMap((p) => p())
+  }
+
+  get(id: string): Command | undefined {
+    return this.commands.get(id) ?? this.provided().find((c) => c.id === id)
+  }
+
+  /** Commands whose `when` guard passes, in registration order, providers last. */
   available(): Command[] {
-    return [...this.commands.values()].filter((c) => !c.when || c.when())
+    return [...this.commands.values(), ...this.provided()].filter((c) => !c.when || c.when())
   }
 
   /** The binding a command ships with, or '' when it ships unbound. */

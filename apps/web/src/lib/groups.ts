@@ -25,6 +25,7 @@ import {
   newTab,
   nextId,
   paneOfTab,
+  panes as listPanes,
   savedFromGroup,
   settlePane,
   type Group,
@@ -290,4 +291,140 @@ export function groupFromLinks(
     tabs: paths.map((path) => ({ path, cursor: null, scroll: 0 })),
   }
   return openSaved(l, paneId, saved, ids, now)
+}
+
+/** The notes a group holds, in strip order; a group's empty tabs contribute nothing. */
+export function groupPaths(l: Layout, groupId: string): string[] {
+  const found = findGroup(l, groupId)
+  if (!found) return []
+  const { pane: p, group: g } = found
+  return g.tabIds
+    .map((id) => p.tabs.find((t) => t.id === id)?.path)
+    .filter((path): path is string => typeof path === 'string')
+}
+
+/**
+ * Carry a whole group somewhere else (Decision 4: a chip drag moves the
+ * group, not its tabs). The label goes with the tabs — same name, same
+ * colour, one run at the drop point — which is what makes a chip drag
+ * different from dragging its tabs one at a time.
+ *
+ * `index` is an insertion index into the target strip as it is drawn now.
+ * A path already open in the target is re-taken by the group rather than
+ * duplicated, which is `openSaved`'s rule and R3's.
+ */
+export function moveGroup(
+  l: Layout,
+  groupId: string,
+  toPaneId: string,
+  index?: number,
+  ids: () => string = nextId,
+  now = Date.now()
+): Layout {
+  return editLayout(l, (d) => {
+    const found = findGroup(d, groupId)
+    const to = findPane(d, toPaneId)
+    if (!found || !to) return
+    const { pane: from, group: g } = found
+    const { name, color, collapsed } = g
+    const members = new Set(g.tabIds)
+    // Counted before the detach: inside its own strip the index still counts
+    // the run being dragged, and those slots are about to disappear.
+    const at =
+      index === undefined
+        ? to.tabs.length
+        : index - (from === to ? to.tabs.slice(0, index).filter((t) => members.has(t.id)).length : 0)
+    const moved = detachTabs(from, [...g.tabIds])
+    if (!moved.length) return
+    let cursor = Math.max(0, Math.min(at, to.tabs.length))
+    const landed: string[] = []
+    for (const t of moved) {
+      const dup = t.path === null ? -1 : to.tabs.findIndex((x) => x.path === t.path)
+      if (dup >= 0) {
+        detachTabs(to, [to.tabs[dup].id])
+        if (dup < cursor) cursor--
+      }
+      to.tabs.splice(Math.min(cursor, to.tabs.length), 0, t)
+      landed.push(t.id)
+      cursor++
+    }
+    const outside = to.tabs.find((t) => !landed.includes(t.id))
+    const group: Group = { id: ids(), name, color, collapsed, tabIds: landed, lastActive: now }
+    if (group.collapsed && outside) {
+      // Folded arrives folded; the pane just needs something visible to show.
+      if (!to.active || landed.includes(to.active)) to.active = outside.id
+    } else {
+      group.collapsed = false
+      to.active = landed[0]
+    }
+    to.groups.push(group)
+    d.focus = to.id
+    if (from !== to) settlePane(d, from, ids, to)
+  })
+}
+
+/**
+ * One row of the strip-end `▾` list and the *Show all* dialog (B9, Fork 2-A):
+ * every group that is open in a pane, then every group waiting in the list.
+ *
+ * Order is the two menus' order, computed once here: the asking pane's own
+ * groups, then the other panes' by recency, then the saved ones by recency
+ * (Decision 8 — recency is the whole ranking, nothing auto-deletes). The
+ * `▾` menu splits the rows into its two sections; the dialog prints them all.
+ */
+export interface GroupRow {
+  /** Stable key, and what a menu hands back: `open:<groupId>` / `saved:<id>`. */
+  id: string
+  name: string
+  color: GroupColor
+  /** Tabs in the group — the count a folded chip and the dialog print. */
+  count: number
+  lastActive: number
+  /** Open in a pane right now (the tick), else waiting in the list. */
+  open: boolean
+  /** Set for an open row: the pane it is in, and whether that is this pane. */
+  groupId: string | null
+  savedId: string | null
+  paneId: string | null
+  here: boolean
+}
+
+export function groupRows(
+  l: Layout,
+  paneId: string,
+  saved: readonly SavedGroup[]
+): GroupRow[] {
+  const open: GroupRow[] = []
+  for (const p of listPanes(l.tree)) {
+    for (const g of p.groups) {
+      open.push({
+        id: `open:${g.id}`,
+        name: g.name,
+        color: g.color,
+        count: g.tabIds.length,
+        lastActive: g.lastActive,
+        open: true,
+        groupId: g.id,
+        savedId: null,
+        paneId: p.id,
+        here: p.id === paneId,
+      })
+    }
+  }
+  open.sort((a, b) => Number(b.here) - Number(a.here) || b.lastActive - a.lastActive)
+  const list = [...saved]
+    .sort((a, b) => b.lastActive - a.lastActive)
+    .map((sg) => ({
+      id: `saved:${sg.id}`,
+      name: sg.name,
+      color: sg.color,
+      count: sg.tabs.length,
+      lastActive: sg.lastActive,
+      open: false,
+      groupId: null,
+      savedId: sg.id,
+      paneId: null,
+      here: false,
+    }))
+  return [...open, ...list]
 }

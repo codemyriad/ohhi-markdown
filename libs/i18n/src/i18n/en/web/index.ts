@@ -141,6 +141,73 @@ const tabs = {
 }
 
 /**
+ * Tab groups (tab-groups W2, B4/B8/B9): the chip in the strip, its manage
+ * dialog, the group rows in a tab's context menu, and the strip-end list —
+ * Firefox's model, so "close" is the save and only "delete" loses anything.
+ */
+const groups = {
+  untitled: 'Untitled group',
+  chip: {
+    hint: 'Fold or unfold — right-click to manage',
+    tabs: '{count:number} tab{{s}}',
+  },
+  manage: {
+    title: 'Manage group',
+    description: 'Rename it, recolour it, or put it away — closing a group keeps it in the list.',
+    name: 'Group name',
+    colour: 'Colour',
+    colour_n: 'Colour {n:number}',
+    new_tab: 'New tab in group',
+    copy_links: 'Copy {count:number} link{{s}} in group',
+    fold: 'Fold',
+    unfold: 'Unfold',
+    close: 'Close group',
+    close_hint: 'Stays in the list',
+    ungroup: 'Ungroup tabs',
+    delete: 'Delete group',
+  },
+  delete_confirm: {
+    title: 'Delete this group?',
+    body: '{name:string} and its {count:number} tab{{s}} go for good. Close it instead and it waits in the list.',
+    confirm: 'Delete group',
+  },
+  menu: {
+    open: 'Open',
+    saved: 'In the list',
+    show_all: 'Show all…',
+    open_links: 'Open links of this note as a group',
+    new_from_active: 'New group from active tab',
+    no_links: 'This note has no links to open.',
+    needs_note: 'Open a note in this pane first',
+  },
+  all: {
+    title: 'Tab groups',
+    description: 'Groups open in a pane are ticked; the rest are waiting in the list.',
+    empty: 'No tab groups yet — group a few tabs and they show up here.',
+    meta: '{count:number} tab{{s}} · {when:string}',
+    open_state: 'Open',
+  },
+  tab_menu: {
+    add_to: 'Add to group',
+    new_group: 'New group…',
+    remove: 'Remove from group',
+    fold: 'Fold group',
+    unfold: 'Unfold group',
+    close: 'Close group',
+  },
+  copied: 'Copied {count:number} link{{s}} from {name:string}',
+  copy_failed: 'Could not reach the clipboard — nothing was copied.',
+  commands: {
+    new: 'New group from this tab',
+    toggle: 'Fold / unfold group',
+    close: 'Close group',
+    copy_links: 'Copy group as links',
+    ungroup: 'Ungroup tabs',
+    open: 'Open group: {name:string}',
+  },
+}
+
+/**
  * The pane mode's hint bar (B12). `names` is the badge; `enter` labels the
  * rows that open a sub-mode; `leave`/`done` is what Escape does, which
  * differs because move and resize are sticky and the rest are one-shot.
@@ -277,6 +344,7 @@ const commands = {
     app: 'App',
     pane: 'Pane',
     tab: 'Tab',
+    group: 'Group',
   },
   quick_open: 'Open note…',
   command_palette: 'Command palette',
@@ -765,6 +833,7 @@ const web = {
   status_bar,
   panes,
   tabs,
+  groups,
   mode,
   pill,
   tree,

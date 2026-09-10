@@ -6,9 +6,18 @@
    * equivalent (R8).
    *
    * The strip iterates `stripItems(pane)`, which yields a chip before each
-   * group's run and then the run's tabs. W1 renders the chip as the group's
-   * 2 px colour rule over its tabs and leaves the `groupChip` snippet for C1
-   * to fill with `GroupChip.svelte`; nothing else has to move when it lands.
+   * group's run and then the run's tabs, and draws each group's colour as a
+   * 2 px rule over its tabs. `GroupChip.svelte` fills the `groupChip` snippet.
+   *
+   * **Why the strip holds several tablists.** ARIA lets a `tablist` own
+   * nothing but `tab`s, so a group chip — a real button with `aria-expanded`
+   * — cannot live inside one; axe fails the pane on `aria-required-children`
+   * the moment a chip is rendered there. So the items are grouped into runs:
+   * a chip is a plain sibling, and each contiguous run of visible tabs is its
+   * own tablist, named after the group it belongs to. DOM order still matches
+   * what is on screen, so a screen reader hears a group's chip immediately
+   * before that group's tabs. Roving focus is unchanged — it walks every
+   * `[role=tab]` in the strip, which is what the user sees as one row.
    *
    * The `data-slot-*` attributes are what the drag hit test measures — the
    * strip is the only thing that knows where its items are drawn.
@@ -17,7 +26,7 @@
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
   import { basename } from '@editor/index'
-  import { stripItems, type Group, type Pane, type Tab } from '../panes.js'
+  import { stripItems, type Group, type Pane, type StripItem, type Tab } from '../panes.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { melt } from '@melt-ui/svelte'
   import DropdownMenu, {
@@ -39,14 +48,46 @@
     /** W2 (C1): group rows in a tab's context menu. */
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
     /** W2 (C1): the strip-end `▾` list — open groups, saved groups, Show all. */
-    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }]>
+    moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
   }
 
   let { pane, focused, panes, uid, groupChip, tabMenuGroupItems, moreMenuItems }: Props =
     $props()
 
+  type TabItem = Extract<StripItem, { kind: 'tab' }>
+  /** A chip, or the run of tabs one tablist holds. */
+  type Run =
+    | { key: string; kind: 'chip'; item: Extract<StripItem, { kind: 'chip' }> }
+    | { key: string; kind: 'tabs'; label: string; items: TabItem[] }
+
   const t = $derived($LL.web.tabs)
+  const groupName = (g: Group): string => g.name || $LL.web.groups.untitled()
   const items = $derived(stripItems(pane))
+  /** Consecutive tabs of the same group (or of none) share one tablist. */
+  const runs = $derived.by(() => {
+    const out: Run[] = []
+    let openId: string | null | undefined
+    for (const item of items) {
+      if (item.kind === 'chip') {
+        out.push({ key: `c${item.group.id}`, kind: 'chip', item })
+        openId = undefined
+        continue
+      }
+      const gid = item.group?.id ?? null
+      if (gid !== openId) {
+        openId = gid
+        out.push({
+          key: `l${item.tab.id}`,
+          kind: 'tabs',
+          label: item.group ? groupName(item.group) : t.list(),
+          items: [],
+        })
+      }
+      const last = out[out.length - 1]
+      if (last.kind === 'tabs') last.items.push(item)
+    }
+    return out
+  })
   const tabDomId = (id: string): string => `${uid}-tab-${id}`
   const panelDomId = (id: string): string => `${uid}-panel-${id}`
   const nameOf = (tab: Tab): string => (tab.path ? basename(tab.path) : t.untitled())
@@ -91,6 +132,84 @@
   }
 </script>
 
+{#snippet tabSlot(item: TabItem)}
+  {@const tab = item.tab}
+  {@const selected = pane.active === tab.id}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the
+       wrapper carries the POINTER gestures (drag, right-click, pin);
+       the keyboard equivalents all live on the tab button inside it -->
+  <div
+    role="presentation"
+    data-slot-index={item.index}
+    data-slot-kind="tab"
+    data-testid="tab:{pane.id}:{tab.id}"
+    data-path={tab.path}
+    style={item.group ? `--ed-tab-group: var(--ed-group-${item.group.color})` : undefined}
+    oncontextmenu={(e) => {
+      e.preventDefault()
+      menu = { tab, x: e.clientX, y: e.clientY }
+    }}
+    onpointerdown={(e) => startDrag(e, tab)}
+    ondblclick={() => panes.togglePin(tab.id)}
+    class="group relative flex max-w-[11rem] min-w-[4rem] shrink-0 touch-none items-center gap-1 border-r border-base-300 pr-1 pl-2 select-none
+      {selected ? 'bg-ed-surface text-base-content' : 'text-base-content/70 hover:bg-base-300'}
+      {dragging.has(tab.id) ? 'opacity-35' : ''}"
+  >
+    {#if item.group}
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-x-0 top-0 h-0.5"
+        style="background: var(--ed-tab-group)"
+      ></span>
+    {/if}
+    <button
+      type="button"
+      role="tab"
+      id={tabDomId(tab.id)}
+      aria-selected={selected}
+      aria-controls={panelDomId(tab.id)}
+      tabindex={selected ? 0 : -1}
+      title={tab.path ?? t.untitled()}
+      onclick={(e) => {
+        // The ✕ lives inside the tab (the APG's deletable-tabs pattern):
+        // a real button there would be a control nested in a control,
+        // which is both an axe violation and a second tab stop per tab.
+        if ((e.target as HTMLElement).closest('[data-tab-close]')) panes.closeTab(tab.id)
+        else panes.activate(pane.id, tab.id)
+      }}
+      onkeydown={(e) => onTabKeydown(e, tab)}
+      class="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-xs focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      {#if tab.pinned}
+        <Pin size={10} aria-hidden="true" class="shrink-0" />
+        <span class="sr-only">{t.pinned()}</span>
+      {/if}
+      {#if selected}
+        <span
+          data-testid="tab-live"
+          aria-hidden="true"
+          class="size-1.5 shrink-0 rounded-full bg-primary"
+        ></span>
+        <span class="sr-only">{t.live()}</span>
+      {/if}
+      <span class="truncate">{nameOf(tab)}</span>
+      {#if !tab.pinned}
+        <!-- Decoration, not a control: the keyboard closes a tab with
+             Delete on the strip, Mod+W, or the tab menu (R8). -->
+        <span
+          data-tab-close
+          aria-hidden="true"
+          data-testid="tab-close:{pane.id}:{tab.id}"
+          class="ml-auto shrink-0 rounded p-0.5 text-base-content/70 hover:bg-base-300 hover:text-base-content
+            {selected ? 'visible' : 'invisible group-hover:visible'}"
+        >
+          <X size={11} />
+        </span>
+      {/if}
+    </button>
+  </div>
+{/snippet}
+
 <div
   data-strip
   class="flex h-8 shrink-0 items-stretch border-b border-base-300 bg-base-200
@@ -98,101 +217,27 @@
 >
   <div
     bind:this={listEl}
-    role="tablist"
-    aria-label={t.list()}
-    data-testid="tablist:{pane.id}"
+    data-testid="tabs:{pane.id}"
     class="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
   >
-    {#each items as item (item.kind === 'chip' ? `c${item.group.id}` : item.tab.id)}
-      {#if item.kind === 'chip'}
-        <!-- W1 draws the group only as the rule over its tabs; the chip itself
-             is C1's. The slot is measured by the drag hit test either way. -->
+    {#each runs as run (run.key)}
+      {#if run.kind === 'chip'}
         <div
           role="presentation"
-          data-slot-index={item.index}
-          data-slot-end={item.endIndex}
+          data-slot-index={run.item.index}
+          data-slot-end={run.item.endIndex}
           data-slot-kind="chip"
-          data-slot-group={item.group.id}
-          data-slot-folded={item.group.collapsed}
+          data-slot-group={run.item.group.id}
+          data-slot-folded={run.item.group.collapsed}
           class="flex items-stretch"
         >
-          {#if groupChip}{@render groupChip(item.group, pane)}{/if}
+          {#if groupChip}{@render groupChip(run.item.group, pane)}{/if}
         </div>
       {:else}
-        {@const tab = item.tab}
-        {@const selected = pane.active === tab.id}
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the
-             wrapper carries the POINTER gestures (drag, right-click, pin);
-             the keyboard equivalents all live on the tab button inside it -->
-        <div
-          role="presentation"
-          data-slot-index={item.index}
-          data-slot-kind="tab"
-          data-testid="tab:{pane.id}:{tab.id}"
-          data-path={tab.path}
-          style={item.group ? `--ed-tab-group: var(--ed-group-${item.group.color})` : undefined}
-          oncontextmenu={(e) => {
-            e.preventDefault()
-            menu = { tab, x: e.clientX, y: e.clientY }
-          }}
-          onpointerdown={(e) => startDrag(e, tab)}
-          ondblclick={() => panes.togglePin(tab.id)}
-          class="group relative flex max-w-[11rem] min-w-[4rem] shrink-0 touch-none items-center gap-1 border-r border-base-300 pr-1 pl-2 select-none
-            {selected ? 'bg-ed-surface text-base-content' : 'text-base-content/70 hover:bg-base-300'}
-            {dragging.has(tab.id) ? 'opacity-35' : ''}"
-        >
-          {#if item.group}
-            <span
-              aria-hidden="true"
-              class="pointer-events-none absolute inset-x-0 top-0 h-0.5"
-              style="background: var(--ed-tab-group)"
-            ></span>
-          {/if}
-          <button
-            type="button"
-            role="tab"
-            id={tabDomId(tab.id)}
-            aria-selected={selected}
-            aria-controls={panelDomId(tab.id)}
-            tabindex={selected ? 0 : -1}
-            title={tab.path ?? t.untitled()}
-            onclick={(e) => {
-              // The ✕ lives inside the tab (the APG's deletable-tabs pattern):
-              // a real button there would be a control nested in a control,
-              // which is both an axe violation and a second tab stop per tab.
-              if ((e.target as HTMLElement).closest('[data-tab-close]')) panes.closeTab(tab.id)
-              else panes.activate(pane.id, tab.id)
-            }}
-            onkeydown={(e) => onTabKeydown(e, tab)}
-            class="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-xs focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            {#if tab.pinned}
-              <Pin size={10} aria-hidden="true" class="shrink-0" />
-              <span class="sr-only">{t.pinned()}</span>
-            {/if}
-            {#if selected}
-              <span
-                data-testid="tab-live"
-                aria-hidden="true"
-                class="size-1.5 shrink-0 rounded-full bg-primary"
-              ></span>
-              <span class="sr-only">{t.live()}</span>
-            {/if}
-            <span class="truncate">{nameOf(tab)}</span>
-            {#if !tab.pinned}
-              <!-- Decoration, not a control: the keyboard closes a tab with
-                   Delete on the strip, Mod+W, or the tab menu (R8). -->
-              <span
-                data-tab-close
-                aria-hidden="true"
-                data-testid="tab-close:{pane.id}:{tab.id}"
-                class="ml-auto shrink-0 rounded p-0.5 text-base-content/70 hover:bg-base-300 hover:text-base-content
-                  {selected ? 'visible' : 'invisible group-hover:visible'}"
-              >
-                <X size={11} />
-              </span>
-            {/if}
-          </button>
+        <div role="tablist" aria-label={run.label} class="flex items-stretch">
+          {#each run.items as item (item.tab.id)}
+            {@render tabSlot(item)}
+          {/each}
         </div>
       {/if}
     {/each}
@@ -219,7 +264,7 @@
       {/snippet}
       {#snippet children(attrs)}
         {#if moreMenuItems}
-          {@render moreMenuItems(attrs)}
+          {@render moreMenuItems(attrs, pane)}
         {:else}
           <!-- W2 fills this list (open groups ticked, saved groups by
                recency, Show all…). Until then the menu says so rather than

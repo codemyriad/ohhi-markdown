@@ -4,7 +4,10 @@ import {
   closeGroup,
   deleteGroup,
   groupFromLinks,
+  groupPaths,
+  groupRows,
   linksOf,
+  moveGroup,
   newGroup,
   nextGroupColor,
   openSaved,
@@ -268,6 +271,88 @@ describe('groups as portable text (R6)', () => {
     expect(pathsOf(p)).toEqual([null, 'note.md', 'a.md', 'b.md'])
     expect(p.groups[0]).toMatchObject({ name: 'note', color: 1, lastActive: 8 })
     expect(p.groups[0].tabIds).toHaveLength(2)
+  })
+})
+
+describe('a chip drag carries the whole group (Decision 4)', () => {
+  it('lands the run in another pane with its name and colour intact', () => {
+    const { l, gen } = strip('a.md', 'b.md', 'c.md')
+    const { l: grouped, id } = group(l, gen, 'edible', ['a.md', 'b.md'])
+    const two = split(grouped, paneAt(grouped).id, 'row', gen)
+    const target = paneAt(two, 1)
+    const moved = moveGroup(two, id, target.id, 0, gen, 9)
+    const to = paneAt(moved, 1)
+    expect(to.groups).toHaveLength(1)
+    expect(to.groups[0]).toMatchObject({ name: 'edible', color: 1, lastActive: 9 })
+    expect(to.tabs.filter((t) => to.groups[0].tabIds.includes(t.id)).map((t) => t.path)).toEqual([
+      'a.md',
+      'b.md',
+    ])
+    // The source keeps what was not carried, and no longer has the label.
+    expect(paneAt(moved).groups).toEqual([])
+    expect(pathsOf(paneAt(moved))).toEqual([null, 'c.md'])
+  })
+
+  it('re-takes a path already open in the target rather than duplicating it (R3)', () => {
+    const { l, gen } = strip('a.md', 'b.md')
+    const { l: grouped, id } = group(l, gen, 'cluster', ['a.md', 'b.md'])
+    const two = split(grouped, paneAt(grouped).id, 'row', gen)
+    // The split duplicated the active note into the new pane.
+    const target = paneAt(two, 1)
+    expect(pathsOf(target)).toEqual(['b.md'])
+    const moved = moveGroup(two, id, target.id, undefined, gen, 9)
+    const to = paneAt(moved, 1)
+    expect(pathsOf(to)).toEqual(['a.md', 'b.md'])
+    expect(to.groups[0].tabIds).toHaveLength(2)
+  })
+
+  it('inside its own strip it is a reorder of the run', () => {
+    const { l, gen } = strip('a.md', 'b.md', 'c.md', 'd.md')
+    const { l: grouped, id } = group(l, gen, 'cluster', ['b.md', 'c.md'])
+    expect(pathsOf(paneAt(grouped))).toEqual([null, 'a.md', 'b.md', 'c.md', 'd.md'])
+    const moved = moveGroup(grouped, id, paneAt(grouped).id, 5, gen, 9)
+    expect(pathsOf(paneAt(moved))).toEqual([null, 'a.md', 'd.md', 'b.md', 'c.md'])
+    expect(paneAt(moved).groups[0].tabIds).toHaveLength(2)
+  })
+
+  it('stays folded across the move, and never leaves the target with nothing on screen', () => {
+    const { l, gen } = strip('a.md', 'b.md')
+    const { l: grouped, id } = group(l, gen, 'cluster', ['a.md', 'b.md'])
+    const folded = toggleCollapsed(grouped, id, gen)
+    const two = split(folded, paneAt(folded).id, 'row', gen)
+    const other = paneAt(two, 1)
+    const moved = moveGroup(two, id, other.id, 0, gen, 9)
+    const to = paneAt(moved, 1)
+    expect(to.groups[0].collapsed).toBe(true)
+    // A folded tab has no view, so the active tab has to be one of the others.
+    expect(to.groups[0].tabIds).not.toContain(to.active)
+  })
+})
+
+describe('the group lists the menus render', () => {
+  it('reads a group’s notes in strip order', () => {
+    const { l, gen } = strip('a.md', 'b.md', 'c.md')
+    const { l: grouped, id } = group(l, gen, 'cluster', ['c.md', 'a.md'])
+    expect(groupPaths(grouped, id)).toEqual(['c.md', 'a.md'])
+    expect(groupPaths(grouped, 'nope')).toEqual([])
+  })
+
+  it('puts this pane’s groups first, then other panes’, then the list (Decision 8)', () => {
+    const { l, gen } = strip('a.md', 'b.md')
+    const { l: here, id: hereId } = group(l, gen, 'here', ['a.md'])
+    const two = split(here, paneAt(here).id, 'row', gen)
+    const other = paneAt(two, 1)
+    const away = newGroup(two, other.id, other.tabs[0].id, gen, 'away', 100)
+    const saved: SavedGroup[] = [
+      { id: 's1', name: 'old', color: 3, lastActive: 1, tabs: [{ path: 'x.md', cursor: null, scroll: 0 }] },
+      { id: 's2', name: 'newer', color: 4, lastActive: 50, tabs: [{ path: 'y.md', cursor: null, scroll: 0 }] },
+    ]
+    const rows = groupRows(away, paneAt(away).id, saved)
+    expect(rows.map((r) => r.name)).toEqual(['here', 'away', 'newer', 'old'])
+    expect(rows.map((r) => r.open)).toEqual([true, true, false, false])
+    expect(rows[0]).toMatchObject({ id: `open:${hereId}`, here: true, count: 1 })
+    expect(rows[1].here).toBe(false)
+    expect(rows[2]).toMatchObject({ id: 'saved:s2', savedId: 's2', count: 1, paneId: null })
   })
 })
 

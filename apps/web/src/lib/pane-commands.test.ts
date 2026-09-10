@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MODES } from './mode.js'
-import { familyTitle, paneCommands, type PaneActions } from './pane-commands.js'
+import {
+  familyTitle,
+  groupCommands,
+  paneCommands,
+  type GroupActions,
+  type PaneActions,
+} from './pane-commands.js'
 
 function actions(): PaneActions {
   return {
@@ -26,6 +32,17 @@ function actions(): PaneActions {
   }
 }
 
+function groupActions(hasGroup = true): GroupActions {
+  return {
+    newFromActive: vi.fn(),
+    toggle: vi.fn(),
+    close: vi.fn(),
+    copyLinks: vi.fn(),
+    ungroup: vi.fn(),
+    hasGroup: () => hasGroup,
+  }
+}
+
 describe('the pane/tab command table', () => {
   it("carries Chris's rebinds and Obsidian's unrebound tab defaults, verbatim", () => {
     const keys = new Map(paneCommands(actions()).map((c) => [c.id, c.keys ?? '']))
@@ -46,12 +63,12 @@ describe('the pane/tab command table', () => {
   })
 
   it('registers every command the mode tables name — no dead mode letters', () => {
-    const ids = new Set(paneCommands(actions()).map((c) => c.id))
+    const ids = new Set(
+      [...paneCommands(actions()), ...groupCommands(groupActions())].map((c) => c.id)
+    )
     const missing: string[] = []
     for (const [name, table] of Object.entries(MODES)) {
       for (const id of Object.values(table.keys)) {
-        // `group.*` is W2's (C1); everything else must exist now.
-        if (id.startsWith('group.')) continue
         if (!ids.has(id)) missing.push(`${name}:${id}`)
       }
     }
@@ -90,5 +107,39 @@ describe('the pane/tab command table', () => {
     expect(familyTitle('mode.resize')).toBe('resize…')
     // An id the bar should drop rather than print raw.
     expect(familyTitle('group.new')).toBe('')
+  })
+})
+
+describe('the group command table (W2)', () => {
+  it('ships the two keys the shaping doc names, and nothing else', () => {
+    const keys = new Map(groupCommands(groupActions()).map((c) => [c.id, c.keys ?? '']))
+    expect(keys.get('group.new')).toBe('Mod+Shift+g')
+    expect(keys.get('group.toggle')).toBe('Mod+Shift+e')
+    expect(keys.get('group.close')).toBe('')
+    expect(keys.get('group.copy-links')).toBe('')
+    expect(keys.get('group.ungroup')).toBe('')
+  })
+
+  it('hides the four verbs that need a group when the active tab has none', () => {
+    const off = groupCommands(groupActions(false))
+    expect(off.filter((c) => !c.when || c.when()).map((c) => c.id)).toEqual(['group.new'])
+    const on = groupCommands(groupActions(true))
+    expect(on.every((c) => !c.when || c.when())).toBe(true)
+  })
+
+  it('titles every row under Group', () => {
+    for (const c of groupCommands(groupActions())) {
+      expect(c.title, c.id).not.toBe('')
+      expect(c.group, c.id).toBe('Group')
+    }
+  })
+
+  it('runs the action the id promises', () => {
+    const a = groupActions()
+    const byId = new Map(groupCommands(a).map((c) => [c.id, c]))
+    void byId.get('group.new')!.run()
+    expect(a.newFromActive).toHaveBeenCalled()
+    void byId.get('group.copy-links')!.run()
+    expect(a.copyLinks).toHaveBeenCalled()
   })
 })
