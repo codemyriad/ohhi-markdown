@@ -168,7 +168,10 @@ there, and that the header no longer carries presence. The activity test
 (U5) opens an unseeded room so the relay rejects the token: the error toasts
 once, stays in the rail's Activity log with its time, counts as unread on the
 rail icon until the section is viewed, and the developer-tools toggle there
-shows and hides the sync inspector.
+shows and hides the sync inspector. The settings test (U6) drives the tabs
+from the keyboard, refuses an invalid relay URL inline (`aria-invalid` +
+`aria-describedby`), prompts on Escape with unsaved changes, and saves a
+valid change from its own tab.
 
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
 practice) over the vault manager, the workspace with a note open, quick-open,

@@ -110,6 +110,7 @@ test('the theme drives chrome and editor together, and survives a reload', async
     })
 
   await page.getByTestId('open-settings').click()
+  await page.getByTestId('settings-tab:appearance').click()
   await page.getByTestId('theme-nord-dark').click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
   // Nord's --background-primary, resolved through --ed-surface into CM6.

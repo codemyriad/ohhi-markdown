@@ -51,6 +51,12 @@
     showClose?: boolean
     closeTestid?: string
     testid?: string
+    /**
+     * Veto a close (Escape, scrim, ✕): return false to stay open — the dirty
+     * settings form uses it to show its unsaved-changes prompt. `onClose`
+     * itself is never vetoed; the parent calls it when it really is done.
+     */
+    beforeClose?: () => boolean
     onClose: () => void
     children: Snippet
   }
@@ -70,6 +76,7 @@
     showClose = false,
     closeTestid,
     testid,
+    beforeClose,
     onClose,
     children,
   }: Props = $props()
@@ -101,7 +108,8 @@
     // svelte-ignore state_referenced_locally -- fixed at mount
     openFocus: openFocus ?? ((el) => firstTabbable(el) ?? el ?? null),
     closeFocus: () => opener,
-    onOpenChange: ({ next }) => {
+    onOpenChange: ({ curr, next }) => {
+      if (!next && beforeClose && !beforeClose()) return curr
       if (!next) onClose()
       return next
     },

@@ -15,6 +15,8 @@ export interface Form<T extends Record<string, unknown>> {
   /** Live, bindable: `bind:value={form.data.link}`. */
   readonly data: T
   readonly valid: boolean
+  /** True while `data` differs from what was last saved (or the initial values). */
+  readonly dirty: boolean
   readonly busy: boolean
   /** A failure thrown by the submit handler, for the dialog to show. */
   readonly formError: string
@@ -27,6 +29,7 @@ export interface Form<T extends Record<string, unknown>> {
    * dialog stays open so the user can fix and retry.
    */
   submit(handler: (value: T) => Promise<void> | void): Promise<boolean>
+  /** Back to the last saved values. */
   reset(): void
 }
 
@@ -35,12 +38,15 @@ export function createForm<T extends Record<string, unknown>>(
   initial: T
 ): Form<T> {
   let data = $state<T>(structuredClone(initial))
+  /** What the form last saved; `dirty` and `reset()` are relative to it. */
+  let saved = $state<T>(structuredClone(initial))
   let touched = $state<Partial<Record<keyof T, boolean>>>({})
   let submitted = $state(false)
   let busy = $state(false)
   let formError = $state('')
 
   const parsed = $derived(schema.safeParse(data))
+  const dirty = $derived(JSON.stringify($state.snapshot(data)) !== JSON.stringify($state.snapshot(saved)))
   const errors = $derived.by(() => {
     const out: Partial<Record<keyof T, string[]>> = {}
     if (!parsed.success) {
@@ -58,6 +64,9 @@ export function createForm<T extends Record<string, unknown>>(
     },
     get valid() {
       return parsed.success
+    },
+    get dirty() {
+      return dirty
     },
     get busy() {
       return busy
@@ -78,6 +87,7 @@ export function createForm<T extends Record<string, unknown>>(
       formError = ''
       try {
         await handler(parsed.data)
+        saved = structuredClone($state.snapshot(data)) as T
         return true
       } catch (err) {
         formError = err instanceof Error ? err.message : String(err)
@@ -87,7 +97,7 @@ export function createForm<T extends Record<string, unknown>>(
       }
     },
     reset() {
-      data = structuredClone(initial)
+      data = structuredClone($state.snapshot(saved)) as T
       touched = {}
       submitted = false
       formError = ''

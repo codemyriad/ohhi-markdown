@@ -228,3 +228,46 @@ test('a workspace error toasts once and stays in Activity with its time; the bad
   await activity.getByTestId('activity-clear').click()
   await expect(activity.getByTestId('activity-section')).toContainText('Nothing to report')
 })
+
+test('settings are tabs: keyboard between them, validated forms with their own Save, and an unsaved-changes guard on close', async ({
+  page,
+}) => {
+  await openApp(page, 'chrome-settings')
+  await page.keyboard.press('ControlOrMeta+,')
+  const dialog = page.getByTestId('settings-panel')
+  await expect(dialog).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true')
+
+  // Arrow keys move between tabs (vertical list → down).
+  await page.getByRole('tab', { name: 'General' }).focus()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('tab', { name: 'Sync' })).toHaveAttribute('aria-selected', 'true')
+
+  // An invalid relay URL is refused inline, wired to the control.
+  const relay = page.getByTestId('settings-relay')
+  await relay.fill('http://not-a-relay')
+  await relay.blur()
+  await expect(relay).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.getByTestId('field-errors:relay')).toContainText('starts with ws://')
+
+  // Escape with unsaved (and invalid) changes prompts instead of closing.
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
+  await expect(page.getByTestId('settings-unsaved')).toBeVisible()
+  await page.getByTestId('settings-discard').click()
+  await expect(dialog).toHaveCount(0)
+
+  // A valid change saves from its own tab and survives a reopen.
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:sync').click()
+  await page.getByTestId('settings-relay').fill('wss://relay.example.test')
+  await page.getByTestId('settings-save-sync').click()
+  await expect(page.getByTestId('settings-save-sync')).toBeDisabled()
+  await page.getByTestId('settings-close').click()
+  await expect(dialog).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:sync').click()
+  await expect(page.getByTestId('settings-relay')).toHaveValue('wss://relay.example.test')
+  await page.getByTestId('settings-close').click()
+})
