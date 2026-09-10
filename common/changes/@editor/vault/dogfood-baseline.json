@@ -1,0 +1,25 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "Your files stay the source of truth. Edits made outside the app — in Obsidian, in git, by an agent — are reconciled in, and a file the app did not change is never rewritten, so no spurious diffs appear in git.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "Vault state survives a crash: documents, the journal and merge bases are stored durably, and an operation interrupted part-way is recovered on the next start rather than abandoned.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "Folders can be carved out into their own shared mount and folded back again, with crash recovery at every step of the move.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/vault",
+      "comment": "Fixed a race where a document reconciling against itself could bring back stale content. Merge bases are now taken as one consistent snapshot and reconciles are serialised per document.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/vault"
+}

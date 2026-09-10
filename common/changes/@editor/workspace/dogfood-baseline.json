@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A vault is a workspace of mounts, so a folder shared with you can live inside a vault you already have.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Starting up is a recovery step: an incomplete previous session is resumed rather than wiped, which is what used to happen when joining a share.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/workspace"
+}

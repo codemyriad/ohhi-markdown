@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/desktop",
+      "comment": "Run as a native desktop app against a real folder on disk, with no browser storage sandbox in between.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/desktop",
+      "comment": "Fixed durable state failing to save on the desktop app: its own data directory was outside the permitted filesystem scope, which could cost you sync state across a restart.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/desktop"
+}
