@@ -12,7 +12,10 @@
  * now be relay-attached. When it is, the detach transaction ALSO writes a
  * `kind:'mount'` entry at the mount root, so every peer of the parent room
  * learns where the subtree went in the same transaction that removes it —
- * that entry is the peer-side adopt machine's trigger. The V1 "this vault is
+ * that entry is the peer-side adopt machine's trigger. It carries the SEED:
+ * the new room's folder-doc state exactly as seeded here, so every peer
+ * applies one update instead of building its own history (spike S10 Q1;
+ * `fuzz-crashers/0003` is what happens without it). The V1 "this vault is
  * itself shared" refusal is gone with it. Still refused elsewhere and
  * unchanged: a carve whose subtree contains or sits inside another mount
  * (MountRegistry.nests + the tree's eligibility rules) — that is the depth-1
@@ -55,7 +58,7 @@ export async function carveFolder(opts: CarveOptions): Promise<void> {
     relay: { url: opts.relayUrl },
     status: 'carving:seeding',
   })
-  await opts.root.seedCarveStores(opts.mountPath, targetDir)
+  const seeded = await opts.root.seedCarveStores(opts.mountPath, targetDir)
   await opts.mountsFile.setStatus(opts.room, 'carving:detaching')
   opts.addIgnore(opts.mountPath)
   // Relay-attached parent → announce the mount to its peers in the same
@@ -67,7 +70,9 @@ export async function carveFolder(opts: CarveOptions): Promise<void> {
   // The detach re-flushes each doc's CURRENT state before destroying it.
   await opts.root.detachSubtree(
     opts.mountPath,
-    opts.root.isShared() ? { room: opts.room, relay: opts.relayUrl } : undefined,
+    opts.root.isShared()
+      ? { room: opts.room, relay: opts.relayUrl, seed: seeded.seed }
+      : undefined,
     { targetDir }
   )
   await opts.mountsFile.setStatus(opts.room, 'active')

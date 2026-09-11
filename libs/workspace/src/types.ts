@@ -56,6 +56,12 @@ export interface MountEntryInfo {
   /** The room GUID (the map entry's `guid`). */
   room: string
   relay?: string
+  /**
+   * base64 of the new room's folder-doc state, as the announcer wrote it
+   * (`FileEntry.seed`). Absent above the size cap — then a peer with a token
+   * pulls the room instead of seeding (spike S10 Q1).
+   */
+  seed?: string
 }
 
 /**

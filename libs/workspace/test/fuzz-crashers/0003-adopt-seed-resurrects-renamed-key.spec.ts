@@ -1,42 +1,42 @@
 /**
  * L1 nested fuzz, seed -1271110186 (2026-09-10), shrunk to
  * `[carve(a), renameFile(a, inside the mount), deliver(3)]` and then to the
- * three lines below. SKIPPED: the fix is a design change to the adopt's
- * membership seeding (spike S10 Q1), not a local bug.
+ * three lines below. FIXED 2026-09-10 by the announced SEED (spike S10 Q1);
+ * this spec is the permanent regression.
  *
  * A carves `other/`, then renames a file INSIDE the new mount before B has
- * adopted. B then adopts, and `seedCarveStores` builds B's copy of the mount's
- * folder doc as a FRESH Yjs history — B `set`s `side.md` itself, in a
- * transaction A's document has never seen. A's rename hard-deleted `side.md`
+ * adopted. B then adopts, and `seedCarveStores` used to build B's copy of the
+ * mount's folder doc as a FRESH Yjs history — B `set` `side.md` itself, in a
+ * transaction A's document had never seen. A's rename hard-deleted `side.md`
  * (`VaultSession.renameFile` does `m.delete(from); m.set(to, entry)`), and a
  * hard delete only applies to a history that contains the op it deletes. B's
- * seed does not, so the merge is a UNION:
+ * seed did not, so the merge was a UNION:
  *
  *     A mount map: side.md = g, r2.md = g
  *     B mount map: side.md = g, r2.md = g
  *     A disk:      other/side.md
  *     B disk:      other/r2.md
  *
- * One guid at two live paths in one room — A6's first clause — and the two
- * disks are permanently divergent, with no review raised on either. Any map
- * change the carver makes between the carve and a peer's adopt has this shape:
- * a rename resurrects the old key, a delete can be undeleted.
+ * One guid at two live paths in one room — A6's first clause — and two
+ * permanently divergent disks, with no review raised on either. Any map change
+ * the carver made between the carve and a peer's adopt had this shape: a
+ * rename resurrected the old key, a delete could be undeleted.
  *
- * Why it is not a local fix. The seed is what lets a peer adopt without
- * re-fetching content, and what lets a `needs-token` mount work with no room
- * at all (S10 Q2) — so it cannot simply be dropped in favour of pulling the
- * map. Making the two seeds produce the SAME ops (a deterministic clientID)
- * is worse than the disease: two devices whose membership differs by one file
- * would then mint different ops under the same (clientID, clock), which is
- * CRDT corruption rather than a merge artifact. The real answer is a
- * tie-break the map can express — the peer's seeded entries must lose to the
- * room's — and that is a schema/protocol decision for S10 Q1, taken with the
- * plan open.
+ * The fix. The carver's seeded folder-doc state travels WITH the
+ * announcement — `FileEntry.seed`, base64 of
+ * `encodeUpdateSince(mountFolderDoc, null)`, written in the same transaction
+ * as the `kind:'mount'` entry — and every peer seeds by APPLYING that update
+ * to a fresh doc. One history on every device, so a hard delete anywhere
+ * deletes everywhere. Membership comes from the seeded map, which also ends
+ * the orphan-LCA resurrection class (crasher 0007's shape). Above a 64 KB cap
+ * the seed is omitted and the peer pulls the room instead; a peer that pulls
+ * gets the room's own history, which is the same guarantee by another route.
  *
- * Until then the fuzz will not manufacture this window: it only reshapes a
- * mount's tree once both devices' copies of that room's map agree, which is
- * exactly the point at which the two histories have merged. See
- * `reshapable()` in `../l1-nested-fuzz.test.ts`.
+ * The alternatives, recorded as rejected: dropping the seed in favour of
+ * always pulling breaks the `needs-token` mount, which must work with no room
+ * at all (S10 Q2); making the two seeds produce identical ops via a
+ * deterministic clientID is CRDT corruption the moment two devices' membership
+ * differs by one file.
  */
 import { describe, expect, it } from 'vitest'
 import { bootDuo, carveOn, checkInvariants, diskSnapshot } from '../fixture.js'
@@ -45,7 +45,7 @@ const RELAY = 'ws://relay.test'
 const ROOM = 'room-0'
 const TOKEN = { url: RELAY, token: 'tok' }
 
-describe.skip('crasher 0003 — the adopt seed resurrects a key the carver removed', () => {
+describe('crasher 0003 — the adopt seed resurrects a key the carver removed', () => {
   it('leaves one guid at one path, and the two disks identical', async () => {
     const duo = await bootDuo({
       files: { 'keep.md': '# keep\n', 'other/side.md': '# side\n' },
@@ -62,7 +62,7 @@ describe.skip('crasher 0003 — the adopt seed resurrects a key the carver remov
 
       for (const dev of [duo.a, duo.b]) {
         expect(dev.mounts.get('other')!.files().map((r) => r.path)).toEqual(['r2.md'])
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
       expect(await diskSnapshot(duo.a.adapter)).toEqual(await diskSnapshot(duo.b.adapter))
     } finally {

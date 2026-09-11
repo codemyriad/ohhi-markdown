@@ -12,7 +12,7 @@
     },
     {
       "packageName": "@editor/web",
-      "comment": "Folders of a vault that is shared as a whole can now be shared with other people; the menu no longer refuses them. Sharing a folder inside a shared folder is still refused, and still says why.",
+      "comment": "Folders of a vault that is synced to your own devices can now be shared with other people; the menu no longer refuses them. Sharing a folder inside a shared folder is still refused, and still says why.",
       "type": "minor"
     },
     {

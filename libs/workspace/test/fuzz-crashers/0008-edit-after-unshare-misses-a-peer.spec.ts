@@ -1,34 +1,39 @@
 /**
  * L1 nested fuzz, seed 1994878552 path 267:2:0:0:1:4:7:7:7:5:5 (2026-09-10),
  * shrunk to `[carve, sync, unshare, edit]` — and then, on the bench, to
- * something with no race in it at all. SKIPPED: not root-caused, and big
- * enough that it wants the plan open rather than a patch here.
+ * something with no race in it at all. FIXED 2026-09-10; this spec is the
+ * permanent regression.
  *
  * A carves `other/`, B adopts it, A unshares it again, everything is delivered
  * and B's absorb has completed (`B mounts: []`). Then A edits the note. A's
- * disk takes the edit. B's never does:
+ * disk took the edit. B's never did:
  *
- *     A disk: "[m0]\n# side\n\nanother folder\n"
- *     B disk: "# side\n\nanother folder\n"
+ *     A disk: "[m0]\\n# side\\n\\nanother folder\\n"
+ *     B disk: "# side\\n\\nanother folder\\n"
  *
  * No partition, no crash, nothing in flight, no review on either side. After
- * an unshare round trip the two devices' copies of a note are simply no longer
- * connected, and every edit from then on is one-sided. Sharing a folder and
- * then stopping sharing it is an ordinary thing to do, and this leaves the
- * vault silently split.
+ * an unshare round trip the two devices' copies of a note were simply no
+ * longer connected, and every edit from then on was one-sided.
  *
- * Where to look. Both sides rebuild their root session from stores at the end
- * of the absorb (`unshareMount` on the owner, `absorbAdopted`'s `withRootDown`
- * on the peer) and restore the doc from the blob the mount namespace held.
- * Something in that rebuild leaves one side's doc off the room — a provider
- * that is never re-attached for a guid the root did not have when it started,
- * or a doc instance replaced after the subscription was made. Check what
- * `tryDurableReopen` attaches for entries that arrive through `absorbMount`
- * rather than through the folder blob it booted with.
+ * Root cause: a SHUT-DOWN session finishing its map-work chain.
+ * `MountSession`'s folder-map observer queues two things for one foreign
+ * change — the mount-entry hook (which is the adopt/absorb machine) and then
+ * its own `scanMap`. The peer's absorb runs INSIDE that hook: it shuts the
+ * root down, folds the mount's stores back in, and rebuilds the root. Then the
+ * queued `scanMap` ran — on the dead session, whose `docs` map `shutdown()`
+ * had just cleared. It saw every entry in the map as a guid it had no doc for
+ * and called `adoptEntry` on each:
  *
- * The nested fuzz keeps `unshare` off by default (`NESTED_FUZZ_OPEN=1` turns
- * it back on, with the tree renames) so it stops re-reporting this one; the
- * unshare/absorb paths are covered directly in `nested.test.ts`.
+ *  - a NEVER_ON_DISK LCA record written over the one `absorbMount` had just
+ *    copied into the root namespace, and
+ *  - a fresh doc instance plus a relay provider for a guid the REBUILT session
+ *    already owned — so the room's traffic went to an instance nobody reads
+ *    and the live doc was left off the room.
+ *
+ * The fix is one flag: `MountSession.stopped`, set the instant teardown
+ * begins, guarding the observer and both map-work entry points. Teardown is
+ * called from the middle of a chain by design (the absorb, the re-key, the
+ * re-point), so "no work after shutdown" has to be enforced, not assumed.
  */
 import { describe, expect, it } from 'vitest'
 import { bootDuo, carveOn, dec } from '../fixture.js'
@@ -42,7 +47,7 @@ const RELAY = 'ws://relay.test'
 const ROOM = 'room-0'
 const TOKEN = { url: RELAY, token: 'tok' }
 
-describe.skip('crasher 0008 — after an unshare round trip, edits stop reaching the peer', () => {
+describe('crasher 0008 — after an unshare round trip, edits stop reaching the peer', () => {
   it('an edit on the owner still lands on the peer', async () => {
     const duo = await bootDuo({
       files: FILES,

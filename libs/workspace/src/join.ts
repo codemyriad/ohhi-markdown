@@ -34,6 +34,18 @@ export interface JoinMountOptions {
   baseAdapter: VaultAdapter
   /** Current mount roots (nesting/overlap guard). */
   existingMountPaths: string[]
+  /**
+   * The root map's `kind:'mount'` entries, if the caller can supply them
+   * (`MountSession.mountEntries()`). `existingMountPaths` is what THIS device
+   * runs — mounts.json; the map is what every peer of the root agreed. A
+   * folder another device carved seconds ago is a mount ENTRY here before it
+   * is a desc, and joining into it would make a mount inside a mount on every
+   * device (spike S10 Q5 row 11's prevention-at-the-source — the guard
+   * `carveFolder`'s caller has had since N1). Defensive and optional: the
+   * shim checks the same thing before calling, and a private root has no
+   * entries at all.
+   */
+  mapEntries?: { path: string }[]
   /** Workspace-relative destination dir — absent or empty (spike Q4 guard). */
   mountPath: string
   room: string
@@ -52,7 +64,11 @@ export interface JoinMountOptions {
 export async function joinMount(opts: JoinMountOptions): Promise<MountSession> {
   const path = opts.mountPath
   if (!path) throw new Error('choose a destination folder for the shared content')
-  for (const existing of opts.existingMountPaths) {
+  const overlapping = [
+    ...opts.existingMountPaths,
+    ...(opts.mapEntries ?? []).map((e) => e.path),
+  ]
+  for (const existing of overlapping) {
     if (existing === path || existing.startsWith(`${path}/`) || path.startsWith(`${existing}/`)) {
       throw new Error(`'${path}' overlaps the shared folder '${existing}'`)
     }
@@ -88,7 +104,16 @@ export async function joinMount(opts: JoinMountOptions): Promise<MountSession> {
       path,
       announce ? { room: opts.room, relay: opts.relayUrl } : undefined
     )
-    return await opts.buildSession() // firstJoin pull; upserts 'active' itself
+    const session = await opts.buildSession() // firstJoin pull; upserts 'active' itself
+    // The SEED goes on the entry only now: a join's folder state is whatever
+    // the room hands over, and that only exists once the awaited pull has
+    // finished (spike S10 Q1). Re-`set`ting the same key is one extra map op
+    // and buys every peer of this root the identical history for the foreign
+    // room, instead of one seeded from a subtree they never held.
+    if (announce) {
+      await opts.root.setMountEntry(path, opts.room, opts.relayUrl, session.folderState())
+    }
+    return session
   } catch (err) {
     // Live rollback — the exact surgery recoverMounts would run at next boot,
     // plus (N1) the retraction of the announcement: a mount entry left behind

@@ -109,6 +109,24 @@ describe('join-as-mount — guards (L1 fixture 5)', () => {
     await expect(joinMount({ ...opts, mountPath: 'busy' })).rejects.toThrow(/not empty/)
     await expect(joinMount({ ...opts, mountPath: 'other-mount/sub' })).rejects.toThrow(/overlaps/)
     await expect(joinMount({ ...opts, mountPath: '' })).rejects.toThrow(/destination/)
+    // The ROOT MAP's mount entries overlap too (M10). `existingMountPaths` is
+    // mounts.json — what THIS device runs; a folder another of this person's
+    // devices carved seconds ago is a `kind:'mount'` ENTRY here before it is a
+    // desc, and joining at or under it would make a mount inside a mount on
+    // every peer of the root (spike S10 Q5 row 11 — the guard `carveFolder`'s
+    // caller has had since N1).
+    const mapEntries = [{ path: 'announced' }]
+    await expect(joinMount({ ...opts, mapEntries, mountPath: 'announced' })).rejects.toThrow(
+      /overlaps/
+    )
+    await expect(joinMount({ ...opts, mapEntries, mountPath: 'announced/sub' })).rejects.toThrow(
+      /overlaps/
+    )
+    await expect(joinMount({ ...opts, mapEntries: [{ path: 'a/b/c' }], mountPath: 'a' })).rejects.toThrow(
+      /overlaps/
+    )
+    // Nothing was persisted by any of them.
+    expect((await vault.mountsFile.load()).some((m) => m.room === ROOM)).toBe(false)
     // A SHARED root is no longer a guard (N1, device-link-shaping A5) — the
     // join proceeds and rolls back on the pull failure like any other, and the
     // announcement it made is retracted with it.

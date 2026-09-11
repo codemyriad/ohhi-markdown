@@ -17,6 +17,18 @@ const row = (path: string, kind: FileRow['kind'] = 'text'): FileRow => ({
   guid: `g:${path}`,
 })
 
+/**
+ * The shell's one `MountLike` (owned by share-status.ts, re-exported here).
+ * The tree reads path/provenance/status; the type carries the whole mount so
+ * the tree and the rail can never be handed different shapes of the same
+ * folder.
+ */
+const mount = (
+  path: string,
+  provenance: MountLike['provenance'],
+  status: MountLike['status'] = 'active'
+): MountLike => ({ path, provenance, status, room: `room:${path}`, link: null })
+
 describe('buildTree', () => {
   it('nests by path segments, dirs first, alphabetical within groups', () => {
     const tree = buildTree([
@@ -113,20 +125,20 @@ describe('treeMenuItems', () => {
   })
 
   it('refuses Share for folders that would nest with an existing mount', () => {
-    const mounts: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const mounts: MountLike[] = [mount('team', 'carved')]
     const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts, rootShared: false })
     expect(inside.find((i) => i.action === 'share')!.disabled).toBe(true)
     expect(inside.find((i) => i.action === 'share')!.reason).toContain("'team'")
 
     // A parent of a mount is refused for the same reason, from the other side.
-    const nested: MountLike[] = [{ path: 'team/inner', provenance: 'joined' }]
+    const nested: MountLike[] = [mount('team/inner', 'joined')]
     const parent = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts: nested, rootShared: false })
     expect(parent.find((i) => i.action === 'share')!.disabled).toBe(true)
     expect(parent.find((i) => i.action === 'share')!.reason).toContain("'team/inner'")
   })
 
   it('replaces Share with share management on a mount root', () => {
-    const carved: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const carved: MountLike[] = [mount('team', 'carved')]
     expect(actions({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })).toEqual([
       'new-file',
       'new-folder',
@@ -140,7 +152,7 @@ describe('treeMenuItems', () => {
   })
 
   it('refuses Add-a-shared-folder where a joined mount would nest, with the rule spelled out', () => {
-    const carved: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const carved: MountLike[] = [mount('team', 'carved')]
     const onRoot = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })
     expect(onRoot.find((i) => i.action === 'add-share')!.disabled).toBe(true)
     expect(onRoot.find((i) => i.action === 'add-share')!.reason).toContain("'team'")
@@ -156,7 +168,7 @@ describe('treeMenuItems', () => {
   })
 
   it('adds Unmount only for a joined mount', () => {
-    const joined: MountLike[] = [{ path: 'team', provenance: 'joined' }]
+    const joined: MountLike[] = [mount('team', 'joined')]
     expect(actions({ kind: 'dir', path: 'team' }, { mounts: joined, rootShared: false })).toContain(
       'unmount'
     )
@@ -164,7 +176,7 @@ describe('treeMenuItems', () => {
 
 
   it('cannot rename, move or delete a mount root — the reason is stated, the item stays', () => {
-    const carved: MountLike[] = [{ path: 'team', provenance: 'carved' }]
+    const carved: MountLike[] = [mount('team', 'carved')]
     const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })
     for (const action of ['rename', 'move', 'delete'] as const) {
       const item = items.find((i) => i.action === action)!
@@ -179,7 +191,7 @@ describe('treeMenuItems', () => {
   })
 
   it('offers Add link… on a needs-token mount root, and says why the rest is inert', () => {
-    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    const mounts: MountLike[] = [mount('team', 'adopted', 'needs-token')]
     const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })
     expect(items.map((i) => i.action)).toEqual([
       'new-file',
@@ -206,7 +218,7 @@ describe('treeMenuItems', () => {
       ['adopting', 'attached'],
       ['absorbing', 'folded back'],
     ] as const) {
-      const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status }]
+      const mounts: MountLike[] = [mount('team', 'adopted', status)]
       const items = treeMenuItems({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })
       const manage = items.find((i) => i.action === 'manage')!
       expect(manage.disabled).toBe(true)
@@ -218,7 +230,7 @@ describe('treeMenuItems', () => {
   })
 
   it('treats an ACTIVE adopted mount like a share of your own that can also be dropped', () => {
-    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'active' }]
+    const mounts: MountLike[] = [mount('team', 'adopted', 'active')]
     expect(actions({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })).toEqual([
       'new-file',
       'new-folder',
@@ -233,7 +245,7 @@ describe('treeMenuItems', () => {
   })
 
   it('still refuses Share inside a needs-token mount — mounts do not nest', () => {
-    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    const mounts: MountLike[] = [mount('team', 'adopted', 'needs-token')]
     const inside = treeMenuItems({ kind: 'dir', path: 'team/sub' }, { mounts, rootShared: true })
     expect(inside.find((i) => i.action === 'share')!.disabled).toBe(true)
     expect(inside.find((i) => i.action === 'share')!.reason).toContain("'team'")
@@ -257,14 +269,14 @@ describe('filterRows — provenance is ui.mounts, not isShared()', () => {
   it('keeps a needs-token mount SHARED: it has no relay, its files are still not local', () => {
     // spike S10 Q2: filtering on the session's isShared() would file these
     // under "Local only", which is the one thing they are not.
-    const mounts: MountLike[] = [{ path: 'team', provenance: 'adopted', status: 'needs-token' }]
+    const mounts: MountLike[] = [mount('team', 'adopted', 'needs-token')]
     expect(filterRows(rows, 'shared', mounts, false).map((r) => r.path)).toEqual(['team/a.md'])
     expect(filterRows(rows, 'local', mounts, false).map((r) => r.path)).toEqual(['notes/b.md'])
     expect(filterRows(rows, 'all', mounts, false)).toHaveLength(2)
   })
 
   it('counts every row as shared in a root-shared vault, and ignores the root mount entry', () => {
-    const mounts: MountLike[] = [{ path: '', provenance: 'local' }]
+    const mounts: MountLike[] = [mount('', 'local')]
     expect(filterRows(rows, 'shared', mounts, true)).toHaveLength(2)
     expect(filterRows(rows, 'shared', mounts, false)).toHaveLength(0)
   })
@@ -274,9 +286,9 @@ describe('mountRoots', () => {
   it('is every shared subtree, whatever state it is in, never the root mount', () => {
     expect(
       mountRoots([
-        { path: '', provenance: 'local' },
-        { path: 'team', provenance: 'carved' },
-        { path: 'design', provenance: 'adopted', status: 'needs-token' },
+        mount('', 'local'),
+        mount('team', 'carved'),
+        mount('design', 'adopted', 'needs-token'),
       ])
     ).toEqual(['team', 'design'])
   })

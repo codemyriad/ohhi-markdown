@@ -39,7 +39,15 @@ import { expect } from 'vitest'
 import { carveFolder } from '../src/carve.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
-import { mountInvariants, reconcileMountEntries, type AdoptContext, type AdoptNotice } from '../src/adopt.js'
+import {
+  bootFlagsFor,
+  mountInvariants,
+  mountStoreInvariants,
+  reconcileMountEntries,
+  type AdoptContext,
+  type AdoptedMountOptions,
+  type AdoptNotice,
+} from '../src/adopt.js'
 import type { RelayConfig, SyncRecordFields } from '../src/types.js'
 
 export const enc = new TextEncoder()
@@ -56,7 +64,11 @@ export function crashingDir(base: StoreDir, budget: number): StoreDir {
     if (left <= 0) throw new Error('injected-crash')
     left--
   }
-  return {
+  // The binding names THIS dir, not `base` (see StoreIo.binding): a wrapper
+  // that drops it hands the LCA store the pre-S10 whole-file layout and routes
+  // its per-record writes past the crash injection, so the matrix would sweep
+  // a write sequence the product never performs.
+  const dir: StoreDir = {
     io: (name): StoreIo => {
       const io = base.io(name)
       return {
@@ -65,6 +77,7 @@ export function crashingDir(base: StoreDir, budget: number): StoreDir {
           spend()
           await io.writeAtomic(bytes)
         },
+        binding: { dir, name },
       }
     },
     remove: async (name) => {
@@ -73,6 +86,7 @@ export function crashingDir(base: StoreDir, budget: number): StoreDir {
     },
     list: (prefix) => base.list(prefix),
   }
+  return dir
 }
 
 /**
@@ -138,7 +152,7 @@ export function makeCut(): Cut {
 
 /** A device's stores behind a `Cut`. */
 export function cuttableDir(base: StoreDir, cut: Cut = makeCut()): StoreDir {
-  return {
+  const dir: StoreDir = {
     io: (name): StoreIo => {
       const io = base.io(name)
       return {
@@ -146,6 +160,7 @@ export function cuttableDir(base: StoreDir, cut: Cut = makeCut()): StoreDir {
         writeAtomic: async (bytes) => {
           if (cut.spend()) await io.writeAtomic(bytes)
         },
+        binding: { dir, name },
       }
     },
     remove: async (name) => {
@@ -153,6 +168,7 @@ export function cuttableDir(base: StoreDir, cut: Cut = makeCut()): StoreDir {
     },
     list: (prefix) => base.list(prefix),
   }
+  return dir
 }
 
 /** A device's DISK behind the same `Cut` as its stores. */
@@ -574,17 +590,19 @@ export async function bootVault(
    * this fixture's providers never connect (DeadSocket). Tests assert the
    * DECISION through `events.builds`; the pull itself is the join suite's.
    */
-  const buildMount = async (o: {
-    room: string
-    path: string
-    provenance: MountDesc['provenance']
-    relay?: RelayConfig
-    firstJoin?: boolean
-  }): Promise<MountSession> => {
+  const buildMount = async (o: AdoptedMountOptions): Promise<MountSession> => {
     events.builds.push({ room: o.room, path: o.path, firstJoin: o.firstJoin === true })
     return makeSession(o.room, scopedAdapter(base, o.path), o.path, {
       provenance: o.provenance,
       ...(o.relay ? { relay: o.relay } : {}),
+      // `firstJoin` is passed THROUGH — it decides boot ordering, and a mount
+      // told to pull must skip `tryDurableReopen` here exactly as it does in
+      // the product — but the pull itself cannot run (this fixture's sockets
+      // never open), so `neverHeld` stands in for it: boot empty, enrol
+      // nothing. Tests assert the DECISION through `events.builds`.
+      ...(o.firstJoin ? { firstJoin: true } : {}),
+      ...(o.neverHeld || o.firstJoin ? { neverHeld: true } : {}),
+      ...(o.onPullProgress ? { events: { onPullProgress: o.onPullProgress } } : {}),
     })
   }
 
@@ -651,6 +669,10 @@ export async function bootVault(
         path: desc.path,
         provenance: desc.provenance,
         ...(relay ? { relay } : {}),
+        // Derived together, exactly as the shim does: PULL with a credential,
+        // wait empty without one. Neither flag on a `neverHeld` desc drops an
+        // adopted mount into the fresh-vault enrol (N3).
+        ...bootFlagsFor(desc, relay),
       })
     )
   }
@@ -914,23 +936,72 @@ export async function bootDuo(opts: DuoOptions): Promise<Duo> {
 export function applyForeignCarve(
   dev: BootedVault,
   prefix: string,
-  mount: { room: string; relay?: string },
+  mount: { room: string; relay?: string; seed?: boolean; omit?: readonly string[] },
   rootRoom = 'root-room'
 ): void {
+  const pre = `${prefix}/`
   applyForeignMap(
     dev,
     (m) => {
+      // The SEED the carver would have announced: its own copy of the new
+      // room's folder doc, built from the entries it is about to delete
+      // (`seedCarveStores`). Every peer applies this one update instead of
+      // re-`set`ting the keys itself, which is what makes the two histories
+      // one — see `fuzz-crashers/0003`. `seed: false` models the over-cap
+      // announcement, which carries none.
+      // `omit` is what the CARVER never saw: a file this device enrolled on
+      // its own while the carver was elsewhere. It is in our map and not in
+      // their seed, which is exactly what makes it a ghost.
+      const subtree = m
+        .entries()
+        .filter(
+          ([p, e]) =>
+            !e.deleted &&
+            e.kind !== 'mount' &&
+            p.startsWith(pre) &&
+            !(mount.omit ?? []).includes(p)
+        )
+      const tmp = dev.engine.createDoc(`carve-seed:${crypto.randomUUID()}`)
+      tmp.transactMap((t) => {
+        for (const [p, e] of subtree) t.set(p.slice(pre.length), e)
+      }, 'seed')
+      const seed = mount.seed === false ? undefined : encodeSeed(dev.engine.encodeUpdateSince(tmp, null))
+      tmp.destroy()
       for (const [p] of m.entries()) {
-        if (p === prefix || p.startsWith(`${prefix}/`)) m.delete(p)
+        if (p === prefix || p.startsWith(pre)) m.delete(p)
       }
       m.set(prefix, {
         guid: mount.room,
         kind: 'mount',
         ...(mount.relay ? { relay: mount.relay } : {}),
+        ...(seed ? { seed } : {}),
       })
     },
     rootRoom
   )
+}
+
+/**
+ * A session's mount entries WITHOUT their seeds — the shape assertions about
+ * "where the nested share is" want. The seed is a whole folder-doc state and
+ * belongs in its own assertion (`carve.test.ts` pins that it is there and that
+ * a peer builds the identical history from it).
+ */
+export function announcedMounts(session: MountSession): { path: string; room: string; relay?: string }[] {
+  return session.mountEntries().map(({ path, room, relay }) => ({
+    path,
+    room,
+    ...(relay ? { relay } : {}),
+  }))
+}
+
+/** base64 of a Yjs update — the wire form of `FileEntry.seed`. */
+export function encodeSeed(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return btoa(binary)
 }
 
 /**
@@ -1000,12 +1071,16 @@ export async function carveOn(
  * surviving desc settled. Run it after every command, not only at the end —
  * the interesting failures are transient.
  */
-export function checkInvariants(device: BootedVault): void {
+export async function checkInvariants(device: BootedVault): Promise<void> {
   const problems = mountInvariants({
     descs: device.descs(),
     ignore: device.ignore,
     mounts: device.registry(),
   })
   expect(problems).toEqual([])
+  // The STORE half (M5): a map-only invariant cannot see a guid whose blob and
+  // LCA record are still in the parent's namespace after its key moved.
+  const rooms = device.registry().map((h) => h.session.room)
+  expect(await mountStoreInvariants(device.vaultDir, rooms)).toEqual([])
   for (const desc of device.descs()) expect(isRecoverable(desc.status)).toBe(false)
 }

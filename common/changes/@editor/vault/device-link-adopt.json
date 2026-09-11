@@ -2,7 +2,7 @@
   "changes": [
     {
       "packageName": "@editor/vault",
-      "comment": "A shared folder that is being folded back into a vault on one of your other devices is recorded as such, so an interrupted fold-back is finished at the next start instead of being started over.",
+      "comment": "A shared folder being folded back into a vault survives an interruption: a crash or a quit part-way through is finished the next time the vault opens, rather than started over.",
       "type": "minor"
     }
   ],

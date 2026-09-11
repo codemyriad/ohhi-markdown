@@ -7,6 +7,11 @@
 import { pillStatus, worstStatus, type PillStatus, type SyncRecordSnapshot } from './pill-status.js'
 import type { MountUiStatus } from './workspace.svelte.js'
 
+/**
+ * The shell's one mount shape — `tree-model.ts` re-exports THIS type rather
+ * than keeping its own narrower copy, so the tree menu and the rail can never
+ * be handed different facts about the same folder. `MountInfo` satisfies it.
+ */
 export interface MountLike {
   path: string
   room: string

@@ -10,14 +10,16 @@
    * file on disk touched, so the copy has to say something quite different
    * from "join this into your vault".
    *
-   * The link is validated twice on purpose: it must look like a share link,
-   * and — when the caller knows the mount's room — it must be a link for THIS
-   * folder. Refusing at the field with a reason beats a round-trip that comes
-   * back as a toast.
+   * The link is validated three times on purpose: it must look like a share
+   * link, it must not be a DEVICE link (a key to a whole vault, R5 — the
+   * workspace refuses it too, but a refusal at the field is the one a person
+   * sees), and — when the caller knows the mount's room — it must be a link
+   * for THIS folder. Refusing at the field with a reason beats a round-trip
+   * that comes back as a toast.
    */
   import { z } from 'zod'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import { decodeShareLink, looksLikeShareLink } from '../share-link.js'
+  import { decodeShareLink, looksLikeShareLink, shareLinkErrorText } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'
   import Dialog from '../ui/Dialog.svelte'
@@ -39,14 +41,24 @@
 
   const t = $derived($LL.web.mounts.dialog)
 
-  /** A link we cannot decode is the FIRST rule's business, not this one's. */
+  /** A link we cannot decode is the FIRST rule's business, not these ones'. */
+  function decoded(link: string): ReturnType<typeof decodeShareLink> | null {
+    try {
+      return decodeShareLink(link)
+    } catch {
+      return null
+    }
+  }
+
+  /** R5: a device link is a key to a whole vault, not a folder's link. */
+  function isNotDeviceLink(link: string): boolean {
+    return decoded(link)?.kind !== 'device'
+  }
+
   function isForThisRoom(link: string): boolean {
     if (!room) return true
-    try {
-      return decodeShareLink(link).room === room
-    } catch {
-      return true
-    }
+    const target = decoded(link)
+    return target === null || target.room === room
   }
 
   // svelte-ignore state_referenced_locally -- one dialog per mount root: the
@@ -56,12 +68,22 @@
       .string()
       .trim()
       .refine(looksLikeShareLink, $LL.web.mounts.dialog.link_invalid())
+      .refine(isNotDeviceLink, $LL.web.mounts.dialog.device_link_refused())
       .refine(isForThisRoom, $LL.web.mounts.dialog.wrong_room({ path })),
   })
   const form = createForm(schema, { link: '' })
 
   async function add(): Promise<void> {
-    if (await form.submit(({ link }) => onAdd(link))) onClose()
+    // The codec throws codes, not sentences: this is the rendering site, so
+    // this is where a code becomes the line the user reads.
+    const run = async (link: string): Promise<void> => {
+      try {
+        await onAdd(link)
+      } catch (err) {
+        throw new Error(shareLinkErrorText(err))
+      }
+    }
+    if (await form.submit(({ link }) => run(link))) onClose()
   }
 </script>
 

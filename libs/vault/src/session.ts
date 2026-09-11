@@ -127,6 +127,14 @@ export class VaultSession {
   }
 
   private refreshMountRoots(): void {
+    // The MAP term alone, deliberately. `mountRootsFrom` takes descs too, and
+    // a host that has them passes both — but a VaultSession is given one
+    // folder doc and no mount table, and the two terms answer different
+    // questions here. mounts.json says which mounts this DEVICE runs; the map
+    // says which boundaries THIS ROOM declares, which is exactly the set of
+    // paths this session must not touch. A desc for a mount in another room
+    // is none of this session's business, and a mount root the map does not
+    // declare is not a boundary in the map this session is reading.
     this.mountRoots = mountRootsFrom([], this.folderDoc.getMap().entries())
   }
 
@@ -383,9 +391,76 @@ export class VaultSession {
     }
   }
 
+  /**
+   * Rename-vs-rename resolution (fuzz crasher 0004). `renameFile`/`renameDir`
+   * both write `m.delete(from); m.set(to, entry)` with the SAME guid. Two
+   * peers doing that concurrently UNION rather than conflict — neither side's
+   * delete ever saw the other side's `set` — so the guid ends up at BOTH new
+   * paths in BOTH maps, and each device's reconciler then resolves the pair
+   * from its own disk. That breaks A6's first clause ("every guid in exactly
+   * one map, at one path") and leaves two permanently divergent disks with no
+   * review raised on either side.
+   *
+   * The map is an LWW register per KEY; it carries no per-guid clock, and
+   * `MapHandle` exposes no item id to break the tie with. So the rule is one
+   * both devices can compute from the merged state alone, with no engine
+   * support at all:
+   *
+   *   **the lexicographically greatest path wins** (UTF-16 code-unit order,
+   *   the same order `<`/`>` give everywhere), and every other key holding
+   *   that guid is HARD-deleted.
+   *
+   * Every peer sees the same merged key set, so every peer elects the same
+   * survivor and converges. Hard-deleted, never tombstoned: a tombstone would
+   * tell peers to remove the bytes, and the bytes are the survivor's (the
+   * ghost-entry rule's reasoning, S10 Q5). Mount entries are excluded — their
+   * guid is a ROOM guid and the same room at two paths is a mount move, which
+   * the adopt machine owns — and so is everything at or under one, and
+   * everything that is not `text`; see the guards.
+   */
+  private dedupeGuidKeys(current: Map<string, FileEntry>): void {
+    // The same two guards every other pass over this map carries. Both are
+    // about not acting on someone else's rows:
+    //
+    //  - anything at or under a `kind:'mount'` boundary belongs to a mount
+    //    session on this device, and a key there is a GHOST the adopt
+    //    machine's sweep resolves by guid (rename inside the mount, import,
+    //    replay the delete). Electing a winner here would hard-delete the
+    //    very key that sweep is about to read, and the two rooms would then
+    //    disagree about where the file went.
+    //  - only `text`. A concurrent rename splitting a guid across two keys is
+    //    reconstructed by the passes below from `previous`, and those passes
+    //    move text. Nothing moves a `binary` or a `dir` by guid, so collapsing
+    //    one here deletes a live key that no pass will ever put back.
+    this.refreshMountRoots()
+    const byGuid = new Map<string, string[]>()
+    for (const [path, entry] of current) {
+      if (entry.deleted || entry.kind !== 'text') continue
+      if (this.underMount(path)) continue
+      const seen = byGuid.get(entry.guid)
+      if (seen) seen.push(path)
+      else byGuid.set(entry.guid, [path])
+    }
+    const losers: string[] = []
+    for (const paths of byGuid.values()) {
+      if (paths.length < 2) continue
+      const winner = paths.reduce((a, b) => (b > a ? b : a))
+      for (const p of paths) if (p !== winner) losers.push(p)
+    }
+    if (losers.length === 0) return
+    this.folderDoc.transactMap((m) => {
+      for (const p of losers) m.delete(p)
+    }, 'local')
+    for (const p of losers) current.delete(p)
+  }
+
   /** Remote folder-map changes → local disk effects (create/rename/delete). */
   private async onRemoteMapChange(): Promise<void> {
     const current = new Map(this.folderDoc.getMap().entries())
+    // Before anything is compared against `previous`: collapse a guid that a
+    // concurrent rename left at two keys, so the passes below see one path
+    // per guid and both devices see the SAME one (crasher 0004).
+    this.dedupeGuidKeys(current)
     const previous = this.lastEntries
     this.lastEntries = new Map(current)
 
@@ -406,50 +481,96 @@ export class VaultSession {
 
     // Pass 1: text files — content-bearing effects first, so a directory
     // move's children land before its old dir is cleaned up in pass 2.
+    //
+    // Every entry is handled in its OWN try/catch (crasher 0002): one entry's
+    // failure used to abort the whole pass, so a rename batched with a delete
+    // could leave a file on disk that the map says is gone. A failure is now
+    // exactly one report on `onError` and the rest of the batch still runs.
     for (const [path, entry] of current) {
       if (entry.kind !== 'text') continue
-      const oldPath = prevByGuid.get(entry.guid)
-      // Either end inside a mount boundary → another session's disk.
-      if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
+      try {
+        const oldPath = prevByGuid.get(entry.guid)
+        // Either end inside a mount boundary → another session's disk.
+        if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
 
-      if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
-        // Remote deletion → journal pre-image, remove local file.
-        const pre = await this.adapter.read(oldPath)
-        if (pre) await this.ctx.journal.record(oldPath, pre)
-        await this.adapter.remove(oldPath).catch(() => {})
-        this.pathToGuid.delete(oldPath)
-        this.ctx.openPaths.delete(oldPath)
-        continue
-      }
-      if (entry.deleted) continue
-
-      if (!oldPath) {
-        // New remote file: doc content arrives via provider; LCA marks "never on disk".
-        this.pathToGuid.set(path, entry.guid)
-        const doc = this.docs.get(entry.guid)
-        if (doc && !(await this.lcaStore.get(entry.guid))) {
-          await this.lcaStore.put({
-            guid: entry.guid,
-            path,
-            baseText: '',
-            contentHash: NEVER_ON_DISK,
-            heads: this.engine.encodeHeads(emptyHeads(this.engine)),
-            eol: 'lf',
-            bom: false,
-          })
-          this.subscribeDoc(entry.guid, doc)
-          this.scheduleReconcile(entry.guid)
+        if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
+          // Remote deletion → journal pre-image, remove local file.
+          const pre = await this.adapter.read(oldPath)
+          if (pre) await this.ctx.journal.record(oldPath, pre)
+          await this.adapter.remove(oldPath).catch(() => {})
+          this.pathToGuid.delete(oldPath)
+          this.ctx.openPaths.delete(oldPath)
+          continue
         }
-        continue
-      }
+        if (entry.deleted) continue
 
-      if (oldPath !== path) {
-        // Remote rename: move the disk file, update the LCA path.
-        await this.adapter.rename(oldPath, path).catch((err) => this.events.onError?.(err))
-        this.rekeyPath(oldPath, path, entry.guid)
-        const lca = await this.lcaStore.get(entry.guid)
-        if (lca) await this.lcaStore.put({ ...lca, path })
-        moves.push({ from: oldPath, to: path })
+        if (oldPath && previous.get(oldPath)?.deleted) {
+          // RESURRECTION (crasher 0005): this device tombstoned the key and a
+          // peer re-`set` the same guid — which every unshare does, because
+          // announcing an absorb re-states the whole subtree on the live map.
+          // `deleteFile` leaves the doc AND the LCA in place, so the "new
+          // remote file" branch below is guarded out and nothing would ever
+          // materialize: both maps would say the note exists, one device
+          // would have it, the other silently would not, and no review would
+          // be raised on either side. Reset the LCA to NEVER_ON_DISK at the
+          // CURRENT path and let the reconciler write the doc back to disk.
+          if (oldPath !== path) this.rekeyPath(oldPath, path, entry.guid)
+          this.pathToGuid.set(path, entry.guid)
+          const doc = this.docs.get(entry.guid)
+          if (doc) {
+            await this.lcaStore.put({
+              guid: entry.guid,
+              path,
+              baseText: '',
+              contentHash: NEVER_ON_DISK,
+              heads: this.engine.encodeHeads(emptyHeads(this.engine)),
+              eol: 'lf',
+              bom: false,
+            })
+            // Already subscribed: the doc predates the delete, and `deleteFile`
+            // never dropped it. Only the LCA had to come back.
+            this.scheduleReconcile(entry.guid)
+          }
+          if (oldPath !== path) moves.push({ from: oldPath, to: path })
+          continue
+        }
+
+        if (!oldPath) {
+          // New remote file: doc content arrives via provider; LCA marks "never on disk".
+          this.pathToGuid.set(path, entry.guid)
+          const doc = this.docs.get(entry.guid)
+          if (doc && !(await this.lcaStore.get(entry.guid))) {
+            await this.lcaStore.put({
+              guid: entry.guid,
+              path,
+              baseText: '',
+              contentHash: NEVER_ON_DISK,
+              heads: this.engine.encodeHeads(emptyHeads(this.engine)),
+              eol: 'lf',
+              bom: false,
+            })
+            this.subscribeDoc(entry.guid, doc)
+            this.scheduleReconcile(entry.guid)
+          }
+          continue
+        }
+
+        if (oldPath !== path) {
+          // Remote rename. The source may not be on disk at all: a file this
+          // device learned about in an earlier map change whose materialize is
+          // still queued behind this scan (crasher 0002). That is not an
+          // error — it is a file we have not written YET — so skip the move
+          // and let the reconciler write the bytes at the NEW path.
+          const onDisk = (await this.adapter.read(oldPath)) !== null
+          if (onDisk) await this.adapter.rename(oldPath, path)
+          this.rekeyPath(oldPath, path, entry.guid)
+          const lca = await this.lcaStore.get(entry.guid)
+          if (lca) await this.lcaStore.put({ ...lca, path })
+          if (!onDisk) this.scheduleReconcile(entry.guid)
+          moves.push({ from: oldPath, to: path })
+        }
+      } catch (err) {
+        this.events.onError?.(err)
       }
     }
 
@@ -458,23 +579,27 @@ export class VaultSession {
     // first; untracked leftovers legitimately keep a dir alive.
     for (const [path, entry] of current) {
       if (entry.kind !== 'dir') continue
-      const oldPath = prevByGuid.get(entry.guid)
-      if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
+      try {
+        const oldPath = prevByGuid.get(entry.guid)
+        if (this.underMount(path) || (oldPath && this.underMount(oldPath))) continue
 
-      if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
-        dirCleanups.push(oldPath)
-        continue
-      }
-      if (entry.deleted) continue
+        if (entry.deleted && oldPath && !previous.get(oldPath)?.deleted) {
+          dirCleanups.push(oldPath)
+          continue
+        }
+        if (entry.deleted) continue
 
-      if (!oldPath) {
-        await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
-        continue
-      }
-      if (oldPath !== path) {
-        await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
-        dirCleanups.push(oldPath)
-        moves.push({ from: oldPath, to: path })
+        if (!oldPath) {
+          await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
+          continue
+        }
+        if (oldPath !== path) {
+          await this.adapter.mkdir(path).catch((err) => this.events.onError?.(err))
+          dirCleanups.push(oldPath)
+          moves.push({ from: oldPath, to: path })
+        }
+      } catch (err) {
+        this.events.onError?.(err)
       }
     }
     for (const p of dirCleanups.sort((a, b) => b.length - a.length)) {

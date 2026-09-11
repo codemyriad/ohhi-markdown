@@ -49,6 +49,24 @@ export interface FileEntry {
    * own token before it can connect.
    */
   relay?: string
+  /**
+   * Mount entries only: base64 of the mount folder doc's FULL state, written
+   * by whoever announced the mount, in the same transaction as this entry.
+   *
+   * It is what makes every device's copy of the new room's folder doc ONE
+   * history instead of N independent ones. Before it, each peer seeded its
+   * own folder doc by re-`set`ting the entries it knew — so after the merge
+   * every key existed twice and a hard delete on one side (which is how a
+   * rename removes its source, and how the ghost rule removes a key) had
+   * nothing to delete on the other: permanent divergence
+   * (`fuzz-crashers/0003`). Applying one update on every device instead
+   * gives byte-identical ops everywhere.
+   *
+   * Structure, never a credential (shaping D4) — the seed is the map, and the
+   * map already travels. Omitted above 64 KB encoded, in which case a peer
+   * with a token pulls the room instead (spike S10 Q1).
+   */
+  seed?: string
 }
 
 export interface MapHandle {

@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@editor/i18n'
-import { encodeShareLink } from '../share-link.js'
+import { encodeDeviceLink, encodeShareLink } from '../share-link.js'
 import AddLinkDialog from './AddLinkDialog.svelte'
 
 afterEach(() => {
@@ -63,6 +63,28 @@ describe('AddLinkDialog', () => {
     await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
     expect(field).toHaveAccessibleDescription(
       expect.stringContaining(t.wrong_room({ path: 'team' }))
+    )
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('refuses a DEVICE link at the field and names what it is for (R5)', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn(async () => {})
+    const { onClose } = open(onAdd)
+
+    // A key to a whole vault, pasted where a folder's link belongs. The
+    // workspace refuses it too — this is the refusal a person sees.
+    await user.type(
+      screen.getByLabelText(t.link(), { exact: false }),
+      encodeDeviceLink({ relay: 'wss://relay.example', room: 'r-team', token: 'c'.repeat(64) })
+    )
+    await user.click(screen.getByRole('button', { name: t.add() }))
+
+    const field = screen.getByLabelText(t.link(), { exact: false })
+    await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
+    expect(field).toHaveAccessibleDescription(
+      expect.stringContaining(t.device_link_refused())
     )
     expect(onAdd).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()

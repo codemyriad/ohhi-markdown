@@ -52,7 +52,7 @@ describe('crasher 0007 — a carve must not resurrect a note deleted before it',
           .toEqual(['plan.md'])
         expect(await diskSnapshot(dev.adapter)).toEqual(gone)
         expect(dev.events.reviews).toEqual([])
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
     } finally {
       duo.dispose()

@@ -13,11 +13,15 @@
  * the room this one was carved out of and records the ancestry edge the
  * device grant walks — a carve sends both `folderGuid` (the new room) and
  * `parent` (the vault room). `parent` with `kind:'device'` is refused: a
- * device token is minted for a root room, never for a child.
+ * device token is minted for a root room, never for a child. An ancestry edge
+ * is write-once: re-minting with the SAME parent is idempotent, a DIFFERENT
+ * parent answers 409 and mints nothing.
  *
  * Every route requires `Authorization: Bearer <OPERATOR_SECRET>`. With no
  * secret configured the routes answer 404 — admin HTTP simply does not exist
- * unless explicitly enabled; the CLI stays the only mutation path.
+ * unless explicitly enabled; the CLI stays the only mutation path. The secret
+ * is relay-WIDE, not per-vault: it authenticates the operator, and authorises
+ * nothing narrower than "this relay" (see docs/architecture/relay.md).
  *
  * Revocation honesty (R4.3 deferred): deleting a share blocks NEW
  * connections; live connections persist until they reconnect.
@@ -85,6 +89,21 @@ export async function handleAdminRequest(
       if (parent === folderGuid && parent) {
         return json(400, { error: 'parent must differ from folderGuid' })
       }
+      // An ancestry edge is write-once. Re-minting a room under a DIFFERENT
+      // parent is refused here, before anything is minted: the operator
+      // secret is relay-wide, so silently re-pointing the edge would move a
+      // victim vault's room under the caller's own — and every device token
+      // for that new parent would then reach it (device-link-shaping R5).
+      // Same parent = idempotent, and answers 200 as it always has.
+      if (parent) {
+        const recorded = db.getRoomParent(folderGuid)
+        if (recorded !== null && recorded !== parent) {
+          return json(409, {
+            error: 'this room is already recorded under a different parent',
+            parent: recorded,
+          })
+        }
+      }
       const share = {
         token: randomBytes(32).toString('hex'),
         folderGuid,
@@ -93,9 +112,21 @@ export async function handleAdminRequest(
         kind,
       }
       db.addShare(share)
-      // Ancestry after the mint: a failed mint leaves no edge behind, and a
-      // re-mint for the same room restates the same edge (idempotent).
-      if (parent) db.setRoomParent(folderGuid, parent)
+      // Ancestry after the mint: a failed mint leaves no edge behind, and the
+      // edge itself is write-once (the re-parent case was refused above).
+      //
+      // The return value is checked, not discarded. `setRoomParent` refuses to
+      // re-point an existing edge and says so, and the 409 above only catches
+      // the races it can see — between that read and this write another mint
+      // can land. Reporting the answer we actually got beats returning a
+      // `parent` the relay does not hold, which is what a caller would then
+      // rely on for its device tokens.
+      if (parent && !db.setRoomParent(folderGuid, parent)) {
+        return json(409, {
+          error: 'this room is already recorded under a different parent',
+          parent: db.getRoomParent(folderGuid),
+        })
+      }
       return json(200, parent ? { ...share, parent } : share)
     }
 

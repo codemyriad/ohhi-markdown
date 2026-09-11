@@ -1,0 +1,75 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/workspace",
+      "comment": "When someone shares a folder, every device now builds its copy of that folder from the same starting point. Before, each device built its own, so a note renamed or deleted in the folder around the time it was shared could come back on one device and not another, and the two would never agree again.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A device that is interrupted while taking on a folder someone else shared no longer cancels that share for everybody when it reopens.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "After you stop sharing a folder, edits keep reaching your other devices. Previously the copies quietly stopped being connected, and every change from then on stayed on the device that made it.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Pasting the link for a shared folder your device has never received yet now waits for the folder to arrive, with the same progress it shows when you link a whole vault — instead of finishing instantly with nothing in it.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A device that still has the files of a shared folder but no key for it keeps them on disk, untouched, until you paste the link. It no longer claims them as new notes, which used to overwrite the sharer's copies.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Dragging a note out of a shared folder while another device is sharing it now leaves one copy with one identity, on both devices.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "If someone deletes a folder at the same moment as someone else shares it, the shared folder now survives on every device and the deletion is applied inside it. Before, the two could cancel each other out and the folder would end up on one device only.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A shared folder inside another shared folder is folded into the outer one and stays folded, instead of the two announcements taking turns undoing each other.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Internal: the adopt/absorb machine's boot recovery only settles a mount it could actually finish, records where a dissolved inner mount folds to, and takes a subtree's stores with its map keys; the paste-to-activate rule moved out of the web shell into a lifecycle machine (activateMount).",
+      "type": "none"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A shared folder your device has the files for but has never fetched from the room no longer republishes those files as its own. It fetches the room's copy instead, so pasting a link can never overwrite what the person who shared it has.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Pasting a link into a shared folder whose key the relay had already refused now actually reconnects with the new key, instead of quietly keeping the refused one while the folder claimed to be shared.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Pasting the same link twice no longer restarts the fetch that is already running.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "A shared folder that was renamed on another device now shows the right state straight away when your key still works for it, rather than reading “Link needed” while it syncs.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@editor/workspace",
+      "comment": "Internal: bootFlagsFor derives firstJoin/neverHeld together at every site that builds a mount; an adopted mount refuses the fresh-vault enrol while a relay is attached; enableSharing re-keys; the credential rule moved to libs/workspace so the shim and the device-link harness share one copy; boot sweeps drop orphan and stale namespaces while keeping their journals.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@editor/workspace"
+}

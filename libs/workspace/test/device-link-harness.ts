@@ -53,17 +53,25 @@ import {
 } from '@editor/vault'
 import { startRelay, type RelayHandle } from '../bench/relay-child.js'
 import {
+  bootFlagsFor,
   mountInvariants,
   reconcileMountEntries,
   type AdoptContext,
   type AdoptedMountOptions,
   type AdoptNotice,
 } from '../src/adopt.js'
+import { activateMount } from '../src/activate.js'
+import { resolveRoomRelay } from '../src/resolve-relay.js'
 import { carveFolder } from '../src/carve.js'
 import { joinMount } from '../src/join.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
-import { FOLDER_RECORD_KEY, type RelayConfig, type SyncRecordFields } from '../src/types.js'
+import {
+  FOLDER_RECORD_KEY,
+  type PullProgress,
+  type RelayConfig,
+  type SyncRecordFields,
+} from '../src/types.js'
 
 export const enc = new TextEncoder()
 export const dec = new TextDecoder()
@@ -301,6 +309,8 @@ export interface Device {
   records: Map<string, SyncRecordFields>
   notices: AdoptNotice[]
   builds: BuildRecord[]
+  /** Two-phase progress reported by a pull someone pasted their way into. */
+  pulls: PullProgress[]
   errors: string[]
   descs: () => readonly MountDesc[]
   registry: () => { mountPath: string; session: MountSession }[]
@@ -346,6 +356,7 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
   const ignore = new Set<string>()
   const records = new Map<string, SyncRecordFields>()
   const notices: AdoptNotice[] = []
+  const pulls: PullProgress[] = []
   const builds: BuildRecord[] = []
   const errors: string[] = []
   const mounts = new Map<string, MountSession>()
@@ -371,38 +382,29 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
   }
 
   /**
-   * The credential for a room, in spike S10 Q2's order (R5 lives here):
-   *  1. an exact token for the room always wins — the most specific statement
-   *     of what this device was given;
-   *  2. else, for a room carved out of THIS vault, the vault's own token when
-   *     it is a DEVICE token — A4-A, the reason a folder carved after linking
-   *     needs no paste;
-   *  3. else none ⇒ `needs-token`.
+   * The credential rule — `resolveRoomRelay` from libs/workspace, the SAME
+   * function the web shim binds to its config.
    *
-   * Difference from `workspace.svelte.ts`'s `relayForRoom` (reported, not
-   * silently patched): rule 2 additionally requires the mount to live on THIS
-   * vault's relay. Provenance alone cannot separate "carved out of my vault"
-   * from "a foreign share my other device joined" — both are `'adopted'` on a
-   * peer — and handing the vault's device token to somebody else's relay is
-   * both a guaranteed rejection and a credential sent where it does not
-   * belong.
+   * This used to be a paraphrase of it, and the paraphrase drifted: it
+   * compared relay URLs with raw `===`, so `ws://relay.test` and
+   * `ws://relay.test/` were two relays here and one relay there. A harness
+   * whose whole job is catching the shim drifting must not be a second
+   * implementation of the rule it checks. All that is local now is the
+   * binding: where this device keeps its tokens.
    */
   const relayFor = (m: {
     room: string
     relay?: string
     provenance: MountProvenance
-  }): RelayConfig | null => {
-    const url = m.relay || opts.tokens.relayOf(m.room) || opts.relayUrl
-    const exact = opts.tokens.token(m.room)
-    if (exact) return { url, token: exact }
-    if (m.provenance === 'carved' || m.provenance === 'adopted') {
-      const rootToken = opts.tokens.token(opts.rootRoom)
-      if (rootToken && opts.tokens.kind(opts.rootRoom) === 'device' && url === opts.relayUrl) {
-        return { url, token: rootToken }
-      }
-    }
-    return null
-  }
+  }): RelayConfig | null =>
+    resolveRoomRelay({
+      url: m.relay || opts.tokens.relayOf(m.room) || opts.relayUrl,
+      provenance: m.provenance,
+      exactToken: opts.tokens.token(m.room),
+      rootToken: opts.tokens.token(opts.rootRoom),
+      rootTokenKind: opts.tokens.kind(opts.rootRoom),
+      rootRelayUrl: opts.relayUrl,
+    })
 
   const makeSession = (
     room: string,
@@ -456,6 +458,8 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
       provenance: o.provenance,
       ...(o.relay ? { relay: o.relay } : {}),
       ...(o.firstJoin ? { firstJoin: true } : {}),
+      ...(o.neverHeld ? { neverHeld: true } : {}),
+      ...(o.onPullProgress ? { events: { onPullProgress: o.onPullProgress } } : {}),
     })
   }
 
@@ -526,6 +530,9 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
         path: desc.path,
         provenance: desc.provenance,
         ...(relay ? { relay } : {}),
+        // Derived together, exactly as the shim does (N3): PULL with a
+        // credential, wait empty without one.
+        ...bootFlagsFor(desc, relay),
       })
     )
   }
@@ -553,6 +560,7 @@ export async function bootDevice(opts: DeviceOptions): Promise<Device> {
     records,
     notices,
     builds,
+    pulls,
     errors,
     descs: () => descs,
     registry: () => [
@@ -654,41 +662,50 @@ export async function joinOn(dev: Device, opts: { dest: string; link: string }):
 
 /**
  * `doAddMountLink` (A4-C): paste the link for a mount this device holds but
- * has no key for. Two shapes, one rule — a SEEDED mount activates in place
- * through `enableSharing` (same guids as the room's, nothing re-read from
- * disk); an EMPTY one is rebuilt as a `firstJoin` and pulls its room.
+ * has no key for.
  *
- * This mirrors `apps/web/src/lib/workspace.svelte.ts`; the activation rule
- * itself lives only in the shim today (see the N3 report).
+ * The rule itself is `activateMount` in libs/workspace — the SAME machine the
+ * web shim calls, which is the point: this harness exists to catch the shim
+ * drifting, and a copy of the rule here would have hidden exactly the defect
+ * that moved it out (`activate.ts`'s header). What is mirrored is only the
+ * shell's half: decode the link, store the token and its grants, hand over
+ * the registry.
  */
 export async function addMountLink(dev: Device, path: string, link: string): Promise<void> {
   const info = dev.descs().find((d) => d.path === path)
   if (!info) throw new Error(`no mount at '${path}'`)
   const target = decodeShareLink(link)
+  // The shim's first refusal (R5), mirrored: a DEVICE token is a credential
+  // for a whole vault that the relay also honours in rooms carved out of it,
+  // and filing one against a single folder's room would hand vault-wide
+  // access to `resolveRoomRelay`'s exact-match rule — and to the next device
+  // link's `grants` bundle. Grants are not merged here for the same reason: a
+  // folder link carries none, so merging could only ever act on the link this
+  // refusal rejects.
+  if (target.kind !== 'folder') throw new Error(`that is a device link, not a folder link`)
   if (target.room !== info.room) throw new Error(`that link is for another folder`)
   const session = dev.mounts.get(path)
   if (!session) throw new Error(`no live mount at '${path}'`)
 
   dev.tokens.set(target.room, target.token, target.relay, target.kind)
-  if (target.grants.length > 0) dev.tokens.mergeGrants(target.grants)
-  const relay: RelayConfig = { url: target.relay, token: target.token }
 
-  if (session.files().length > 0) {
-    session.enableSharing(relay)
-    await dev.mountsFile.setStatus(info.room, 'active')
-  } else {
-    dev.detach(path)
-    await session.shutdown()
-    const next = await dev.buildMount({
-      room: info.room,
-      path,
-      provenance: info.provenance,
-      relay,
-      firstJoin: true,
+  try {
+    await activateMount({
+      vaultDir: dev.vaultDir,
+      mountsFile: dev.mountsFile,
+      desc: info,
+      session,
+      relay: { url: target.relay, token: target.token },
+      buildSession: (o) => dev.buildMount(o),
+      detachMount: (p) => {
+        dev.detach(p)
+      },
+      attachMount: (p, next) => dev.attach(p, next),
+      onPullProgress: (progress) => dev.pulls.push(progress),
     })
-    dev.attach(path, next)
+  } finally {
+    await dev.refreshDescs()
   }
-  await dev.refreshDescs()
 }
 
 // ------------------------------------------------------------- assertions

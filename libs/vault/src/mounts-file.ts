@@ -64,6 +64,36 @@ export interface MountDesc {
   provenance: MountProvenance
   relay?: { url: string }
   status: MountStatus
+  /**
+   * This device has NEVER held the room's content: the adopt found nothing to
+   * seed from, so no folder blob was written (spike S10 Q1's `firstJoin`
+   * rule, N3's empty-adopt discriminator).
+   *
+   * Load-bearing in two places, and both are data-loss bugs without it:
+   *
+   *  - the paste (`activateMount`) must rebuild the mount as a `firstJoin`
+   *    and PULL, not `enableSharing` a namespace it built itself; an empty
+   *    folder blob would otherwise let `tryDurableReopen` win and the awaited
+   *    pull would never run;
+   *  - a boot before that paste must not enrol the files under the mount root
+   *    with fresh guids — they belong to a room this device cannot see yet,
+   *    and enrolling them would LWW-clobber the owner's entries at the next
+   *    paste. The mount boots with an empty map instead: the bytes stay on
+   *    disk, untouched and unmanaged, and the tree marks the folder (spike
+   *    S10 Q2's "keep + mark").
+   *
+   * Cleared the moment the mount has pulled its room.
+   */
+  neverHeld?: boolean
+  /**
+   * 'absorbing' only: the room this mount's stores fold INTO. Absent means
+   * the root room (the owner-unshared case). Present for the depth-1
+   * dissolve, where an inner mount is folded into the OUTER mount rather than
+   * the root (S10 Q5 row 11) — without it, crash recovery would fold the
+   * inner namespace into the root while the outer mount owns those paths,
+   * putting one guid in two namespaces.
+   */
+  absorbInto?: string
 }
 
 export interface MountRecovery {

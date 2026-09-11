@@ -183,9 +183,43 @@ describe('device tokens + room ancestry', () => {
   })
 
   it('re-minting for the same room restates the ancestry edge (idempotent)', async () => {
-    await call('POST', '/shares', { secret: SECRET, body: { folderGuid: 'r1', parent: 'p1' } })
-    await call('POST', '/shares', { secret: SECRET, body: { folderGuid: 'r1', parent: 'p1' } })
+    const first = await call('POST', '/shares', { secret: SECRET, body: { folderGuid: 'r1', parent: 'p1' } })
+    const again = await call('POST', '/shares', { secret: SECRET, body: { folderGuid: 'r1', parent: 'p1' } })
+    expect([first.status, again.status]).toEqual([200, 200])
     expect(relay.db.getRoomParent('r1')).toBe('p1')
+  })
+
+  /**
+   * The operator secret is relay-WIDE. On a relay serving more than one
+   * vault, anyone holding it could otherwise re-mint a victim's room with
+   * their OWN vault as the parent — and every device token for that vault
+   * would then reach the victim's room through `ancestorsOf`. The edge is
+   * write-once, and the refusal happens before the mint.
+   */
+  it('refuses to re-parent a room that is already recorded under another parent', async () => {
+    const res = await call('POST', '/shares', {
+      secret: SECRET,
+      body: { folderGuid: TEAM, parent: 'attackers-vault' },
+    })
+    expect(res.status).toBe(409)
+    expect((await res.json()) as { error: string; parent: string }).toEqual({
+      error: 'this room is already recorded under a different parent',
+      parent: VAULT,
+    })
+    // Nothing moved, and nothing was minted for the attacker to use.
+    expect(relay.db.getRoomParent(TEAM)).toBe(VAULT)
+    expect(relay.db.listShares().filter((s) => s.folderGuid === TEAM)).toHaveLength(1)
+
+    // …so a device token for the would-be new parent still cannot reach it.
+    relay.db.addShare({ token: 'attacker-device', folderGuid: 'attackers-vault', kind: 'device' })
+    expect((await authOutcome(`${TEAM}/d1`, 'attacker-device')).failure).toBe('permission-denied')
+  })
+
+  it('setRoomParent itself never re-points an edge', () => {
+    expect(relay.db.setRoomParent('fresh', 'p1')).toBe(true)
+    expect(relay.db.setRoomParent('fresh', 'p1')).toBe(true) // same parent: fine
+    expect(relay.db.setRoomParent('fresh', 'p2')).toBe(false)
+    expect(relay.db.getRoomParent('fresh')).toBe('p1')
   })
 
   it('refuses parent+device, an unknown kind, a blank parent, and a self-parent', async () => {

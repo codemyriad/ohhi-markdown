@@ -183,6 +183,14 @@ test('the rail says where the open note lives, who is online there, and the head
   // The access line is honest about what a root share can say here.
   await expect(section.getByTestId('share-access')).toContainText('links')
 
+  // The rail agrees with the tree menu (device-link-shaping A5, depth 1): a
+  // device-linked vault is not a mount around this note, so sharing this
+  // folder and adding a share here are both still offered. They used to
+  // disappear the moment the vault was linked, while the menu still offered
+  // them on the same folder.
+  await expect(section.getByTestId('note-share-folder')).toBeVisible()
+  await expect(section.getByTestId('note-add-share')).toBeVisible()
+
   // The rail's icon carries the online count once someone is here.
   await page.getByTestId('rail-collapse').click()
   await expect(page.getByTestId('rail-icon:note')).toBeVisible()

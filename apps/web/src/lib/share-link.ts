@@ -21,8 +21,42 @@
  * Grants are refused on a folder link, encoding and decoding: handing a
  * teammate a link that also carries the vault's tokens is exactly what R5
  * forbids, and a typo must not be able to do it.
+ *
+ * Every refusal is a `ShareLinkError` with a `code`, never a sentence: the
+ * same failure is rendered in a dialog's error line, in a field refusal and
+ * in the Activity log, and a codec that threw English would put untranslated
+ * copy in all three (the i18n rule). `shareLinkErrorText` maps a code to the
+ * dictionary for the rendering sites.
  */
+import { getLL } from '@editor/i18n'
+
 export type ShareKind = 'folder' | 'device'
+
+/** Why a share link could not be built or read. Stable; maps to `web.share.link_error.*`. */
+export type ShareLinkErrorCode =
+  /** Not decodable at all: bad base64, bad JSON, empty. */
+  | 'malformed'
+  /** Decoded, but without relay / room / token. */
+  | 'missing_fields'
+  /** A `kind` this build does not know. */
+  | 'unknown_kind'
+  /** A grant entry that is not a complete {room, relay, token}. */
+  | 'bad_grant'
+  /** Grants on a folder link — R5's whole point, refused both ways. */
+  | 'grants_on_folder_link'
+  /** Asked to ENCODE a target with no relay / room / token. */
+  | 'incomplete_target'
+
+export class ShareLinkError extends Error {
+  readonly code: ShareLinkErrorCode
+  constructor(code: ShareLinkErrorCode) {
+    // The message is the code on purpose: it is a developer-facing label, and
+    // anything a user reads comes from `shareLinkErrorText` instead.
+    super(`share link: ${code}`)
+    this.name = 'ShareLinkError'
+    this.code = code
+  }
+}
 
 /** One room's credential, bundled into a device link (A4-B). */
 export interface ShareGrant {
@@ -75,12 +109,12 @@ function normalizeGrants(grants: ShareGrant[], ownRoom: string): ShareGrant[] {
   const out: ShareGrant[] = []
   const seen = new Set<string>([ownRoom])
   for (const g of grants) {
-    if (!g || typeof g !== 'object') throw new Error('share link grant is malformed')
+    if (!g || typeof g !== 'object') throw new ShareLinkError('bad_grant')
     const { room, relay, token } = g
     if (typeof room !== 'string' || typeof relay !== 'string' || typeof token !== 'string') {
-      throw new Error('share link grants need relay, room, and token')
+      throw new ShareLinkError('bad_grant')
     }
-    if (!room || !relay || !token) throw new Error('share link grants need relay, room, and token')
+    if (!room || !relay || !token) throw new ShareLinkError('bad_grant')
     if (seen.has(room)) continue
     seen.add(room)
     out.push({ room, relay, token })
@@ -90,13 +124,13 @@ function normalizeGrants(grants: ShareGrant[], ownRoom: string): ShareGrant[] {
 
 export function encodeShareLink(t: ShareTarget): string {
   if (!t.relay || !t.room || !t.token) {
-    throw new Error('share target needs relay, room, and token')
+    throw new ShareLinkError('incomplete_target')
   }
   const kind = t.kind ?? 'folder'
-  if (kind !== 'folder' && kind !== 'device') throw new Error('unknown share link kind')
+  if (kind !== 'folder' && kind !== 'device') throw new ShareLinkError('unknown_kind')
   const grants = normalizeGrants(t.grants ?? [], t.room)
   if (grants.length > 0 && kind !== 'device') {
-    throw new Error('only a device link may carry grants')
+    throw new ShareLinkError('grants_on_folder_link')
   }
   // `kind`/`grants` are omitted when they carry nothing, so a folder link is
   // byte-identical to the ones this codec has always produced.
@@ -134,25 +168,25 @@ export function decodeShareLink(link: string): DecodedShareLink {
   try {
     obj = JSON.parse(new TextDecoder().decode(fromBase64Url(body)))
   } catch {
-    throw new Error('not a valid share link')
+    throw new ShareLinkError('malformed')
   }
   const o = obj as Record<string, unknown>
   if (typeof o.relay !== 'string' || typeof o.room !== 'string' || typeof o.token !== 'string') {
-    throw new Error('share link is missing relay/room/token')
+    throw new ShareLinkError('missing_fields')
   }
   if (o.kind !== undefined && o.kind !== 'folder' && o.kind !== 'device') {
-    throw new Error('unknown share link kind')
+    throw new ShareLinkError('unknown_kind')
   }
   const kind: ShareKind = o.kind === 'device' ? 'device' : 'folder'
   if (o.grants !== undefined && !Array.isArray(o.grants)) {
-    throw new Error('share link grant is malformed')
+    throw new ShareLinkError('bad_grant')
   }
   // Strict, not lenient: a malformed grant means the link was built wrong or
   // tampered with, and half-applying it would leave a device silently short
   // of a token it was told it had.
   const grants = normalizeGrants((o.grants ?? []) as ShareGrant[], o.room)
   if (grants.length > 0 && kind !== 'device') {
-    throw new Error('only a device link may carry grants')
+    throw new ShareLinkError('grants_on_folder_link')
   }
   return { relay: o.relay, room: o.room, token: o.token, kind, grants }
 }
@@ -160,4 +194,21 @@ export function decodeShareLink(link: string): DecodedShareLink {
 /** True if a pasted string looks like one of our share links (cheap check for UI). */
 export function looksLikeShareLink(s: string): boolean {
   return s.trim().startsWith(PREFIX)
+}
+
+/**
+ * The sentence to SHOW for a failure that came out of this codec.
+ *
+ * The dictionary lookup lives beside the codes rather than in each dialog:
+ * four rendering sites (two paste dialogs, the device dialog, App's notice
+ * path) show the same failures, and a copy of the switch in each is how they
+ * drift apart. Anything that is not a `ShareLinkError` is somebody else's
+ * error — the relay's, the workspace's — and passes through with its own
+ * (already translated) message.
+ */
+export function shareLinkErrorText(err: unknown): string {
+  if (!(err instanceof ShareLinkError)) {
+    return err instanceof Error ? err.message : String(err)
+  }
+  return getLL().web.share.link_error[err.code]()
 }

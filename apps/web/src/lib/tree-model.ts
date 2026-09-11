@@ -10,7 +10,17 @@
  * the locale.
  */
 import { getLL } from '@editor/i18n'
+import type { MountLike } from './share-status.js'
 import type { FileRow, MountUiStatus } from './workspace.svelte.js'
+
+/**
+ * One `MountLike` for the whole shell: `share-status.ts` owns it (it needs
+ * every field), and this module re-exports it so the tree's callers import
+ * the mount shape from wherever they already are. Two structural copies of
+ * "what a mount looks like" is how the tree and the rail come to disagree
+ * about the same folder — `MountInfo` satisfies this one.
+ */
+export type { MountLike }
 
 export interface TreeNode {
   /** Basename shown in the tree. */
@@ -148,17 +158,6 @@ export function containingDir(path: string | null, kind?: 'dir' | 'text' | 'bina
 }
 
 // ---- context menu (2026-09-07) ----
-
-/** The mount facts the menu and the filter need; `MountInfo` satisfies it structurally. */
-export interface MountLike {
-  path: string
-  provenance: 'local' | 'carved' | 'joined' | 'adopted'
-  /**
-   * Absent ⇒ 'active'. 'needs-token' is a mount this device holds no key for;
-   * 'adopting' / 'absorbing' are the peer-side machines mid-run (N1).
-   */
-  status?: MountUiStatus
-}
 
 /** What was right-clicked: a row, or the tree's empty space (= vault root). */
 export type TreeMenuTarget =

@@ -73,8 +73,8 @@ Auth = **static per-share bearer tokens** checked in `onAuthenticate` against th
 **The rule, exactly** (`server.ts`, `onAuthenticate`), for doc name `<room>/<docGuid>`:
 
 1. Look the token up. Unknown ⇒ refused.
-2. **Prefix check**: `documentName` is `<share.folder_guid>/folder` or starts with
-   `<share.folder_guid>/` ⇒ accepted.
+2. **Prefix check**: `documentName` starts with `<share.folder_guid>/` ⇒ accepted. The
+   folder doc (`<share.folder_guid>/folder`) is one of those names, not a special case.
 3. Otherwise, **only when `share.kind === 'device'`**: walk `ancestorsOf(<room>)` — the
    `rooms` chain, nearest parent first — and accept if it contains the token's room.
    The walk is bounded at `MAX_ANCESTRY_HOPS = 8` and cycle-guarded, so a corrupt or
@@ -102,10 +102,24 @@ path):
 one of the two; `parent` must be non-empty when present and must differ from
 `folderGuid`; **`parent` together with `kind:'device'` is refused** — a device token is
 minted for a root room, never for a child. The ancestry edge is written *after* a
-successful mint, so a failed mint leaves no edge behind, and a re-mint for the same room
-restates the same edge (`ON CONFLICT(child_guid) DO UPDATE`). Re-minting a room under a
-*different* parent silently re-points it; unreachable at depth 1, and if it ever becomes
-reachable the honest behaviour is to refuse the re-parent rather than move it.
+successful mint, so a failed mint leaves no edge behind.
+
+**An ancestry edge is write-once.** Re-minting a room with the *same* parent is
+idempotent and answers 200 as it always has; re-minting it under a *different* parent
+answers **409** and mints nothing (`ON CONFLICT(child_guid) DO NOTHING` in `db.ts` is the
+same rule stated where it cannot be bypassed). This is not hypothetical tidiness: the
+operator secret is relay-wide (below), so on a relay serving more than one vault a silent
+re-point would move a victim's room under the caller's vault, and every device token for
+that vault would reach it through step 3.
+
+**The operator secret authorises a relay, not a vault.** `OPERATOR_SECRET` is one
+process-wide credential: whoever holds it can mint, list and revoke shares for *any* room
+on that relay, including rooms belonging to vaults they have never seen. It is an
+operator credential for a small team running its own relay — not per-user authorisation,
+and not a boundary between the vaults on one relay. The successor is D4's device-key
+principals, where a mint is authorised by the key that owns the room; until then, "one
+relay per trust boundary" is the deployment rule, and the write-once ancestry edge above
+is what keeps a shared relay from re-parenting rooms behind a vault's back.
 
 **Migration is additive.** `CREATE TABLE IF NOT EXISTS rooms` adds the table;
 `migrate()` `ALTER TABLE`s `kind` onto a `shares` written before it existed; a NULL

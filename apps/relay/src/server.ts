@@ -70,9 +70,9 @@ export function createRelay(opts: RelayOptions): Relay {
     async onAuthenticate({ token, documentName, connectionConfig }) {
       const share = db.getShare(token)
       if (!share) throw new Error('unknown share token')
-      const inScope =
-        documentName === `${share.folderGuid}/folder` ||
-        documentName.startsWith(`${share.folderGuid}/`)
+      // One prefix, every doc of the room — the folder doc
+      // (`<guid>/folder`) is just another name under it.
+      const inScope = documentName.startsWith(`${share.folderGuid}/`)
       // A device token also reaches the rooms carved out of its own room.
       // The room is the first doc-name segment; the walk is bounded and
       // cycle-guarded in db.ancestorsOf.

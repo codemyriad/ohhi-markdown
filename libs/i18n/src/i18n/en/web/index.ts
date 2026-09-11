@@ -484,7 +484,8 @@ const manager = {
     'Already have this vault on another device? Paste its device link and the whole vault arrives here.',
   link_device_open: 'Link this device…',
   errors: {
-    invalid_link: "That doesn't look like a valid share link.",
+    // A link that will not decode is named by `share.link_error.*` now — one
+    // reason per way a link can be unusable, not one word for all of them.
     forget_partial:
       'Vault forgotten, but some of its sync state could not be deleted ({message:string}). The leftovers are inert — reopening the folder still starts fresh.',
   },
@@ -576,7 +577,28 @@ const settings = {
   save_and_close: 'Save and close',
 }
 
+/**
+ * A share link that could not be used, said in words.
+ *
+ * The codec (`share-link.ts`) throws a `ShareLinkError` carrying a CODE, not
+ * a sentence: the same failure is rendered in a dialog's error line, in a
+ * field refusal and in the Activity log, and the copy for it belongs here
+ * rather than in three places in the source.
+ */
+const link_error = {
+  malformed: 'That link is damaged — copy it again from the device that made it.',
+  missing_fields:
+    'That link is incomplete: it does not say which relay, folder or key it is for. Copy it again from the device that made it.',
+  unknown_kind: 'That link was made by a newer version of Editor — update this device first.',
+  bad_grant:
+    'That link is damaged: one of the shared folders it carries is missing its relay, folder or key. Make a new link on the device that produced it.',
+  grants_on_folder_link:
+    'That link claims keys for other folders, which only a device link may carry. Do not use it — ask for a new one.',
+  incomplete_target: 'This folder has no relay, room or key yet, so no link can be made for it.',
+}
+
 const share = {
+  link_error,
   add: {
     title: 'Add a shared folder',
     description:
@@ -667,6 +689,13 @@ const mounts = {
     link_placeholder: 'editor1:…',
     link_invalid: 'That doesn’t look like a share link — they start with "editor1:".',
     wrong_room: 'That link is for a different shared folder — paste the link for {path:string}.',
+    /**
+     * R5 at the field, in both directions: a device link is a key to a whole
+     * vault, so it must never be pasted where a folder link is expected —
+     * neither here nor in "Add a shared folder here…", which shares this key.
+     */
+    device_link_refused:
+      'This is a device link — use "Link this device" in the vault manager to put a whole vault on this device.',
     adding: 'Adding…',
     add: 'Add link',
   },
@@ -801,7 +830,14 @@ const ui = {
 
 /** Errors the workspace shim raises; they land in a toast, a dialog, or the Activity log. */
 const workspace = {
-  no_token: "no token stored for shared folder '{path:string}' — rejoin it via its share link",
+  /**
+   * Decision 4 (keep + mark), said where the user reads it: nothing is
+   * missing and nothing gets re-downloaded — the folder and its files are on
+   * disk and editable, and adding the link starts them syncing where they
+   * stand. Never "rejoin", which promises a download that does not happen.
+   */
+  no_token:
+    "this device holds no link for the shared folder '{path:string}', so nothing in it syncs yet — its files stay on disk. Open the folder's menu and choose “Add link…” to start it syncing; nothing is re-downloaded",
   only_folders: 'only folders can be shared',
   inside_shared: 'this folder is already inside a shared folder',
   overlaps: 'this folder overlaps an existing shared folder',

@@ -1,48 +1,40 @@
 /**
  * S10 Q5 row 5, the PEER's half — found while writing the directed row-5
  * fixture on 2026-09-10 (not a fast-check seed: the duo scenario is the
- * counterexample). SKIPPED: the fix is a design decision, not a local bug.
+ * counterexample). FIXED 2026-09-10 by the row-5 design decision; this spec is
+ * the permanent regression.
  *
  * The scenario. A carves `team/`. B, still unaware, drags `team/plan.md` out
  * to `other/plan.md` (`renameDir`/`renameFile` in its ROOT map, guid g kept).
- * They meet. On A the ghost rule's move-out branch fires: `other/plan.md` sits
- * outside every mount root and carries a guid A's mount owns.
+ * They meet. The ghost rule's move-out branch fires on both devices:
+ * `other/plan.md` sits outside every mount root and carries a guid the mount
+ * owns.
  *
- * What the resolution says (spike S10 Q5): "re-enrol it at its new path with a
- * FRESH guid in the parent — content identity never crosses rooms — and
- * `deletePath` it inside the mount. Bytes are already at the destination, so
- * no copy."
+ * What was wrong. The resolution said "re-enrol it at its new path with a
+ * FRESH guid in the parent and `deletePath` it inside the mount; the bytes are
+ * already at the destination, so no copy" — and on a PEER the bytes are not at
+ * the destination. A never applied B's rename to disk (the source path is
+ * under a mount boundary, so `onRemoteMapChange` skips it), so
+ * `reenrollPath` → `enrollOne` read null and returned silently, and the
+ * resolution degraded to "delete it inside the mount, leave the parent key
+ * alone": guid g live in A's parent room and tombstoned in the mount, over an
+ * EMPTY doc that only B could ever fill.
  *
- * What is true on a peer: the bytes are NOT at the destination. They are still
- * under the mount root, because A never applied B's rename to disk (the source
- * path is under a mount boundary, so `onRemoteMapChange` skips it). So
- * `reenrollPath` → `enrollOne` reads null and returns silently, and the
- * resolution degrades to "delete it inside the mount, leave the parent key
- * alone". End state on A: guid g live in the parent room and tombstoned in the
- * mount room, with A's parent doc for g EMPTY — the content only reaches A
- * because B is around to serve it over the parent room's channel.
+ * Neither obvious repair worked alone. Carrying the bytes and re-enrolling on
+ * BOTH devices mints a different g' per device over the same text and merges
+ * them as the note twice (measured: 'shared plan\nshared plan\n'). Leaving it
+ * converges only while the mover is reachable.
  *
- * Neither obvious fix is safe on its own, which is why this is a design
- * question:
+ * The rule that fixes it: a cross-boundary move-out is performed by exactly
+ * ONE device — the one whose disk already holds the bytes at the destination
+ * (`adapter.read(dest) !== null`). It re-enrols with a fresh guid and
+ * tombstones inside the mount; every other device does neither half and
+ * receives both as ordinary map updates. What the other device DOES do is drop
+ * its own parent-side doc/LCA/blob for the mount-owned guid, so the mover's
+ * replacement does not land on top of a rival copy.
  *
- *  - **Carry the bytes and re-enrol anyway** (mint g' on A, write the file at
- *    the destination). Then B — which already holds `other/plan.md` on disk
- *    with its own doc — adopts g', invents an empty doc plus a NEVER_ON_DISK
- *    LCA, and the reconciler's disk-changed branch ingests B's identical disk
- *    copy into it. A's g' and B's g' are two independent histories over the
- *    same text, and they merge as the note's text TWICE. Measured: the assert
- *    below fails with 'shared plan\nshared plan\n'. That is the two-bridge
- *    double-ingestion hazard, arriving through a new door.
- *  - **Leave it as it is** (today's behaviour). Converges, content correct
- *    while the mover is reachable — but identity crossed rooms, and a device
- *    that adopts the entry with no peer holding g in the parent room
- *    materializes nothing at all: the file is deleted from under the mount
- *    root and never written at the destination.
- *
- * The real fix belongs one level down — adopting a map entry for a path whose
- * file is already on disk must not blind-ingest into an empty doc — and that
- * is `libs/vault`'s reconciler, i.e. outside N1. Un-skipping this spec is the
- * acceptance test for whichever way that goes.
+ * The directed pair in `../nested.test.ts` runs the same row with the carver
+ * on each device; this keeps the original repro.
  */
 import { describe, expect, it } from 'vitest'
 import { bootDuo, carveOn, checkInvariants, dec } from '../fixture.js'
@@ -55,7 +47,7 @@ const FILES: Record<string, string> = {
 const TEAM_ROOM = 'team-room'
 const TEAM_TOKEN = { url: 'ws://relay.test', token: 'team-token' }
 
-describe.skip('crasher 0001 — a peer resolves a move-out of a file it still holds', () => {
+describe('crasher 0001 — a peer resolves a move-out of a file it still holds', () => {
   it('gives the parent a fresh guid, one copy of the text, and no guid in two rooms', async () => {
     const duo = await bootDuo({
       files: FILES,
@@ -81,7 +73,7 @@ describe.skip('crasher 0001 — a peer resolves a move-out of a file it still ho
         // ...and the text is there exactly once.
         expect(dec.decode((await dev.adapter.read('other/plan.md'))!)).toBe(FILES['team/plan.md'])
         expect(dev.root.docForPath('other/plan.md')?.getText()).toBe(FILES['team/plan.md'])
-        checkInvariants(dev)
+        await checkInvariants(dev)
       }
     } finally {
       duo.dispose()
