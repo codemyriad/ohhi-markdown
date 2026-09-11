@@ -4,21 +4,7 @@
  * uses, so it needs no real folder and no share.
  */
 import { expect, test, type Page } from '@playwright/test'
-
-const RELAY = 'ws://localhost:8799'
-
-async function openApp(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token: 'e2e-token',
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
+import { openApp } from './fixtures.js'
 
 async function type(page: Page, text: string): Promise<void> {
   const content = page.locator('[data-testid="editor-pane"] .cm-content')

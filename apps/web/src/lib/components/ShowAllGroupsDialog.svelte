@@ -10,9 +10,10 @@
    */
   import { Check } from '@lucide/svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import type { GroupShell } from '../group-ui.svelte.js'
+  import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { formatStamp } from '../history.js'
   import Dialog from '../ui/Dialog.svelte'
+  import GroupDot from './GroupDot.svelte'
 
   interface Props {
     paneId: string
@@ -26,7 +27,6 @@
 
   const t = $derived($LL.web.groups.all)
   const rows = $derived(groups.rows(paneId))
-  const nameOf = (name: string): string => name || $LL.web.groups.untitled()
 </script>
 
 <Dialog title={t.title()} description={t.description()} width="md" testid="groups-all" {onClose}>
@@ -51,12 +51,8 @@
               {#if row.open}<Check size={14} />{/if}
             </span>
             {#if row.open}<span class="sr-only">{t.open_state()}</span>{/if}
-            <span
-              aria-hidden="true"
-              class="size-2.5 shrink-0 rounded-full"
-              style="background: var(--ed-group-{row.color})"
-            ></span>
-            <span class="min-w-0 flex-1 truncate text-sm">{nameOf(row.name)}</span>
+            <GroupDot color={row.color} size="md" />
+            <span class="min-w-0 flex-1 truncate text-sm">{groupLabel(row.name)}</span>
             <span class="shrink-0 font-ed-mono text-[11px] text-base-content/70">
               {t.meta({ count: row.count, when: formatStamp(row.lastActive, now()) })}
             </span>

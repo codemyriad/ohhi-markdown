@@ -85,6 +85,15 @@ import { isForeignMount } from './share-status.js'
 export { FOLDER_RECORD_KEY, type FileRow, type PullProgress, type RelayConfig }
 
 /**
+ * The notes in a file list — everything the vault does not hold as a binary.
+ * Asked by the live-view derivation, the link candidates, the wikilink
+ * resolver and the daily walk, all of which must agree on what a note is.
+ */
+export function textPaths(files: readonly FileRow[]): string[] {
+  return files.filter((f) => f.kind === 'text').map((f) => f.path)
+}
+
+/**
  * The index's write side, as the workspace needs it. Structurally
  * `IndexWriter` from @editor/index minus `rebuild` — typed here so
  * libs/workspace stays index-agnostic and the app owns the wiring.

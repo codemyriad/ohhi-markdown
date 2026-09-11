@@ -45,7 +45,7 @@
   import { hasOpfs, isTauri } from './lib/platform.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
-  import { setupWorkspace, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
+  import { setupWorkspace, textPaths, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
@@ -66,7 +66,7 @@
   import StripGroupsMenu from './lib/components/StripGroupsMenu.svelte'
   import TabGroupMenuItems from './lib/components/TabGroupMenuItems.svelte'
   import { createPanes } from './lib/workspace-panes.svelte.js'
-  import { createGroupUi } from './lib/group-ui.svelte.js'
+  import { createGroupUi, groupLabel } from './lib/group-ui.svelte.js'
   import {
     findPane,
     type Group,
@@ -146,9 +146,7 @@
       const guid = workspace?.ui.files.find((f) => f.path === path)?.guid
       if (!guid) return []
       const links = await nav.index.outgoing(guid, { limit: 200 })
-      const notes = new Set(
-        (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path)
-      )
+      const notes = new Set(textPaths(workspace?.ui.files ?? []))
       const out: string[] = []
       for (const ref of links.items) {
         // An unresolved link is a note not written yet, and an embed of an
@@ -245,11 +243,7 @@
     if (!files) return { prev: null, next: null }
     const from =
       dateOfPath(dailyCfg, workspace?.ui.selectedPath ?? null) ?? today(() => realClock.now())
-    return neighbours(
-      dailyCfg,
-      files.filter((f) => f.kind === 'text').map((f) => f.path),
-      from
-    )
+    return neighbours(dailyCfg, textPaths(files), from)
   }
   const dailySteps = $derived(dailyNeighbours())
 
@@ -1023,8 +1017,7 @@
           },
           resolveLink: (target, from) => nav.resolveLink(target, from),
           createFromLink: (target) => void createFromLink(target),
-          linkCandidates: () =>
-            (workspace?.ui.files ?? []).filter((f) => f.kind === 'text').map((f) => f.path),
+          linkCandidates: () => textPaths(workspace?.ui.files ?? []),
           reveal: nav.pending.reveal,
           groupChip,
           tabMenuGroupItems,
@@ -1419,7 +1412,7 @@
     <ConfirmDialog
       title={$LL.web.groups.delete_confirm.title()}
       body={$LL.web.groups.delete_confirm.body({
-        name: confirmingGroup.name || $LL.web.groups.untitled(),
+        name: groupLabel(confirmingGroup.name),
         count: confirmingGroup.tabIds.length,
       })}
       confirmLabel={$LL.web.groups.delete_confirm.confirm()}

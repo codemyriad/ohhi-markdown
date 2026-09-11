@@ -42,124 +42,22 @@ import {
   type Pane,
   type Split,
 } from './panes.js'
+import {
+  chris,
+  chrisRaw,
+  ids,
+  paneAt,
+  pathsOf,
+  rawPane,
+  strip,
+  tabIdFor,
+  BOTTOM_LEFT,
+  DAILIES,
+  RIGHT,
+  TOP,
+} from './panes.fixture.js'
 
-/** Deterministic ids — the whole module takes its ids from here (rule 2). */
-function ids(prefix = 'i'): () => string {
-  let n = 0
-  return () => `${prefix}${n++}`
-}
-
-const paneAt = (l: Layout, i: number): Pane => panes(l.tree)[i]
-const pathsOf = (p: Pane): (string | null)[] => p.tabs.map((t) => t.path)
-const tabIdFor = (p: Pane, path: string): string => p.tabs.find((t) => t.path === path)!.id
 const asSplit = (l: Layout): Split => l.tree as Split
-
-// ---- Chris's saved layout, verbatim from .obsidian/workspace.json (2026-09-10)
-
-const TOP = [
-  'Personal Development.md',
-  'May 2026.md',
-  'June 2026.md',
-  'Edible/Edible Marketing-Sales Inbox.md',
-  'Project Management OS.md',
-  'Areas/CS/Networking.md',
-  'Areas/CS/Offline First.md',
-  'Areas/CS/CS people to follow.md',
-  'TODAY.md',
-  'Myriad Distribution Push.md',
-  'Myriad/Do The Thing — 26 Aug 2026.md',
-]
-const BOTTOM_LEFT = [
-  'Content Inbox.md',
-  'WIP.md',
-  'WIP 2.md',
-  'Edible TODO.md',
-  'Edible/Edible Distribution WIP.md',
-]
-const DAILIES = ['Daily/29-8-2026.md', 'Daily/25-8-2026.md']
-const RIGHT = [
-  'Edible WIP.md',
-  'Edible/Edible Distribution Push (Aug 2026).md',
-  'Edible Follow-ups.md',
-]
-
-function rawTab(id: string, path: string): unknown {
-  return { id, path, pinned: false, cursor: null, scroll: 0, history: [path], historyAt: 0 }
-}
-
-function rawPane(
-  id: string,
-  list: string[],
-  opts: { active?: number; groups?: { name: string; color: number; collapsed?: boolean; at: number[] }[] } = {}
-): Record<string, unknown> {
-  const tabs = list.map((path, i) => rawTab(`${id}t${i}`, path))
-  return {
-    kind: 'pane',
-    id,
-    tabs,
-    groups: (opts.groups ?? []).map((g, gi) => ({
-      id: `${id}g${gi}`,
-      name: g.name,
-      color: g.color,
-      collapsed: g.collapsed ?? false,
-      tabIds: g.at.map((i) => `${id}t${i}`),
-      lastActive: 1_700_000_000_000 + gi,
-    })),
-    active: `${id}t${opts.active ?? 0}`,
-  }
-}
-
-/** The measured tree: 4 panes, 21 tabs, splits 3 deep, every border dragged. */
-function chrisRaw(): Record<string, unknown> {
-  return {
-    version: 1,
-    tree: {
-      kind: 'split',
-      id: 's1',
-      dir: 'col',
-      sizes: [18.76, 81.24],
-      children: [
-        rawPane('top', TOP, {
-          active: 9,
-          groups: [
-            { name: 'CS reading', color: 6, collapsed: true, at: [5, 6, 7] },
-            { name: 'Myriad', color: 3, at: [9, 10] },
-          ],
-        }),
-        {
-          kind: 'split',
-          id: 's2',
-          dir: 'row',
-          sizes: [56.71, 43.29],
-          children: [
-            {
-              kind: 'split',
-              id: 's3',
-              dir: 'col',
-              sizes: [72.47, 27.53],
-              children: [
-                rawPane('bl', BOTTOM_LEFT, {
-                  active: 4,
-                  groups: [{ name: 'Edible distribution', color: 7, at: [3, 4] }],
-                }),
-                rawPane('daily', DAILIES),
-              ],
-            },
-            rawPane('right', RIGHT, { active: 1 }),
-          ],
-        },
-      ],
-    },
-    focus: 'bl',
-    zoom: null,
-  }
-}
-
-function chris(): Layout {
-  const l = normalize(chrisRaw(), ids('n'))
-  if (!l) throw new Error('the measured layout must normalize')
-  return l
-}
 
 describe('serialize / normalize', () => {
   it("round-trips Chris's real 4-pane tree through JSON, sizes intact", () => {
@@ -253,8 +151,7 @@ describe('openPath (Fork 1-B: every open is a tab)', () => {
   })
 
   it('opens the same note in a second pane — that is the deliberate act', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     l = openPath(l, 'b.md', {}, gen)
     expect(liveGuidsInput(l).map((v) => v.path)).toEqual(['a.md', 'b.md'])
@@ -263,9 +160,7 @@ describe('openPath (Fork 1-B: every open is a tab)', () => {
   })
 
   it('inserts after the active tab, inside its group', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md')
     const pane = paneAt(l, 0)
     // Group just the middle tab, then open from it.
     const b = tabIdFor(pane, 'b.md')
@@ -278,8 +173,7 @@ describe('openPath (Fork 1-B: every open is a tab)', () => {
   })
 
   it('opens in the background without stealing the active tab', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = openPath(l, 'b.md', { background: true }, gen)
     expect(activeTab(paneAt(l, 0))?.path).toBe('a.md')
     expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
@@ -299,8 +193,7 @@ function withGroup(p: Pane, name: string, tabIds: string[]): Pane {
 
 describe('closing tabs and panes', () => {
   it('closes the pane with its last tab, unless it is the only pane', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     expect(panes(l.tree)).toHaveLength(2)
     const second = paneAt(l, 1)
@@ -316,9 +209,7 @@ describe('closing tabs and panes', () => {
   })
 
   it('keeps the group contiguous when a member closes', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md', 'd.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md', 'd.md')
     let pane = paneAt(l, 0)
     const grouped = ['a.md', 'b.md', 'c.md'].map((p) => tabIdFor(pane, p))
     l = { ...l, tree: withGroup(pane, 'cluster', grouped) }
@@ -330,9 +221,7 @@ describe('closing tabs and panes', () => {
   })
 
   it('close-others keeps the active and the pinned tabs, and saves emptied groups', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md', 'd.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md', 'd.md')
     let pane = paneAt(l, 0)
     const pin = tabIdFor(pane, 'a.md')
     pane = { ...pane, tabs: pane.tabs.map((t) => (t.id === pin ? { ...t, pinned: true } : t)) }
@@ -347,8 +236,7 @@ describe('closing tabs and panes', () => {
   })
 
   it('close-pane saves its groups, moves pinned tabs next door and returns the share', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'keep.md', {}, gen)
+    let { l, gen } = strip('keep.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     let doomed = paneAt(l, 1)
     l = openPath(l, 'x.md', { paneId: doomed.id }, gen)
@@ -367,8 +255,7 @@ describe('closing tabs and panes', () => {
   })
 
   it('never closes the last pane', () => {
-    const gen = ids()
-    const l = openPath(createLayout(gen), 'a.md', {}, gen)
+    const { l } = strip('a.md')
     const { layout, saved } = closePane(l, paneAt(l, 0).id)
     expect(panes(layout.tree)).toHaveLength(1)
     expect(saved).toEqual([])
@@ -386,8 +273,7 @@ function replacePane(l: Layout, id: string, next: Pane): Layout['tree'] {
 
 describe('splitting', () => {
   it('duplicates the active path into the new pane and halves the share', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     let pane = paneAt(l, 0)
     pane = { ...pane, tabs: pane.tabs.map((t) => (t.path === 'a.md' ? { ...t, scroll: 42, cursor: { anchor: 3, head: 5 } } : t)) }
     l = split({ ...l, tree: pane }, pane.id, 'row', gen)
@@ -405,8 +291,7 @@ describe('splitting', () => {
 
   it('splitWith drops a tab on all four sides', () => {
     const build = (): { l: Layout; a: Pane; b: Pane; gen: () => string } => {
-      const gen = ids()
-      let l = openPath(createLayout(gen), 'a.md', {}, gen)
+      let { l, gen } = strip('a.md')
       l = openPath(l, 'a2.md', {}, gen)
       l = split(l, paneAt(l, 0).id, 'row', gen)
       return { l, a: paneAt(l, 0), b: paneAt(l, 1), gen }
@@ -444,9 +329,7 @@ describe('splitting', () => {
   })
 
   it('carries a whole group across, and refuses to re-split a pane with itself', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     const source = paneAt(l, 0)
     const cluster = ['a.md', 'b.md'].map((p) => tabIdFor(source, p))
@@ -463,9 +346,7 @@ describe('splitting', () => {
 
 describe('moving tabs', () => {
   it('moves to another pane, and activates instead of duplicating', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     const from = paneAt(l, 0)
     const to = paneAt(l, 1)
@@ -481,9 +362,7 @@ describe('moving tabs', () => {
   })
 
   it('joins the group it lands inside, and leaves it at the strip edge', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md', 'loose.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md', 'loose.md')
     let pane = paneAt(l, 0)
     const cluster = ['a.md', 'b.md', 'c.md'].map((p) => tabIdFor(pane, p))
     l = { ...l, tree: withGroup(pane, 'cluster', cluster) }
@@ -504,9 +383,7 @@ describe('moving tabs', () => {
   })
 
   it('leaves the source group contiguous, and closes a pane it emptied', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md')
     let from = paneAt(l, 0)
     const cluster = ['a.md', 'b.md', 'c.md'].map((p) => tabIdFor(from, p))
     l = { ...l, tree: withGroup(from, 'cluster', cluster) }
@@ -528,17 +405,14 @@ describe('moving tabs', () => {
   })
 
   it('reorders within the strip by the index the drop indicator points at', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md', 'c.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md', 'c.md')
     const pane = paneAt(l, 0)
     l = reorder(l, pane.id, tabIdFor(pane, 'c.md'), 1)
     expect(pathsOf(paneAt(l, 0))).toEqual([null, 'c.md', 'a.md', 'b.md'])
   })
 
   it('swaps two panes without moving their shares', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     l = resize(l, asSplit(l).id, 0, 20)
     const [a, b] = panes(l.tree)
@@ -550,8 +424,7 @@ describe('moving tabs', () => {
 
 describe('resizing', () => {
   it('clamps a border at 10 % on either side', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     const id = asSplit(l).id
     expect(asSplit(resize(l, id, 0, 200)).sizes).toEqual([90, 10])
@@ -711,9 +584,7 @@ describe('staying honest against the vault (R5)', () => {
   })
 
   it('closes the second tab when a rename collides two paths in one pane', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md')
     l = rename(l, 'b.md', 'a.md', gen)
     expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md'])
   })
@@ -731,8 +602,7 @@ describe('staying honest against the vault (R5)', () => {
   })
 
   it('closes a pane that pruning emptied, keeping the last one alive', () => {
-    const gen = ids()
-    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    let { l, gen } = strip('a.md')
     l = split(l, paneAt(l, 0).id, 'row', gen)
     l = closeTab(l, paneAt(l, 0).tabs[0].id, gen) // drop the empty tab in pane 0
     expect(panes(l.tree)).toHaveLength(2)
@@ -809,9 +679,7 @@ describe('per-tab history (Fork 4)', () => {
   })
 
   it('activates the tab that already holds the target instead of duplicating it (R3)', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md')
     const pane = paneAt(l, 0)
     const a = tabIdFor(pane, 'a.md')
     const b = tabIdFor(pane, 'b.md')
@@ -846,9 +714,7 @@ describe('tree reading helpers', () => {
   })
 
   it('snapshots a tab so it can be reopened where it was', () => {
-    const gen = ids()
-    let l = createLayout(gen)
-    for (const p of ['a.md', 'b.md']) l = openPath(l, p, {}, gen)
+    let { l, gen } = strip('a.md', 'b.md')
     let pane = paneAt(l, 0)
     pane = { ...pane, tabs: pane.tabs.map((t) => (t.path === 'a.md' ? { ...t, scroll: 12 } : t)) }
     l = { ...l, tree: pane }

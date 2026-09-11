@@ -26,7 +26,7 @@ import type { Command, CommandRegistry } from './commands.js'
 import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
 import { familyTitle, paneCommands } from './pane-commands.js'
-import { slotsFrom, stripDrop } from './pane-drag.js'
+import { slotsFrom, stripDrop, zoneBox, type Box } from './pane-drag.js'
 import * as tree from './panes.js'
 import type {
   ClosedTab,
@@ -46,7 +46,7 @@ import {
   saveLayout,
   saveSavedGroups,
 } from './workspace-layout.js'
-import type { Workspace } from './workspace.svelte.js'
+import { textPaths, type Workspace } from './workspace.svelte.js'
 
 /** Layout writes are device-local and cheap; this only keeps a drag quiet. */
 const SAVE_DEBOUNCE_MS = 400
@@ -74,12 +74,7 @@ export interface Resume {
   scroll: number
 }
 
-export interface Box {
-  left: number
-  top: number
-  width: number
-  height: number
-}
+export type { Box }
 
 export type DropTarget =
   /** Over something that cannot take the payload — paint nothing. */
@@ -349,8 +344,7 @@ export function createPanes(
   const PRUNE_SETTLE_MS = 400
   let lastLive = ''
   let cancelPrune: (() => void) | null = null
-  const livePaths = (ws: Workspace): string[] =>
-    ws.ui.files.filter((f) => f.kind === 'text').map((f) => f.path)
+  const livePaths = (ws: Workspace): string[] => textPaths(ws.ui.files)
 
   $effect(() => {
     const ws = workspace
@@ -483,18 +477,6 @@ export function createPanes(
 
   // ---- the drag session (B10) ----
 
-  function boxOf(r: DOMRect, zone: 'center' | Side): Box {
-    if (zone === 'center') {
-      return { left: r.left + 10, top: r.top + 10, width: r.width - 20, height: r.height - 20 }
-    }
-    if (zone === 'left') return { left: r.left, top: r.top, width: r.width / 2, height: r.height }
-    if (zone === 'right') {
-      return { left: r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height }
-    }
-    if (zone === 'up') return { left: r.left, top: r.top, width: r.width, height: r.height / 2 }
-    return { left: r.left, top: r.top + r.height / 2, width: r.width, height: r.height / 2 }
-  }
-
   function hitTest(x: number, y: number, payload: DragPayload): DropTarget | null {
     const hit = document.elementFromPoint(x, y)
     const el = hit instanceof Element ? hit.closest<HTMLElement>('[data-pane-id]') : null
@@ -528,7 +510,7 @@ export function createPanes(
     // Dissolving a pane onto its own edge would rebuild the same pane; joining
     // the strip you came from is a reorder, and that is the strip's job.
     if (payload.fromPaneId === paneId && (zone === 'center' || whole)) return { kind: 'none' }
-    return { kind: 'zone', paneId, zone, box: boxOf(r, zone) }
+    return { kind: 'zone', paneId, zone, box: zoneBox(r, zone) }
   }
 
   function applyDrop(target: DropTarget, payload: DragPayload): void {
@@ -658,7 +640,7 @@ export function createPanes(
         savedGroups = []
         return
       }
-      const live = new Set(next.ui.files.filter((f) => f.kind === 'text').map((f) => f.path))
+      const live = new Set(textPaths(next.ui.files))
       const stored = loadLayout(key, ids)
       // A restored tree is checked against the vault before it is shown, so a
       // note deleted in Obsidian while this device was closed cannot open (R5).
@@ -688,7 +670,7 @@ export function createPanes(
     },
 
     open(path, opts = {}) {
-        const p = opts.paneId ? tree.findPane(current, opts.paneId) : focused()
+      const p = opts.paneId ? tree.findPane(current, opts.paneId) : focused()
       const slot = p ? tree.activeTab(p) : null
       // An empty tab is a slot waiting for a note (that is what its picker is
       // for), so a foreground open fills it rather than leaving it behind.

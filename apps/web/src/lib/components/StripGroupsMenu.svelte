@@ -11,13 +11,15 @@
    * glance — everything is in the dialog.
    */
   import { LL } from '@editor/i18n/i18n-svelte'
-  import type { GroupShell } from '../group-ui.svelte.js'
+  import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { formatStamp } from '../history.js'
   import { activeTab, type Pane } from '../panes.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSection from '../ui/MenuSection.svelte'
   import MenuSeparator from '../ui/MenuSeparator.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
+  import GroupDot from './GroupDot.svelte'
 
   interface Props {
     attrs: { item: MenuItemAttrs; separator: MenuSeparatorAttrs }
@@ -38,25 +40,10 @@
   const open = $derived(rows.filter((r) => r.open))
   const saved = $derived(rows.filter((r) => !r.open))
   const hasNote = $derived(activeTab(pane)?.path != null)
-  const nameOf = (name: string): string => name || t.untitled()
 </script>
 
-{#snippet swatch(color: number)}
-  <span
-    aria-hidden="true"
-    class="size-2 shrink-0 rounded-full"
-    style="background: var(--ed-group-{color})"
-  ></span>
-{/snippet}
-
 {#if open.length > 0}
-  <div role="group" aria-label={t.menu.open()}>
-    <p
-      aria-hidden="true"
-      class="px-3 pt-1 pb-0.5 text-[10px] tracking-wider text-base-content/70 uppercase"
-    >
-      {t.menu.open()}
-    </p>
+  <MenuSection label={t.menu.open()}>
     {#each open as row (row.id)}
       <MenuItem
         item={attrs.item}
@@ -65,8 +52,8 @@
         onSelect={() => groups.openRow(row, pane.id)}
       >
         <span class="flex w-full items-center gap-2">
-          {@render swatch(row.color)}
-          <span class="min-w-0 flex-1 truncate">{nameOf(row.name)}</span>
+          <GroupDot color={row.color} />
+          <span class="min-w-0 flex-1 truncate">{groupLabel(row.name)}</span>
           {#if !row.here && row.paneId}
             <span class="shrink-0 text-[10px] text-base-content/70">
               {$LL.web.panes.label({ n: panes.paneIndex(row.paneId) })}
@@ -75,17 +62,11 @@
         </span>
       </MenuItem>
     {/each}
-  </div>
+  </MenuSection>
 {/if}
 
 {#if saved.length > 0}
-  <div role="group" aria-label={t.menu.saved()}>
-    <p
-      aria-hidden="true"
-      class="px-3 pt-1 pb-0.5 text-[10px] tracking-wider text-base-content/70 uppercase"
-    >
-      {t.menu.saved()}
-    </p>
+  <MenuSection label={t.menu.saved()}>
     {#each saved.slice(0, LIST_PREVIEW) as row (row.id)}
       <MenuItem
         item={attrs.item}
@@ -94,15 +75,15 @@
         onSelect={() => groups.openRow(row, pane.id)}
       >
         <span class="flex w-full items-center gap-2">
-          {@render swatch(row.color)}
-          <span class="min-w-0 flex-1 truncate">{nameOf(row.name)}</span>
+          <GroupDot color={row.color} />
+          <span class="min-w-0 flex-1 truncate">{groupLabel(row.name)}</span>
           <span class="shrink-0 font-ed-mono text-[10px] text-base-content/70">
             {formatStamp(row.lastActive, now())}
           </span>
         </span>
       </MenuItem>
     {/each}
-  </div>
+  </MenuSection>
 {/if}
 
 {#if rows.length > 0}

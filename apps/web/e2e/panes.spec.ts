@@ -6,37 +6,11 @@
  *
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { dragTo, editors, openApp, panes, tabNamed } from './fixtures.js'
 
-const RELAY = 'ws://localhost:8799'
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
-
-async function openApp(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token: 'e2e-token',
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
-
-const panes = (page: Page): Locator => page.locator('[data-pane-id]')
-const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')
-
-/** A pointer drag with enough steps to cross the 6 px threshold and settle. */
-async function dragTo(page: Page, from: Locator, x: number, y: number): Promise<void> {
-  const box = (await from.boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(x, y, { steps: 12 })
-  await page.mouse.move(x, y)
-  await page.mouse.up()
-}
 
 test('his pane keys rebuild a four-pane layout, and the arrows move between them', async ({
   page,
@@ -83,7 +57,7 @@ test('a tab dropped on a pane edge splits it; a tab dropped on a strip moves', a
   // Drag the *ideas* tab onto the left quarter of the pane: a new pane there.
   const pane = panes(page).first()
   const box = (await pane.boundingBox())!
-  const ideas = page.locator('[data-slot-kind="tab"]', { hasText: 'ideas' }).first()
+  const ideas = tabNamed(page, 'ideas')
   await dragTo(page, ideas, box.x + box.width * 0.1, box.y + box.height * 0.6)
   await expect(panes(page)).toHaveCount(2)
   // The dragged note went with it, and the new pane took focus.
@@ -93,7 +67,7 @@ test('a tab dropped on a pane edge splits it; a tab dropped on a strip moves', a
   // the source pane's last tab leaves.
   const other = panes(page).nth(1)
   const strip = (await other.locator('[data-strip]').boundingBox())!
-  const moved = page.locator('[data-slot-kind="tab"]', { hasText: 'ideas' }).first()
+  const moved = tabNamed(page, 'ideas')
   await dragTo(page, moved, strip.x + strip.width - 40, strip.y + strip.height / 2)
   await expect(panes(page)).toHaveCount(1)
 })

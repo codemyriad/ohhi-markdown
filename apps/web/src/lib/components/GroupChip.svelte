@@ -14,8 +14,10 @@
    * the far side of the drop.
    */
   import { LL } from '@editor/i18n/i18n-svelte'
+  import { groupLabel } from '../group-ui.svelte.js'
   import type { Group, Pane } from '../panes.js'
   import { DRAG_THRESHOLD_PX, type PaneShell } from '../workspace-panes.svelte.js'
+  import GroupDot from './GroupDot.svelte'
 
   interface Props {
     group: Group
@@ -27,7 +29,7 @@
   let { group, pane, panes, onManage }: Props = $props()
 
   const t = $derived($LL.web.groups)
-  const name = $derived(group.name || t.untitled())
+  const name = $derived(groupLabel(group.name))
   const lifted = $derived(panes.drag?.payload.groupId === group.id)
 
   /**
@@ -83,11 +85,7 @@
   class="my-1 ml-1.5 flex shrink-0 touch-none items-center gap-1.5 rounded-md px-2 text-xs font-medium text-base-content select-none focus-visible:outline-2 focus-visible:outline-primary
     {lifted ? 'opacity-35' : ''}"
 >
-  <span
-    aria-hidden="true"
-    class="size-2 shrink-0 rounded-full"
-    style="background: var(--ed-chip)"
-  ></span>
+  <GroupDot color={group.color} />
   <span class="max-w-32 truncate">{name}</span>
   {#if group.collapsed}
     <!-- The count stands in for the tabs the fold hid; spelled out for a

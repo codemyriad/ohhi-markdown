@@ -13,6 +13,7 @@
    */
   import { File } from '@lucide/svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
+  import GroupDot from './GroupDot.svelte'
 
   interface Props {
     panes: PaneShell
@@ -49,10 +50,7 @@
       style="left: {drag.x}px; top: {drag.y}px"
     >
       {#if drag.payload.color}
-        <span
-          class="size-2 rounded-full"
-          style="background: var(--ed-group-{drag.payload.color})"
-        ></span>
+        <GroupDot color={drag.payload.color} />
       {:else}
         <File size={13} />
       {/if}

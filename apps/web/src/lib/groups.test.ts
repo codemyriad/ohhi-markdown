@@ -18,33 +18,8 @@ import {
   ungroup,
   type SavedGroup,
 } from './groups.js'
-import {
-  activeTab,
-  createLayout,
-  groupOf,
-  openPath,
-  panes,
-  split,
-  type Layout,
-  type Pane,
-} from './panes.js'
-
-function ids(prefix = 'i'): () => string {
-  let n = 0
-  return () => `${prefix}${n++}`
-}
-
-const paneAt = (l: Layout, i = 0): Pane => panes(l.tree)[i]
-const pathsOf = (p: Pane): (string | null)[] => p.tabs.map((t) => t.path)
-const tabIdFor = (p: Pane, path: string): string => p.tabs.find((t) => t.path === path)!.id
-
-/** One pane with the given notes open, the last one active. */
-function strip(...list: string[]): { l: Layout; gen: () => string } {
-  const gen = ids()
-  let l = createLayout(gen)
-  for (const p of list) l = openPath(l, p, {}, gen)
-  return { l, gen }
-}
+import { activeTab, createLayout, groupOf, openPath, panes, split, type Layout } from './panes.js'
+import { ids, paneAt, pathsOf, strip, tabIdFor } from './panes.fixture.js'
 
 /** Group these paths in pane 0 and answer the group's id. */
 function group(l: Layout, gen: () => string, name: string, list: string[]): { l: Layout; id: string } {

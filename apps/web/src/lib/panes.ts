@@ -117,9 +117,9 @@ export interface SavedGroup {
 /** Percent floor for a split child — the mock's clamp, and B11's. */
 export const MIN_SIZE = 10
 /** Fraction of a pane's width/height that counts as its drop edge (B10). */
-export const EDGE_BAND = 0.25
+const EDGE_BAND = 0.25
 /** Bumped when the persisted shape changes; older payloads are dropped. */
-export const LAYOUT_VERSION = 1
+const LAYOUT_VERSION = 1
 
 let fallbackSeq = 0
 /**
@@ -143,7 +143,7 @@ export function findPane(l: Layout, id: string): Pane | null {
   return panes(l.tree).find((p) => p.id === id) ?? null
 }
 
-export function findSplit(l: Layout, id: string): Split | null {
+function findSplit(l: Layout, id: string): Split | null {
   const walk = (n: Node): Split | null => {
     if (n.kind === 'pane') return null
     if (n.id === id) return n
@@ -224,7 +224,7 @@ export function newTab(
   }
 }
 
-export function newPane(ids: () => string, tabs: Tab[] = []): Pane {
+function newPane(ids: () => string, tabs: Tab[] = []): Pane {
   const list = tabs.length ? tabs : [newTab(ids)]
   return { kind: 'pane', id: ids(), tabs: list, groups: [], active: list[0].id }
 }
@@ -258,7 +258,7 @@ function cloneNode(n: Node): Node {
       }
 }
 
-export function cloneLayout(l: Layout): Layout {
+function cloneLayout(l: Layout): Layout {
   return { tree: cloneNode(l.tree), focus: l.focus, zoom: l.zoom }
 }
 
@@ -323,7 +323,7 @@ function evenSizes(n: number): number[] {
  * degenerate splits, and `active`/`focus`/`zoom` pointing at things that
  * still exist.
  */
-export function settleLayout(l: Layout): void {
+function settleLayout(l: Layout): void {
   const tree = compact(l.tree)
   if (tree) l.tree = tree
   const ps = panes(l.tree)
@@ -1201,6 +1201,20 @@ function num(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback
 }
 
+/** A stored resume point, or null — a tab and a saved tab carry the same one. */
+function readCursor(raw: unknown): Cursor | null {
+  const c = raw as Record<string, unknown> | null | undefined
+  return c && typeof c === 'object' && typeof c.anchor === 'number' && typeof c.head === 'number'
+    ? { anchor: c.anchor, head: c.head }
+    : null
+}
+
+/** A stored colour, clamped back into the `--ed-group-1..8` band. */
+function readColor(raw: unknown): GroupColor {
+  const n = Math.round(num(raw, 1))
+  return (n >= 1 && n <= 8 ? n : 1) as GroupColor
+}
+
 /**
  * Sizes as stored, repaired only where they are wrong: Chris's four panes are
  * all at hand-dragged percentages (18.76 / 56.71 / 72.47), so a round-trip
@@ -1224,18 +1238,12 @@ function clampSizes(raw: unknown, n: number): number[] {
 function normalizeTab(raw: unknown, ids: () => string): Tab | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
-  const path = typeof r.path === 'string' ? r.path : null
-  const cur = r.cursor as Record<string, unknown> | null | undefined
-  const cursor =
-    cur && typeof cur === 'object' && typeof cur.anchor === 'number' && typeof cur.head === 'number'
-      ? { anchor: cur.anchor, head: cur.head }
-      : null
   const history = Array.isArray(r.history) ? r.history.filter((h): h is string => typeof h === 'string') : []
   const t: Tab = {
     id: str(r.id, ids()),
-    path,
+    path: typeof r.path === 'string' ? r.path : null,
     pinned: r.pinned === true,
-    cursor,
+    cursor: readCursor(r.cursor),
     scroll: Math.max(0, num(r.scroll, 0)),
     history,
     historyAt: Math.round(num(r.historyAt, history.length - 1)),
@@ -1251,11 +1259,10 @@ function normalizeGroup(raw: unknown, tabIds: Set<string>, ids: () => string): G
     ? r.tabIds.filter((id): id is string => typeof id === 'string' && tabIds.has(id))
     : []
   if (!members.length) return null
-  const color = Math.round(num(r.color, 1))
   return {
     id: str(r.id, ids()),
     name: str(r.name, ''),
-    color: (color >= 1 && color <= 8 ? color : 1) as GroupColor,
+    color: readColor(r.color),
     collapsed: r.collapsed === true,
     tabIds: members,
     lastActive: num(r.lastActive, 0),
@@ -1312,4 +1319,38 @@ export function normalize(raw: unknown, ids: () => string = nextId): Layout | nu
   }
   settleLayout(l)
   return l
+}
+
+/**
+ * Tolerant read of the saved-group list — the other half of the device blob
+ * (`workspace-layout.ts` is its store, and re-exports this). A group missing
+ * its name or colour is still a list of paths worth reopening, so only a
+ * group with no usable tab is dropped.
+ */
+export function normalizeSavedGroups(raw: unknown): SavedGroup[] {
+  if (!Array.isArray(raw)) return []
+  const out: SavedGroup[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const r = item as Record<string, unknown>
+    const tabs = (Array.isArray(r.tabs) ? r.tabs : [])
+      .map(normalizeSavedTab)
+      .filter((t): t is SavedGroup['tabs'][number] => t !== null)
+    if (!tabs.length) continue
+    out.push({
+      id: str(r.id, `sg${out.length}`),
+      name: str(r.name, ''),
+      color: readColor(r.color),
+      lastActive: num(r.lastActive, 0),
+      tabs,
+    })
+  }
+  return out
+}
+
+function normalizeSavedTab(raw: unknown): SavedGroup['tabs'][number] | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  if (typeof r.path !== 'string' || !r.path) return null
+  return { path: r.path, cursor: readCursor(r.cursor), scroll: Math.max(0, num(r.scroll, 0)) }
 }

@@ -29,36 +29,14 @@ import {
   upsertVault,
   type VaultEntry,
 } from './config.js'
+import { dropStorage, seedStored as seed, useMemStorage } from './storage.fixture.js'
 
-/** Minimal Storage over a Map — config.ts only needs get/set/removeItem. */
-class MemStorage {
-  private m = new Map<string, string>()
-  getItem(k: string): string | null {
-    return this.m.get(k) ?? null
-  }
-  setItem(k: string, v: string): void {
-    this.m.set(k, String(v))
-  }
-  removeItem(k: string): void {
-    this.m.delete(k)
-  }
-}
-
-const g = globalThis as { localStorage?: unknown }
+let store = useMemStorage()
 
 beforeEach(() => {
-  g.localStorage = new MemStorage()
+  store = useMemStorage()
 })
-afterEach(() => {
-  delete g.localStorage
-})
-
-function seed(key: string, value: unknown): void {
-  ;(g.localStorage as MemStorage).setItem(
-    key,
-    typeof value === 'string' ? value : JSON.stringify(value)
-  )
-}
+afterEach(dropStorage)
 
 const tauriEntry: VaultEntry = {
   name: 'notes',
@@ -354,7 +332,7 @@ describe('user name healing (regression)', () => {
     seed('editor:user', '"\\"Chris\\""')
     expect(loadUser()).toBe('Chris')
     saveUser('Chris')
-    expect((g.localStorage as MemStorage).getItem('editor:user')).toBe('Chris')
+    expect(store.getItem('editor:user')).toBe('Chris')
   })
 })
 

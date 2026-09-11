@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { SavedGroup } from './groups.js'
-import { createLayout, openPath, panes, serialize, split, type Layout } from './panes.js'
+import { openPath, serialize, split, type Layout } from './panes.js'
+import { ids, paneAt, strip } from './panes.fixture.js'
+import { dropStorage, seedStored as seed, useMemStorage } from './storage.fixture.js'
 import {
   loadLayout,
   loadSavedGroups,
@@ -9,49 +11,17 @@ import {
   saveSavedGroups,
 } from './workspace-layout.js'
 
-/** Minimal Storage over a Map — config.ts's helpers only need these three. */
-class MemStorage {
-  private m = new Map<string, string>()
-  getItem(k: string): string | null {
-    return this.m.get(k) ?? null
-  }
-  setItem(k: string, v: string): void {
-    this.m.set(k, String(v))
-  }
-  removeItem(k: string): void {
-    this.m.delete(k)
-  }
-  keys(): string[] {
-    return [...this.m.keys()]
-  }
-}
-
-const g = globalThis as { localStorage?: unknown }
+let store = useMemStorage()
 
 beforeEach(() => {
-  g.localStorage = new MemStorage()
+  store = useMemStorage()
 })
-afterEach(() => {
-  delete g.localStorage
-})
+afterEach(dropStorage)
 
-function seed(key: string, value: unknown): void {
-  ;(g.localStorage as MemStorage).setItem(
-    key,
-    typeof value === 'string' ? value : JSON.stringify(value)
-  )
-}
-
-function ids(prefix = 'i'): () => string {
-  let n = 0
-  return () => `${prefix}${n++}`
-}
-
+/** Two panes, two notes — enough shape that a round-trip can lose something. */
 function sample(): Layout {
-  const gen = ids()
-  let l = openPath(createLayout(gen), 'a.md', {}, gen)
-  l = split(l, panes(l.tree)[0].id, 'row', gen)
-  return openPath(l, 'b.md', {}, gen)
+  const { l, gen } = strip('a.md')
+  return openPath(split(l, paneAt(l).id, 'row', gen), 'b.md', {}, gen)
 }
 
 const KEY = 'editor:workspace:room-a'
@@ -65,7 +35,7 @@ describe('the device-local workspace store', () => {
   it('round-trips a layout through localStorage under one key per vault', () => {
     const l = sample()
     saveLayout('room-a', l)
-    expect((g.localStorage as MemStorage).keys()).toEqual([KEY])
+    expect(store.keys()).toEqual([KEY])
     const back = loadLayout('room-a', ids('r'))
     expect(back).not.toBeNull()
     expect(serialize(back!)).toEqual(serialize(l))
@@ -102,7 +72,7 @@ describe('the device-local workspace store', () => {
   })
 
   it('survives storage being unavailable', () => {
-    delete g.localStorage
+    dropStorage()
     expect(() => saveLayout('room-a', sample())).not.toThrow()
     expect(loadLayout('room-a', ids())).toBeNull()
     expect(loadSavedGroups('room-a')).toEqual([])

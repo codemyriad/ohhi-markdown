@@ -19,6 +19,7 @@
     type MenuSeparatorAttrs,
   } from '../ui/DropdownMenu.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSection from '../ui/MenuSection.svelte'
   import MenuSeparator from '../ui/MenuSeparator.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
@@ -84,10 +85,7 @@
       {#if groupItems}{@render groupItems(attrs, tab)}{/if}
       {#if others.length > 0}
         <MenuSeparator separator={attrs.separator} />
-        <div role="group" aria-label={t.move_to_pane()}>
-          <p aria-hidden="true" class="px-3 pt-1 pb-0.5 text-[10px] tracking-wider text-base-content/70 uppercase">
-            {t.move_to_pane()}
-          </p>
+        <MenuSection label={t.move_to_pane()}>
           {#each others as other (other.id)}
             <MenuItem
               item={attrs.item}
@@ -104,7 +102,7 @@
               </span>
             </MenuItem>
           {/each}
-        </div>
+        </MenuSection>
       {/if}
       <MenuSeparator separator={attrs.separator} />
       <MenuItem

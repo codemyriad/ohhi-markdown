@@ -12,25 +12,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MemStoreDir, MemVaultAdapter, MountsFile } from '@editor/vault'
 import { setupWorkspace, type Workspace } from './workspace.svelte.js'
 import { encodeShareLink } from './share-link.js'
+import { useMemStorage } from './storage.fixture.js'
 
-/** Minimal Storage over a Map — config.ts only needs get/set/removeItem. */
-class MemStorage {
-  private m = new Map<string, string>()
-  getItem(k: string): string | null {
-    return this.m.get(k) ?? null
-  }
-  setItem(k: string, v: string): void {
-    this.m.set(k, String(v))
-  }
-  removeItem(k: string): void {
-    this.m.delete(k)
-  }
-}
-
-const g = globalThis as { localStorage?: unknown }
-beforeEach(() => {
-  g.localStorage = new MemStorage()
-})
+beforeEach(() => useMemStorage())
 
 const enc = new TextEncoder()
 const ROOM = 'team-room'

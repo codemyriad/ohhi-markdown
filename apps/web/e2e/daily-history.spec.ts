@@ -8,22 +8,8 @@
  * needs a browser is the wiring: the key creates and opens a note, the walk
  * moves between the ones that exist, and a restore reaches disk and the editor.
  */
-import { expect, test, type Page } from '@playwright/test'
-
-const RELAY = 'ws://localhost:8799'
-
-async function openApp(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token: 'e2e-token',
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
+import { expect, test } from '@playwright/test'
+import { openApp } from './fixtures.js'
 
 /** Today in Obsidian's default format, computed the way the app does. */
 function todayName(): string {

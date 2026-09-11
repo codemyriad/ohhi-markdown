@@ -13,8 +13,13 @@
  * debounces the writes and prunes the layout against `ui.files` at boot.
  */
 import { readJson, writeJson } from './config.js'
-import type { SavedGroup, GroupColor } from './groups.js'
-import { normalize, serialize, type Layout } from './panes.js'
+import type { SavedGroup } from './groups.js'
+import { normalize, normalizeSavedGroups, serialize, type Layout } from './panes.js'
+
+// Defined beside the other tolerant readers of the stored shapes, and
+// re-exported here because this module is the store they belong to — the same
+// arrangement `normalizeGroups` and `SavedGroup` already have.
+export { normalizeSavedGroups }
 
 const PREFIX = 'editor:workspace:'
 const VERSION = 1
@@ -65,49 +70,4 @@ export function saveSavedGroups(vaultKey: string, groups: readonly SavedGroup[])
     layout: stored?.layout ?? null,
     savedGroups: normalizeSavedGroups(groups).slice(0, SAVED_LIMIT),
   } satisfies StoredWorkspace)
-}
-
-/**
- * Tolerant read of the saved list: a group missing its name or colour is
- * still a list of paths worth reopening, so only a group with no usable tab
- * is dropped.
- */
-export function normalizeSavedGroups(raw: unknown): SavedGroup[] {
-  if (!Array.isArray(raw)) return []
-  const out: SavedGroup[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const r = item as Record<string, unknown>
-    const tabs = Array.isArray(r.tabs)
-      ? r.tabs
-          .map((t) => normalizeSavedTab(t))
-          .filter((t): t is SavedGroup['tabs'][number] => t !== null)
-      : []
-    if (!tabs.length) continue
-    const color = typeof r.color === 'number' && r.color >= 1 && r.color <= 8 ? Math.round(r.color) : 1
-    out.push({
-      id: typeof r.id === 'string' ? r.id : `sg${out.length}`,
-      name: typeof r.name === 'string' ? r.name : '',
-      color: color as GroupColor,
-      lastActive: typeof r.lastActive === 'number' && Number.isFinite(r.lastActive) ? r.lastActive : 0,
-      tabs,
-    })
-  }
-  return out
-}
-
-function normalizeSavedTab(raw: unknown): SavedGroup['tabs'][number] | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  if (typeof r.path !== 'string' || !r.path) return null
-  const c = r.cursor as Record<string, unknown> | null | undefined
-  const cursor =
-    c && typeof c === 'object' && typeof c.anchor === 'number' && typeof c.head === 'number'
-      ? { anchor: c.anchor, head: c.head }
-      : null
-  return {
-    path: r.path,
-    cursor,
-    scroll: typeof r.scroll === 'number' && Number.isFinite(r.scroll) ? Math.max(0, r.scroll) : 0,
-  }
 }

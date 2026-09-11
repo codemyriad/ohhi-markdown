@@ -20,6 +20,16 @@ import { groupCommands, type GroupActions } from './pane-commands.js'
 import { activeTab, findPane } from './panes.js'
 import type { PaneShell } from './workspace-panes.svelte.js'
 
+/**
+ * A group's name as anything on screen prints it — a group with no name yet is
+ * the normal case for a keyboard create, and an empty chip says nothing. Read
+ * through `getLL()` rather than `$LL` because the callers are a mix of
+ * components and modules (the `tree-model.ts` / `pill-status.ts` pattern).
+ */
+export function groupLabel(name: string): string {
+  return name || getLL().web.groups.untitled()
+}
+
 /** What the group UI needs from the rest of the shell. */
 export interface GroupHost {
   /** True when more than one note in the vault carries this basename (B8). */
@@ -90,7 +100,7 @@ export function createGroupUi(panes: PaneShell, host: GroupHost): GroupShell {
     const paths = panes.groupPaths(groupId)
     if (!group || !paths.length) return
     const t = getLL().web.groups
-    const name = group.name || t.untitled()
+    const name = groupLabel(group.name)
     void host
       .write(linksOf(paths, host.ambiguousName))
       .then(() => host.notify({ level: 'info', text: t.copied({ count: paths.length, name }) }))
@@ -194,7 +204,7 @@ export function createGroupUi(panes: PaneShell, host: GroupHost): GroupShell {
       const group = getLL().web.commands.groups.group()
       return panes.savedGroups.map((saved) => ({
         id: `group.open:${saved.id}`,
-        title: t.commands.open({ name: saved.name || t.untitled() }),
+        title: t.commands.open({ name: groupLabel(saved.name) }),
         group,
         run: () => panes.openSavedGroup(saved.id),
       }))

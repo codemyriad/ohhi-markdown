@@ -26,6 +26,7 @@
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
   import { basename } from '@editor/index'
+  import { groupLabel } from '../group-ui.svelte.js'
   import { stripItems, type Group, type Pane, type StripItem, type Tab } from '../panes.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { melt } from '@melt-ui/svelte'
@@ -61,7 +62,6 @@
     | { key: string; kind: 'tabs'; label: string; items: TabItem[] }
 
   const t = $derived($LL.web.tabs)
-  const groupName = (g: Group): string => g.name || $LL.web.groups.untitled()
   const items = $derived(stripItems(pane))
   /** Consecutive tabs of the same group (or of none) share one tablist. */
   const runs = $derived.by(() => {
@@ -79,7 +79,7 @@
         out.push({
           key: `l${item.tab.id}`,
           kind: 'tabs',
-          label: item.group ? groupName(item.group) : t.list(),
+          label: item.group ? groupLabel(item.group.name) : t.list(),
           items: [],
         })
       }

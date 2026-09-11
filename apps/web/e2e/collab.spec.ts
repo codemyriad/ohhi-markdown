@@ -5,23 +5,14 @@
  */
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
+import { RELAY, appUrl as url } from './fixtures.js'
 
-const RELAY = 'ws://localhost:8799'
 const ROOM = 'e2eroom'
 const TOKEN = 'e2e-token'
 const FILE = 'notes/welcome.md'
 
-function appUrl(role: 'seed' | 'join', user: string): string {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role,
-    relay: RELAY,
-    room: ROOM,
-    token: TOKEN,
-    user,
-  })
-  return `/?${params.toString()}`
-}
+const appUrl = (role: 'seed' | 'join', user: string): string =>
+  url({ room: ROOM, role, token: TOKEN, user })
 
 async function openPeer(
   browser: Browser,
@@ -55,15 +46,7 @@ async function typeAtTop(page: Page, text: string): Promise<void> {
 test('a bad token fails fast with a real message, not eternal connecting', async ({ browser }) => {
   const context = await browser.newContext()
   const page = await context.newPage()
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'join',
-    relay: RELAY,
-    room: ROOM,
-    token: 'wrong-token',
-    user: 'Mallory',
-  })
-  await page.goto(`/?${params.toString()}`)
+  await page.goto(url({ room: ROOM, role: 'join', token: 'wrong-token', user: 'Mallory' }))
   // Boot failures land on the vault manager with the message — never a dead end (M2).
   await expect(page.getByTestId('manager-error')).toContainText('rejected', { timeout: 15_000 })
   await context.close()

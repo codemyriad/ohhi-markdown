@@ -3,23 +3,9 @@
  * person drives it — rails, navigator width, breadcrumb, status bar. Memory
  * vault contract, like v2.spec.ts.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
-
-const RELAY = 'ws://localhost:8799'
-
-async function openApp(page: Page, room: string, token = 'e2e-token'): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token,
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
+import { RELAY, openApp } from './fixtures.js'
 
 test('the right rail collapses to icons, reopens to the section clicked, and Mod+ArrowRight toggles it', async ({
   page,
@@ -106,7 +92,7 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
   page,
 }) => {
   // An authorised room (seeded by start-relay.mjs), so the note can actually go green.
-  await openApp(page, 'chrome-tree', 'chrome-token')
+  await openApp(page, 'chrome-tree', { token: 'chrome-token' })
 
   // Quiet when good: the open note is green in the status bar and carries no dot in the tree.
   await page.getByTestId('file-item:notes/welcome.md').click()
@@ -181,7 +167,7 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
 test('the rail says where the open note lives, who is online there, and the header no longer carries presence', async ({
   page,
 }) => {
-  await openApp(page, 'chrome-note', 'e2e-token')
+  await openApp(page, 'chrome-note')
   const section = page.getByTestId('rail-section:note')
   await expect(section).toContainText('No note open')
   // The relay is on the ROOT mount, so this vault is LINKED — never "shared"

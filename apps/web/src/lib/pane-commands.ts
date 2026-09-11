@@ -18,7 +18,7 @@ import type { Command } from './commands.js'
 import type { Dir, Side } from './panes.js'
 
 /** The four directions in Vim's `h j k l` order — the order the bar prints. */
-export const SIDES: readonly Side[] = ['left', 'down', 'up', 'right']
+const SIDES: readonly Side[] = ['left', 'down', 'up', 'right']
 
 const ARROW: Record<Side, string> = {
   left: 'ArrowLeft',

@@ -10,21 +10,7 @@
  */
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-
-const RELAY = 'ws://localhost:8799'
-
-async function openApp(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token: 'e2e-token',
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
+import { openApp } from './fixtures.js'
 
 async function expectAccessible(page: Page, surface: string): Promise<void> {
   const results = await new AxeBuilder({ page })

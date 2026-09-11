@@ -13,12 +13,14 @@
    * two of a group's tabs, which is what R8 asks of every drag gesture.
    */
   import { LL } from '@editor/i18n/i18n-svelte'
-  import type { GroupShell } from '../group-ui.svelte.js'
+  import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { groupOf, paneOfTab, type Tab } from '../panes.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSection from '../ui/MenuSection.svelte'
   import MenuSeparator from '../ui/MenuSeparator.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
+  import GroupDot from './GroupDot.svelte'
 
   interface Props {
     attrs: { item: MenuItemAttrs; separator: MenuSeparatorAttrs }
@@ -32,17 +34,10 @@
   const t = $derived($LL.web.groups)
   const pane = $derived(paneOfTab(panes.layout, tab.id))
   const group = $derived(pane ? groupOf(pane, tab.id) : null)
-  const nameOf = (name: string): string => name || t.untitled()
 </script>
 
 <MenuSeparator separator={attrs.separator} />
-<div role="group" aria-label={t.tab_menu.add_to()}>
-  <p
-    aria-hidden="true"
-    class="px-3 pt-1 pb-0.5 text-[10px] tracking-wider text-base-content/70 uppercase"
-  >
-    {t.tab_menu.add_to()}
-  </p>
+<MenuSection label={t.tab_menu.add_to()}>
   {#each pane?.groups ?? [] as other (other.id)}
     <MenuItem
       item={attrs.item}
@@ -51,12 +46,8 @@
       onSelect={() => panes.addToGroup(tab.id, other.id)}
     >
       <span class="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          class="size-2 shrink-0 rounded-full"
-          style="background: var(--ed-group-{other.color})"
-        ></span>
-        <span class="min-w-0 truncate">{nameOf(other.name)}</span>
+        <GroupDot color={other.color} />
+        <span class="min-w-0 truncate">{groupLabel(other.name)}</span>
       </span>
     </MenuItem>
   {/each}
@@ -71,7 +62,7 @@
   >
     {t.tab_menu.new_group()}
   </MenuItem>
-</div>
+</MenuSection>
 
 {#if group}
   <MenuSeparator separator={attrs.separator} />

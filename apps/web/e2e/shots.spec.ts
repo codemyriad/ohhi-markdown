@@ -1,14 +1,11 @@
 /** Screenshot pass — not a gate; run manually to eyeball the themes. */
 import { test, type Page } from '@playwright/test'
+import { appUrl } from './fixtures.js'
 
 const OUT = process.env.SHOT_DIR ?? 'test-results/shots'
 
 async function boot(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory', role: 'seed', relay: 'ws://localhost:8799',
-    room, token: 'e2e-token', user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
+  await page.goto(appUrl({ room }))
   await page.getByTestId('file-tree').waitFor({ timeout: 15_000 })
   await page.getByTestId('file-item:notes/welcome.md').click()
   const content = page.locator('[data-testid="editor-pane"] .cm-content')

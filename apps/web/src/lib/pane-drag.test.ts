@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripDrop, type StripSlot } from './pane-drag.js'
+import { stripDrop, zoneBox, type StripSlot } from './pane-drag.js'
 
 /** `[a] [chip Edible] [b] [c] [d]` — a group over tabs 1 and 2, 100 px each. */
 function strip(folded = false): StripSlot[] {
@@ -40,5 +40,20 @@ describe('stripDrop', () => {
   it('appends past the last item, and takes the first tab of an empty strip', () => {
     expect(stripDrop(strip(), 900, 4, 0)).toEqual({ at: 4, indicatorX: 480 })
     expect(stripDrop([], 900, 0, 24)).toEqual({ at: 0, indicatorX: 24 })
+  })
+})
+
+describe('zoneBox', () => {
+  const pane = { left: 100, top: 50, width: 400, height: 200 }
+
+  it('paints the half a payload would land in', () => {
+    expect(zoneBox(pane, 'left')).toEqual({ left: 100, top: 50, width: 200, height: 200 })
+    expect(zoneBox(pane, 'right')).toEqual({ left: 300, top: 50, width: 200, height: 200 })
+    expect(zoneBox(pane, 'up')).toEqual({ left: 100, top: 50, width: 400, height: 100 })
+    expect(zoneBox(pane, 'down')).toEqual({ left: 100, top: 150, width: 400, height: 100 })
+  })
+
+  it('insets the centre, because joining the strip is not splitting', () => {
+    expect(zoneBox(pane, 'center')).toEqual({ left: 110, top: 60, width: 380, height: 180 })
   })
 })

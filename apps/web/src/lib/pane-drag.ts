@@ -48,6 +48,34 @@ export interface StripDrop {
   groupId?: string | null
 }
 
+/** The highlight a drop zone paints, in client pixels. */
+export interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * The box a pane's drop zone highlights: the half the payload would land in,
+ * or — for the centre, which joins the strip rather than splitting — the pane
+ * inset a little, so "here, as it is" reads differently from "split here".
+ *
+ * `panes.ts`'s `zoneAt` decides WHICH zone the pointer is in; this is what
+ * that zone looks like, kept beside the strip hit test because both are the
+ * drag's geometry and neither is the tree's business.
+ */
+export function zoneBox(r: Box, zone: 'center' | 'left' | 'right' | 'up' | 'down'): Box {
+  const { left, top, width, height } = r
+  if (zone === 'center') {
+    return { left: left + 10, top: top + 10, width: width - 20, height: height - 20 }
+  }
+  if (zone === 'left') return { left, top, width: width / 2, height }
+  if (zone === 'right') return { left: left + width / 2, top, width: width / 2, height }
+  if (zone === 'up') return { left, top, width, height: height / 2 }
+  return { left, top: top + height / 2, width, height: height / 2 }
+}
+
 /**
  * The insertion point for a pointer at `x` over a strip of `slots`.
  *

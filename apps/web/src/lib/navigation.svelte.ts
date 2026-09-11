@@ -11,7 +11,7 @@ import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@editor
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
 import { recentPaths, touchPath } from './recent.js'
-import type { IndexSink, Workspace } from './workspace.svelte.js'
+import { textPaths, type IndexSink, type Workspace } from './workspace.svelte.js'
 
 export type PaletteMode = 'quick-open' | 'command' | 'search'
 
@@ -114,9 +114,7 @@ export function createNavigation(): {
 
   /** Keep the sync resolver in step with the file set (cheap; path-set only). */
   const refreshResolver = (): void => {
-    const paths = (workspace?.ui.files ?? [])
-      .filter((f) => f.kind === 'text')
-      .map((f) => f.path)
+    const paths = textPaths(workspace?.ui.files ?? [])
     const key = paths.join('\u0000')
     if (key === resolverPaths) return
     resolverPaths = key

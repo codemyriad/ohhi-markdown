@@ -7,40 +7,12 @@
  * Memory vault contract, like `panes.spec.ts` — no folder, no share.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { chips, dragTo, editors, openApp, panes, tabNamed } from './fixtures.js'
 
-const RELAY = 'ws://localhost:8799'
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
 
-async function openApp(page: Page, room: string): Promise<void> {
-  const params = new URLSearchParams({
-    mode: 'memory',
-    role: 'seed',
-    relay: RELAY,
-    room,
-    token: 'e2e-token',
-    user: 'Chris',
-  })
-  await page.goto(`/?${params.toString()}`)
-  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-}
-
-const panes = (page: Page): Locator => page.locator('[data-pane-id]')
-const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')
-const chips = (page: Page): Locator => page.locator('[data-testid^="group-chip:"]')
 const more = (page: Page, at = 0): Locator => page.locator('[data-testid^="tab-more:"]').nth(at)
-const tab = (page: Page, name: string): Locator =>
-  page.locator('[data-slot-kind="tab"]', { hasText: name }).first()
-
-/** A pointer drag with enough steps to cross the 6 px threshold and settle. */
-async function dragTo(page: Page, from: Locator, x: number, y: number): Promise<void> {
-  const box = (await from.boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(x, y, { steps: 12 })
-  await page.mouse.move(x, y)
-  await page.mouse.up()
-}
 
 /** A note through the affordance a person has: the tree's own New note. */
 async function newNote(page: Page, n: number): Promise<string> {
@@ -60,7 +32,7 @@ test('five notes, two of them a named, coloured group that folds to one chip', a
   await expect(page.getByRole('tab')).toHaveCount(5)
 
   // Group by menu, not by drag: every gesture has a keyboard equivalent (R8).
-  await tab(page, 'ideas').click({ button: 'right' })
+  await tabNamed(page, 'ideas').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
 
   // A fresh group opens its popover with the name selected — an unnamed chip
@@ -78,7 +50,7 @@ test('five notes, two of them a named, coloured group that folds to one chip', a
 
   // A second tab joins from its own menu; joining is also a reorder, so the
   // run stays contiguous (the contiguity invariant).
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByRole('menuitemradio', { name: 'Edible' }).click()
   await expect(page.getByRole('tab')).toHaveCount(5)
 
@@ -104,7 +76,7 @@ test('closing a group keeps it in the list, and it reopens in another pane at it
 }) => {
   await openApp(page, 'groups-close')
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await page.getByTestId('group-name').fill('Reading')
   await page.keyboard.press('Enter')
@@ -116,7 +88,7 @@ test('closing a group keeps it in the list, and it reopens in another pane at it
   await page.keyboard.press('ControlOrMeta+End')
 
   // Close is the save (R2.2): off the strip, into the list, nothing lost.
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:group-close').click()
   await expect(chips(page)).toHaveCount(0)
   await expect(page.locator('[data-slot-kind="tab"]', { hasText: 'welcome' })).toHaveCount(0)
@@ -171,11 +143,11 @@ test('a group copies out as wikilinks, and a note of links opens as a group', as
   await page.getByTestId(`file-item:${WELCOME}`).click()
   await page.getByTestId(`file-item:${IDEAS}`).click()
 
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await page.getByTestId('group-name').fill('Edible')
   await page.keyboard.press('Enter')
-  await tab(page, 'ideas').click({ button: 'right' })
+  await tabNamed(page, 'ideas').click({ button: 'right' })
   await page.getByRole('menuitemradio', { name: 'Edible' }).click()
 
   // Copy N links: a toast says what went, and the clipboard holds the list.
@@ -191,7 +163,7 @@ test('a group copies out as wikilinks, and a note of links opens as a group', as
 
   // Put the group away so the notes are off the strip, then write the links
   // into a note — the agent handoff R6 is about, done by hand.
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:group-close').click()
   await expect(chips(page)).toHaveCount(0)
 
@@ -225,14 +197,14 @@ test('the Show-all dialog lists open and saved groups, and Delete is the only th
   await page.getByTestId(`file-item:${IDEAS}`).click()
 
   // One group put away, one still open.
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await page.getByTestId('group-name').fill('Away')
   await page.keyboard.press('Enter')
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:group-close').click()
 
-  await tab(page, 'ideas').click({ button: 'right' })
+  await tabNamed(page, 'ideas').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await page.getByTestId('group-name').fill('Here')
   await page.keyboard.press('Enter')
@@ -308,12 +280,12 @@ test('a chip drag moves the whole group — onto an edge, and back onto a strip'
   await page.getByTestId(`file-item:${IDEAS}`).click()
   await page.getByTestId('file-item:untitled-1.md').click()
 
-  await tab(page, 'welcome').click({ button: 'right' })
+  await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await page.getByTestId('group-name').fill('Edible')
   await page.getByTestId('group-colour:5').click()
   await page.getByTestId('group-manage-close').click()
-  await tab(page, 'ideas').click({ button: 'right' })
+  await tabNamed(page, 'ideas').click({ button: 'right' })
   await page.getByRole('menuitemradio', { name: 'Edible' }).click()
   await expect(panes(page)).toHaveCount(1)
 
