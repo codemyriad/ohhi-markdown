@@ -86,8 +86,27 @@ describe('eventMatches', () => {
 
   it('gives Ctrl+Mod its own chord off mac instead of shadowing Mod', () => {
     // Cmd+Ctrl on mac; Ctrl+Alt everywhere else, so that Chris's
-    // `Ctrl+Mod+←` (focus a pane) and his `Mod+←` (toggle a sidebar) stay two
-    // different keys on Linux, as they are on the machine they came from.
+    // `Ctrl+Mod+-` (close other tabs) and his `Mod+-` (previous daily note)
+    // stay two different keys on Linux, as they are on the machine they came
+    // from.
+    expect(
+      eventMatches(b('Ctrl+Mod+-'), key({ key: '-', ctrlKey: true, metaKey: true }), true)
+    ).toBe(true)
+    expect(
+      eventMatches(b('Ctrl+Mod+-'), key({ key: '-', ctrlKey: true, altKey: true }), false)
+    ).toBe(true)
+    expect(eventMatches(b('Ctrl+Mod+-'), key({ key: '-', ctrlKey: true }), false)).toBe(false)
+    expect(eventMatches(b('Mod+-'), key({ key: '-', ctrlKey: true }), false)).toBe(true)
+    expect(eventMatches(b('Mod+-'), key({ key: '-', ctrlKey: true, altKey: true }), false)).toBe(
+      false
+    )
+    expect(formatBinding('Ctrl+Mod+-', false)).toBe('Ctrl+Alt+-')
+  })
+
+  it('drops Ctrl from a Ctrl+Mod ARROW off mac — the desktop owns Ctrl+Alt+Arrows', () => {
+    // GNOME's switch-to-workspace-left/right/up/down are <Control><Alt> + the
+    // arrow (measured via gsettings on this machine), so Ctrl+Alt+← never
+    // reaches the page: the four pane-focus keys would be dead on Linux.
     expect(
       eventMatches(
         b('Ctrl+Mod+ArrowLeft'),
@@ -95,19 +114,26 @@ describe('eventMatches', () => {
         true
       )
     ).toBe(true)
-    expect(
-      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true, altKey: true }), false)
-    ).toBe(true)
-    expect(
-      eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)
-    ).toBe(false)
-    expect(eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)).toBe(
+    expect(eventMatches(b('Ctrl+Mod+ArrowLeft'), key({ key: 'ArrowLeft', altKey: true }), false)).toBe(
       true
     )
     expect(
-      eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true, altKey: true }), false)
+      eventMatches(
+        b('Ctrl+Mod+ArrowLeft'),
+        key({ key: 'ArrowLeft', ctrlKey: true, altKey: true }),
+        false
+      )
     ).toBe(false)
-    expect(formatBinding('Ctrl+Mod+ArrowLeft', false)).toBe('Ctrl+Alt+←')
+    // …and it still does not shadow his Mod+← sidebar toggle.
+    expect(eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', ctrlKey: true }), false)).toBe(
+      true
+    )
+    expect(eventMatches(b('Mod+ArrowLeft'), key({ key: 'ArrowLeft', altKey: true }), false)).toBe(
+      false
+    )
+    // Settings prints the chord as it is actually pressed, on both platforms.
+    expect(formatBinding('Ctrl+Mod+ArrowLeft', false)).toBe('Alt+←')
+    expect(formatBinding('Ctrl+Mod+ArrowLeft', true)).toBe('⌃⌘←')
   })
 })
 
@@ -207,6 +233,31 @@ describe('binding overrides (R1.3)', () => {
     r.setOverrides({ later: 'Mod+9' })
     r.register({ id: 'later', title: 'Later', run: () => {} })
     expect(r.match(key({ key: '9', ctrlKey: true }))?.id).toBe('later')
+  })
+
+  it('names the commands that share a chord, and the ones the desktop eats', () => {
+    const r = new CommandRegistry(false)
+    r.register(
+      { id: 'a', title: 'Close pane', keys: 'Ctrl+Mod+Backspace', run: () => {} },
+      { id: 'b', title: 'Do the other thing', keys: 'Ctrl+Alt+Backspace', run: () => {} },
+      { id: 'c', title: 'Alone', keys: 'Mod+k', run: () => {} }
+    )
+    const rows = new Map(r.bindings().map((row) => [row.id, row]))
+    // Written differently, pressed identically — which is the collision that
+    // `match()` resolves silently by preferring the later registration.
+    expect(rows.get('a')!.conflicts).toEqual(['Do the other thing'])
+    expect(rows.get('b')!.conflicts).toEqual(['Close pane'])
+    expect(rows.get('c')!.conflicts).toEqual([])
+    expect(rows.get('a')!.reserved).toBe(false)
+
+    // A user override onto GNOME's workspace switcher is bound and dead.
+    r.setOverrides({ c: 'Ctrl+Alt+ArrowRight' })
+    const after = new Map(r.bindings().map((row) => [row.id, row]))
+    expect(after.get('c')!.reserved).toBe(true)
+    // Not a thing on mac, where the table does not apply.
+    const mac = new CommandRegistry(true)
+    mac.register({ id: 'c', title: 'Alone', keys: 'Ctrl+Alt+ArrowRight', run: () => {} })
+    expect(mac.bindings()[0].reserved).toBe(false)
   })
 
   it('records a chord on its own platform, so Settings never re-decides', () => {

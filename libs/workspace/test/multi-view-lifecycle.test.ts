@@ -28,7 +28,14 @@ import { carveFolder } from '../src/carve.js'
 import { MountRegistry } from '../src/registry.js'
 import type { MountSession } from '../src/mount-session.js'
 import { unshareMount } from '../src/unshare.js'
-import { bootVault, dec, diskSnapshot, seedAdapter, type BootedVault } from './fixture.js'
+import {
+  applyForeignMap,
+  bootVault,
+  dec,
+  diskSnapshot,
+  seedAdapter,
+  type BootedVault,
+} from './fixture.js'
 
 const ROOT_ROOM = 'root-room'
 const TEAM_ROOM = 'team-room'
@@ -310,6 +317,51 @@ describe('S9 — N views over one mount', () => {
     }
   })
 
+  it('a view held over a note that does not exist YET is marked when it does', async () => {
+    const base = await seedAdapter(FILES)
+    const vault = await bootVault(base, new MemStoreDir(), ROOT_ROOM)
+    const writes = watchWrites(base)
+    const life = spyOnLifecycle()
+    try {
+      const views = new Views(vault)
+      // A path can be in the open set before it has a guid: a tab survives the
+      // note it points at being deleted and re-created, and a peer's note
+      // arrives as a map change with no restart to re-mark anything. The mark
+      // used to be skipped silently and never retried (Minor 4), leaving a
+      // live buffer the reconciler was free to materialize over.
+      views.open('pane1', 'peer-note.md')
+      await yieldMacro()
+      expect(life.opened).toEqual([]) // there is nothing to name yet
+
+      const guid = crypto.randomUUID()
+      const peerDoc = vault.engine.createDoc(`peer:${guid}`)
+      peerDoc.transact((t) => t.insert(0, 'from the other device\n'), 'local')
+      applyForeignMap(vault, (m) => m.set('peer-note.md', { guid, kind: 'text' }), ROOT_ROOM)
+      await tick(vault, 300)
+      // The adopt pass created the doc and materialized the room's bytes; the
+      // retry pass then marked the path its view holds.
+      vault.engine.applyUpdate(
+        vault.root.docForPath('peer-note.md')!,
+        vault.engine.encodeUpdateSince(peerDoc, null),
+        'remote'
+      )
+      peerDoc.destroy()
+      await tick(vault, 300)
+      expect(new Set(life.opened)).toEqual(new Set([guid]))
+
+      // Which is the whole point: the note is the editor's now, so the NEXT
+      // peer edit waits for the flush instead of landing on disk under it.
+      applyForeignEdit(vault, vault.root, 'peer-note.md', 'more ')
+      writes.reset()
+      await tick(vault, 300)
+      expect(writes.paths).toEqual([])
+      expect(vault.events.errors).toEqual([])
+    } finally {
+      life.restore()
+      vault.dispose()
+    }
+  })
+
   it('a session restart re-marks every held path (the reattach)', async () => {
     const base = await seedAdapter(FILES)
     const vault = await bootVault(base, new MemStoreDir(), ROOT_ROOM)
@@ -466,7 +518,12 @@ describe('S9 — teardown', () => {
     expect(armed).toBeGreaterThan(idle) // the flush debounce is on the clock
 
     await vault.root.shutdown()
-    expect(vault.clock.pendingCount()).toBeLessThan(armed)
+    // EXACTLY back to idle, not merely fewer (M7): the edit arms two timers —
+    // the flush debounce and the doc-store's blob debounce — and `< armed`
+    // passed on the blob one alone, so it held with `shutdown`'s debounce
+    // cancel loop deleted. The count is the only handle the sim clock gives
+    // on "nothing of ours is still armed", so it has to be an equality.
+    expect(vault.clock.pendingCount()).toBe(idle)
 
     // Nothing writes after teardown, however far the clock runs.
     writes.reset()

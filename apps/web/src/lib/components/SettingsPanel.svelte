@@ -5,6 +5,7 @@
    * shares and Developer act immediately. Closing with unsaved changes prompts
    * rather than silently persisting or silently dropping them.
    */
+  import { TriangleAlert } from '@lucide/svelte'
   import { z } from 'zod'
   import { LL } from '@editor/i18n/i18n-svelte'
   import {
@@ -137,6 +138,9 @@
   const fields = $state<Record<string, HTMLElement | undefined>>({})
 
   const EXAMPLE_BINDING = 'Mod+Shift+P'
+
+  /** Command titles as one phrase — the dictionary owns the sentence around it. */
+  const list = (titles: string[]): string => titles.join(', ')
 
   function seedDrafts(rows: CommandBinding[]): Record<string, string> {
     return Object.fromEntries(rows.map((row) => [row.id, row.keys]))
@@ -479,6 +483,27 @@
                           ? t.hotkeys.default_is({ binding: row.defaultDisplay })
                           : t.hotkeys.default_none()}
                       </Description>
+                      <!-- A collision is a command that quietly stopped
+                           working (`match()` keeps the last registration), and
+                           a chord the desktop eats never arrives at all. Both
+                           are warnings about a key that is bound and does
+                           nothing, so they read where the binding does. -->
+                      {#if row.conflicts.length > 0 || row.reserved}
+                        <p
+                          data-testid="hotkey-warning:{row.id}"
+                          class="mt-1 flex items-start gap-1.5 text-xs text-warning"
+                        >
+                          <TriangleAlert size={13} aria-hidden="true" class="mt-0.5 shrink-0" />
+                          <span>
+                            {#if row.conflicts.length > 0}
+                              {t.hotkeys.conflict({ commands: list(row.conflicts) })}
+                            {/if}
+                            {#if row.reserved}
+                              {t.hotkeys.reserved()}
+                            {/if}
+                          </span>
+                        </p>
+                      {/if}
                       <FieldErrors />
                     </Field>
                   </li>

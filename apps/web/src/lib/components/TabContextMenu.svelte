@@ -85,7 +85,7 @@
       {#if groupItems}{@render groupItems(attrs, tab)}{/if}
       {#if others.length > 0}
         <MenuSeparator separator={attrs.separator} />
-        <MenuSection label={t.move_to_pane()}>
+        <MenuSection label={$LL.web.panes.move_to()}>
           {#each others as other (other.id)}
             <MenuItem
               item={attrs.item}

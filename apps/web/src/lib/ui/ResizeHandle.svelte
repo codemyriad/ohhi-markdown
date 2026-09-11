@@ -20,6 +20,11 @@
     step?: number
     label: string
     /**
+     * What the value MEANS, for a screen reader: "37%" reads, `aria-valuenow`
+     * of 37 on a bare separator does not. Omit it and the number stands alone.
+     */
+    valueText?: string
+    /**
      * Which way the BAR runs: 'vertical' resizes horizontally (a row split,
      * the navigator), 'horizontal' resizes vertically (a column split).
      */
@@ -39,6 +44,7 @@
     max,
     step = 16,
     label,
+    valueText,
     orientation = 'vertical',
     inline = false,
     perPixel = 1,
@@ -100,6 +106,7 @@
   aria-valuenow={Math.round(value)}
   aria-valuemin={Math.round(min)}
   aria-valuemax={Math.round(max)}
+  aria-valuetext={valueText}
   tabindex="0"
   data-testid={testid}
   onpointerdown={down}

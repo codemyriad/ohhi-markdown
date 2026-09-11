@@ -7,8 +7,7 @@ import {
   loadLayout,
   loadSavedGroups,
   normalizeSavedGroups,
-  saveLayout,
-  saveSavedGroups,
+  saveWorkspace,
 } from './workspace-layout.js'
 
 let store = useMemStorage()
@@ -34,29 +33,30 @@ describe('the device-local workspace store', () => {
 
   it('round-trips a layout through localStorage under one key per vault', () => {
     const l = sample()
-    saveLayout('room-a', l)
+    saveWorkspace('room-a', l, [])
     expect(store.keys()).toEqual([KEY])
     const back = loadLayout('room-a', ids('r'))
     expect(back).not.toBeNull()
     expect(serialize(back!)).toEqual(serialize(l))
   })
 
-  it('keeps the two halves under one key, whichever is written', () => {
+  it('writes both halves together, so neither can be written from a stale read', () => {
     const l = sample()
     const groups: SavedGroup[] = [
       { id: 'sg1', name: 'Edible', color: 7, lastActive: 5, tabs: [{ path: 'x.md', cursor: null, scroll: 0 }] },
     ]
-    saveLayout('room-a', l)
-    saveSavedGroups('room-a', groups)
+    saveWorkspace('room-a', l, groups)
     expect(loadSavedGroups('room-a')).toEqual(groups)
     expect(serialize(loadLayout('room-a', ids('r'))!)).toEqual(serialize(l))
-    // …and writing the layout again does not drop the list.
-    saveLayout('room-a', openPath(l, 'c.md', {}, ids('c')))
+    // …and the next write carries whatever the caller still holds.
+    const grown = openPath(l, 'c.md', {}, ids('c'))
+    saveWorkspace('room-a', grown, groups)
     expect(loadSavedGroups('room-a')).toEqual(groups)
+    expect(serialize(loadLayout('room-a', ids('r'))!)).toEqual(serialize(grown))
   })
 
   it('is per vault: one room’s layout is not another’s', () => {
-    saveLayout('room-a', sample())
+    saveWorkspace('room-a', sample(), [])
     expect(loadLayout('room-b', ids())).toBeNull()
   })
 
@@ -73,7 +73,7 @@ describe('the device-local workspace store', () => {
 
   it('survives storage being unavailable', () => {
     dropStorage()
-    expect(() => saveLayout('room-a', sample())).not.toThrow()
+    expect(() => saveWorkspace('room-a', sample(), [])).not.toThrow()
     expect(loadLayout('room-a', ids())).toBeNull()
     expect(loadSavedGroups('room-a')).toEqual([])
   })

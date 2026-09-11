@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripDrop, zoneBox, type StripSlot } from './pane-drag.js'
+import { slotsFrom, stripDrop, zoneBox, type StripSlot } from './pane-drag.js'
 
 /** `[a] [chip Edible] [b] [c] [d]` — a group over tabs 1 and 2, 100 px each. */
 function strip(folded = false): StripSlot[] {
@@ -55,5 +55,50 @@ describe('zoneBox', () => {
 
   it('insets the centre, because joining the strip is not splitting', () => {
     expect(zoneBox(pane, 'center')).toEqual({ left: 110, top: 60, width: 380, height: 180 })
+  })
+})
+
+describe('slotsFrom', () => {
+  /**
+   * A stand-in for one of `TabStrip`'s slot elements. The live markup is
+   * asserted against this contract in `components/TabStrip.test.ts`; these are
+   * the payloads a strip mid-render can hand over.
+   */
+  const el = (data: Record<string, string>): HTMLElement =>
+    ({ dataset: data }) as unknown as HTMLElement
+  const boxOf = (node: HTMLElement): { left: number; right: number } => ({
+    left: Number(node.dataset.slotIndex) * 100,
+    right: Number(node.dataset.slotIndex) * 100 + 100,
+  })
+
+  it('reads a tab and a chip out of their data attributes', () => {
+    expect(
+      slotsFrom(
+        [
+          el({ slotIndex: '0', slotKind: 'tab' }),
+          el({ slotIndex: '1', slotKind: 'chip', slotEnd: '3', slotGroup: 'g1', slotFolded: 'true' }),
+          el({ slotIndex: '3', slotKind: 'tab' }),
+        ],
+        boxOf
+      )
+    ).toEqual([
+      { kind: 'tab', index: 0, left: 0, right: 100 },
+      { kind: 'chip', index: 1, endIndex: 3, groupId: 'g1', folded: true, left: 100, right: 200 },
+      { kind: 'tab', index: 3, left: 300, right: 400 },
+    ])
+  })
+
+  it('reads `folded` as the flag it is, not as truthiness', () => {
+    const [chip] = slotsFrom(
+      [el({ slotIndex: '0', slotKind: 'chip', slotEnd: '2', slotGroup: 'g', slotFolded: 'false' })],
+      boxOf
+    )
+    expect(chip).toMatchObject({ folded: false })
+  })
+
+  it('skips an element with no usable index rather than inventing one at 0', () => {
+    expect(
+      slotsFrom([el({ slotKind: 'tab' }), el({ slotIndex: 'x', slotKind: 'tab' })], boxOf)
+    ).toEqual([])
   })
 })

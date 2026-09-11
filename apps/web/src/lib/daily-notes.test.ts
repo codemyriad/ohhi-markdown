@@ -10,11 +10,13 @@ import {
   DAILY_DEFAULTS,
   dailyPath,
   dateOfPath,
+  findDaily,
   formatDate,
   loadDailyConfig,
   neighbours,
   parseDate,
   today,
+  unsupportedTokens,
   type DailyConfig,
 } from './daily-notes.js'
 
@@ -121,6 +123,51 @@ describe('neighbours', () => {
       prev: 'Daily/02-9-2026.md',
       next: null,
     })
+  })
+})
+
+describe('findDaily', () => {
+  it("finds the note a padded old name gives the day — his Daily/03-01-2025.md", () => {
+    // `DD-M-Y` WRITES '03-1-2025', so matching on the formatted string missed
+    // this note and `Mod+\\` created a second daily for a day that had one.
+    const files = ['Daily/03-01-2025.md', 'Daily/29-8-2026.md', 'Daily/Content Inbox.md']
+    expect(dailyPath(CHRIS, d(2025, 1, 3))).toBe('Daily/03-1-2025.md') // not on disk
+    expect(findDaily(CHRIS, files, d(2025, 1, 3))).toBe('Daily/03-01-2025.md')
+    expect(findDaily(CHRIS, files, d(2026, 8, 29))).toBe('Daily/29-8-2026.md')
+  })
+
+  it('answers null when the day has no note, and is stable when it has two', () => {
+    const files = ['Daily/3-1-2025.md', 'Daily/03-01-2025.md']
+    expect(findDaily(CHRIS, files, d(2025, 1, 4))).toBeNull()
+    // Both spellings ARE that day; the answer must not depend on listing order.
+    expect(findDaily(CHRIS, files, d(2025, 1, 3))).toBe('Daily/03-01-2025.md')
+    expect(findDaily(CHRIS, [...files].reverse(), d(2025, 1, 3))).toBe('Daily/03-01-2025.md')
+  })
+
+  it('is what neighbours breaks its own ties by, so the two agree', () => {
+    const files = ['Daily/3-1-2025.md', 'Daily/03-01-2025.md', 'Daily/05-10-2022.md']
+    expect(neighbours(CHRIS, files, d(2022, 10, 5)).next).toBe('Daily/03-01-2025.md')
+    expect(neighbours(CHRIS, [...files].reverse(), d(2022, 10, 5)).next).toBe('Daily/03-01-2025.md')
+  })
+})
+
+describe('unsupportedTokens', () => {
+  it('is empty for everything the module actually formats', () => {
+    for (const format of ['DD-M-Y', 'YYYY-MM-DD', 'YY.M.D', 'MMMM D, YYYY', 'ddd MMM DD']) {
+      expect(unsupportedTokens(format), format).toEqual([])
+    }
+    // Bracketed text is literal by definition, letters and all.
+    expect(unsupportedTokens('[Week of] YYYY-MM-DD')).toEqual([])
+  })
+
+  it('names the moment tokens that would silently print themselves', () => {
+    // A vault on either of these disagrees with Obsidian about which file
+    // today is, and the person is told rather than left to find out.
+    expect(unsupportedTokens('gggg-[W]ww')).toEqual(['gggg', 'ww'])
+    // `Do` is moment's D + ordinal suffix: the `D` is understood and prints
+    // '3', the `o` is not and prints itself — so 'o' is the honest answer.
+    expect(unsupportedTokens('MMMM Do, YYYY')).toEqual(['o'])
+    expect(unsupportedTokens('YYYY-Q-DD')).toEqual(['Q'])
   })
 })
 

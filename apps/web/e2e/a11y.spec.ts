@@ -19,7 +19,7 @@
  */
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { openApp } from './fixtures.js'
+import { openApp, tabNamed } from './fixtures.js'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
 
 const RELAY = 'ws://localhost:8799'
@@ -105,6 +105,90 @@ test('the tab-group chrome is accessible', async ({ page }) => {
   await page.getByTestId('groups-menu:show-all').click()
   await expect(page.getByTestId('groups-all')).toBeVisible()
   await expectAccessible(page, 'show all groups')
+  await page.keyboard.press('Escape')
+
+  // The popover again with somewhere to send the group: its *Move to pane*
+  // section (the keyboard equivalent of a chip drag, R8) only exists when
+  // there is a second pane.
+  await page.keyboard.press('Alt+=')
+  await expect(page.locator('[data-pane-id]')).toHaveCount(2)
+  await page.locator('[data-testid^="group-chip:"]').first().click({ button: 'right' })
+  await expect(page.getByTestId('group-manage')).toBeVisible()
+  await expect(page.locator('[data-testid^="group-move:"]')).toHaveCount(1)
+  await expectAccessible(page, 'manage group popover with a second pane')
+  await page.keyboard.press('Escape')
+})
+
+/**
+ * Two groups, both folded (R1 finding C2). This is the strip that used to
+ * render two chips and zero tabs: no `role="tablist"` at all, nothing with
+ * `tabindex="0"` for the roving focus (R8), and a `tabpanel` labelled by a
+ * tab that was not in the document (`aria-valid-attr-value`). The invariant
+ * is that the active tab is always on screen, so folding the last visible run
+ * opens an empty tab — and the scan is what says the markup follows.
+ */
+test('a strip of nothing but folded groups is accessible', async ({ page }) => {
+  await openApp(page, 'a11y-folds')
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await page.getByTestId('file-item:notes/ideas.md').click()
+
+  // One group per note, so folding both leaves the strip with only chips on it.
+  // By NAME, not by position: grouping a tab moves it, and `.last()` twice
+  // would make the same tab two groups and empty the first one.
+  for (const [note, name] of [
+    ['welcome', 'Welcome'],
+    ['ideas', 'Ideas'],
+  ]) {
+    await tabNamed(page, note).click({ button: 'right' })
+    await page.getByTestId('tab-menu:new-group').click()
+    await expect(page.getByTestId('group-manage')).toBeVisible()
+    await page.getByTestId('group-name').fill(name)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('group-manage')).toHaveCount(0)
+  }
+  await expect(page.locator('[data-testid^="group-chip:"]')).toHaveCount(2)
+
+  const chips = page.locator('[data-testid^="group-chip:"]')
+  await chips.nth(1).click()
+  await chips.nth(0).click()
+  await expect(page.locator('[data-folded="true"]')).toHaveCount(2)
+
+  // Whatever the folds did, the strip still has a tablist with a tab stop in
+  // it, and the panel's label still points at something real.
+  await expect(page.getByRole('tablist').first()).toBeVisible()
+  await expect(page.getByRole('tab', { selected: true })).toHaveCount(1)
+  await expectAccessible(page, 'strip of folded groups')
+})
+
+/**
+ * The History rail section (W3, Minor 10). It is the one rail surface with a
+ * LIST of controls in it — a Restore per version — and it only has anything to
+ * scan once the journal holds a version, so the edit below is the setup, not
+ * the subject.
+ */
+test('the History rail section and its restore confirm are accessible', async ({ page }) => {
+  await openApp(page, 'a11y-history')
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  const editor = page.locator('[data-testid="editor-pane"] .cm-content')
+  await expect(editor).toContainText('Welcome to Editor')
+
+  // Nothing written yet: the empty state is a surface too, and it is the one
+  // a person meets first.
+  await expect(page.getByTestId('history-empty')).toBeVisible()
+  await expectAccessible(page, 'history (empty)')
+
+  // One edit, one flush, one version — and a list with a row in it.
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+Home')
+  await page.keyboard.type('AXECHECK\n')
+  const rows = page.getByTestId('history-section').getByRole('listitem')
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 })
+  await expectAccessible(page, 'history (listed)')
+
+  // The confirm, which is where the consequence is explained.
+  await rows.first().getByRole('button').click()
+  await expect(page.getByTestId('history-confirm')).toBeVisible()
+  await expectAccessible(page, 'history restore confirm')
   await page.keyboard.press('Escape')
 })
 

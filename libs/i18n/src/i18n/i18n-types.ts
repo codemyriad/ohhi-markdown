@@ -191,9 +191,30 @@ export type NamespaceWebTranslation = {
 		 */
 		label: RequiredParams<'n'>
 		/**
+		 * {​p​a​n​e​}​ ​·​ ​{​t​a​b​s​}
+		 * @param {string} pane
+		 * @param {string} tabs
+		 */
+		lead: RequiredParams<'pane' | 'tabs'>
+		/**
+		 * M​o​v​e​ ​t​o​ ​p​a​n​e
+		 */
+		move_to: string
+		/**
 		 * R​e​s​i​z​e​ ​p​a​n​e​s
 		 */
 		resize: string
+		/**
+		 * R​e​s​i​z​e​:​ ​{​a​}​ ​/​ ​{​b​}
+		 * @param {string} a
+		 * @param {string} b
+		 */
+		resize_between: RequiredParams<'a' | 'b'>
+		/**
+		 * {​p​c​t​}​%
+		 * @param {number} pct
+		 */
+		resize_value: RequiredParams<'pct'>
 		/**
 		 * {​c​o​u​n​t​}​ ​t​a​b​{​{​s​}​}
 		 * @param {number} count
@@ -322,6 +343,12 @@ export type NamespaceWebTranslation = {
 		 */
 		list: string
 		/**
+		 * O​p​e​n​ ​n​o​t​e​s​ ​{​i​n​d​e​x​}​ ​o​f​ ​{​t​o​t​a​l​}
+		 * @param {number} index
+		 * @param {number} total
+		 */
+		list_n: RequiredParams<'index' | 'total'>
+		/**
 		 * N​e​w​ ​t​a​b
 		 */
 		untitled: string
@@ -363,10 +390,6 @@ export type NamespaceWebTranslation = {
 		 * U​n​p​i​n
 		 */
 		unpin: string
-		/**
-		 * M​o​v​e​ ​t​o​ ​p​a​n​e
-		 */
-		move_to_pane: string
 		picker: {
 			/**
 			 * O​p​e​n​ ​a​ ​n​o​t​e
@@ -641,6 +664,26 @@ export type NamespaceWebTranslation = {
 			 * @param {string} name
 			 */
 			open: RequiredParams<'name'>
+			/**
+			 * M​o​v​e​ ​g​r​o​u​p​ ​t​o​ ​a​n​o​t​h​e​r​ ​p​a​n​e
+			 */
+			move: string
+			/**
+			 * M​o​v​e​ ​g​r​o​u​p​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​l​e​f​t
+			 */
+			move_left: string
+			/**
+			 * M​o​v​e​ ​g​r​o​u​p​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​b​e​l​o​w
+			 */
+			move_down: string
+			/**
+			 * M​o​v​e​ ​g​r​o​u​p​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​a​b​o​v​e
+			 */
+			move_up: string
+			/**
+			 * M​o​v​e​ ​g​r​o​u​p​ ​t​o​ ​t​h​e​ ​p​a​n​e​ ​r​i​g​h​t
+			 */
+			move_right: string
 		}
 	}
 	mode: {
@@ -1154,6 +1197,14 @@ export type NamespaceWebTranslation = {
 		 * S​e​t​t​i​n​g​s
 		 */
 		settings: string
+	}
+	daily: {
+		/**
+		 * O​b​s​i​d​i​a​n​’​s​ ​d​a​i​l​y​-​n​o​t​e​ ​f​o​r​m​a​t​ ​“​{​f​o​r​m​a​t​}​”​ ​u​s​e​s​ ​{​t​o​k​e​n​s​}​,​ ​w​h​i​c​h​ ​E​d​i​t​o​r​ ​d​o​e​s​ ​n​o​t​ ​u​n​d​e​r​s​t​a​n​d​ ​y​e​t​ ​a​n​d​ ​p​r​i​n​t​s​ ​a​s​ ​w​r​i​t​t​e​n​.​ ​T​o​d​a​y​’​s​ ​n​o​t​e​ ​m​a​y​ ​n​o​t​ ​b​e​ ​t​h​e​ ​o​n​e​ ​O​b​s​i​d​i​a​n​ ​w​o​u​l​d​ ​o​p​e​n​.
+		 * @param {string} format
+		 * @param {string} tokens
+		 */
+		unsupported_format: RequiredParams<'format' | 'tokens'>
 	}
 	history: {
 		/**
@@ -1691,6 +1742,15 @@ export type NamespaceWebTranslation = {
 			 * @param {string} command
 			 */
 			reset_for: RequiredParams<'command'>
+			/**
+			 * A​l​s​o​ ​r​u​n​s​ ​{​c​o​m​m​a​n​d​s​}​ ​—​ ​o​n​l​y​ ​t​h​e​ ​l​a​s​t​ ​o​n​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​n​s​.
+			 * @param {string} commands
+			 */
+			conflict: RequiredParams<'commands'>
+			/**
+			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​s​h​o​r​t​c​u​t​ ​b​e​f​o​r​e​ ​E​d​i​t​o​r​ ​c​a​n​ ​s​e​e​ ​i​t​.
+			 */
+			reserved: string
 		}
 		sync: {
 			/**
@@ -2688,9 +2748,25 @@ export type TranslationFunctions = {
 			 */
 			label: (arg: { n: number }) => LocalizedString
 			/**
+			 * {pane} · {tabs}
+			 */
+			lead: (arg: { pane: string, tabs: string }) => LocalizedString
+			/**
+			 * Move to pane
+			 */
+			move_to: () => LocalizedString
+			/**
 			 * Resize panes
 			 */
 			resize: () => LocalizedString
+			/**
+			 * Resize: {a} / {b}
+			 */
+			resize_between: (arg: { a: string, b: string }) => LocalizedString
+			/**
+			 * {pct}%
+			 */
+			resize_value: (arg: { pct: number }) => LocalizedString
 			/**
 			 * {count} tab{{s}}
 			 */
@@ -2816,6 +2892,10 @@ export type TranslationFunctions = {
 			 */
 			list: () => LocalizedString
 			/**
+			 * Open notes {index} of {total}
+			 */
+			list_n: (arg: { index: number, total: number }) => LocalizedString
+			/**
 			 * New tab
 			 */
 			untitled: () => LocalizedString
@@ -2855,10 +2935,6 @@ export type TranslationFunctions = {
 			 * Unpin
 			 */
 			unpin: () => LocalizedString
-			/**
-			 * Move to pane
-			 */
-			move_to_pane: () => LocalizedString
 			picker: {
 				/**
 				 * Open a note
@@ -3122,6 +3198,26 @@ export type TranslationFunctions = {
 				 * Open group: {name}
 				 */
 				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Move group to another pane
+				 */
+				move: () => LocalizedString
+				/**
+				 * Move group to the pane left
+				 */
+				move_left: () => LocalizedString
+				/**
+				 * Move group to the pane below
+				 */
+				move_down: () => LocalizedString
+				/**
+				 * Move group to the pane above
+				 */
+				move_up: () => LocalizedString
+				/**
+				 * Move group to the pane right
+				 */
+				move_right: () => LocalizedString
 			}
 		}
 		mode: {
@@ -3615,6 +3711,12 @@ export type TranslationFunctions = {
 			 * Settings
 			 */
 			settings: () => LocalizedString
+		}
+		daily: {
+			/**
+			 * Obsidian’s daily-note format “{format}” uses {tokens}, which Editor does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.
+			 */
+			unsupported_format: (arg: { format: string, tokens: string }) => LocalizedString
 		}
 		history: {
 			/**
@@ -4124,6 +4226,14 @@ export type TranslationFunctions = {
 				 * Reset {command} to its default shortcut
 				 */
 				reset_for: (arg: { command: string }) => LocalizedString
+				/**
+				 * Also runs {commands} — only the last one registered wins.
+				 */
+				conflict: (arg: { commands: string }) => LocalizedString
+				/**
+				 * Your desktop takes this shortcut before Editor can see it.
+				 */
+				reserved: () => LocalizedString
 			}
 			sync: {
 				/**

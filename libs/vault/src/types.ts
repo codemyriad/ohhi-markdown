@@ -84,7 +84,16 @@ export interface LcaStore {
   all(): Promise<LcaRecord[]>
 }
 
-export interface JournalEntry {
+/**
+ * One journaled pre-image WITHOUT its bytes — everything a listing needs.
+ *
+ * Split out from `JournalEntry` because the History rail lists a note's
+ * twenty retained versions on every flush (M11): reading each one back just
+ * to learn its length turned a metadata read into a full content read of the
+ * entire retention window. The size travels in the entry's own name, so a
+ * listing is a directory listing.
+ */
+export interface JournalEntryInfo {
   /**
    * Stable, monotonic id within one journal — what a UI names when it asks
    * for a specific pre-image back (the History rail section, W3). `at` alone
@@ -93,15 +102,29 @@ export interface JournalEntry {
   seq: number
   path: string
   at: number
+  /** Byte length of the pre-image. */
+  size: number
+}
+
+export interface JournalEntry extends JournalEntryInfo {
   bytes: Uint8Array
 }
 
 /** Pre-image journal: content snapshot before every Editor-initiated write. */
 export interface PreImageJournal {
   record(path: string, bytes: Uint8Array | null): Promise<void>
+  /** Metadata only: no pre-image's bytes are read (M11). */
+  list(path?: string): Promise<JournalEntryInfo[]>
   entries(path?: string): Promise<JournalEntry[]>
   /** Latest pre-image for a path, if any. */
   latest(path: string): Promise<JournalEntry | null>
+  /**
+   * Follow a rename/move: every entry for `from` — and, prefix-wise, for the
+   * subtree under it — is re-keyed to `to`. The journal is keyed by path, so
+   * without this a rename silently ends a note's recoverable history: the
+   * pre-images stay on disk under a name nothing will ever ask for (M10).
+   */
+  rename(from: string, to: string): Promise<void>
 }
 
 export type ReconcileAction =

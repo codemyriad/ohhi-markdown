@@ -18,7 +18,16 @@ import {
   ungroup,
   type SavedGroup,
 } from './groups.js'
-import { activeTab, createLayout, groupOf, openPath, panes, split, type Layout } from './panes.js'
+import {
+  activeTab,
+  createLayout,
+  groupOf,
+  openPath,
+  panes,
+  split,
+  visibleTabs,
+  type Layout,
+} from './panes.js'
 import { ids, paneAt, pathsOf, strip, tabIdFor } from './panes.fixture.js'
 
 /** Group these paths in pane 0 and answer the group's id. */
@@ -117,6 +126,31 @@ describe('folding', () => {
     expect(pathsOf(p)).toEqual(['a.md', 'b.md', null])
     expect(activeTab(p)?.path).toBeNull()
     expect(p.groups[0].collapsed).toBe(true)
+  })
+
+  it('never hands the active tab to a group that is already folded (C2)', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    for (const path of ['a.md', 'b.md', 'c.md', 'd.md']) l = openPath(l, path, {}, gen)
+    // No loose tabs: two groups and nothing else is the case where "the
+    // nearest tab outside this group" can only be a tab inside the other one.
+    const only = paneAt(l)
+    l = { ...l, tree: { ...only, tabs: only.tabs.filter((t) => t.path !== null), active: tabIdFor(only, 'd.md') } }
+    const a = group(l, gen, 'A', ['a.md', 'b.md'])
+    const b = group(a.l, gen, 'B', ['c.md', 'd.md'])
+
+    const oneFolded = toggleCollapsed(b.l, b.id, gen, 2)
+    expect(visibleTabs(paneAt(oneFolded)).map((t) => t.id)).toContain(paneAt(oneFolded).active)
+    expect(activeTab(paneAt(oneFolded))?.path).toBe('b.md')
+
+    const bothFolded = toggleCollapsed(oneFolded, a.id, gen, 3)
+    const p = paneAt(bothFolded)
+    // Both chips, no tabs on screen — so the fold opened an empty tab rather
+    // than pointing `active` at something the strip is not drawing (no
+    // `role="tab"` at all means no roving focus and a dangling `tabpanel`).
+    expect(p.groups.map((g) => g.collapsed)).toEqual([true, true])
+    expect(visibleTabs(p).map((t) => t.id)).toContain(p.active)
+    expect(activeTab(p)?.path).toBeNull()
   })
 })
 
@@ -301,6 +335,7 @@ describe('a chip drag carries the whole group (Decision 4)', () => {
     expect(to.groups[0].collapsed).toBe(true)
     // A folded tab has no view, so the active tab has to be one of the others.
     expect(to.groups[0].tabIds).not.toContain(to.active)
+    expect(visibleTabs(to).map((t) => t.id)).toContain(to.active)
   })
 })
 

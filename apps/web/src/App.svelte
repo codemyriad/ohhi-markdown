@@ -66,7 +66,7 @@
   import ShowAllGroupsDialog from './lib/components/ShowAllGroupsDialog.svelte'
   import StripGroupsMenu from './lib/components/StripGroupsMenu.svelte'
   import TabGroupMenuItems from './lib/components/TabGroupMenuItems.svelte'
-  import { createPanes } from './lib/workspace-panes.svelte.js'
+  import { createPanes, keyboardClaimed } from './lib/workspace-panes.svelte.js'
   import { createGroupUi, groupLabel } from './lib/group-ui.svelte.js'
   import {
     findPane,
@@ -83,9 +83,11 @@
     DAILY_DEFAULTS,
     dailyPath,
     dateOfPath,
+    findDaily,
     loadDailyConfig,
     neighbours,
     today,
+    unsupportedTokens,
     type DailyConfig,
   } from './lib/daily-notes.js'
   import { realClock } from './lib/real-clock.js'
@@ -225,7 +227,22 @@
     if (!ws) return
     let live = true
     void loadDailyConfig((path) => ws.readAppFile(path)).then((cfg) => {
-      if (live) dailyCfg = cfg
+      if (!live) return
+      dailyCfg = cfg
+      // A format with tokens we do not implement prints them as written, so
+      // Editor and Obsidian would disagree about which file today is with no
+      // symptom but a stray note. Say it once, where the session's notices
+      // are (Minor 17).
+      const unsupported = unsupportedTokens(cfg.format)
+      if (unsupported.length > 0) {
+        ws.notify({
+          level: 'warn',
+          text: $LL.web.daily.unsupported_format({
+            format: cfg.format,
+            tokens: unsupported.join(', '),
+          }),
+        })
+      }
     })
     return () => {
       live = false
@@ -254,11 +271,16 @@
    */
   async function openDailyToday(): Promise<void> {
     if (!workspace) return
-    const path = dailyPath(dailyCfg, today(() => realClock.now()))
-    if (workspace.ui.files.some((f) => f.path === path)) {
-      openPath(path)
+    const date = today(() => realClock.now())
+    // Matched on the DATE, not on the formatted name (Minor 16): the parser
+    // is padding-tolerant, so an older `Daily/03-01-2025.md` IS that day's
+    // note even though `DD-M-Y` would write it `03-1-2025`.
+    const existing = findDaily(dailyCfg, textPaths(workspace.ui.files), date)
+    if (existing) {
+      openPath(existing)
       return
     }
+    const path = dailyPath(dailyCfg, date)
     const cut = path.lastIndexOf('/')
     // createFile answers with the path and opens nothing — WHERE a new note
     // lands is the shell's call now (tab-groups B5). It adopts a file already
@@ -333,6 +355,9 @@
   // config and re-applies them itself, so this is the boot read.
   nav.registry.setOverrides(hotkeys())
 
+  /** Commands that act on the pane tree behind whatever is on top (M4). */
+  const WORKSPACE_COMMANDS = /^(?:workspace|tab|group)\./
+
   /**
    * Global hotkeys, in the CAPTURE phase.
    *
@@ -350,6 +375,19 @@
     if (panes.handleKey(e)) return
     const command = nav.registry.match(e)
     if (!command) return
+    // …but a command that acts on the workspace must not fire from inside a
+    // dialog or a text field: capture phase means `Mod+W` typed into Settings'
+    // relay-URL box used to close a tab behind it (M4). Navigation and the
+    // overlays themselves still answer — they are how you get out.
+    //
+    // Swallowed rather than let through: these are the browser's own chords
+    // (`Mod+W` closes the window, `Mod+P` prints), and handing them back would
+    // be a worse surprise than the command they stand in for.
+    if (WORKSPACE_COMMANDS.test(command.id) && keyboardClaimed()) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     e.preventDefault()
     e.stopPropagation()
     void command.run()

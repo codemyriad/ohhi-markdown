@@ -40,6 +40,17 @@ export interface Cursor {
   head: number
 }
 
+/**
+ * A path plus where you were in it. One trail entry, and one saved tab: both
+ * answer the same question (R2.3 — a tab resumes where it was), so they are
+ * the same shape and read by the same tolerant normaliser.
+ */
+export interface Waypoint {
+  path: string
+  cursor: Cursor | null
+  scroll: number
+}
+
 export interface Tab {
   id: string
   /** null = an empty tab (a pane must always hold at least one). */
@@ -48,8 +59,12 @@ export interface Tab {
   /** Resume point, captured when the view goes away (B2). */
   cursor: Cursor | null
   scroll: number
-  /** This tab's back/forward trail — Fork 4 puts history on the tab. */
-  history: string[]
+  /**
+   * This tab's back/forward trail — Fork 4 puts history on the tab. Each entry
+   * keeps its OWN resume point, so stepping back lands where you were in that
+   * note rather than at its top, which is what a browser does.
+   */
+  history: Waypoint[]
   /** Index into `history`; -1 when empty. */
   historyAt: number
 }
@@ -111,7 +126,7 @@ export interface SavedGroup {
   name: string
   color: GroupColor
   lastActive: number
-  tabs: { path: string; cursor: Cursor | null; scroll: number }[]
+  tabs: Waypoint[]
 }
 
 /** Percent floor for a split child — the mock's clamp, and B11's. */
@@ -219,7 +234,7 @@ export function newTab(
     pinned: false,
     cursor: cursor ? { ...cursor } : null,
     scroll,
-    history: path ? [path] : [],
+    history: path ? [{ path, cursor: cursor ? { ...cursor } : null, scroll }] : [],
     historyAt: path ? 0 : -1,
   }
 }
@@ -237,7 +252,11 @@ export function createLayout(ids: () => string): Layout {
 // ---- cloning and settling (shared with groups.ts) ----
 
 function cloneTab(t: Tab): Tab {
-  return { ...t, cursor: t.cursor ? { ...t.cursor } : null, history: [...t.history] }
+  return {
+    ...t,
+    cursor: t.cursor ? { ...t.cursor } : null,
+    history: t.history.map((w) => ({ ...w, cursor: w.cursor ? { ...w.cursor } : null })),
+  }
 }
 
 function cloneNode(n: Node): Node {
@@ -329,10 +348,57 @@ function settleLayout(l: Layout): void {
   const ps = panes(l.tree)
   for (const p of ps) {
     normalizeGroups(p)
-    if (!p.tabs.some((t) => t.id === p.active)) p.active = p.tabs[0]?.id ?? null
+    settleActive(p)
   }
   if (!ps.some((p) => p.id === l.focus)) l.focus = ps[0]?.id ?? l.focus
   if (l.zoom && !ps.some((p) => p.id === l.zoom)) l.zoom = null
+}
+
+/**
+ * The active tab is always ON SCREEN — the invariant the strip's ARIA rests
+ * on. A pane whose `active` sits inside a folded group renders no `role="tab"`
+ * at all: no roving tab stop (R8), and a `tabpanel` labelled by an element
+ * that is not in the document. Two adjacent folds used to produce exactly
+ * that, because every op only checked that `active` still EXISTED.
+ */
+function settleActive(p: Pane): void {
+  const visible = visibleTabs(p)
+  if (visible.some((t) => t.id === p.active)) return
+  if (visible.length) {
+    const from = p.tabs.findIndex((t) => t.id === p.active)
+    p.active = (nearestVisible(p, from) ?? visible[0]).id
+    return
+  }
+  // Nothing on screen at all (every group folded): the group holding the
+  // active tab unfolds, because a pane has to show something. Folding the LAST
+  // visible run is `toggleCollapsed`'s case and it opens an empty tab instead
+  // — it is the only op with an id generator to do that with.
+  const g = (p.active ? groupOf(p, p.active) : null) ?? p.groups[0]
+  if (g) {
+    g.collapsed = false
+    if (!p.tabs.some((t) => t.id === p.active)) p.active = g.tabIds[0] ?? null
+    return
+  }
+  p.active = p.tabs[0]?.id ?? null
+}
+
+/**
+ * The tab nearest `index` that the strip is actually SHOWING, searching right
+ * then left (every browser's rule for what takes over). `skip` excludes tabs
+ * the caller is about to hide as well — folding a group asks for the nearest
+ * tab outside it, and "outside" must not mean "inside the next folded group".
+ */
+export function nearestVisible(
+  p: Pane,
+  index: number,
+  skip: (t: Tab) => boolean = () => false
+): Tab | null {
+  for (let step = 1; step <= p.tabs.length; step++) {
+    for (const t of [p.tabs[index + step], p.tabs[index - step]]) {
+      if (t && !skip(t) && !groupOf(p, t.id)?.collapsed) return t
+    }
+  }
+  return null
 }
 
 /** Clone → edit the draft → settle. The body of every mutation below. */
@@ -562,22 +628,28 @@ export function activate(l: Layout, paneId: string, tabId: string, now = Date.no
   })
 }
 
-/** Move focus without changing anything else; zoom follows the focused pane. */
+/**
+ * Move focus without changing anything else. A zoom FOLLOWS the focus rather
+ * than being cancelled by it (Zellij's rule): the point of zoom is to work in
+ * one pane at a time, and a key that drops you back into four panes every time
+ * you move makes the whole family unusable while zoomed. Ops that restructure
+ * the tree still clear it, because their result is what you need to see.
+ */
 export function focusPane(l: Layout, paneId: string): Layout {
   return editLayout(l, (d) => {
     if (findPane(d, paneId)) {
       d.focus = paneId
-      if (d.zoom && d.zoom !== paneId) d.zoom = null
+      if (d.zoom) d.zoom = paneId
     }
   })
 }
 
 export function focusNext(l: Layout): Layout {
   return editLayout(l, (d) => {
-    d.zoom = null
     const ps = panes(d.tree)
     const i = ps.findIndex((p) => p.id === d.focus)
     d.focus = ps[(i + 1) % ps.length].id
+    if (d.zoom) d.zoom = d.focus
   })
 }
 
@@ -1059,14 +1131,24 @@ export function navigateInTab(
       return
     }
     // Going somewhere new truncates the forward trail, exactly as a browser's
-    // does — and the resume point belonged to the note being left.
-    t.history = [...t.history.slice(0, t.historyAt + 1), path]
+    // does — and the resume point belongs to the entry being LEFT, so Back
+    // lands on the line the link was followed from.
+    parkResume(t)
+    t.history = [...t.history.slice(0, t.historyAt + 1), { path, cursor: null, scroll: 0 }]
     t.historyAt = t.history.length - 1
     t.path = path
     t.cursor = null
     t.scroll = 0
     activateIn(d, p, t.id, now)
   })
+}
+
+/** Stash where the tab is now on the trail entry it is standing on. */
+function parkResume(t: Tab): void {
+  const here = t.history[t.historyAt]
+  if (!here) return
+  here.cursor = t.cursor ? { ...t.cursor } : null
+  here.scroll = t.scroll
 }
 
 /** Can this tab step `delta` (-1 back, +1 forward) through its own trail? */
@@ -1077,18 +1159,22 @@ export function canTravel(t: Tab | null, delta: number): boolean {
 }
 
 /**
- * Back/forward inside one tab. Travelling never rewrites the trail, so
- * stepping back and forward again lands on the same entries.
+ * Back/forward inside one tab. Travelling never rewrites the trail's ORDER, so
+ * stepping back and forward again lands on the same entries — and each entry
+ * carries its own resume point, so it lands at the same cursor and scroll too
+ * (R2.3; the caller captures the live view first).
  */
 export function travelTab(l: Layout, tabId: string, delta: number, now = Date.now()): Layout {
   return editLayout(l, (d) => {
     const p = paneOfTab(d, tabId)
     const t = p?.tabs.find((x) => x.id === tabId)
     if (!p || !t || !canTravel(t, delta)) return
+    parkResume(t)
     t.historyAt += delta
-    t.path = t.history[t.historyAt]
-    t.cursor = null
-    t.scroll = 0
+    const to = t.history[t.historyAt]
+    t.path = to.path
+    t.cursor = to.cursor ? { ...to.cursor } : null
+    t.scroll = to.scroll
     activateIn(d, p, t.id, now)
   })
 }
@@ -1100,7 +1186,10 @@ function fixHistoryAt(t: Tab): void {
     t.historyAt = -1
     return
   }
-  const here = t.path ? t.history.lastIndexOf(t.path) : -1
+  // `findLastIndex` needs es2023; the lib target here is older, and the loop is
+  // the same answer: the LAST entry on this path is where the tab is standing.
+  let here = -1
+  if (t.path) for (let i = 0; i < t.history.length; i++) if (t.history[i].path === t.path) here = i
   t.historyAt = here >= 0 ? here : Math.min(Math.max(t.historyAt, 0), t.history.length - 1)
 }
 
@@ -1115,7 +1204,7 @@ export function prune(
       const dead = p.tabs.filter((t) => t.path !== null && !live.has(t.path)).map((t) => t.id)
       if (dead.length) detachTabs(p, dead)
       for (const t of p.tabs) {
-        t.history = t.history.filter((h) => live.has(h))
+        t.history = t.history.filter((w) => live.has(w.path))
         fixHistoryAt(t)
       }
     }
@@ -1138,7 +1227,7 @@ export function rename(l: Layout, from: string, to: string, ids: () => string = 
     for (const p of panes(d.tree)) {
       for (const t of p.tabs) {
         if (t.path) t.path = renamed(t.path, from, to)
-        t.history = t.history.map((h) => renamed(h, from, to))
+        t.history = t.history.map((w) => ({ ...w, path: renamed(w.path, from, to) }))
         fixHistoryAt(t)
       }
       const seen = new Set<string>()
@@ -1163,7 +1252,7 @@ export function closeUnder(l: Layout, prefix: string, ids: () => string = nextId
       const dead = p.tabs.filter((t) => t.path !== null && inside(t.path)).map((t) => t.id)
       if (dead.length) detachTabs(p, dead)
       for (const t of p.tabs) {
-        t.history = t.history.filter((h) => !inside(h))
+        t.history = t.history.filter((w) => !inside(w.path))
         fixHistoryAt(t)
       }
     }
@@ -1235,12 +1324,41 @@ function clampSizes(raw: unknown, n: number): number[] {
   return out
 }
 
-function normalizeTab(raw: unknown, ids: () => string): Tab | null {
+/**
+ * An id nothing else in this layout is using. A stored payload can carry the
+ * same id twice — a hand-edited blob, or two devices' trees pasted together —
+ * and a duplicate is worse than a missing one: `findPane`/`tabOf` answer with
+ * the first match, and two keyed components claim the same key. So a repeat is
+ * re-issued rather than dropped, and the pane's own remap carries the group
+ * memberships and `active` across (`normalizeNode`).
+ */
+function uniqueId(raw: unknown, used: Set<string>, ids: () => string): string {
+  let id = typeof raw === 'string' ? raw : ''
+  while (!id || used.has(id)) id = ids()
+  used.add(id)
+  return id
+}
+
+/**
+ * A stored trail entry. Older payloads wrote bare path strings; one is still a
+ * trail worth keeping, it just has no resume point of its own.
+ */
+function normalizeWaypoint(raw: unknown): Waypoint | null {
+  if (typeof raw === 'string') return raw ? { path: raw, cursor: null, scroll: 0 } : null
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
-  const history = Array.isArray(r.history) ? r.history.filter((h): h is string => typeof h === 'string') : []
+  if (typeof r.path !== 'string' || !r.path) return null
+  return { path: r.path, cursor: readCursor(r.cursor), scroll: Math.max(0, num(r.scroll, 0)) }
+}
+
+function normalizeTab(raw: unknown, ids: () => string, used: Set<string>): Tab | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const history = Array.isArray(r.history)
+    ? r.history.map(normalizeWaypoint).filter((w): w is Waypoint => w !== null)
+    : []
   const t: Tab = {
-    id: str(r.id, ids()),
+    id: uniqueId(r.id, used, ids),
     path: typeof r.path === 'string' ? r.path : null,
     pinned: r.pinned === true,
     cursor: readCursor(r.cursor),
@@ -1252,15 +1370,22 @@ function normalizeTab(raw: unknown, ids: () => string): Tab | null {
   return t
 }
 
-function normalizeGroup(raw: unknown, tabIds: Set<string>, ids: () => string): Group | null {
+function normalizeGroup(
+  raw: unknown,
+  remap: Map<string, string>,
+  ids: () => string,
+  used: Set<string>
+): Group | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   const members = Array.isArray(r.tabIds)
-    ? r.tabIds.filter((id): id is string => typeof id === 'string' && tabIds.has(id))
+    ? r.tabIds
+        .map((id) => (typeof id === 'string' ? remap.get(id) : undefined))
+        .filter((id): id is string => id !== undefined)
     : []
   if (!members.length) return null
   return {
-    id: str(r.id, ids()),
+    id: uniqueId(r.id, used, ids),
     name: str(r.name, ''),
     color: readColor(r.color),
     collapsed: r.collapsed === true,
@@ -1269,30 +1394,39 @@ function normalizeGroup(raw: unknown, tabIds: Set<string>, ids: () => string): G
   }
 }
 
-function normalizeNode(raw: unknown, ids: () => string): Node | null {
+function normalizeNode(raw: unknown, ids: () => string, used: Set<string>): Node | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   if (r.kind === 'pane') {
-    const tabs = Array.isArray(r.tabs)
-      ? r.tabs.map((t) => normalizeTab(t, ids)).filter((t): t is Tab => t !== null)
-      : []
+    // Stored id → the id the tab actually got, so a re-issued duplicate does
+    // not silently drop the group it belonged to.
+    const remap = new Map<string, string>()
+    const tabs: Tab[] = []
+    for (const rawTab of Array.isArray(r.tabs) ? r.tabs : []) {
+      const t = normalizeTab(rawTab, ids, used)
+      if (!t) continue
+      const stored = (rawTab as Record<string, unknown>).id
+      if (typeof stored === 'string' && stored) remap.set(stored, t.id)
+      tabs.push(t)
+    }
     const list = tabs.length ? tabs : [newTab(ids)]
-    const seen = new Set(list.map((t) => t.id))
     const groups = Array.isArray(r.groups)
-      ? r.groups.map((g) => normalizeGroup(g, seen, ids)).filter((g): g is Group => g !== null)
+      ? r.groups
+          .map((g) => normalizeGroup(g, remap, ids, used))
+          .filter((g): g is Group => g !== null)
       : []
-    const active = typeof r.active === 'string' && seen.has(r.active) ? r.active : list[0].id
-    return { kind: 'pane', id: str(r.id, ids()), tabs: list, groups, active }
+    const active = (typeof r.active === 'string' ? remap.get(r.active) : undefined) ?? list[0].id
+    return { kind: 'pane', id: uniqueId(r.id, used, ids), tabs: list, groups, active }
   }
   if (r.kind === 'split') {
     const children = Array.isArray(r.children)
-      ? r.children.map((c) => normalizeNode(c, ids)).filter((c): c is Node => c !== null)
+      ? r.children.map((c) => normalizeNode(c, ids, used)).filter((c): c is Node => c !== null)
       : []
     if (!children.length) return null
     if (children.length === 1) return children[0]
     return {
       kind: 'split',
-      id: str(r.id, ids()),
+      id: uniqueId(r.id, used, ids),
       dir: r.dir === 'col' ? 'col' : 'row',
       children,
       sizes: clampSizes(r.sizes, children.length),
@@ -1310,7 +1444,7 @@ export function normalize(raw: unknown, ids: () => string = nextId): Layout | nu
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   if (r.version !== LAYOUT_VERSION) return null
-  const tree = normalizeNode(r.tree, ids)
+  const tree = normalizeNode(r.tree, ids, new Set<string>())
   if (!tree) return null
   const l: Layout = {
     tree,
@@ -1334,8 +1468,8 @@ export function normalizeSavedGroups(raw: unknown): SavedGroup[] {
     if (!item || typeof item !== 'object') continue
     const r = item as Record<string, unknown>
     const tabs = (Array.isArray(r.tabs) ? r.tabs : [])
-      .map(normalizeSavedTab)
-      .filter((t): t is SavedGroup['tabs'][number] => t !== null)
+      .map(normalizeWaypoint)
+      .filter((t): t is Waypoint => t !== null)
     if (!tabs.length) continue
     out.push({
       id: str(r.id, `sg${out.length}`),
@@ -1348,9 +1482,3 @@ export function normalizeSavedGroups(raw: unknown): SavedGroup[] {
   return out
 }
 
-function normalizeSavedTab(raw: unknown): SavedGroup['tabs'][number] | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  if (typeof r.path !== 'string' || !r.path) return null
-  return { path: r.path, cursor: readCursor(r.cursor), scroll: Math.max(0, num(r.scroll, 0)) }
-}

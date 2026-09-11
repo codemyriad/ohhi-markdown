@@ -216,6 +216,20 @@ export function isAuthRefusalForAdoptedMount(
 
 export interface WorkspaceUi {
   phase: 'connecting' | 'ready'
+  /**
+   * The vault is not in a settled state right now (M3): still booting, a
+   * mount still coming up, or a carve/unshare/unmount/add-link surgery in
+   * flight. `ui.files` during any of those is a partial picture — a subtree
+   * can be absent between a mount's teardown and the rebuild that puts it
+   * back — so anything that DELETES state derived from the file list (the
+   * shell's tab prune, above all) must wait for this to go false.
+   *
+   * It is the same guard the record prune has always applied internally
+   * (`ui.phase === 'ready' && mountsBooting === 0`), named and exported,
+   * plus the surgeries — which the internal one did not cover because the
+   * surgery machines rebuild sessions one at a time.
+   */
+  settling: boolean
   /** Session notice log, newest first (chrome U5). Replaces the one overwritten error string. */
   notices: Notice[]
   files: FileRow[]
@@ -402,6 +416,7 @@ function seedDemoFiles(adapter: VaultAdapter): Promise<void[]> {
 export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const ui = $state<WorkspaceUi>({
     phase: 'connecting',
+    settling: true,
     notices: [],
     files: [],
     presence: [],
@@ -443,6 +458,30 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   let rootSession: MountSession | null = null
   /** Sessions currently booting before their registry.add (pruning guard). */
   let mountsBooting = 0
+  /** Mount surgeries in flight (carve/unshare/unmount/add-link) — see `ui.settling`. */
+  let surgeries = 0
+
+  /** `ui.settling` is derived, never set: one rule, three inputs (M3). */
+  const refreshSettling = (): void => {
+    ui.settling = ui.phase !== 'ready' || mountsBooting > 0 || surgeries > 0
+  }
+
+  /**
+   * Bracket one mount surgery. Everything inside it can leave `ui.files`
+   * describing a vault that is half-taken-apart, and the shell must not act
+   * destructively on that picture (M3).
+   */
+  const duringSurgery = async <T>(run: () => Promise<T>): Promise<T> => {
+    surgeries++
+    refreshSettling()
+    try {
+      return await run()
+    } finally {
+      surgeries--
+      refreshSettling()
+    }
+  }
+
   /**
    * Live mount roots the root adapter must ignore. Derived, never accumulated:
    * `mounts.json ∪ the root map's kind:'mount' entries` (spike S10 Q6). Both
@@ -637,10 +676,12 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   const buildMount = async (opts: MountOpts): Promise<MountSession> => {
     mountsBooting++
+    refreshSettling()
     try {
       return await buildMountInner(opts)
     } finally {
       mountsBooting--
+      refreshSettling()
     }
   }
 
@@ -941,6 +982,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   await runReconcile()
 
   ui.phase = 'ready'
+  refreshSettling()
   ui.pull = null
   cfg.onPull?.(null)
   refreshTree()
@@ -977,14 +1019,24 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   /**
-   * Re-tell every mount which of its files a view holds. The unshare/unmount
-   * machines replace session objects, and a fresh MountSession's open set is
-   * empty — without this a note open in another pane would be materializable
-   * over the moment its mount was rebuilt.
+   * Re-tell every mount which of its files a view holds, adding back the paths
+   * a surgery released (`dropLiveViewsUnder`'s return).
+   *
+   * Two things are going on and both are load-bearing (C1):
+   *
+   *  - the unshare/unmount/activate machines REPLACE session objects, and a
+   *    fresh MountSession's open set is empty, so every mount has to be told
+   *    again — hence clearing `liveByMount` rather than diffing against it;
+   *  - the views released before the surgery are still on screen. They were
+   *    taken out of `liveViews` so the doomed session would close their docs
+   *    cleanly, and putting them back is what re-marks them on the session
+   *    that now owns them. Replaying `liveViews` alone re-opens everything
+   *    EXCEPT the subtree the surgery was about — which is the one place a
+   *    pane is left rendering a buffer the reconciler believes is closed.
    */
-  const reapplyLiveViews = (): void => {
+  const reapplyLiveViews = (held: readonly string[] = []): void => {
     liveByMount = new Map()
-    setLiveViews(liveViews)
+    setLiveViews(new Set([...liveViews, ...held]))
   }
 
   /**
@@ -1111,7 +1163,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     registry.add(path, session)
     await reloadMounts()
     refreshTree()
-    if (held.length > 0) setLiveViews(new Set([...liveViews, ...held]))
+    reapplyLiveViews(held) // the subtree's docs live in the NEW mount now
     if (reselect) ui.selectedPath = reselect
     return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
   }
@@ -1294,7 +1346,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
    */
   const doUnshare = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    dropLiveViewsUnder(path)
+    // Captured, not discarded (C1): these notes are still open in their panes,
+    // and the root this surgery rebuilds starts knowing nothing about them.
+    const held = dropLiveViewsUnder(path)
     const mount = registry.resolve(path)!.session
     // Both sessions leave the registry before the stop-the-world surgery.
     registry.remove(path)
@@ -1314,7 +1368,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     await rebuildRoot()
     await reloadMounts()
     refreshTree()
-    reapplyLiveViews() // the root is a NEW session; views elsewhere still hold it
+    // The root is a NEW session: views elsewhere still hold it, and the
+    // unshared subtree's notes are its files now.
+    reapplyLiveViews(held)
   }
 
   /**
@@ -1327,7 +1383,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
    */
   const doUnmount = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    dropLiveViewsUnder(path)
+    // The files stay on disk and the root re-enrols them below, so the views
+    // that were released are re-opened against the root (C1).
+    const held = dropLiveViewsUnder(path)
     const mount = registry.resolve(path)!.session
     registry.remove(path)
     await unmountMount({
@@ -1346,6 +1404,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // (a big folder legitimately trips the breaker dialog here).
     await rootSession!.rescan()
     refreshTree()
+    reapplyLiveViews(held)
   }
 
   /**
@@ -1390,6 +1449,18 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
     setRoomToken(target.room, target.token, target.relay, target.kind)
 
+    /**
+     * Views released by `detachMount`, waiting for `attachMount` (C1).
+     *
+     * `activateMount` detaches ONLY to replace the session (the pull branch,
+     * and its rollback) — it shuts the old one down and destroys its docs, so
+     * the views must let go first, and the replacement starts with an empty
+     * open set, so they must be re-applied to it. The merge branch calls
+     * neither hook, which is exactly right: it keeps the same session and the
+     * same guids, and a note open in a pane is never disturbed.
+     */
+    let held: string[] = []
+
     try {
       await activateMount({
         vaultDir: cfg.storeDir,
@@ -1411,8 +1482,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
               refreshMounts()
             },
           }),
-        detachMount: (p) => registry.remove(p),
-        attachMount: (p, next) => registry.add(p, next),
+        detachMount: (p) => {
+          registry.remove(p)
+          held = dropLiveViewsUnder(p)
+        },
+        attachMount: (p, next) => {
+          registry.add(p, next)
+          reapplyLiveViews(held)
+          held = []
+        },
         // The pull is awaited and can take a while on a real vault (spike S10
         // Q4), so it gets the same two-phase line a whole-vault link gets.
         onPullProgress: (progress) => {
@@ -1422,6 +1500,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       })
     } finally {
       ui.pull = null
+      // Both the pull and its rollback re-attach, so this is normally empty.
+      // If neither could build a session the views would be stranded with no
+      // mount to hold them — put them back, and the next thing that resolves
+      // them re-marks them (C1).
+      if (held.length > 0) reapplyLiveViews(held)
       await reloadMounts()
       refreshTree()
     }
@@ -1550,11 +1633,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       (reviewOwner.get(guid) ?? rootSession!).resolveReview(guid, mergedText),
     resolveVanished: (guid, action) =>
       (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
-    addShareMount: doJoinMount,
-    addMountLink: doAddMountLink,
-    unshare: doUnshare,
-    unmount: doUnmount,
-    carveFolder: doCarve,
+    addShareMount: (link, dir) => duringSurgery(() => doJoinMount(link, dir)),
+    // Every mount surgery is bracketed HERE rather than inside each machine:
+    // one place, and `ui.settling` cannot be left true by an early return
+    // from one of them (M3).
+    addMountLink: (path, link) => duringSurgery(() => doAddMountLink(path, link)),
+    unshare: (path) => duringSurgery(() => doUnshare(path)),
+    unmount: (path) => duringSurgery(() => doUnmount(path)),
+    carveFolder: (path) => duringSurgery(() => doCarve(path)),
     linkDevice: doLinkDevice,
     confirmBreaker: async () => {
       ui.breaker = null

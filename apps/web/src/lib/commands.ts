@@ -68,21 +68,33 @@ export interface KeyEventLike {
   altKey: boolean
 }
 
+const ARROW_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown'])
+
 /**
- * Off mac there is one Mod and it IS Ctrl — so a binding that asks for BOTH
- * (`Ctrl+Mod+X`, the shape Obsidian writes for a chord recorded on a Mac)
- * has nowhere to put the second modifier. Collapsing it onto plain Ctrl is
- * what Obsidian does, and it silently kills one of the two: Chris's
- * `Ctrl+Mod+←` (focus the pane left) and his `Mod+←` (toggle the sidebar)
- * become the same key, as do `Ctrl+Mod+-` (close other tabs) and `Mod+-`
- * (previous daily note). So the second modifier lands on **Alt** instead, and
- * both of his rebinds keep working (tab-groups R1).
+ * How a binding is actually PRESSED off mac. On mac the string is literal —
+ * Cmd is Mod, Ctrl is Ctrl — so this only answers for everywhere else, where
+ * there is one Mod and it IS Ctrl.
  *
- * A binding with Ctrl and no Mod (`Ctrl+Tab` — Obsidian's unrebound tab key)
- * is untouched: there is nothing to disambiguate.
+ * `Ctrl+Mod+X` (the shape Obsidian writes for a chord recorded on a Mac) has
+ * nowhere to put its second modifier. Collapsing it onto plain Ctrl is what
+ * Obsidian does, and it silently kills one of the two: Chris's `Ctrl+Mod+←`
+ * (focus the pane left) and his `Mod+←` (toggle the sidebar) become the same
+ * key, as do `Ctrl+Mod+-` (close other tabs) and `Mod+-` (previous daily
+ * note). So the second modifier lands on **Alt** instead (tab-groups R1).
+ *
+ * **Except on the arrows.** `Ctrl+Alt+Arrows` is GNOME's workspace switcher
+ * (verified on this machine: `org.gnome.desktop.wm.keybindings
+ * switch-to-workspace-left/right/up/down` each list `<Control><Alt>` + the
+ * arrow), so the event never reaches the page at all — the four
+ * `workspace.focus-*` keys would be dead on Linux. There the chord drops Ctrl
+ * and is pressed as `Alt+Arrow`, which no window manager claims; the app's
+ * capture-phase handler takes it back from the browser's own back/forward,
+ * and in-app back/forward is `Mod+[` / `Mod+]` anyway. The STORED string and
+ * the mac chord are unchanged; Settings prints what is actually pressed.
  */
-function altStandsInForCtrl(binding: ParsedBinding): boolean {
-  return binding.ctrl && binding.mod
+function offMacChord(b: ParsedBinding): { ctrl: boolean; alt: boolean } {
+  if (!(b.ctrl && b.mod)) return { ctrl: b.ctrl || b.mod, alt: b.alt }
+  return ARROW_KEYS.has(b.key) ? { ctrl: false, alt: true } : { ctrl: true, alt: true }
 }
 
 export function eventMatches(binding: ParsedBinding, e: KeyEventLike, mac: boolean): boolean {
@@ -90,8 +102,9 @@ export function eventMatches(binding: ParsedBinding, e: KeyEventLike, mac: boole
   if (binding.shift !== e.shiftKey) return false
   // On mac, Mod is Cmd and Ctrl is a separate modifier.
   if (mac) return binding.alt === e.altKey && binding.mod === e.metaKey && binding.ctrl === e.ctrlKey
-  if ((binding.alt || altStandsInForCtrl(binding)) !== e.altKey) return false
-  return (binding.ctrl || binding.mod) === e.ctrlKey && !e.metaKey
+  const chord = offMacChord(binding)
+  if (chord.alt !== e.altKey) return false
+  return chord.ctrl === e.ctrlKey && !e.metaKey
 }
 
 export function isMac(platform = globalThis.navigator?.platform ?? ''): boolean {
@@ -110,13 +123,27 @@ export function formatBinding(binding: string, mac: boolean): string {
   if (mac) {
     return `${parsed.ctrl ? '⌃' : ''}${parsed.alt ? '⌥' : ''}${parsed.shift ? '⇧' : ''}${parsed.mod ? '⌘' : ''}${key}`
   }
-  // Printed as it is actually pressed here — see `altStandsInForCtrl`.
-  const mods = [
-    parsed.mod || parsed.ctrl ? 'Ctrl' : '',
-    parsed.alt || altStandsInForCtrl(parsed) ? 'Alt' : '',
-    parsed.shift ? 'Shift' : '',
-  ]
+  // Printed as it is actually pressed here — see `offMacChord`.
+  const chord = offMacChord(parsed)
+  const mods = [chord.ctrl ? 'Ctrl' : '', chord.alt ? 'Alt' : '', parsed.shift ? 'Shift' : '']
   return [...mods.filter(Boolean), key].join('+')
+}
+
+/**
+ * Chords the desktop takes before a browser ever sees them. Measured, not
+ * guessed: GNOME's `switch-to-workspace-*` on this machine. A default that
+ * lands on one is dead, and a user who rebinds onto one deserves to be told
+ * rather than to find out by pressing it — so Settings prints a hint.
+ *
+ * Compared against the chord as it is PRESSED (`formatBinding`), so the same
+ * table answers for a default and for an override. Mac is left out: its own
+ * reservations are Cmd-shaped and the OS surfaces them itself.
+ */
+const DESKTOP_RESERVED = new Set(['Ctrl+Alt+←', 'Ctrl+Alt+→', 'Ctrl+Alt+↑', 'Ctrl+Alt+↓'])
+
+export function isDesktopReserved(keys: string, mac: boolean): boolean {
+  if (mac || !keys) return false
+  return DESKTOP_RESERVED.has(formatBinding(keys, mac))
 }
 
 /**
@@ -179,6 +206,15 @@ export interface CommandBinding {
   display: string
   /** True when the user's override — not the default — produced `keys`. */
   overridden: boolean
+  /**
+   * Titles of the OTHER commands whose effective chord is this one. `match()`
+   * silently prefers the later registration, so a collision is a command that
+   * quietly stopped working — Settings says so rather than leaving it to be
+   * discovered by pressing the key.
+   */
+  conflicts: string[]
+  /** True when the desktop takes this chord before the app can see it. */
+  reserved: boolean
 }
 
 /**
@@ -285,7 +321,7 @@ export class CommandRegistry {
    * user may bind it, and a key you cannot see is a key you cannot change.
    */
   bindings(): CommandBinding[] {
-    return [...this.commands.values()].map((c) => ({
+    const rows = [...this.commands.values()].map((c) => ({
       id: c.id,
       title: c.title,
       group: c.group ?? '',
@@ -294,7 +330,26 @@ export class CommandRegistry {
       keys: this.effectiveKeys(c.id),
       display: this.binding(c.id),
       overridden: c.id in this.overrides,
+      conflicts: [] as string[],
+      reserved: isDesktopReserved(this.effectiveKeys(c.id), this.mac),
     }))
+    // Grouped by the chord as it is PRESSED, not by the stored string: off mac
+    // `Ctrl+Mod+X` and `Ctrl+Alt+X` are the same key press, and two commands on
+    // them collide however differently they are written down.
+    const byChord = new Map<string, CommandBinding[]>()
+    for (const row of rows) {
+      if (!row.display) continue
+      const sharing = byChord.get(row.display)
+      if (sharing) sharing.push(row)
+      else byChord.set(row.display, [row])
+    }
+    for (const sharing of byChord.values()) {
+      if (sharing.length < 2) continue
+      for (const row of sharing) {
+        row.conflicts = sharing.filter((other) => other !== row).map((other) => other.title)
+      }
+    }
+    return rows
   }
 
   /**

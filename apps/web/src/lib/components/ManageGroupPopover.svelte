@@ -16,11 +16,13 @@
    * anything and so asks first (B4).
    */
   import { LL } from '@editor/i18n/i18n-svelte'
+  import { basename } from '@editor/index'
   import { GROUP_SLOTS } from '@editor/ui/tokens'
   import type { GroupShell } from '../group-ui.svelte.js'
-  import type { Group, GroupColor } from '../panes.js'
+  import { activeTab, findGroup, panes as panesOf, type Group, type GroupColor } from '../panes.js'
   import Dialog from '../ui/Dialog.svelte'
   import Field from '../ui/Field.svelte'
+  import MenuSection from '../ui/MenuSection.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
@@ -39,6 +41,21 @@
   const t = $derived($LL.web.groups.manage)
   const count = $derived(group.tabIds.length)
   const slots = Array.from({ length: GROUP_SLOTS }, (_, i) => (i + 1) as GroupColor)
+
+  /**
+   * Where this group could go. A chip drag is the pointer gesture; this and
+   * the `group.move-*` commands are its keyboard and menu equivalents, so no
+   * way of rearranging the layout is drag-only (R8).
+   */
+  const home = $derived(findGroup(panes.layout, group.id)?.pane.id ?? null)
+  const elsewhere = $derived(
+    panesOf(panes.layout.tree)
+      .filter((p) => p.id !== home)
+      .map((p) => {
+        const held = activeTab(p)
+        return { id: p.id, index: panes.paneIndex(p.id), note: held?.path ? basename(held.path) : '' }
+      })
+  )
 
   // svelte-ignore state_referenced_locally -- the field SEEDS from the group
   // and then drives it (the live rename below); a two-way sync would fight it.
@@ -159,6 +176,25 @@
     >
       {t.ungroup()}
     </button>
+    {#if elsewhere.length > 0}
+      <MenuSection label={$LL.web.panes.move_to()}>
+        {#each elsewhere as other (other.id)}
+          <button
+            type="button"
+            data-testid="group-move:{other.id}"
+            onclick={() => act(() => panes.moveGroupToPane(group.id, other.id))}
+            class="flex w-full items-baseline gap-2 rounded px-2 py-1.5 text-left text-base-content/85 hover:bg-base-200"
+          >
+            <span>{$LL.web.panes.label({ n: other.index })}</span>
+            {#if other.note}
+              <span class="min-w-0 flex-1 truncate text-right text-xs text-base-content/70">
+                {other.note}
+              </span>
+            {/if}
+          </button>
+        {/each}
+      </MenuSection>
+    {/if}
     <button
       type="button"
       data-testid="group-delete"

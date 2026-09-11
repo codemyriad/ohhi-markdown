@@ -22,10 +22,37 @@ const entry = (seq: number, minutesAgo: number, size: number): PreImageInfo => (
   size,
 })
 
-function open(rows: PreImageInfo[] | null, path: string | null = PATH) {
+/** The injected scheduler (golden rule 5): one armed timer, fired by hand. */
+function fakeSchedule() {
+  const armed: { fn: () => void; ms: number }[] = []
+  const schedule = (fn: () => void, ms: number): (() => void) => {
+    armed.push({ fn, ms })
+    return () => {
+      const i = armed.findIndex((a) => a.fn === fn)
+      if (i >= 0) armed.splice(i, 1)
+    }
+  }
+  return { armed, schedule, fire: () => armed.shift()?.fn() }
+}
+
+function open(
+  rows: PreImageInfo[] | null,
+  path: string | null = PATH,
+  opts: {
+    restore?: (path: string, seq: number) => Promise<void>
+    now?: () => number
+    schedule?: (fn: () => void, ms: number) => () => void
+  } = {}
+) {
   const load = vi.fn(async () => rows ?? [])
-  const restore = vi.fn(async () => {})
-  const { rerender } = render(HistorySection, { path, load, restore, now: () => NOW })
+  const restore = vi.fn(opts.restore ?? (async () => {}))
+  const { rerender } = render(HistorySection, {
+    path,
+    load,
+    restore,
+    now: opts.now ?? (() => NOW),
+    ...(opts.schedule ? { schedule: opts.schedule } : {}),
+  })
   return { load, restore, rerender }
 }
 
@@ -82,6 +109,59 @@ describe('HistorySection', () => {
     await waitFor(() => expect(load).toHaveBeenCalledTimes(3))
     // The rows on screen never went away while it re-read.
     expect(screen.getByTestId('history-entry:9')).toBeInTheDocument()
+  })
+
+  it('keeps the dialog open and says so when the restore FAILS (Minor 18)', async () => {
+    const user = userEvent.setup()
+    const { load, restore } = open([entry(9, 20, 2048)], PATH, {
+      restore: async () => {
+        throw new Error('no journaled version 9 of that note remains')
+      },
+    })
+
+    await user.click(await screen.findByTestId('history-restore:9'))
+    await user.click(await screen.findByTestId('history-confirm-confirm'))
+
+    // A restore that did not happen must never look like one that did: the
+    // dialog stays up, the reason is on screen, and the list is NOT re-read
+    // as though the journal had changed.
+    expect(restore).toHaveBeenCalledTimes(1)
+    expect(await screen.findByTestId('history-confirm-error')).toHaveTextContent(
+      'no journaled version 9'
+    )
+    expect(screen.getByTestId('history-confirm')).toBeInTheDocument()
+    expect(load).toHaveBeenCalledTimes(1)
+    // …and it can be tried again: the confirm is not stuck on "Working…".
+    expect(screen.getByTestId('history-confirm-confirm')).toBeEnabled()
+    await user.click(screen.getByTestId('history-confirm-confirm'))
+    expect(restore).toHaveBeenCalledTimes(2)
+
+    // Cancelling clears the failure with the dialog.
+    await user.click(screen.getByTestId('history-confirm-cancel'))
+    await waitFor(() => expect(screen.queryByTestId('history-confirm')).toBeNull())
+  })
+
+  it('re-labels the rows when the day turns over (Minor 22)', async () => {
+    const clock = fakeSchedule()
+    let now = NOW
+    const at = NOW - 30 * 60_000 // half an hour ago: "today", so a time alone
+    open([entry(9, 30, 2048)], PATH, { now: () => now, schedule: clock.schedule })
+
+    const row = await screen.findByTestId('history-entry:9')
+    expect(row).toHaveTextContent(formatStamp(at, NOW))
+    // Armed for the next local midnight, not polled.
+    const midnight = new Date(NOW)
+    midnight.setHours(24, 0, 0, 0)
+    expect(clock.armed[0]?.ms).toBe(midnight.getTime() - NOW)
+
+    // Tomorrow: the same version is no longer "today", and the row has to say
+    // so — a rail left open overnight was still printing bare times.
+    now = midnight.getTime() + 60_000
+    clock.fire()
+    await waitFor(() => expect(row).toHaveTextContent(formatStamp(at, now)))
+    expect(formatStamp(at, now)).not.toBe(formatStamp(at, NOW))
+    // …and it re-armed for the midnight after that.
+    expect(clock.armed).toHaveLength(1)
   })
 
   it('restores the confirmed version and re-reads the journal it just changed', async () => {

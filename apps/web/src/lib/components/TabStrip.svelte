@@ -56,10 +56,9 @@
     $props()
 
   type TabItem = Extract<StripItem, { kind: 'tab' }>
+  type TabRun = { key: string; kind: 'tabs'; group: Group | null; label: string; items: TabItem[] }
   /** A chip, or the run of tabs one tablist holds. */
-  type Run =
-    | { key: string; kind: 'chip'; item: Extract<StripItem, { kind: 'chip' }> }
-    | { key: string; kind: 'tabs'; label: string; items: TabItem[] }
+  type Run = { key: string; kind: 'chip'; item: Extract<StripItem, { kind: 'chip' }> } | TabRun
 
   const t = $derived($LL.web.tabs)
   const items = $derived(stripItems(pane))
@@ -76,15 +75,22 @@
       const gid = item.group?.id ?? null
       if (gid !== openId) {
         openId = gid
-        out.push({
-          key: `l${item.tab.id}`,
-          kind: 'tabs',
-          label: item.group ? groupLabel(item.group.name) : t.list(),
-          items: [],
-        })
+        out.push({ key: `l${item.tab.id}`, kind: 'tabs', group: item.group, label: '', items: [] })
       }
       const last = out[out.length - 1]
       if (last.kind === 'tabs') last.items.push(item)
+    }
+    // A grouped run is named by its group. A loose one is named by WHERE it is:
+    // three lists all called "Open notes" tell a screen-reader user nothing
+    // about which side of which group they have landed in.
+    const loose = out.filter((r): r is TabRun => r.kind === 'tabs' && !r.group)
+    for (const run of out) {
+      if (run.kind !== 'tabs') continue
+      run.label = run.group
+        ? groupLabel(run.group.name)
+        : loose.length > 1
+          ? t.list_n({ index: loose.indexOf(run) + 1, total: loose.length })
+          : t.list()
     }
     return out
   })
@@ -120,6 +126,23 @@
     e.preventDefault()
   }
 
+  /**
+   * The menu's trigger is a zero-size anchor placed at the pointer, and it
+   * unmounts with the menu — so Melt's focus-return lands on `<body>` and the
+   * keyboard is pointing at nothing. Focus goes back to the tab the menu acted
+   * on, or to whatever is selected if that tab was just closed.
+   */
+  function closeMenu(): void {
+    const id = menu?.tab.id
+    menu = null
+    queueMicrotask(() => {
+      const back =
+        (id ? listEl?.querySelector<HTMLElement>(`[id="${CSS.escape(tabDomId(id))}"]`) : null) ??
+        listEl?.querySelector<HTMLElement>('[aria-selected="true"]')
+      back?.focus()
+    })
+  }
+
   function startDrag(e: PointerEvent, tab: Tab): void {
     if (e.button !== 0) return
     panes.beginDrag(e, {
@@ -132,6 +155,9 @@
   }
 </script>
 
+<!-- Only the SELECTED tab gets `aria-controls`: a pane renders one panel,
+     for its active tab (R2.1), so a background tab would point at an element
+     that is not in the document. That is the APG's deferred-panel form. -->
 {#snippet tabSlot(item: TabItem)}
   {@const tab = item.tab}
   {@const selected = pane.active === tab.id}
@@ -167,7 +193,7 @@
       role="tab"
       id={tabDomId(tab.id)}
       aria-selected={selected}
-      aria-controls={panelDomId(tab.id)}
+      aria-controls={selected ? panelDomId(tab.id) : undefined}
       tabindex={selected ? 0 : -1}
       title={tab.path ?? t.untitled()}
       onclick={(e) => {
@@ -284,6 +310,6 @@
     {panes}
     name={nameOf(menu.tab)}
     groupItems={tabMenuGroupItems}
-    onClose={() => (menu = null)}
+    onClose={closeMenu}
   />
 {/if}

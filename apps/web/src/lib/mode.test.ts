@@ -44,6 +44,10 @@ describe('the mode tables', () => {
       x: 'group.close',
       c: 'group.copy-links',
       u: 'group.ungroup',
+      h: 'group.move-left',
+      j: 'group.move-down',
+      k: 'group.move-up',
+      l: 'group.move-right',
     })
   })
 
@@ -106,8 +110,11 @@ describe('step', () => {
 })
 
 describe('hints', () => {
+  /** The rows without their `ids` — what the bar actually prints. */
   const rows = (mode: Mode): { key: string; label: string; sub?: boolean }[] =>
-    hints(mode, (id) => id)
+    hints(mode, (id) => id).map((h) =>
+      h.sub ? { key: h.key, label: h.label, sub: true } : { key: h.key, label: h.label }
+    )
 
   it('collapses the four directions onto one hjkl row', () => {
     const pane = rows('pane')
@@ -134,7 +141,21 @@ describe('hints', () => {
       { key: 'x', label: 'group.close' },
       { key: 'c', label: 'group.copy-links' },
       { key: 'u', label: 'group.ungroup' },
+      { key: 'h j k l', label: 'group.move' },
     ])
+  })
+
+  it('names the commands behind every row, so a refused one can be dropped', () => {
+    const byKey = new Map(hints('group', (id) => id).map((h) => [h.key, h.ids]))
+    expect(byKey.get('f')).toEqual(['group.toggle'])
+    // A collapsed family stands for all four, and a sub-mode row for none.
+    expect(byKey.get('h j k l')).toEqual([
+      'group.move-left',
+      'group.move-down',
+      'group.move-up',
+      'group.move-right',
+    ])
+    expect(hints('pane', (id) => id).find((h) => h.key === 'm')?.ids).toEqual([])
   })
 
   it('puts the sub-modes last, labelled by mode id so the bar can translate', () => {

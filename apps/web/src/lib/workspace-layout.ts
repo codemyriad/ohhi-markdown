@@ -8,9 +8,13 @@
  * (R4.3). So this lives beside `editor:recent` in localStorage, is versioned
  * and tolerant on read, and losing it costs a re-open, never data.
  *
- * One key per vault holds both halves, because they are written together and
- * a half-written pair would leave a saved group nobody can find. The caller
- * debounces the writes and prunes the layout against `ui.files` at boot.
+ * One key per vault holds both halves, and **one writer** puts them there.
+ * Two writers, each re-reading the other's half, is how a group gets lost: the
+ * layout half is debounced and the list half was immediate, so *Open saved
+ * group* wrote the list without the group and the layout from BEFORE it was
+ * reopened — a reload inside that window and the group was in neither (R2.2).
+ * So the store takes both halves at once, from memory, and the caller
+ * debounces the one write.
  */
 import { readJson, writeJson } from './config.js'
 import type { SavedGroup } from './groups.js'
@@ -48,12 +52,20 @@ export function loadLayout(vaultKey: string, ids: () => string): Layout | null {
   return stored ? normalize(stored.layout, ids) : null
 }
 
-export function saveLayout(vaultKey: string, l: Layout): void {
-  const stored = read(vaultKey)
+/**
+ * Write both halves, from what the caller holds in memory. The only writer —
+ * see the note at the top of the file: a half that re-reads the other half
+ * off storage can only ever write a stale one.
+ */
+export function saveWorkspace(
+  vaultKey: string,
+  l: Layout,
+  groups: readonly SavedGroup[]
+): void {
   writeJson(keyFor(vaultKey), {
     version: VERSION,
     layout: serialize(l),
-    savedGroups: stored?.savedGroups ?? [],
+    savedGroups: normalizeSavedGroups(groups).slice(0, SAVED_LIMIT),
   } satisfies StoredWorkspace)
 }
 
@@ -61,13 +73,4 @@ export function saveLayout(vaultKey: string, l: Layout): void {
 export function loadSavedGroups(vaultKey: string): SavedGroup[] {
   const stored = read(vaultKey)
   return normalizeSavedGroups(stored?.savedGroups)
-}
-
-export function saveSavedGroups(vaultKey: string, groups: readonly SavedGroup[]): void {
-  const stored = read(vaultKey)
-  writeJson(keyFor(vaultKey), {
-    version: VERSION,
-    layout: stored?.layout ?? null,
-    savedGroups: normalizeSavedGroups(groups).slice(0, SAVED_LIMIT),
-  } satisfies StoredWorkspace)
 }

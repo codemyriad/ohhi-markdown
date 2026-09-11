@@ -280,6 +280,15 @@ export class MountSession {
    * from the pane tree); this session owns the POLICY the set drives.
    */
   private readonly openPaths = new Set<string>()
+  /**
+   * Guids the CURRENT VaultSession has been told are open (Minor 4). A path
+   * can enter `openPaths` before its doc exists — a view opens a note the
+   * instant it is created, and the map entry lands a turn later — and
+   * `markOpen` has nothing to name until it does. This is what lets the mark
+   * be retried from every place a guid can appear without marking twice; it
+   * is cleared with the session it describes.
+   */
+  private markedOpen = new Set<string>()
   private authFailure: string | null = null
   private sharedLink: string | null = null
   /**
@@ -404,13 +413,30 @@ export class MountSession {
     for (const rel of closed) {
       const guid = this.guidFor(rel)
       if (!guid) continue
+      this.markedOpen.delete(guid)
       this.debounces.get(guid)?.()
       this.debounces.delete(guid)
       void this.reconcileClosedDoc(guid, rel)
     }
-    for (const rel of opened) {
+    this.markOpenPaths()
+  }
+
+  /**
+   * Tell the session about every held path whose doc EXISTS and has not been
+   * marked yet (Minor 4).
+   *
+   * Re-run from `refreshFiles` — i.e. wherever a map change can have minted
+   * the guid — because a path that entered `openPaths` before its entry did
+   * used to be skipped silently and never retried, leaving a live buffer the
+   * reconciler was free to materialize over (golden rule 1).
+   */
+  private markOpenPaths(): void {
+    if (!this.sessionRef) return
+    for (const rel of this.openPaths) {
       const guid = this.guidFor(rel)
-      if (guid) this.sessionRef?.markOpen(guid)
+      if (!guid || this.markedOpen.has(guid)) continue
+      this.markedOpen.add(guid)
+      this.sessionRef.markOpen(guid)
     }
   }
 
@@ -855,17 +881,27 @@ export class MountSession {
    * per-path retention (20), so this is a small read, not a scan.
    */
   async fileHistory(rel: string): Promise<PreImageInfo[]> {
-    const entries = await this.journal.entries(rel)
-    return entries.map((e) => ({ seq: e.seq, at: e.at, size: e.bytes.length })).reverse()
+    // `list`, never `entries`: this runs on every flush while the rail is
+    // open, and reading the bytes back to measure them would read the whole
+    // retention window of a note to print a column of sizes (M11).
+    const entries = await this.journal.list(rel)
+    return entries.map((e) => ({ seq: e.seq, at: e.at, size: e.size })).reverse()
   }
 
   /**
    * Put one pre-image back. The write goes through VaultSession, never through
    * this adapter: the pre-image journal and the atomic rename are the vault
    * layer's job (golden rule 1), and going around them would strand the CRDT.
+   *
+   * REJECTS on failure (Minor 18). It used to swallow into `pushError` and
+   * resolve, so the confirm dialog closed and the rail re-listed as though the
+   * note had gone back — a restore that silently did nothing is the one
+   * outcome this affordance must never present as success. The notice is still
+   * logged, because a rail that shows the error is not the only place a person
+   * looks for it.
    */
   async restorePreImage(rel: string, seq: number): Promise<void> {
-    if (!this.sessionRef) return
+    if (!this.sessionRef) throw new Error(`cannot restore '${rel}': this folder is not open`)
     try {
       const entry = (await this.journal.entries(rel)).find((e) => e.seq === seq)
       // A pre-image can age out of retention between the listing and the click.
@@ -876,6 +912,7 @@ export class MountSession {
       this.refreshFiles()
     } catch (err) {
       this.pushError(err)
+      throw err
     }
   }
 
@@ -895,7 +932,7 @@ export class MountSession {
     const lca = await this.lcaStore.get(guid)
     const lcaHeads = lca ? this.engine.decodeHeads(lca.heads) : null
     const docHeads = doc ? this.engine.heads(doc) : null
-    const entries = await this.journal.entries(path)
+    const entries = await this.journal.list(path)
     return {
       path,
       guid,
@@ -923,7 +960,7 @@ export class MountSession {
         recent: entries
           .slice(-10)
           .reverse()
-          .map((e) => ({ at: e.at, bytes: e.bytes.length })),
+          .map((e) => ({ at: e.at, bytes: e.size })),
       },
       providerAttached: this.conns.has(guid),
     }
@@ -940,7 +977,7 @@ export class MountSession {
       entryCount: entries.filter(([, e]) => !e.deleted).length,
       docCount: this.docs.size,
       lcaCount: (await this.lcaStore.all()).length,
-      journalCount: (await this.journal.entries()).length,
+      journalCount: (await this.journal.list()).length,
     }
   }
 
@@ -1120,6 +1157,9 @@ export class MountSession {
     const rows = this.currentRows()
     // Records exist for every text row before the host renders pills for them.
     for (const row of rows) if (row.kind === 'text') this.recordFor(row.guid)
+    // A guid that has just appeared may be one a view is already holding open
+    // (Minor 4) — this is the retry, on the one path every map change takes.
+    this.markOpenPaths()
     this.events.onFiles?.(rows)
   }
 
@@ -1429,6 +1469,10 @@ export class MountSession {
 
   private async reconcileClosedDoc(guid: string, path: string): Promise<void> {
     if (!this.sessionRef) return
+    // `markClosed` takes the path out of the session's open set. If a view
+    // still holds it — the adopt and ghost passes close docs the shell knows
+    // nothing about — the retry pass has to be free to put it back (Minor 4).
+    this.markedOpen.delete(guid)
     try {
       await this.sessionRef.markClosed(guid)
       await this.refreshDiskMatch(path, guid)
@@ -1716,11 +1760,10 @@ export class MountSession {
     await this.sessionRef.start()
     // The new VaultSession starts with an empty ctx.openPaths — re-mark every
     // path a view still holds, or the first foreign update materializes over
-    // a live buffer.
-    for (const rel of this.openPaths) {
-      const guid = this.guidFor(rel)
-      if (guid) this.sessionRef.markOpen(guid)
-    }
+    // a live buffer. The marks belong to the session that was just disposed,
+    // so they go with it.
+    this.markedOpen.clear()
+    this.markOpenPaths()
   }
 
   // ---- relay / presence (only when a relay is attached) ----

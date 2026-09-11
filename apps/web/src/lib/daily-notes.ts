@@ -113,6 +113,38 @@ export function formatDate(format: string, date: Date): string {
     .join('')
 }
 
+/**
+ * The letter runs in `format` that moment would expand and this module prints
+ * LITERALLY (`Do`, `gggg`, `ww`, `Q`, …), deduplicated and in order.
+ *
+ * `lex` folds an unsupported run into literal text, which is the right
+ * behaviour — a filename is never mangled — but silent: a vault on `gggg-[W]ww`
+ * would disagree with Obsidian about which file today is, and the only symptom
+ * would be a second note appearing beside the right one. So the disagreement
+ * is REPORTED (Minor 17), once, by the caller that loads the config.
+ */
+export function unsupportedTokens(format: string): string[] {
+  const out: string[] = []
+  let i = 0
+  while (i < format.length) {
+    const ch = format[i]!
+    if (ch === '[') {
+      const end = format.indexOf(']', i + 1)
+      i = end === -1 ? format.length : end + 1
+      continue
+    }
+    if (/[A-Za-z]/.test(ch)) {
+      let run = ch
+      while (format[i + run.length] === ch) run += ch
+      i += run.length
+      if (!FORMATTERS[run] && !out.includes(run)) out.push(run)
+      continue
+    }
+    i++
+  }
+  return out
+}
+
 function escapeRe(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -217,9 +249,37 @@ export function dateOfPath(cfg: DailyConfig, path: string | null): Date | null {
 }
 
 /**
+ * The note that already IS the daily for `date`, or null.
+ *
+ * Matched on the parsed DATE, never on the formatted string (Minor 16): the
+ * parser is deliberately padding-tolerant, so Chris's `Daily/03-01-2025.md`
+ * is the daily for 3 January 2025 even though `DD-M-Y` writes it
+ * `03-1-2025`. Comparing strings, as the shell used to, meant `Mod+\` would
+ * CREATE a second note for a day that already had one.
+ */
+export function findDaily(cfg: DailyConfig, files: readonly string[], date: Date): string | null {
+  const want = date.getTime()
+  let found: string | null = null
+  for (const path of files) {
+    if (dateOfPath(cfg, path)?.getTime() !== want) continue
+    // Two notes for one day is a real (legacy) state: pick by path so the
+    // answer does not depend on the order the tree happened to list them in.
+    if (found === null || path < found) found = path
+  }
+  return found
+}
+
+/**
  * The dailies immediately before and after `from` among the notes that
  * actually exist. Both null when there is nothing to step to — which is what
  * greys the commands out rather than opening a note that isn't there.
+ *
+ * Ties are broken by PATH, not by listing order (Minor 16): a vault with two
+ * notes for one day (`03-01-2025.md` beside `3-1-2025.md`) otherwise answered
+ * differently depending on how the tree happened to be sorted. The walk is
+ * strictly by date, so the sibling of a duplicated day is reachable through
+ * the tree, quick-open and `findDaily`, but not by stepping — which is the
+ * honest behaviour for a walk whose only ordering key is the date.
  */
 export function neighbours(
   cfg: DailyConfig,
@@ -229,12 +289,17 @@ export function neighbours(
   const at = from.getTime()
   let prev: { at: number; path: string } | null = null
   let next: { at: number; path: string } | null = null
+  const better = (a: { at: number; path: string } | null, t: number, path: string, side: 'prev' | 'next'): boolean => {
+    if (!a) return true
+    if (t !== a.at) return side === 'prev' ? t > a.at : t < a.at
+    return path < a.path
+  }
   for (const path of files) {
     const date = dateOfPath(cfg, path)
     if (!date) continue
     const t = date.getTime()
-    if (t < at && (!prev || t > prev.at)) prev = { at: t, path }
-    else if (t > at && (!next || t < next.at)) next = { at: t, path }
+    if (t < at && better(prev, t, path, 'prev')) prev = { at: t, path }
+    else if (t > at && better(next, t, path, 'next')) next = { at: t, path }
   }
   return { prev: prev?.path ?? null, next: next?.path ?? null }
 }

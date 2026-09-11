@@ -7,14 +7,18 @@ import type { StoreDir } from '../src/store-dir.js'
 const enc = (s: string) => new TextEncoder().encode(s)
 const dec = (b: Uint8Array) => new TextDecoder().decode(b)
 
-/** Counts writeAtomic per name — the write-amplification guard. */
+/** Counts writeAtomic (and read) per name — the amplification guard. */
 class CountingStoreDir implements StoreDir {
   writes: string[] = []
+  reads: string[] = []
   constructor(private inner: StoreDir) {}
   io(name: string): StoreIo {
     const io = this.inner.io(name)
     return {
-      read: () => io.read(),
+      read: () => {
+        this.reads.push(name)
+        return io.read()
+      },
       writeAtomic: async (bytes) => {
         this.writes.push(name)
         await io.writeAtomic(bytes)
@@ -164,6 +168,89 @@ describe('FileJournal', () => {
     ])
   })
 
+  it('lists metadata WITHOUT reading a single pre-image back (M11)', async () => {
+    const counting = new CountingStoreDir(new MemStoreDir())
+    const journal = new FileJournal(counting, { now: () => 5 })
+    await journal.record('a.md', enc('one'))
+    await journal.record('a.md', enc('twenty-two chars long!'))
+    await journal.record('b.md', enc('bee'))
+
+    // A fresh instance, so nothing is cached from the writes above.
+    const reader = new FileJournal(counting)
+    counting.reads.length = 0
+    const rows = await reader.list('a.md')
+    expect(rows).toEqual([
+      { seq: 1, path: 'a.md', at: 5, size: 3 },
+      { seq: 2, path: 'a.md', at: 5, size: 22 },
+    ])
+    // The whole listing came out of the directory listing: the History rail
+    // re-runs this on every flush, and the bytes stay where they are.
+    expect(counting.reads).toEqual([])
+
+    // …and `entries` still hands the bytes over, for the restore that asks.
+    expect((await reader.entries('a.md')).map((e) => dec(e.bytes))).toEqual([
+      'one',
+      'twenty-two chars long!',
+    ])
+    expect(counting.reads).toHaveLength(2)
+  })
+
+  it('answers `size` for pre-M11 entries too, by reading only those', async () => {
+    const dir = new MemStoreDir()
+    // A sizeless name from before M11, beside a current one.
+    await dir.io('journal/1.100-a.md.bin').writeAtomic(enc('older'))
+    const journal = new FileJournal(dir, { now: () => 200 })
+    await journal.record('a.md', enc('newer!'))
+
+    expect(await journal.list('a.md')).toEqual([
+      { seq: 1, path: 'a.md', at: 100, size: 5 },
+      { seq: 2, path: 'a.md', at: 200, size: 6 },
+    ])
+  })
+
+  it('renames an entry prefix-wise, keeping seq, time and bytes (M10)', async () => {
+    const dir = new MemStoreDir()
+    const journal = new FileJournal(dir, { now: () => 42 })
+    await journal.record('notes/a.md', enc('v1'))
+    await journal.record('notes/a.md', enc('v2'))
+    await journal.record('notes/sub/b.md', enc('deep'))
+    await journal.record('other.md', enc('untouched'))
+
+    await journal.rename('notes', 'archive')
+
+    expect((await journal.list('notes/a.md'))).toEqual([])
+    expect(await journal.list('archive/a.md')).toEqual([
+      { seq: 1, path: 'archive/a.md', at: 42, size: 2 },
+      { seq: 2, path: 'archive/a.md', at: 42, size: 2 },
+    ])
+    expect((await journal.entries('archive/sub/b.md')).map((e) => dec(e.bytes))).toEqual(['deep'])
+    expect((await journal.entries('other.md')).map((e) => dec(e.bytes))).toEqual(['untouched'])
+
+    // The old entry FILES are gone, and the new names are what a reopen reads
+    // — the directory listing is still the whole index.
+    const names = await dir.list('journal/')
+    expect(names.some((n) => n.includes('notes'))).toBe(false)
+    const reopened = new FileJournal(dir)
+    expect((await reopened.entries('archive/a.md')).map((e) => dec(e.bytes))).toEqual(['v1', 'v2'])
+    // A rename of exactly one file, not a prefix, moves only that file.
+    await reopened.rename('other.md', 'renamed.md')
+    expect(await reopened.list('other.md')).toEqual([])
+    expect((await reopened.entries('renamed.md')).map((e) => dec(e.bytes))).toEqual(['untouched'])
+  })
+
+  it('rewrites a pre-S10 entry under a current name, and drops its index', async () => {
+    const dir = new MemStoreDir()
+    await seedLegacyJournal(dir, [{ seq: 1, path: 'a.md', at: 100, text: 'old' }])
+    const journal = new FileJournal(dir, { now: () => 7 })
+
+    await journal.rename('a.md', 'b.md')
+
+    expect(await journal.list('b.md')).toEqual([{ seq: 1, path: 'b.md', at: 100, size: 3 }])
+    // Its date is in its own name now, so the index has nothing left to date.
+    expect(await dir.io('journal/index.json').read()).toBeNull()
+    expect((await new FileJournal(dir).entries('b.md')).map((e) => e.at)).toEqual([100])
+  })
+
   it('drops a pre-S10 index that no longer dates anything, at open', async () => {
     const dir = new MemStoreDir()
     await seedLegacyJournal(dir, [{ seq: 4, path: 'a.md', at: 100, text: 'old' }])
@@ -175,6 +262,6 @@ describe('FileJournal', () => {
 
     // seq resumes past the legacy index's high-water mark, so no name reuse.
     await journal.record('a.md', enc('fresh'))
-    expect(await dir.list('journal/')).toEqual(['journal/5.7-a.md.bin'])
+    expect(await dir.list('journal/')).toEqual(['journal/5.7.5-a.md.bin']) // seq.at.size
   })
 })

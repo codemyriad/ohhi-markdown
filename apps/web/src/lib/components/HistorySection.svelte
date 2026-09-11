@@ -15,6 +15,7 @@
    */
   import { LL } from '@editor/i18n/i18n-svelte'
   import { formatSize, formatStamp } from '../history.js'
+  import { realClock } from '../real-clock.js'
   import type { PreImageInfo } from '../workspace.svelte.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
 
@@ -32,16 +33,62 @@
     written?: boolean
     /** Injected clock (golden rule 5): decides which rows read as "today". */
     now?: () => number
+    /** Injected scheduler, same rule — the midnight re-render below is timed. */
+    schedule?: (fn: () => void, ms: number) => () => void
   }
 
-  let { path, load, restore, written = true, now = () => Date.now() }: Props = $props()
+  let {
+    path,
+    load,
+    restore,
+    written = true,
+    now = () => Date.now(),
+    schedule = realClock.schedule,
+  }: Props = $props()
 
   const t = $derived($LL.web.history)
 
   let entries = $state<PreImageInfo[] | null>(null)
   let pending = $state<PreImageInfo | null>(null)
+  /** A restore that FAILED, kept on screen until it is retried or cancelled. */
+  let failure = $state<string | null>(null)
   /** Bumped after a restore so the list re-reads the journal it just changed. */
   let revision = $state(0)
+
+  /**
+   * "Now", as a value that MOVES (Minor 22).
+   *
+   * `formatStamp` prints a time alone for today and a date for anything
+   * older, so every label in this list is wrong from the first midnight the
+   * rail is left open through — a rail open overnight would still be calling
+   * yesterday's versions "18:42". Re-armed for the next local midnight rather
+   * than polled: one timer, and it fires exactly when an answer changes.
+   */
+  let midnights = $state(0)
+  const stamp = $derived.by(() => {
+    midnights // the dependency; the value is the clock's, never this counter's
+    return now()
+  })
+
+  $effect(() => {
+    let live = true
+    let cancel: (() => void) | null = null
+    const arm = (): void => {
+      const at = now()
+      const next = new Date(at)
+      next.setHours(24, 0, 0, 0)
+      cancel = schedule(() => {
+        if (!live) return
+        midnights++
+        arm()
+      }, Math.max(1, next.getTime() - at))
+    }
+    arm()
+    return () => {
+      live = false
+      cancel?.()
+    }
+  })
 
   const name = $derived(path ? (path.split('/').pop() ?? path) : '')
 
@@ -76,10 +123,26 @@
 
   async function confirmRestore(): Promise<void> {
     const entry = pending
+    if (!entry || !path) {
+      pending = null
+      return
+    }
+    failure = null
+    try {
+      await restore(path, entry.seq)
+    } catch (err) {
+      // The note did NOT go back: keep the dialog up saying so, rather than
+      // closing on a promise that rejected (Minor 18).
+      failure = err instanceof Error ? err.message : String(err)
+      return
+    }
     pending = null
-    if (!entry || !path) return
-    await restore(path, entry.seq)
     revision++
+  }
+
+  function cancelRestore(): void {
+    pending = null
+    failure = null
   }
 </script>
 
@@ -99,14 +162,14 @@
         >
           <span class="flex min-w-0 flex-col">
             <time datetime={new Date(entry.at).toISOString()} class="truncate">
-              {formatStamp(entry.at, now())}
+              {formatStamp(entry.at, stamp)}
             </time>
-            <span class="text-[10px] text-base-content/70">{formatSize(entry.size)}</span>
+            <span class="text-base-content/70">{formatSize(entry.size)}</span>
           </span>
           <button
             type="button"
             data-testid="history-restore:{entry.seq}"
-            aria-label={t.restore_this({ time: formatStamp(entry.at, now()) })}
+            aria-label={t.restore_this({ time: formatStamp(entry.at, stamp) })}
             onclick={() => (pending = entry)}
             class="shrink-0 rounded border border-base-300 px-2 py-1 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
           >
@@ -120,11 +183,12 @@
 
 {#if pending && path}
   <ConfirmDialog
-    title={t.confirm.title({ name, time: formatStamp(pending.at, now()) })}
+    title={t.confirm.title({ name, time: formatStamp(pending.at, stamp) })}
     body={t.confirm.body()}
     confirmLabel={t.confirm.confirm()}
     testid="history-confirm"
+    error={failure}
     onConfirm={() => void confirmRestore()}
-    onCancel={() => (pending = null)}
+    onCancel={cancelRestore}
   />
 {/if}

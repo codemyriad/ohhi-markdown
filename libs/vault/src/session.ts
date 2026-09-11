@@ -254,14 +254,36 @@ export class VaultSession {
     const guid = this.pathToGuid.get(path)
     if (!guid) throw new Error(`restoreFile: '${path}' is not a live note in this vault`)
     await this.runExclusive(guid, async () => {
-      const lca = await this.lcaStore.get(guid)
       const doc = this.docs.get(guid)
-      if (!lca || !doc) throw new Error(`restoreFile: unknown doc ${guid}`)
+      if (!doc) throw new Error(`restoreFile: unknown doc ${guid}`)
+      // FLUSH FIRST (M9). `resolveDivergence` journals what is ON DISK and
+      // diffs from the LCA, and for an open note disk lags the editor by the
+      // flush debounce: without this, a sentence typed in the last 800 ms is
+      // deleted by the restore, is in no journal entry and no LCA, and — its
+      // ops carrying origin 'disk' — is out of the UndoManager's reach.
+      // Inlined rather than `this.flush(guid)` because `runExclusive` is not
+      // re-entrant; it is the same suspend/reconcile/restore turn that flush
+      // runs, and the LCA is re-read after it because it just moved.
+      const wasOpen = this.ctx.openPaths.delete(path)
+      try {
+        await this.reconcileNow(guid)
+      } finally {
+        if (wasOpen) this.ctx.openPaths.add(path)
+      }
+      const lca = await this.lcaStore.get(guid)
+      if (!lca) throw new Error(`restoreFile: unknown doc ${guid}`)
       // The pre-image carries its own EOL/BOM; the LCA's flavour is what the
       // file is written back with, so decode to text and let materialize
       // render it. Restoring must not flip a CRLF file to LF behind the user.
       await resolveDivergence(this.ctx, doc, lca, decodeFile(bytes).text)
     })
+    // A restore RESOLVES the note: any review raised for it (including one
+    // the flush above just raised) is answered by the bytes we put back, and
+    // leaving it pending would keep a modal open over a file that is now what
+    // the person asked for — the same ending `resolveReview`/`resolveVanished`
+    // give (M9b).
+    this.reviews.delete(guid)
+    this.events.onReviewCleared?.(guid)
   }
 
   /** Mass-change breaker confirmation: process everything queued. */
@@ -514,7 +536,10 @@ export class VaultSession {
           // would have it, the other silently would not, and no review would
           // be raised on either side. Reset the LCA to NEVER_ON_DISK at the
           // CURRENT path and let the reconciler write the doc back to disk.
-          if (oldPath !== path) this.rekeyPath(oldPath, path, entry.guid)
+          if (oldPath !== path) {
+            await this.ctx.journal.rename(oldPath, path) // history follows (M10)
+            this.rekeyPath(oldPath, path, entry.guid)
+          }
           this.pathToGuid.set(path, entry.guid)
           const doc = this.docs.get(entry.guid)
           if (doc) {
@@ -563,6 +588,7 @@ export class VaultSession {
           // and let the reconciler write the bytes at the NEW path.
           const onDisk = (await this.adapter.read(oldPath)) !== null
           if (onDisk) await this.adapter.rename(oldPath, path)
+          await this.ctx.journal.rename(oldPath, path) // history follows (M10)
           this.rekeyPath(oldPath, path, entry.guid)
           const lca = await this.lcaStore.get(entry.guid)
           if (lca) await this.lcaStore.put({ ...lca, path })
@@ -636,6 +662,10 @@ export class VaultSession {
     }, 'local')
     this.lastEntries.delete(from)
     this.lastEntries.set(to, entry)
+    // The journal is keyed by path: its history follows the file, or the note
+    // arrives at its new name with nothing to restore (M10). Binaries too —
+    // they are journaled by import and delete.
+    await this.ctx.journal.rename(from, to)
     if (entry.kind === 'text') {
       this.rekeyPath(from, to, entry.guid)
       const lca = await this.lcaStore.get(entry.guid)
@@ -674,6 +704,9 @@ export class VaultSession {
     }
     const prefix = `${from}/`
     await this.adapter.renameDir(from, to)
+    // Prefix-wise, in one call: every pre-image under the old directory is
+    // re-keyed under the new one (M10).
+    await this.ctx.journal.rename(from, to)
     const moves: { from: string; to: string }[] = []
     this.folderDoc.transactMap((m) => {
       for (const [p, e] of m.entries()) {

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "Pre-image journal: entries carry a seq and their size in the name, list(path) returns metadata without reading bytes, rename(from, to) follows file and folder renames so history survives them; VaultSession.restoreFile flushes the live document first and clears a pending divergence review.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/vault"
+}

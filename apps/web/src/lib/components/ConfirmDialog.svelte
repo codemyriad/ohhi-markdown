@@ -13,13 +13,33 @@
     testid: string
     onConfirm: (checked: boolean) => void
     onCancel: () => void
+    /**
+     * The action FAILED and this dialog is still up (Minor 18). Shown as an
+     * alert beside the buttons, and it re-arms the confirm — an action that
+     * did not happen must neither look like it did nor be unretryable.
+     */
+    error?: string | null
   }
 
-  let { title, body, confirmLabel, checkboxLabel, danger, testid, onConfirm, onCancel }: Props =
-    $props()
+  let {
+    title,
+    body,
+    confirmLabel,
+    checkboxLabel,
+    danger,
+    testid,
+    onConfirm,
+    onCancel,
+    error = null,
+  }: Props = $props()
 
   let checked = $state(false)
   let busy = $state(false)
+
+  // An error ends this attempt: the button says its label again, not "Working…".
+  $effect(() => {
+    if (error) busy = false
+  })
 
   function confirm(): void {
     busy = true
@@ -43,6 +63,9 @@
       <input type="checkbox" bind:checked data-testid="{testid}-checkbox" />
       {checkboxLabel}
     </label>
+  {/if}
+  {#if error}
+    <p class="mt-2 text-xs text-error" role="alert" data-testid="{testid}-error">{error}</p>
   {/if}
   <div class="mt-3 flex justify-end gap-2">
     <button

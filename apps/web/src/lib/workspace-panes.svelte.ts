@@ -40,13 +40,37 @@ import type {
   Side,
   Tab,
 } from './panes.js'
-import {
-  loadLayout,
-  loadSavedGroups,
-  saveLayout,
-  saveSavedGroups,
-} from './workspace-layout.js'
+import { loadLayout, loadSavedGroups, saveWorkspace } from './workspace-layout.js'
 import { textPaths, type Workspace } from './workspace.svelte.js'
+
+/**
+ * Is something other than the pane tree holding the keyboard right now?
+ *
+ * A live pane mode `preventDefault`s every key until Escape, and the flat
+ * chords act on the tabs behind whatever is on top — so `Mod+P` pressed in
+ * Settings' relay-URL field used to swallow the rest of the typing, and
+ * `Mod+W` in a dialog closed a tab nobody could see (M4). Two things claim
+ * the keyboard: a text field that is not the editing surface (CodeMirror is
+ * where the pane keys are SUPPOSED to work), and an open modal overlay.
+ *
+ * Read off the document rather than from a shell-level counter because there
+ * is no such counter: `Dialog` is mounted and unmounted by its parent, and
+ * Melt's own `aria-modal` is the one mark every overlay in the shell carries.
+ */
+export function keyboardClaimed(doc: Document | undefined = globalThis.document): boolean {
+  if (!doc) return false
+  if (doc.querySelector('[aria-modal="true"]')) return true
+  const el = doc.activeElement
+  if (!el || !(el instanceof Element)) return false
+  if (el.closest('.cm-editor')) return false
+  const tag = el.tagName.toLowerCase()
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    (el as HTMLElement).isContentEditable === true
+  )
+}
 
 /** Layout writes are device-local and cheap; this only keeps a drag quiet. */
 const SAVE_DEBOUNCE_MS = 400
@@ -136,6 +160,8 @@ export interface PaneShell {
   closeOthersIn(paneId: string): void
   closePaneById(paneId: string): void
   moveTabToPane(tabId: string, paneId: string): void
+  /** The pane on `side` of the focused one, by geometry, or null. */
+  neighbourPane(side: Side): string | null
   resizeSplit(splitId: string, index: number, deltaPct: number): void
   /** Write the layout out now — what a drag gesture's END calls (chrome U2). */
   persistNow(): void
@@ -171,6 +197,11 @@ export interface PaneShell {
   /** The one destructive op; the caller confirms first (B4). */
   deleteGroup(groupId: string): void
   newTabInGroup(groupId: string): void
+  /**
+   * Move a whole group to another pane — the keyboard and menu equivalent of
+   * dragging its chip there (R8: no gesture is drag-only).
+   */
+  moveGroupToPane(groupId: string, paneId: string): void
   /** Reopen a saved group and drop it from the list — no duplicate on reopen. */
   openSavedGroup(savedId: string, paneId?: string): void
   groupFromLinks(name: string, paths: readonly string[], paneId?: string): void
@@ -211,6 +242,15 @@ export function createPanes(
   /** Closed-tab stack for `tab.reopen`, newest last; session-only. */
   const closed: ClosedTab[] = []
   const paneEls = new Map<string, HTMLElement>()
+  /**
+   * Each pane's last box measured while the layout was NOT zoomed.
+   *
+   * A zoom unmounts every other pane and gives the survivor the whole editor
+   * area, so live boxes would say every pane is in the same place and
+   * `neighbour` would answer nothing — which used to make the whole
+   * focus/move/resize family dead while zoomed.
+   */
+  const lastRects = new Map<string, Rect>()
   const captures = new Map<string, () => Resume | null>()
   let cancelSave: (() => void) | null = null
 
@@ -249,7 +289,10 @@ export function createPanes(
     captureLive()
     cancelSave?.()
     cancelSave = null
-    if (vaultKey) saveLayout(vaultKey, current)
+    // Both halves, from memory, in one write (M2): a saved-group write that
+    // re-read the debounced layout half — or the other way round — is how
+    // *Open saved group* could leave a group in neither (R2.2).
+    if (vaultKey) saveWorkspace(vaultKey, current, savedGroups)
   }
 
   function scheduleSave(): void {
@@ -270,7 +313,7 @@ export function createPanes(
   function keepSaved(groups: readonly SavedGroup[]): void {
     if (!groups.length) return
     savedGroups = [...groups, ...savedGroups]
-    if (vaultKey) saveSavedGroups(vaultKey, savedGroups)
+    scheduleSave()
   }
 
   /** Taking a group out of the list, which is what reopening one does. */
@@ -278,7 +321,7 @@ export function createPanes(
     const next = savedGroups.filter((g) => g.id !== savedId)
     if (next.length === savedGroups.length) return
     savedGroups = next
-    if (vaultKey) saveSavedGroups(vaultKey, savedGroups)
+    scheduleSave()
   }
 
   /**
@@ -290,7 +333,10 @@ export function createPanes(
    * without it `group.toggle` could fold but never unfold.
    */
   function activeGroup(): Group | null {
-    const p = focused()
+    // Through the RENDER signal, not the plain mirror: this is asked from a
+    // `$derived` (the `group.*` guards, the popover) as well as from an op, so
+    // it has to re-run when the tree changes. `findGroup` reads the same way.
+    const p = tree.focusedPane(rendered)
     const held = p.active ? tree.groupOf(p, p.active) : null
     if (held) return held
     return [...p.groups].sort((a, b) => b.lastActive - a.lastActive)[0] ?? null
@@ -310,10 +356,16 @@ export function createPanes(
   const active = (): Tab | null => tree.activeTab(focused())
 
   function rects(): Record<string, Rect> {
+    if (current.zoom === null) {
+      for (const [id, el] of paneEls) {
+        const r = el.getBoundingClientRect()
+        lastRects.set(id, { x: r.x, y: r.y, width: r.width, height: r.height })
+      }
+    }
     const out: Record<string, Rect> = {}
-    for (const [id, el] of paneEls) {
-      const r = el.getBoundingClientRect()
-      out[id] = { x: r.x, y: r.y, width: r.width, height: r.height }
+    for (const p of tree.panes(current.tree)) {
+      const r = lastRects.get(p.id)
+      if (r) out[p.id] = r
     }
     return out
   }
@@ -344,25 +396,55 @@ export function createPanes(
   const PRUNE_SETTLE_MS = 400
   let lastLive = ''
   let cancelPrune: (() => void) | null = null
+  /** A halved file list a first pass saw and refused to act on (see below). */
+  let shrinkSeen = ''
   const livePaths = (ws: Workspace): string[] => textPaths(ws.ui.files)
+  const liveKey = (paths: readonly string[]): string => [...paths].sort().join('|')
 
   $effect(() => {
     const ws = workspace
     if (!ws) return
-    if (livePaths(ws).sort().join('|') === lastLive) return
+    // `ui.settling` is true while the vault is booting or a mount is being
+    // carved, unshared, linked or absorbed. Those take mounts out of the
+    // registry and put them back seconds later (a first join pulls a whole
+    // room — 11 s measured), and the tree refreshes in between. The 400 ms
+    // quiet period alone does not outlast that, so a near-empty intermediate
+    // list would close every tab of a vault that is merely being rebuilt.
+    // Reading it here is what re-arms the check when it flips back.
+    const settling = ws.ui.settling
+    const key = liveKey(livePaths(ws))
+    if (settling || key === lastLive) return
     cancelPrune?.()
     cancelPrune = clock.schedule(() => {
       cancelPrune = null
-      untrack(() => {
-        const paths = livePaths(ws)
-        lastLive = [...paths].sort().join('|')
-        const next = tree.prune(current, new Set(paths), ids)
-        if (JSON.stringify(tree.serialize(next)) !== JSON.stringify(tree.serialize(current))) {
-          commit(next)
-        }
-      })
+      untrack(() => prunePass(ws))
     }, PRUNE_SETTLE_MS)
   })
+
+  /** The debounced check itself — re-reads the list, because it may have moved. */
+  function prunePass(ws: Workspace): void {
+    const paths = livePaths(ws)
+    const key = liveKey(paths)
+    if (ws.ui.settling) return
+    // Belt and braces behind `settling`: a live set that just lost more than
+    // half of itself is far likelier to be a vault mid-rebuild than a hundred
+    // notes deleted at once, so it has to say the same thing twice.
+    const before = lastLive ? lastLive.split('|').length : 0
+    if (before > 0 && paths.length * 2 < before && shrinkSeen !== key) {
+      shrinkSeen = key
+      cancelPrune = clock.schedule(() => {
+        cancelPrune = null
+        untrack(() => prunePass(ws))
+      }, PRUNE_SETTLE_MS)
+      return
+    }
+    shrinkSeen = ''
+    lastLive = key
+    const next = tree.prune(current, new Set(paths), ids)
+    if (JSON.stringify(tree.serialize(next)) !== JSON.stringify(tree.serialize(current))) {
+      commit(next)
+    }
+  }
 
   // ---- the command table's actions ----
 
@@ -397,6 +479,9 @@ export function createPanes(
     equalize: (): void => commit(tree.equalize(current)),
     closeOthers: (): void => closeOthersIn(current.focus),
     enterMode: (): void => {
+      // A mode swallows every key until Escape, so it must not start while a
+      // field or a dialog owns the keyboard (M4).
+      if (keyboardClaimed()) return
       mode = 'pane'
     },
     newTab: (): void => newTabIn(current.focus),
@@ -413,7 +498,9 @@ export function createPanes(
     },
     gotoTab: (n: number): void => {
       const p = focused()
-      const t = p.tabs[n - 1]
+      // The strip as DRAWN: a folded group's tabs are not on screen, so they
+      // cannot be the third one. `stepTab` counts the same way.
+      const t = tree.visibleTabs(p)[n - 1]
       if (t) commit(tree.activate(current, p.id, t.id, now()))
     },
     moveTabTo: (side: Side): void => {
@@ -555,8 +642,10 @@ export function createPanes(
     const startX = e.clientX
     const startY = e.clientY
     let live = false
+    let cancelled = false
 
     const move = (ev: PointerEvent): void => {
+      if (cancelled) return
       if (!live) {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX) return
         live = true
@@ -572,20 +661,38 @@ export function createPanes(
       }
     }
 
-    const done = (ev: PointerEvent): void => {
+    const stop = (): void => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', done)
       window.removeEventListener('pointercancel', done)
-      const state = drag
+      window.removeEventListener('keydown', onKey, true)
       drag = null
-      if (!live) return
-      registry.setSuspended(false)
+      if (live) registry.setSuspended(false)
+    }
+
+    const done = (ev: PointerEvent): void => {
+      const state = drag
+      const wasLive = live
+      stop()
+      if (cancelled || !wasLive) return
       if (state?.target && ev.type === 'pointerup') applyDrop(state.target, payload)
+    }
+
+    // Escape abandons the drag, as it does in every file manager: the ghost
+    // goes, the hotkeys come back, and the pointer-up that follows drops
+    // nothing (Minor 9).
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key !== 'Escape') return
+      ev.preventDefault()
+      ev.stopPropagation()
+      cancelled = true
+      stop()
     }
 
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', done)
     window.addEventListener('pointercancel', done)
+    window.addEventListener('keydown', onKey, true)
   }
 
   // ---- the mode (B12) ----
@@ -593,6 +700,14 @@ export function createPanes(
   function titleOf(id: string): string {
     return registry.get(id)?.title ?? familyTitle(id)
   }
+
+  const runnable = (id: string): boolean => {
+    const c = registry.get(id)
+    return c !== undefined && (!c.when || c.when())
+  }
+
+  /** A collapsed row survives while ANY of the commands it stands for does. */
+  const runnableRow = (h: Hint): boolean => h.ids.length === 0 || h.ids.some(runnable)
 
   return {
     get layout() {
@@ -614,9 +729,11 @@ export function createPanes(
 
     hints: () =>
       mode
-        ? // A row whose command is not registered yet (the group sub-mode until
-          // W2) has no title to print, so it is not printed.
-          modeHints(mode, titleOf).filter((h) => h.label !== '')
+        ? // A row is printed only if it does something: no title means the
+          // command is not registered, and a `when` that says no means the key
+          // is refused (the `group.*` verbs with no group to act on). The bar
+          // must not advertise a key that does nothing.
+          modeHints(mode, titleOf).filter((h) => h.label !== '' && runnableRow(h))
         : [],
 
     escapeLabel: () => {
@@ -634,6 +751,8 @@ export function createPanes(
       workspace = next
       vaultKey = key
       lastLive = ''
+      shrinkSeen = ''
+      lastRects.clear()
       closed.length = 0
       if (!next) {
         commit(tree.createLayout(ids))
@@ -650,6 +769,16 @@ export function createPanes(
 
     handleKey(e) {
       if (!mode) return false
+      // A chord is not a mode letter: `step` matches on `key` alone, so
+      // `Mod+W` in pane mode used to run *rotate* and a second `Mod+P`
+      // *focus next*. Let it through to the registry instead (Minor 7).
+      if (e.ctrlKey || e.metaKey || e.altKey) return false
+      // …and a mode must never eat what a field or a dialog is being typed
+      // into. Leaving the mode is the honest answer: the keyboard has moved on.
+      if (keyboardClaimed()) {
+        mode = null
+        return false
+      }
       // Capture phase + preventDefault: a mode letter is never editor input.
       e.preventDefault()
       e.stopPropagation()
@@ -683,12 +812,18 @@ export function createPanes(
 
     navigate(path, tabId) {
       const t = tabId ?? active()?.id
-      if (t) commit(tree.navigateInTab(current, t, path, now()))
+      if (!t) return
+      // Where the view is NOW is what the trail entry being left keeps, so
+      // Back lands on the line the link was followed from (R2.3).
+      captureLive()
+      commit(tree.navigateInTab(current, t, path, now()))
     },
 
     travel(delta) {
       const t = active()
-      if (t) commit(tree.travelTab(current, t.id, delta, now()))
+      if (!t) return
+      captureLive()
+      commit(tree.travelTab(current, t.id, delta, now()))
     },
 
     canTravel: (delta) => tree.canTravel(active(), delta),
@@ -704,6 +839,12 @@ export function createPanes(
     closePaneById,
     moveTabToPane: (tabId, paneId) =>
       commit(tree.moveTab(current, tabId, paneId, undefined, undefined, ids, now())),
+
+    neighbourPane: (side) => tree.neighbour(current, current.focus, side, rects()),
+    moveGroupToPane: (groupId, paneId) => {
+      if (!tree.findPane(current, paneId)) return
+      commit(groupOps.moveGroup(current, groupId, paneId, undefined, ids, now()))
+    },
 
     resizeSplit(splitId, index, deltaPct) {
       commit(tree.resize(current, splitId, index, deltaPct))

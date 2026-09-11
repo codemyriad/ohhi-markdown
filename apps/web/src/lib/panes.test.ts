@@ -9,8 +9,10 @@ import {
   closeTab,
   closeUnder,
   createLayout,
+  editLayout,
   equalize,
   focusNext,
+  focusPane,
   groupAtIndex,
   groupOf,
   liveGuidsInput,
@@ -51,6 +53,7 @@ import {
   rawPane,
   strip,
   tabIdFor,
+  trailOf,
   BOTTOM_LEFT,
   DAILIES,
   RIGHT,
@@ -88,6 +91,66 @@ describe('serialize / normalize', () => {
     expect(activeTab(top)?.path).toBe('Myriad Distribution Push.md')
     expect(activeTab(paneAt(l, 3))?.path).toBe('Edible/Edible Distribution Push (Aug 2026).md')
     expect(l.focus).toBe('bl')
+  })
+
+  it('re-ids a duplicate rather than letting two tabs answer to one id', () => {
+    const l = normalize(
+      {
+        version: 1,
+        tree: {
+          kind: 'split',
+          id: 'p',
+          dir: 'row',
+          sizes: [50, 50],
+          // Two panes, two tabs, one id each — a hand-edited blob, or two
+          // devices' trees pasted together.
+          children: [
+            { ...(rawPane('p', ['a.md', 'b.md']) as Record<string, unknown>), active: 'pt1' },
+            rawPane('p', ['c.md']),
+          ],
+        },
+        focus: 'p',
+        zoom: null,
+      },
+      ids('u')
+    )!
+    const all = panes(l.tree)
+    expect(all).toHaveLength(2)
+    expect(all[0].id).not.toBe(all[1].id)
+    const everyId = all.flatMap((p) => [p.id, ...p.tabs.map((t) => t.id)])
+    expect(new Set(everyId).size).toBe(everyId.length)
+    // The remap carried `active` and the group memberships across the re-id.
+    expect(activeTab(all[0])?.path).toBe('b.md')
+  })
+
+  it('keeps a stored trail written as bare paths (the shape before resume points)', () => {
+    const l = normalize(
+      {
+        version: 1,
+        tree: {
+          kind: 'pane',
+          id: 'p',
+          tabs: [
+            {
+              id: 't',
+              path: 'b.md',
+              pinned: false,
+              cursor: null,
+              scroll: 0,
+              history: ['a.md', 'b.md'],
+              historyAt: 1,
+            },
+          ],
+          groups: [],
+          active: 't',
+        },
+        focus: 'p',
+        zoom: null,
+      },
+      ids('h')
+    )!
+    expect(trailOf(paneAt(l, 0).tabs[0])).toEqual(['a.md', 'b.md'])
+    expect(paneAt(l, 0).tabs[0].history[0].cursor).toBeNull()
   })
 
   it('answers null for anything that is not this version of the shape', () => {
@@ -513,6 +576,22 @@ describe('focus, rotate and zoom', () => {
     expect(zoom(l, 'no-such-pane').zoom).toBeNull()
   })
 
+  it('keeps the zoom while focus moves inside it (Zellij), and carries it along', () => {
+    const l = chris()
+    const [top, bl] = panes(l.tree)
+    const zoomed = zoom(l, top.id)
+    // Focusing another pane while zoomed zooms THAT one — the alternative is a
+    // key that drops you back into four panes every time you move.
+    const moved = focusPane(zoomed, bl.id)
+    expect(moved.focus).toBe(bl.id)
+    expect(moved.zoom).toBe(bl.id)
+    const next = focusNext(moved)
+    expect(next.zoom).toBe(next.focus)
+    expect(next.focus).not.toBe(bl.id)
+    // Unzoomed, focus still does not invent one.
+    expect(focusNext(l).zoom).toBeNull()
+  })
+
   it('skips a pane whose active tab has no path', () => {
     const gen = ids()
     const l = split(createLayout(gen), 'nope', 'row', gen)
@@ -565,7 +644,7 @@ describe('staying honest against the vault (R5)', () => {
     const l = prune(withHistory(), new Set(['Notes/a.md', 'Notes/b.md']), ids('e'))
     const p = paneAt(l, 0)
     expect(pathsOf(p)).toEqual(['Notes/b.md'])
-    expect(p.tabs[0].history).toEqual(['Notes/a.md', 'Notes/b.md'])
+    expect(trailOf(p.tabs[0])).toEqual(['Notes/a.md', 'Notes/b.md'])
     expect(p.tabs[0].historyAt).toBe(1)
     expect(p.groups[0].tabIds).toEqual(['t1'])
     expect(activeTab(p)?.path).toBe('Notes/b.md')
@@ -575,7 +654,7 @@ describe('staying honest against the vault (R5)', () => {
     const l = rename(withHistory(), 'Notes', 'Archive/Notes')
     const p = paneAt(l, 0)
     expect(pathsOf(p)).toEqual(['Archive/Notes/b.md', 'gone.md'])
-    expect(p.tabs[0].history).toEqual(['Archive/Notes/a.md', 'gone.md', 'Archive/Notes/b.md'])
+    expect(trailOf(p.tabs[0])).toEqual(['Archive/Notes/a.md', 'gone.md', 'Archive/Notes/b.md'])
     // A file rename, not a folder one, and no accidental prefix match.
     const single = rename(withHistory(), 'gone.md', 'here.md')
     expect(pathsOf(paneAt(single, 0))).toEqual(['Notes/b.md', 'here.md'])
@@ -593,7 +672,7 @@ describe('staying honest against the vault (R5)', () => {
     const l = closeUnder(withHistory(), 'Notes', ids('e'))
     const p = paneAt(l, 0)
     expect(pathsOf(p)).toEqual(['gone.md'])
-    expect(p.tabs[0].history).toEqual(['gone.md'])
+    expect(trailOf(p.tabs[0])).toEqual(['gone.md'])
     // A sibling folder with the same prefix is not under it.
     expect(pathsOf(paneAt(closeUnder(withHistory(), 'Note', ids('e')), 0))).toEqual([
       'Notes/b.md',
@@ -641,6 +720,16 @@ describe('stripItems (what a strip draws)', () => {
   })
 })
 
+/** Stand in for the live view reporting where it was (`PaneShell.setResume`). */
+function setResume(l: Layout, tabId: string, at: number, scroll: number): Layout {
+  return editLayout(l, (d) => {
+    const t = tabOf(d, tabId)
+    if (!t) return
+    t.cursor = { anchor: at, head: at }
+    t.scroll = scroll
+  })
+}
+
 describe('per-tab history (Fork 4)', () => {
   it('fills an empty tab, then pushes the trail as links are followed', () => {
     const gen = ids()
@@ -648,10 +737,12 @@ describe('per-tab history (Fork 4)', () => {
     const empty = paneAt(l0, 0).tabs[0].id
     let l = navigateInTab(l0, empty, 'a.md', 1)
     expect(pathsOf(paneAt(l, 0))).toEqual(['a.md'])
-    expect(tabOf(l, empty)).toMatchObject({ history: ['a.md'], historyAt: 0 })
+    expect(trailOf(tabOf(l, empty))).toEqual(['a.md'])
+    expect(tabOf(l, empty)).toMatchObject({ historyAt: 0 })
 
     l = navigateInTab(l, empty, 'b.md', 2)
-    expect(tabOf(l, empty)).toMatchObject({ path: 'b.md', history: ['a.md', 'b.md'], historyAt: 1 })
+    expect(trailOf(tabOf(l, empty))).toEqual(['a.md', 'b.md'])
+    expect(tabOf(l, empty)).toMatchObject({ path: 'b.md', historyAt: 1 })
     // Still ONE tab: following a link navigates, it does not open (B5).
     expect(paneAt(l, 0).tabs).toHaveLength(1)
   })
@@ -674,8 +765,30 @@ describe('per-tab history (Fork 4)', () => {
     expect(tabOf(l, t)?.path).toBe('b.md')
     // A new turn from here drops what was ahead — the browser rule.
     l = navigateInTab(l, t, 'd.md', 3)
-    expect(tabOf(l, t)?.history).toEqual(['a.md', 'b.md', 'd.md'])
+    expect(trailOf(tabOf(l, t))).toEqual(['a.md', 'b.md', 'd.md'])
     expect(canTravel(tabOf(l, t), 1)).toBe(false)
+  })
+
+  it('lands back at the cursor and scroll each entry was left at', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    const t = paneAt(l, 0).tabs[0].id
+    l = navigateInTab(l, t, 'a.md', 1)
+    // What the live view reports on its way out (B2) — the shell captures it
+    // before it navigates, so the entry being left knows where you were.
+    l = setResume(l, t, 12, 40)
+    l = navigateInTab(l, t, 'b.md', 2)
+    expect(tabOf(l, t)).toMatchObject({ path: 'b.md', cursor: null, scroll: 0 })
+    l = setResume(l, t, 3, 8)
+
+    l = travelTab(l, t, -1)
+    expect(tabOf(l, t)).toMatchObject({
+      path: 'a.md',
+      cursor: { anchor: 12, head: 12 },
+      scroll: 40,
+    })
+    l = travelTab(l, t, 1)
+    expect(tabOf(l, t)).toMatchObject({ path: 'b.md', cursor: { anchor: 3, head: 3 }, scroll: 8 })
   })
 
   it('activates the tab that already holds the target instead of duplicating it (R3)', () => {

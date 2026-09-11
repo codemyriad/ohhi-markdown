@@ -15,6 +15,7 @@
  */
 import type {
   JournalEntry,
+  JournalEntryInfo,
   LcaRecord,
   LcaStore,
   PreImageJournal,
@@ -218,12 +219,11 @@ export class MemJournal implements PreImageJournal {
   constructor(private now: () => number = () => 0) {}
 
   async record(path: string, bytes: Uint8Array | null): Promise<void> {
-    this.log.push({
-      seq: ++this.seq,
-      path,
-      at: this.now(),
-      bytes: bytes ? bytes.slice() : new Uint8Array(),
-    })
+    const copy = bytes ? bytes.slice() : new Uint8Array()
+    this.log.push({ seq: ++this.seq, path, at: this.now(), size: copy.length, bytes: copy })
+  }
+  async list(path?: string): Promise<JournalEntryInfo[]> {
+    return (await this.entries(path)).map(({ seq, path: p, at, size }) => ({ seq, path: p, at, size }))
   }
   async entries(path?: string): Promise<JournalEntry[]> {
     return this.log.filter((e) => !path || e.path === path)
@@ -231,6 +231,14 @@ export class MemJournal implements PreImageJournal {
   async latest(path: string): Promise<JournalEntry | null> {
     const list = await this.entries(path)
     return list.length ? list[list.length - 1]! : null
+  }
+  /** Prefix-wise re-key, as FileJournal (M10). */
+  async rename(from: string, to: string): Promise<void> {
+    const prefix = `${from}/`
+    for (const e of this.log) {
+      if (e.path === from) e.path = to
+      else if (e.path.startsWith(prefix)) e.path = to + e.path.slice(from.length)
+    }
   }
 }
 

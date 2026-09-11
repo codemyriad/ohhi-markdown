@@ -141,6 +141,11 @@ export function createGroupUi(panes: PaneShell, host: GroupHost): GroupShell {
       const g = panes.activeGroup()
       if (g) panes.ungroupGroup(g.id)
     },
+    move: (side) => {
+      const g = panes.activeGroup()
+      const other = panes.neighbourPane(side)
+      if (g && other) panes.moveGroupToPane(g.id, other)
+    },
     hasGroup: () => panes.activeGroup() !== null,
   }
 

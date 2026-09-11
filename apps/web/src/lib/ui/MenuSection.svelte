@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
-   * A labelled run of rows inside a `DropdownMenu`: *Move to pane*, *Add to
-   * group*, the strip-end list's *Open* and *Saved*.
+   * A labelled run of rows: *Move to pane*, *Add to group*, the strip-end
+   * list's *Open* and *Saved* — inside a `DropdownMenu`, and inside the
+   * manage-group dialog, whose verb list is the same shape.
    *
    * A section rather than a submenu because `DropdownMenu` is a flat Melt menu
    * — this keeps every row one arrow key away instead of two. The heading is

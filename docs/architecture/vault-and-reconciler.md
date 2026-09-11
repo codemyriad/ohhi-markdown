@@ -87,6 +87,23 @@ and is re-marked after a session restart — the L1 fixture
 `libs/workspace/test/multi-view-lifecycle.test.ts` asserts all four, plus "no edit lost"
 and "no open doc materialized over", for every open/close/rename/delete/unshare ordering.
 
+A path can also enter the open set **before its doc exists** (a tab opened on a note a
+peer is about to announce, or one being created): `markOpen` has nothing to name yet, so
+the mark is retried from `refreshFiles` — the one path every map change takes — rather
+than skipped for the life of the session.
+
+**Mount surgery is the hard case**, because it destroys and replaces the sessions
+underneath live views. Carve, unshare, unmount and the pull branch of `activateMount` all
+follow one shape in the shell: `dropLiveViewsUnder(prefix)` **returns** the paths it
+released, the surgery runs, and `reapplyLiveViews(held)` re-tells every mount — the
+replacements included, whose open sets start empty. Dropping without re-applying leaves a
+pane rendering a buffer the vault believes is closed, which is the reconciler free to
+materialize over it (golden rule 1); the facade's `workspace-live-views.test.ts` is the
+guard. A session already out of the registry is never spoken to again. While any of those
+surgeries is in flight the shell sees `ui.settling === true` — `ui.files` is a partial
+picture mid-surgery, so anything that *deletes* state derived from it (the tab prune)
+waits for it to go false.
+
 ## The LCA record and the iron rule
 
 One record per enrolled file, in `lcaStore` — the **durable** app-data store
@@ -182,14 +199,40 @@ the system (shaping D2a; requirement R1.3):
   <file> <t>` CLI in `slices.md` is still unbuilt; the shipped affordance is the History
   rail section.
 
+  The journal is keyed by **path**, so every rename carries it: `renameFile`,
+  `renameDir` (prefix-wise, one call for the whole subtree) and the remote-rename
+  branch of `onRemoteMapChange` all call `PreImageJournal.rename(from, to)`. Without
+  it a rename silently ended a note's recoverable history — the pre-images stayed in
+  the store under a name nothing would ever ask for. `FileJournal` copies each entry
+  to its new name before removing the old one, so a crash mid-rename can only leave a
+  visible duplicate, never a lost version.
+
+  Listing is metadata-only: `list(path)` answers `{ seq, path, at, size }` per entry
+  **without reading any pre-image back**, because the size travels in the entry's file
+  name (`journal/<seq>.<at>.<size>-<encoded path>.bin`). The History rail re-lists on
+  every flush, and reading the bytes to measure them made a sidebar read a note's whole
+  retention window. `entries()`/`latest()` still hand the bytes over, for the restore
+  that actually asks. Two older name layouts (`<seq>.<at>-…`, and pre-S10 `<seq>-…`
+  dated from a surviving `index.json`) still read; only those cost a read to size.
+
   **Restoring one** (`VaultSession.restoreFile`, surfaced as the History rail section in
   W3 and reachable from `MountSession.fileHistory` / `restorePreImage`) does *not* write
-  the bytes back: it decodes the pre-image to text, applies it to the CRDT as a minimal
-  diff and materializes, exactly as a divergence resolution does. So peers see an
-  ordinary edit rather than a file that changed under them, the file's own EOL/BOM
-  flavour is preserved, the bytes being replaced are themselves journaled (a restore is
-  undoable), and the only disk write is the atomic one inside `materialize` — golden
-  rule 1 holds without a second write path existing.
+  the bytes back: it **flushes the live doc first**, then decodes the pre-image to text,
+  applies it to the CRDT as a minimal diff and materializes, exactly as a divergence
+  resolution does. So peers see an ordinary edit rather than a file that changed under
+  them, the file's own EOL/BOM flavour is preserved, the bytes being replaced are
+  themselves journaled (a restore is undoable), and the only disk write is the atomic
+  one inside `materialize` — golden rule 1 holds without a second write path existing.
+
+  The flush is what makes that promise true for an OPEN note: the journal records what
+  is on *disk*, and while a view holds a note disk lags the editor by the flush
+  debounce, so a sentence typed just before Restore would otherwise be deleted by the
+  diff while being in no journal entry, no LCA, and (its ops carrying origin `disk`)
+  out of the UndoManager's reach. A restore also **clears any pending review** for the
+  note: the bytes put back are the answer to the divergence, and a modal left open over
+  them would be a sync state that lies (golden rule 4). `MountSession.restorePreImage`
+  **rejects** on failure rather than swallowing into a notice, so the confirm dialog
+  can stay open and say what went wrong instead of closing as though it had worked.
 - **Post-session git audit**: after any real-vault session, a `git diff --stat` audit
   script verifies only intended changes touched disk — no churn diffs, no EOL flips, no
   frontmatter reserialization (golden rule: never reserialize what you didn't change;

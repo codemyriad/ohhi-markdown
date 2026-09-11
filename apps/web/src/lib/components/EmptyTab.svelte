@@ -97,8 +97,11 @@
             class="w-full truncate rounded px-2 py-1.5 text-left text-sm
               {i === active ? 'bg-primary/15 text-base-content' : 'text-base-content/70 hover:bg-base-200'}"
           >
+            <!-- `text-primary` on the row's `bg-primary/15` measures 3.8:1 —
+                 a tint keeps body ink, as `Palette.svelte`'s own hit marks do
+                 (docs/theming.md). -->
             {#each segments(row.path, row.spans) as seg}{#if seg.hit}<mark
-                  class="bg-transparent font-semibold text-primary">{seg.text}</mark
+                  class="rounded-sm bg-primary/25 text-base-content">{seg.text}</mark
                 >{:else}{seg.text}{/if}{/each}
           </button>
         </li>

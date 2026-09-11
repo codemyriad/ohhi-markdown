@@ -125,6 +125,8 @@ export interface GroupActions {
   close(): void
   copyLinks(): void
   ungroup(): void
+  /** Carry the whole group to the neighbouring pane — a chip drag by key. */
+  move(side: Side): void
   /** False when the focused pane's active tab is in no group: the four verbs
    *  below have nothing to act on, so they are hidden and their key falls
    *  through to the editor. */
@@ -147,6 +149,15 @@ export function groupCommands(a: GroupActions): Command[] {
     { id: 'group.close', title: t.close(), group, when: needsGroup, run: a.close },
     { id: 'group.copy-links', title: t.copy_links(), group, when: needsGroup, run: a.copyLinks },
     { id: 'group.ungroup', title: t.ungroup(), group, when: needsGroup, run: a.ungroup },
+    // No flat key: a chip drag is the pointer gesture and `Mod+P g h/j/k/l`
+    // is the keyboard one, which is what R8 asks for.
+    ...SIDES.map((side) => ({
+      id: `group.move-${side}`,
+      title: t[`move_${side}`](),
+      group,
+      when: needsGroup,
+      run: () => a.move(side),
+    })),
   ]
 }
 
@@ -170,6 +181,8 @@ export function familyTitle(id: string): string {
       return t.tabs.commands.move()
     case 'tab.goto':
       return t.tabs.commands.goto()
+    case 'group.move':
+      return t.groups.commands.move()
     case 'mode.move':
       return t.mode.enter.move()
     case 'mode.resize':

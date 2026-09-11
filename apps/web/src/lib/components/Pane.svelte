@@ -105,8 +105,13 @@
 
   const wordCount = $derived(path ? wordsOf(path) : 0)
 
+  // The separator and the clause order are the dictionary's, not this
+  // component's: a locale that wants "11 tabs, Pane 2" has to be able to say so.
   const lead = $derived(
-    `${$LL.web.panes.label({ n: index })} · ${$LL.web.panes.tab_count({ count: pane.tabs.length })}`
+    $LL.web.panes.lead({
+      pane: $LL.web.panes.label({ n: index }),
+      tabs: $LL.web.panes.tab_count({ count: pane.tabs.length }),
+    })
   )
 
   /**

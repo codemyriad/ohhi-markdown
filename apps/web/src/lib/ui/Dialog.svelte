@@ -1,3 +1,22 @@
+<script module lang="ts">
+  /**
+   * The shell's one stacking order. Exported because anything that floats over
+   * the app has to sit somewhere KNOWN in it — `DropZones` picking its own
+   * `z-50` is how two overlays end up fighting — and there is no second place
+   * where these numbers are decided.
+   */
+  export const LAYER = {
+    panel: 'z-20',
+    dialog: 'z-30',
+    palette: 'z-40',
+    review: 'z-50',
+    /** A pointer drag: above everything, and it cannot coexist with a modal. */
+    drag: 'z-50',
+  } as const
+
+  export type Layer = keyof typeof LAYER
+</script>
+
 <script lang="ts">
   /**
    * The one overlay primitive (chrome-shaping U1, R1.1): scrim, z-scale,
@@ -34,7 +53,7 @@
      */
     closeOnOutsideClick?: boolean
     /** Overlay stacking: panels under dialogs under the palette under reviews. */
-    layer?: 'panel' | 'dialog' | 'palette' | 'review'
+    layer?: Exclude<Layer, 'drag'>
     /** Vertical placement: dialogs centre, the palette hangs from the top. */
     align?: 'center' | 'top'
     width?: 'sm' | 'md' | 'lg' | 'xl'
@@ -82,7 +101,6 @@
     children,
   }: Props = $props()
 
-  const Z = { panel: 'z-20', dialog: 'z-30', palette: 'z-40', review: 'z-50' } as const
   const MAX = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-3xl' } as const
 
   // Focus goes back to whatever had it — a tree row, a header button, or
@@ -120,11 +138,11 @@
 {#if $open}
   <div use:melt={$portalled}>
     <!-- A scrim token, not `neutral`: that is the ink colour in dark themes. -->
-    <div use:melt={$overlay} class="fixed inset-0 {Z[layer]} bg-ed-scrim backdrop-blur-[1px]"></div>
+    <div use:melt={$overlay} class="fixed inset-0 {LAYER[layer]} bg-ed-scrim backdrop-blur-[1px]"></div>
     <div
       use:melt={$content}
       data-testid={testid}
-      class="fixed left-1/2 {Z[layer]} flex max-h-[85vh] w-[calc(100%-2rem)] {MAX[width]} -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-xl focus:outline-none
+      class="fixed left-1/2 {LAYER[layer]} flex max-h-[85vh] w-[calc(100%-2rem)] {MAX[width]} -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-xl focus:outline-none
         {align === 'top' ? 'top-[12vh]' : 'top-1/2 -translate-y-1/2'}"
     >
       <h2

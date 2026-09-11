@@ -8,7 +8,7 @@
  * needs a browser is the wiring: the key creates and opens a note, the walk
  * moves between the ones that exist, and a restore reaches disk and the editor.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { openApp } from './fixtures.js'
 
 /** Today in Obsidian's default format, computed the way the app does. */
@@ -71,6 +71,10 @@ test('History lists the versions the journal already holds, and restores one', a
 
   const rows = page.getByTestId('history-section').getByRole('listitem')
   await expect(rows.first()).toBeVisible({ timeout: 15_000 })
+  const seqOf = (row: Locator): Promise<number> =>
+    row.getAttribute('data-testid').then((id) => Number(id!.split(':')[1]))
+  const before = await rows.count()
+  const newest = await seqOf(rows.first())
 
   await rows.first().getByRole('button').click()
   await expect(page.getByTestId('history-confirm')).toBeVisible()
@@ -79,6 +83,12 @@ test('History lists the versions the journal already holds, and restores one', a
   // The restore lands in the editor, because it went through the CRDT.
   await expect(editor).not.toContainText('ZEBRACROSSING')
   await expect(editor).toContainText('Welcome to Editor')
-  // And it journaled what it replaced, so the list grew rather than shrank.
-  await expect(rows).not.toHaveCount(0)
+  // And it journaled what it replaced, so the list GREW — by exactly the one
+  // version this restore replaced, which is the promise the confirm makes
+  // ("you can come back here and undo this"). Counted, because
+  // `not.toHaveCount(0)` was already satisfied by the row that was there.
+  await expect(rows).toHaveCount(before + 1)
+  const added = await seqOf(rows.first())
+  expect(added).toBeGreaterThan(newest)
+  await expect(page.getByTestId(`history-entry:${added}`)).toBeVisible()
 })

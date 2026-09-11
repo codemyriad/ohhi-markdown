@@ -76,6 +76,9 @@ export const MODES: Record<Mode, ModeTable> = {
       x: 'group.close',
       c: 'group.copy-links',
       u: 'group.ungroup',
+      // A whole group moves by chip drag; `h j k l` is its keyboard
+      // equivalent, the same four letters every other family uses (R8).
+      ...dirKeys('group.move-'),
     },
   },
 }
@@ -117,6 +120,13 @@ export interface Hint {
   label: string
   /** True when this row enters a sub-mode; `label` came from a `mode.*` id. */
   sub?: boolean
+  /**
+   * The command ids this row stands for — several for a collapsed family, none
+   * for a sub-mode row. The bar's host uses them to drop a row whose commands
+   * are all currently refused by their `when` guard: a hint for a key that
+   * does nothing is worse than no hint.
+   */
+  ids: string[]
 }
 
 /**
@@ -146,15 +156,16 @@ export function hints(mode: Mode, titleOf: (id: string) => string): Hint[] {
   for (const [key, id] of Object.entries(table.keys)) {
     const fam = familyOf(key, id)
     if (!fam) {
-      out.push({ key, label: titleOf(id) })
+      out.push({ key, label: titleOf(id), ids: [id] })
       continue
     }
     if (done.has(fam)) continue
     done.add(fam)
-    out.push({ key: capsFor(families.get(fam) ?? [key]), label: titleOf(fam) })
+    const keys = families.get(fam) ?? [key]
+    out.push({ key: capsFor(keys), label: titleOf(fam), ids: keys.map((k) => table.keys[k]) })
   }
   for (const [key, sub] of Object.entries(table.subs ?? {})) {
-    out.push({ key, label: titleOf(`mode.${sub}`), sub: true })
+    out.push({ key, label: titleOf(`mode.${sub}`), sub: true, ids: [] })
   }
   return out
 }

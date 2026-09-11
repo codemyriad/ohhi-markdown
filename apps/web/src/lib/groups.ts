@@ -21,7 +21,9 @@ import {
   findGroup,
   findPane,
   focusedPane,
+  groupOf,
   insertTab,
+  nearestVisible,
   newTab,
   nextId,
   paneOfTab,
@@ -143,7 +145,11 @@ export function toggleCollapsed(
     if (!found) return
     const { pane: p, group: g } = found
     if (!g.collapsed && p.active !== null && g.tabIds.includes(p.active)) {
-      const outside = nearestOutside(p, g)
+      // The nearest tab that will still be ON SCREEN once this group folds —
+      // a tab inside some OTHER folded group is not somewhere to go (C2).
+      const outside = nearestVisible(p, p.tabs.findIndex((t) => t.id === p.active), (t) =>
+        g.tabIds.includes(t.id)
+      )
       if (outside) p.active = outside.id
       else {
         const t = insertTab(p, newTab(ids), null)
@@ -153,18 +159,6 @@ export function toggleCollapsed(
     g.collapsed = !g.collapsed
     g.lastActive = now
   })
-}
-
-/** The tab outside `g` closest to the active one, searching right then left. */
-function nearestOutside(p: Pane, g: Group): { id: string } | null {
-  const from = p.tabs.findIndex((t) => t.id === p.active)
-  for (let step = 1; step < p.tabs.length + 1; step++) {
-    const right = p.tabs[from + step]
-    if (right && !g.tabIds.includes(right.id)) return right
-    const left = p.tabs[from - step]
-    if (left && !g.tabIds.includes(left.id)) return left
-  }
-  return null
 }
 
 /**
@@ -348,7 +342,11 @@ export function moveGroup(
       landed.push(t.id)
       cursor++
     }
-    const outside = to.tabs.find((t) => !landed.includes(t.id))
+    // Something the target will actually be SHOWING once this folded run lands:
+    // a tab inside one of its own folded groups does not count (C2).
+    const outside = to.tabs.find(
+      (t) => !landed.includes(t.id) && !groupOf(to, t.id)?.collapsed
+    )
     const group: Group = { id: ids(), name, color, collapsed, tabIds: landed, lastActive: now }
     if (group.collapsed && outside) {
       // Folded arrives folded; the pane just needs something visible to show.

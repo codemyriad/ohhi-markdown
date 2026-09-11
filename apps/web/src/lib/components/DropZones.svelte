@@ -12,6 +12,8 @@
    * does the same thing (R8).
    */
   import { File } from '@lucide/svelte'
+  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LAYER } from '../ui/Dialog.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import GroupDot from './GroupDot.svelte'
 
@@ -23,10 +25,27 @@
 
   const drag = $derived(panes.drag)
   const target = $derived(drag?.target ?? null)
+
+  /**
+   * What letting go would DO, not just what is being held: an edge zone splits
+   * the pane, a strip or a centre drop joins it. The tint alone does not say
+   * which, and the pill is the only thing the eye is already following.
+   */
+  const promise = $derived.by(() => {
+    if (!drag || !target || target.kind === 'none') return ''
+    const name = drag.payload.label
+    return target.kind === 'zone' && target.zone !== 'center'
+      ? $LL.web.panes.split_here({ name })
+      : $LL.web.panes.drop_here({ name })
+  })
 </script>
 
 {#if drag}
-  <div aria-hidden="true" class="pointer-events-none fixed inset-0 z-50" data-testid="drop-zones">
+  <div
+    aria-hidden="true"
+    class="pointer-events-none fixed inset-0 {LAYER.drag}"
+    data-testid="drop-zones"
+  >
     {#if target?.kind === 'zone'}
       <div
         data-testid="drop-zone"
@@ -57,6 +76,11 @@
       {drag.payload.label}
       {#if drag.payload.tabIds.length > 1}
         <span class="text-base-content/70">{drag.payload.tabIds.length}</span>
+      {/if}
+      {#if promise}
+        <span data-testid="drag-promise" class="border-l border-base-300 pl-1.5 text-base-content/70">
+          {promise}
+        </span>
       {/if}
     </div>
   </div>

@@ -39,6 +39,7 @@ function groupActions(hasGroup = true): GroupActions {
     close: vi.fn(),
     copyLinks: vi.fn(),
     ungroup: vi.fn(),
+    move: vi.fn(),
     hasGroup: () => hasGroup,
   }
 }
@@ -120,11 +121,26 @@ describe('the group command table (W2)', () => {
     expect(keys.get('group.ungroup')).toBe('')
   })
 
-  it('hides the four verbs that need a group when the active tab has none', () => {
+  it('hides every verb that needs a group when the active tab has none', () => {
     const off = groupCommands(groupActions(false))
     expect(off.filter((c) => !c.when || c.when()).map((c) => c.id)).toEqual(['group.new'])
     const on = groupCommands(groupActions(true))
     expect(on.every((c) => !c.when || c.when())).toBe(true)
+  })
+
+  it('carries a whole group to a neighbouring pane, so a chip drag has a key (R8)', () => {
+    const a = groupActions()
+    const byId = new Map(groupCommands(a).map((c) => [c.id, c]))
+    for (const side of ['left', 'down', 'up', 'right'] as const) {
+      expect(byId.has(`group.move-${side}`), side).toBe(true)
+      // No flat key: the mode letter and the popover row are the two routes.
+      expect(byId.get(`group.move-${side}`)!.keys ?? '').toBe('')
+    }
+    void byId.get('group.move-right')!.run()
+    expect(a.move).toHaveBeenCalledWith('right')
+    // …and the mode's `g` sub-mode names them, which the table assertion above
+    // would have caught the other way round.
+    expect(Object.values(MODES.group.keys)).toContain('group.move-left')
   })
 
   it('titles every row under Group', () => {

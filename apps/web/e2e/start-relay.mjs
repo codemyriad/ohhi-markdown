@@ -16,8 +16,10 @@ const child = spawn('node', ['--experimental-strip-types', 'src/main.ts'], {
     DATA_DIR: dataDir,
     // e2eroom: the collab smoke. chrome-tree: chrome.spec's tree test, which
     // needs an AUTHORISED room to show a green note (the other memory rooms
-    // are rejected by design and stay offline).
-    SEED_SHARE: 'e2eroom:e2e-token,chrome-tree:chrome-token',
+    // are rejected by design and stay offline). panes-sync: the two-panes
+    // golden-rule-4 leg, which has to see a real green before it severs the
+    // relay and watches both pills go honest.
+    SEED_SHARE: 'e2eroom:e2e-token,chrome-tree:chrome-token,panes-sync:panes-token',
   },
   stdio: 'inherit',
 })

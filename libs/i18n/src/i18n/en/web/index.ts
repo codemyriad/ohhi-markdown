@@ -70,7 +70,12 @@ const status_bar = {
 const panes = {
   area: 'Editor',
   label: 'Pane {n:number}',
+  lead: '{pane:string} · {tabs:string}',
+  /** The menu/dialog section that sends a tab or a whole group to another pane. */
+  move_to: 'Move to pane',
   resize: 'Resize panes',
+  resize_between: 'Resize: {a:string} / {b:string}',
+  resize_value: '{pct:number}%',
   tab_count: '{count:number} tab{{s}}',
   zoomed: 'Zoomed',
   drop_here: 'Move {name:string} here',
@@ -107,6 +112,7 @@ const panes = {
 /** A pane's tab strip, its menus, and the tab half of the command table. */
 const tabs = {
   list: 'Open notes',
+  list_n: 'Open notes {index:number} of {total:number}',
   untitled: 'New tab',
   new_tab: 'New tab',
   more: 'Tab groups',
@@ -117,7 +123,6 @@ const tabs = {
   menu: 'Actions for {name:string}',
   pin: 'Pin',
   unpin: 'Unpin',
-  move_to_pane: 'Move to pane',
   picker: {
     lead: 'Open a note',
     placeholder: 'Type to filter…',
@@ -204,6 +209,11 @@ const groups = {
     copy_links: 'Copy group as links',
     ungroup: 'Ungroup tabs',
     open: 'Open group: {name:string}',
+    move: 'Move group to another pane',
+    move_left: 'Move group to the pane left',
+    move_down: 'Move group to the pane below',
+    move_up: 'Move group to the pane above',
+    move_right: 'Move group to the pane right',
   },
 }
 
@@ -386,6 +396,17 @@ const history = {
   },
 }
 
+/**
+ * Daily notes (W3). One string: Obsidian's `daily-notes.json` can carry moment
+ * tokens Editor does not implement, and a vault on one of them would quietly
+ * disagree with Obsidian about which file today is (Minor 17). Said once per
+ * session, through the ordinary notice log.
+ */
+const daily = {
+  unsupported_format:
+    'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Editor does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
+}
+
 const activity = {
   empty: 'Nothing to report this session.',
   open_path: 'Open {path:string}',
@@ -547,6 +568,8 @@ const settings = {
     stop_recording: 'Stop recording {command:string}',
     reset: 'Reset',
     reset_for: 'Reset {command:string} to its default shortcut',
+    conflict: 'Also runs {commands:string} — only the last one registered wins.',
+    reserved: 'Your desktop takes this shortcut before Editor can see it.',
   },
   sync: {
     relay: 'Default relay',
@@ -876,6 +899,7 @@ const web = {
   tree_op,
   palette,
   commands,
+  daily,
   history,
   activity,
   links,

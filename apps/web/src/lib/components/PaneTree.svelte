@@ -15,7 +15,14 @@
    */
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import { MIN_SIZE, type Group, type Node, type Pane as PaneNode, type Tab } from '../panes.js'
+  import {
+    MIN_SIZE,
+    panes as panesOf,
+    type Group,
+    type Node,
+    type Pane as PaneNode,
+    type Tab,
+  } from '../panes.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import ResizeHandle from '../ui/ResizeHandle.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
@@ -55,6 +62,18 @@
   /** Measured, so a pointer drag can be turned into a percentage share. */
   let width = $state(0)
   let height = $state(0)
+
+  /**
+   * Every border needs its own name: a tree of separators all called "Resize
+   * panes" is a list of identical controls, and the one thing a keyboard user
+   * needs to know is WHICH border they are on. So each is named by the two
+   * panes it divides — the last pane on its leading side and the first on its
+   * trailing side, which is what the border actually moves.
+   */
+  const nameOf = (child: Node): string =>
+    $LL.web.panes.label({ n: ctx.panes.paneIndex(child.id) })
+  const lastPaneOf = (n: Node): PaneNode => panesOf(n)[panesOf(n).length - 1]
+  const firstPaneOf = (n: Node): PaneNode => panesOf(n)[0]
 </script>
 
 {#if node.kind === 'pane'}
@@ -78,7 +97,11 @@
           max={value + node.sizes[i] - MIN_SIZE}
           step={2}
           perPixel={along > 0 ? 100 / along : 0}
-          label={$LL.web.panes.resize()}
+          label={$LL.web.panes.resize_between({
+            a: nameOf(lastPaneOf(node.children[i - 1])),
+            b: nameOf(firstPaneOf(child)),
+          })}
+          valueText={$LL.web.panes.resize_value({ pct: Math.round(value) })}
           testid="pane-resize:{node.id}:{i - 1}"
           onChange={(next) => ctx.panes.resizeSplit(node.id, i - 1, next - value)}
           onCommit={() => ctx.panes.persistNow()}

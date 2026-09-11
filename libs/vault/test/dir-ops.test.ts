@@ -81,6 +81,7 @@ interface Duo {
   b: {
     adapter: MemVaultAdapter
     session: VaultSession
+    journal: MemJournal
     folder: EngineDoc
     docs: Map<string, EngineDoc>
   }
@@ -139,8 +140,9 @@ async function makeDuo(seed: Record<string, string>, dirs: string[] = []): Promi
         },
       },
     })
+  const journalB = new MemJournal(() => clock.now())
   const sessionA = mk(adapterA, folderA, docsA, lcaA, journalA)
-  const sessionB = mk(adapterB, folderB, docsB, lcaB, new MemJournal(() => clock.now()))
+  const sessionB = mk(adapterB, folderB, docsB, lcaB, journalB)
   await sessionA.start()
   await sessionB.start()
 
@@ -150,7 +152,7 @@ async function makeDuo(seed: Record<string, string>, dirs: string[] = []): Promi
 
   return {
     a: { adapter: adapterA, session: sessionA, journal: journalA, folder: folderA },
-    b: { adapter: adapterB, session: sessionB, folder: folderB, docs: docsB },
+    b: { adapter: adapterB, session: sessionB, journal: journalB, folder: folderB, docs: docsB },
     net,
     clock,
   }
@@ -315,6 +317,63 @@ describe('nested mounts: mount entries are an opaque boundary (L1 fixture, N1)',
 
     expect(new TextDecoder().decode((await duo.b.adapter.read('team/plan.md'))!)).toBe('plan')
     expect(await duo.b.adapter.read('team/notes/deep.md')).toBeNull()
+
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
+})
+
+/**
+ * The pre-image journal is keyed by PATH, so every rename has to carry it
+ * (M10). Before this, renaming a note ended its recoverable history: twenty
+ * retained versions stayed on disk under a name nothing would ever ask for,
+ * and the History rail showed an empty list for a note that had one.
+ */
+describe('pre-image history follows a rename (M10)', () => {
+  const texts = async (j: MemJournal, path: string): Promise<string[]> =>
+    (await j.entries(path)).map((e) => new TextDecoder().decode(e.bytes))
+
+  it('a local file rename takes the history with it', async () => {
+    const duo = await makeDuo({ 'src/f.md': 'body' }, ['dst'])
+    await duo.a.journal.record('src/f.md', enc('older body'))
+
+    await duo.a.session.renameFile('src/f.md', 'dst/f.md')
+
+    expect(await texts(duo.a.journal, 'src/f.md')).toEqual([])
+    expect(await texts(duo.a.journal, 'dst/f.md')).toEqual(['older body'])
+
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
+
+  it('a local dir rename takes every child’s history, prefix-wise', async () => {
+    const duo = await makeDuo({ 'n/one.md': '1', 'n/sub/two.md': '2' })
+    await duo.a.journal.record('n/one.md', enc('one v0'))
+    await duo.a.journal.record('n/sub/two.md', enc('two v0'))
+    await duo.a.journal.record('elsewhere.md', enc('untouched'))
+
+    await duo.a.session.renameDir('n', 'renamed')
+
+    expect(await texts(duo.a.journal, 'renamed/one.md')).toEqual(['one v0'])
+    expect(await texts(duo.a.journal, 'renamed/sub/two.md')).toEqual(['two v0'])
+    expect(await texts(duo.a.journal, 'n/one.md')).toEqual([])
+    expect(await texts(duo.a.journal, 'elsewhere.md')).toEqual(['untouched'])
+
+    duo.a.session.dispose()
+    duo.b.session.dispose()
+  })
+
+  it('a REMOTE rename re-keys the peer’s own history too', async () => {
+    const duo = await makeDuo({ 'src/f.md': 'body' }, ['dst'])
+    // A version only THIS device holds: B's journal is B's own, and the
+    // rename arrives as a map change, not as a call.
+    await duo.b.journal.record('src/f.md', enc('b-only version'))
+
+    await duo.a.session.renameFile('src/f.md', 'dst/f.md')
+    await deliver(duo)
+
+    expect(await texts(duo.b.journal, 'src/f.md')).toEqual([])
+    expect(await texts(duo.b.journal, 'dst/f.md')).toEqual(['b-only version'])
 
     duo.a.session.dispose()
     duo.b.session.dispose()

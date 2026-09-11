@@ -9,7 +9,15 @@
  * from `.obsidian/workspace.json` (2026-09-10). A test that passes on a tidy
  * two-pane tree and fails on his is a test that was never about his vault.
  */
-import { createLayout, normalize, openPath, panes, type Layout, type Pane } from './panes.js'
+import {
+  createLayout,
+  normalize,
+  openPath,
+  panes,
+  type Layout,
+  type Pane,
+  type Tab,
+} from './panes.js'
 
 /** Deterministic ids — `panes.ts` takes every id it mints from here (rule 2). */
 export function ids(prefix = 'i'): () => string {
@@ -20,6 +28,8 @@ export function ids(prefix = 'i'): () => string {
 export const paneAt = (l: Layout, i = 0): Pane => panes(l.tree)[i]
 export const pathsOf = (p: Pane): (string | null)[] => p.tabs.map((t) => t.path)
 export const tabIdFor = (p: Pane, path: string): string => p.tabs.find((t) => t.path === path)!.id
+/** A tab's back/forward trail as paths — every entry also carries a resume point. */
+export const trailOf = (t: Tab | null): string[] => (t?.history ?? []).map((w) => w.path)
 
 // ---- Chris's saved layout, verbatim from .obsidian/workspace.json (2026-09-10)
 
@@ -51,7 +61,15 @@ export const RIGHT = [
 ]
 
 export function rawTab(id: string, path: string): unknown {
-  return { id, path, pinned: false, cursor: null, scroll: 0, history: [path], historyAt: 0 }
+  return {
+    id,
+    path,
+    pinned: false,
+    cursor: null,
+    scroll: 0,
+    history: [{ path, cursor: null, scroll: 0 }],
+    historyAt: 0,
+  }
 }
 
 export function rawPane(
