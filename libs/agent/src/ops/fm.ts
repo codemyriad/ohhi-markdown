@@ -1,8 +1,7 @@
-import { decodeFile, looksBinary } from '@editor/vault'
-import { OP_SCHEMAS, OpError, schemaName } from '../contract.js'
+import { OP_SCHEMAS, schemaName } from '../contract.js'
+import { openForRead } from '../backend.js'
 import type { OpDef } from '../op.js'
 import { readFrontmatter } from '../frontmatter-read.js'
-import { normalizeVaultPath } from '../paths.js'
 
 /**
  * `fm` — READ a note's frontmatter. There is no `fm set`.
@@ -17,10 +16,7 @@ import { normalizeVaultPath } from '../paths.js'
 export const fm: OpDef<'fm'> = {
   ...OP_SCHEMAS.fm,
   async run(backend, input) {
-    const path = normalizeVaultPath(input.path)
-    const bytes = await backend.adapter.read(path)
-    if (!bytes) throw new OpError('not_found', `no such note: ${path}`, { path })
-    if (looksBinary(path, bytes)) throw new OpError('refused', `not a text note: ${path}`, { path })
-    return { schema: schemaName('fm'), path, frontmatter: readFrontmatter(decodeFile(bytes).text) }
+    const { path, text } = await openForRead(backend, input.path)
+    return { schema: schemaName('fm'), path, frontmatter: readFrontmatter(text) }
   },
 }

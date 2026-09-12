@@ -27,12 +27,7 @@ export async function resolveTarget(
   throw new OpError('not_found', `no such note or folder: ${path}`, { path })
 }
 
-export async function countFilesUnder(backend: VaultBackend, dir: string): Promise<number> {
-  const files = await backend.files()
-  return [...files.keys()].filter((path) => isUnder(dir, path)).length
-}
-
-/** Every file at or under a path, in listing order. */
+/** Every file at or under a path, sorted — `.length` is the breaker's count. */
 export async function filesUnder(backend: VaultBackend, path: string): Promise<string[]> {
   const files = await backend.files()
   return [...files.keys()].filter((candidate) => isUnder(path, candidate)).sort()

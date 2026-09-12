@@ -23,7 +23,7 @@
  */
 import fc from 'fast-check'
 import { describe, expect, it, vi } from 'vitest'
-import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter, type WriteOptions } from '@editor/vault'
+import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter } from '@editor/vault'
 import { carveFolder } from '../src/carve.js'
 import { MountRegistry } from '../src/registry.js'
 import type { MountSession } from '../src/mount-session.js'
@@ -34,6 +34,8 @@ import {
   dec,
   diskSnapshot,
   seedAdapter,
+  watchWrites,
+  yieldMacro,
   type BootedVault,
 } from './fixture.js'
 
@@ -50,8 +52,6 @@ const FILES: Record<string, string> = {
 /** Per-PR bound; the nightly lane raises it (testing skill, CI budget). */
 const RUNS = Number(process.env['MULTI_VIEW_RUNS'] ?? 40)
 
-const yieldMacro = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
-
 /**
  * Advance the sim clock by `ms` and let the promise chains it started run.
  * Deliberately NOT a loop to quiescence: the whole point of these tests is
@@ -60,17 +60,6 @@ const yieldMacro = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 async function tick(vault: BootedVault, ms: number): Promise<void> {
   vault.clock.advance(ms)
   for (let i = 0; i < 6; i++) await yieldMacro()
-}
-
-/** Records every disk write so "did that close write bytes?" is answerable. */
-function watchWrites(adapter: MemVaultAdapter): { paths: string[]; reset: () => void } {
-  const paths: string[] = []
-  const real = adapter.writeAtomic.bind(adapter)
-  adapter.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
-    paths.push(path)
-    await real(path, bytes, opts)
-  }
-  return { paths, reset: () => paths.splice(0, paths.length) }
 }
 
 /**

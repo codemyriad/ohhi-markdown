@@ -3,34 +3,16 @@
  * stdout/stderr split, and the MCP tool list. Everything runs through
  * `run(argv, io)` — no process is spawned, so these are milliseconds.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { OP_NAMES } from '@editor/agent'
+import { createFilesBackend, OP_NAMES } from '@editor/agent'
 import { run, redact } from '../src/run.js'
 import { bufferIo } from '../src/io.js'
 import { parseCommand, usageLine } from '../src/grammar.js'
 import { callTool, mcpTools, toolName } from '../src/mcp.js'
-import { createFilesBackend } from '@editor/agent'
 import { RealClock } from '../src/clock.js'
-import { makeFixtureVault, type FixtureVault } from '../../../libs/agent/test/fixture.js'
-
-const vaults: FixtureVault[] = []
-afterEach(async () => {
-  while (vaults.length > 0) await vaults.pop()!.cleanup()
-})
-async function fixture(): Promise<FixtureVault> {
-  const v = await makeFixtureVault('ohhi-cli-')
-  vaults.push(v)
-  return v
-}
-
-async function ohhi(argv: string[], stdin?: string): Promise<{ out: string; err: string; code: number }> {
-  const io = bufferIo({ cwd: '/nonexistent-cwd', env: {}, stdin: stdin === undefined ? undefined : async () => stdin })
-  const code = await run(argv, io)
-  return { out: io.out(), err: io.errText(), code }
-}
-const inVault = (v: FixtureVault, argv: string[]): string[] => [...argv, '--vault', v.root, '--data-dir', v.dataDir]
+import { fixture, inVault, ohhi } from './helpers.js'
 
 describe('usage', () => {
   it('`ohhi` alone prints usage on stdout and exits 0', async () => {

@@ -74,14 +74,6 @@ export function bytes(n: number | undefined): string {
   return `${(n / (1024 * 1024)).toFixed(1)}M`
 }
 
-export function pad(s: string, width: number): string {
-  return s.length >= width ? s : s + ' '.repeat(width - s.length)
-}
-
-export function padStart(s: string, width: number): string {
-  return s.length >= width ? s : ' '.repeat(width - s.length) + s
-}
-
 /** Widest value of `of` across `rows`, capped so one silly path cannot shove every column. */
 export function columnWidth<T>(rows: readonly T[], of: (row: T) => string, cap = 48): number {
   return Math.min(cap, rows.reduce((w, r) => Math.max(w, of(r).length), 0))

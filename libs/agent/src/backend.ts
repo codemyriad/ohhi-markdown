@@ -35,6 +35,7 @@ import {
 } from '@editor/vault'
 import { NodeStoreDir, NodeVaultAdapter } from '@editor/vault/node'
 import { OpError, type Coverage } from './contract.js'
+import { normalizeVaultPath } from './paths.js'
 import { vaultId } from './select-vault.js'
 
 /** One file as the walk saw it. `kind` is the contract's, minus `dir`. */
@@ -87,8 +88,6 @@ export interface FilesBackendOptions {
    * ONLY — never written. `restore` lists their pre-images beside its own.
    */
   appStoreDirs?: string[]
-  /** Pre-images kept per path in this tool's journal. Matches the app's 20. */
-  retentionPerPath?: number
 }
 
 interface Walk {
@@ -107,10 +106,9 @@ export async function createFilesBackend(opts: FilesBackendOptions): Promise<Vau
   const root = await realpathDir(opts.root)
   const adapter = new NodeVaultAdapter(root)
   const now = (): number => opts.clock.now()
-  const journal = new FileJournal(new NodeStoreDir(join(opts.dataDir, 'vaults', vaultId(root))), {
-    now,
-    retentionPerPath: opts.retentionPerPath ?? 20,
-  })
+  // `FileJournal`'s own retention default (20 pre-images per path) is the
+  // app's, and this tool keeps the same window on purpose.
+  const journal = new FileJournal(new NodeStoreDir(join(opts.dataDir, 'vaults', vaultId(root))), { now })
   const appJournals = (opts.appStoreDirs ?? []).map(
     (dir) => new FileJournal(new NodeStoreDir(dir), { now })
   )
@@ -167,6 +165,22 @@ export async function readNote(
   if (!bytes) return null
   const decoded = decodeFile(bytes)
   return { bytes, text: decoded.text, eol: decoded.eol, bom: decoded.bom, hash: hashBytes(bytes) }
+}
+
+/**
+ * Resolve, read and refuse a note a READ op is about to serve — the mirror of
+ * `openForWrite`, and the one place the reading vocabulary decides what "no
+ * such note" and "not a text note" are called.
+ */
+export async function openForRead(
+  backend: VaultBackend,
+  rawPath: string
+): Promise<{ path: string; size: number; hash: string; text: string }> {
+  const path = normalizeVaultPath(rawPath)
+  const note = await readNote(backend, path)
+  if (!note) throw new OpError('not_found', `no such note: ${path}`, { path })
+  if (looksBinary(path, note.bytes)) throw new OpError('refused', `not a text note: ${path}`, { path })
+  return { path, size: note.bytes.length, hash: note.hash, text: note.text }
 }
 
 async function realpathDir(root: string): Promise<string> {

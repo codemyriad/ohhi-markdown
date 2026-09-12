@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { OP_NAMES } from '@editor/agent'
-import { makeFixtureVault } from '../../../libs/agent/test/fixture.js'
+import { fixture } from './helpers.js'
 
 const BUNDLE = resolve(process.cwd(), 'dist/ohhi.mjs')
 const BUDGET_MS = 500
@@ -28,15 +28,11 @@ const runBundle = (argv: string[]): { stdout: string; ms: number } => {
 
 describe.skipIf(!existsSync(BUNDLE))('the shipped bundle', () => {
   it('answers `stats` over a fixture vault, exit 0', async () => {
-    const v = await makeFixtureVault('ohhi-cold-')
-    try {
-      const { stdout } = runBundle(['stats', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
-      const doc = JSON.parse(stdout) as { schema: string; docs: number }
-      expect(doc.schema).toBe('ohhi.stats.v1')
-      expect(doc.docs).toBeGreaterThan(5)
-    } finally {
-      await v.cleanup()
-    }
+    const v = await fixture()
+    const { stdout } = runBundle(['stats', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+    const doc = JSON.parse(stdout) as { schema: string; docs: number }
+    expect(doc.schema).toBe('ohhi.stats.v1')
+    expect(doc.docs).toBeGreaterThan(5)
   })
 
   it('prints usage with no arguments, exit 0', () => {
@@ -45,7 +41,7 @@ describe.skipIf(!existsSync(BUNDLE))('the shipped bundle', () => {
   })
 
   it('serves the same vocabulary over stdio MCP', async () => {
-    const v = await makeFixtureVault('ohhi-mcp-')
+    const v = await fixture()
     const client = new Client({ name: 'ohhi-conformance', version: '0.0.0' }, { capabilities: {} })
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -71,7 +67,6 @@ describe.skipIf(!existsSync(BUNDLE))('the shipped bundle', () => {
       expect(JSON.parse(bad.content[0].text)).toMatchObject({ schema: 'ohhi.error.v1', code: 'not_found' })
     } finally {
       await client.close().catch(() => {})
-      await v.cleanup()
     }
   }, 20_000)
 

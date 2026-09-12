@@ -1,7 +1,7 @@
 import { OP_SCHEMAS, OpError, schemaName } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { isUnder, normalizeVaultPath } from '../paths.js'
-import { countFilesUnder, requireConfirmation, resolveTarget } from './move.js'
+import { filesUnder, requireConfirmation, resolveTarget } from './move.js'
 
 /**
  * `mv` — rename or move a note or a folder.
@@ -22,7 +22,7 @@ export const mv: OpDef<'mv'> = {
     if ((await backend.exists(to)) !== null) {
       throw new OpError('refused', `${to} already exists`, { to })
     }
-    const files = source.kind === 'file' ? 1 : await countFilesUnder(backend, from)
+    const files = source.kind === 'file' ? 1 : (await filesUnder(backend, from)).length
     requireConfirmation(files, input.yes ?? false, `moving ${files} files`)
 
     const dryRun = input.dryRun ?? false

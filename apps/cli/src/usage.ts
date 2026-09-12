@@ -4,7 +4,7 @@
  * hand-maintained list of commands anywhere in this package.
  */
 import { OP_NAMES, OP_SCHEMAS } from '@editor/agent'
-import { GLOBAL_FLAGS, GRAMMAR, usageLine } from './grammar.js'
+import { GLOBAL_FLAGS, usageLine } from './grammar.js'
 
 const WRITE_MARK = '*'
 
@@ -73,6 +73,3 @@ export function usageDetails(details: Record<string, unknown> | undefined): stri
   }
   return out
 }
-
-/** Names the sub-commands that are not contract ops. */
-export const EXTRA_COMMANDS = ['mcp', 'help'] as const

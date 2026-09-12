@@ -29,7 +29,7 @@ export class Sink {
   }
 }
 
-/** Collects output in memory. Used by the tests and by `ohhi mcp`. */
+/** Collects output in memory — how the tests call `run` without a process. */
 export function bufferIo(base: Partial<Io> = {}): Io & { out: () => string; errText: () => string } {
   const outChunks: string[] = []
   const errChunks: string[] = []

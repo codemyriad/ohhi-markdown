@@ -79,12 +79,12 @@ import {
   type WritableIndex,
 } from './types.js'
 import { fuzzyScore, toSpans } from './fuzzy.js'
+import { lineAt, lineStartsOf } from './lines.js'
+import { paginate } from './paginate.js'
 import { parseMarkdown, type ParsedDoc } from './parse.js'
 import { normalizeTarget, PathResolver } from './resolve.js'
 import { queryTerms, tokenize } from './tokenize.js'
 
-const DEFAULT_LIMIT = 50
-const MAX_LIMIT = 1000
 /** Match offsets kept per (term, doc). Beyond this, ranking is unaffected and
  *  only the snippet choice degrades — an 83KB note with 400 hits doesn't need
  *  400 remembered positions. */
@@ -149,25 +149,6 @@ interface Acc {
   explain: ExplainRow[] | null
 }
 
-/** Encode/decode an opaque page cursor. Callers must never parse it. */
-const encodeCursor = (n: number): string => `o${n}`
-const decodeCursor = (c: string | undefined): number => {
-  if (!c || !c.startsWith('o')) return 0
-  const n = Number.parseInt(c.slice(1), 10)
-  return Number.isFinite(n) && n >= 0 ? n : 0
-}
-
-function paginate<T>(items: T[], opts?: PageOptions): Page<T> {
-  const limit = Math.min(Math.max(opts?.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT)
-  const start = decodeCursor(opts?.cursor)
-  const slice = items.slice(start, start + limit)
-  const end = start + slice.length
-  return {
-    items: slice,
-    nextCursor: end < items.length ? encodeCursor(end) : null,
-    total: items.length,
-  }
-}
 
 export class MemoryIndex implements WritableIndex {
   readonly schemaVersion = SCHEMA_VERSION
@@ -781,25 +762,6 @@ export function parseQuery(query: string): {
     }
   }
   return { terms: queryTerms(rest.join(' ')), tag, pathPrefix }
-}
-
-/** Offsets at which each line begins. Computed once per document. */
-function lineStartsOf(text: string): number[] {
-  const starts = [0]
-  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
-  return starts
-}
-
-/** 1-based line for an offset. Binary search — this runs per link, per rebuild. */
-function lineAt(starts: number[], offset: number): number {
-  let lo = 0
-  let hi = starts.length - 1
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1
-    if (starts[mid] <= offset) lo = mid
-    else hi = mid - 1
-  }
-  return lo + 1
 }
 
 function lineTextAt(text: string, offset: number): string {

@@ -8,8 +8,8 @@ description: Search, read and edit a markdown vault — Oh hi markdown or Obsidi
 `ohhi` reads a vault's **plain `.md` files on disk** — the canonical copy, the
 same bytes Oh hi markdown, Obsidian and git see. It adds the editor's own index
 (ranked search, the wikilink graph, tags, headings) and the editor's own write
-discipline (a pre-image journal, then an atomic write), and it adds nothing
-else: no relay, no sync, no CRDT, no database of its own that could go stale.
+discipline (a pre-image journal, then an atomic write), and nothing else (see
+**Boundaries**).
 
 Design it around the vault's real shape: notes are small (median ~1 KB) with
 short generic titles (`Docs`, `JSON`, `Testing`) and a long tail of huge pasted
@@ -86,16 +86,14 @@ ohhi search "fixme|xxx" --regex --case-sensitive     # --exact/--regex are short
 ohhi search "docs" --limit 10 --cursor "<nextCursor from the last page>"
 ```
 
-Ranked search is **always** folded and case-insensitive — `--case-sensitive`
-there is a usage error, not a no-op; it belongs with `--exact`/`--regex`.
-Likewise `--tag` in `--exact`/`--regex` mode is a usage error too, because tags
+Ranked search is **always** folded and case-insensitive, so `--case-sensitive`
+there is a usage error — as is `--tag` in `--exact`/`--regex` mode, because tags
 come from the index and grep does not consult it. `--path` works in both, but a
-folder name containing a **space** makes `total` come back `null` (the hits are
-right; the count is not computable cheaply). Ranked search deliberately
-does **not** index URL text or fenced code blocks — that is what keeps a 64 KB
-pasted link dump from burying the 900-byte note actually called `HTML.md`. When
-you *want* the text inside a URL or a code fence, that is exactly what
-`--mode exact` and `--mode regex` are for; they run over the raw bytes.
+folder name containing a **space** makes `total` come back `null`: the hits are
+right, the count is not. Ranked search does **not** index URL text or fenced
+code, so a pasted link dump cannot bury the small note actually named for the
+word; when you *want* what is inside a URL or a fence, `--mode exact` and
+`--mode regex` read the raw bytes.
 
 ### Read the part you need
 
@@ -117,8 +115,8 @@ there — run `--outline` and use a heading that is.
 If two mode flags are passed the winner is declared, not surprising:
 **`--outline` → `--frontmatter` → `--section` → `--lines` → the whole note**,
 and the output's `mode` field names which one applied. Truncation is always at a
-line boundary, with one exception: a single line longer than `--max-chars` comes
-back **whole**, so you are never left unable to make progress.
+line boundary — except a single line longer than `--max-chars`, which comes back
+whole.
 
 ### Follow the graph
 
@@ -161,17 +159,14 @@ ohhi stats --json | jq '{docs, skippedBinary, ignored}'
 ohhi changes --since j42 --json | jq -r '.cursorSince'
 ```
 
-`--json` prints **one** document on stdout with a trailing newline and nothing
-else; every line that is not the answer — `returned=…`, `coverage:`, `hint=`,
-the truncation line, the `vault=… (found by …)` provenance line — goes to
-stderr in both modes, so a pipe into `jq` is always clean and you still see the
-honesty lines. An **error** in `--json` mode is on **stdout** too (an
-`ohhi.error.v1` document), so one parse handles success and failure alike. Every document names
-its own schema (`ohhi.search.v1`, `ohhi.read.v1`, …), so a reader written
-against v1 keeps working. **The text form is for humans and is not parseable** —
-note titles and snippets are free text and are not quoted or escaped, so
-anything splitting a line on `key=value` will eventually read a note's own words
-as fields. Parse `--json`.
+`--json` prints **one** document on stdout and nothing else; every line that is
+not the answer — counters, `coverage:`, `hint=`, truncation, the `vault=…`
+provenance line — goes to stderr in both modes, so a pipe into `jq` is clean and
+you still see the honesty lines. An **error** in `--json` mode is on stdout too
+(an `ohhi.error.v1` document), so one parse handles success and failure alike.
+**The text form is for humans and is not parseable** — note titles and snippets
+are free text and are not quoted or escaped, so anything splitting a line on
+`key=value` will eventually read a note's own words as fields. Parse `--json`.
 
 ### Write (carefully)
 
@@ -218,22 +213,19 @@ The rules, and why:
   reserialising YAML is exactly the spurious-diff failure the editor forbids.
   Tell the user it is not available.
 - **Keep bursts under 20 files.** `mv`/`rm` on a directory holding more than 20
-  files is refused without `--yes`, and that refusal is the **only** guard —
-  the running editor's own mass-change breaker counts paths per filesystem
-  event, and a CLI writing files one at a time never trips it. If you truly need
-  a large batch, do it in runs of a dozen and say so.
+  files is refused without `--yes`, and that refusal is the **only** guard: the
+  running editor's own breaker does not catch a CLI burst. If you truly need a
+  large batch, do it in runs of a dozen and say so.
 - **`write`/`patch`/`append` only edit `.md` notes**; anything else is
   `refused`. `mv` and `rm` move any file, attachments included.
 - Every write journals the previous bytes first, then writes atomically. That is
   what `restore` restores — including, when the editor's own store directory was
-  given with `--app-store`, pre-images the app took. (That union only reads the
-  app's **root** store correctly today; for a shared sub-folder the app's
-  entries are keyed relative to the folder and will simply not appear. If the
-  user expects app history for a note inside a shared folder and gets none, say
-  that rather than concluding the history is gone.)
-- **`rm` never unlinks.** The file goes to `.trash/<path>` (suffixed
-  `Notes~1.md` — before the extension — if that name is taken) *and* a
-  pre-image is journaled under the note's **original** path, so
+  given with `--app-store`, pre-images the app took. That union is honest only
+  for the app's **root** store: a note inside a shared folder can show no app
+  history even though the app has some, so say that rather than concluding the
+  history is gone.
+- **`rm` never unlinks.** The file goes to `.trash/<path>` *and* a pre-image is
+  journaled under the note's **original** path, so
   `ohhi restore "Notes/Scratch.md"` puts it back where it was. `mv` is the
   opposite on purpose: it re-keys the journal, so a renamed note keeps its
   history under the new name.
@@ -250,10 +242,9 @@ The rules, and why:
 
 **Snippets are matches, not quotations.** Ranked search folds case and
 diacritics, so a snippet's bracketed match may not be spelled the way the query
-was. Quote the note, not the snippet — `read --lines` around the hit's `line`
-first. The brackets are added by the text renderer, so a match inside a wikilink
-prints as `[[[JSON]]]`: three brackets, not a malformed link. In `--json` the
-match is `spans` and the text is untouched.
+was, and the brackets are the renderer's (a match inside a wikilink prints
+`[[[JSON]]]`, not a malformed link). Quote the note, not the snippet —
+`read --lines` around the hit's `line` first.
 
 **`tier` says *why* a hit is where it is**, and it is usually the answer to
 "is this the note they meant":
@@ -266,20 +257,15 @@ match is `spans` and the text is untouched.
 | `grep` | `--mode exact`/`--mode regex`: an unranked literal match in document order. `score` carries no meaning here. |
 
 **`coverage` tells you what the answer did not look at.** Every vault-walking
-answer carries `{docs, skippedBinary, ignored}`:
+answer carries `{docs, skippedBinary, ignored}`. `docs` far below what the user
+expects means you are pointed at the wrong vault. A non-zero `skippedBinary`
+means **"nothing found" is not the same as "nothing exists"** — say so when a
+search comes back empty. `ignored` names the directories never walked (`.trash/`
+among them, which is why `rm` is safe and why a trashed note is not missing).
 
-- `docs` — text notes the index holds. If this is far below what the user
-  expects, you are pointed at the wrong vault.
-- `skippedBinary` — files seen and not indexed (PDFs, images, anything that does
-  not decode as text). **A non-zero value means "nothing found" is not the same
-  as "nothing exists"** — say so when a search comes back empty.
-- `ignored` — directory names never walked: `.editor`, `.editor-cache`, `.git`,
-  `.obsidian`, `.trash`, `node_modules`. A note in `.trash/` is not missing, it
-  is ignored — which is also why `rm` is safe.
-
-**`returned` / `total` / `nextCursor`** are on every list. `nextCursor: null`
-means you have seen everything. `total: null` means the backend could not count
-cheaply, not that there are none.
+**`returned` / `total` / `nextCursor`** are on every list: `nextCursor: null`
+means you have seen everything, `total: null` means the backend could not count
+cheaply — never that there are none.
 
 **An empty result is exit 0.** A search that found nothing succeeded. Do not
 retry it with a bigger `--limit`; retry it with a different query, or with

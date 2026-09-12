@@ -32,14 +32,16 @@
  * chosen, not raced.
  */
 import { describe, expect, it, vi } from 'vitest'
+import { FileJournal, MemStoreDir, scopedStoreDir, type WriteOptions } from '@editor/vault'
 import {
-  FileJournal,
-  MemStoreDir,
-  scopedStoreDir,
-  type MemVaultAdapter,
-  type WriteOptions,
-} from '@editor/vault'
-import { bootVault, dec, enc, seedAdapter, type BootedVault } from './fixture.js'
+  bootVault,
+  dec,
+  enc,
+  seedAdapter,
+  watchWrites,
+  yieldMacro,
+  type BootedVault,
+} from './fixture.js'
 
 const ROOT_ROOM = 'root-room'
 
@@ -49,24 +51,6 @@ const QUIESCE_MS = 30
 const FLUSH_DEBOUNCE_MS = 800
 /** `DEFAULT_THRESHOLDS.massChangePaths` in libs/vault/src/types.ts. */
 const MASS_CHANGE_PATHS = 20
-
-const yieldMacro = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
-
-/**
- * Records every disk write Editor makes, so "did that ingest write bytes?" is
- * answerable. A local twin of `multi-view-lifecycle.test.ts`'s helper —
- * copied rather than shared while the agent-surface branch is in flight (both
- * belong in `fixture.ts`; flagged for the review pass).
- */
-function watchWrites(adapter: MemVaultAdapter): { paths: string[]; reset: () => void } {
-  const paths: string[] = []
-  const real = adapter.writeAtomic.bind(adapter)
-  adapter.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
-    paths.push(path)
-    await real(path, bytes, opts)
-  }
-  return { paths, reset: () => paths.splice(0, paths.length) }
-}
 
 /** Let the promise chains a synchronous event started run to a standstill. */
 async function drain(turns = 12): Promise<void> {

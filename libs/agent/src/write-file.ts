@@ -113,7 +113,7 @@ export async function commit(
 }
 
 /** The compare-and-swap, with the adapter's error translated to the contract's. */
-async function writeSwapping(
+export async function writeSwapping(
   backend: VaultBackend,
   path: string,
   bytes: Uint8Array,
@@ -132,8 +132,6 @@ async function writeSwapping(
     throw err
   }
 }
-
-export { writeSwapping }
 
 /**
  * Record a pre-image and report its sequence.

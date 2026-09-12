@@ -36,12 +36,11 @@ export const RENDERERS: { [N in OpName]: Renderer<N> } = {
  * consumer already has in the document, but a human piping to `jq` would
  * otherwise never see.
  */
-export function jsonModeNotes(op: OpName, out: unknown, sink: Sink): void {
+export function jsonModeNotes(out: unknown, sink: Sink): void {
   const doc = out as { coverage?: { skippedBinary: number }; truncated?: boolean; nextLine?: number; nextCursor?: string | null }
   if (doc.coverage && doc.coverage.skippedBinary > 0) sink.err(`note: ${doc.coverage.skippedBinary} binaries skipped`)
   if (doc.truncated === true) sink.err(`note: truncated at line ${doc.nextLine ?? '?'}`)
   if (doc.nextCursor) sink.err('note: more results — pass nextCursor back as --cursor')
-  void op
 }
 
 export function renderText(op: OpName, out: unknown, sink: Sink): void {

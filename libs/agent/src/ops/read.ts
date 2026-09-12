@@ -1,7 +1,6 @@
-import { hashBytes, decodeFile, looksBinary } from '@editor/vault'
 import { OP_SCHEMAS, OpError, schemaName } from '../contract.js'
+import { openForRead } from '../backend.js'
 import type { OpDef } from '../op.js'
-import { normalizeVaultPath } from '../paths.js'
 import { readFrontmatter } from '../frontmatter-read.js'
 import { budget, findSection, outlineOf, sliceLines } from '../text.js'
 
@@ -27,14 +26,8 @@ const DEFAULT_MAX_CHARS = 20_000
 export const read: OpDef<'read'> = {
   ...OP_SCHEMAS.read,
   async run(backend, input) {
-    const path = normalizeVaultPath(input.path)
-    const bytes = await backend.adapter.read(path)
-    if (!bytes) throw new OpError('not_found', `no such note: ${path}`, { path })
-    if (looksBinary(path, bytes)) {
-      throw new OpError('refused', `not a text note: ${path}`, { path })
-    }
-    const text = decodeFile(bytes).text
-    const head = { schema: schemaName('read'), path, size: bytes.length, hash: hashBytes(bytes) }
+    const { path, size, hash, text } = await openForRead(backend, input.path)
+    const head = { schema: schemaName('read'), path, size, hash }
     const maxChars = input.maxChars ?? DEFAULT_MAX_CHARS
 
     if (input.outline) {

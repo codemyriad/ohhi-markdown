@@ -2,7 +2,7 @@ import { OP_SCHEMAS, OpError, schemaName } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { dirOf, normalizeVaultPath, splitExtension } from '../paths.js'
 import { recordPreImage } from '../write-file.js'
-import { countFilesUnder, filesUnder, requireConfirmation, resolveTarget } from './move.js'
+import { filesUnder, requireConfirmation, resolveTarget } from './move.js'
 
 /** Obsidian's convention, and the one a user already knows how to undo by hand. */
 const TRASH = '.trash'
@@ -23,7 +23,7 @@ export const rm: OpDef<'rm'> = {
   async run(backend, input) {
     const path = normalizeVaultPath(input.path)
     const target = await resolveTarget(backend, path)
-    const files = target.kind === 'file' ? 1 : await countFilesUnder(backend, path)
+    const files = target.kind === 'file' ? 1 : (await filesUnder(backend, path)).length
     requireConfirmation(files, input.yes ?? false, `removing ${files} files`)
     const trashedTo = await freeTrashPath(backend, path)
     const dryRun = input.dryRun ?? false

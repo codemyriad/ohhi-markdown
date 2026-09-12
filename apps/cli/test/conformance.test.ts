@@ -9,45 +9,13 @@
  *       schema accepts;
  *   (c) the exit codes are what the skill's failure-decoding table says.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ErrorOut, OP_NAMES, OP_SCHEMAS, type OpName } from '@editor/agent'
-import { run } from '../src/run.js'
-import { bufferIo } from '../src/io.js'
 import { generateSchemas, readSchemas } from '../src/gen-schemas.js'
-// ONE fixture builder for the workspace: `libs/agent`'s suite and this one
-// exercise the same vault, so "the core says X, the CLI prints Y" is a bug
-// and never a difference between two fixtures (build brief, wave 2 R2).
-import { makeFixtureVault, type FixtureVault } from '../../../libs/agent/test/fixture.js'
-
-const vaults: FixtureVault[] = []
-afterEach(async () => {
-  while (vaults.length > 0) await vaults.pop()!.cleanup()
-})
-
-async function fixture(): Promise<FixtureVault> {
-  const v = await makeFixtureVault('ohhi-cli-')
-  vaults.push(v)
-  return v
-}
-
-interface Invocation {
-  out: string
-  err: string
-  code: number
-}
-
-async function ohhi(argv: string[], opts: { cwd?: string; env?: Record<string, string | undefined>; stdin?: string } = {}): Promise<Invocation> {
-  const io = bufferIo({
-    cwd: opts.cwd ?? mkdtempSync(join(tmpdir(), 'ohhi-cwd-')),
-    env: opts.env ?? {},
-    stdin: opts.stdin === undefined ? undefined : async () => opts.stdin!,
-  })
-  const code = await run(argv, io)
-  return { out: io.out(), err: io.errText(), code }
-}
+import { fixture, inVault, ohhi } from './helpers.js'
 
 /** One argv per op that produces a non-trivial document over the fixture. */
 const INVOCATIONS: Record<OpName, string[]> = {
@@ -112,10 +80,10 @@ describe('--json output conforms to the contract', () => {
     it(`${op} emits one ohhi.${op}.v1 document`, async () => {
       const v = await fixture()
       for (const setup of SETUP[op] ?? []) {
-        const prep = await ohhi([...setup, '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+        const prep = await ohhi(inVault(v, [...setup, '--json']))
         expect(prep.code, `setup for ohhi ${op}`).toBe(0)
       }
-      const { out, code } = await ohhi([...INVOCATIONS[op], '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+      const { out, code } = await ohhi(inVault(v, [...INVOCATIONS[op], '--json']))
       expect(code, `ohhi ${op} should succeed over the fixture`).toBe(0)
       // Exactly one JSON object, one trailing newline, nothing else on stdout.
       expect(out.endsWith('\n')).toBe(true)
@@ -130,7 +98,7 @@ describe('--json output conforms to the contract', () => {
   it('every list carries returned/total/nextCursor', async () => {
     const v = await fixture()
     for (const op of ['ls', 'search', 'links', 'backlinks', 'unresolved', 'tags', 'changes'] as const) {
-      const { out } = await ohhi([...INVOCATIONS[op], '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+      const { out } = await ohhi(inVault(v, [...INVOCATIONS[op], '--json']))
       const doc = JSON.parse(out) as Record<string, unknown>
       expect(Object.keys(doc), op).toEqual(expect.arrayContaining(['returned', 'total', 'nextCursor']))
     }
@@ -139,7 +107,7 @@ describe('--json output conforms to the contract', () => {
   it('everything that walks the vault carries coverage', async () => {
     const v = await fixture()
     for (const op of ['ls', 'search', 'stats'] as const) {
-      const { out } = await ohhi([...INVOCATIONS[op], '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+      const { out } = await ohhi(inVault(v, [...INVOCATIONS[op], '--json']))
       const doc = JSON.parse(out) as Record<string, unknown>
       const hasCoverage = 'coverage' in doc || ('skippedBinary' in doc && 'ignored' in doc)
       expect(hasCoverage, `${op} must say what it looked at`).toBe(true)
@@ -150,14 +118,14 @@ describe('--json output conforms to the contract', () => {
 describe('exit codes are a contract', () => {
   it('0 — a search with no hits is a successful answer', async () => {
     const v = await fixture()
-    const { out, code } = await ohhi(['search', 'zzzznothinghere', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+    const { out, code } = await ohhi(inVault(v, ['search', 'zzzznothinghere', '--json']))
     expect(code).toBe(0)
     expect((JSON.parse(out) as { hits: unknown[] }).hits).toEqual([])
   })
 
   it('2 — an unknown command', async () => {
     const v = await fixture()
-    const { code, err, out } = await ohhi(['frobnicate', '--vault', v.root, '--data-dir', v.dataDir])
+    const { code, err, out } = await ohhi(inVault(v, ['frobnicate']))
     expect(code).toBe(2)
     expect(out).toBe('')
     expect(err).toContain('unknown command')
@@ -184,30 +152,28 @@ describe('exit codes are a contract', () => {
 
   it('3 — --expect-hash mismatch, and nothing is written', async () => {
     const v = await fixture()
-    const before = await ohhi(['read', 'Areas/CS/JSON.md', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
-    const { code, out } = await ohhi([
-      'write', 'Areas/CS/JSON.md', '--text', 'clobbered', '--expect-hash', '0'.repeat(64),
-      '--vault', v.root, '--data-dir', v.dataDir, '--json',
-    ])
+    const before = await ohhi(inVault(v, ['read', 'Areas/CS/JSON.md', '--json']))
+    const { code, out } = await ohhi(
+      inVault(v, ['write', 'Areas/CS/JSON.md', '--text', 'clobbered', '--expect-hash', '0'.repeat(64), '--json'])
+    )
     expect(code).toBe(3)
     expect(ErrorOut.parse(JSON.parse(out)).code).toBe('conflict')
-    const after = await ohhi(['read', 'Areas/CS/JSON.md', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+    const after = await ohhi(inVault(v, ['read', 'Areas/CS/JSON.md', '--json']))
     expect(JSON.parse(after.out)).toEqual(JSON.parse(before.out))
   })
 
   it('1 — reading a note that is not there', async () => {
     const v = await fixture()
-    const { code, out } = await ohhi(['read', 'Nope.md', '--vault', v.root, '--data-dir', v.dataDir, '--json'])
+    const { code, out } = await ohhi(inVault(v, ['read', 'Nope.md', '--json']))
     expect(code).toBe(1)
     expect(ErrorOut.parse(JSON.parse(out)).code).toBe('not_found')
   })
 
   it('1 — a refused write (patch target is not unique)', async () => {
     const v = await fixture()
-    const { code, out } = await ohhi([
-      'patch', 'Edible/Dev Notes/SnapMenu - Restaurant JSON Import.md', '--old', 'json', '--new', 'JSON',
-      '--vault', v.root, '--data-dir', v.dataDir, '--json',
-    ])
+    const { code, out } = await ohhi(
+      inVault(v, ['patch', 'Edible/Dev Notes/SnapMenu - Restaurant JSON Import.md', '--old', 'json', '--new', 'JSON', '--json'])
+    )
     expect(code).toBe(1)
     expect(ErrorOut.parse(JSON.parse(out)).code).toBe('refused')
   })

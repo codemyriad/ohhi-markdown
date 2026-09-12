@@ -12,7 +12,7 @@
  */
 import { ErrorOut, OpError, exitCodeFor, runOp, type OpName } from '@editor/agent'
 import { openVault } from './backend.js'
-import { parseCommand, type Globals } from './grammar.js'
+import { parseCommand } from './grammar.js'
 import { Sink, type Io } from './io.js'
 import { jsonModeNotes, renderText } from './render/index.js'
 import { usageDetails, usageHint, usageText } from './usage.js'
@@ -51,7 +51,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
 
     if (json) {
       sink.raw(JSON.stringify(output) + '\n')
-      jsonModeNotes(op, output, sink)
+      jsonModeNotes(output, sink)
     } else {
       renderText(op, output, sink)
     }
@@ -111,8 +111,3 @@ export function redact(message: string, vaultRoot: string | undefined): string {
     return '<path>'
   })
 }
-
-/** Exported for the conformance test's exit-code table. */
-export const EXIT = { ok: 0, runtime: 1, usage: 2, conflict: 3 } as const
-
-export type { Globals }

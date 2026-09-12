@@ -16,7 +16,7 @@ import { ErrorOut, OP_NAMES, OP_SCHEMAS, schemaName } from '@editor/agent'
 import { SCHEMA_ID_BASE, specDir } from './spec-dir.js'
 
 /** File name for an op's output schema, e.g. `ohhi.search.v1.schema.json`. */
-export const schemaFileName = (op: string): string => `${schemaName(op)}.schema.json`
+const schemaFileName = (op: string): string => `${schemaName(op)}.schema.json`
 
 function toSchema(schema: z.ZodType, name: string, description: string): string {
   const json = z.toJSONSchema(schema, { target: 'draft-2020-12', io: 'output' }) as Record<string, unknown>

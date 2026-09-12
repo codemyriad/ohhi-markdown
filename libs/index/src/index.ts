@@ -25,6 +25,8 @@ export {
 } from './types.js'
 export { MemoryIndex, parseQuery } from './memory-index.js'
 export { fuzzyScore, toSpans, type FuzzyMatch } from './fuzzy.js'
+export { lineAt, lineStartsOf } from './lines.js'
+export { paginate } from './paginate.js'
 export { parseMarkdown, type ParsedDoc, type RawHeading, type RawLink, type RawTag } from './parse.js'
 export { basename, normalizeTarget, PathResolver } from './resolve.js'
 export { fold, queryTerms, tokenize, type Token } from './tokenize.js'

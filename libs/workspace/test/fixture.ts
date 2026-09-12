@@ -33,6 +33,7 @@ import {
   type StoreDir,
   type StoreIo,
   type VaultAdapter,
+  type WriteOptions,
 } from '@editor/vault'
 import { SimClock } from '@editor/testkit'
 import { expect } from 'vitest'
@@ -198,6 +199,25 @@ export async function seedAdapter(files: Record<string, string>): Promise<MemVau
   }
   return adapter
 }
+
+/**
+ * Records every disk write the vault session makes, so "did that ingest/close
+ * write bytes?" is answerable. Wraps `writeAtomic` and forwards `opts` — a
+ * wrapper that dropped `expectHash` would turn the compare-and-swap under it
+ * into a blind write (S11 F1).
+ */
+export function watchWrites(adapter: MemVaultAdapter): { paths: string[]; reset: () => void } {
+  const paths: string[] = []
+  const real = adapter.writeAtomic.bind(adapter)
+  adapter.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
+    paths.push(path)
+    await real(path, bytes, opts)
+  }
+  return { paths, reset: () => paths.splice(0, paths.length) }
+}
+
+/** One macrotask turn — the unit every "let the promise chains run" helper counts in. */
+export const yieldMacro = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 export async function diskSnapshot(adapter: VaultAdapter): Promise<Record<string, string>> {
   const out: Record<string, string> = {}

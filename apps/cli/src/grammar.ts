@@ -344,5 +344,3 @@ export function usageLine(op: OpName): string {
   }
   return parts.join(' ')
 }
-
-export { type FlagSpec }

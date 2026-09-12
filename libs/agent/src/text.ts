@@ -2,12 +2,13 @@
  * Line and section arithmetic — the machinery behind "read the PART of the
  * note you need" (shaping R4).
  *
- * Headings come from `parseMarkdown` in `@editor/index`, never from a second
+ * Headings and line offsets come from `@editor/index`, never from a second
  * scanner (R3): it already knows that a `#` inside a fenced code block is not
  * a heading, and two answers to that question is exactly the drift the
- * one-implementation rule exists to prevent.
+ * one-implementation rule exists to prevent. What is left here is the slicing
+ * the contract needs on top of those primitives.
  */
-import { parseMarkdown } from '@editor/index'
+import { lineAt, lineStartsOf, parseMarkdown } from '@editor/index'
 import type { z } from 'zod'
 import type { OutlineEntry } from './contract.js'
 
@@ -18,25 +19,6 @@ export interface Section extends Outline {
   /** 1-based inclusive line range, heading line included. */
   from: number
   to: number
-}
-
-/** Offsets at which each line begins. */
-export function lineStartsOf(text: string): number[] {
-  const starts = [0]
-  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
-  return starts
-}
-
-/** 1-based line for a character offset. Binary search — this runs per hit. */
-export function lineAt(starts: number[], offset: number): number {
-  let lo = 0
-  let hi = starts.length - 1
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1
-    if (starts[mid] <= offset) lo = mid
-    else hi = mid - 1
-  }
-  return lo + 1
 }
 
 /** Lines of `text`, WITHOUT their terminators. A trailing newline is not a final empty line. */

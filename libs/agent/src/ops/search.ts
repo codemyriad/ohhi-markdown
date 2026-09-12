@@ -1,10 +1,9 @@
-import type { GrepHit, Page, SearchHit as IndexHit, VaultIndex } from '@editor/index'
+import { lineAt, lineStartsOf, type GrepHit, type Page, type SearchHit as IndexHit, type VaultIndex } from '@editor/index'
 import type { z } from 'zod'
 import { OP_SCHEMAS, OpError, schemaName, type Span, type SearchHit } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { fromIndexPage } from '../paging.js'
 import { isUnder, normalizeDir } from '../paths.js'
-import { lineAt, lineStartsOf } from '../text.js'
 
 type Hit = z.infer<typeof SearchHit>
 type Match = z.infer<typeof Span>

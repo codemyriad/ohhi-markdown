@@ -1,6 +1,6 @@
 /** Text renderers for the link graph: `links`, `backlinks`, `unresolved`, `tags`, `resolve`. */
 import type { OpOutput } from '@editor/agent'
-import { columnWidth, counters, kv, oneLine, pad, padStart, type Sink } from './format.js'
+import { columnWidth, counters, kv, oneLine, type Sink } from './format.js'
 
 export function renderLinks(o: OpOutput<'links'>, sink: Sink): void {
   for (const l of o.links) {
@@ -38,7 +38,7 @@ export function renderUnresolved(o: OpOutput<'unresolved'>, sink: Sink): void {
 
 export function renderTags(o: OpOutput<'tags'>, sink: Sink): void {
   const width = columnWidth(o.tags, (t) => t.tag, 32)
-  for (const t of o.tags) sink.out(`${pad(t.tag, width)}  ${padStart(String(t.notes), 5)}`)
+  for (const t of o.tags) sink.out(`${t.tag.padEnd(width)}  ${String(t.notes).padStart(5)}`)
   counters(sink, o)
 }
 
