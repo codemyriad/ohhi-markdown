@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.error.v1.schema.json",
+  "title": "ohhi.error.v1",
+  "description": "Any ohhi command that failed, printed on stdout in --json mode. Exit codes: usage 2, conflict 3, everything else 1.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.error.v1"
+    },
+    "code": {
+      "type": "string",
+      "enum": [
+        "usage",
+        "not_found",
+        "conflict",
+        "refused",
+        "runtime"
+      ]
+    },
+    "message": {
+      "type": "string"
+    },
+    "details": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "schema",
+    "code",
+    "message"
+  ],
+  "additionalProperties": false
+}

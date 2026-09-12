@@ -1,0 +1,575 @@
+---
+status: current
+date: 2026-09-12
+---
+
+# Agent access — the `ohhi` CLI, skill and MCP server
+
+The reference for the **agent surface**: how an external harness (Claude Code
+first, any Agent-Skills- or MCP-capable tool after) finds, reads and edits notes
+in a vault. Ground truth for the decisions is
+[`plans/agent-surface-shaping.md`](../plans/agent-surface-shaping.md) (shape A,
+forks 1–4) and its build brief
+[`plans/agent-surface-build.md`](../plans/agent-surface-build.md); this doc is
+the operating reference over those decisions.
+
+The operating manual an *agent* reads is the skill,
+[`.claude/skills/ohhi-vault/SKILL.md`](../.claude/skills/ohhi-vault/SKILL.md).
+This doc is for the human who has to know what the skill is talking about.
+
+---
+
+## 1. What it is, and what it is not
+
+**`ohhi` is files-direct.** It opens the vault folder, reads the canonical `.md`
+files through `@editor/vault`'s Node adapter, builds an in-memory index
+(`libs/index`) for the invocation, answers, and exits. Every write goes through
+the same pre-image journal and temp-fsync-rename that the app's own writes do
+(golden rule 1), then the file on disk is the new truth.
+
+What it deliberately is **not**:
+
+| Not | Why |
+|---|---|
+| A relay client | It never joins a room, holds a token or opens a websocket. No network round-trip ever gates a read (R6). |
+| A CRDT peer | It owns no Y.Doc and no LCA store. Two reconcilers over one folder is the configuration `plans/shaping.md`'s decision log killed; the *running app* is the only reconciler over the vault. |
+| A second index | The CLI and the app query the same `libs/index` contract with the same ranking. A ranking fix is made once (golden rule 8: the index is derived, never a system of record). |
+| A system of record | Losing everything `ohhi` stores costs a rebuild and some undo history, never a note. |
+
+**It works with the app closed and with the app open.** See §9.
+
+**Status.** Slices G1–G4 of `plans/slices.md`. `fm` is read-only until the
+surgical frontmatter patcher (`v2-shaping.md` Spike S3 / read-shaping X3)
+exists — `ohhi` will not reserialize a YAML block (golden rule 2).
+
+---
+
+## 2. Install
+
+Two scripts, both POSIX `sh`, both idempotent, both refusing to clobber anything
+that is not a symlink they made:
+
+```sh
+./scripts/install-ohhi.sh          # rushx build in apps/cli, then ~/.local/bin/ohhi -> apps/cli/bin/ohhi.mjs
+./scripts/install-skill.sh         # ~/.claude/skills/ohhi-vault -> .claude/skills/ohhi-vault
+```
+
+Both take `--force` (replace an existing non-symlink) and `--dry-run` (print the
+plan, touch nothing). `install-ohhi.sh` also takes `--bin-dir <dir>` if
+`~/.local/bin` is not where you want it.
+
+The skill is installed as a **symlink**, on purpose: Cassini's one operational
+gap is a skill that reached `~/.claude/skills` as a hand copy and went stale
+against its repo. A symlink cannot.
+
+Check `~/.local/bin` is on `PATH`; the script says so if it is not.
+
+---
+
+## 3. Selecting the vault
+
+Three ways, in strict precedence order, and **never a guess**:
+
+1. `--vault <path>` — always wins. Must exist and be a directory.
+2. `OHHI_VAULT` in the environment.
+3. A walk up from the current directory for a folder containing `.editor/` or
+   `.obsidian/`.
+
+If the walk-up finds markers at **more than one level**, the CLI refuses with
+exit 2 and names both candidates (`details.candidates` in `--json`). A vault
+inside a vault is genuinely ambiguous and answering from the wrong one is worse
+than not answering. If nothing is found, exit 2 names all three ways to say
+which vault.
+
+**Data directory.** `ohhi` keeps its own pre-image journal (and nothing else of
+consequence) under:
+
+1. `OHHI_DATA_DIR`, else
+2. `$XDG_DATA_HOME/ohhi`, else
+3. `~/.local/share/ohhi`
+
+Per vault it is `<dataDir>/vaults/<id>/journal`, where `<id>` is the first 16 hex
+characters of the sha-256 of the vault's realpath — so two checkouts of the same
+folder share a journal and two different vaults never do. `--data-dir <path>`
+overrides it for one invocation (this is how the tests get a throwaway journal).
+
+The **app's** journal is a separate namespace it owns alone: no shared writer,
+ever. Point `ohhi restore` at it read-only with `--app-store <dir>` (repeatable),
+where `<dir>` is the app's `stores/<room>` directory — see §8.
+
+---
+
+## 4. The contract
+
+Every operation is declared once, in
+[`libs/agent/src/contract.ts`](../libs/agent/src/contract.ts), as a name + a zod
+input schema + a zod output schema + a description. The CLI's flags, its text
+renderer, its `--json` mode, the MCP tool list, the JSON Schemas in `spec/` and
+the conformance test are all **derived** from that file. That is how "one
+implementation" (R3) is enforced instead of hoped. Changing an op's shape is a
+contract change: bump its version, regenerate `spec/`, and update the renderer
+and the skill in the same change.
+
+### Envelope rules
+
+- **Every output document carries `schema: "ohhi.<op>.v1"`.** A reader written
+  against v1 keeps working while v1 is served, and a change of shape is a change
+  of name rather than a silent drift.
+- **Every list carries `returned`, `total`, `nextCursor`.** `nextCursor: null`
+  means the end; `total: null` means the backend could not count cheaply, not
+  that there are none. Cursors are opaque — pass them back, never parse them.
+- **Anything that walks the vault carries `coverage`:**
+  `{ docs, skippedBinary, ignored }` — notes indexed, files seen and not
+  indexed, and the directory names the adapter never lists (`.editor`,
+  `.editor-cache`, `.git`, `.obsidian`, `.trash`, `node_modules` — shared with
+  the app, `libs/vault`'s `IGNORED_DIRS`). This is the honesty counter that keeps
+  "nothing found" from being read as "nothing exists" (R7).
+- **Search returns references and snippets, never bodies** (R4). Reading is
+  `read`, which is addressable below the note and budgeted.
+
+### stdout, stderr, exit codes
+
+**stdout is the answer. stderr is provenance.** In `--json` mode stdout holds
+exactly one JSON object with a trailing newline and nothing else — warnings
+(`note=3 binaries skipped`, `truncated at line 412`) go to stderr in both modes,
+so a pipe into `jq` is always clean.
+
+The **text form is for humans and is not parseable.** Note paths, headings and
+snippets are free text and are not quoted or escaped; anything splitting a line
+on `key=value` pairs will eventually read a note's own words as fields. This is
+stated here and in the skill because the mistake is easy and silent.
+
+| Exit | Meaning | `code` |
+|---|---|---|
+| 0 | Success — **including an empty list or an empty search** | — |
+| 1 | Runtime failure, missing note or section, or a write the core refused | `runtime`, `not_found`, `refused` |
+| 2 | Usage: bad flags, no vault, ambiguous vault | `usage` |
+| 3 | `--expect-hash` mismatch — the note changed since it was read | `conflict` |
+
+An error in `--json` mode prints an `ohhi.error.v1` document on stdout —
+`{ schema, code, message, details? }` — *and* the one-line message on stderr. In
+text mode it prints only the message, on stderr. The line is always
+`ohhi: <code>: <message>`, with the detail lines a usage error carries (candidate
+vaults, the offending field) under it, and — on exit 3 — the standing advice
+*"the note changed since you read it — re-read it and pass the new
+`--expect-hash`"*.
+
+`refused` is the code for a write the core declined on its own rules rather than
+on an I/O failure: a `patch` whose `--old` is not unique, `--create-only` on an
+existing note, more than 20 files without `--yes`, a non-`.md` or binary target,
+a path that leaves the vault.
+
+---
+
+## 5. Global flags
+
+| Flag | Meaning |
+|---|---|
+| `--vault <path>` | The vault root (§3). |
+| `--json` | Print the output document instead of the human form. |
+| `--data-dir <path>` | Override the journal/data directory (§3). |
+| `--app-store <dir>` | The app's store directory, read-only, for `restore`'s union. Repeatable. |
+| `--help`, `-h` | Print the usage. |
+
+`ohhi` with no arguments, `ohhi help` and `ohhi --help` print the usage on
+**stdout** and exit 0 — every op with one line of description (write ops marked
+`*`), the global flags, the three ways to name a vault, the exit codes, and a
+generated one-line grammar per op. An unknown command or an unknown flag prints
+the same usage on **stderr** and exits 2; a bad *value* for a known flag prints
+the one-line pointer `run \`ohhi help\` for the command list` instead.
+
+Both the usage and the MCP tool list are generated from `OP_SCHEMAS` and the
+grammar table — there is no hand-maintained list of commands anywhere.
+
+When the vault was found by walking up rather than named, the CLI says so on
+stderr before answering: `vault=/home/you/notes (found by .obsidian above the
+working directory)`.
+
+---
+
+## 6. Read operations
+
+### `ls [dir]`
+
+List notes, binaries and folders under a directory.
+
+`--depth <n>` (1 = direct children, the default; 0 = the whole subtree) ·
+`--kind text|binary|dir|all` · `--limit` · `--cursor`
+
+```text
+$ ohhi ls Areas/CS --depth 1 --kind text
+text   Areas/CS/HTML.md        size=961B   mtime=2026-03-04T11:02:07.000Z     # stdout
+text   Areas/CS/JSON.md        size=154B   mtime=2025-11-22T09:12:41.000Z
+text   Areas/CS/Networking.md  size=4.1K   mtime=2026-01-18T17:44:00.000Z
+returned=3 total=398 dir=Areas/CS                                             # stderr
+coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .trash, node_modules
+```
+
+```jsonc
+// ohhi ls Areas/CS --depth 1 --kind text --json
+{
+  "schema": "ohhi.ls.v1",
+  "dir": "Areas/CS",
+  "items": [{ "path": "Areas/CS/JSON.md", "kind": "text", "size": 154, "mtime": "2025-11-22T09:12:41.000Z" }],
+  "returned": 3, "total": 398, "nextCursor": "…",
+  "coverage": { "docs": 1037, "skippedBinary": 41, "ignored": [".editor", ".editor-cache", ".git", ".obsidian", ".trash", "node_modules"] }
+}
+```
+
+### `read <path>`
+
+Read a note — whole, its outline, one section, a line range, or its frontmatter —
+within a character budget.
+
+`--outline` · `--section "<heading path>"` · `--lines <a>-<b>` · `--frontmatter` ·
+`--max-chars <n>` (default 20 000)
+
+The modes are **exclusive and resolved in a declared order** —
+`outline`, `frontmatter`, `section`, `lines`, whole note — rather than combined,
+so passing two of them is deterministic rather than surprising. The mode that
+won is named in the output's `mode` field.
+
+- **`--outline`** returns headings with their level, 1-based line and the
+  characters in the section. No body text. It is the cheap first call on any
+  note you have not seen.
+- **`--section`** takes a heading path: `Decisions`, or `Notes/Open questions`
+  for the heading *Open questions* under *Notes*. Matched case-insensitively on
+  the trimmed heading text. The section runs from the heading to the line before
+  the next heading of the same or higher level. A heading that is not there is
+  `not_found` (exit 1).
+- **`--lines`** is 1-based and inclusive.
+- **Truncation is explicit**: `truncated: true` plus `nextLine`, the first line
+  *not* included, to pass back as the start of the next `--lines`. Truncation
+  happens at a line boundary, never mid-line.
+- Every mode returns `size` and `hash` — the sha-256 of the whole file's raw
+  bytes, which is the `--expect-hash` for a later write.
+
+In text mode the note's **text is the only thing on stdout** — path, mode, size,
+hash and the line range go to stderr — so `ohhi read Notes/X.md > X.md` writes
+the note and nothing else. `--outline` and `--frontmatter` print their table on
+stdout instead.
+
+```text
+$ ohhi read "Areas/CS/JSON.md" --outline
+     1  # JSON  (154 chars)                                    # stdout
+     6    ## Gotchas  (71 chars)
+path=Areas/CS/JSON.md headings=2 size=154B hash=9f2c…          # stderr
+```
+
+The hash on that stderr line is the one to pass as `--expect-hash`.
+
+### `search <query>`
+
+Find notes. Returns references and snippets, never bodies.
+
+`--path <prefix>` · `--tag <tag>` · `--mode ranked|exact|regex` (default
+`ranked`, with `--exact` and `--regex` as shorthands) · `--case-sensitive` ·
+`--explain` · `--limit <n>` (default 10) · `--cursor`
+
+Two combinations are refused as usage errors rather than quietly ignored:
+`--case-sensitive` in ranked mode (ranked search is *always* folded and
+case-insensitive — use `--exact` for a case-sensitive match) and `--tag` in
+grep mode (tags come from the index, which grep does not consult). `--path`
+works in both: a query filter in ranked mode, a path prefix in grep mode.
+
+```text
+$ ohhi search "json" --limit 3
+tier=title path=Areas/CS/JSON.md line=1 score=8.41                  # stdout
+        1: # [JSON]
+tier=body path=Edible/Dev Notes/SnapMenu - Restaurant JSON Import.md line=14 score=3.02
+       14: the importer takes a [JSON] payload per restaurant
+tier=body path=Areas/CS/Postgres.md line=88 score=2.77
+       88: `[json]b` columns index better than `[json]`
+returned=3 total=131 query="json" mode=ranked                       # stderr
+coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .trash, node_modules
+hint=ohhi read --outline Areas/CS/JSON.md   (then --section or --lines; never read a long note whole)
+```
+
+Matches are bracketed `[like this]`; snippet lines are collapsed to one line and
+clipped, so a hit inside a 4 KB paragraph never floods the terminal. The counter,
+coverage and hint lines are **stderr**, which is why `ohhi search … --json | jq`
+is clean and a human still sees all of it.
+
+Each hit is `{ path, tier, score, line, snippets[], explain? }`. `tier` is the
+ranking structure, not a decoration:
+
+| `tier` | Meaning |
+|---|---|
+| `title` | The folded basename **is** the query. For a one-word query this is nearly always the note meant. |
+| `path` | Every query term appears in the path. |
+| `body` | Ranked on content (BM25F over body + headings, with a phrase bonus). |
+| `grep` | `--mode exact` / `--mode regex`: an unranked literal match in document order. `score` carries no meaning. |
+
+Results are ordered tier → score → recency (tie-break only) → path.
+
+**Ranked search excludes URL text and fenced code blocks from its terms** — the
+measured reason is in the shaping doc: a 64 KB music note with "html" inside 40
+URLs otherwise buries the 961-byte note actually called `HTML.md`. The raw text
+is kept, so `--mode exact` and `--mode regex` still find those occurrences;
+inline code is still indexed.
+
+`--explain` adds per-hit rows of `{ term, field, contribution }` with `field` in
+`body | title | heading | phrase`. It is off by default because it is not free.
+
+### `links <path>`
+
+Wikilinks written in a note, with their resolution: `{ target, alias, anchor,
+embed, resolved, line, context }`. `resolved: null` is an unresolved link.
+
+`--limit` · `--cursor`
+
+### `backlinks <target>`
+
+Notes that link to a target — a vault path, or a bare note name as a wikilink
+writes it — with the line around each link.
+
+`--limit` · `--cursor`
+
+### `unresolved`
+
+Wikilinks whose target does not exist: the note-creation queue. An unresolved
+**embed** is a missing attachment, not a note to write, and is flagged as such.
+
+`--limit` · `--cursor`
+
+### `tags`
+
+Tags in the vault with note counts. `--limit` · `--cursor`
+
+### `resolve <target>`
+
+Resolve a wikilink target to a vault path the way the editor does, so a tool and
+the app agree on where `[[Docs]]` points. `--from <path>` gives the note the link
+is written in, for proximity tie-breaks. `path: null` when nothing matches.
+
+### `stats`
+
+What the index covers, and what it cost:
+
+```text
+$ ohhi stats
+vault=/home/chris/Documents/black book                     # stdout
+docs=1037 terms=48210 links=949 unresolved=114 tags=37
+skippedBinary=41 ignored=.editor,.editor-cache,.git,.obsidian,.trash,node_modules
+buildMs=253 indexSchemaVersion=3                           # stderr
+```
+
+`buildMs` is the cold index build for **this invocation** — the number the
+`< 500 ms` cold-start budget (R6) is measured against.
+
+### `changes --since <iso|j<seq>>`
+
+Paths changed since an instant or since a journal sequence, so an agent resumes
+instead of restarting (R4.1).
+
+`--since` takes an ISO-8601 instant (`2026-09-12T09:00:00Z`) or a journal
+sequence as `j<n>`. The answer is the union of two sources:
+
+| `kind` | Source |
+|---|---|
+| `created` | A path on disk with an mtime after `since` and no earlier journal entry. |
+| `modified` | A path on disk with an mtime after `since`. |
+| `journaled` | A pre-image record — a write this tool made — with `seq` after `since`. |
+
+Sorted by `at`. The answer carries **`cursorSince`**: pass it back as the next
+`--since` and you get exactly what moved in between.
+
+---
+
+## 7. Write operations
+
+All of them: pre-image journaled, then written temp-fsync-rename through the
+adapter, with the note's recorded EOL flavour and BOM restored so a CRLF file
+stays byte-identical where it was not edited (golden rule 1 and 2). All of them
+take `--dry-run` (compute everything, write nothing) and, except `mv`/`rm`,
+`--expect-hash <h>` (refuse unless the note's current hash is `h`; exit 3
+otherwise).
+
+### `write <path>`
+
+Create or replace a note. Text comes from `--text <s>` or stdin.
+
+`--create-only` (refuse when the note exists) · `--expect-hash` · `--dry-run`
+
+Refused for a non-`.md` path or text that looks binary. Returns `created`,
+`bytes`, `hash`, and `journalSeq` — the sequence of the pre-image taken before
+the write, `null` when the note was new or on a dry run.
+
+**Prefer `patch`.** A whole-file `write` used to make a small edit discards
+anything that changed underneath you.
+
+### `patch <path> --old <s> --new <s>`
+
+Replace one exact string. `--old` must occur **exactly once** unless `--all` is
+given; otherwise the write is refused with `details.occurrences` and nothing is
+written. This unique-match rule is what makes a patch safe against a note a human
+may have touched since it was read.
+
+`--all` · `--expect-hash` · `--dry-run`
+
+### `append <path>`
+
+Append text (from `--text` or stdin) at the end of the note, or — with
+`--section "<heading path>"` — at the end of that section, before the next
+heading of the same or higher level, keeping one blank line. Returns the 1-based
+`line` the appended text starts on.
+
+`--section` · `--expect-hash` · `--dry-run`
+
+### `fm <path>`
+
+Read a note's frontmatter. Flat subset: `key: scalar`, `key: [a, b]`, block
+lists of scalars. Anything nested returns `supported: false` with the raw block
+and no entries, rather than a lossy parse.
+
+**There is no `fm set`.** Writing frontmatter waits for the surgical
+byte-preserving patcher (Spike S3 / read-shaping X3) — reserialising a YAML block
+would rewrite bytes nobody edited, which golden rule 2 forbids. The flat reader
+in `libs/agent/src/frontmatter-read.ts` is a stand-in that `libs/frontmatter`
+replaces; its file header says so.
+
+### `mv <from> <to>`
+
+Move or rename a note or a directory. The target must not exist (`refused`). A
+directory holding more than 20 files needs `--yes` — mirroring the app's
+mass-change breaker rather than tripping it. Journaled as a rename.
+
+`--yes` · `--dry-run`
+
+### `rm <path>`
+
+Move a note or folder to `.trash/<path>` — Obsidian's convention — creating
+`.trash/` and suffixing `~1`, `~2`… on collision. **It never unlinks.** Same
+20-file rule as `mv`.
+
+`--yes` · `--dry-run`
+
+### `restore <path>`
+
+The command four docs promised and nothing implemented until now.
+
+`--list` lists the pre-images available for a path, newest first, each with
+`seq`, `at`, `size` and `source` — `cli` for this tool's journal, `app` for the
+running editor's, when one was given with `--app-store`. Restoring journals the
+*current* bytes first (so a restore is itself undoable), then writes the chosen
+pre-image; the default is the latest of any source.
+
+`--list` · `--seq <n>` · `--dry-run`
+
+---
+
+## 8. Coexistence with a running app
+
+**Reads are never stale.** `ohhi` reads the files, and the app's writes reach
+disk atomically, so a read either sees the old bytes or the new ones and never a
+torn file.
+
+**A write reaches a running app through its own disk path.** The sequence, all of
+it code that already exists for git and Obsidian:
+
+1. `ohhi` journals the note's current bytes, then writes the new bytes
+   temp-fsync-rename.
+2. The app's recursive watcher fires; the change is quiesced (30 ms on the
+   injected clock) so a burst is one event.
+3. The reconciler classifies the note against its LCA. Disk-ahead is ingested as
+   `disk`-origin character ops into the live Y.Doc — **including when the note is
+   open in a pane**: what the open-doc rule skips is *materialization*, not
+   ingest. The user watches the paragraph appear.
+4. If the user also had unflushed edits to the same note, it is a genuine
+   three-way divergence and lands in the **review UI**. It never becomes a
+   `.conflict` file, and neither side silently wins.
+5. A batch of 20+ paths trips the app's mass-change breaker and pauses behind a
+   confirm dialog listing the files. `ohhi` refuses a directory `mv`/`rm` over 20
+   files without `--yes` to mirror that rather than trip it.
+
+No lock, no handshake, no "please close the editor". The agent does not need to
+know whether the app is running.
+
+The behaviour above is pinned by **Spike S11**,
+[`plans/spike-s11-agent-write-coexistence.md`](../plans/spike-s11-agent-write-coexistence.md),
+and by its L1 fixture (`libs/workspace/test/agent-write-coexistence.test.ts`) —
+which is where the answers live for: ingest into an open note without fighting
+the caret (S11-Q1), a pending flush against an agent write (S11-Q2), the
+stale-echo ring when an agent reverts its own edit (S11-Q3), whether `restore`
+needs a total order across both journals (S11-Q4), and whether refusing >20 files
+is enough against the breaker (S11-Q5). Read the spike before changing any of it.
+
+**Journals do not merge.** The app writes its own namespace, `ohhi` writes its
+own, and neither is a writer in the other's. `restore` reads the union and
+labels each entry's `source`.
+
+---
+
+## 9. `ohhi mcp` — the MCP server
+
+A stdio MCP server over the same core, in `apps/cli/src/mcp.ts`. One tool per op,
+named `ohhi_<op>`; input schemas are generated from the same zod schemas
+(`z.toJSONSchema`), descriptions come from the registry, and each result is the
+`--json` document as text content. An `OpError` comes back as `isError: true`
+carrying the `ohhi.error.v1` document. The vault is resolved once at start-up,
+from `--vault`, the environment, or the cwd.
+
+```sh
+claude mcp add ohhi -- ohhi mcp --vault "/home/you/Documents/black book"
+```
+
+This is the replacement for the third-party `@bitbonsai/mcpvault` entry in
+`~/.claude.json`. For Claude Code the **skill is the better route** — it costs no
+resident tool definitions and it carries the operating discipline — so the MCP
+server exists for harnesses that cannot run a skill.
+
+The tool list is generated, never hand-written: a new op in `contract.ts` is a
+new MCP tool with no further work. The MCP SDK is imported lazily, only when
+`ohhi mcp` is the command — a cold `ohhi search` must not pay for ~200 KB of
+transport it never uses (R6).
+
+---
+
+## 10. `spec/` and the conformance test
+
+`spec/` holds a JSON Schema per output document —
+`spec/ohhi.<op>.v1.schema.json` plus `spec/ohhi.error.v1.schema.json` — with
+`$id: https://ohhi.md/schema/ohhi.<op>.v1.schema.json`. They are **generated**
+from `libs/agent/src/contract.ts` and committed:
+
+```sh
+cd apps/cli && rushx gen-schemas
+```
+
+Regenerate, never hand-edit. `apps/cli/test/conformance.test.ts` is the gate,
+and it asserts three things:
+
+1. **No drift** — the schema on disk for every op equals the freshly generated
+   one. A contract change that did not regenerate `spec/` fails here.
+2. **Real output validates** — every op is run through `run([…, '--json'])` over
+   a fixture vault and the stdout document is parsed by
+   `OP_SCHEMAS[op].output`.
+3. **Exit codes are a contract** — 0 on an empty search, 2 on an unknown op and
+   on no vault, 3 on an `--expect-hash` mismatch, 1 on a `read` of a missing
+   note.
+
+---
+
+## 11. Where the code is
+
+| Path | What |
+|---|---|
+| `libs/agent/src/contract.ts` | **The contract.** Every op's name, schemas and description. |
+| `libs/agent/src/backend.ts` | `VaultBackend` — root, adapter, lazy index, docs, journal, clock, coverage. |
+| `libs/agent/src/select-vault.ts` | Vault selection and the data directory. |
+| `libs/agent/src/ops/` | One file per op, registered in `ops/index.ts`. |
+| `apps/cli/src/run.ts` | `run(argv, io) => exit code` — no framework, `node:util` `parseArgs`. |
+| `apps/cli/src/render/` | The text renderers (humans only). |
+| `apps/cli/src/mcp.ts` | The stdio MCP server. |
+| `apps/cli/src/gen-schemas.ts` | Writes `spec/`. |
+| `spec/` | The generated JSON Schemas. |
+| `.claude/skills/ohhi-vault/SKILL.md` | The agent-facing operating manual. |
+
+`libs/agent` is host-neutral: it knows nothing about a process, a terminal or a
+transport, and it takes an injected `Clock` (golden rule 5) — the CLI passes
+`RealClock`, tests pass `SimClock`. When V3 lands `apps/agentd` and the
+live-session agent peer, `VaultBackend` gains an app-backed implementation and
+the CLI and MCP server gain presence without a second vocabulary.
+
+Running the tests and the cold-start bench:
+[`running-and-testing.md`](running-and-testing.md) §3.

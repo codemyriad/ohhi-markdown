@@ -103,6 +103,56 @@ describe('parseMarkdown', () => {
   })
 })
 
+/**
+ * `indexBody` is what the tokenizer sees: `body` with the noise blanked. The
+ * one rule that cannot bend is that it is the SAME LENGTH as `body`, because
+ * every span, snippet and caret offset in the app indexes into the raw text.
+ */
+describe('parseMarkdown — indexBody', () => {
+  const index = (text: string): string => parseMarkdown(text).indexBody
+
+  it('never changes the length of the text', () => {
+    for (const text of [
+      'plain prose',
+      'see https://example.invalid/html/x and www.example.invalid/docs',
+      '[label](https://example.invalid/json)',
+      '```ts\nconst testing = 1\n```\nafter',
+      '---\ntitle: x\n---\n# H\n\nhttps://a.invalid/b',
+    ]) {
+      expect(index(text).length).toBe(parseMarkdown(text).body.length)
+    }
+  })
+
+  it('blanks a bare URL and a www run, keeping the surrounding words', () => {
+    const out = index('read https://example.invalid/html/page.html and www.example.invalid/docs now')
+    expect(out).toContain('read')
+    expect(out).toContain('now')
+    expect(out).not.toContain('html')
+    expect(out).not.toContain('docs')
+  })
+
+  it('blanks only the TARGET of a markdown link, never its text', () => {
+    const out = index('[the json guide](https://example.invalid/json/guide)')
+    expect(out).toContain('the json guide')
+    expect(out.match(/json/g)).toHaveLength(1)
+  })
+
+  it('blanks fenced code but keeps inline code', () => {
+    const out = index('use `zephyrine` here\n\n```\nzephyrine zephyrine\n```\n')
+    expect(out.match(/zephyrine/g)).toHaveLength(1)
+  })
+
+  it('keeps newlines inside blanked regions, so line numbers still work', () => {
+    const text = '```\na\nb\n```\ntail'
+    expect(index(text).split('\n')).toHaveLength(text.split('\n').length)
+  })
+
+  it('leaves a note with no links or fences untouched', () => {
+    const text = '# H\n\njust prose, nothing to blank.'
+    expect(index(text)).toBe(parseMarkdown(text).body)
+  })
+})
+
 describe('PathResolver', () => {
   const paths = [
     'Areas/CS/Systems Programming.md',

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.write.v1.schema.json",
+  "title": "ohhi.write.v1",
+  "description": "Create or replace a note (journaled, atomic).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.write.v1"
+    },
+    "path": {
+      "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+      "type": "string",
+      "minLength": 1
+    },
+    "created": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string"
+    },
+    "journalSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema",
+    "path",
+    "created",
+    "bytes",
+    "hash",
+    "journalSeq",
+    "dryRun"
+  ],
+  "additionalProperties": false
+}

@@ -210,6 +210,226 @@ export function describeIndexConformance(name: string, make: IndexFactory): void
       })
     })
 
+    /**
+     * Ranking STRUCTURE (plans/agent-surface-shaping.md A10, Fork 3-B). The
+     * measured vault has hundreds of one-generic-noun filenames whose own word
+     * is also its most frequent body term, so "the note called X" can only win
+     * by a tier — a weight is always one more mention from being wrong. A
+     * backend that answers `search` must compute the tier; it is a pure
+     * function of the query and the path, so bm25() alone is not an excuse.
+     */
+    describe('tiers', () => {
+      it('labels every hit with the field that earned it its place', async () => {
+        const index = build()
+        const { items } = await index.search('memory')
+        expect(items.length).toBeGreaterThan(0)
+        for (const hit of items) expect(['title', 'path', 'body']).toContain(hit.tier)
+      })
+
+      it('puts the note NAMED by the query first, even with no body mention', async () => {
+        const index = make()
+        index.rebuild([
+          // The measured `Docs` case: the note called it says it zero times,
+          // and a much larger note says it constantly.
+          { guid: 'a', path: 'Edible/Docs.md', text: '# Product writing\n\nHandbook and guides.' },
+          {
+            guid: 'b',
+            path: 'Areas/CS/Electron.md',
+            text: Array.from({ length: 40 }, (_, i) => `line ${i} about docs and more docs`).join('\n'),
+          },
+        ])
+        const { items } = await index.search('docs')
+        expect(items[0].path).toBe('Edible/Docs.md')
+        expect(items[0].tier).toBe('title')
+      })
+
+      it('orders tier BEFORE score — no body hit precedes a path hit', async () => {
+        const index = build()
+        const { items } = await index.search('memory')
+        const rank = { title: 0, path: 1, body: 2 }
+        const seq = items.map((i) => rank[i.tier])
+        expect([...seq].sort((a, b) => a - b)).toEqual(seq)
+      })
+
+      it('lets recency break a tie inside a tier and never across one', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'a', path: 'Notes/topic one.md', text: 'zephyrine' },
+          { guid: 'b', path: 'Notes/topic two.md', text: 'zephyrine' },
+          { guid: 'c', path: 'Notes/Zephyrine.md', text: 'nothing to say' },
+        ])
+        const cold = await index.search('zephyrine')
+        expect(cold.items[0].path).toBe('Notes/Zephyrine.md')
+        const warm = await index.search('zephyrine', { recent: ['Notes/topic two.md'] })
+        // The title tier still wins; recency only reorders the two body hits.
+        expect(warm.items[0].path).toBe('Notes/Zephyrine.md')
+        expect(warm.items[1].path).toBe('Notes/topic two.md')
+      })
+    })
+
+    /**
+     * Noise exclusion. URL text, markdown link targets and fenced code are not
+     * prose and must never outrank it — but nothing may become UNFINDABLE, so
+     * `grep` below reads the raw text.
+     */
+    describe('what ranking refuses to count', () => {
+      it('does not rank a term that only appears inside a URL', async () => {
+        const index = make()
+        index.rebuild([
+          {
+            guid: 'dump',
+            path: 'Areas/Life/Music.md',
+            text: Array.from(
+              { length: 30 },
+              (_, i) => `- [album ${i}](https://example.invalid/html/album-${i}.html)`
+            ).join('\n'),
+          },
+          { guid: 'real', path: 'Areas/CS/Notes.md', text: 'a sentence about html parsing' },
+        ])
+        const { items } = await index.search('html')
+        expect(items.map((i) => i.path)).toEqual(['Areas/CS/Notes.md'])
+      })
+
+      it('does not rank a term that only appears inside a fenced code block', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'fenced', path: 'a.md', text: '# A\n\n```\nzephyrine zephyrine\n```\n' },
+        ])
+        expect((await index.search('zephyrine')).items).toEqual([])
+      })
+
+      it('still ranks inline code, which is written in sentences', async () => {
+        const index = make()
+        index.rebuild([{ guid: 'inline', path: 'a.md', text: 'call `zephyrine` first' }])
+        expect((await index.search('zephyrine')).items.map((i) => i.path)).toEqual(['a.md'])
+      })
+
+      it('keeps every offset valid — blanking must not shift positions', async () => {
+        const index = make()
+        const text = '[x](https://example.invalid/html) and zephyrine here'
+        index.rebuild([{ guid: 'a', path: 'a.md', text }])
+        const [hit] = (await index.search('zephyrine')).items
+        expect(text.slice(hit.spans[0].from, hit.spans[0].to)).toBe('zephyrine')
+      })
+    })
+
+    describe('explain', () => {
+      it('is absent unless asked for — it costs a pass per hit', async () => {
+        const index = build()
+        const [hit] = (await index.search('memory')).items
+        expect(hit.explain).toBeUndefined()
+      })
+
+      it('reports one row per (term, field) whose contributions sum to the score', async () => {
+        const index = build()
+        const [hit] = (await index.search('memory', { explain: true })).items
+        expect(hit.explain).toBeDefined()
+        expect(hit.explain!.length).toBeGreaterThan(0)
+        for (const row of hit.explain!) {
+          expect(typeof row.term).toBe('string')
+          expect(['body', 'title', 'heading', 'phrase']).toContain(row.field)
+        }
+        const sum = hit.explain!.reduce((n, r) => n + r.contribution, 0)
+        expect(sum).toBeCloseTo(hit.score, 6)
+      })
+
+      it('names the phrase bonus when a multi-term query is adjacent and in order', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'a', path: 'a.md', text: 'the zephyrine cascade is documented here' },
+          { guid: 'b', path: 'b.md', text: 'zephyrine alone. and a cascade, elsewhere.' },
+        ])
+        const { items } = await index.search('zephyrine cascade', { explain: true })
+        expect(items[0].path).toBe('a.md')
+        expect(items[0].explain!.some((r) => r.field === 'phrase')).toBe(true)
+        expect(items[1].explain!.some((r) => r.field === 'phrase')).toBe(false)
+      })
+    })
+
+    /**
+     * `grep` — unranked, document order, over the RAW text. It is the contract's
+     * honesty clause: ranking hides URL text and fenced code, so there has to be
+     * one call that hides nothing.
+     */
+    describe('grep', () => {
+      it('returns a promise and a paged result like every other query', async () => {
+        const index = build()
+        expect(index.grep('memory')).toBeInstanceOf(Promise)
+        const page = await index.grep('memory', { limit: 1 })
+        expect(page.items.length).toBeLessThanOrEqual(1)
+        expect(page.total).toBeGreaterThan(1)
+        expect(page.nextCursor).not.toBeNull()
+      })
+
+      it('matches case-insensitively by default and exactly when asked', async () => {
+        const index = make()
+        index.rebuild([{ guid: 'a', path: 'a.md', text: 'Memory and memory' }])
+        expect((await index.grep('memory')).total).toBe(1)
+        const [hit] = (await index.grep('memory')).items
+        expect(hit.spans.length).toBe(2)
+        const [strict] = (await index.grep('Memory', { caseSensitive: true })).items
+        expect(strict.spans.length).toBe(1)
+      })
+
+      it('treats the pattern as literal text unless regex is asked for', async () => {
+        const index = make()
+        index.rebuild([{ guid: 'a', path: 'a.md', text: 'a.b and axb' }])
+        expect((await index.grep('a.b')).total).toBe(1)
+        expect((await index.grep('a.b', { regex: true })).items[0].spans.length).toBe(2)
+      })
+
+      it('reports a line number and the whole line, with spans relative to it', async () => {
+        const index = build()
+        const [hit] = (await index.grep('TLB')).items
+        expect(hit.line).toBeGreaterThan(1)
+        expect(hit.lineText).toContain('TLB')
+        expect(hit.lineText.slice(hit.spans[0].from, hit.spans[0].to)).toBe('TLB')
+      })
+
+      it('returns document order — by path, then by line', async () => {
+        const index = build()
+        const { items } = await index.grep('memory', { limit: 100 })
+        for (let i = 1; i < items.length; i++) {
+          const prev = items[i - 1]
+          const cur = items[i]
+          expect(prev.path < cur.path || (prev.path === cur.path && prev.line < cur.line)).toBe(true)
+        }
+      })
+
+      it('scopes to a path prefix', async () => {
+        const index = build()
+        const { items } = await index.grep('memory', { pathPrefix: 'Areas/', limit: 100 })
+        expect(items.length).toBeGreaterThan(0)
+        expect(items.every((i) => i.path.startsWith('Areas/'))).toBe(true)
+      })
+
+      it('finds what ranking deliberately excludes', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'a', path: 'a.md', text: '- [x](https://example.invalid/html/page.html)' },
+        ])
+        expect((await index.search('html')).items).toEqual([])
+        expect((await index.grep('html')).total).toBe(1)
+      })
+
+      it('rejects an invalid regex rather than reporting an empty vault', async () => {
+        const index = build()
+        await expect(index.grep('[unclosed', { regex: true })).rejects.toThrow()
+      })
+
+      it('anchors ^ and $ to lines, as a grep pattern is meant to', async () => {
+        const index = make()
+        index.rebuild([{ guid: 'a', path: 'a.md', text: 'one\ntwo\nthree' }])
+        const { items } = await index.grep('^two$', { regex: true })
+        expect(items.map((h) => h.line)).toEqual([2])
+      })
+
+      it('does not hang on a pattern that can match nothing', async () => {
+        const index = build()
+        await expect(index.grep('x*', { regex: true })).resolves.toBeDefined()
+      })
+    })
+
     describe('quick-open', () => {
       it('subsequence-matches a path', async () => {
         const index = build()

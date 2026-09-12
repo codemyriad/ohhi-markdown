@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.resolve.v1.schema.json",
+  "title": "ohhi.resolve.v1",
+  "description": "Resolve a wikilink target to a vault path the way the editor does.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.resolve.v1"
+    },
+    "target": {
+      "type": "string"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "target",
+    "path"
+  ],
+  "additionalProperties": false
+}

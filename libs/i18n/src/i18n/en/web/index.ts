@@ -342,6 +342,14 @@ const palette = {
   search: { placeholder: 'Search the vault…   (tag:#x, path:folder/)', empty: 'Nothing found' },
   recent: 'recent',
   filename_match: 'filename match',
+  /**
+   * Why a search result is where it is (plans/agent-surface-shaping.md A10).
+   * Results are ordered by TIER before score, and the tier is the one thing a
+   * reader cannot infer from the snippet — a note called `Docs` that never
+   * says "docs" shows no snippet at all. Body-tier rows keep their existing
+   * subtitle (`filename_match`, or none).
+   */
+  tier: { title: 'note title', path: 'path match' },
 }
 
 const commands = {

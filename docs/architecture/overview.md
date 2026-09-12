@@ -1,6 +1,6 @@
 ---
 status: V1 design — update as built
-date: 2026-06-12
+date: 2026-09-12
 ---
 
 # Architecture overview — V1 tracer bullet
@@ -31,7 +31,7 @@ flowchart TB
     end
     disk[("Vault folder on disk<br/>plain .md files — canonical")]
     relay["apps/relay — Hocuspocus v4 + SQLite<br/>on a Fly.io volume"]
-    external["External writers<br/>git · Claude Code · Obsidian"]
+    external["External writers<br/>git · Obsidian · <b>ohhi CLI / ohhi mcp</b><br/>(apps/cli over libs/agent)"]
     testkit["libs/testkit — TestNetwork · memfs fuzz driver · injected clock/scheduler"]
 
     ui --> editor
@@ -69,9 +69,12 @@ Rush monorepo, packages named `@editor/<name>`, created per-slice (shaping D10).
 | `libs/index` | The vault's **derived** index: full text, links, tags, headings, frontmatter keys. Droppable by construction, never a system of record. One swap-proof query interface over an in-memory backend; SQLite/FTS5 sits behind a measured trigger (`plans/v2-shaping.md` Fork 1). |
 | `libs/editor-lang` | Markdown language extras for CM6 — the `[[wikilink]]` `MarkdownConfig` on upstream `@codemirror/lang-markdown`, its decorations, click-through and completion. Live-preview decorations land here too. |
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
+| `libs/agent` | The **agent surface's command core** (G1): `VaultBackend` over `@editor/vault`'s Node adapter + `libs/index` + a CLI-owned pre-image journal, and the 17 ops — `ls`, `read`, `search`, `links`, `backlinks`, `unresolved`, `tags`, `resolve`, `stats`, `changes`, `write`, `patch`, `append`, `fm`, `mv`, `rm`, `restore` — declared once in `src/contract.ts`. Host-neutral: no process, no terminal, no transport. See [agent-access.md](../agent-access.md). |
+| `apps/cli` | The **`ohhi`** binary: `run(argv, io) => exit code`, text for humans and `--json` for machines, plus `ohhi mcp` (a stdio MCP server) and `gen-schemas` (writes `spec/`). esbuild-bundled so a cold invocation beats ~500 ms. A thin adapter over `libs/agent` — it holds no vocabulary of its own. |
 
-Split-on-demand later: `libs/agent`, `apps/agentd` (V3). Don't reference them
-before their slice creates them.
+Split-on-demand later: `apps/agentd` (V3). Don't reference it before its slice
+creates it. `libs/agent` arrived early, with the agent surface (G1), for the
+purpose D10 reserved it for.
 
 ## Dependency rules
 
@@ -103,6 +106,13 @@ harness possible.
    handed to it. It never reads disk, never touches the engine, and is fed from
    exactly one place (the workspace's index sink) — an index with N writers
    drifts from the vault.
+8. **`libs/agent` never imports `libs/sync` or `libs/workspace`.** The agent
+   surface is *files-direct*: it reads the canonical files and writes them
+   journaled + atomic, and the running app's reconciler is the only reconciler
+   over the folder. A second CRDT peer or a second LCA store on the same disk is
+   the configuration [shaping](../../plans/shaping.md)'s decision log killed, and
+   `plans/agent-surface-shaping.md` Fork 1 buried again. `apps/cli` depends on
+   `libs/agent` and adds flags, rendering and a transport — never an operation.
 
 ## The two file modes
 

@@ -29,7 +29,15 @@ import { z } from 'zod'
 
 export const SCHEMA_PREFIX = 'ohhi'
 export const CONTRACT_VERSION = 1
-export const schemaName = (op: string): string =>
+/**
+ * The envelope name, typed as the LITERAL it is: `schemaName('ls')` has type
+ * `'ohhi.ls.v1'`, so `z.literal(schemaName('ls'))` pins the output document's
+ * `schema` field instead of widening it to `string` — the envelope rule
+ * (rule 1) enforced by the compiler, not by review.
+ */
+export const schemaName = <N extends string>(
+  op: N
+): `${typeof SCHEMA_PREFIX}.${N}.v${typeof CONTRACT_VERSION}` =>
   `${SCHEMA_PREFIX}.${op}.v${CONTRACT_VERSION}`
 
 // ---- shared pieces --------------------------------------------------------
@@ -419,6 +427,13 @@ export const RestoreIn = z.object({
   list: z.boolean().optional(),
   /** Which pre-image to restore; default the latest. */
   seq: z.number().int().nonnegative().optional(),
+  /**
+   * Which journal `seq` belongs to. The two journals have INDEPENDENT sequence
+   * spaces (separate directories, no shared writer — S11-Q4), so `seq: 1` can
+   * name two different pre-images; without this the newer one wins and the
+   * other is unreachable. `--list` prints the source of every entry.
+   */
+  source: z.enum(['cli', 'app']).optional(),
   dryRun: z.boolean().optional(),
 })
 export const RestoreOut = z.object({
@@ -469,7 +484,7 @@ export class OpError extends Error {
     this.name = 'OpError'
   }
   toJSON(): z.infer<typeof ErrorOut> {
-    return { schema: schemaName('error') as z.infer<typeof ErrorOut>['schema'], code: this.code, message: this.message, details: this.details }
+    return { schema: schemaName('error'), code: this.code, message: this.message, details: this.details }
   }
 }
 

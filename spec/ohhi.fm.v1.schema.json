@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.fm.v1.schema.json",
+  "title": "ohhi.fm.v1",
+  "description": "Read a note’s frontmatter (flat subset). Writing frontmatter is not available yet.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.fm.v1"
+    },
+    "path": {
+      "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+      "type": "string",
+      "minLength": 1
+    },
+    "frontmatter": {
+      "type": "object",
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "raw": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null",
+                  "list",
+                  "date"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "key",
+              "value",
+              "type",
+              "line"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "supported": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "present",
+        "supported"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "path",
+    "frontmatter"
+  ],
+  "additionalProperties": false
+}

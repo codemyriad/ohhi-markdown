@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.read.v1.schema.json",
+  "title": "ohhi.read.v1",
+  "description": "Read a note — whole, its outline, one section, a line range, or its frontmatter — within a character budget.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.read.v1"
+    },
+    "path": {
+      "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "full",
+        "outline",
+        "section",
+        "lines",
+        "frontmatter"
+      ]
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "from": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "to": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "nextLine": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "outline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "text": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "chars": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "level",
+          "text",
+          "line",
+          "chars"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "frontmatter": {
+      "type": "object",
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "raw": {
+          "type": "string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null",
+                  "list",
+                  "date"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "key",
+              "value",
+              "type",
+              "line"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "supported": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "present",
+        "supported"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "path",
+    "mode",
+    "size",
+    "hash",
+    "truncated"
+  ],
+  "additionalProperties": false
+}

@@ -10,28 +10,34 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { MemoryIndex } from '../src/index.js'
 import type { IndexDoc } from '../src/types.js'
 
 const VAULT = process.env.EDITOR_BENCH_VAULT
 
-describe.skipIf(!VAULT)('real-vault benchmark', () => {
-  it('stays under the Fork 1 trigger', async () => {
-    const docs: IndexDoc[] = []
-    const walk = (dir: string, rel = ''): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        if (e.name.startsWith('.')) continue
-        const abs = join(dir, e.name)
-        const r = rel ? `${rel}/${e.name}` : e.name
-        if (e.isDirectory()) walk(abs, r)
-        else if (e.name.endsWith('.md')) {
-          docs.push({ guid: r, path: r, text: readFileSync(abs, 'utf8') })
-        }
+/** Read the vault into IndexDocs. Read-only, `.`-prefixed dirs skipped. */
+function loadVault(root: string): IndexDoc[] {
+  const docs: IndexDoc[] = []
+  const walk = (dir: string, rel = ''): void => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue
+      const abs = join(dir, e.name)
+      const r = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) walk(abs, r)
+      else if (e.name.endsWith('.md')) {
+        docs.push({ guid: r, path: r, text: readFileSync(abs, 'utf8') })
       }
     }
+  }
+  walk(root)
+  return docs
+}
+
+describe.skipIf(!VAULT)('real-vault benchmark', () => {
+  it('stays under the Fork 1 trigger', async () => {
     const t0 = performance.now()
-    walk(VAULT!)
+    const docs = loadVault(VAULT!)
     const readMs = performance.now() - t0
 
     const index = new MemoryIndex()
@@ -82,5 +88,77 @@ describe.skipIf(!VAULT)('real-vault benchmark', () => {
     // A keystroke must not cost a frame. Before the link graph became
     // incremental this was 11.9 ms on this corpus.
     expect(keystrokeMs, 'per-keystroke index cost').toBeLessThan(4)
+  })
+})
+
+/**
+ * THE SEVEN PROBES, on the real vault (plans/agent-surface-shaping.md,
+ * "Evidence — the real vault, measured for search"; requirement R5).
+ *
+ * These are the exact queries and the exact notes from the evidence table:
+ * single generic nouns whose word is also the vault's most frequent body term.
+ * Before the tiered ranking pass, ONE of the seven put the right note first —
+ * `networking`, and only because nothing large competes for it. All seven do
+ * now, and this is what fails if a weight gets nudged.
+ *
+ * Gated on EDITOR_BENCH_VAULT so CI never depends on a real vault; the same
+ * probes run in CI against the synthetic corpus in
+ * test/ranking-corpus.test.ts.
+ */
+const PROBES: { query: string; expect: string; competitor?: string }[] = [
+  // 1.1 KB; its body says "docs" ZERO times, and 296 other notes say it.
+  { query: 'Docs', expect: 'Edible/Docs.md' },
+  // 154 B, against a 30 KB note with 58 "json" mentions.
+  { query: 'JSON', expect: 'Areas/CS/JSON.md' },
+  // 961 B, against a 64 KB music list whose 39 "html" hits are all in URLs.
+  { query: 'HTML', expect: 'Areas/CS/HTML.md', competitor: 'Areas/Life/Music.md' },
+  { query: 'Svelte', expect: 'Areas/CS/Svelte.md' },
+  { query: 'Testing', expect: 'Areas/CS/Testing.md' },
+  // 120 B.
+  { query: 'Writing', expect: 'TODO/Writing.md' },
+  // The query Obsidian had open when the vault was measured.
+  { query: 'networking', expect: 'Areas/CS/Networking.md' },
+]
+
+describe.skipIf(!VAULT)('real-vault search precision (R5)', () => {
+  let index: MemoryIndex
+
+  beforeAll(() => {
+    index = new MemoryIndex()
+    index.rebuild(loadVault(VAULT!))
+  })
+
+  for (const { query, expect: wanted, competitor } of PROBES) {
+    it(`"${query}" puts ${wanted} first`, async () => {
+      const { items, total } = await index.search(query, { limit: 3 })
+      const top = items.map((h) => `${h.tier} ${h.path}`).join(' | ')
+      console.log(`${query}: total=${total} → ${top}`)
+      expect(items[0]?.path, top).toBe(wanted)
+      expect(items[0].tier).toBe('title')
+      if (competitor) {
+        // The URL dump must not merely lose — it must not be on the page at all.
+        const page = await index.search(query, { limit: 10 })
+        expect(page.items.map((h) => h.path)).not.toContain(competitor)
+      }
+    })
+  }
+
+  it('grep still finds what ranking refuses to rank', async () => {
+    // `Areas/Life/Music.md` mentions "html" only inside URLs. Excluding it from
+    // ranking must not make it unfindable (parent shaping R7: honesty).
+    const ranked = await index.search('HTML', { limit: 50 })
+    expect(ranked.items.map((h) => h.path)).not.toContain('Areas/Life/Music.md')
+    const t = performance.now()
+    const grepped = await index.grep('html', { pathPrefix: 'Areas/Life/Music.md', limit: 100 })
+    console.log(`grep html in Music.md: ${grepped.total} hits in ${(performance.now() - t).toFixed(1)}ms`)
+    expect(grepped.total).toBeGreaterThan(20)
+  })
+
+  it('answers a whole-vault grep well under the search-latency trigger', async () => {
+    const t = performance.now()
+    await index.grep('memory', { limit: 10 })
+    const ms = performance.now() - t
+    console.log(`grep(memory) over the whole vault = ${ms.toFixed(1)}ms`)
+    expect(ms, 'grep latency').toBeLessThan(50)
   })
 })

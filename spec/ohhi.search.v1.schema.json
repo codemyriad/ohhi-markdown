@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.search.v1.schema.json",
+  "title": "ohhi.search.v1",
+  "description": "Find notes. Returns references and snippets, never bodies; ranked, exact or regex.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.search.v1"
+    },
+    "query": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "ranked",
+        "exact",
+        "regex"
+      ]
+    },
+    "hits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+            "type": "string",
+            "minLength": 1
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "title",
+              "path",
+              "body",
+              "grep"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snippets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "line": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "text": {
+                  "type": "string"
+                },
+                "spans": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "to": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "to"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "line",
+                "text",
+                "spans"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "explain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "contribution": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "term",
+                "field",
+                "contribution"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "path",
+          "tier",
+          "score",
+          "line",
+          "snippets"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "returned": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "total": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "docs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "skippedBinary": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ignored": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "docs",
+        "skippedBinary",
+        "ignored"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "query",
+    "mode",
+    "hits",
+    "returned",
+    "total",
+    "nextCursor",
+    "coverage"
+  ],
+  "additionalProperties": false
+}

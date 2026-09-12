@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-06-29
+date: 2026-09-12
 ---
 
 # Running & testing Editor (V1)
@@ -12,9 +12,10 @@ companion to [architecture/testing.md](architecture/testing.md), which explains
 *why* the test harness is shaped the way it is — this doc is just *how to run it*.
 
 > **Where things are.** Rush monorepo. Apps in `apps/` (`relay`, `web`,
-> `desktop`), libraries in `libs/` (`sync`, `vault`, `testkit`, `editor`,
-> `i18n` — the app's dictionaries). `rushx <script>` runs a project's
-> `package.json` script from inside that project folder.
+> `desktop`, `cli` — the `ohhi` binary), libraries in `libs/` (`sync`, `vault`,
+> `testkit`, `editor`, `index`, `agent`, `i18n` — the app's dictionaries).
+> `rushx <script>` runs a project's `package.json` script from inside that
+> project folder.
 
 ---
 
@@ -81,6 +82,8 @@ Run per project with `rushx test`:
 | `libs/index` | the **backend conformance suite** — paging, cursors, ranking, link resolution, rename/delete propagation. Written against the interface, so any future backend passes it or is not a valid backend |
 | `libs/editor-lang` | the wikilink grammar, through the real lezer pipeline |
 | `libs/i18n` | the **dictionary contract** — every key is a non-empty string with typed arguments, the generated types describe the base dictionary (fails with "regenerate" when a group was added without `rushx generate`), and `i18nObject('en')` / `getLL()` translate |
+| `libs/agent` | the **agent surface's command core** — every op over a fixture vault written to a temp dir: paging, truncation, section addressing, EOL preservation, every `refused`/`conflict`/`not_found` path, `changes` from both sources, `restore`'s journal union, and vault selection (explicit / env / walk-up / ambiguous / none) |
+| `apps/cli` | the `ohhi` binary — **conformance** (`spec/` matches the freshly generated schemas; every op's `--json` output parses against its contract schema; exit codes 0/1/2/3), flag parsing, the text renderers, and a cold-start check that spawns the bundle |
 | `apps/relay` | share-token auth + folder-GUID scoping, sqlite persistence |
 | `apps/web` | `pill-status` truth table, tree model, share links, config, the command registry — plus **component tests** for the `src/lib/ui/` primitives (jsdom + Svelte Testing Library: Escape/click-outside/focus-return on dialogs, arrow keys on menus and tabs, tooltip on focus, the form field's ARIA wiring) |
 
@@ -92,10 +95,14 @@ Or run every unit suite from the repo root in one go:
 
 ```sh
 for p in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
-         libs/editor-lang apps/relay apps/web; do
+         libs/agent libs/editor-lang apps/relay apps/cli apps/web; do
   (cd "$p" && rushx test) || break
 done
 ```
+
+`apps/cli`'s conformance and cold-start tests run the esbuild bundle, so build it
+first: `cd apps/cli && rushx build`. (CI does the same, between the typecheck
+loop and the test loop.)
 
 ### Repo-wide guards
 
@@ -120,6 +127,66 @@ It prints corpus size, cold build time, search latency and heap, and **fails if
 the trigger has fired** (>5,000 md files, >20 MB markdown, cold build >750 ms,
 or search p95 >50 ms) — at which point the SQLite backend is due. Last measured
 on the real vault: 1,029 notes / 3.00 MB, 253 ms cold build, ~1 ms search.
+
+### The `ohhi` CLI (agent surface)
+
+The agent surface is `libs/agent` (the command core) plus `apps/cli` (the `ohhi`
+binary and `ohhi mcp`). Full reference: [agent-access.md](agent-access.md).
+
+**Build and install.** Two POSIX-`sh` scripts, both symlinking rather than
+copying, both refusing to clobber a non-symlink unless you pass `--force`, both
+taking `--dry-run`:
+
+```sh
+./scripts/install-ohhi.sh     # rushx build in apps/cli, then ~/.local/bin/ohhi -> apps/cli/bin/ohhi.mjs
+./scripts/install-skill.sh    # ~/.claude/skills/ohhi-vault -> .claude/skills/ohhi-vault
+```
+
+`install-ohhi.sh --bin-dir <dir>` puts the link elsewhere; `--no-build` links
+what is already built. The skill is a **symlink on purpose** — a hand copy in
+`~/.claude/skills` is how the Cassini skill went stale against its repo.
+
+**Drive it:**
+
+```sh
+ohhi stats --vault "/path/to/your/vault"
+ohhi search "connection pooling" --limit 10
+ohhi read "Areas/CS/JSON.md" --outline
+ohhi search "json" --json | jq -r '.hits[] | "\(.tier)\t\(.path):\(.line)"'
+```
+
+Or without installing: `cd apps/cli && rushx build && node dist/ohhi.mjs stats --vault …`.
+
+**Regenerate the JSON Schemas.** `spec/*.schema.json` is generated from
+`libs/agent/src/contract.ts` and committed — regenerate it, never hand-edit it
+(golden rule 9). The conformance test fails on drift:
+
+```sh
+cd apps/cli && rushx gen-schemas
+```
+
+**The cold-start budget.** A cold invocation on the real vault has to stay under
+~500 ms (shaping R6) — which is why the CLI is an esbuild bundle rather than a
+Rush TypeScript entry point. The check is skipped unless `dist/` exists, and it
+only asserts and prints the wall clock when you point it at a real vault:
+
+```sh
+cd apps/cli && rushx build
+cd apps/cli && EDITOR_BENCH_VAULT="/path/to/your/vault" rushx test
+```
+
+The matching evidence on the ranking side lives in `libs/index`: under the same
+`EDITOR_BENCH_VAULT` its bench asserts the seven real-vault probes (`Docs`,
+`JSON`, `HTML`, `Svelte`, `Testing`, `Writing`, `networking`) each put the note
+meant first, and `test/ranking-corpus.test.ts` pins the same behaviour on a
+committed synthetic vault so a regression fails in CI without a vault present.
+
+**Register the MCP server** (the alternative to the skill, for harnesses that
+cannot run one):
+
+```sh
+claude mcp add ohhi -- ohhi mcp --vault "/path/to/your/vault"
+```
 
 ### End-to-end browser smoke (L2)
 
@@ -195,6 +262,8 @@ CI never run it.)
 ```sh
 cd apps/web && rushx check       # svelte-check
 cd apps/relay && rushx check     # tsc --noEmit
+cd apps/cli && rushx check       # tsc --noEmit
+cd libs/agent && rushx check     # tsc --noEmit
 cd libs/i18n && rushx check      # regenerates the typesafe-i18n output, then tsc --noEmit
 ```
 
@@ -505,8 +574,13 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 # install
 rush install
 
-# all unit tests
-for p in libs/i18n libs/sync libs/testkit libs/vault apps/relay apps/web; do (cd "$p" && rushx test) || break; done
+# all unit tests (build the CLI bundle first — apps/cli's tests run it)
+(cd apps/cli && rushx build)
+for p in libs/i18n libs/sync libs/testkit libs/vault libs/agent apps/relay apps/cli apps/web; do (cd "$p" && rushx test) || break; done
+
+# the ohhi CLI + the agent skill, on PATH
+./scripts/install-ohhi.sh
+./scripts/install-skill.sh
 
 # end-to-end browser smoke (self-contained)
 cd apps/web && rushx e2e

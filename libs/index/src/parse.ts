@@ -39,8 +39,24 @@ export interface ParsedDoc {
   tags: RawTag[]
   headings: RawHeading[]
   frontmatterKeys: string[]
-  /** Text with the frontmatter block blanked out — what gets tokenized. */
+  /** Text with the frontmatter block blanked out — what links/tags/headings are scanned in. */
   body: string
+  /**
+   * `body` with fenced code and URL-ish runs blanked to spaces as well — what
+   * gets TOKENIZED. Same length as the original text, so every token offset is
+   * still an offset into it and nothing has to be rebased.
+   *
+   * Why: measured on the real vault, 71 notes carry ≥20 URLs each and the ten
+   * largest notes are link dumps. A 64 KB music list mentioning "html" 39
+   * times — every one of them inside a URL — outranked the note actually
+   * called `HTML.md`. URL text is not prose and must not compete with it.
+   * Fenced code is the same argument for a different reason: a code block full
+   * of `testing` is a listing, not a claim about the note's subject.
+   *
+   * INLINE code (`like this`) stays indexed: it is written in sentences and
+   * readers search for it.
+   */
+  indexBody: string
   /** Offset of `body` within the original text (0 when there's no frontmatter). */
   bodyOffset: number
 }
@@ -58,6 +74,15 @@ const ATX_HEADING = /^(#{1,6})[ \t]+(.*)$/
 
 /** Fenced code — ``` or ~~~, any indent, optional info string. */
 const FENCE = /^[ \t]{0,3}(`{3,}|~{3,})/
+
+/**
+ * Runs that are addresses rather than words. Deliberately greedy to the next
+ * whitespace: the whole URL goes, not just its scheme, because the terms worth
+ * excluding ("html", "docs", "json", "www") live in the host and the path.
+ */
+const URL_RUN = /(?:https?:\/\/|www\.)\S+/g
+/** The target half of a markdown link/image — `[text](target)`. Text is kept. */
+const LINK_TARGET = /\]\(([^)\n]*)\)/g
 
 export function parseMarkdown(text: string): ParsedDoc {
   const { keys, bodyOffset } = readFrontmatter(text)
@@ -111,8 +136,48 @@ export function parseMarkdown(text: string): ParsedDoc {
     offset += line.length + 1
   }
 
-  return { links, tags, headings, frontmatterKeys: keys, body, bodyOffset }
+  return {
+    links,
+    tags,
+    headings,
+    frontmatterKeys: keys,
+    body,
+    indexBody: blankNoise(body, fenced),
+    bodyOffset,
+  }
 }
+
+/**
+ * Blank fenced code and URL-ish runs to SPACES (newlines kept), so the tokenizer
+ * never sees them and every surviving token keeps the offset it had in the
+ * original text. Blanking rather than slicing is the same trick the frontmatter
+ * pass uses, and for the same reason: offsets are the contract — spans, snippets
+ * and `grep` all index into the raw text.
+ */
+function blankNoise(body: string, fenced: [number, number][]): string {
+  const ranges: [number, number][] = [...fenced]
+  URL_RUN.lastIndex = 0
+  for (let m = URL_RUN.exec(body); m; m = URL_RUN.exec(body)) {
+    ranges.push([m.index, m.index + m[0].length])
+  }
+  LINK_TARGET.lastIndex = 0
+  for (let m = LINK_TARGET.exec(body); m; m = LINK_TARGET.exec(body)) {
+    ranges.push([m.index + 2, m.index + 2 + m[1].length])
+  }
+  if (ranges.length === 0) return body
+  ranges.sort((a, b) => a[0] - b[0])
+  let out = ''
+  let at = 0
+  for (const [from, to] of ranges) {
+    if (to <= at) continue
+    const start = Math.max(from, at)
+    out += body.slice(at, start) + body.slice(start, to).replace(NON_NEWLINE, ' ')
+    at = to
+  }
+  return out + body.slice(at)
+}
+
+const NON_NEWLINE = /[^\n]/g
 
 /**
  * Top-level keys of a leading `---` YAML block, plus where the body starts.

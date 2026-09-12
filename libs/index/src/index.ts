@@ -5,6 +5,8 @@
  */
 export {
   SCHEMA_VERSION,
+  type ExplainRow,
+  type GrepHit,
   type Heading,
   type IndexDoc,
   type IndexStats,
@@ -14,6 +16,7 @@ export {
   type PageOptions,
   type PathHit,
   type SearchHit,
+  type SearchTier,
   type Snippet,
   type Span,
   type TagCount,

@@ -23,15 +23,19 @@ jobs:
       - name: Typecheck all packages
         run: |
           for pkg in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
-                     libs/editor-lang libs/editor apps/relay apps/web; do
+                     libs/agent libs/editor-lang libs/editor apps/relay apps/cli apps/web; do
             echo "::group::check $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js check)
             echo "::endgroup::"
           done
+      # apps/cli's conformance and cold-start tests run the esbuild bundle, so
+      # the bundle has to exist before the test loop reaches apps/cli.
+      - name: Build the ohhi CLI bundle
+        run: cd apps/cli && node ../../common/scripts/install-run-rushx.js build
       - name: Unit + property tests (L0, L1 bounded, relay integration)
         run: |
           for pkg in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/index \
-                     libs/editor-lang apps/relay apps/web; do
+                     libs/agent libs/editor-lang apps/relay apps/cli apps/web; do
             echo "::group::test $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js test)
             echo "::endgroup::"

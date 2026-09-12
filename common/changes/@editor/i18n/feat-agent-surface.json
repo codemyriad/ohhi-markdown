@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/i18n",
+      "comment": "Added the wording the command palette uses to say why a search result ranked where it did.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@editor/i18n"
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.backlinks.v1.schema.json",
+  "title": "ohhi.backlinks.v1",
+  "description": "Notes that link to a target, with the line around each link.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.backlinks.v1"
+    },
+    "target": {
+      "type": "string"
+    },
+    "backlinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+            "type": "string",
+            "minLength": 1
+          },
+          "line": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "context": {
+            "type": "string"
+          },
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "line",
+          "context",
+          "alias",
+          "anchor"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "returned": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "total": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "target",
+    "backlinks",
+    "returned",
+    "total",
+    "nextCursor"
+  ],
+  "additionalProperties": false
+}

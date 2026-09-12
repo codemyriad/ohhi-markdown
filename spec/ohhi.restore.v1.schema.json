@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.restore.v1.schema.json",
+  "title": "ohhi.restore.v1",
+  "description": "List or restore pre-images the journal kept before earlier writes.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.restore.v1"
+    },
+    "path": {
+      "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+      "type": "string",
+      "minLength": 1
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "at": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "app"
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "size",
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "restored": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "hash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "bytes",
+        "hash"
+      ],
+      "additionalProperties": false
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema",
+    "path",
+    "dryRun"
+  ],
+  "additionalProperties": false
+}

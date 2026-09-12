@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-06-12
+date: 2026-09-12
 ---
 
 # Glossary
@@ -205,3 +205,31 @@ a `MarkdownConfig` on upstream `@codemirror/lang-markdown` in
 `libs/editor-lang`, deliberately *not* a fork of the Obsidian grammar. A target
 that resolves to nothing is styled differently on purpose: 12% of this vault's
 targets are notes the author meant to write.
+
+### `ohhi`
+The CLI an external agent drives a vault with — `ohhi search`, `ohhi read
+--outline`, `ohhi patch`, `ohhi restore`, `ohhi mcp`. Files-direct: it reads the
+canonical `.md` files and writes them journaled + atomic, joins no relay and owns
+no CRDT, so it works whether or not the app is running. `apps/cli` over
+`libs/agent`, whose `contract.ts` declares every operation once. The product name
+behind it is *Oh hi markdown*. See [agent-access.md](agent-access.md).
+
+### Search tier
+Why a search hit is where it is, and the first thing ranking sorts on:
+`title` (the note's folded basename **is** the query), `path` (every query term
+is in the path), `body` (ranked on content), `grep` (an unranked literal match
+from `--mode exact`/`--mode regex`). The tier exists because this vault's notes
+have short generic titles — `Docs`, `JSON`, `HTML` — that are also its most
+frequent body terms, so a 154-byte note can only beat a 30 KB link dump
+*structurally*, never by a bigger weight. Rendered as a subtitle in the command
+palette and printed by `ohhi search`. See
+[`plans/agent-surface-shaping.md`](../plans/agent-surface-shaping.md) Fork 3.
+
+### Coverage counters
+`{ docs, skippedBinary, ignored }` — on every agent-surface answer that walks the
+vault: notes indexed, files seen and not indexed, directory names never listed
+(`libs/vault`'s `IGNORED_DIRS` — `.editor`, `.editor-cache`, `.git`,
+`.obsidian`, `.trash`, `node_modules`). They are what stop "nothing found" from being
+read as "nothing exists"; a non-zero `skippedBinary` means the answer had blind
+spots and should say so. The same honesty discipline as the [sync
+pill](#sync-pill), applied to queries. See [agent-access.md](agent-access.md).

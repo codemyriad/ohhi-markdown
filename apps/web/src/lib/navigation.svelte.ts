@@ -164,6 +164,18 @@ export function createNavigation(): {
     if (palette.mode === mode && palette.query === query) palette.rows = rows
   }
 
+  /**
+   * The subtitle for one search row. `title`/`path` name the tier; `body` keeps
+   * the behaviour it had before tiers existed — a filename-only match is
+   * labelled, everything else leans on its snippets.
+   */
+  function tierSubtitle(hit: SearchHit): string | undefined {
+    const t = getLL().web.palette
+    if (hit.tier === 'title') return t.tier.title()
+    if (hit.tier === 'path') return t.tier.path()
+    return hit.snippets.length === 0 ? t.filename_match() : undefined
+  }
+
   async function buildRows(mode: PaletteMode, query: string): Promise<PaletteRow[]> {
     if (mode === 'command') {
       const q = query.trim().toLowerCase()
@@ -192,7 +204,10 @@ export function createNavigation(): {
     return page.items.map((hit: SearchHit) => ({
       id: hit.path,
       title: hit.path,
-      subtitle: hit.snippets.length === 0 ? getLL().web.palette.filename_match() : undefined,
+      // The tier is WHY the row is where it is, and results are ordered by
+      // tier before score. It is also the one thing the snippets cannot show:
+      // a note called `Docs` that never writes the word has no snippet at all.
+      subtitle: tierSubtitle(hit),
       detail: hit.snippets.map((s) => ({ text: s.text, spans: s.spans })),
       // Enter lands the caret on the first match, not at the top of the note.
       offset: hit.spans[0]?.from,

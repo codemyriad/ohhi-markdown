@@ -12,9 +12,58 @@
  * It implements the contract in types.ts exactly — Promises, paging, cursors,
  * BM25-shaped scores — so the swap stays a day's work. conformance.ts is the
  * suite any replacement must pass.
+ *
+ * ---------------------------------------------------------------------------
+ * RANKING (plans/agent-surface-shaping.md A10, Fork 3-B). Measured, not tuned.
+ * ---------------------------------------------------------------------------
+ *
+ * The real vault was read for search (1,037 live notes, 3.0 MB) and it has a
+ * shape that breaks a single BM25 number:
+ *
+ *   - Titles are one generic noun. Median title: 2 words / 14 chars; hundreds
+ *     are a single word — `Docs`, `HTML`, `JSON`, `Svelte`, `Testing`,
+ *     `Writing`. That word is also the vault's most frequent BODY term, so the
+ *     note literally named `JSON.md` (154 B) competes with a 30 KB note that
+ *     says "json" 58 times, and loses.
+ *   - There is no metadata to rank on. Frontmatter: 17 files (1.6%). Aliases:
+ *     0. H1 present in 35 files and never equal to the filename. Tags: 37,
+ *     mostly CSS hex colours. Filename and body are the ONLY two signals.
+ *   - Half the vault is link dumps and lists. 71 notes carry ≥20 URLs; the ten
+ *     largest notes are reading lists and pasted research.
+ *
+ * Raising W_TITLE was the obvious fix and it is the wrong one: a weight is
+ * always one more body mention away from being wrong, and it does nothing at
+ * all about a 64 KB music list that says "html" 39 times inside URLs. So the
+ * fix is a STRUCTURE:
+ *
+ *  1. TIERS decide order before score does. `title` (the basename IS the
+ *     query) → `path` (every query term is somewhere in the path) → `body`.
+ *     Within a tier: score, then recency as a pure tie-break (the working set
+ *     is ~5% of the vault, so recency must never outrank a better match), then
+ *     path for determinism. Measured effect on the seven probes: 1/7 correct
+ *     at rank 1 before, 7/7 after.
+ *  2. NOISE IS NOT BODY TEXT. URL runs, markdown link targets and fenced code
+ *     are blanked before tokenization (parse.ts `indexBody`) — blanked to
+ *     spaces, so offsets never move. `Areas/Life/Music.md` scored 39 "html"
+ *     mentions, all of them inside URLs; it now scores none and leaves the
+ *     first page for `HTML` entirely. `grep()` reads the RAW text, so nothing
+ *     became unfindable — only unrankable.
+ *  3. A PHRASE BONUS for multi-term queries, because a two-word query is
+ *     usually a name: terms occurring adjacent and in order earn
+ *     `idfSum × PHRASE_BONUS`, which reorders within a tier without inventing
+ *     a new tier.
+ *  4. `explain` reports every (term, field) contribution, so a wrong answer is
+ *     diagnosable instead of arguable. The palette shows the tier as a
+ *     subtitle for the same reason.
+ *
+ * The regression guard is test/ranking-corpus.test.ts (a synthetic vault
+ * shaped like the measured one) plus the seven real probes in
+ * bench/run-bench.test.ts under EDITOR_BENCH_VAULT.
  */
 import {
   SCHEMA_VERSION,
+  type ExplainRow,
+  type GrepHit,
   type Heading,
   type IndexDoc,
   type IndexStats,
@@ -23,6 +72,7 @@ import {
   type PageOptions,
   type PathHit,
   type SearchHit,
+  type SearchTier,
   type Snippet,
   type Span,
   type TagCount,
@@ -47,6 +97,21 @@ const W_TITLE = 3
 const W_HEADING = 1
 /** Recency BREAKS TIES in quick-open; it never overrides a better match. */
 const W_RECENCY = 3
+/**
+ * Phrase bonus for a multi-term query whose terms occur adjacent and in order.
+ * Expressed as a fraction of the query's total idf so it scales with how rare
+ * the words are — a rare pair is strong evidence, a common pair is not.
+ */
+const PHRASE_BONUS = 0.5
+/**
+ * Characters of slack allowed between two adjacent phrase terms: enough for a
+ * separator ("json, import", "json - import"), not enough for another word.
+ * Positions are CAPPED (MAX_POSITIONS), so in a very long note a phrase past
+ * the cap simply earns no bonus — it never scores wrongly.
+ */
+const PHRASE_GAP = 3
+/** Tier is the FIRST sort key. Lower sorts first. */
+const TIER_RANK: Record<SearchTier, number> = { title: 0, path: 1, body: 2 }
 
 interface DocEntry {
   guid: string
@@ -61,11 +126,27 @@ interface DocEntry {
   lineStarts: number[]
   /** Terms present in the PATH — a separate field for ranking (BM25F-ish). */
   pathTerms: Set<string>
+  /** Folded terms of the BASENAME (sans `.md`) — the title tier's evidence. */
+  baseTerms: Set<string>
+  /** Those terms concatenated, so `svelte kit` matches a note called `SvelteKit`. */
+  baseKey: string
   /** Total token count, for BM25 length normalisation. */
   length: number
   headings: Heading[]
   tags: Set<string>
   frontmatterKeys: string[]
+}
+
+/** One document's accumulating score while a query is being answered. */
+interface Acc {
+  entry: DocEntry
+  score: number
+  /** Every matched offset, for spans and snippets. */
+  offsets: number[]
+  /** Query-term index → that term's matched offsets, for the phrase check. */
+  perTerm: number[][]
+  /** Null unless the caller asked to be told why. */
+  explain: ExplainRow[] | null
 }
 
 /** Encode/decode an opaque page cursor. Callers must never parse it. */
@@ -174,7 +255,10 @@ export class MemoryIndex implements WritableIndex {
 
   // ---- read side ----------------------------------------------------------
 
-  search(query: string, opts?: PageOptions): Promise<Page<SearchHit>> {
+  search(
+    query: string,
+    opts?: PageOptions & { explain?: boolean; recent?: string[] }
+  ): Promise<Page<SearchHit>> {
     const { terms, tag, pathPrefix } = parseQuery(query)
     let pool = [...this.docs.values()]
     if (tag) pool = pool.filter((d) => d.tags.has(tag))
@@ -183,11 +267,25 @@ export class MemoryIndex implements WritableIndex {
       pool = pool.filter((d) => d.path.toLowerCase().startsWith(p))
     }
 
+    // Recency is a TIE-BREAK, never a ranking signal: position in `recent`,
+    // with everything unseen sharing last place.
+    const recent = opts?.recent ?? []
+    const recency = new Map(recent.map((path, i) => [path, i]))
+    const recencyOf = (path: string): number => recency.get(path) ?? Number.MAX_SAFE_INTEGER
+
     // A bare `tag:`/`path:` query is a filter, not a search: rank by path.
     if (terms.length === 0) {
+      const tier: SearchTier = pathPrefix ? 'path' : 'body'
       const hits = pool
         .sort((a, b) => a.path.localeCompare(b.path))
-        .map((d): SearchHit => ({ guid: d.guid, path: d.path, score: 0, spans: [], snippets: [] }))
+        .map((d): SearchHit => ({
+          guid: d.guid,
+          path: d.path,
+          score: 0,
+          tier,
+          spans: [],
+          snippets: [],
+        }))
       return Promise.resolve(paginate(hits, opts))
     }
 
@@ -195,9 +293,12 @@ export class MemoryIndex implements WritableIndex {
       ? pool.reduce((sum, d) => sum + d.length, 0) / pool.length
       : 1
     const inPool = new Set(pool.map((d) => d.guid))
+    const wantExplain = opts?.explain === true
 
-    const scored = new Map<string, { entry: DocEntry; score: number; offsets: number[] }>()
-    for (const term of terms) {
+    const scored = new Map<string, Acc>()
+    let idfSum = 0
+    for (let ti = 0; ti < terms.length; ti++) {
+      const term = terms[ti]
       // Prefix matching: `svel` must find `svelte` as you type.
       const matching = this.postingsFor(term)
       // DISTINCT documents, not the sum of per-variant posting sizes. Summing
@@ -209,6 +310,7 @@ export class MemoryIndex implements WritableIndex {
       const df = matched.size
       if (df === 0) continue
       const idf = Math.max(0, Math.log(1 + (this.docs.size - df + 0.5) / (df + 0.5)))
+      idfSum += idf
       for (const [matchedTerm, guids] of matching) {
         // A prefix hit is worth less than an exact one, so `note` outranks
         // `notebook` for the query `note`.
@@ -231,32 +333,133 @@ export class MemoryIndex implements WritableIndex {
           )
             ? W_HEADING
             : 0
-          const add = idf * (body + title + heading) * exactness
-          const prev = scored.get(guid)
-          if (prev) {
-            prev.score += add
-            prev.offsets.push(...offsets.map((o) => o))
-          } else {
-            scored.set(guid, { entry, score: add, offsets: [...offsets] })
+          let acc = scored.get(guid)
+          if (!acc) {
+            acc = {
+              entry,
+              score: 0,
+              offsets: [],
+              perTerm: terms.map(() => [] as number[]),
+              explain: wantExplain ? [] : null,
+            }
+            scored.set(guid, acc)
+          }
+          acc.score += idf * (body + title + heading) * exactness
+          acc.offsets.push(...offsets)
+          acc.perTerm[ti].push(...offsets)
+          if (acc.explain) {
+            addExplain(acc.explain, term, 'body', idf * body * exactness)
+            addExplain(acc.explain, term, 'title', idf * title * exactness)
+            addExplain(acc.explain, term, 'heading', idf * heading * exactness)
           }
         }
       }
     }
 
+    // Phrase bonus. A two-word query is usually a NAME, and a note where the
+    // two words sit next to each other in that order is what was meant. Scaled
+    // by the query's total idf so a rare pair counts for more than a common
+    // one; it reorders WITHIN a tier and never across one.
+    if (terms.length > 1 && idfSum > 0) {
+      const bonus = idfSum * PHRASE_BONUS
+      for (const acc of scored.values()) {
+        if (!hasPhrase(acc.entry.text, acc.perTerm)) continue
+        acc.score += bonus
+        if (acc.explain) addExplain(acc.explain, terms.join(' '), 'phrase', bonus)
+      }
+    }
+
     const hits = [...scored.values()]
-      .sort((a, b) => b.score - a.score || a.entry.path.localeCompare(b.entry.path))
-      .map(({ entry, score, offsets }): SearchHit => {
+      .map((acc) => ({ acc, tier: tierOf(acc.entry, terms) }))
+      .sort(
+        (a, b) =>
+          TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+          b.acc.score - a.acc.score ||
+          recencyOf(a.acc.entry.path) - recencyOf(b.acc.entry.path) ||
+          a.acc.entry.path.localeCompare(b.acc.entry.path)
+      )
+      .map(({ acc, tier }): SearchHit => {
+        const { entry } = acc
         const spans = mergeSpans(
-          offsets.map((o) => ({ from: o, to: o + termLengthAt(entry.text, o) }))
+          acc.offsets.map((o) => ({ from: o, to: o + termLengthAt(entry.text, o) }))
         )
-        return {
+        const hit: SearchHit = {
           guid: entry.guid,
           path: entry.path,
-          score,
+          score: acc.score,
+          tier,
           spans,
           snippets: buildSnippets(entry.text, spans),
         }
+        if (acc.explain) {
+          hit.explain = acc.explain
+            .filter((row) => row.contribution !== 0)
+            .sort((x, y) => y.contribution - x.contribution)
+        }
+        return hit
       })
+    return Promise.resolve(paginate(hits, opts))
+  }
+
+  /**
+   * Unranked literal/regex match over the RAW text — the escape hatch from the
+   * ranking pass's noise exclusion. Whatever `search` refuses to rank (URLs,
+   * link targets, fenced code) is still here, in document order.
+   */
+  grep(
+    pattern: string,
+    opts?: PageOptions & { regex?: boolean; caseSensitive?: boolean; pathPrefix?: string }
+  ): Promise<Page<GrepHit>> {
+    if (!pattern) return Promise.resolve(paginate([] as GrepHit[], opts))
+    let re: RegExp
+    try {
+      // `m` so `^`/`$` anchor to LINES, which is what anyone typing a grep
+      // pattern means. No `s`, so `.` still stops at a newline.
+      re = new RegExp(
+        opts?.regex ? pattern : escapeRegExp(pattern),
+        opts?.caseSensitive ? 'gm' : 'gim'
+      )
+    } catch (err) {
+      // A bad regex is an ERROR, never an empty result — "nothing found" would
+      // be a lie about the vault (parent shaping R7).
+      return Promise.reject(err)
+    }
+    const prefix = opts?.pathPrefix?.toLowerCase()
+    const entries = [...this.docs.values()]
+      .filter((d) => !prefix || d.path.toLowerCase().startsWith(prefix))
+      .sort((a, b) => a.path.localeCompare(b.path))
+
+    const hits: GrepHit[] = []
+    for (const entry of entries) {
+      re.lastIndex = 0
+      let current: GrepHit | null = null
+      for (let m = re.exec(entry.text); m; m = re.exec(entry.text)) {
+        if (m[0].length === 0) {
+          // A pattern that can match nothing (`x*`) would otherwise spin.
+          re.lastIndex++
+          continue
+        }
+        const line = lineAt(entry.lineStarts, m.index)
+        const start = entry.lineStarts[line - 1]
+        if (!current || current.line !== line) {
+          const nl = entry.text.indexOf('\n', start)
+          current = {
+            guid: entry.guid,
+            path: entry.path,
+            line,
+            lineText: entry.text.slice(start, nl === -1 ? entry.text.length : nl),
+            spans: [],
+          }
+          hits.push(current)
+        }
+        current.spans.push({
+          from: m.index - start,
+          // A multi-line match is reported on the line it STARTS on, clipped —
+          // `lineText` and its spans must stay consistent.
+          to: Math.min(m.index + m[0].length - start, current.lineText.length),
+        })
+      }
+    }
     return Promise.resolve(paginate(hits, opts))
   }
 
@@ -414,7 +617,10 @@ export class MemoryIndex implements WritableIndex {
     const terms = new Map<string, number[]>()
     const freq = new Map<string, number>()
     let length = 0
-    for (const token of tokenize(parsed.body)) {
+    // `indexBody`, not `body`: URL text, markdown link targets and fenced code
+    // are blanked (to spaces, so offsets hold) before anything is counted. See
+    // the ranking note in this file's header for the measured reason.
+    for (const token of tokenize(parsed.indexBody)) {
       length++
       freq.set(token.term, (freq.get(token.term) ?? 0) + 1)
       const list = terms.get(token.term)
@@ -434,6 +640,12 @@ export class MemoryIndex implements WritableIndex {
       tokenize(doc.path.replace(/[/_.-]/g, ' ')).map((t) => t.term)
     )
     for (const term of pathTerms) if (!terms.has(term)) terms.set(term, [])
+    // The BASENAME is a narrower field again: `Areas/CS/JSON.md` is *called*
+    // JSON, while `Docs/Immich Setup.md` merely lives under a folder named
+    // Docs. Tier 1 is the first, tier 2 the second.
+    const baseTermList = tokenize(
+      doc.path.slice(doc.path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+    ).map((t) => t.term)
     const lineStarts = lineStartsOf(doc.text)
     return {
       guid: doc.guid,
@@ -443,6 +655,8 @@ export class MemoryIndex implements WritableIndex {
       terms,
       freq,
       pathTerms,
+      baseTerms: new Set(baseTermList),
+      baseKey: baseTermList.join(''),
       lineStarts,
       length: Math.max(length, 1),
       headings: parsed.headings.map((h) => ({
@@ -632,4 +846,69 @@ function buildSnippets(text: string, spans: Span[]): Snippet[] {
     out.push({ offset: from, text: text.slice(from, to), spans: snippetSpans })
   }
   return out
+}
+
+/**
+ * Which field earned the hit its place — the FIRST sort key, ahead of score.
+ *
+ *  - `title`: the basename (sans `.md`) IS the query, either term-for-term or
+ *    concatenated (`svelte kit` finds a note called `SvelteKit`).
+ *  - `path`: every query term appears somewhere in the path — the note lives
+ *    in a folder called that, or its name contains the word among others.
+ *  - `body`: matched on content, a heading, or only part of the path.
+ *
+ * Deliberately NOT prefix-aware: while the query is still being typed (`svel`)
+ * there is no title claim to make, and ranking falls back to the body tier —
+ * exactly what it did before tiers existed.
+ */
+function tierOf(entry: DocEntry, terms: string[]): SearchTier {
+  if (entry.baseKey && entry.baseKey === terms.join('')) return 'title'
+  if (entry.baseTerms.size === terms.length && terms.every((t) => entry.baseTerms.has(t))) {
+    return 'title'
+  }
+  if (terms.every((t) => entry.pathTerms.has(t))) return 'path'
+  return 'body'
+}
+
+/**
+ * Do the query's terms occur adjacent and in order anywhere in the document?
+ *
+ * Char offsets rather than token indexes, with PHRASE_GAP characters of slack
+ * for a separator. Positions are capped at MAX_POSITIONS per term, so a phrase
+ * that only occurs past the cap earns no bonus — it is never scored wrongly,
+ * only missed, and the tier above it is what actually decides the answer.
+ */
+function hasPhrase(text: string, perTerm: number[][]): boolean {
+  if (perTerm.some((list) => list.length === 0)) return false
+  const sorted = perTerm.map((list) => [...new Set(list)].sort((a, b) => a - b))
+  for (const start of sorted[0]) {
+    let at = start
+    let ok = true
+    for (let i = 1; i < sorted.length; i++) {
+      const end = at + termLengthAt(text, at)
+      const next = sorted[i].find((o) => o >= end && o - end <= PHRASE_GAP)
+      if (next === undefined) {
+        ok = false
+        break
+      }
+      at = next
+    }
+    if (ok) return true
+  }
+  return false
+}
+
+/** Accumulate one (term, field) contribution; rows sum to the hit's score. */
+function addExplain(rows: ExplainRow[], term: string, field: string, contribution: number): void {
+  if (contribution === 0) return
+  const row = rows.find((r) => r.term === term && r.field === field)
+  if (row) row.contribution += contribution
+  else rows.push({ term, field, contribution })
+}
+
+const REGEX_META = /[.*+?^${}()|[\]\\]/g
+
+/** Literal `grep` mode: the pattern is text, not a pattern. */
+function escapeRegExp(text: string): string {
+  return text.replace(REGEX_META, '\\$&')
 }
