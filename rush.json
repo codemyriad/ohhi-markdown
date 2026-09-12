@@ -343,6 +343,7 @@
     { "packageName": "@editor/editor", "projectFolder": "libs/editor" },
     { "packageName": "@editor/ui", "projectFolder": "libs/ui" },
     { "packageName": "@editor/index", "projectFolder": "libs/index" },
+    { "packageName": "@editor/frontmatter", "projectFolder": "libs/frontmatter" },
     { "packageName": "@editor/editor-lang", "projectFolder": "libs/editor-lang" },
     { "packageName": "@editor/i18n", "projectFolder": "libs/i18n" },
     { "packageName": "@editor/relay", "projectFolder": "apps/relay" },

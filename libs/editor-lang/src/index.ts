@@ -4,3 +4,4 @@
  */
 export { splitWikiLink, WikiLink, wikiLinkMarkTag, wikiLinkTag, type WikiLinkParts } from './wikilink.js'
 export { wikiLinkExtensions, wikiLinkHost, type WikiLinkHost } from './wikilink-view.js'
+export { previewMode, readHost, type ReadHost, type ViewMode } from './read-host.js'

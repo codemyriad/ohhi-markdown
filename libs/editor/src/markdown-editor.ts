@@ -14,18 +14,33 @@ import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import type { Awareness } from 'y-protocols/awareness'
 import type { EngineDoc } from '@editor/sync'
-import { WikiLink, wikiLinkExtensions } from '@editor/editor-lang'
+import { previewMode, type ViewMode, WikiLink, wikiLinkExtensions } from '@editor/editor-lang'
 import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
 const hostCompartment = new Compartment()
 
+/**
+ * The view mode (read-shaping.md B3): Live / Source / Reading are one view
+ * reconfigured, never three views. Reading is the only mode that changes
+ * editability; the decorations read `previewMode` for the rest.
+ */
+const modeCompartment = new Compartment()
+
+function modeExtensions(mode: ViewMode): Extension[] {
+  const ext: Extension[] = [previewMode.of(mode)]
+  if (mode === 'reading') ext.push(EditorState.readOnly.of(true), EditorView.editable.of(false))
+  return ext
+}
+
 export interface MarkdownEditorOptions {
   doc: EngineDoc
   awareness: Awareness | null
   user: CollabUser
   readOnly?: boolean
+  /** Initial view mode; `setMode` changes it in place. Default `live`. */
+  mode?: ViewMode
   /** Drives only CM6's own dark/light base rules; all colours come from CSS. */
   dark?: boolean
   /**
@@ -59,6 +74,8 @@ export interface MarkdownEditorHandle {
   setDark(dark: boolean): void
   /** Swap the host extension set in place. */
   setExtensions(extensions: Extension[]): void
+  /** Live / Source / Reading — one dispatch, same document, same scroll. */
+  setMode(mode: ViewMode): void
   /**
    * Put the caret at `offset` and scroll it into view — what a search result
    * does on Enter. Clamped to the document, so a stale offset (the note
@@ -86,6 +103,7 @@ export function createMarkdownEditor(
     // rely on position alone when adding keymaps — use Prec.high.)
     ...createCollabExtensions(opts.doc, opts.awareness, opts.user, opts.undoManager),
     hostCompartment.of(opts.extensions ?? []),
+    modeCompartment.of(modeExtensions(opts.mode ?? 'live')),
     keymap.of(defaultKeymap),
     // Wikilinks are part of the language here, not an optional extra: 29% of
     // the vault's notes carry one. The BEHAVIOUR (resolve/open/create) is what
@@ -116,6 +134,9 @@ export function createMarkdownEditor(
     },
     setExtensions(next) {
       view.dispatch({ effects: hostCompartment.reconfigure(next) })
+    },
+    setMode(mode) {
+      view.dispatch({ effects: modeCompartment.reconfigure(modeExtensions(mode)) })
     },
     reveal(offset) {
       const pos = Math.max(0, Math.min(offset, view.state.doc.length))

@@ -14,6 +14,8 @@
  * reserialize what you didn't change) means nothing here ever writes YAML.
  */
 
+import { scanTags } from './tag-syntax.js'
+
 export interface RawLink {
   target: string
   alias: string | null
@@ -47,12 +49,6 @@ export interface ParsedDoc {
 
 /** `[[target|alias]]`, `[[target#anchor]]`, `![[embed]]`. */
 const WIKILINK = /(!?)\[\[([^\]\n]*)\]\]/g
-
-/**
- * An inline `#tag`: preceded by start-of-line or whitespace, at least one
- * non-digit, and not a markdown heading (`# ` has a space after the hash).
- */
-const INLINE_TAG = /(^|\s)#([\p{L}\p{N}][\p{L}\p{N}/_-]*)/gu
 
 const ATX_HEADING = /^(#{1,6})[ \t]+(.*)$/
 
@@ -91,14 +87,11 @@ export function parseMarkdown(text: string): ParsedDoc {
     links.push({ target, alias, anchor, offset: m.index, embed: m[1] === '!' })
   }
 
+  // One tag grammar for the index and the editor: tag-syntax.ts.
   const tags: RawTag[] = []
-  INLINE_TAG.lastIndex = 0
-  for (let m = INLINE_TAG.exec(body); m; m = INLINE_TAG.exec(body)) {
-    const at = m.index + m[1].length
-    if (inFence(at)) continue
-    // A bare `#123` is a number, not a tag.
-    if (/^\d+$/.test(m[2])) continue
-    tags.push({ tag: `#${m[2]}`, offset: at })
+  for (const hit of scanTags(body)) {
+    if (inFence(hit.offset)) continue
+    tags.push({ tag: `#${hit.tag}`, offset: hit.offset })
   }
 
   const headings: RawHeading[] = []
