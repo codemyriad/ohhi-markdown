@@ -1,7 +1,7 @@
-# Editor relay image. Build from the repo root (the lockfile and rush.json live
-# there); Dockerfile.dockerignore narrows the context:
+# Oh hi markdown relay image. Build from the repo root (the lockfile and
+# rush.json live there); Dockerfile.dockerignore narrows the context:
 #
-#   docker build -f apps/relay/Dockerfile -t editor-relay .
+#   docker build -f apps/relay/Dockerfile -t ohhi-relay .
 #
 # Dependencies come from the repo lockfile, never re-resolved:
 # - `rush install` refuses any package.json that drifted from pnpm-lock.yaml.

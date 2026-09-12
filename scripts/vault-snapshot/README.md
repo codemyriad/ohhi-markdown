@@ -1,6 +1,6 @@
 # vault-snapshot
 
-A local history for your Editor vault. Every few minutes, the vault's files are
+A local history for your Oh hi markdown vault. Every few minutes, the vault's files are
 committed to a git repository kept **outside** the vault. If a note gets
 damaged or deleted — by the app, by you, or by a teammate's change syncing in —
 you can look at any earlier version and put it back.
@@ -48,7 +48,7 @@ Restoring in place is safe to try:
   original.
 - It never deletes anything.
 
-If Editor has the vault open, quit and reopen it afterwards so it picks up
+If Oh hi markdown has the vault open, quit and reopen it afterwards so it picks up
 every restored file ([why](../../docs/recovery.md#undo-a-change-with-your-snapshots)).
 
 ## What is and isn't captured
@@ -56,7 +56,7 @@ every restored file ([why](../../docs/recovery.md#undo-a-change-with-your-snapsh
 Everything in the vault except:
 
 - `.git/`
-- Editor's in-flight temp files (`*.editor-tmp-*`)
+- the app's in-flight temp files (`*.editor-tmp-*`)
 - `.trash/`
 - Obsidian's layout files (`.obsidian/workspace.json`, `workspace-mobile.json`)
 - `node_modules/` and `.editor-cache/`
@@ -74,8 +74,8 @@ not its files.
 
 | | Linux | macOS |
 |---|---|---|
-| History | `~/.local/share/editor-snapshots/<vault>-<hash>.git` | `~/Library/Application Support/editor-snapshots/<vault>-<hash>.git` |
-| Timer | `~/.config/systemd/user/vault-snapshot@.{service,timer}`, plus a per-vault `…timer.d/interval.conf` | `~/Library/LaunchAgents/dev.chris.editor.vault-snapshot.<vault>-<hash>.plist` |
+| History | `~/.local/share/ohhi-snapshots/<vault>-<hash>.git` | `~/Library/Application Support/ohhi-snapshots/<vault>-<hash>.git` |
+| Timer | `~/.config/systemd/user/vault-snapshot@.{service,timer}`, plus a per-vault `…timer.d/interval.conf` | `~/Library/LaunchAgents/md.ohhi.vault-snapshot.<vault>-<hash>.plist` |
 | Log | `journalctl --user -u 'vault-snapshot@*'` | `~/Library/Logs/vault-snapshot-<vault>-<hash>.log` |
 
 The history is an ordinary git repo, so `git --git-dir=<history> log -p` works

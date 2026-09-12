@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vault-snapshot.sh — automatic local history for an Editor vault.
+# vault-snapshot.sh — automatic local history for an Oh hi markdown vault.
 #
 # Each run commits the vault's current files into a git repository kept
 # OUTSIDE the vault (a "shadow" git-dir). `snapshot` never writes into the
@@ -12,7 +12,7 @@ set -o pipefail
 
 PROG='vault-snapshot.sh'
 DEFAULT_MINUTES=10
-LABEL_PREFIX=dev.chris.editor.vault-snapshot
+LABEL_PREFIX=md.ohhi.vault-snapshot
 TAB=$(printf '\t')
 
 # Never let the caller's git environment or config steer us: no inherited
@@ -24,8 +24,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_NAMESPACE \
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
 
 case "$(uname -s)" in
-  Darwin) OS=macos; DEFAULT_ROOT="$HOME/Library/Application Support/editor-snapshots" ;;
-  *) OS=linux; DEFAULT_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/editor-snapshots" ;;
+  Darwin) OS=macos; DEFAULT_ROOT="$HOME/Library/Application Support/ohhi-snapshots" ;;
+  *) OS=linux; DEFAULT_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/ohhi-snapshots" ;;
 esac
 DATA_ROOT="${VAULT_SNAPSHOT_HOME:-$DEFAULT_ROOT}"
 BIN_DIR="$DATA_ROOT/bin"
@@ -164,7 +164,7 @@ ensure_repo() {
     mkdir -p "$DATA_ROOT"
     git -c init.defaultBranch=main init -q --bare "$GD"
     git --git-dir="$GD" config core.logAllRefUpdates true
-    git --git-dir="$GD" config editorsnapshot.vault "$VAULT"
+    git --git-dir="$GD" config ohhisnapshot.vault "$VAULT"
   fi
   mkdir -p "$GD/info"
   # Store bytes exactly: no line-ending, filter or ident rewriting, whatever
@@ -327,7 +327,7 @@ cmd_restore() {
   rm -f "$list"
   note "restored $restored file(s) from snapshot $(g rev-parse --short "$commit") into $dest ($same already identical)"
   if [ -z "$to" ]; then
-    note "If Editor has this vault open, quit and reopen it so it picks up every restored file (docs/recovery.md)."
+    note "If Oh hi markdown has this vault open, quit and reopen it so it picks up every restored file (docs/recovery.md)."
   fi
 }
 
@@ -455,7 +455,7 @@ cmd_status() {
     found=1
     id="${gd##*/}"
     id="${id%.git}"
-    vault=$(git --git-dir="$gd" config editorsnapshot.vault 2> /dev/null || echo '?')
+    vault=$(git --git-dir="$gd" config ohhisnapshot.vault 2> /dev/null || echo '?')
     last=$(git --git-dir="$gd" log -1 --format='%cd (%cr)' --date='format:%Y-%m-%d %H:%M' 2> /dev/null || true)
     note '' "$vault$([ -d "$vault" ] || printf ' (folder missing)')" \
       "  history:   $gd ($(du -sh "$gd" | cut -f1))" \

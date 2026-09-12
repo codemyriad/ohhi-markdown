@@ -2,7 +2,7 @@
 # instance per vault and writes its interval into a drop-in
 # (vault-snapshot@<instance>.timer.d/interval.conf), replacing this default.
 [Unit]
-Description=Snapshot Editor vault %f every few minutes
+Description=Snapshot Oh hi markdown vault %f every few minutes
 
 [Timer]
 OnCalendar=*:0/10

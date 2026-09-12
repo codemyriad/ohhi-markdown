@@ -9,8 +9,8 @@ services:
     build:
       context: ../.. # repo root: the lockfile and rush.json
       dockerfile: apps/relay/Dockerfile
-    image: editor-relay
-    container_name: editor-relay
+    image: ohhi-relay
+    container_name: ohhi-relay
     restart: unless-stopped
     env_file: .env
     ports:

@@ -11,7 +11,7 @@ it, and the webview's Content Security Policy. Workflow:
    the tag and this version disagree).
 2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
 3. Actions → **Desktop release** builds Linux and macOS in parallel, then a
-   final job creates a **draft** release named `Editor v0.1.0`.
+   final job creates a **draft** release named `Oh hi markdown v0.1.0`.
 4. Check the assets, then publish — or leave it a draft, visible to repo
    members only.
 
@@ -22,15 +22,15 @@ step: delete the draft first.
 
 The bundled web app gets `VITE_DEFAULT_RELAY` from the repository variable
 **`DEFAULT_RELAY`** (Settings → Secrets and variables → Actions → Variables);
-set it to the team relay, e.g. `wss://relay.example.com`.
+set it to the team relay, `wss://relay.ohhi.md`.
 
 ### What lands where
 
 | Asset | Platform |
 | --- | --- |
-| `Editor_<version>_amd64.AppImage` | Linux x86_64, any distro with glibc ≥ 2.35 (Ubuntu 22.04+) |
-| `Editor_<version>_amd64.deb` | Debian / Ubuntu 22.04+ |
-| `Editor_<version>_universal.dmg` | macOS, Apple Silicon and Intel in one file |
+| `ohhi_<version>_amd64.AppImage` | Linux x86_64, any distro with glibc ≥ 2.35 (Ubuntu 22.04+) |
+| `ohhi_<version>_amd64.deb` | Debian / Ubuntu 22.04+ |
+| `ohhi_<version>_universal.dmg` | macOS, Apple Silicon and Intel in one file |
 | `SHA256SUMS.txt` | checksums of the above |
 
 The same files stay as workflow artifacts for 14 days. There are no Windows or
@@ -52,29 +52,30 @@ sha256sum -c SHA256SUMS.txt --ignore-missing      # macOS: shasum -a 256 -c SHA2
 
 ### Linux
 
-- **AppImage:** `chmod +x Editor_*.AppImage && ./Editor_*.AppImage`. AppImages
+- **AppImage:** `chmod +x ohhi_*.AppImage && ./ohhi_*.AppImage`. AppImages
   need FUSE 2: on Ubuntu 22.04 `sudo apt install libfuse2`; on 24.04 and later
   `sudo apt install libfuse2t64`.
-- **.deb:** `sudo apt install ./Editor_*_amd64.deb` installs `/usr/bin/editor-desktop`
-  and an "Editor" menu entry. The package is named `editor` (`sudo apt remove
-  editor`); it does not touch the system's `/usr/bin/editor` alternative.
+- **.deb:** `sudo apt install ./ohhi_*_amd64.deb` installs the package `ohhi`
+  (`sudo apt remove ohhi`) with an "ohhi" menu entry.
 
 ### macOS
 
-1. Open the `.dmg` and drag **Editor** into Applications.
-2. The first launch is blocked ("Editor" Not Opened / Apple could not verify…)
+1. Open the `.dmg` and drag **ohhi** into Applications.
+2. The first launch is blocked ("ohhi" Not Opened / Apple could not verify…)
    because the app is not notarized. Clear it either way:
-   - Terminal: `xattr -dr com.apple.quarantine "/Applications/Editor.app"`, then
+   - Terminal: `xattr -dr com.apple.quarantine "/Applications/ohhi.app"`, then
      open the app normally.
    - Or try to open it once, then **System Settings → Privacy & Security** →
-     "Editor was blocked…" → **Open Anyway**, and confirm with your password.
+     "ohhi was blocked…" → **Open Anyway**, and confirm with your password.
 
 Since macOS 15 Sequoia, Control-click → Open no longer bypasses Gatekeeper for
 an app that isn't notarized.
 
-App data lives under the app identifier (`dev.chris.editor`):
-`~/Library/Application Support/dev.chris.editor` on macOS and
-`~/.local/share/dev.chris.editor` on Linux. Your vault stays wherever you picked it.
+App data lives under the app identifier (`md.ohhi.desktop`):
+`~/Library/Application Support/md.ohhi.desktop` on macOS and
+`~/.local/share/md.ohhi.desktop` on Linux. Your vault stays wherever you picked
+it. A desktop app from a build before the rename (identifier `dev.chris.editor`)
+kept its state elsewhere, so it starts with fresh sync state; files are untouched.
 
 **Known dogfood limitation:** the desktop app's filesystem permission is a blanket
 `$HOME/**` grant (`apps/desktop/src-tauri/capabilities/default.json`); tightening

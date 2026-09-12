@@ -53,10 +53,10 @@ DELETE /shares/<token>                                       → { removed: true
 ```
 
 Every call requires `Authorization: Bearer $OPERATOR_SECRET`. CORS is `*` —
-the credential is the bearer secret itself, and the Editor web shell calls
-this cross-origin. Revoking a token blocks NEW connections only; live
-connections persist until they reconnect. The Editor app stores the secret in
-**Settings** and uses this API for its one-click share flows.
+the credential is the bearer secret itself, and the web app calls it
+cross-origin. Revoking a token blocks NEW connections only; live connections
+persist until they reconnect. The app stores the secret in **Settings** and
+uses this API for its one-click share flows.
 
 `GET /healthz` needs no credential: `200 {"ok":true}` while the database
 answers a read, `503 {"ok":false}` otherwise.
@@ -68,10 +68,10 @@ repo lockfile (`rush install` + `rush deploy`; the header explains why). No
 architecture is hardcoded — the same file builds linux/amd64 and linux/arm64.
 
 ```sh
-docker build -f apps/relay/Dockerfile -t editor-relay .    # from the repo root
+docker build -f apps/relay/Dockerfile -t ohhi-relay .    # from the repo root
 printf 'OPERATOR_SECRET=%s\n' "$(openssl rand -hex 32)" > relay.env && chmod 600 relay.env
-docker run -d --name editor-relay --restart unless-stopped --env-file relay.env \
-  -p 127.0.0.1:8787:8787 -v editor-relay-data:/data editor-relay
+docker run -d --name ohhi-relay --restart unless-stopped --env-file relay.env \
+  -p 127.0.0.1:8787:8787 -v ohhi-relay-data:/data ohhi-relay
 ```
 
 Or, from `apps/relay`, `docker compose up -d --build` (`compose.yaml`: named
@@ -95,19 +95,19 @@ TLS terminates at the host's reverse proxy; the relay speaks plain HTTP and
 ws on loopback. Caddy proxies websockets with no extra config:
 
 ```caddy
-relay.codemyriad.io {
+relay.ohhi.md {
 	reverse_proxy 127.0.0.1:8787
 }
 ```
 
-Clients then use `wss://relay.codemyriad.io`. (If Caddy itself runs in a
+Clients then use `wss://relay.ohhi.md`. (If Caddy itself runs in a
 container, 127.0.0.1 is its own loopback: put both on one Docker network and
-proxy to `editor-relay:8787` instead.)
+proxy to `ohhi-relay:8787` instead.)
 
 ### Shares and backups from the host
 
 ```sh
-docker exec editor-relay node --experimental-strip-types src/cli.ts share-add <folderGuid> --label laptop
+docker exec ohhi-relay node --experimental-strip-types src/cli.ts share-add <folderGuid> --label laptop
 ```
 
 The relay is never the only copy of any content — every enrolled doc lives in
@@ -117,8 +117,8 @@ re-seeding shares, not losing data. A backup saves re-creating every share.
 relay. Nightly, keeping 14 days (`%` must be escaped in crontab):
 
 ```cron
-# /etc/cron.d/editor-relay-backup
-15 3 * * * root docker exec editor-relay node --experimental-strip-types src/cli.ts backup /data/backups/relay-$(date +\%F).db && docker exec editor-relay find /data/backups -name 'relay-*.db' -mtime +14 -delete
+# /etc/cron.d/ohhi-relay-backup
+15 3 * * * root docker exec ohhi-relay node --experimental-strip-types src/cli.ts backup /data/backups/relay-$(date +\%F).db && docker exec ohhi-relay find /data/backups -name 'relay-*.db' -mtime +14 -delete
 ```
 
 Backups on the relay's own volume survive a bad deploy, not a lost disk —
@@ -126,8 +126,8 @@ copy `/data/backups` off the host too if that matters. To restore, stop the
 relay and swap the file in with the image's own user:
 
 ```sh
-docker stop editor-relay
-docker run --rm --volumes-from editor-relay editor-relay \
+docker stop ohhi-relay
+docker run --rm --volumes-from ohhi-relay ohhi-relay \
   sh -c 'cp /data/backups/relay-2026-09-10.db /data/relay.db && rm -f /data/relay.db-wal /data/relay.db-shm'
-docker start editor-relay
+docker start ohhi-relay
 ```
