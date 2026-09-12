@@ -48,6 +48,46 @@ describe('parseMarkdown', () => {
     expect(parsed.body).not.toContain('title:')
   })
 
+  it('reads frontmatter tags in every Obsidian form, through one parser', () => {
+    const tags = (text: string): string[] => parseMarkdown(text).frontmatterTags.map((t) => t.tag)
+    expect(tags('---\ntags: [a, b]\n---\n')).toEqual(['#a', '#b'])
+    expect(tags('---\ntags:\n  - a\n  - b\n---\n')).toEqual(['#a', '#b'])
+    // The vault's legacy space-separated shapes, flow and block.
+    expect(tags('---\ntags: [composition testing]\n---\n')).toEqual(['#composition', '#testing'])
+    expect(tags('---\ntags:\n  - functional-programming composition\n---\n')).toEqual([
+      '#functional-programming',
+      '#composition',
+    ])
+    expect(tags('---\ntag: solo\n---\n')).toEqual(['#solo'])
+  })
+
+  it('holds frontmatter tags to the SAME grammar as inline ones', () => {
+    // `#2026` is an issue number in the body; `tags: [2026]` is no more a tag.
+    expect(parseMarkdown('---\ntags: [2026, real]\n---\n').frontmatterTags).toEqual([
+      { tag: '#real', offset: 17 },
+    ])
+  })
+
+  it('points a frontmatter tag at its text inside the block', () => {
+    const text = '---\ntags: [alpha]\n---\nbody'
+    const [tag] = parseMarkdown(text).frontmatterTags
+    expect(text.slice(tag.offset, tag.offset + 5)).toBe('alpha')
+  })
+
+  it('keeps frontmatter tags out of the blanked body', () => {
+    const parsed = parseMarkdown('---\ntags: [alpha]\n---\n#beta\n')
+    expect(parsed.tags.map((t) => t.tag)).toEqual(['#beta'])
+    expect(parsed.frontmatterTags.map((t) => t.tag)).toEqual(['#alpha'])
+  })
+
+  it('reads aliases without splitting a phrase on spaces', () => {
+    expect(parseMarkdown('---\naliases:\n  - Memory Layout\n---\n').aliases).toEqual([
+      'Memory Layout',
+    ])
+    expect(parseMarkdown('---\nalias: One, Two\n---\n').aliases).toEqual(['One', 'Two'])
+    expect(parseMarkdown('# no block').aliases).toEqual([])
+  })
+
   it('does not treat a frontmatter value as a tag or a heading', () => {
     const parsed = parseMarkdown('---\ntags: [x]\n---\n# Real')
     expect(parsed.headings.map((h) => h.text)).toEqual(['Real'])

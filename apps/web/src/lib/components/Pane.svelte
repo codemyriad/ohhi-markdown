@@ -16,10 +16,12 @@
    */
   import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
   import type { MarkdownEditorHandle } from '@editor/editor'
-  import { wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
+  import { readHost, toggleTask, wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
+  import { parseFrontmatter } from '@editor/frontmatter'
   import { LL } from '@editor/i18n/i18n-svelte'
   import { untrack, type Snippet } from 'svelte'
-  import { activeTab, type Group, type Pane, type Tab } from '../panes.js'
+  import { activeTab, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
+  import { openExternal } from '../read.svelte.js'
   import { pillStatus } from '../sync-record.svelte.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
@@ -40,6 +42,10 @@
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]
+    /** Read X4: a tag chip's click opens vault search on `tag:#x`. */
+    searchTag: (tag: string) => void
+    /** Read X4: the `#` completion source, from the index (sync snapshot). */
+    tags: () => string[]
     /** A caret reveal for the FOCUSED pane (a search result's Enter). */
     reveal: { offset: number } | null
     groupChip?: Snippet<[Group, Pane]>
@@ -58,6 +64,8 @@
     resolveLink,
     createFromLink,
     linkCandidates,
+    searchTag,
+    tags,
     reveal,
     groupChip,
     tabMenuGroupItems,
@@ -72,6 +80,8 @@
   const awareness = $derived(path ? workspace.awarenessForPath(path) : null)
   const undoManager = $derived(path ? workspace.undoManagerFor(path) : null)
   const zoomed = $derived(panes.layout.zoom === pane.id)
+  /** This tab's view mode, or the Settings default when it has none (B3). */
+  const mode = $derived<ViewMode>(panes.modeOf(tab))
 
   /**
    * A wikilink resolves against THIS pane's note, not the app's one selection
@@ -94,7 +104,36 @@
     create: (target) => createFromLink(target),
     candidates: () => untrack(() => linkCandidates()),
   }
-  const extensions = [wikiLinkHost.of(linkHost)]
+  /**
+   * What a RENDERED note can ask the shell for (read-shaping B2.2/B2.3/B5).
+   * Untracked for the same reason `linkHost` is — CM6 calls these while it
+   * builds decorations, inside the effect that creates the view, so a tracked
+   * read here would put the view's lifecycle on the pane tree.
+   */
+  const noteHost = {
+    readAttachment: (name: string) => untrack(() => workspace.readAttachment(name, path)),
+    openExternal,
+    searchTag: (tag: string) => untrack(() => searchTag(tag)),
+    tags: () => untrack(() => tags()),
+    // CM6 has no `$LL`, so every string its widgets print travels with the
+    // host (the ReadHost contract in libs/editor-lang). A getter, so a locale
+    // switch is picked up by the next decoration build rather than frozen at
+    // the view's creation.
+    get labels() {
+      const t = untrack(() => $LL.web.read)
+      return {
+        missingAttachment: t.missing_attachment(),
+        properties: (count: number) => t.properties({ count }),
+        frontmatterUnsupported: t.frontmatter_unsupported(),
+      }
+    },
+    // The strip's reader: the same parser the index and the CLI use, so the
+    // chips at the top of a note agree with `tag:#x` search by construction.
+    frontmatter: parseFrontmatter,
+  }
+  // ONE stable array, built once: both facets are reconfigured through the
+  // host compartment, never re-created, so the Y.Text binding survives.
+  const extensions = [wikiLinkHost.of(linkHost), readHost.of(noteHost)]
 
   const status = $derived.by(() => {
     if (!path) return null
@@ -129,6 +168,36 @@
 
   /** The live handle, kept so `onhandle(null)` can still capture from it. */
   let handle: MarkdownEditorHandle | null = null
+  /**
+   * The same handle as a signal, for the one thing that has to happen AFTER
+   * the view exists: applying this tab's mode. `MarkdownEditor` has no `mode`
+   * prop yet (X1 owns it), so the mode is reconfigured through the handle —
+   * one dispatch, same document, same scroll, which is what B3 asks for
+   * either way.
+   */
+  let live = $state.raw<MarkdownEditorHandle | null>(null)
+  /** The mode the live view is actually configured for; CM6 starts in Live. */
+  let appliedMode: ViewMode = 'live'
+
+  $effect(() => {
+    const want = mode
+    const view = live
+    if (!view || appliedMode === want) return
+    appliedMode = want
+    view.setMode(want)
+  })
+
+  /**
+   * `Mod+L` acts on whichever pane has the focus, so the command reaches the
+   * view through the shell rather than the other way round (the registry is
+   * global; the view is not).
+   */
+  $effect(() => {
+    const id = pane.id
+    const view = live
+    panes.registerEditor(id, view ? { toggleTask: () => toggleTask(view.view) } : null)
+    return () => panes.registerEditor(id, null)
+  })
 
   /**
    * The same handle, offered to the shell on demand: a view reports its
@@ -153,12 +222,15 @@
     untrack(() => {
       if (next) {
         handle = next
+        live = next
+        appliedMode = 'live'
         const resume = pane.tabs.find((t) => t.id === tabId)
         if (resume?.cursor) next.restore({ cursor: resume.cursor, scroll: resume.scroll })
         return
       }
       if (handle) panes.setResume(tabId, handle.capture())
       handle = null
+      live = null
     })
   }
 </script>
@@ -223,7 +295,10 @@
     noteStatus={status}
     {lead}
     {zoomed}
+    {mode}
+    onMode={(next) => (tab ? panes.setMode(tab.id, next) : undefined)}
     testid={focused ? 'status-bar' : `pane-status:${pane.id}`}
     pillTestid={focused ? 'sync-pill-note' : `sync-pill-pane:${pane.id}`}
+    modeTestid={focused ? 'mode-menu' : `mode-menu:${pane.id}`}
   />
 </section>

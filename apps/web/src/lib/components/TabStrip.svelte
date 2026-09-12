@@ -22,12 +22,30 @@
    * The `data-slot-*` attributes are what the drag hit test measures — the
    * strip is the only thing that knows where its items are drawn.
    */
-  import { ChevronDown, Pin, Plus, X } from '@lucide/svelte'
+  import {
+    BookOpen,
+    ChevronDown,
+    CodeXml,
+    Eye,
+    Pencil,
+    Pin,
+    Plus,
+    X,
+    type LucideIcon,
+  } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
   import { basename } from '@editor/index'
   import { groupLabel } from '../group-ui.svelte.js'
-  import { stripItems, type Group, type Pane, type StripItem, type Tab } from '../panes.js'
+  import {
+    activeTab,
+    stripItems,
+    type Group,
+    type Pane,
+    type StripItem,
+    type Tab,
+    type ViewMode,
+  } from '../panes.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { melt } from '@melt-ui/svelte'
   import DropdownMenu, {
@@ -61,6 +79,20 @@
   type Run = { key: string; kind: 'chip'; item: Extract<StripItem, { kind: 'chip' }> } | TabRun
 
   const t = $derived($LL.web.tabs)
+  const r = $derived($LL.web.read)
+  /**
+   * A tab says its mode only when it is NOT Live (the mock, v4): Live is what
+   * 36 of 36 measured leaves are, so a badge on every tab would be noise —
+   * the icon marks the exception.
+   */
+  const MODE_ICON: Record<ViewMode, LucideIcon | null> = {
+    live: null,
+    source: CodeXml,
+    reading: Eye,
+  }
+  /** The strip-end toggle shows what it will DO, not where you are. */
+  const current = $derived(activeTab(pane))
+  const reading = $derived(panes.modeOf(current) === 'reading')
   const items = $derived(stripItems(pane))
   /** Consecutive tabs of the same group (or of none) share one tablist. */
   const runs = $derived.by(() => {
@@ -161,6 +193,8 @@
 {#snippet tabSlot(item: TabItem)}
   {@const tab = item.tab}
   {@const selected = pane.active === tab.id}
+  {@const tabMode = panes.modeOf(tab)}
+  {@const ModeIcon = MODE_ICON[tabMode]}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the
        wrapper carries the POINTER gestures (drag, right-click, pin);
        the keyboard equivalents all live on the tab button inside it -->
@@ -219,6 +253,10 @@
         <span class="sr-only">{t.live()}</span>
       {/if}
       <span class="truncate">{nameOf(tab)}</span>
+      {#if ModeIcon}
+        <ModeIcon size={11} aria-hidden="true" class="shrink-0" />
+        <span class="sr-only">{r.tab_mode({ mode: r.modes[tabMode]() })}</span>
+      {/if}
       {#if !tab.pinned}
         <!-- Decoration, not a control: the keyboard closes a tab with
              Delete on the strip, Mod+W, or the tab menu (R8). -->
@@ -270,6 +308,14 @@
   </div>
 
   <div class="flex shrink-0 items-center gap-0.5 border-l border-base-300 px-1">
+    <IconButton
+      label={reading ? r.to_editing() : r.to_reading()}
+      icon={reading ? Pencil : BookOpen}
+      pressed={reading}
+      testid="mode-toggle:{pane.id}"
+      disabled={!current?.path}
+      onclick={() => current && panes.toggleReading(current.id)}
+    />
     <IconButton
       label={t.new_tab()}
       icon={Plus}

@@ -19,7 +19,7 @@
  */
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { openApp, tabNamed } from './fixtures.js'
+import { openApp, seedReadNote, tabNamed } from './fixtures.js'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
 
 const RELAY = 'ws://localhost:8799'
@@ -190,6 +190,32 @@ test('the History rail section and its restore confirm are accessible', async ({
   await expect(page.getByTestId('history-confirm')).toBeVisible()
   await expectAccessible(page, 'history restore confirm')
   await page.keyboard.press('Escape')
+})
+
+/**
+ * The Read surfaces (X1–X4). The Live surface is the one place in the app
+ * where controls are rendered by CodeMirror rather than by Svelte — a
+ * checkbox per task, a chip per tag, a placeholder per missing embed — so it
+ * is the one place the primitives cannot carry the ARIA for us. Reading is
+ * scanned too: `contenteditable=false` changes what a screen reader is
+ * offered, and the mode menu is a `menuitemradio` group, which is only honest
+ * if what is in force is announced rather than merely coloured.
+ */
+test('the Live surface, a Reading tab and the mode menu are accessible', async ({ page }) => {
+  await seedReadNote(page, 'a11y-read')
+  await expect(page.locator('input.cm-task')).toHaveCount(2)
+  await expectAccessible(page, 'live preview')
+
+  // The status bar's mode menu, open, with one row checked.
+  await page.getByTestId('mode-menu').click()
+  await expect(page.getByTestId('mode-menu-list')).toBeVisible()
+  await expectAccessible(page, 'view mode menu')
+  await page.keyboard.press('Escape')
+
+  // Reading: same document, no editable surface, and a tab that says so.
+  await page.keyboard.press('ControlOrMeta+e')
+  await expect(page.locator('[data-testid="editor-pane"] .cm-content[contenteditable="true"]')).toHaveCount(0)
+  await expectAccessible(page, 'reading view')
 })
 
 test('the palette, a dialog, a menu and settings are accessible', async ({ page }) => {

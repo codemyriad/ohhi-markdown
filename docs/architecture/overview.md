@@ -67,6 +67,7 @@ Rush monorepo, packages named `@editor/<name>`, created per-slice (shaping D10).
 | `libs/workspace` | Host-neutral orchestration: a workspace is a set of **mounts** (a subtree bound to a room). Owns the folder map, doc lifecycle, carve/join/unshare, the mass-change breaker, and the boot delta scan. Knows nothing about Svelte — `apps/web` mirrors its events into runes. Extracted in M1. |
 | `libs/ui` | Design tokens and themes (Tailwind v4 + DaisyUI v5). CSS + token-name types only — no components, no logic. Three bands driven by `data-theme`: DaisyUI chrome, `--ed-*` editor tokens, and unlayered `--ed-sync-*` honesty tokens. See [theming.md](../theming.md). |
 | `libs/index` | The vault's **derived** index: full text, links, tags, headings, frontmatter keys. Droppable by construction, never a system of record. One swap-proof query interface over an in-memory backend; SQLite/FTS5 sits behind a measured trigger (`plans/v2-shaping.md` Fork 1). |
+| `libs/frontmatter` | The note's leading `---` block. `parseFrontmatter` reads positions, scalar typing, tags (every Obsidian form, including the vault's legacy `[a b]`) and aliases; `patchFrontmatter` writes ONE line-range per op, so no untouched byte is re-emitted (golden rule 2). Flat subset only — nesting, multi-line scalars, anchors and duplicate keys are refused, never repaired. The single frontmatter writer for the index, the editor's tag strip and the CLI's `fm set` (read-shaping.md B4, Fork 4). |
 | `libs/editor-lang` | Markdown language extras for CM6 — the `[[wikilink]]` `MarkdownConfig` on upstream `@codemirror/lang-markdown`, its decorations, click-through and completion. Live-preview decorations land here too. |
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
 
@@ -99,10 +100,12 @@ harness possible.
    other packages may import its `./tokens` entry (token names and helpers),
    never its CSS. The CSS is applied once by the app shell — a library that
    imported it would inject a second copy of every theme.
-7. **`libs/index` depends on nothing.** It is a pure data structure over text
-   handed to it. It never reads disk, never touches the engine, and is fed from
-   exactly one place (the workspace's index sink) — an index with N writers
-   drifts from the vault.
+7. **`libs/index` depends on nothing but `@editor/frontmatter`** (itself pure,
+   Node-safe and DOM-free), because a second frontmatter reader would let the
+   index and the editor disagree about a note's tags. It is otherwise a pure
+   data structure over text handed to it: it never reads disk, never touches
+   the engine, and is fed from exactly one place (the workspace's index
+   sink) — an index with N writers drifts from the vault.
 
 ## The two file modes
 

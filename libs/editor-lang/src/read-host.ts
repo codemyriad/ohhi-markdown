@@ -18,6 +18,34 @@ export const previewMode = Facet.define<ViewMode, ViewMode>({
   combine: (values) => values[values.length - 1] ?? 'live',
 })
 
+/**
+ * What the collapsed frontmatter strip renders — structurally the subset of
+ * @editor/frontmatter's `Frontmatter` it needs, so the shell can pass
+ * `parseFrontmatter` itself with no adapter.
+ */
+export interface FrontmatterView {
+  /** A `---` block at offset 0 with a closing delimiter. */
+  present: boolean
+  /** Every entry is in the patchable flat subset; false ⇒ the strip badges. */
+  supported: boolean
+  entries: readonly { key: string }[]
+  /** `tags`/`tag`, all three spellings, `#` stripped. */
+  tags: readonly string[]
+}
+
+/**
+ * Copy a widget cannot reach through $LL: CM6 runs outside Svelte, so the
+ * shell hands the rendered strings down with the rest of the host.
+ */
+export interface ReadLabels {
+  /** Placeholder under an embed whose file this device does not hold. */
+  missingAttachment: string
+  /** The dim `4 properties` label on the collapsed strip; plural is the host's. */
+  properties(count: number): string
+  /** Badge in place of chips when the YAML is not in the patchable subset. */
+  frontmatterUnsupported: string
+}
+
 /** What a rendered note can ask its host for. Every method is optional to call from a widget; none may throw. */
 export interface ReadHost {
   /** Bytes of an attachment named in `![[name]]`, or null when this device does not hold it. */
@@ -28,13 +56,35 @@ export interface ReadHost {
   searchTag(tag: string): void
   /** Every tag the index knows, `#` included — the `#` completion source. */
   tags(): string[]
+  /** User-facing strings for the widgets. */
+  labels: ReadLabels
+  /**
+   * Read this note's frontmatter for the collapsed strip — the shell passes
+   * @editor/frontmatter's `parseFrontmatter` straight in.
+   *
+   * Optional, and the one host capability that is: this package cannot depend
+   * on @editor/frontmatter (adding the dependency means a lockfile change, and
+   * the wiring costs the shell one line), so without a reader a frontmatter
+   * block simply stays visible as YAML rather than collapsing to a strip.
+   */
+  frontmatter?(text: string): FrontmatterView
 }
 
+/**
+ * The default host: everything a widget asks for is absent, nothing throws.
+ * The labels are the only English in this package — they are a developer
+ * fallback for a view mounted before `readHost.of(...)`, never shipped copy.
+ */
 const NOOP_HOST: ReadHost = {
   readAttachment: async () => null,
   openExternal: () => {},
   searchTag: () => {},
   tags: () => [],
+  labels: {
+    missingAttachment: 'Not on this device',
+    properties: (count) => `${count} properties`,
+    frontmatterUnsupported: 'Frontmatter does not parse',
+  },
 }
 
 export const readHost = Facet.define<ReadHost, ReadHost>({

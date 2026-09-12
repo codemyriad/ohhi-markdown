@@ -18,8 +18,10 @@ Rush monorepo (same conventions as the Edible repo). Packages are created per-sl
 
 Packages beyond V1's set, created by their slices: `libs/workspace` (M1),
 `libs/ui` (V2a — design tokens + themes), `libs/index` (V2b — the derived
-index), `libs/editor-lang` (V2c — wikilink grammar), `libs/i18n` (the
-dictionaries + typesafe-i18n wiring, laid out as Edible's `@edible/shared/i18n`;
+index), `libs/editor-lang` (V2c — wikilink grammar), `libs/frontmatter` (V2e —
+the flat-subset YAML reader and one-line-range patcher every frontmatter
+writer goes through), `libs/i18n` (the dictionaries + typesafe-i18n wiring,
+laid out as Edible's `@edible/shared/i18n`;
 every user-facing string in `apps/web` is a `$LL.…()` / `getLL()` key — see
 `.claude/skills/ui-development`). The shell's component
 primitives (Melt UI + lucide: `Dialog`, menus, `Tooltip`, `IconButton`,

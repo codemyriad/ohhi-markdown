@@ -3,6 +3,7 @@
   import type { Extension } from '@codemirror/state'
   import type { EngineDoc } from '@editor/sync'
   import type { Awareness } from 'y-protocols/awareness'
+  import type { ViewMode } from '@editor/editor-lang'
   import { createMarkdownEditor, type MarkdownEditorHandle } from './markdown-editor.js'
   import type { CollabUndoManager, CollabUser } from './binding.js'
 
@@ -11,6 +12,12 @@
     awareness?: Awareness | null
     user: CollabUser
     readOnly?: boolean
+    /**
+     * Live / Source / Reading. Applied by reconfigure, never by rebuilding:
+     * a mode toggle keeps the Y.Text binding, the scroll and the undo stack
+     * (read-shaping.md B3).
+     */
+    mode?: ViewMode
     /** Only drives CM6's own dark/light base rules; colours come from CSS. */
     dark?: boolean
     /** Host extensions (wikilinks, completion). Must be a STABLE array. */
@@ -42,6 +49,7 @@
     awareness = null,
     user,
     readOnly = false,
+    mode = 'live',
     dark = false,
     extensions = [],
     reveal = null,
@@ -65,6 +73,7 @@
       awareness,
       user,
       readOnly,
+      mode: untrack(() => mode),
       dark: untrack(() => dark),
       extensions: untrack(() => extensions),
       ...(manager ? { undoManager: manager } : {}),
@@ -81,6 +90,10 @@
 
   $effect(() => {
     handle?.setDark(dark)
+  })
+
+  $effect(() => {
+    handle?.setMode(mode)
   })
 
   $effect(() => {

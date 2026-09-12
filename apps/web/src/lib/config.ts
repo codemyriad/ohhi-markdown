@@ -12,6 +12,7 @@
  */
 import { normalizeOverrides, parseBinding, type BindingOverrides } from './commands.js'
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
+import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
 import type { BuiltinTheme } from '@editor/ui/tokens'
 
@@ -104,7 +105,22 @@ interface AppConfigV2 {
    * simply has none, and garbage in one entry never costs the others.
    */
   hotkeys?: BindingOverrides
+  /**
+   * Reading preferences (read-shaping B3): the view mode a tab that was never
+   * given one is read in. Device-level like `layout` and `theme` — how you
+   * read is about this screen — and additive on read, so a config written
+   * before this shipped simply has none.
+   */
+  read?: Partial<ReadPrefs>
 }
+
+/** Device-level reading preferences. One field today; the shape is the seam. */
+export interface ReadPrefs {
+  /** The mode a new tab opens in (Live, as Obsidian's 36 of 36 leaves are). */
+  defaultMode: ViewMode
+}
+
+export const READ_DEFAULTS: ReadPrefs = { defaultMode: 'live' }
 
 /**
  * `system` is a preference, not a theme — it resolves to a built-in at boot
@@ -388,6 +404,28 @@ export function layoutPrefs(): LayoutPrefs {
 export function setLayoutPrefs(patch: Partial<LayoutPrefs>): void {
   const cfg = loadConfig()
   cfg.layout = { ...normalizeLayout(cfg.layout), ...patch }
+  save(cfg)
+}
+
+// ---- reading (read-shaping B3) ----
+
+/** Tolerant read: missing, partial or garbage → the defaults, like `layout`. */
+function normalizeRead(raw: unknown): ReadPrefs {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof ReadPrefs, unknown>>
+  return {
+    defaultMode: VIEW_MODES.includes(r.defaultMode as ViewMode)
+      ? (r.defaultMode as ViewMode)
+      : READ_DEFAULTS.defaultMode,
+  }
+}
+
+export function readPrefs(): ReadPrefs {
+  return normalizeRead(loadConfig().read)
+}
+
+export function setReadPrefs(patch: Partial<ReadPrefs>): void {
+  const cfg = loadConfig()
+  cfg.read = { ...normalizeRead(cfg.read), ...patch }
   save(cfg)
 }
 

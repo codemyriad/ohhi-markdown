@@ -14,6 +14,7 @@ import {
   mergeGrants,
   operatorSecret,
   purgeRooms,
+  readPrefs,
   removeShare,
   removeVault,
   roomRelay,
@@ -24,6 +25,7 @@ import {
   setDefaultRelay,
   setHotkey,
   setOperatorSecret,
+  setReadPrefs,
   setRoomToken,
   touchVault,
   upsertVault,
@@ -163,6 +165,26 @@ describe('settings + shares', () => {
     expect(roomToken('other-r')).toBe('t3')
     expect(roomRelay('root-r')).toBe('') // the relay URL goes with the token
     expect(loadShares()).toEqual([{ link: 'editor1:o', room: 'other-r', label: 'keep' }])
+  })
+})
+
+describe('reading preferences (read-shaping B3)', () => {
+  it('defaults to Live, which is what 36 of 36 measured leaves are', () => {
+    expect(readPrefs()).toEqual({ defaultMode: 'live' })
+  })
+
+  it('round-trips through the blob, additively — nothing else is disturbed', () => {
+    setDefaultRelay('ws://my-relay:9000')
+    setReadPrefs({ defaultMode: 'reading' })
+    expect(readPrefs().defaultMode).toBe('reading')
+    expect(defaultRelay()).toBe('ws://my-relay:9000')
+    // A config written before this shipped simply has no `read` key.
+    expect(loadConfig().version).toBe(2)
+  })
+
+  it('a stored mode that is not a mode reads as the default, never as a crash', () => {
+    seed('editor:config', { ...loadConfig(), read: { defaultMode: 'preview' } })
+    expect(readPrefs().defaultMode).toBe('live')
   })
 })
 

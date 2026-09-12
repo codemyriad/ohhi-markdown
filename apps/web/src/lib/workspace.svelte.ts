@@ -78,6 +78,7 @@ import {
   setRoomToken,
 } from './config.js'
 import { colorFor } from './params.js'
+import { attachmentCandidates, attachmentType } from './read.svelte.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
@@ -375,6 +376,20 @@ export interface Workspace {
    * Returns null when absent.
    */
   readAppFile(path: string): Promise<string | null>
+  /**
+   * The bytes behind `![[name.png]]` (read-shaping B2.3), or null when this
+   * device does not hold them — a joined peer holds no binaries until D2f, so
+   * "absent" is a normal answer and the editor draws a placeholder for it.
+   *
+   * `name` is resolved beside `fromPath` first and then at the vault root,
+   * Obsidian's own order. It never leaves the vault: a name that is absolute,
+   * Windows-shaped or climbs out through `..` is refused before the adapter
+   * sees it, because the name comes out of a file a peer or an agent wrote.
+   *
+   * Binaries live on disk and never in a Y.Text, so this reads the adapter
+   * directly — there is no doc to ask.
+   */
+  readAttachment(name: string, fromPath?: string | null): Promise<Blob | null>
   dispose(): void
 }
 
@@ -1660,6 +1675,13 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return insp ? { ...insp, path, mount: { path: r.mountPath, room: r.session.room } } : null
     },
     mountStats: () => Promise.all(registry.all().map((h) => h.session.mountStats())),
+    readAttachment: async (name, fromPath) => {
+      for (const candidate of attachmentCandidates(name, fromPath)) {
+        const bytes = await cfg.adapter.read(candidate).catch(() => null)
+        if (bytes) return new Blob([bytes as BlobPart], { type: attachmentType(candidate) })
+      }
+      return null
+    },
     readAppFile: async (path) => {
       const rel = path.replace(/^\/+/, '')
       if (!APP_FILE_DIRS.some((dir) => rel.startsWith(dir))) {

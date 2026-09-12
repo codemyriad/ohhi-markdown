@@ -30,10 +30,16 @@
  * `neighbour` takes the rects rather than reading the DOM.
  */
 
+import type { ViewMode } from '@editor/editor'
+
 export type Dir = 'row' | 'col'
 export type Side = 'left' | 'right' | 'up' | 'down'
 /** Index into the `--ed-group-1..8` token band (Fork 5). */
 export type GroupColor = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+
+export type { ViewMode }
+/** The three view modes, in the order every menu prints them (read B3). */
+export const VIEW_MODES: readonly ViewMode[] = ['live', 'source', 'reading']
 
 export interface Cursor {
   anchor: number
@@ -67,6 +73,14 @@ export interface Tab {
   history: Waypoint[]
   /** Index into `history`; -1 when empty. */
   historyAt: number
+  /**
+   * This tab's view mode (read-shaping B3). **Absent means "the Settings
+   * default, read now"** — stamping the default into every tab would freeze a
+   * preference at the moment each tab was opened, so changing it in Settings
+   * would leave the whole workspace behind. Only a tab whose mode was chosen
+   * for it carries one, which is also why `LAYOUT_VERSION` does not move.
+   */
+  mode?: ViewMode
 }
 
 export interface Group {
@@ -625,6 +639,21 @@ export function activate(l: Layout, paneId: string, tabId: string, now = Date.no
   return editLayout(l, (d) => {
     const p = findPane(d, paneId)
     if (p) activateIn(d, p, tabId, now)
+  })
+}
+
+/**
+ * Choose one tab's view mode (read-shaping B3). The choice sticks to the tab
+ * — a note is not read the same way in every pane it is open in — and it is
+ * the only thing that ever writes `Tab.mode`, so a tab that was never chosen
+ * for keeps following the Settings default.
+ */
+export function setMode(l: Layout, tabId: string, mode: ViewMode): Layout {
+  const held = tabOf(l, tabId)
+  if (!held || held.mode === mode) return l
+  return editLayout(l, (d) => {
+    const t = tabOf(d, tabId)
+    if (t) t.mode = mode
   })
 }
 
@@ -1298,6 +1327,15 @@ function readCursor(raw: unknown): Cursor | null {
     : null
 }
 
+/**
+ * A stored view mode, or undefined. Undefined is a real value here — it means
+ * "whatever Settings says" — so an unreadable one falls back to it rather than
+ * to `live`, which would silently pin the tab against the preference.
+ */
+function readMode(raw: unknown): ViewMode | undefined {
+  return VIEW_MODES.includes(raw as ViewMode) ? (raw as ViewMode) : undefined
+}
+
 /** A stored colour, clamped back into the `--ed-group-1..8` band. */
 function readColor(raw: unknown): GroupColor {
   const n = Math.round(num(raw, 1))
@@ -1366,6 +1404,8 @@ function normalizeTab(raw: unknown, ids: () => string, used: Set<string>): Tab |
     history,
     historyAt: Math.round(num(r.historyAt, history.length - 1)),
   }
+  const mode = readMode(r.mode)
+  if (mode) t.mode = mode
   fixHistoryAt(t)
   return t
 }

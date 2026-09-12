@@ -9,12 +9,24 @@
  * Y.Text binding and lose cursor, scroll and undo history.
  */
 import { defaultKeymap } from '@codemirror/commands'
-import { markdown } from '@codemirror/lang-markdown'
-import { Compartment, EditorState, type Extension } from '@codemirror/state'
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
+import { indentUnit } from '@codemirror/language'
+import { languages } from '@codemirror/language-data'
+import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import type { Awareness } from 'y-protocols/awareness'
 import type { EngineDoc } from '@editor/sync'
-import { previewMode, type ViewMode, WikiLink, wikiLinkExtensions } from '@editor/editor-lang'
+import {
+  Frontmatter,
+  Highlight,
+  livePreview,
+  previewMode,
+  Tag,
+  toggleTask,
+  type ViewMode,
+  WikiLink,
+  wikiLinkExtensions,
+} from '@editor/editor-lang'
 import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 
@@ -104,13 +116,31 @@ export function createMarkdownEditor(
     ...createCollabExtensions(opts.doc, opts.awareness, opts.user, opts.undoManager),
     hostCompartment.of(opts.extensions ?? []),
     modeCompartment.of(modeExtensions(opts.mode ?? 'live')),
+    // Above defaultKeymap, and explicitly so: a binding that only wins by
+    // sitting earlier in the array is one refactor away from not winning.
+    Prec.high(keymap.of([{ key: 'Mod-l', run: toggleTask }])),
     keymap.of(defaultKeymap),
-    // Wikilinks are part of the language here, not an optional extra: 29% of
-    // the vault's notes carry one. The BEHAVIOUR (resolve/open/create) is what
+    // GFM is the base because the vault is GFM: tables, task lists,
+    // strikethrough and bare URLs (3,005 of them) do not parse without it.
+    // Wikilinks are part of the language here too, not an optional extra: 29%
+    // of the notes carry one. The BEHAVIOUR (resolve/open/create) is what
     // varies per host, and that arrives through the wikiLinkHost facet — see
     // the host compartment above.
-    markdown({ extensions: [WikiLink] }),
+    markdown({
+      base: markdownLanguage,
+      extensions: [WikiLink, Tag, Highlight, Frontmatter],
+      // Lazy-loaded grammars for fenced code: js/rust/bash/jsx/ts alone are
+      // 369 of the vault's 527 fences.
+      codeLanguages: languages,
+    }),
+    // The vault indents lists with tabs and reads them at four columns, and a
+    // rendered bullet has to sit where the tab put it (read-shaping.md B1).
+    EditorState.tabSize.of(4),
+    indentUnit.of('\t'),
     ...wikiLinkExtensions(),
+    // After the wikilink extensions: live preview's plain-click rule only
+    // applies where a link is RENDERED, and V2c's Mod-click keeps the rest.
+    ...livePreview(),
     EditorView.lineWrapping,
     // CM6 renders the content as role="textbox"; without a name it is an
     // unlabelled input to assistive tech (and to the axe gate).

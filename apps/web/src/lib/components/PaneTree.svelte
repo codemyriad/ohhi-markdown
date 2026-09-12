@@ -46,6 +46,9 @@
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]
+    /** Read X4: a tag chip's click, and the `#` completion source. */
+    searchTag: (tag: string) => void
+    tags: () => string[]
     reveal: { offset: number } | null
     groupChip?: Snippet<[Group, PaneNode]>
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>

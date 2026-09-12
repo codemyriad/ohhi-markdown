@@ -58,6 +58,9 @@ importers:
       '@editor/editor-lang':
         specifier: workspace:*
         version: link:../../libs/editor-lang
+      '@editor/frontmatter':
+        specifier: workspace:*
+        version: link:../../libs/frontmatter
       '@editor/i18n':
         specifier: workspace:*
         version: link:../../libs/i18n

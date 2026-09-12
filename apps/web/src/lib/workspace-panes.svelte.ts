@@ -28,6 +28,12 @@ import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } fro
 import { familyTitle, paneCommands } from './pane-commands.js'
 import { slotsFrom, stripDrop, zoneBox, type Box } from './pane-drag.js'
 import * as tree from './panes.js'
+import {
+  afterToggleReading,
+  afterToggleSource,
+  readCommands,
+  readState,
+} from './read.svelte.js'
 import type {
   ClosedTab,
   Dir,
@@ -39,6 +45,7 @@ import type {
   SavedGroup,
   Side,
   Tab,
+  ViewMode,
 } from './panes.js'
 import { loadLayout, loadSavedGroups, saveWorkspace } from './workspace-layout.js'
 import { textPaths, type Workspace } from './workspace.svelte.js'
@@ -96,6 +103,16 @@ export interface DragPayload {
 export interface Resume {
   cursor: { anchor: number; head: number }
   scroll: number
+}
+
+/**
+ * What a live view can be asked to do to its text from outside (read X2).
+ * Deliberately not the CM6 handle: the controller is DOM-free by design, and
+ * `edit.toggle-checkbox` only needs the one command.
+ */
+export interface PaneEditor {
+  /** `toggleTask` over the main selection; false when no line qualifies. */
+  toggleTask(): boolean
 }
 
 export type { Box }
@@ -177,7 +194,27 @@ export interface PaneShell {
    * the saved list. So the ops that keep a resume point ask for it first.
    */
   registerCapture(paneId: string, capture: (() => Resume | null) | null): void
+  /**
+   * A pane's live view, as the commands that act on its TEXT see it (read
+   * X2). Registered and dropped with the view like the capture above, so
+   * `Mod+L` reaches whichever pane holds the focus without the controller
+   * ever learning what a CodeMirror is.
+   */
+  registerEditor(paneId: string, editor: PaneEditor | null): void
   beginDrag(e: PointerEvent, payload: DragPayload): void
+
+  // ---- view modes (read-shaping B3) ----
+  /** The `view.*` and `edit.toggle-checkbox` rows of the command table. */
+  readCommands(): Command[]
+  /** A tab's mode — its own, or the Settings default when it has none. */
+  modeOf(tab: Tab | null): ViewMode
+  setMode(tabId: string, mode: ViewMode): void
+  /**
+   * Obsidian's `Mod+E` pair on one tab: editing ↔ Reading, back to whichever
+   * of Live/Source it last had. One method rather than a rule the strip
+   * button and the command each apply, so both remember the same way.
+   */
+  toggleReading(tabId: string): void
 
   // ---- groups (W2, B4/B8) ----
   /** A new group holding `tabId`; answers its id so the caller can name it. */
@@ -354,6 +391,36 @@ export function createPanes(
 
   const focused = (): Pane => tree.focusedPane(current)
   const active = (): Tab | null => tree.activeTab(focused())
+
+  // ---- view modes (read-shaping B3, Fork 2-A) ----
+
+  /**
+   * Per tab, the mode it was in before Reading — what `Mod+E` comes back to.
+   * Session-only on purpose: it is a "where was I a moment ago", and a tab
+   * reopened tomorrow should follow the preference, not a stale keystroke.
+   */
+  const lastEditing = new Map<string, ViewMode>()
+  const editors = new Map<string, PaneEditor>()
+
+  const modeOf = (tab: Tab | null): ViewMode => tab?.mode ?? readState.defaultMode
+
+  function applyMode(tabId: string, mode: ViewMode): void {
+    const t = tree.tabOf(current, tabId)
+    if (!t) return
+    const from = modeOf(t)
+    if (mode === 'reading' && from !== 'reading') lastEditing.set(tabId, from)
+    commit(tree.setMode(current, tabId, mode))
+  }
+
+  function toggleReadingOf(tabId: string): void {
+    const t = tree.tabOf(current, tabId)
+    if (t) applyMode(t.id, afterToggleReading(modeOf(t), lastEditing.get(t.id)))
+  }
+
+  /** Every `view.*` command acts on the tab the keyboard is in. */
+  function modeOfActive(): ViewMode {
+    return modeOf(active())
+  }
 
   function rects(): Record<string, Rect> {
     if (current.zoom === null) {
@@ -727,6 +794,29 @@ export function createPanes(
 
     commands: () => paneCommands(actions),
 
+    readCommands: () =>
+      readCommands({
+        hasNote: () => active()?.path != null,
+        mode: modeOfActive,
+        setMode: (mode) => {
+          const t = active()
+          if (t) applyMode(t.id, mode)
+        },
+        toggleReading: () => {
+          const t = active()
+          if (t) toggleReadingOf(t.id)
+        },
+        toggleSource: () => {
+          const t = active()
+          if (t) applyMode(t.id, afterToggleSource(modeOf(t)))
+        },
+        toggleCheckbox: () => void editors.get(current.focus)?.toggleTask(),
+      }),
+
+    modeOf,
+    setMode: applyMode,
+    toggleReading: toggleReadingOf,
+
     hints: () =>
       mode
         ? // A row is printed only if it does something: no title means the
@@ -863,6 +953,11 @@ export function createPanes(
     registerCapture(paneId, capture) {
       if (capture) captures.set(paneId, capture)
       else captures.delete(paneId)
+    },
+
+    registerEditor(paneId, editor) {
+      if (editor) editors.set(paneId, editor)
+      else editors.delete(paneId)
     },
 
     beginDrag,

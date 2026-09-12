@@ -23,6 +23,7 @@ import {
   openPath,
   panes,
   parentOf,
+  setMode,
   prune,
   rename,
   reorder,
@@ -200,6 +201,66 @@ describe('serialize / normalize', () => {
     expect(l?.tree.kind).toBe('pane')
     expect(paneAt(l!, 0).tabs).toHaveLength(1)
     expect(paneAt(l!, 0).tabs[0].path).toBeNull()
+  })
+})
+
+describe('view modes on a tab (read-shaping B3)', () => {
+  it('a fresh tab carries no mode — the Settings default is read, never stamped', () => {
+    const gen = ids('m')
+    const l = openPath(createLayout(gen), 'a.md', {}, gen)
+    expect(tabOf(l, tabIdFor(paneAt(l), 'a.md'))?.mode).toBeUndefined()
+  })
+
+  it('setMode marks one tab and leaves its neighbours alone', () => {
+    const gen = ids('m')
+    let l = openPath(openPath(createLayout(gen), 'a.md', {}, gen), 'b.md', {}, gen)
+    const a = tabIdFor(paneAt(l), 'a.md')
+    const b = tabIdFor(paneAt(l), 'b.md')
+    l = setMode(l, a, 'reading')
+    expect(tabOf(l, a)?.mode).toBe('reading')
+    expect(tabOf(l, b)?.mode).toBeUndefined()
+  })
+
+  it('setting the mode it already has is not a change (no churn, no save)', () => {
+    const gen = ids('m')
+    const l = setMode(openPath(createLayout(gen), 'a.md', {}, gen), '', 'source')
+    // An unknown tab id answers with the SAME layout object, not a clone.
+    expect(setMode(l, 'nope', 'source')).toBe(l)
+    const id = tabIdFor(paneAt(l), 'a.md')
+    const once = setMode(l, id, 'source')
+    expect(once).not.toBe(l)
+    expect(setMode(once, id, 'source')).toBe(once)
+  })
+
+  it('the mode survives serialize → JSON → normalize', () => {
+    const gen = ids('m')
+    let l = openPath(createLayout(gen), 'a.md', {}, gen)
+    l = setMode(l, tabIdFor(paneAt(l), 'a.md'), 'reading')
+    const back = normalize(JSON.parse(JSON.stringify(serialize(l))), ids('r'))!
+    expect(tabOf(back, tabIdFor(paneAt(back), 'a.md'))?.mode).toBe('reading')
+  })
+
+  it('an unreadable stored mode falls back to ABSENT, not to live', () => {
+    const back = normalize(
+      {
+        version: 1,
+        tree: {
+          kind: 'pane',
+          id: 'p',
+          active: 't',
+          groups: [],
+          tabs: [
+            { id: 't', path: 'a.md', pinned: false, cursor: null, scroll: 0, history: [], historyAt: -1, mode: 'preview' },
+          ],
+        },
+        focus: 'p',
+        zoom: null,
+      },
+      ids('r')
+    )!
+    // Absent means "follow Settings"; pinning it to live would silently
+    // override the preference for a tab nobody ever chose a mode for.
+    expect(paneAt(back).tabs[0].mode).toBeUndefined()
   })
 })
 

@@ -17,6 +17,7 @@ import { createGroupUi } from './group-ui.svelte.js'
 import { activeTab, findPane, panes as panesOf, visibleTabs, type Layout } from './panes.js'
 import { ids as idGen } from './panes.fixture.js'
 import { fakeWorkspace, withPanes, type FakeWorkspace, type PanesHarness } from './panes-shell.fixture.svelte.js'
+import { setDefaultMode } from './read.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
 import { loadLayout, loadSavedGroups } from './workspace-layout.js'
 import type { PaneShell } from './workspace-panes.svelte.js'
@@ -89,6 +90,87 @@ describe('what the rest of the app reads off the tree (B3, S9-Q1)', () => {
     run('workspace.zoom')
     harness.flush()
     expect(ws.liveViews.at(-1)).toEqual(['b.md', 'c.md'])
+  })
+})
+
+describe('view modes (read-shaping B3, Fork 2-A)', () => {
+  const activeTabOf = (i = 0) => activeTab(pane(i))
+
+  beforeEach(() => {
+    registry.register(...panes.readCommands())
+  })
+  // The preference is module state shared by every suite in this file.
+  afterEach(() => setDefaultMode('live'))
+
+  it('a tab with no mode of its own follows Settings, live', () => {
+    boot()
+    openAll(['a.md'])
+    expect(panes.modeOf(activeTabOf())).toBe('live')
+
+    // Changing the preference moves every tab that never chose for itself —
+    // the whole reason `Tab.mode` is absent rather than stamped.
+    setDefaultMode('source')
+    harness.flush()
+    expect(panes.modeOf(activeTabOf())).toBe('source')
+    expect(activeTabOf()?.mode).toBeUndefined()
+  })
+
+  it('Mod+E comes back to the mode the tab was last edited in', () => {
+    boot()
+    openAll(['a.md'])
+    run('view.mode-source')
+    harness.flush()
+    expect(panes.modeOf(activeTabOf())).toBe('source')
+
+    run('view.toggle-reading')
+    harness.flush()
+    expect(panes.modeOf(activeTabOf())).toBe('reading')
+
+    run('view.toggle-reading')
+    harness.flush()
+    expect(panes.modeOf(activeTabOf())).toBe('source')
+  })
+
+  it('the mode belongs to the tab, not to the pane or the app', () => {
+    boot()
+    openAll(['a.md', 'b.md'])
+    const b = activeTabOf()!.id
+    panes.setMode(b, 'reading')
+    harness.flush()
+    expect(panes.modeOf(pane().tabs.find((t) => t.path === 'a.md')!)).toBe('live')
+    expect(panes.modeOf(pane().tabs.find((t) => t.path === 'b.md')!)).toBe('reading')
+
+    // …and it is persisted with the tab, so a reload remembers it.
+    panes.persistNow()
+    const stored = loadLayout(VAULT, idGen('r'))!
+    const tabs = panesOf(stored.tree)[0].tabs
+    expect(tabs.find((t) => t.path === 'b.md')?.mode).toBe('reading')
+    expect(tabs.find((t) => t.path === 'a.md')?.mode).toBeUndefined()
+  })
+
+  it('Mod+L reaches the FOCUSED pane\'s view, and only while there is one', () => {
+    boot()
+    openAll(['a.md'])
+    let toggled = 0
+    panes.registerEditor(panes.layout.focus, { toggleTask: () => (toggled++, true) })
+    run('edit.toggle-checkbox')
+    expect(toggled).toBe(1)
+
+    // A pane whose view has gone away takes no more commands.
+    panes.registerEditor(panes.layout.focus, null)
+    run('edit.toggle-checkbox')
+    expect(toggled).toBe(1)
+  })
+
+  it('the checkbox command is hidden in Reading, where commands do not run', () => {
+    boot()
+    openAll(['a.md'])
+    expect(registry.available().some((c) => c.id === 'edit.toggle-checkbox')).toBe(true)
+    run('view.mode-reading')
+    harness.flush()
+    expect(registry.available().some((c) => c.id === 'edit.toggle-checkbox')).toBe(false)
+    // Every `view.*` row stays, because that is how you get back out.
+    expect(registry.available().some((c) => c.id === 'view.toggle-reading')).toBe(true)
   })
 })
 

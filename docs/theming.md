@@ -95,6 +95,35 @@ sync ok and pending (as they already are for `--ed-presence-2/4`), and a chip
 that carries the name you gave it, in the tab strip, is not the pill in the
 status bar.
 
+## The live-preview tokens (marked `(V2e)` in the contract)
+
+Seventeen contract entries carry a `(V2e)` comment. They were declared in V2a
+with defensible defaults and read by **nothing**, because they describe
+constructs no surface rendered yet — so a theme written in V2a would not need
+editing when live preview landed. **X1–X4 (`plans/read-shaping.md`) are their
+first readers** — sixteen of the seventeen, all of them read in
+`libs/editor/src/theme.ts`. That file is the only place CodeMirror's classes
+meet the token layer, which is what makes a rendered markdown surface
+themeable at all (the "no literal colours in a CM6 theme object" rule above is
+what buys it).
+
+| Token | What reads it |
+|---|---|
+| `--ed-bullet` | the bullet widget that replaces `- ` off the caret's line (X1) |
+| `--ed-checkbox` / `--ed-checkbox-done` | the task checkbox widget, unchecked and checked — 1,941 of them in the real vault (X1) |
+| `--ed-mark-bg` / `--ed-mark-fg` | `==highlight==`, a new inline node (X1) |
+| `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
+| `--ed-code-block-fg` | a fence's body text under its slab, beside the nine `--ed-syn-*` slots (X1) |
+| `--ed-quote-border` | the blockquote's left border, once `> ` is hidden (X1) |
+| `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates, so it must look clickable (X1) |
+| `--ed-table-header-bg` / `--ed-table-row-alt-bg` / `--ed-table-border` | the Reading table widget, and Live's column guides over the raw pipes (X2) |
+| `--ed-frontmatter-bg` / `--ed-frontmatter-border` | the YAML block's fencing while the caret is inside it (X3) |
+| `--ed-tag-bg-hover` / `--ed-tag-radius` | the tag chip, both in the text and in the collapsed frontmatter strip (X4) |
+
+`--ed-title` is the one exception: it is the filename-as-title line, a
+different thing from `h1`, and Editor has no such line yet. It stays declared,
+defaulted and unread until one exists.
+
 ## Theme switching
 
 `ThemePref = 'system' | 'editor-light' | 'editor-dark' | 'nord-light' |
@@ -124,7 +153,8 @@ same shape as `.obsidian/themes/<name>/theme.css` — then name it in Settings.
 Start from `libs/ui/src/styles/_template.css`; **the complete, authoritative
 token list with a default for every entry is
 `libs/ui/src/styles/tokens/_contract.css`** (96 tokens, grouped and commented;
-entries marked `(V2e)` are declared but not yet read by any surface).
+the entries marked `(V2e)` are the live-preview band — see above for what
+reads each one).
 
 Four rules the file itself will not tell you:
 
@@ -236,8 +266,11 @@ Override `--ed-selection` in a custom theme if you want more.
 
 ## Not yet, and deliberately
 
-- **Callout tokens** (`--ed-callout-*`) are not shipped: nothing renders
-  callouts until live preview (V2e), and the measured vault contains zero.
+- **Callout tokens** (`--ed-callout-*`) are not shipped: live preview (X1)
+  deliberately does not render callouts, and the measured vault contains
+  **zero** of them — along with zero footnotes, math and transclusions
+  (`plans/read-shaping.md` §Evidence). They arrive with the construct, if a
+  complaint ever asks for it.
 - **Tauri window translucency** (Chris's `appearance.json` has
   `translucency: true`) is out of scope. If it is added, `--ed-surface` must
   become semi-transparent *per theme* — a token-contract change, not a shell

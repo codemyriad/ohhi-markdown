@@ -13,6 +13,7 @@
   "dependencies": {
     "@editor/editor": "workspace:*",
     "@editor/editor-lang": "workspace:*",
+    "@editor/frontmatter": "workspace:*",
     "@editor/i18n": "workspace:*",
     "@editor/index": "workspace:*",
     "@editor/sync": "workspace:*",

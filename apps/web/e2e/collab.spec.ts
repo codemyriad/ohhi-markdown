@@ -212,3 +212,33 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
   await alice.context.close()
   await bob.context.close()
 })
+
+/**
+ * Read R2.3: a checkbox click is a text edit like typing — same Y.Text, same
+ * relay, same disk. The widget lives only in view state, so the only proof
+ * that it edited the DOCUMENT is the peer seeing the character change.
+ */
+test('a checkbox click travels to the peer as text', async ({ browser }) => {
+  const alice = await openPeer(browser, 'seed', 'Alice')
+  const bob = await openPeer(browser, 'join', 'Bob')
+  await openFile(alice.page)
+  await openFile(bob.page)
+
+  await typeAtTop(alice.page, '- [ ] a task\n')
+  await expect(editorContent(bob.page)).toContainText('a task', { timeout: 10_000 })
+
+  // Bob reads in Reading view, where the mode gates COMMANDS, not edits —
+  // the checkbox is still a control there (R2.3).
+  await bob.page.keyboard.press('ControlOrMeta+e')
+  const box = bob.page.locator('[data-testid="editor-pane"] input.cm-task').first()
+  await expect(box).not.toBeChecked()
+  await box.click()
+
+  // Alice sees the one character that changed, in Source where it is text.
+  await alice.page.getByTestId('mode-menu').click()
+  await alice.page.getByTestId('mode-menu:source').click()
+  await expect(editorContent(alice.page)).toContainText('- [x] a task', { timeout: 10_000 })
+
+  await alice.context.close()
+  await bob.context.close()
+})

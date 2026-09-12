@@ -24,7 +24,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { Compartment, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
-import { wikiLinkMarkTag, wikiLinkTag } from '@editor/editor-lang'
+import { highlightTag, tagTag, wikiLinkMarkTag, wikiLinkTag } from '@editor/editor-lang'
 
 /** Reconfigured on theme change; nothing else about the view moves. */
 export const themeModeCompartment = new Compartment()
@@ -95,6 +95,143 @@ const editorBaseTheme = EditorView.theme({
     color: 'var(--ed-ink)',
   },
 
+  // --- live preview (read-shaping.md B2) -----------------------------------
+  // Every class the reveal engine emits is styled HERE, and only here: the
+  // engine sets class names and never a colour, so one token layer paints the
+  // Svelte chrome and the CM6 surface alike (golden rule 7).
+  //
+  // Headings are the exception that proves it: their SIZE comes from the
+  // HighlightStyle below, not from the line class, because both would be `em`
+  // and 1.9em inside 1.9em is 3.6em.
+  '.cm-live-h1, .cm-live-h2, .cm-live-h3': { paddingTop: '0.6em' },
+  '.cm-live-h4, .cm-live-h5, .cm-live-h6': { paddingTop: '0.4em' },
+
+  '.cm-live-quote': {
+    borderLeft: '3px solid var(--ed-quote-border)',
+    color: 'var(--ed-quote-fg)',
+  },
+
+  '.cm-live-code': {
+    backgroundColor: 'var(--ed-code-block-bg)',
+    color: 'var(--ed-code-block-fg)',
+    fontFamily: 'var(--ed-font-mono)',
+    fontSize: '0.92em',
+  },
+  '.cm-fence-line': {
+    backgroundColor: 'var(--ed-code-block-bg)',
+    borderTop: '1px solid var(--ed-code-border)',
+    minHeight: '0.5em',
+  },
+  '.cm-fence-cap': { borderTop: 'none', borderBottom: '1px solid var(--ed-code-border)' },
+  '.cm-fence-lang': {
+    color: 'var(--ed-ink-muted)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.75em',
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    padding: '0 1rem',
+  },
+
+  '.cm-inline-code': {
+    backgroundColor: 'var(--ed-code-bg)',
+    color: 'var(--ed-code-fg)',
+    fontFamily: 'var(--ed-font-mono)',
+    fontSize: '0.9em',
+    borderRadius: '0.25em',
+    padding: '0.1em 0.3em',
+  },
+
+  '.cm-bullet': { color: 'var(--ed-bullet)' },
+  '.cm-list-num': { color: 'var(--ed-bullet)' },
+  '.cm-task': {
+    accentColor: 'var(--ed-checkbox)',
+    verticalAlign: 'middle',
+    marginRight: '0.15em',
+    cursor: 'pointer',
+  },
+  '.cm-task:checked': { accentColor: 'var(--ed-checkbox-done)' },
+
+  '.cm-live-rule hr': {
+    border: 'none',
+    borderTop: '1px solid var(--ed-hr)',
+    margin: '0.6em 0',
+  },
+
+  // The pointer belongs to `.cm-live-link`, which the engine adds only where a
+  // link is actually RENDERED — on a raw link a click still places the caret,
+  // and a hand there would promise something only Mod-click delivers.
+  '.cm-md-link': { color: 'var(--ed-link)' },
+  '.cm-url': { color: 'var(--ed-url)', textDecoration: 'underline' },
+  '.cm-live-link': { cursor: 'pointer' },
+  '.cm-live-link:hover': { color: 'var(--ed-link-hover)' },
+
+  '.cm-tag': {
+    color: 'var(--ed-tag-fg)',
+    backgroundColor: 'var(--ed-tag-bg)',
+    borderRadius: 'var(--ed-tag-radius)',
+    padding: '0.05em 0.4em',
+  },
+  '.cm-tag:hover': { backgroundColor: 'var(--ed-tag-bg-hover)' },
+  '.cm-highlight': { backgroundColor: 'var(--ed-mark-bg)', color: 'var(--ed-mark-fg)' },
+
+  // HTML is styled as code and never rendered: 24 elements in 13 files, 10 of
+  // them <iframe>, in files an agent can write (read-shaping.md B7).
+  '.cm-html': { color: 'var(--ed-ink-muted)', fontFamily: 'var(--ed-font-mono)' },
+  '.cm-block-id': { color: 'var(--ed-ink-faint)', fontSize: '0.85em' },
+
+  '.cm-embed img': { maxWidth: '100%', borderRadius: '0.25em' },
+  '.cm-embed-missing': {
+    display: 'inline-block',
+    color: 'var(--ed-ink-muted)',
+    border: '1px dashed var(--ed-code-border)',
+    borderRadius: '0.25em',
+    padding: '0.4em 0.6em',
+    fontSize: '0.9em',
+  },
+
+  '.cm-live-frontmatter': {
+    backgroundColor: 'var(--ed-frontmatter-bg)',
+    borderLeft: '3px solid var(--ed-frontmatter-border)',
+    color: 'var(--ed-frontmatter-fg)',
+    fontFamily: 'var(--ed-font-mono)',
+    fontSize: '0.9em',
+  },
+  '.cm-frontmatter-strip': {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '0.4em',
+    padding: '0.35em 1rem',
+    backgroundColor: 'var(--ed-frontmatter-bg)',
+    borderBottom: '1px solid var(--ed-frontmatter-border)',
+  },
+  '.cm-frontmatter-strip .cm-tag': { cursor: 'pointer' },
+  '.cm-frontmatter-count': {
+    color: 'var(--ed-ink-muted)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.8em',
+  },
+  '.cm-frontmatter-badge': {
+    color: 'var(--ed-ink-muted)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.8em',
+    border: '1px dashed var(--ed-frontmatter-border)',
+    borderRadius: '0.25em',
+    padding: '0 0.4em',
+  },
+
+  '.cm-table-pipe': { color: 'var(--ed-marker)' },
+  '.cm-table-head': { fontWeight: '600' },
+  '.cm-table-wrap': { overflowX: 'auto', padding: '0.3em 1rem' },
+  '.cm-table': { borderCollapse: 'collapse', fontSize: '0.95em' },
+  '.cm-table th, .cm-table td': {
+    border: '1px solid var(--ed-table-border)',
+    padding: '0.25em 0.6em',
+    textAlign: 'left',
+  },
+  '.cm-table th': { backgroundColor: 'var(--ed-table-header-bg)' },
+  '.cm-table tbody tr:nth-child(even)': { backgroundColor: 'var(--ed-table-row-alt-bg)' },
+
   // --- collab (class names come from y-codemirror.next) --------------------
   // The peer COLOUR is written as an inline style from awareness, so only the
   // chrome is themeable here. Moving the colour itself onto --ed-presence-N
@@ -148,6 +285,8 @@ export const editorHighlightStyle = HighlightStyle.define([
   // Our own derived tags win over the base tag they were defined from.
   { tag: wikiLinkTag, color: 'var(--ed-wikilink)' },
   { tag: wikiLinkMarkTag, color: 'var(--ed-wikilink-punct)' },
+  { tag: tagTag, color: 'var(--ed-tag-fg)' },
+  { tag: highlightTag, backgroundColor: 'var(--ed-mark-bg)', color: 'var(--ed-mark-fg)' },
   { tag: t.meta, color: 'var(--ed-frontmatter-fg)' },
 
   // --- nested fenced-code languages ---

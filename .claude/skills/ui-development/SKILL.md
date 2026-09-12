@@ -108,8 +108,10 @@ belongs to; add a validated setting to that tab's schema, never as a bare
 (the CM6 surface and its theme), `libs/editor-lang` (markdown language
 extras), `libs/index` (the derived index), `libs/i18n` (the dictionaries —
 see *Strings and i18n* below), `apps/web/src/lib/components`
-(the shell). Ground truth for UI decisions: `plans/v2-shaping.md` and
-`docs/theming.md`, then `plans/shaping.md` / `plans/slices.md`.
+(the shell). Ground truth for UI decisions: `plans/v2-shaping.md`,
+`plans/read-shaping.md` (the editing surface: view modes, live preview,
+frontmatter, tags) and `docs/theming.md`, then `plans/shaping.md` /
+`plans/slices.md`.
 
 Storybook is not set up; add it later if needed.
 
@@ -281,8 +283,45 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
     teardown (the pane tree's resume point) loops until Svelte throws
     `effect_update_depth_exceeded`.
   - Live-preview decorations (marker hiding, checkbox widgets, image embeds)
-    land here in V2e. Tables, callouts and transclusion stay out: the real
-    vault has 56 table rows and zero of the other two.
+    land here in V2e — sliced X1–X4 in `plans/read-shaping.md`; see the
+    block-widget pattern below. Callouts, footnotes, math, `%%` comments and
+    transclusion stay out: the re-measured vault has **zero** of each. Tables
+    render in Reading only (16 blocks in 14 files) and stay source-styled in
+    Live; HTML is never rendered, in any mode.
+
+### Live-preview widgets — the block-widget pattern (`libs/editor-lang/src/preview/`, X1)
+
+Everything Live and Reading render is a **decoration over unchanged bytes**.
+Nothing rendered is ever inserted into the document, so the Y.Text, the undo
+manager, the remote carets and `git diff` never see it
+(`plans/read-shaping.md` B2 and Spike S12). Five rules carry that:
+
+- **A widget is static DOM built in `toDOM`** — checkbox, bullet, `<hr>`,
+  fence badge, image embed, the Reading table, the frontmatter tag strip. No
+  Svelte component mounts inside CodeMirror: a widget is rebuilt whenever
+  `eq()` says it differs, so it must be cheap and hold no reactive state.
+  Anything it needs from the app — open a link, read an attachment, search a
+  tag, a translated label — arrives through the `readHost` **Facet**, exactly
+  as `wikiLinkHost` does and for the same reason (a prop the wrapper tracks
+  would destroy the view).
+- **Every hidden range is also an atomic range.** A `Decoration.replace` that
+  hides a marker must be returned from `EditorView.atomicRanges` too, or the
+  caret walks into text the reader cannot see. Whole-line furniture uses
+  `Decoration.replace({ block: true })` over whole lines and is never nested
+  inside an inline replacement.
+- **Markers hide off the active region only.** `activeLines(selection, doc)`
+  is a pure function with its own unit tests: a node whose range intersects an
+  active line keeps its markers as plain text. `source` hides nothing;
+  `reading` has no active lines. Keep that rule in the pure module — never in
+  a widget, and never by reading the selection inside `toDOM`.
+- **A widget edits by dispatching, like a keystroke.** The checkbox dispatches
+  the one-character change `[ ]` ↔ `[x]`, which travels the path typing takes
+  (Y.Text → peer → disk → one line in `git diff`). Never mutate a widget's DOM
+  to *show* a change; re-render from the document.
+- **Class names are `cm-*`, and every colour is a token.** The rules live in
+  `libs/editor/src/theme.ts` and read `--ed-*` only — `docs/theming.md` lists
+  the `(V2e)` entries and what reads each. A new construct usually needs no
+  new token; if it does, the contract file and its test come first.
 
 ---
 

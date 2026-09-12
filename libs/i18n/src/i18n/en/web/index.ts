@@ -242,6 +242,37 @@ const mode = {
   done: 'done',
 }
 
+/**
+ * The Read slice (read-shaping.md X2/X4): the three view modes, the controls
+ * that choose between them, and the one string CM6 needs handed to it —
+ * decoration code has no `$LL`, so the missing-attachment placeholder's label
+ * travels through the `ReadHost` facet.
+ */
+const read = {
+  modes: {
+    live: 'Live',
+    source: 'Source',
+    reading: 'Reading',
+  },
+  mode_menu: 'View mode',
+  /** The strip-end toggle, named for what it will do (Obsidian's pair). */
+  to_reading: 'Reading view',
+  to_editing: 'Back to editing',
+  /** The icon a Source/Reading tab carries; Live tabs carry nothing. */
+  tab_mode: '{mode:string} view',
+  missing_attachment: 'Missing attachment',
+  /** The dim count beside the collapsed strip's chips. */
+  properties: '{count:number} propert{{y|ies}}',
+  /** Shown instead of chips when the YAML is outside the patchable subset. */
+  frontmatter_unsupported: 'Unsupported frontmatter',
+  commands: {
+    toggle_reading: 'Toggle reading view',
+    toggle_source: 'Toggle Live Preview / Source',
+    mode: 'View: {mode:string}',
+    toggle_checkbox: 'Toggle checkbox',
+  },
+}
+
 const pill = {
   label: {
     green: 'synced',
@@ -532,6 +563,9 @@ const settings = {
     name_placeholder: 'Anonymous',
     name_hint: 'Shown to collaborators; applies the next time a vault is opened.',
     name_required: 'A name your collaborators will see.',
+    default_mode: 'Default view for new tabs',
+    default_mode_hint:
+      'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
   },
   appearance: {
     theme: 'Theme',
@@ -894,6 +928,7 @@ const web = {
   tabs,
   groups,
   mode,
+  read,
   pill,
   tree,
   tree_op,

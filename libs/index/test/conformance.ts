@@ -382,6 +382,60 @@ export function describeIndexConformance(name: string, make: IndexFactory): void
         expect(items.map((i) => i.path)).toEqual(['TODO/Dev learning __index.md'])
       })
 
+      it('counts a frontmatter tag the note never writes inline', async () => {
+        // Systems Programming carries `tags: [cs]` and no `#cs` in its body.
+        const index = build()
+        expect((await index.tags()).items.map((t) => t.tag)).toContain('#cs')
+        expect((await index.byTag('#cs')).items.map((i) => i.path)).toEqual([
+          'Areas/CS/Systems Programming.md',
+        ])
+      })
+
+      it('counts a note ONCE when it carries a tag in both forms', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'g1', path: 'a.md', text: '---\ntags: [alpha]\n---\n\nwritten #alpha too\n' },
+        ])
+        expect((await index.tags()).items).toEqual([{ tag: '#alpha', count: 1 }])
+        expect((await index.byTag('#alpha')).total).toBe(1)
+      })
+
+      it("splits Obsidian's legacy space-separated frontmatter list", async () => {
+        // The vault's own shape: YAML reads ONE string, Obsidian reads two tags.
+        const index = make()
+        index.rebuild([{ guid: 'g1', path: 'a.md', text: '---\ntags: [composition testing]\n---\n' }])
+        const tags = (await index.tags()).items.map((t) => t.tag).sort()
+        expect(tags).toEqual(['#composition', '#testing'])
+      })
+
+      it('matches a nested tag by prefix, and an exact nested tag exactly', async () => {
+        const index = build()
+        // Obsidian's rule: #os finds #os/memory; #os/memory finds only itself.
+        expect((await index.byTag('#os')).items.map((i) => i.path)).toEqual([
+          'Areas/CS/Systems Programming.md',
+        ])
+        expect((await index.byTag('#os/memory')).total).toBe(1)
+        expect((await index.byTag('#os/paging')).total).toBe(0)
+      })
+
+      it('matches tags case-insensitively and shows the first spelling seen', async () => {
+        const index = make()
+        index.rebuild([
+          { guid: 'g1', path: 'a.md', text: '#Project kickoff' },
+          { guid: 'g2', path: 'b.md', text: '---\ntags: [PROJECT]\n---\n' },
+        ])
+        expect((await index.tags()).items).toEqual([{ tag: '#Project', count: 2 }])
+        expect((await index.byTag('#project')).total).toBe(2)
+      })
+
+      it('filters search by tag with the same nesting rule', async () => {
+        const index = build()
+        const nested = await index.search('tag:#os')
+        expect(nested.items.map((i) => i.path)).toEqual(['Areas/CS/Systems Programming.md'])
+        const frontmatter = await index.search('tag:cs')
+        expect(frontmatter.items.map((i) => i.path)).toEqual(['Areas/CS/Systems Programming.md'])
+      })
+
       it('reads frontmatter KEYS only', async () => {
         const index = build()
         const keys = (await index.frontmatterKeys()).items.map((k) => k.tag)

@@ -15,6 +15,12 @@ import { textPaths, type IndexSink, type Workspace } from './workspace.svelte.js
 
 export type PaletteMode = 'quick-open' | 'command' | 'search'
 
+/**
+ * How many tags the `#` completion offers. The measured vault has 28; the cap
+ * is what stops a pathological vault from building a list nobody can read.
+ */
+const TAG_COMPLETION_LIMIT = 500
+
 /** The testids are the spec's contract; the copy is the dictionary's (`web.palette`). */
 const MODE_KEYS: Record<PaletteMode, { key: 'quick_open' | 'command' | 'search'; testid: string }> = {
   'quick-open': { key: 'quick_open', testid: 'quick-open' },
@@ -57,6 +63,12 @@ export function createNavigation(): {
    */
   readonly revision: number
   open(mode: PaletteMode): void
+  /**
+   * Open vault search on a query that is already written — what a click on a
+   * tag chip does (read-shaping B5). `open()` clears the query by design, so
+   * this is its own door rather than two calls in a row that race the effect.
+   */
+  openSearch(query: string): void
   close(): void
   setQuery(q: string): void
   pick(row: PaletteRow, opts?: { background?: boolean }): void
@@ -81,6 +93,14 @@ export function createNavigation(): {
    * copied out of a group resolves back to the note it came from.
    */
   ambiguousName(name: string): boolean
+  /**
+   * Every tag the index knows, `#` included — the `#` completion source
+   * (read-shaping B5). Synchronous because CM6's completion cannot await, and
+   * memoised on the index revision: the answer is recomputed once per content
+   * change, and only when something actually asks (typing `#`), never on the
+   * editor's input path.
+   */
+  tags(): string[]
 } {
   const index = new MemoryIndex()
   const registry = new CommandRegistry()
@@ -140,6 +160,10 @@ export function createNavigation(): {
 
   /** Set when a search result asked to land on a specific character. */
   const pending = $state<{ reveal: { offset: number } | null }>({ reveal: null })
+
+  /** The `#` completion list, and the revision it was computed for. */
+  let tagList: string[] = []
+  let tagsAt = -1
 
   const openNote = (path: string, offset?: number, background = false): void => {
     if (!workspace) return
@@ -254,6 +278,23 @@ export function createNavigation(): {
     open(mode) {
       palette.mode = mode
       palette.query = ''
+    },
+    openSearch(query) {
+      palette.mode = 'search'
+      palette.query = query
+    },
+    tags() {
+      if (tagsAt !== revision) {
+        tagsAt = revision
+        // The list a caller gets is the one from the last revision it asked
+        // on; the refresh lands before the next keystroke's query. Keeping
+        // `tags()` Promise-returning in the index is golden rule 8, and this
+        // is how a synchronous consumer lives with it.
+        void index.tags({ limit: TAG_COMPLETION_LIMIT }).then((page) => {
+          tagList = page.items.map((t) => t.tag)
+        })
+      }
+      return tagList
     },
     close() {
       palette.mode = null

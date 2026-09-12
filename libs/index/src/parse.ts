@@ -1,6 +1,6 @@
 /**
  * Markdown extraction for the index: wikilinks, tags, headings, frontmatter
- * keys — all in ONE pass over the text, because the whole cost argument for
+ * keys, tags and aliases — all in ONE pass over the text, because the whole cost argument for
  * an in-memory index rests on not walking the corpus repeatedly.
  *
  * This is a scanner, not a parser, and deliberately so: it must never throw
@@ -10,11 +10,14 @@
  * "index generously, decorate conservatively": a stray backlink entry is a
  * cosmetic surprise, a missing one is a broken navigation graph.
  *
- * Frontmatter is READ ONLY, and only for key names. Golden rule 2 (never
- * reserialize what you didn't change) means nothing here ever writes YAML.
+ * Frontmatter is READ ONLY — keys, tags and aliases, through the one parser
+ * in @editor/frontmatter. Golden rule 2 (never reserialize what you didn't
+ * change) means nothing here ever writes YAML; the patcher lives there, and
+ * the index never calls it.
  */
 
-import { scanTags } from './tag-syntax.js'
+import { parseFrontmatter } from '@editor/frontmatter'
+import { scanTag, scanTags } from './tag-syntax.js'
 
 export interface RawLink {
   target: string
@@ -41,6 +44,14 @@ export interface ParsedDoc {
   tags: RawTag[]
   headings: RawHeading[]
   frontmatterKeys: string[]
+  /**
+   * Tags from the block's `tags`/`tag` entry — every Obsidian form, including
+   * the vault's legacy `[a b]`. Offsets point at the tag's text inside the
+   * block so a caller can highlight it.
+   */
+  frontmatterTags: RawTag[]
+  /** `aliases`/`alias`, as written. Nothing consumes them yet; the CLI will. */
+  aliases: string[]
   /** Text with the frontmatter block blanked out — what gets tokenized. */
   body: string
   /** Offset of `body` within the original text (0 when there's no frontmatter). */
@@ -56,7 +67,7 @@ const ATX_HEADING = /^(#{1,6})[ \t]+(.*)$/
 const FENCE = /^[ \t]{0,3}(`{3,}|~{3,})/
 
 export function parseMarkdown(text: string): ParsedDoc {
-  const { keys, bodyOffset } = readFrontmatter(text)
+  const { keys, bodyOffset, frontmatterTags, aliases } = readFrontmatter(text)
   // Blank the frontmatter rather than slicing it, so every offset below is an
   // offset into the ORIGINAL text and callers never have to rebase. NEWLINES
   // ARE PRESERVED — blanking them too would merge the frontmatter into the
@@ -104,48 +115,53 @@ export function parseMarkdown(text: string): ParsedDoc {
     offset += line.length + 1
   }
 
-  return { links, tags, headings, frontmatterKeys: keys, body, bodyOffset }
+  return {
+    links,
+    tags,
+    headings,
+    frontmatterKeys: keys,
+    frontmatterTags,
+    aliases,
+    body,
+    bodyOffset,
+  }
 }
 
 /**
- * Top-level keys of a leading `---` YAML block, plus where the body starts.
- * Key extraction only — never a value, never a write (golden rule 2).
+ * What the leading `---` block contributes to the index: its key names, its
+ * tags and aliases, and where the body starts. `@editor/frontmatter` owns the
+ * reading (one parser for the index, the editor's strip and the CLI — R4.5).
  */
-function readFrontmatter(text: string): { keys: string[]; bodyOffset: number } {
-  const none = { keys: [] as string[], bodyOffset: 0 }
-  if (!text.startsWith('---')) return none
-  const firstNl = text.indexOf('\n')
-  if (firstNl === -1 || text.slice(3, firstNl).trim() !== '') return none
-
-  // The closing delimiter must be a line that is EXACTLY `---` or `...`.
-  // Accepting any line that merely starts with three dashes made a leading
-  // thematic break plus the next `---` look like frontmatter, and everything
-  // between them — links, tags, headings, prose — was blanked out of the index
-  // while staying perfectly visible in the editor.
-  const lines = text.split('\n')
-  let endLine = -1
-  for (let i = 1; i < lines.length; i++) {
-    const trimmed = lines[i].trimEnd()
-    if (trimmed === '---' || trimmed === '...') {
-      endLine = i
-      break
-    }
-  }
-  if (endLine === -1) return none
-
-  const keys: string[] = []
-  for (let i = 1; i < endLine; i++) {
-    // Top-level keys only: indented lines are nested values or list items.
-    const m = /^([A-Za-z_][\w.-]*)\s*:/.exec(lines[i])
-    if (m) keys.push(m[1])
-  }
+function readFrontmatter(text: string): {
+  keys: string[]
+  bodyOffset: number
+  frontmatterTags: RawTag[]
+  aliases: string[]
+} {
+  const none = { keys: [], bodyOffset: 0, frontmatterTags: [], aliases: [] }
+  const fm = parseFrontmatter(text)
   // A block with no top-level key is far more likely to be a thematic break
-  // than real frontmatter, so index it as content rather than hiding it.
-  if (keys.length === 0) return none
+  // than real frontmatter, so index it as content rather than hiding it: the
+  // alternative blanked links, tags, headings and prose out of the index
+  // while leaving them perfectly visible in the editor.
+  if (!fm.present || fm.entries.length === 0) return none
 
-  let bodyOffset = 0
-  for (let i = 0; i <= endLine; i++) bodyOffset += lines[i].length + 1
-  return { keys, bodyOffset: Math.min(bodyOffset, text.length) }
+  const frontmatterTags: RawTag[] = []
+  for (const raw of fm.tags) {
+    // The ONE tag grammar (tag-syntax.ts) decides here too, so `tags: [2026]`
+    // is no more a tag in the block than `#2026` is in the body.
+    const hit = scanTag(`#${raw}`, 0)
+    if (!hit || hit.end !== raw.length + 1) continue
+    const at = text.indexOf(raw, 3)
+    frontmatterTags.push({ tag: `#${raw}`, offset: at >= 0 && at < fm.end ? at : 0 })
+  }
+
+  return {
+    keys: fm.entries.map((e) => e.key),
+    bodyOffset: fm.end,
+    frontmatterTags,
+    aliases: fm.aliases,
+  }
 }
 
 /** [from, to) ranges covered by fenced code blocks. */

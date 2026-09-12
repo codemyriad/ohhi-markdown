@@ -51,6 +51,52 @@ export async function dragTo(page: Page, from: Locator, x: number, y: number): P
   await page.mouse.up()
 }
 
+/**
+ * The note the Read specs (and the axe scan over the Live surface) type: one
+ * of everything the construct table decorates, in the shapes the measured
+ * vault holds — a legacy space-separated `tags:` flow list, a nested inline
+ * tag, tasks in both states, a fenced block with a language.
+ */
+export const READ_FIXTURE = [
+  '---',
+  'tags: [composition testing]',
+  'status: On deck',
+  '---',
+  '',
+  '# Marks and Channels',
+  '',
+  'A note with a #edible/roadmap tag and a [link](https://example.com).',
+  '',
+  '- a bullet',
+  '- [ ] a task',
+  '- [x] a done task',
+  '',
+  '> a quote',
+  '',
+  '```ts',
+  'const x = 1',
+  '```',
+  '',
+].join('\n')
+
+/** The seeded note the Read specs write into. */
+export const READ_NOTE = 'notes/welcome.md'
+
+/** Boot, open the note, replace it with `text`, and leave the caret at the end. */
+export async function seedReadNote(
+  page: Page,
+  room: string,
+  text: string = READ_FIXTURE
+): Promise<void> {
+  await openApp(page, room)
+  await page.getByTestId(`file-item:${READ_NOTE}`).click()
+  const content = page.locator('[data-testid="editor-pane"] .cm-content')
+  await content.click()
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.type(text)
+  await page.keyboard.press('ControlOrMeta+End')
+}
+
 export const panes = (page: Page): Locator => page.locator('[data-pane-id]')
 export const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')
 export const chips = (page: Page): Locator => page.locator('[data-testid^="group-chip:"]')

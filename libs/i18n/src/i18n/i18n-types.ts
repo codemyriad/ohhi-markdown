@@ -744,6 +744,71 @@ export type NamespaceWebTranslation = {
 		 */
 		done: string
 	}
+	read: {
+		modes: {
+			/**
+			 * L​i​v​e
+			 */
+			live: string
+			/**
+			 * S​o​u​r​c​e
+			 */
+			source: string
+			/**
+			 * R​e​a​d​i​n​g
+			 */
+			reading: string
+		}
+		/**
+		 * V​i​e​w​ ​m​o​d​e
+		 */
+		mode_menu: string
+		/**
+		 * R​e​a​d​i​n​g​ ​v​i​e​w
+		 */
+		to_reading: string
+		/**
+		 * B​a​c​k​ ​t​o​ ​e​d​i​t​i​n​g
+		 */
+		to_editing: string
+		/**
+		 * {​m​o​d​e​}​ ​v​i​e​w
+		 * @param {string} mode
+		 */
+		tab_mode: RequiredParams<'mode'>
+		/**
+		 * M​i​s​s​i​n​g​ ​a​t​t​a​c​h​m​e​n​t
+		 */
+		missing_attachment: string
+		/**
+		 * {​c​o​u​n​t​}​ ​p​r​o​p​e​r​t​{​{​y​|​i​e​s​}​}
+		 * @param {number} count
+		 */
+		properties: RequiredParams<'count'>
+		/**
+		 * U​n​s​u​p​p​o​r​t​e​d​ ​f​r​o​n​t​m​a​t​t​e​r
+		 */
+		frontmatter_unsupported: string
+		commands: {
+			/**
+			 * T​o​g​g​l​e​ ​r​e​a​d​i​n​g​ ​v​i​e​w
+			 */
+			toggle_reading: string
+			/**
+			 * T​o​g​g​l​e​ ​L​i​v​e​ ​P​r​e​v​i​e​w​ ​/​ ​S​o​u​r​c​e
+			 */
+			toggle_source: string
+			/**
+			 * V​i​e​w​:​ ​{​m​o​d​e​}
+			 * @param {string} mode
+			 */
+			mode: RequiredParams<'mode'>
+			/**
+			 * T​o​g​g​l​e​ ​c​h​e​c​k​b​o​x
+			 */
+			toggle_checkbox: string
+		}
+	}
 	pill: {
 		label: {
 			/**
@@ -1629,6 +1694,15 @@ export type NamespaceWebTranslation = {
 			 * A​ ​n​a​m​e​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​.
 			 */
 			name_required: string
+			/**
+			 * D​e​f​a​u​l​t​ ​v​i​e​w​ ​f​o​r​ ​n​e​w​ ​t​a​b​s
+			 */
+			default_mode: string
+			/**
+			 * A​p​p​l​i​e​s​ ​t​o​ ​a​n​y​ ​t​a​b​ ​y​o​u​ ​h​a​v​e​ ​n​o​t​ ​g​i​v​e​n​ ​a​ ​v​i​e​w​ ​o​f​ ​i​t​s​ ​o​w​n​.​ ​{​k​e​y​}​ ​s​w​i​t​c​h​e​s​ ​o​n​e​ ​t​a​b​ ​b​e​t​w​e​e​n​ ​e​d​i​t​i​n​g​ ​a​n​d​ ​r​e​a​d​i​n​g​.
+			 * @param {string} key
+			 */
+			default_mode_hint: RequiredParams<'key'>
 		}
 		appearance: {
 			/**
@@ -3278,6 +3352,68 @@ export type TranslationFunctions = {
 			 */
 			done: () => LocalizedString
 		}
+		read: {
+			modes: {
+				/**
+				 * Live
+				 */
+				live: () => LocalizedString
+				/**
+				 * Source
+				 */
+				source: () => LocalizedString
+				/**
+				 * Reading
+				 */
+				reading: () => LocalizedString
+			}
+			/**
+			 * View mode
+			 */
+			mode_menu: () => LocalizedString
+			/**
+			 * Reading view
+			 */
+			to_reading: () => LocalizedString
+			/**
+			 * Back to editing
+			 */
+			to_editing: () => LocalizedString
+			/**
+			 * {mode} view
+			 */
+			tab_mode: (arg: { mode: string }) => LocalizedString
+			/**
+			 * Missing attachment
+			 */
+			missing_attachment: () => LocalizedString
+			/**
+			 * {count} propert{{y|ies}}
+			 */
+			properties: (arg: { count: number }) => LocalizedString
+			/**
+			 * Unsupported frontmatter
+			 */
+			frontmatter_unsupported: () => LocalizedString
+			commands: {
+				/**
+				 * Toggle reading view
+				 */
+				toggle_reading: () => LocalizedString
+				/**
+				 * Toggle Live Preview / Source
+				 */
+				toggle_source: () => LocalizedString
+				/**
+				 * View: {mode}
+				 */
+				mode: (arg: { mode: string }) => LocalizedString
+				/**
+				 * Toggle checkbox
+				 */
+				toggle_checkbox: () => LocalizedString
+			}
+		}
 		pill: {
 			label: {
 				/**
@@ -4126,6 +4262,14 @@ export type TranslationFunctions = {
 				 * A name your collaborators will see.
 				 */
 				name_required: () => LocalizedString
+				/**
+				 * Default view for new tabs
+				 */
+				default_mode: () => LocalizedString
+				/**
+				 * Applies to any tab you have not given a view of its own. {key} switches one tab between editing and reading.
+				 */
+				default_mode_hint: (arg: { key: string }) => LocalizedString
 			}
 			appearance: {
 				/**

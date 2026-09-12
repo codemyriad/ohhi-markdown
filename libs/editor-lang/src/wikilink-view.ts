@@ -17,7 +17,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view'
-import { splitWikiLink } from './wikilink.js'
+import { tagCompletions } from './preview/completion.js'
 
 /** What the host lets the editor do with a link target. */
 export interface WikiLinkHost {
@@ -95,15 +95,17 @@ const wikiLinkDecorations = ViewPlugin.fromClass(
 )
 
 /**
- * Click-through: Mod-click (or middle-click), never a plain click.
+ * Click-through on a RAW link: Mod-click (or middle-click), never a plain one.
  *
- * This is source mode — the `[[` and `]]` are visible characters you edit — so
- * a plain click has to place the caret. Navigating on it would make a link
- * uneditable: every attempt to fix a typo in a target would jump you away
- * instead. The go-to-definition convention every code editor already uses is
- * the right one here, and discovery is covered by the links panel and by `[[`
- * completion. Revisit in V2e, when live preview renders a link as its alias
- * and the brackets stop being text you can click into.
+ * Where the brackets are visible characters you edit — Source mode, or the
+ * active region in Live — a plain click has to place the caret. Navigating on
+ * it would make a link uneditable: every attempt to fix a typo in a target
+ * would jump you away instead. The go-to-definition convention every code
+ * editor already uses is the right one here.
+ *
+ * Where live preview has RENDERED the link, there is no markup to put a caret
+ * in and a plain click follows it — that rule lives with the rest of the
+ * engine, in preview/clicks.ts (read-shaping.md R2.4).
  */
 const wikiLinkClicks = EditorView.domEventHandlers({
   mousedown(event, view) {
@@ -186,10 +188,14 @@ export function wikiLinkExtensions(host?: WikiLinkHost): Extension[] {
     host ? wikiLinkHost.of(host) : [],
     wikiLinkDecorations,
     wikiLinkClicks,
-    autocompletion({ override: [wikiLinkCompletions], activateOnTyping: true }),
+    // ONE autocompletion() for the whole surface: two of them are a config
+    // merge conflict on `override`, which CM6 throws on at startup. So the
+    // Read slice's `#` source is listed here rather than in livePreview().
+    autocompletion({ override: [wikiLinkCompletions, tagCompletions], activateOnTyping: true }),
     EditorView.theme({
-      // No pointer cursor: a plain click edits here, and a hand would promise
-      // navigation that only Mod-click delivers.
+      // No pointer cursor on a RAW link: a plain click edits here, and a hand
+      // would promise navigation that only Mod-click delivers. A rendered one
+      // gets `.cm-live-link` (and its pointer) from libs/editor's theme.
       '.cm-wikilink': { color: 'var(--ed-wikilink)' },
       '.cm-wikilink-unresolved': {
         color: 'var(--ed-wikilink-unresolved)',

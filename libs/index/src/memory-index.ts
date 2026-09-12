@@ -31,6 +31,7 @@ import {
 import { fuzzyScore, toSpans } from './fuzzy.js'
 import { parseMarkdown, type ParsedDoc } from './parse.js'
 import { normalizeTarget, PathResolver } from './resolve.js'
+import { tagKey } from './tag-syntax.js'
 import { queryTerms, tokenize } from './tokenize.js'
 
 const DEFAULT_LIMIT = 50
@@ -64,7 +65,13 @@ interface DocEntry {
   /** Total token count, for BM25 length normalisation. */
   length: number
   headings: Heading[]
-  tags: Set<string>
+  /**
+   * tagKey → the first spelling seen in this note. Inline `#tags` and the
+   * block's `tags:` merge here, so a note carrying both forms of one tag is
+   * counted once (R5.2), and matching is case-insensitive while display is
+   * case-preserving, as in Obsidian.
+   */
+  tags: Map<string, string>
   frontmatterKeys: string[]
 }
 
@@ -177,7 +184,9 @@ export class MemoryIndex implements WritableIndex {
   search(query: string, opts?: PageOptions): Promise<Page<SearchHit>> {
     const { terms, tag, pathPrefix } = parseQuery(query)
     let pool = [...this.docs.values()]
-    if (tag) pool = pool.filter((d) => d.tags.has(tag))
+    // `tag:#a` finds `#a/b` too — the same predicate byTag() uses, because a
+    // filter that disagrees with the tag list is a bug report waiting to happen.
+    if (tag) pool = pool.filter((d) => hasTag(d, tagKey(tag)))
     if (pathPrefix) {
       const p = pathPrefix.toLowerCase()
       pool = pool.filter((d) => d.path.toLowerCase().startsWith(p))
@@ -322,19 +331,25 @@ export class MemoryIndex implements WritableIndex {
     // NOTES per tag, not occurrences — `byTag()` returns notes, and a list
     // reading "#project 3" that opens one note is a lie about the data.
     const counts = new Map<string, number>()
+    const shown = new Map<string, string>()
     for (const entry of this.docs.values()) {
-      for (const tag of entry.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      for (const [key, display] of entry.tags) {
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+        // First spelling wins, vault-wide: `#Project` and `#project` are one
+        // tag, and the list shows the one the vault wrote first.
+        if (!shown.has(key)) shown.set(key, display)
+      }
     }
     const items = [...counts.entries()]
-      .map(([tag, count]) => ({ tag, count }))
+      .map(([key, count]) => ({ tag: shown.get(key) ?? key, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
     return Promise.resolve(paginate(items, opts))
   }
 
   byTag(tag: string, opts?: PageOptions): Promise<Page<PathHit>> {
-    const want = tag.startsWith('#') ? tag : `#${tag}`
+    const want = tagKey(tag)
     const items = [...this.docs.values()]
-      .filter((d) => d.tags.has(want))
+      .filter((d) => hasTag(d, want))
       .sort((a, b) => a.path.localeCompare(b.path))
       .map((d): PathHit => ({ guid: d.guid, path: d.path, score: 0, spans: [] }))
     return Promise.resolve(paginate(items, opts))
@@ -366,7 +381,7 @@ export class MemoryIndex implements WritableIndex {
     let links = 0
     for (const list of this.outgoingMap.values()) links += list.length
     const tags = new Set<string>()
-    for (const entry of this.docs.values()) for (const t of entry.tags) tags.add(t)
+    for (const entry of this.docs.values()) for (const key of entry.tags.keys()) tags.add(key)
     return Promise.resolve({
       schemaVersion: this.schemaVersion,
       docs: this.docs.size,
@@ -451,7 +466,7 @@ export class MemoryIndex implements WritableIndex {
         offset: h.offset,
         line: lineAt(lineStarts, h.offset),
       })),
-      tags: new Set(parsed.tags.map((t) => t.tag)),
+      tags: mergeTags(parsed),
       frontmatterKeys: parsed.frontmatterKeys,
     }
   }
@@ -543,6 +558,27 @@ export class MemoryIndex implements WritableIndex {
  */
 function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : 0 // clock-exempt
+}
+
+/**
+ * Obsidian's nesting rule: `#a` matches `#a` and every `#a/b` under it, while
+ * `#a/b` matches only itself. `want` is a tagKey.
+ */
+function hasTag(entry: DocEntry, want: string): boolean {
+  if (entry.tags.has(want)) return true
+  const nested = `${want}/`
+  for (const key of entry.tags.keys()) if (key.startsWith(nested)) return true
+  return false
+}
+
+/** Inline tags and frontmatter tags, one set, first spelling kept. */
+function mergeTags(parsed: ParsedDoc): Map<string, string> {
+  const tags = new Map<string, string>()
+  for (const { tag } of [...parsed.tags, ...parsed.frontmatterTags]) {
+    const key = tagKey(tag)
+    if (!tags.has(key)) tags.set(key, tag)
+  }
+  return tags
 }
 
 /** `tag:#x` / `path:foo/` prefixes, parsed out of the query string. */

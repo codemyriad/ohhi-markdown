@@ -28,6 +28,8 @@
     type ThemePref,
   } from '../config.js'
   import { parseBinding, type CommandBinding, type CommandRegistry } from '../commands.js'
+  import { VIEW_MODES, type ViewMode } from '../panes.js'
+  import { readState, setDefaultMode } from '../read.svelte.js'
   import { BUILTIN_THEMES, THEME_LABELS } from '@editor/ui/tokens'
   import { escapeHtml } from '../html.js'
   import { applyTheme, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
@@ -93,6 +95,13 @@
     }),
     { relay: defaultRelay(), secret: operatorSecret() }
   )
+
+  /**
+   * Read B3. Outside the General form on purpose: like the theme, it applies
+   * the moment it is chosen — there is nothing to validate and nothing to
+   * batch, so a Save button would only be a way to lose the change.
+   */
+  const readingKey = $derived(registry.binding('view.toggle-reading') || 'Mod+E')
 
   async function saveGeneral(): Promise<void> {
     await general.submit(({ name }) => saveUser(name))
@@ -348,6 +357,30 @@
               {#if !general.dirty}<span class="text-xs text-base-content/70">{$LL.common.saved()}</span>{/if}
             </div>
           </form>
+          <fieldset class="mt-4">
+            <legend class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+              {t.general.default_mode()}
+            </legend>
+            <div class="mt-2 flex flex-wrap gap-2" data-testid="default-mode">
+              {#each VIEW_MODES as value (value)}
+                <button
+                  type="button"
+                  data-testid="default-mode:{value}"
+                  aria-pressed={readState.defaultMode === value}
+                  onclick={() => setDefaultMode(value as ViewMode)}
+                  class="rounded border px-3 py-1.5 text-xs font-medium
+                    {readState.defaultMode === value
+                    ? 'border-primary bg-primary text-primary-content'
+                    : 'border-base-300 text-base-content/80 hover:bg-base-200'}"
+                >
+                  {$LL.web.read.modes[value]()}
+                </button>
+              {/each}
+            </div>
+            <p class="mt-1 text-xs text-base-content/70">
+              {@html t.general.default_mode_hint({ key: code(readingKey) })}
+            </p>
+          </fieldset>
         {:else if id === 'appearance'}
           <fieldset>
             <legend class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.appearance.theme()}</legend>

@@ -43,6 +43,7 @@
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
   import { parseAppConfig } from './lib/params.js'
   import { hasOpfs, isTauri } from './lib/platform.js'
+  import { tagQuery } from './lib/read.svelte.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
   import { decodeShareLink } from './lib/share-link.js'
   import { setupWorkspace, textPaths, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
@@ -347,6 +348,9 @@
   // The `group.*` table (W2). Registered after the pane rows for the same
   // reason they come after the defaults: a later registration wins a shared key.
   nav.registry.register(...groups.commands())
+  // The `view.*` + `edit.toggle-checkbox` table (read X2). Same order rule:
+  // registered after the defaults so a rebind of a shared key wins.
+  nav.registry.register(...panes.readCommands())
   // One palette row per SAVED group (Fork 2-A). A provider rather than
   // registrations, because the ids come and go every time a group is closed
   // or reopened — and a row nobody can predict is a row nobody can bind.
@@ -1059,6 +1063,8 @@
           resolveLink: (target, from) => nav.resolveLink(target, from),
           createFromLink: (target) => void createFromLink(target),
           linkCandidates: () => textPaths(workspace?.ui.files ?? []),
+          searchTag: (tag) => nav.openSearch(tagQuery(tag)),
+          tags: () => nav.tags(),
           reveal: nav.pending.reveal,
           groupChip,
           tabMenuGroupItems,
