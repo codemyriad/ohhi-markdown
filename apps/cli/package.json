@@ -1,0 +1,26 @@
+{
+  "name": "@editor/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "ohhi": "./bin/ohhi.mjs" },
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/ohhi.mjs --log-level=warning",
+    "gen-schemas": "node --experimental-strip-types src/gen-schemas.ts",
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@editor/agent": "workspace:*",
+    "@editor/index": "workspace:*",
+    "@editor/vault": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "~4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.27.7",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
