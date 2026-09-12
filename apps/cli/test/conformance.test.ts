@@ -71,9 +71,10 @@ const INVOCATIONS: Record<OpName, string[]> = {
 }
 
 /**
- * Ops that need the vault touched first. `restore --list` is `not_found`
- * until this tool has written the note once — there is no pre-image before
- * there is a write.
+ * Ops that need the vault touched first. `restore --list` succeeds with an
+ * empty list before anything has written the note (an empty list means an
+ * empty list), so this write is here to exercise a POPULATED `entries` array
+ * against the schema rather than to keep the call from failing.
  */
 const SETUP: Partial<Record<OpName, string[][]>> = {
   restore: [['append', 'Areas/CS/JSON.md', '--text', 'a line the journal will remember']],

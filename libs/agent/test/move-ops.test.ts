@@ -73,6 +73,25 @@ describe('mv', () => {
     expect(out.files).toBe(MASS_CHANGE_PATHS + 1)
   })
 
+  it('moves a non-markdown file — mv and rm are not note-only, unlike write/patch/append', async () => {
+    const vault = await open()
+    // `write`/`patch`/`append` refuse anything that is not `.md` (they edit
+    // NOTES). Moving an attachment is still moving a file, and refusing would
+    // leave an agent unable to tidy a vault — so `mv`/`rm` take any path.
+    await expect(
+      runOp(vault.backend, 'write', { path: 'attachments/diagram.png', text: 'x' })
+    ).rejects.toMatchObject({ code: 'refused' })
+    const moved = await runOp(vault.backend, 'mv', {
+      from: 'attachments/diagram.png',
+      to: 'attachments/figures/diagram.png',
+    })
+    expect(moved.files).toBe(1)
+    const after = await reopen(vault)
+    expect([...(await after.files()).keys()]).toContain('attachments/figures/diagram.png')
+    const trashed = await runOp(after, 'rm', { path: 'attachments/figures/diagram.png' })
+    expect(trashed.trashedTo).toBe('.trash/attachments/figures/diagram.png')
+  })
+
   it('changes nothing on a dry run', async () => {
     const { backend, text, notes } = await open()
     const out = await runOp(backend, 'mv', { from: 'TODO/Writing.md', to: 'TODO/Prose.md', dryRun: true })
@@ -197,6 +216,23 @@ describe('restore', () => {
       code: 'not_found',
     })
   })
+
+  it('answers --list with an empty list rather than not_found — an empty list means an empty list', async () => {
+    const { backend } = await open()
+    // Asking what is recoverable for a note nothing has written is a QUESTION
+    // with an answer, and the answer is "nothing". `not_found` here would send
+    // an agent looking for a reason that does not exist (shaping R7; Cassini).
+    const listed = await runOp(backend, 'restore', { path: 'TODO/Writing.md', list: true })
+    expect(listed.entries).toEqual([])
+    // Even for a path that is not in the vault at all: the journal is keyed by
+    // path, and "no pre-images" is true of a name that never existed too.
+    expect((await runOp(backend, 'restore', { path: 'Never/Existed.md', list: true })).entries).toEqual([])
+    // But a restore with no candidate is still not_found — that one asked for
+    // a version back, and there is none.
+    await expect(runOp(backend, 'restore', { path: 'TODO/Writing.md' })).rejects.toMatchObject({
+      code: 'not_found',
+    })
+  })
 })
 
 describe('changes', () => {
@@ -226,6 +262,16 @@ describe('changes', () => {
   it('reports a path that is only in the journal — an rm leaves no mtime behind', async () => {
     const vault = await open()
     const first = await runOp(vault.backend, 'changes', { since: new Date(0).toISOString(), limit: 100 })
+    // Step the sim clock past the cursor before journaling anything. The
+    // harness anchors the clock to real time ONCE (the fixture's files carry
+    // real mtimes), and `cursorSince` is the newest of those mtimes — which
+    // can land in the SAME millisecond as the anchor. `changes` then reads the
+    // rm's journal entry as `at <= since`, i.e. already reported, and drops
+    // the row. Under the CLI's RealClock an `rm` is always strictly later than
+    // the mtimes a previous invocation reported, so this is the fixture's
+    // frozen clock, not the op: make the ordering explicit instead of racing
+    // the millisecond boundary.
+    vault.clock.advance(1000)
     await runOp(vault.backend, 'rm', { path: 'TODO/Writing.md' })
 
     const next = await runOp(await reopen(vault), 'changes', { since: first.cursorSince, limit: 100 })

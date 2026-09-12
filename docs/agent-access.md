@@ -36,7 +36,7 @@ What it deliberately is **not**:
 | A second index | The CLI and the app query the same `libs/index` contract with the same ranking. A ranking fix is made once (golden rule 8: the index is derived, never a system of record). |
 | A system of record | Losing everything `ohhi` stores costs a rebuild and some undo history, never a note. |
 
-**It works with the app closed and with the app open.** See §9.
+**It works with the app closed and with the app open.** See §8.
 
 **Status.** Slices G1–G4 of `plans/slices.md`. `fm` is read-only until the
 surgical frontmatter patcher (`v2-shaping.md` Spike S3 / read-shaping X3)
@@ -95,7 +95,8 @@ overrides it for one invocation (this is how the tests get a throwaway journal).
 
 The **app's** journal is a separate namespace it owns alone: no shared writer,
 ever. Point `ohhi restore` at it read-only with `--app-store <dir>` (repeatable),
-where `<dir>` is the app's `stores/<room>` directory — see §8.
+where `<dir>` is the app's `stores/<room>` directory — see `restore` in §7 for
+what the union can and cannot see today.
 
 ---
 
@@ -144,7 +145,13 @@ stated here and in the skill because the mistake is easy and silent.
 | 0 | Success — **including an empty list or an empty search** | — |
 | 1 | Runtime failure, missing note or section, or a write the core refused | `runtime`, `not_found`, `refused` |
 | 2 | Usage: bad flags, no vault, ambiguous vault | `usage` |
-| 3 | `--expect-hash` mismatch — the note changed since it was read | `conflict` |
+| 3 | The note moved under the write: an `--expect-hash` mismatch, or a change that landed while the call was in flight | `conflict` |
+
+**Exit 1 is three different answers.** `refused`, `not_found` and `runtime` all
+exit 1, and they want different responses — widen a `patch`, look up the real
+path, or give up. A caller that branches on the exit code alone cannot tell
+them apart: branch on `code` (from `--json`, or the `ohhi: <code>: …` prefix on
+stderr).
 
 An error in `--json` mode prints an `ohhi.error.v1` document on stdout —
 `{ schema, code, message, details? }` — *and* the one-line message on stderr. In
@@ -196,6 +203,11 @@ List notes, binaries and folders under a directory.
 `--depth <n>` (1 = direct children, the default; 0 = the whole subtree) ·
 `--kind text|binary|dir|all` · `--limit` · `--cursor`
 
+The vault root spells itself **`''`** — an empty string, not `.` — in the
+output's `dir` field, because every other path in the contract is relative to
+the root and the root is the empty prefix. (The text renderer prints `dir=.`
+for readability; `--json` says `"dir": ""`.)
+
 ```text
 $ ohhi ls Areas/CS --depth 1 --kind text
 text   Areas/CS/HTML.md        size=961B   mtime=2026-03-04T11:02:07.000Z     # stdout
@@ -240,7 +252,10 @@ won is named in the output's `mode` field.
 - **`--lines`** is 1-based and inclusive.
 - **Truncation is explicit**: `truncated: true` plus `nextLine`, the first line
   *not* included, to pass back as the start of the next `--lines`. Truncation
-  happens at a line boundary, never mid-line.
+  happens at a line boundary, never mid-line — with one deliberate exception: a
+  **single line longer than the budget comes back whole**. A budget that
+  returned nothing would leave the caller with no way to make progress, and an
+  agent looping on `nextLine` forever is worse than one over-long line.
 - Every mode returns `size` and `hash` — the sha-256 of the whole file's raw
   bytes, which is the `--expect-hash` for a later write.
 
@@ -269,8 +284,16 @@ Find notes. Returns references and snippets, never bodies.
 Two combinations are refused as usage errors rather than quietly ignored:
 `--case-sensitive` in ranked mode (ranked search is *always* folded and
 case-insensitive — use `--exact` for a case-sensitive match) and `--tag` in
-grep mode (tags come from the index, which grep does not consult). `--path`
-works in both: a query filter in ranked mode, a path prefix in grep mode.
+exact/regex mode (tags come from the index, which grep does not consult).
+`--path` works in both: a query filter in ranked mode, a path prefix in grep
+mode.
+
+**`--path` with a space in it reports `total: null`.** The index parses `path:`
+out of a whitespace-separated query, so a folder like `Edible/Dev Notes/`
+reaches it truncated; the hits are re-filtered here so the answer is correct,
+but the count the index returned was for the wider prefix. A number that is not
+the count is worse than no number, so it is dropped — `total: null` means "not
+counted cheaply", never "none".
 
 ```text
 $ ohhi search "json" --limit 3
@@ -285,10 +308,17 @@ coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cac
 hint=ohhi read --outline Areas/CS/JSON.md   (then --section or --lines; never read a long note whole)
 ```
 
-Matches are bracketed `[like this]`; snippet lines are collapsed to one line and
-clipped, so a hit inside a 4 KB paragraph never floods the terminal. The counter,
-coverage and hint lines are **stderr**, which is why `ohhi search … --json | jq`
-is clean and a human still sees all of it.
+Matches are bracketed `[like this]` in the **text** form only (in `--json` they
+are `spans` into the snippet text, unbracketed). The brackets are literal
+characters added around the match, so a match inside a wikilink prints as
+`[[[JSON]]]` — three brackets, not a nesting bug. Snippet lines are collapsed
+to one line and clipped, so a hit inside a 4 KB paragraph never floods the
+terminal.
+
+**Every line that is not the answer is on stderr** — `returned=…`, `coverage:`,
+`hint=`, the truncation line, and the `vault=… (found by …)` provenance line —
+which is why `ohhi search … --json | jq` is clean and a human still sees all of
+it.
 
 Each hit is `{ path, tier, score, line, snippets[], explain? }`. `tier` is the
 ranking structure, not a decoration:
@@ -368,11 +398,27 @@ sequence as `j<n>`. The answer is the union of two sources:
 | `kind` | Source |
 |---|---|
 | `created` | A path on disk with an mtime after `since` and no earlier journal entry. |
-| `modified` | A path on disk with an mtime after `since`. |
-| `journaled` | A pre-image record — a write this tool made — with `seq` after `since`. |
+| `modified` | A path on disk with an mtime after `since`, over which this tool holds a pre-image. |
+| `journaled` | A pre-image record — a write this tool made — for a path with no mtime left to report. |
 
-Sorted by `at`. The answer carries **`cursorSince`**: pass it back as the next
-`--since` and you get exactly what moved in between.
+**`created` does not mean "new to the vault."** It means *nothing here wrote
+over anything* — this tool holds no pre-image predating the file. On a vault
+`ohhi` has never written, every changed path is `created`, including notes the
+user edited in the app an hour ago. The distinction that is always true is
+`journaled` vs the rest: `journaled` is "we touched it and it is no longer on
+disk" (an `rm`, the old name of an `mv`), which is the one case with no mtime to
+report.
+
+**One row per path**, never one per event: when a path is in both sources the
+disk row wins the `kind` (it describes what is there *now*) and keeps the
+journal's `seq`. So `journaled` means exactly *"this tool touched it and it is
+no longer on disk"* — an `rm`, or the source side of an `mv` — which is the one
+case that has no mtime left to report.
+
+Sorted by `at`. The answer carries **`cursorSince`**, an ISO-8601 instant (not a
+`j<seq>`): pass it back as the next `--since` and you get exactly what moved in
+between. `changes` does not build the index — resuming has to be cheap or it
+will not be done.
 
 ---
 
@@ -381,9 +427,26 @@ Sorted by `at`. The answer carries **`cursorSince`**: pass it back as the next
 All of them: pre-image journaled, then written temp-fsync-rename through the
 adapter, with the note's recorded EOL flavour and BOM restored so a CRLF file
 stays byte-identical where it was not edited (golden rule 1 and 2). All of them
-take `--dry-run` (compute everything, write nothing) and, except `mv`/`rm`,
-`--expect-hash <h>` (refuse unless the note's current hash is `h`; exit 3
-otherwise).
+take `--dry-run` (compute everything, write nothing) and, except `mv`/`rm`/
+`restore`, `--expect-hash <h>` (refuse unless the note's current hash is `h`;
+exit 3 otherwise).
+
+**`write`, `patch` and `append` edit NOTES and refuse anything else**: a
+non-`.md` path is `refused`, as is content that looks binary. An attachment, a
+`.canvas`, a stylesheet all have an owner that is not a text patcher.
+**`mv` and `rm` accept any file**, `.md` or not — moving a PNG is still moving
+a file, and refusing would leave an agent with no way to tidy a vault.
+
+**Every write is a compare-and-swap, `--expect-hash` or not.** Reading the note
+and writing it are not one atomic act — the durable journal write sits between
+them — so a human saving in Editor, or git, or a second `ohhi`, can land in that
+window, and their bytes would be overwritten while the journal held the
+*pre-race* pre-image. `writeAtomic` therefore re-reads and re-hashes immediately
+before the rename and refuses if the bytes moved: `conflict`, exit 3, nothing
+written. So **exit 3 can happen without `--expect-hash`** — it means "somebody
+wrote while this call was in flight", and the answer is the same: read it again
+and retry. (`--expect-hash` guards a longer window: everything since the agent
+last *read*.)
 
 ### `write <path>`
 
@@ -430,17 +493,37 @@ replaces; its file header says so.
 
 ### `mv <from> <to>`
 
-Move or rename a note or a directory. The target must not exist (`refused`). A
-directory holding more than 20 files needs `--yes` — mirroring the app's
-mass-change breaker rather than tripping it. Journaled as a rename.
+Move or rename a note or a directory (any extension — see above). The target
+must not exist (`refused`), and a move of a directory into itself is `refused`.
+A directory holding more than 20 files needs `--yes` (see the note under `rm`).
+
+**The journal is re-keyed** (`journal.rename`): every pre-image for the old
+path, and prefix-wise for the subtree under it, moves to the new one — the note
+is still the note, so its recoverable history follows it. Journal first, then
+the disk move, so a crash in between leaves history pointing forward rather
+than nowhere.
 
 `--yes` · `--dry-run`
 
 ### `rm <path>`
 
 Move a note or folder to `.trash/<path>` — Obsidian's convention — creating
-`.trash/` and suffixing `~1`, `~2`… on collision. **It never unlinks.** Same
-20-file rule as `mv`.
+`.trash/` and suffixing on collision. **It never unlinks.**
+
+The suffix goes **before the extension**: a second removal of `Notes.md` lands
+at `.trash/Notes~1.md`, which is still a markdown file a user can open, where
+`.trash/Notes.md~1` would not be.
+
+**`rm` journals a pre-image per file, under the file's ORIGINAL path, and does
+not re-key the journal** — the opposite of `mv`, deliberately. Two recoveries
+follow: the file itself is sitting in `.trash/` where a user can drag it back,
+and `ohhi restore <the original path>` puts it back where it was.
+
+**More than 20 files needs `--yes`** (`mv` too). This is the *only* guard on a
+burst: the app's mass-change breaker counts known paths **per watch event**, and
+Node's recursive watcher delivers one path per event, so a CLI writing 25 files
+produces 25 batches of one and never reaches it (Spike S11-Q5, finding F4).
+Anything claiming Editor's breaker catches a big CLI batch is wrong.
 
 `--yes` · `--dry-run`
 
@@ -452,9 +535,36 @@ The command four docs promised and nothing implemented until now.
 `seq`, `at`, `size` and `source` — `cli` for this tool's journal, `app` for the
 running editor's, when one was given with `--app-store`. Restoring journals the
 *current* bytes first (so a restore is itself undoable), then writes the chosen
-pre-image; the default is the latest of any source.
+pre-image; the default is the latest of any source. The pre-image is written as
+the **raw bytes** that were on disk, so its own EOL and BOM travel with it and a
+restore is byte-exact by construction.
 
-`--list` · `--seq <n>` · `--dry-run`
+`--list` · `--seq <n>` · `--source cli|app` · `--dry-run`
+
+**`--list` always succeeds, including with nothing to list.** A note no journal
+has a pre-image for answers `entries: []` and exits 0: an empty list means an
+empty list, and "what can I put back?" has the answer "nothing". A `restore`
+*without* `--list` and no candidate is a different question — it asked for a
+version back and there is none — and is `not_found`, exit 1.
+
+**`seq` is only comparable within a `source`.** The two journals have
+independent sequence spaces (separate directories, no shared writer — Spike
+S11-Q4), so `--seq 1` names one pre-image in each. `--source cli|app` says
+which you mean; without it the newer of the two wins and the other is
+unreachable. Across the union it is **`at` that orders**, to millisecond
+resolution, which is why the listing is sorted by it and why per-path
+latest-of-either is enough (no total order exists, and none is needed: a wrong
+pick is one more `restore` away from right).
+
+**`--app-store` is honest only for the root mount today.** The app keys a
+mount's journal by the path *its own session* sees: the root mount is
+vault-relative, but a carved or joined mount runs over a scoped adapter and its
+entries are **mount-relative** (Spike S11 finding F3). Nothing prefixes them
+back — `mounts.json` names each mount's `path` but no vault root, so the CLI
+cannot find the store dirs on its own either. Point `--app-store` at the root
+mount's `stores/<room>` and it works; point it at a shared folder's and
+`restore --list` will quietly list nothing for `team/plan.md` while the entry
+sits under `plan.md`.
 
 ---
 
@@ -470,20 +580,53 @@ it code that already exists for git and Obsidian:
 1. `ohhi` journals the note's current bytes, then writes the new bytes
    temp-fsync-rename.
 2. The app's recursive watcher fires; the change is quiesced (30 ms on the
-   injected clock) so a burst is one event.
+   injected clock) so a file still being written is read twice, not once.
 3. The reconciler classifies the note against its LCA. Disk-ahead is ingested as
-   `disk`-origin character ops into the live Y.Doc — **including when the note is
-   open in a pane**: what the open-doc rule skips is *materialization*, not
-   ingest. The user watches the paragraph appear.
+   one `disk`-origin transaction of character ops into the live Y.Doc —
+   **including when the note is open in a pane**: what the open-doc rule skips
+   is *materialization*, not ingest. The user watches the paragraph appear, and
+   **Editor writes no bytes of its own** — the file stays literally the agent's
+   write, so `git diff` shows the agent's change and nothing else, and the
+   ingest does not arm a flush that would churn mtime or reflow EOL/BOM.
 4. If the user also had unflushed edits to the same note, it is a genuine
-   three-way divergence and lands in the **review UI**. It never becomes a
-   `.conflict` file, and neither side silently wins.
-5. A batch of 20+ paths trips the app's mass-change breaker and pauses behind a
-   confirm dialog listing the files. `ohhi` refuses a directory `mv`/`rm` over 20
-   files without `--yes` to mirror that rather than trip it.
+   three-way divergence and lands in the **review UI**: **nothing is written and
+   nothing is journaled**, the human's sentence is still in the CRDT and the
+   agent's bytes are still on disk. It never becomes a `.conflict` file, and
+   neither side silently wins. The pending 800 ms flush does not overwrite the
+   agent either — a flush is a reconcile with editor ownership suspended, not a
+   blind write. Resolving the review writes once and journals the agent's bytes
+   it replaces, so the agent's version stays recoverable.
 
 No lock, no handshake, no "please close the editor". The agent does not need to
 know whether the app is running.
+
+Three consequences worth knowing before they surprise someone:
+
+- **`Mod+Z` does not undo an agent's edit.** Ingested ops carry origin `'disk'`,
+  which is outside the shared `Y.UndoManager`'s tracked origins — the same
+  reason a remote peer's edit is not on your undo stack. The undo path for an
+  agent write is the History rail or `ohhi restore`, not the keyboard (Spike S11
+  finding F5).
+- **Putting a note back to a state Editor recently flushed opens a review.** The
+  stale-echo guard is content-hash equality against the last 8 things Editor
+  itself wrote, and it cannot tell a deliberate `ohhi restore` from another
+  editor's stale autosave buffer — so it escalates and lets a human look.
+  Nothing is lost either way. Expect it; do not retry. It is best-effort: the
+  ring is in memory and is thrown away by an app restart or a session restart
+  (finding F2), so the same restore may apply silently instead.
+- **A big batch is not caught by the app.** The mass-change breaker counts known
+  paths per watch *event*, and Node's watcher emits one path per event, so a CLI
+  burst never reaches it (finding F4). `ohhi`'s own `--yes` rule at 20 files is
+  the guard.
+
+**Editor's own write is a compare-and-swap too** (finding F1, fixed) — the
+mirror of the rule in §7. Editor's
+`materialize` reads a file to classify it, journals the pre-image, and only then
+writes; a write landing inside that window used to be overwritten with no
+journal entry and no review. `VaultAdapter.writeAtomic` now takes an
+`expectHash` and refuses with a `WriteConflictError` if the bytes moved, and the
+reconciler re-classifies instead of writing — so an agent's bytes are ingested
+or reviewed, never silently replaced, in every ordering.
 
 The behaviour above is pinned by **Spike S11**,
 [`plans/spike-s11-agent-write-coexistence.md`](../plans/spike-s11-agent-write-coexistence.md),

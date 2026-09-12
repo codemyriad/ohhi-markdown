@@ -181,7 +181,8 @@ export function cuttableAdapter(base: VaultAdapter, cut: Cut): VaultAdapter {
     listDirs: () => base.listDirs(),
     read: (path) => base.read(path),
     watch: (cb) => base.watch(cb),
-    writeAtomic: (path, bytes) => kill(() => base.writeAtomic(path, bytes)),
+    // `opts` forwarded so the reconciler's compare-and-swap survives the wrapper.
+    writeAtomic: (path, bytes, opts) => kill(() => base.writeAtomic(path, bytes, opts)),
     rename: (from, to) => kill(() => base.rename(from, to)),
     remove: (path) => kill(() => base.remove(path)),
     mkdir: (path) => kill(() => base.mkdir(path)),

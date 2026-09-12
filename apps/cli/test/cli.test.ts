@@ -84,6 +84,17 @@ describe('flag mapping', () => {
     expect(input).toEqual({ path: 'a.md', text: 'x', createOnly: true, expectHash: 'abc', dryRun: true })
   })
 
+  it('restore --source names which journal --seq belongs to', () => {
+    // The CLI and app journals number independently (S11-Q4), so `--seq 1`
+    // without `--source` is genuinely ambiguous once an --app-store is given.
+    expect(parse(['restore', 'a.md', '--seq', '3', '--source', 'app']).input).toEqual({
+      path: 'a.md',
+      seq: 3,
+      source: 'app',
+    })
+    expect(parse(['restore', 'a.md', '--list']).input).toEqual({ path: 'a.md', list: true })
+  })
+
   it('--exact and --regex are shorthands for --mode', () => {
     expect(parse(['search', 'q', '--exact']).input.mode).toBe('exact')
     expect(parse(['search', 'q', '--regex']).input.mode).toBe('regex')
@@ -183,6 +194,26 @@ describe('text rendering', () => {
     expect(code).toBe(0)
     expect(out).toContain('appended to TODO/Writing.md at line')
     expect(err).toContain('ohhi restore TODO/Writing.md --seq')
+  })
+
+  it('restore --list on a note with no pre-images is an empty list, exit 0', async () => {
+    const v = await fixture()
+    const { out, err, code } = await ohhi(inVault(v, ['restore', 'TODO/Writing.md', '--list']))
+    // An empty list means an empty list: the question "what can I put back?"
+    // has the answer "nothing", and that is a success, not a not_found.
+    expect(code).toBe(0)
+    expect(out).toBe('')
+    expect(err).toContain('entries=0')
+    expect(err).toContain('note: no pre-images')
+
+    const asJson = await ohhi(inVault(v, ['restore', 'TODO/Writing.md', '--list', '--json']))
+    expect(asJson.code).toBe(0)
+    expect(JSON.parse(asJson.out)).toMatchObject({ schema: 'ohhi.restore.v1', entries: [] })
+
+    // Asking for a version BACK when there is none is still exit 1.
+    const restore = await ohhi(inVault(v, ['restore', 'TODO/Writing.md']))
+    expect(restore.code).toBe(1)
+    expect(restore.err).toContain('not_found')
   })
 
   it('--dry-run says "would", and changes nothing', async () => {

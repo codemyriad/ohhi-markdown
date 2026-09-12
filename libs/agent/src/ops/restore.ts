@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import { OP_SCHEMAS, OpError, RestoreOut, schemaName } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { normalizeVaultPath } from '../paths.js'
-import { recordPreImage } from '../write-file.js'
+import { recordPreImage, writeSwapping } from '../write-file.js'
 
 type Entry = NonNullable<z.infer<typeof RestoreOut>['entries']>[number]
 type Source = Entry['source']
@@ -35,15 +35,20 @@ export const restore: OpDef<'restore'> = {
         )
       )
     ).flat()
-    if (listed.length === 0) {
-      throw new OpError('not_found', `no pre-images for ${path}`, { path })
-    }
     // Newest first: what a caller wants is almost always "the one before now".
     listed.sort((a, b) => b.info.at - a.info.at || b.info.seq - a.info.seq)
     const dryRun = input.dryRun ?? false
 
+    // `--list` ALWAYS succeeds: an empty list means an empty list (Cassini's
+    // rule, shaping R7). "This note has no pre-images" is an answer — the
+    // caller asked what is recoverable, not for a specific version — and
+    // returning `not_found` would make an agent retry or invent a reason.
+    // A restore with no candidate is a different question and still fails.
     if (input.list) {
       return { schema: schemaName('restore'), path, entries: listed.map((e) => describe(e.info, e.source)), dryRun }
+    }
+    if (listed.length === 0) {
+      throw new OpError('not_found', `no pre-images for ${path} — nothing here has written it`, { path })
     }
 
     const candidates = input.source ? listed.filter((e) => e.source === input.source) : listed
@@ -63,8 +68,11 @@ export const restore: OpDef<'restore'> = {
       const current = await backend.adapter.read(path)
       if (current) await recordPreImage(backend.journal, path, current)
       // The pre-image is the RAW BYTES that were on disk — its own EOL and BOM
-      // travel with it, so a restore is byte-exact by construction.
-      await backend.adapter.writeAtomic(path, entry.bytes)
+      // travel with it, so a restore is byte-exact by construction. Written as
+      // a compare-and-swap against what we just journaled: a restore that
+      // overwrote somebody's concurrent save would put THEIR bytes in no
+      // journal at all (S11 F1, the same window the reconciler closes).
+      await writeSwapping(backend, path, entry.bytes, current ? hashBytes(current) : '')
     }
     return {
       schema: schemaName('restore'),

@@ -25,8 +25,8 @@ import {
   writeFile,
   type UnwatchFn,
 } from '@tauri-apps/plugin-fs'
-import { IGNORED_DIRS } from '@editor/vault'
-import type { FileStat, VaultAdapter, WatchEvent } from '@editor/vault'
+import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@editor/vault'
+import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@editor/vault'
 
 /** Shared with every other adapter — see IGNORED_DIRS in @editor/vault. */
 const IGNORED = IGNORED_DIRS
@@ -147,7 +147,7 @@ export class TauriVaultAdapter implements VaultAdapter {
     return await readFile(full)
   }
 
-  async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
+  async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
     const full = this.abs(path)
     await mkdir(dirnamePosix(full), { recursive: true })
     // unique temp name
@@ -156,6 +156,19 @@ export class TauriVaultAdapter implements VaultAdapter {
     // Atomicity note: plugin-fs exposes no fsync, so we cannot flush the temp
     // file to durable storage before renaming. temp+rename still gives rename
     // atomicity (readers see either the old or the fully-written new file).
+    //
+    // Compare-and-swap (S11 F1) immediately before the rename: this is the
+    // desktop adapter, so an agent, git or Obsidian writing the same file is
+    // the case it exists for. Same contract as NodeVaultAdapter — mirror them
+    // when in doubt.
+    if (opts?.expectHash !== undefined) {
+      const current = await this.read(path)
+      const actual = current === null ? '' : hashBytes(current)
+      if (actual !== opts.expectHash) {
+        await fsRemove(tmp)
+        throw new WriteConflictError(path, opts.expectHash, actual)
+      }
+    }
     await fsRename(tmp, full)
   }
 

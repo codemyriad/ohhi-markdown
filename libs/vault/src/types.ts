@@ -33,6 +33,47 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   'node_modules',
 ])
 
+/**
+ * Compare-and-swap for `writeAtomic` (Spike S11 finding F1).
+ *
+ * A reconciler reads a file to classify it, does durable work (journaling),
+ * and only then writes. Without a check at the seam, an external write —
+ * an agent, git, another editor — that lands inside that window is
+ * overwritten and survives NOWHERE: not on disk, not in the journal (which
+ * holds the pre-agent bytes), and in no review (the classification already
+ * happened). The check has to be here, as late as the implementation can
+ * make it, because a re-read by the CALLER just moves the window.
+ */
+export interface WriteOptions {
+  /**
+   * Refuse the write unless the file's CURRENT content hash is this.
+   * `''` means "there must be no file there" — the same convention
+   * `LcaRecord.contentHash` uses for a note that has never been on disk.
+   * Omit it entirely for an unconditional write (seeding, tests, the
+   * durable store).
+   */
+  expectHash?: string
+}
+
+/**
+ * `writeAtomic` refused because the bytes on disk are not the ones the caller
+ * expected. Thrown by every adapter; caught by `materialize`, which
+ * reclassifies instead of writing (so the external bytes are ingested or
+ * surfaced as a review rather than lost).
+ */
+export class WriteConflictError extends Error {
+  readonly name = 'WriteConflictError'
+  constructor(
+    readonly path: string,
+    /** What the caller expected to find; `''` for "nothing". */
+    readonly expected: string,
+    /** What is actually there now; `''` when the file is absent. */
+    readonly actual: string
+  ) {
+    super(`write conflict on ${path}: expected ${expected || '(absent)'}, found ${actual || '(absent)'}`)
+  }
+}
+
 export interface VaultAdapter {
   list(): Promise<FileStat[]>
   /**
@@ -42,8 +83,16 @@ export interface VaultAdapter {
   listDirs(): Promise<string[]>
   /** null if the file does not exist (or the path is a directory). */
   read(path: string): Promise<Uint8Array | null>
-  /** Atomic: temp file + fsync + rename (or simulated equivalent). */
-  writeAtomic(path: string, bytes: Uint8Array): Promise<void>
+  /**
+   * Atomic: temp file + fsync + rename (or simulated equivalent).
+   *
+   * With `opts.expectHash`, the write is a COMPARE-AND-SWAP: the destination
+   * is re-read and re-hashed as late as the implementation can manage (for a
+   * temp+rename adapter, immediately before the rename) and the write is
+   * abandoned with a `WriteConflictError` if the bytes moved. See
+   * `WriteOptions` for why the check lives here and not in the caller.
+   */
+  writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void>
   rename(from: string, to: string): Promise<void>
   remove(path: string): Promise<void>
   /** Create a directory (parents included); idempotent. */

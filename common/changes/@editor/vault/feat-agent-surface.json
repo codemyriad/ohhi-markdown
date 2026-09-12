@@ -1,0 +1,9 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/vault",
+      "comment": "An edit saved from another program — an agent, git, another editor — in the instant Editor was writing the same note is no longer overwritten and lost. Editor now checks the file has not changed underneath it immediately before replacing it, and re-reads instead of writing when it has, so those bytes are either merged in or put in front of you to resolve.",
+      "type": "patch"
+    }
+  ]
+}

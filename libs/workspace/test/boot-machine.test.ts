@@ -89,7 +89,7 @@ function spyRemoves(adapter: VaultAdapter): { adapter: VaultAdapter; removed: st
       list: () => adapter.list(),
       listDirs: () => adapter.listDirs(),
       read: (p) => adapter.read(p),
-      writeAtomic: (p, b) => adapter.writeAtomic(p, b),
+      writeAtomic: (p, b, opts) => adapter.writeAtomic(p, b, opts),
       rename: (f, t) => adapter.rename(f, t),
       remove: (p) => {
         removed.push(p)

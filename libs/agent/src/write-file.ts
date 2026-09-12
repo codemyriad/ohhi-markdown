@@ -8,13 +8,30 @@
  *   3. Journal those bytes as a pre-image, durably, BEFORE anything is written.
  *   4. Write temp-fsync-rename, in the note's own EOL flavour and BOM
  *      (golden rule 2: an agent editing one line must not rewrite 1,200 line
- *      endings and turn a one-line change into a whole-file git diff).
+ *      endings and turn a one-line change into a whole-file git diff), as a
+ *      COMPARE-AND-SWAP against the bytes step 1 read.
+ *
+ * Step 4's swap matters for the same reason Editor's own reconciler needs one
+ * (Spike S11 finding F1): steps 1 and 4 are not one atomic act — the durable
+ * journal write sits between them — so a human saving in Editor, or git, or a
+ * second `ohhi`, can land inside the window. Without the swap those bytes are
+ * overwritten and survive nowhere: the journal holds the pre-image from step 1,
+ * not theirs. With it, the write is refused as a `conflict` and nothing is
+ * lost. `--expect-hash` guards against a change since the agent LAST READ;
+ * this guards the invocation's own window, and is not optional.
  *
  * `dryRun` runs 1 and 2 and then stops: it reports exactly what would happen
  * and records nothing, which is what makes it safe to suggest to an agent
  * that is unsure.
  */
-import { hashBytes, looksBinary, renderFile, type EolFlavor, type PreImageJournal } from '@editor/vault'
+import {
+  hashBytes,
+  looksBinary,
+  renderFile,
+  WriteConflictError,
+  type EolFlavor,
+  type PreImageJournal,
+} from '@editor/vault'
 import type { VaultBackend } from './backend.js'
 import { readNote } from './backend.js'
 import { OpError } from './contract.js'
@@ -89,9 +106,34 @@ export async function commit(
   if (note.exists && note.bytes) {
     result.journalSeq = await recordPreImage(backend.journal, note.path, note.bytes)
   }
-  await backend.adapter.writeAtomic(note.path, bytes)
+  // `''` is "there was no file here", the same spelling `LcaRecord.contentHash`
+  // and every adapter use for absent.
+  await writeSwapping(backend, note.path, bytes, note.hash ?? '')
   return result
 }
+
+/** The compare-and-swap, with the adapter's error translated to the contract's. */
+async function writeSwapping(
+  backend: VaultBackend,
+  path: string,
+  bytes: Uint8Array,
+  expectHash: string
+): Promise<void> {
+  try {
+    await backend.adapter.writeAtomic(path, bytes, { expectHash })
+  } catch (err) {
+    if (err instanceof WriteConflictError) {
+      throw new OpError('conflict', `${path} changed while this write was in flight — nothing was written; read it again and retry`, {
+        path,
+        expected: err.expected || null,
+        actual: err.actual || null,
+      })
+    }
+    throw err
+  }
+}
+
+export { writeSwapping }
 
 /**
  * Record a pre-image and report its sequence.

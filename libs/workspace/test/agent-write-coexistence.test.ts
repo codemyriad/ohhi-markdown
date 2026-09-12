@@ -23,7 +23,9 @@
  *  - a watch batch over the mass-change threshold trips the breaker, which
  *    with no host affordance auto-confirms and says so on the console.
  *
- * Plus one honest finding, pinned as `it.fails`: F1, the materialize window.
+ * Plus the materialize window (S11 finding F1), which was pinned as `it.fails`
+ * until the adapter-level compare-and-swap landed and is now an ordinary
+ * assertion: the agent's bytes survive the race.
  *
  * Everything runs on the SimClock (`bootVault` wires one): quiesce, the flush
  * debounce and the breaker are all clock-driven, so every ordering below is
@@ -35,6 +37,7 @@ import {
   MemStoreDir,
   scopedStoreDir,
   type MemVaultAdapter,
+  type WriteOptions,
 } from '@editor/vault'
 import { bootVault, dec, enc, seedAdapter, type BootedVault } from './fixture.js'
 
@@ -58,9 +61,9 @@ const yieldMacro = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 function watchWrites(adapter: MemVaultAdapter): { paths: string[]; reset: () => void } {
   const paths: string[] = []
   const real = adapter.writeAtomic.bind(adapter)
-  adapter.writeAtomic = async (path: string, bytes: Uint8Array): Promise<void> => {
+  adapter.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
     paths.push(path)
-    await real(path, bytes)
+    await real(path, bytes, opts)
   }
   return { paths, reset: () => paths.splice(0, paths.length) }
 }
@@ -433,29 +436,28 @@ describe('S11 — an agent writes files while Editor is running', () => {
   })
 })
 
-describe('S11 — findings (known-bad behaviour, pinned)', () => {
+describe('S11 — the materialize window (finding F1, fixed by the adapter CAS)', () => {
   /**
-   * FINDING F1 — the materialize window.
+   * FINDING F1 — the materialize window, and the compare-and-swap that closes
+   * it.
    *
    * `reconcileFile` reads the file to classify (disk == LCA, doc ahead →
    * materialize), then `materialize` journals the PRE-IMAGE IT ALREADY READ
    * and only afterwards calls `writeAtomic`. Between those two points there
-   * are awaits (the journal's durable write). An external write that lands in
-   * that window is overwritten by the flush, and it survives NOWHERE: not on
-   * disk (replaced), not in Editor's journal (which holds the pre-agent
-   * bytes), and in no review (the classification already happened).
+   * are awaits (the journal's durable write). An external write landing in
+   * that window used to be overwritten and survive NOWHERE: not on disk
+   * (replaced), not in Editor's journal (which holds the pre-agent bytes),
+   * and in no review (the classification already happened).
    *
-   * Narrow — it needs the agent's rename to land inside one journal write of
-   * an open note's flush — but real, and it is the one ordering in which
-   * fork 4-A's "the reconciler ingests it" promise does not hold. The fix is a
-   * compare-and-swap: re-read and re-hash inside the exclusive turn
-   * immediately before `writeAtomic`, and reclassify instead of writing if the
-   * hash moved. Not fixed here (Spike S11 owns the fixture, not the library).
-   *
-   * `it.fails` so the assertion is a ratchet: when the CAS lands, this test
-   * starts failing and both this file and the spike must be updated.
+   * A re-read by the reconciler before calling `writeAtomic` would only have
+   * moved the window, which is why the fix is at the ADAPTER seam:
+   * `writeAtomic(path, bytes, { expectHash })` re-reads and re-hashes as late
+   * as an implementation can (immediately before the rename) and throws
+   * `WriteConflictError` if the bytes moved; `materialize` catches it and
+   * re-classifies. This test arms the race from INSIDE `writeAtomic` — the
+   * latest possible moment — so it can only pass if the check is at the seam.
    */
-  it.fails('F1: an external write landing inside materialize is lost with no journal entry and no review', async () => {
+  it('F1: an external write landing inside materialize is NOT lost — it survives on disk and in a review', async () => {
     const base = await seedAdapter({ 'note.md': 'one\ntwo\nthree\n' })
     const vault = await bootVault(base, new MemStoreDir(), ROOT_ROOM)
     const agentText = 'one\ntwo — agent\nthree\n'
@@ -464,12 +466,12 @@ describe('S11 — findings (known-bad behaviour, pinned)', () => {
       // Editor's — after Editor read the file and decided to materialize.
       const real = base.writeAtomic.bind(base)
       let armed = true
-      base.writeAtomic = async (path: string, bytes: Uint8Array): Promise<void> => {
+      base.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
         if (armed && path === 'note.md') {
           armed = false
           base.externalWrite(path, enc.encode(agentText))
         }
-        await real(path, bytes)
+        await real(path, bytes, opts)
       }
 
       vault.root.setOpenPaths(new Set(['note.md']))
@@ -479,12 +481,19 @@ describe('S11 — findings (known-bad behaviour, pinned)', () => {
       await settleFlush(vault)
       expect(armed).toBe(false) // the race actually happened
 
-      const onDisk = dec.decode((await base.read('note.md'))!)
+      // The swap lost, so nothing was written: the disk still holds literally
+      // the agent's bytes.
+      expect(dec.decode((await base.read('note.md'))!)).toBe(agentText)
+      // And the re-classification saw both sides ahead of the LCA, so the
+      // human's unflushed sentence and the agent's file are BOTH named in a
+      // three-way review rather than one silently beating the other.
+      expect(vault.events.reviews.some((r) => r.reason === 'three-way' && r.theirs === agentText)).toBe(true)
+      expect(vault.root.docForPath('note.md')!.getText()).toBe('human one\ntwo\nthree\n')
+      // The pre-image journaled before the losing swap is of bytes nothing
+      // overwrote — an extra recoverable version, never a lost one.
       const journaled = (await journalOf(vault).entries('note.md')).map((e) => dec.decode(e.bytes))
-      const reviewed = vault.events.reviews.some((r) => r.theirs === agentText)
-
-      // The agent's bytes must survive SOMEWHERE. Today they survive nowhere.
-      expect(onDisk === agentText || journaled.includes(agentText) || reviewed).toBe(true)
+      expect(journaled).toEqual(['one\ntwo\nthree\n'])
+      expect(vault.events.errors).toEqual([])
     } finally {
       vault.dispose()
     }

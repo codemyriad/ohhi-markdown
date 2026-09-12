@@ -13,11 +13,19 @@
  * docs/primers/03-lca-reconciliation.md). The LCA advances ONLY together
  * with the CRDT change it describes — both happen inside this module or
  * neither does.
+ *
+ * Every materialize is a COMPARE-AND-SWAP against the bytes the classifying
+ * read saw (`WriteOptions.expectHash`). Classification and writing are not
+ * one atomic step — the journal write sits between them — and an external
+ * write landing in that window used to be overwritten with no journal entry
+ * and no review (Spike S11 finding F1). A losing swap re-classifies instead
+ * of writing, so those bytes are either ingested or surfaced for review.
  */
 import DiffMatchPatch from 'diff-match-patch'
 import type { EngineDoc, SyncEngine } from '@editor/sync'
 import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
+import { WriteConflictError } from './types.js'
 import type {
   DivergenceReview,
   LcaRecord,
@@ -47,13 +55,30 @@ export async function reconcileFile(
   doc: EngineDoc,
   lca: LcaRecord
 ): Promise<ReconcileResult> {
+  return classify(ctx, doc, lca, 1)
+}
+
+/**
+ * `retriesLeft` is how many more times a losing compare-and-swap inside
+ * `materialize` may re-enter this function. One is enough: a CAS failure means
+ * an external writer moved the bytes, and the re-classification either ingests
+ * them or raises a review — neither of which writes. A second failure would
+ * need a third writer inside the same window, and looping on it would be worse
+ * than surfacing the error.
+ */
+async function classify(
+  ctx: ReconcileContext,
+  doc: EngineDoc,
+  lca: LcaRecord,
+  retriesLeft: number
+): Promise<ReconcileResult> {
   const { engine, adapter, lcaStore, journal, thresholds } = ctx
   const diskBytes = await adapter.read(lca.path)
   if (diskBytes === null) {
     if (lca.contentHash === '') {
       // Never existed on disk (remote-created file): materialize creates it.
       if (doc.getText().length === 0) return { action: 'noop' }
-      return materialize(ctx, doc, lca, null)
+      return materialize(ctx, doc, lca, null, retriesLeft)
     }
     // File vanished without a folder-map tombstone: external deletion.
     // Never silently drop CRDT content — surface as a 'vanished' review the
@@ -70,7 +95,7 @@ export async function reconcileFile(
 
   if (!diskChanged && docChanged) {
     if (ctx.openPaths.has(lca.path)) return { action: 'noop' } // editor owns it; flush will materialize
-    return materialize(ctx, doc, lca, diskBytes)
+    return materialize(ctx, doc, lca, diskBytes, retriesLeft)
   }
 
   const decoded = decodeFile(diskBytes)
@@ -116,7 +141,8 @@ async function materialize(
   ctx: ReconcileContext,
   doc: EngineDoc,
   lca: LcaRecord,
-  preImage: Uint8Array | null
+  preImage: Uint8Array | null,
+  retriesLeft = 0
 ): Promise<ReconcileResult> {
   const { engine, adapter, lcaStore, journal } = ctx
   // Text and heads MUST be captured back-to-back in one synchronous block:
@@ -129,8 +155,29 @@ async function materialize(
   const text = doc.getText()
   const heads = engine.encodeHeads(engine.heads(doc))
   const bytes = renderFile(text, lca.eol, lca.bom)
+  // What the caller read a moment ago — `lca.contentHash` on the classify
+  // paths, and the bytes `resolveDivergence` just read on the resolution path,
+  // where the LCA is stale BY DEFINITION (that is what a divergence is).
+  // `''` is "there is no file there", matching LcaRecord.contentHash.
+  const expectHash = preImage === null ? '' : hashBytes(preImage)
+  // Journal FIRST and unconditionally (golden rule 1: the pre-image is durable
+  // before any write can replace it). A losing CAS therefore leaves one extra
+  // pre-image of bytes that were never overwritten — harmless: the journal is
+  // a retention ring of recoverable versions, not a log of writes, and an
+  // entry too many costs a line in the History rail, never a note.
   await journal.record(lca.path, preImage)
-  await adapter.writeAtomic(lca.path, bytes)
+  try {
+    await adapter.writeAtomic(lca.path, bytes, { expectHash })
+  } catch (err) {
+    // S11 F1: somebody else wrote inside the window between the classifying
+    // read and the rename. Their bytes are still on disk, so re-classify:
+    // disk-ahead ingests them, both-ahead raises a three-way review. Either
+    // way nothing is lost, which is the whole point of the swap.
+    if (err instanceof WriteConflictError && retriesLeft > 0) {
+      return classify(ctx, doc, lca, retriesLeft - 1)
+    }
+    throw err
+  }
   const newHash = hashBytes(bytes)
   rememberFlush(ctx, lca.path, newHash)
   await lcaStore.put({
@@ -157,7 +204,10 @@ export async function resolveDivergence(
   dmp.diff_cleanupSemantic(diffs)
   applyDiffsAsOps(doc, diffs)
   const preImage = await ctx.adapter.read(lca.path)
-  return materialize(ctx, doc, lca, preImage)
+  // One retry, same as the classify paths: if a third party wrote while the
+  // human was deciding, the merge must be re-offered against THEIR bytes
+  // rather than written over them.
+  return materialize(ctx, doc, lca, preImage, 1)
 }
 
 export function rememberFlush(ctx: ReconcileContext, path: string, hash: string): void {

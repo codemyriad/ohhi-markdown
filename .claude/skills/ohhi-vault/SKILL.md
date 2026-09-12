@@ -88,8 +88,10 @@ ohhi search "docs" --limit 10 --cursor "<nextCursor from the last page>"
 
 Ranked search is **always** folded and case-insensitive — `--case-sensitive`
 there is a usage error, not a no-op; it belongs with `--exact`/`--regex`.
-Likewise `--tag` only works in ranked mode, because tags come from the index and
-grep does not consult it. Ranked search deliberately
+Likewise `--tag` in `--exact`/`--regex` mode is a usage error too, because tags
+come from the index and grep does not consult it. `--path` works in both, but a
+folder name containing a **space** makes `total` come back `null` (the hits are
+right; the count is not computable cheaply). Ranked search deliberately
 does **not** index URL text or fenced code blocks — that is what keeps a 64 KB
 pasted link dump from burying the 900-byte note actually called `HTML.md`. When
 you *want* the text inside a URL or a code fence, that is exactly what
@@ -112,6 +114,12 @@ the trimmed heading text; it runs from the heading to the line before the next
 heading of the same or higher level. `not_found` means that heading is not
 there — run `--outline` and use a heading that is.
 
+If two mode flags are passed the winner is declared, not surprising:
+**`--outline` → `--frontmatter` → `--section` → `--lines` → the whole note**,
+and the output's `mode` field names which one applied. Truncation is always at a
+line boundary, with one exception: a single line longer than `--max-chars` comes
+back **whole**, so you are never left unable to make progress.
+
 ### Follow the graph
 
 ```bash
@@ -132,8 +140,17 @@ ohhi changes --since 2026-09-12T09:00:00Z    # ISO-8601 instant
 ohhi changes --since j42                     # or a journal sequence from an earlier answer
 ```
 
-The answer carries `cursorSince` — pass that back as the next `--since` and you
-get exactly what moved in between, with no re-read of anything.
+The answer carries `cursorSince`, an ISO instant — pass that back as the next
+`--since` and you get exactly what moved in between, with no re-read of
+anything.
+
+**One row per path**, with `kind` in `created` / `modified` / `journaled`.
+`journaled` is the row for a path with no mtime left to report — *this tool
+touched it and it is no longer on disk*, i.e. an `ohhi rm`, or the old name of
+an `ohhi mv`. `created` and `modified` come from disk mtimes, so they see every
+writer: the user typing in the editor, git, Obsidian. **Do not report `created`
+as "a new note"** — it only means this tool holds no earlier version of it, so
+on a vault you have never written to, everything that moved says `created`.
 
 ### Machine-readable everything
 
@@ -145,8 +162,11 @@ ohhi changes --since j42 --json | jq -r '.cursorSince'
 ```
 
 `--json` prints **one** document on stdout with a trailing newline and nothing
-else; counters, coverage, hints and warnings go to stderr in both modes — so a
-pipe into `jq` is always clean and you still see the honesty lines. Every document names
+else; every line that is not the answer — `returned=…`, `coverage:`, `hint=`,
+the truncation line, the `vault=… (found by …)` provenance line — goes to
+stderr in both modes, so a pipe into `jq` is always clean and you still see the
+honesty lines. An **error** in `--json` mode is on **stdout** too (an
+`ohhi.error.v1` document), so one parse handles success and failure alike. Every document names
 its own schema (`ohhi.search.v1`, `ohhi.read.v1`, …), so a reader written
 against v1 keeps working. **The text form is for humans and is not parseable** —
 note titles and snippets are free text and are not quoted or escaped, so
@@ -173,6 +193,7 @@ ohhi rm "Notes/Scratch.md"                                # to .trash/, never de
 ohhi restore "Notes/Retro.md" --list                      # pre-images kept before earlier writes
 ohhi restore "Notes/Retro.md"                             # put the latest one back
 ohhi restore "Notes/Retro.md" --seq 41
+ohhi restore "Notes/Retro.md" --seq 41 --source app       # --seq 41 of WHICH journal
 ```
 
 The rules, and why:
@@ -184,9 +205,11 @@ The rules, and why:
   anything that changed underneath you. Never work around a refused `patch` with
   a `write`.
 - **Always `read` first and pass `--expect-hash`.** The hash comes from `read`'s
-  output. It is the only thing standing between you and clobbering a human's
-  concurrent edit; without it, "the note changed since I read it" is not
-  detectable.
+  output. It is what stands between you and clobbering a human's edit made
+  between your read and your write; without it, "the note changed since I read
+  it" is not detectable. (A write that loses a race *during* the call is always
+  refused, hash or no hash — but that is a much narrower window than the one
+  `--expect-hash` covers.)
 - **`--dry-run` when unsure.** It computes everything — the match count, the
   resulting hash, where the appended line lands — and writes nothing.
 - **Frontmatter is read-only.** `ohhi fm <path>` reads it; there is no `fm set`
@@ -194,20 +217,43 @@ The rules, and why:
   exist. Do not edit frontmatter with `patch` or `write` to work around this —
   reserialising YAML is exactly the spurious-diff failure the editor forbids.
   Tell the user it is not available.
-- **Keep bursts under 20 files.** A running editor treats a 20-file batch as a
-  mass change and pauses it for human confirmation. `mv`/`rm` on a directory
-  holding more than 20 files is refused without `--yes` for the same reason. If
-  you truly need a large batch, do it in runs of a dozen and say so.
+- **Keep bursts under 20 files.** `mv`/`rm` on a directory holding more than 20
+  files is refused without `--yes`, and that refusal is the **only** guard —
+  the running editor's own mass-change breaker counts paths per filesystem
+  event, and a CLI writing files one at a time never trips it. If you truly need
+  a large batch, do it in runs of a dozen and say so.
+- **`write`/`patch`/`append` only edit `.md` notes**; anything else is
+  `refused`. `mv` and `rm` move any file, attachments included.
 - Every write journals the previous bytes first, then writes atomically. That is
   what `restore` restores — including, when the editor's own store directory was
-  given with `--app-store`, pre-images the app took.
+  given with `--app-store`, pre-images the app took. (That union only reads the
+  app's **root** store correctly today; for a shared sub-folder the app's
+  entries are keyed relative to the folder and will simply not appear. If the
+  user expects app history for a note inside a shared folder and gets none, say
+  that rather than concluding the history is gone.)
+- **`rm` never unlinks.** The file goes to `.trash/<path>` (suffixed
+  `Notes~1.md` — before the extension — if that name is taken) *and* a
+  pre-image is journaled under the note's **original** path, so
+  `ohhi restore "Notes/Scratch.md"` puts it back where it was. `mv` is the
+  opposite on purpose: it re-keys the journal, so a renamed note keeps its
+  history under the new name.
+- **`--seq` belongs to a journal.** The CLI's journal and the app's number
+  independently, so `--seq 1` names a different pre-image in each; pass
+  `--source cli|app` when you mean one of them. `restore --list` prints the
+  source of every entry, and orders the union by `at`.
+- **`restore --list` on a note with no history is an empty list and exit 0**,
+  not an error. Say "nothing to restore" and stop; do not retry. (A plain
+  `restore` with nothing to restore *is* exit 1 `not_found` — that call asked
+  for a version back.)
 
 ## How to use what you get
 
 **Snippets are matches, not quotations.** Ranked search folds case and
 diacritics, so a snippet's bracketed match may not be spelled the way the query
 was. Quote the note, not the snippet — `read --lines` around the hit's `line`
-first.
+first. The brackets are added by the text renderer, so a match inside a wikilink
+prints as `[[[JSON]]]`: three brackets, not a malformed link. In `--json` the
+match is `spans` and the text is untouched.
 
 **`tier` says *why* a hit is where it is**, and it is usually the answer to
 "is this the note they meant":
@@ -242,8 +288,10 @@ fence.
 
 ## Reading failures correctly
 
-Exit code first, then the `code` field in `--json` mode (text mode prints only
-the message, on stderr).
+Exit code first, then the `code` field in `--json` mode (text mode prints the
+message on stderr as `ohhi: <code>: <message>`). **Exit 1 is three different
+answers** — `refused`, `not_found` and `runtime` all exit 1 and want different
+responses — so branch on `code`, never on the exit code alone.
 
 | Exit | `code` | What it means | What to do |
 |---|---|---|---|
@@ -252,6 +300,7 @@ the message, on stderr).
 | 2 | `usage` | Ambiguous vault — markers at more than one level; `details.candidates` names them. | Ask which, then pass `--vault`. |
 | 2 | `usage` | Bad flag, missing positional, or a value the schema refused (the message names the field). | Fix the invocation. Run `ohhi help` for the op's flags. |
 | 3 | `conflict` | `--expect-hash` did not match: the note changed since you read it. | **Re-read it.** Look at what changed, decide whether your edit still applies, then retry with the new hash. Never retry by dropping `--expect-hash`. |
+| 3 | `conflict` | The note changed *while the write was in flight* (somebody saved in the editor as you wrote). Happens with or without `--expect-hash`; **nothing was written**. | Re-read and retry once. If it keeps happening, the user is actively editing that note — say so and ask. |
 | 1 | `refused` | `patch`'s `--old` is not unique — `details.occurrences` says how many. | **Widen `--old`** with surrounding lines until it is unique. Use `--all` only when you genuinely mean every occurrence. |
 | 1 | `refused` | `patch`'s `--old` occurs zero times. | Re-read the note; the text is not what you thought. Do not fall back to `write`. |
 | 1 | `refused` | `--create-only` on a note that exists. | Read it and `patch`/`append` instead, or pick another name. |
@@ -259,6 +308,8 @@ the message, on stderr).
 | 1 | `refused` | Target is not a `.md` note, is binary, or the destination of a `mv` exists. | Pick a different path. |
 | 1 | `refused` | A path outside the vault, or a symlink leading out of it. | Stay inside the vault. This is a guard, not a bug. |
 | 1 | `not_found` | The note, or the `--section` heading, is not there. | For a note: `search` or `ls` for the real path. For a section: `read --outline` and use a heading it lists. |
+| 1 | `not_found` | `restore <path>` with no pre-image, or a `--seq` that is not in that journal. | Run `restore <path> --list` first. If the list is **empty** (exit 0), nothing has a version to put back — say so and stop. If it is not, take a `seq` **and its `source`** from it. |
+| 0 | — | `restore … --list` printed `entries: []`. | Not an error: nothing here has written that note. Do not retry, and do not go looking in `.trash/` unless the user asks. |
 | 1 | `runtime` | An I/O failure — unreadable file, full disk, broken journal. | Read the message. Most are not worth retrying. |
 
 ## Boundaries
@@ -269,11 +320,22 @@ that is the whole mechanism.
 
 **It works whether or not Oh hi markdown is running.** When the app *is* open, it
 notices your write through its own file watcher and ingests it — into the open
-note, live in the pane, if the user is looking at it. If the user had unsaved
-edits to the same note, the divergence lands in the app's review UI for them to
-resolve; it never becomes a `.conflict` file and never silently wins. You do not
-need to check whether the app is running, and you must not ask the user to close
-it.
+note, live in the pane, if the user is looking at it, and without rewriting your
+bytes. If the user had unsaved edits to the same note, the divergence lands in
+the app's review UI for them to resolve: nothing is written, your bytes are
+still on disk and their sentence is still in the editor. It never becomes a
+`.conflict` file and never silently wins. You do not need to check whether the
+app is running, and you must not ask the user to close it.
+
+Two things to tell the user rather than be surprised by:
+
+- **`Mod+Z` will not undo your edit.** An ingested change is not on the user's
+  undo stack (the same as a collaborator's edit). The undo is the app's History
+  rail, or `ohhi restore`. Say that when you make a change they might want back.
+- **`ohhi restore` into a running app can open a review** instead of applying
+  silently, when the bytes you put back are ones the editor itself wrote
+  recently. That is the app being careful, not a failure: the user resolves it
+  and nothing is lost. Do not retry the restore.
 
 **Do not build a second reader.** The app and this CLI share one index and one
 ranking. If search is wrong, that is a bug to report — not a reason to walk the

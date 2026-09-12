@@ -23,7 +23,7 @@
  */
 import fc from 'fast-check'
 import { describe, expect, it, vi } from 'vitest'
-import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter } from '@editor/vault'
+import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter, type WriteOptions } from '@editor/vault'
 import { carveFolder } from '../src/carve.js'
 import { MountRegistry } from '../src/registry.js'
 import type { MountSession } from '../src/mount-session.js'
@@ -66,9 +66,9 @@ async function tick(vault: BootedVault, ms: number): Promise<void> {
 function watchWrites(adapter: MemVaultAdapter): { paths: string[]; reset: () => void } {
   const paths: string[] = []
   const real = adapter.writeAtomic.bind(adapter)
-  adapter.writeAtomic = async (path: string, bytes: Uint8Array): Promise<void> => {
+  adapter.writeAtomic = async (path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> => {
     paths.push(path)
-    await real(path, bytes)
+    await real(path, bytes, opts)
   }
   return { paths, reset: () => paths.splice(0, paths.length) }
 }

@@ -158,6 +158,10 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
     flags: {
       list: { key: 'list', kind: 'boolean', help: 'list available pre-images instead of restoring' },
       seq: { key: 'seq', kind: 'number', arg: 'N', help: 'restore this pre-image (default: the latest)' },
+      // The two journals have INDEPENDENT sequence spaces (S11-Q4): `--seq 1`
+      // names one pre-image in each, so without this the newer one wins and
+      // the other is unreachable. `--list` prints every entry's source.
+      source: { key: 'source', kind: 'string', arg: 'cli|app', help: "which journal --seq belongs to (they number separately)" },
       'dry-run': { key: 'dryRun', kind: 'boolean', help: 'report which pre-image would be restored' },
     },
   },

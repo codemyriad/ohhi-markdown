@@ -15,7 +15,15 @@ import {
   stat,
 } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
-import { IGNORED_DIRS, type FileStat, type VaultAdapter, type WatchEvent } from './types.js'
+import {
+  IGNORED_DIRS,
+  WriteConflictError,
+  type FileStat,
+  type VaultAdapter,
+  type WatchEvent,
+  type WriteOptions,
+} from './types.js'
+import { hashBytes } from './hash.js'
 import type { StoreIo } from './stores.js'
 import type { StoreDir } from './store-dir.js'
 
@@ -96,7 +104,7 @@ export class NodeVaultAdapter implements VaultAdapter {
     }
   }
 
-  async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
+  async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
     const full = this.abs(path)
     await mkdir(dirname(full), { recursive: true })
     const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
@@ -107,7 +115,23 @@ export class NodeVaultAdapter implements VaultAdapter {
     } finally {
       await handle.close()
     }
+    // Compare-and-swap (S11 F1): the destination is re-read and re-hashed HERE,
+    // with the durable temp file already on disk, so the only remaining gap is
+    // the rename syscall itself — as narrow as a userspace writer can make it.
+    if (opts?.expectHash !== undefined) {
+      const actual = await this.hashOf(path)
+      if (actual !== opts.expectHash) {
+        await rm(tmp, { force: true })
+        throw new WriteConflictError(path, opts.expectHash, actual)
+      }
+    }
     await fsRename(tmp, full)
+  }
+
+  /** Content hash of what is at `path` right now; `''` when nothing is. */
+  private async hashOf(path: string): Promise<string> {
+    const current = await this.read(path)
+    return current === null ? '' : hashBytes(current)
   }
 
   async rename(from: string, to: string): Promise<void> {

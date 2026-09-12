@@ -4,8 +4,10 @@
  * bytes stay untouched — EOL and BOM included (rule 2), and a write over a
  * note that moved under the agent is refused, not merged (R1).
  */
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hashBytes } from '@editor/vault'
+import { hashBytes, type WriteOptions } from '@editor/vault'
 import { runOp } from '../src/ops/index.js'
 import { harness, type Harness } from './harness.js'
 
@@ -14,6 +16,68 @@ const open = async (): Promise<Harness> => (h = await harness())
 afterEach(async () => h?.cleanup())
 
 const NUL = String.fromCharCode(0)
+
+/**
+ * Arm ONE external write to `path` that lands inside `writeAtomic` — after the
+ * op has read the note and journaled its pre-image, a moment before the
+ * rename. The narrowest window there is, and the only one a caller-side re-read
+ * cannot close (Spike S11 finding F1). Returns nothing: the point is what the
+ * op does, not what the hook did.
+ */
+function raceTheWrite(h: Harness, path: string, theirText: string): void {
+  const real = h.backend.adapter.writeAtomic.bind(h.backend.adapter)
+  let armed = true
+  ;(h.backend.adapter as { writeAtomic: unknown }).writeAtomic = async (
+    p: string,
+    bytes: Uint8Array,
+    opts?: WriteOptions
+  ): Promise<void> => {
+    if (armed && p === path) {
+      armed = false
+      await writeFile(join(h.root, path), theirText, 'utf8')
+    }
+    await real(p, bytes, opts)
+  }
+}
+
+describe('a write that loses a race writes nothing (golden rule 1)', () => {
+  it('refuses with `conflict` when the note changes between the read and the rename', async () => {
+    const vault = await open()
+    raceTheWrite(vault, 'TODO/Writing.md', 'a human saved this\n')
+    await expect(
+      runOp(vault.backend, 'write', { path: 'TODO/Writing.md', text: 'the agent wrote this\n' })
+    ).rejects.toMatchObject({ code: 'conflict' })
+    // Their bytes are still there. Without the swap they would be gone from
+    // disk AND absent from the journal, which holds the pre-race pre-image.
+    expect(await vault.text('TODO/Writing.md')).toBe('a human saved this\n')
+  })
+
+  it('applies the same swap to patch, append and restore', async () => {
+    const vault = await open()
+    raceTheWrite(vault, 'TODO/Writing.md', 'theirs\n')
+    await expect(
+      runOp(vault.backend, 'patch', { path: 'TODO/Writing.md', old: 'Short.', new: 'Long.' })
+    ).rejects.toMatchObject({ code: 'conflict' })
+
+    raceTheWrite(vault, 'TODO/Writing.md', 'theirs again\n')
+    await expect(
+      runOp(vault.backend, 'append', { path: 'TODO/Writing.md', text: 'a line' })
+    ).rejects.toMatchObject({ code: 'conflict' })
+
+    await runOp(vault.backend, 'write', { path: 'TODO/Writing.md', text: 'v2\n' })
+    raceTheWrite(vault, 'TODO/Writing.md', 'and theirs once more\n')
+    await expect(
+      runOp(vault.backend, 'restore', { path: 'TODO/Writing.md' })
+    ).rejects.toMatchObject({ code: 'conflict' })
+    expect(await vault.text('TODO/Writing.md')).toBe('and theirs once more\n')
+  })
+
+  it('is a no-op on the happy path — an uncontended write still works', async () => {
+    const { backend, text } = await open()
+    await runOp(backend, 'write', { path: 'TODO/Writing.md', text: 'quiet\n' })
+    expect(await text('TODO/Writing.md')).toBe('quiet\n')
+  })
+})
 
 describe('write', () => {
   it('creates a new note without a pre-image (there is nothing to protect)', async () => {
