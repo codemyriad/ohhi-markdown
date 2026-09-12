@@ -9,7 +9,7 @@
  * moves between the ones that exist, and a restore reaches disk and the editor.
  */
 import { expect, test, type Locator } from '@playwright/test'
-import { openApp } from './fixtures.js'
+import { newNote, openApp } from './fixtures.js'
 
 /** Today in Obsidian's default format, computed the way the app does. */
 function todayName(): string {
@@ -37,10 +37,7 @@ test("Mod+\\ opens today's daily note, creating it once, and Mod+- walks to an o
 
   // Give the vault an OLDER daily, through the affordances a person has, and
   // walk back to it: prev/next order by date, not by filename.
-  await page.getByTestId('file-tree').click({ button: 'right' })
-  await page.getByTestId('tree-menu:new-file').click()
-  await expect(page.getByTestId('file-item:untitled-1.md')).toBeVisible()
-  await page.getByTestId('file-item:untitled-1.md').click({ button: 'right' })
+  await page.getByTestId(`file-item:${await newNote(page, 1)}`).click({ button: 'right' })
   await page.getByTestId('tree-menu:rename').click()
   await page.getByTestId('tree-op-name').fill('2020-01-01.md')
   await page.getByTestId('tree-op-confirm').click()
@@ -56,6 +53,8 @@ test("Mod+\\ opens today's daily note, creating it once, and Mod+- walks to an o
 
 test('History lists the versions the journal already holds, and restores one', async ({ page }) => {
   await openApp(page, 'daily-history')
+  // Links is the section a fresh install opens (P2); this test wants History.
+  await page.getByTestId('rail-icon:history').click()
   await page.getByTestId('file-item:notes/welcome.md').click()
   const editor = page.locator('[data-testid="editor-pane"] .cm-content')
   await expect(editor).toContainText('Welcome to Editor')

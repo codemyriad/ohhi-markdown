@@ -34,7 +34,7 @@
   import { X } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
-  import { firstTabbable } from './focus.js'
+  import { currentFocus, firstTabbable } from './focus.js'
 
   interface Props {
     /** Accessible name. Rendered as the heading unless `hideTitle`. */
@@ -103,13 +103,9 @@
 
   const MAX = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-3xl' } as const
 
-  // Focus goes back to whatever had it — a tree row, a header button, or
-  // CodeMirror, which is why restore matters more here than usual: a dialog
-  // that does not give focus back leaves the keyboard pointing at nothing.
-  const opener =
-    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
+  // Restore matters more here than usual: a dialog that does not give focus
+  // back leaves the keyboard pointing at nothing.
+  const opener = currentFocus()
 
   const {
     elements: { overlay, content, title: titleEl, description: descriptionEl, close, portalled },

@@ -3,6 +3,8 @@ import {
   pillLabel,
   pillStatus,
   pillTitle,
+  vaultLabel,
+  vaultTitle,
   worstStatus,
   type SyncRecordSnapshot,
 } from './pill-status.js'
@@ -91,5 +93,20 @@ describe('pill titles', () => {
       expect(pillTitle(status)).not.toBe('')
     }
     expect(pillLabel('offline')).toBe('offline')
+  })
+})
+
+describe('the vault pill (P3)', () => {
+  it('says a word, in Title case — never the status key', () => {
+    expect(vaultLabel('green')).toBe('Synced')
+    expect(vaultLabel('yellow')).toBe('Syncing')
+    expect(vaultLabel('red')).toBe('Diverged')
+    expect(vaultLabel('offline')).toBe('Offline')
+  })
+
+  it('names whose state it is, so the dot beside the vault name explains itself', () => {
+    for (const status of ['green', 'yellow', 'red', 'offline'] as const) {
+      expect(vaultTitle(status)).toMatch(/^This vault: /)
+    }
   })
 })

@@ -24,6 +24,9 @@ async function openPeer(
   await page.goto(appUrl(role, user))
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 15_000 })
+  // A fresh install opens the Links section alone (P2); presence and the share
+  // state are read from This note, so ask the rail's icon for that one.
+  await page.getByTestId('rail-icon:note').click()
   return { context, page }
 }
 
@@ -82,6 +85,7 @@ test('link a device into OPFS: the panel, then materialize, co-edit and reopen',
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
   // The vault is LINKED, not "shared": the rail says so in the vault's own words.
+  await page.getByTestId('rail-icon:note').click()
   await expect(page.getByTestId('rail-section:note').getByTestId('share-state')).toContainText(
     'Synced to your devices'
   )

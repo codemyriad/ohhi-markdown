@@ -36,7 +36,11 @@
       <div class="min-w-0 flex-1">
         <h3 use:melt={$title(t.id)} class="text-sm font-medium">{t.data.title}</h3>
         {#if t.data.description}
-          <p use:melt={$description(t.id)} class="mt-0.5 text-xs text-base-content/70">
+          <!-- Body ink, not muted: the tone tints are translucent, so a toast
+               over a dialog scrim is measured against the BLEND (#b8abab),
+               where /70 falls to 3.82:1 and the axe gate fails. Hierarchy here
+               is size and weight (docs/theming.md, the contrast floor). -->
+          <p use:melt={$description(t.id)} class="mt-0.5 text-xs">
             {t.data.description}
           </p>
         {/if}

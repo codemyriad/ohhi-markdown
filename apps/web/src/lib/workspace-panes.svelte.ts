@@ -55,11 +55,15 @@ import { textPaths, type Workspace } from './workspace.svelte.js'
  *
  * Read off the document rather than from a shell-level counter because there
  * is no such counter: `Dialog` is mounted and unmounted by its parent, and
- * Melt's own `aria-modal` is the one mark every overlay in the shell carries.
+ * Melt's own `aria-modal` is the one mark every MODAL overlay in the shell
+ * carries. `Popover` (shell-polish P1.3) is deliberately NOT modal, so it
+ * carries no `aria-modal` — but it is still an overlay with a focus trap, and
+ * a pane mode entered behind it would act on the tabs its verbs are about. Its
+ * own builder mark stands in.
  */
 export function keyboardClaimed(doc: Document | undefined = globalThis.document): boolean {
   if (!doc) return false
-  if (doc.querySelector('[aria-modal="true"]')) return true
+  if (doc.querySelector('[aria-modal="true"], [data-melt-popover-content]')) return true
   const el = doc.activeElement
   if (!el || !(el instanceof Element)) return false
   if (el.closest('.cm-editor')) return false
@@ -90,6 +94,13 @@ export interface DragPayload {
   groupId: string | null
   label: string
   color: number | null
+  /**
+   * Set when the drag started OUTSIDE the strip — a file-tree row, which is an
+   * HTML5 drag source carrying a path and no tab at all (P1.2). The hit test
+   * and the indicator are the same; what a drop DOES differs, and the browser
+   * draws the row, so `DropZones` leaves the ghost out.
+   */
+  external?: true
 }
 
 /** Where a tab was when its view went away: the cursor and the scroll (B2). */
@@ -178,6 +189,19 @@ export interface PaneShell {
    */
   registerCapture(paneId: string, capture: (() => Resume | null) | null): void
   beginDrag(e: PointerEvent, payload: DragPayload): void
+
+  // ---- the file tree as a drag source (P1.2) ----
+  /**
+   * A native drag is hovering a pane at `x, y`. The tree is an HTML5 drag
+   * source and the strip is a pointer-drag surface, so these three calls are
+   * the bridge: same hit test, same indicator, same outcomes — a tree row
+   * behaves exactly like a tab.
+   */
+  hoverExternal(x: number, y: number): void
+  /** The native drag left the pane; drop the indicator without applying it. */
+  leaveExternal(): void
+  /** It was let go here: open `path` wherever the live target says. */
+  dropExternal(path: string): void
 
   // ---- groups (W2, B4/B8) ----
   /** A new group holding `tabId`; answers its id so the caller can name it. */
@@ -695,6 +719,61 @@ export function createPanes(
     window.addEventListener('keydown', onKey, true)
   }
 
+  // ---- the file tree as a drag source (P1.2) ----
+
+  function hoverExternal(x: number, y: number): void {
+    // A pointer drag owns the session until it ends: the two cannot both be
+    // live, and the one with tabs in it is the one whose `pointerup` will
+    // apply a target. Overwriting it here would hand that drop the geometry
+    // computed for a payload it is not carrying.
+    if (drag && !drag.payload.external) return
+    // No tabs, no source pane, no label: a tree row is a PATH readable only on
+    // `drop`, the browser draws its own ghost (so nothing prints a label), and
+    // the geometry is all the hit test needs.
+    const payload: DragPayload = {
+      tabIds: [],
+      fromPaneId: '',
+      groupId: null,
+      label: '',
+      color: null,
+      external: true,
+    }
+    drag = { payload, x, y, target: hitTest(x, y, payload) }
+  }
+
+  function leaveExternal(): void {
+    if (drag?.payload.external) drag = null
+  }
+
+  function dropExternal(path: string): void {
+    const target = drag?.payload.external ? drag.target : null
+    drag = null
+    if (!target || target.kind === 'none') return
+    if (target.kind === 'strip') {
+      commit(
+        tree.openPathAt(
+          current,
+          path,
+          { paneId: target.paneId, index: target.at, groupId: target.groupId },
+          ids,
+          now()
+        )
+      )
+      return
+    }
+    if (target.zone === 'center') {
+      commit(tree.openPath(current, path, { paneId: target.paneId }, ids, now()))
+      return
+    }
+    // An edge makes a pane, and `splitWith` is the only op that does — it
+    // moves tabs that already exist. So the note opens at the end of the
+    // target's strip first, and that fresh tab is what gets carried out.
+    const opened = tree.openPathAt(current, path, { paneId: target.paneId }, ids, now())
+    const landed = tree.findPane(opened, target.paneId)?.tabs.find((t) => t.path === path)
+    if (!landed) return
+    commit(tree.splitWith(opened, target.paneId, target.zone, { tabIds: [landed.id] }, ids, now()))
+  }
+
   // ---- the mode (B12) ----
 
   function titleOf(id: string): string {
@@ -866,6 +945,9 @@ export function createPanes(
     },
 
     beginDrag,
+    hoverExternal,
+    leaveExternal,
+    dropExternal,
 
     newGroup(tabId, paneId) {
       commit(groupOps.newGroup(current, paneId, tabId, ids, '', now()))

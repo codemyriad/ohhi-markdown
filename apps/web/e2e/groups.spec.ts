@@ -7,21 +7,12 @@
  * Memory vault contract, like `panes.spec.ts` — no folder, no share.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { chips, dragTo, editors, openApp, panes, tabNamed } from './fixtures.js'
+import { chips, dragTo, editors, newNote, openApp, panes, tabNamed } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
 
 const more = (page: Page, at = 0): Locator => page.locator('[data-testid^="tab-more:"]').nth(at)
-
-/** A note through the affordance a person has: the tree's own New note. */
-async function newNote(page: Page, n: number): Promise<string> {
-  await page.getByTestId('file-tree').click({ button: 'right' })
-  await page.getByTestId('tree-menu:new-file').click()
-  const path = `untitled-${n}.md`
-  await expect(page.getByTestId(`file-item:${path}`)).toBeVisible()
-  return path
-}
 
 test('five notes, two of them a named, coloured group that folds to one chip', async ({ page }) => {
   await openApp(page, 'groups-fold')
@@ -38,6 +29,13 @@ test('five notes, two of them a named, coloured group that folds to one chip', a
   // A fresh group opens its popover with the name selected — an unnamed chip
   // on the strip would be the thing nobody comes back and fixes.
   await expect(page.getByTestId('group-manage')).toBeVisible()
+
+  // …and it hangs off the chip it is about (P1.3). It used to be a centred
+  // modal, which is what made it read as a jumble floating in the middle.
+  const fresh = (await chips(page).first().boundingBox())!
+  const pop = (await page.getByTestId('group-manage').boundingBox())!
+  expect(Math.abs(pop.y - (fresh.y + fresh.height))).toBeLessThan(12)
+
   await page.getByTestId('group-name').fill('Edible')
   await page.getByTestId('group-colour:3').click()
   await expect(page.getByTestId('group-colour:3')).toHaveAttribute('aria-checked', 'true')

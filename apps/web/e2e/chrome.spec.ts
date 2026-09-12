@@ -5,7 +5,7 @@
  */
 import { expect, test } from '@playwright/test'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
-import { RELAY, openApp } from './fixtures.js'
+import { RELAY, createBrowserVault, dragTo, openApp, openManager } from './fixtures.js'
 
 test('the right rail collapses to icons, reopens to the section clicked, and Mod+ArrowRight toggles it', async ({
   page,
@@ -34,14 +34,51 @@ test('the right rail collapses to icons, reopens to the section clicked, and Mod
   await expect(rail).toHaveAttribute('data-state', 'collapsed')
   await page.keyboard.press('ControlOrMeta+ArrowRight')
   await expect(rail).toHaveAttribute('data-state', 'expanded')
+
+  // P2: the icon column is still there while expanded, and an icon shows ITS
+  // section alone — one open section, not a stack of four.
+  await page.getByTestId('rail-icon:note').click()
+  await expect(page.getByTestId('rail-fold:note')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByTestId('rail-fold:links')).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByTestId('rail-icon:note')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('rail-icon:links')).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('links-panel')).toHaveCount(0)
+
+  // A second section on purpose: the headers still fold, so two can be open.
+  await page.getByTestId('rail-fold:links').click()
+  await expect(page.getByTestId('links-panel')).toBeVisible()
+  await expect(page.getByTestId('note-section')).toBeVisible()
+
+  // The icon of the ONLY open section is the way back out of the rail.
+  await page.getByTestId('rail-icon:note').click()
+  await expect(rail).toHaveAttribute('data-state', 'expanded')
+  await page.getByTestId('rail-icon:note').click()
+  await expect(rail).toHaveAttribute('data-state', 'collapsed')
+
+  // The fold set is device state, like the widths: it survives a reload.
+  await page.reload()
+  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
+  await expect(rail).toHaveAttribute('data-state', 'collapsed')
+  await page.getByTestId('rail-expand').click()
+  await expect(page.getByTestId('rail-fold:note')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByTestId('rail-fold:links')).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('the navigator resizes from the keyboard, hides on Mod+ArrowLeft, and the layout survives a reload', async ({
+test('the navigator resizes from the keyboard, collapses by drag, hides on Mod+ArrowLeft, and the layout survives a reload', async ({
   page,
 }) => {
   await openApp(page, 'chrome-nav')
   const navigator = page.getByTestId('navigator')
   await expect(navigator).toHaveCSS('width', '288px')
+
+  // The vault pill lives beside the vault it is about, and says a WORD: the
+  // header printed the raw status key, which answered nobody's question (P3).
+  const vaultPill = navigator.getByTestId('sync-pill-global')
+  await expect(vaultPill).toBeVisible()
+  await expect(page.locator('header').getByTestId('sync-pill-global')).toHaveCount(0)
+  // Title case, so it can only be the dictionary's word and never the status
+  // key ('green' / 'offline') the header used to print.
+  await expect(vaultPill).toHaveText(/(Synced|Syncing|Diverged|Offline)/)
 
   await page.getByTestId('tree-resize').focus()
   await page.keyboard.press('End')
@@ -59,6 +96,75 @@ test('the navigator resizes from the keyboard, hides on Mod+ArrowLeft, and the l
   await expect(page.getByTestId('navigator')).toHaveCount(0)
   await page.getByTestId('toggle-tree').click()
   await expect(page.getByTestId('navigator')).toBeVisible()
+
+  // Drag the handle well past the minimum and the navigator CLOSES rather
+  // than pinning itself to a 192 px sliver — and reopening restores the
+  // width the drag started from (P3).
+  await dragTo(page, page.getByTestId('tree-resize'), 40, 300)
+  await expect(page.getByTestId('navigator')).toHaveCount(0)
+  await page.getByTestId('toggle-tree').click()
+  await expect(page.getByTestId('navigator')).toHaveCSS('width', '624px')
+})
+
+/**
+ * The two halves of "where am I in this vault" (P3): the toolbar stays put
+ * while the tree scrolls under it, and whatever you just made is brought into
+ * view — Obsidian's reveal-active-file, which is what makes a note created in
+ * a folded folder findable at all.
+ */
+test('the tree scrolls under a sticky toolbar, and a note created in a collapsed folder is revealed', async ({
+  page,
+}) => {
+  // Short viewport + a pile of notes: a tree that genuinely overflows.
+  await page.setViewportSize({ width: 1000, height: 420 })
+  await openApp(page, 'chrome-sticky')
+
+  for (let i = 1; i <= 12; i++) {
+    await page.getByTestId('new-file').click()
+    await expect(page.getByTestId(`file-item:untitled-${i}.md`)).toBeAttached()
+  }
+
+  const treeRoot = page.getByTestId('tree-root')
+  const toBottom = (): Promise<void> =>
+    treeRoot.evaluate((el) => {
+      el.scrollTop = el.scrollHeight
+    })
+  await expect
+    .poll(() => treeRoot.evaluate((el) => el.scrollHeight - el.clientHeight))
+    .toBeGreaterThan(0)
+  await toBottom()
+  await expect.poll(() => treeRoot.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+
+  // The TREE scrolled, not the nav — so the toolbar is still on screen.
+  expect(await page.getByTestId('file-tree').evaluate((el) => el.scrollTop)).toBe(0)
+  await expect(page.getByTestId('new-file')).toBeInViewport()
+  await expect(page.getByTestId('tree-filter')).toBeInViewport()
+
+  // Reveal the active file: opening a note from the palette — never touching
+  // the tree — scrolls its row back into view from the far end of the list.
+  await page.keyboard.press('ControlOrMeta+o')
+  await page.getByTestId('quick-open-input').fill('welcome')
+  await expect(page.getByTestId('quick-open-row').first()).toContainText('notes/welcome.md')
+  await page.keyboard.press('Enter')
+  const welcome = page.getByTestId('file-item:notes/welcome.md')
+  await expect(welcome).toHaveAttribute('aria-current', 'true')
+  await expect(welcome).toBeInViewport()
+
+  // Fold `notes` away, then create a note inside it from its own menu: the
+  // folder unfolds, the row scrolls back into view from the bottom of the
+  // tree, and it is the current note.
+  await page.getByTestId('dir-item:notes').click()
+  await page.getByTestId('dir-item:notes').click()
+  await expect(page.getByTestId('dir-item:notes')).toHaveAttribute('aria-expanded', 'false')
+  await toBottom()
+
+  await page.getByTestId('dir-item:notes').click({ button: 'right' })
+  await page.getByTestId('tree-menu:new-file').click()
+  const created = page.getByTestId('file-item:notes/untitled-1.md')
+  await expect(created).toBeAttached()
+  await expect(page.getByTestId('dir-item:notes')).toHaveAttribute('aria-expanded', 'true')
+  await expect(created).toHaveAttribute('aria-current', 'true')
+  await expect(created).toBeInViewport()
 })
 
 test('the breadcrumb names the open note and reveals its folder; the status bar carries the word count and the note pill', async ({
@@ -100,6 +206,12 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
     timeout: 15_000,
   })
   await expect(page.getByTestId('sync-pill:notes/welcome.md')).toHaveCount(0)
+
+  // The vault's own rollup, in the navigator beside the vault name, in words.
+  const vaultPill = page.getByTestId('navigator').getByTestId('sync-pill-global')
+  await expect(vaultPill).toHaveAttribute('data-status', 'green', { timeout: 15_000 })
+  await expect(vaultPill).toContainText('Synced')
+  await expect(vaultPill).toHaveAttribute('title', 'This vault: synced (relay)')
 
   // Icons with names; collapse all at once.
   await expect(page.getByRole('button', { name: /New note/ })).toBeVisible()
@@ -168,6 +280,8 @@ test('the rail says where the open note lives, who is online there, and the head
   page,
 }) => {
   await openApp(page, 'chrome-note')
+  // Links is the one section a fresh install opens (P2): ask for this one.
+  await page.getByTestId('rail-icon:note').click()
   const section = page.getByTestId('rail-section:note')
   await expect(section).toContainText('No note open')
   // The relay is on the ROOT mount, so this vault is LINKED — never "shared"
@@ -206,6 +320,7 @@ test('a workspace error toasts once and stays in Activity with its time; the bad
   await openApp(page, 'chrome-notice')
   await expect(page.getByTestId('toast')).toContainText('relay rejected this token')
 
+  await page.getByTestId('rail-icon:activity').click()
   const activity = page.getByTestId('rail-section:activity')
   await expect(activity.getByTestId('activity-section')).toContainText('relay rejected this token')
   await expect(activity.locator('time')).toHaveCount(1)
@@ -335,4 +450,59 @@ test('settings › sync offers device linking, and asks for the operator secret 
   await page.getByTestId('command-palette-input').fill('Link a device')
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('device-link-dialog')).toBeVisible()
+})
+
+test('the manager reaches Link a device from inside itself, without a trip through Back', async ({
+  page,
+}) => {
+  await openApp(page, 'chrome-manager-link')
+
+  // Into the manager the way a person gets there: the switcher, not a URL.
+  await openManager(page)
+  await expect(page.getByTestId('manager-back')).toBeVisible()
+
+  // The bug (shell-polish P4): Settings opens from INSIDE the manager, and its
+  // "Link a device" set a flag whose dialog was mounted in the workspace
+  // branch — so nothing appeared until you pressed Back.
+  await page.getByTestId('manager-settings').click()
+  await page.getByTestId('settings-tab:sync').click()
+  await page.getByTestId('settings-secret').fill('e2e-operator-secret')
+  await page.getByTestId('settings-link-device').click()
+  await expect(page.getByTestId('device-link-dialog')).toBeVisible()
+  await expect(page.getByTestId('create-device-link')).toBeVisible()
+  // Still in the manager: the dialog did not wait for the workspace.
+  await expect(page.getByTestId('manager-back')).toBeVisible()
+  await page.getByTestId('close-device-link').click()
+  await expect(page.getByTestId('device-link-dialog')).toHaveCount(0)
+})
+
+test('the vault manager lists its vaults beside the ways to add one, and removes one in two clicks', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByTestId('manager-name').fill('Chris')
+  await createBrowserVault(page, 'Polish')
+  await openManager(page)
+  const row = page.locator('[data-testid^="open-vault:"]')
+  await expect(row).toHaveCount(1)
+  await expect(row).toContainText('Polish')
+  await expect(row).toContainText('browser vault')
+  // The vault open behind the manager is the current one (P4).
+  await expect(row).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByTestId('manager-name')).toHaveValue('Chris')
+
+  // Remove is never one click: the row menu arms an inline confirm that says
+  // what removal costs, and Cancel leaves the list alone.
+  await page.locator('[data-testid^="vault-more:"]').click()
+  await page.locator('[data-testid^="remove-vault:"]').click()
+  await expect(page.locator('[data-testid^="remove-note:"]')).toContainText('only in this browser')
+  await page.locator('[data-testid^="remove-cancel:"]').click()
+  await expect(page.locator('[data-testid^="remove-note:"]')).toHaveCount(0)
+  await expect(row).toHaveCount(1)
+
+  await page.locator('[data-testid^="vault-more:"]').click()
+  await page.locator('[data-testid^="remove-vault:"]').click()
+  await page.locator('[data-testid^="remove-confirm:"]').click()
+  await expect(row).toHaveCount(0)
+  await expect(page.getByTestId('create-vault')).toBeVisible()
 })

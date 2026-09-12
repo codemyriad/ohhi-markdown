@@ -16,6 +16,7 @@
   import { LL } from '@editor/i18n/i18n-svelte'
   import { formatSize, formatStamp } from '../history.js'
   import { realClock } from '../real-clock.js'
+  import { OUTLINE_BUTTON } from '../ui/styles.js'
   import type { PreImageInfo } from '../workspace.svelte.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
 
@@ -158,20 +159,18 @@
       {#each entries as entry (entry.seq)}
         <li
           data-testid="history-entry:{entry.seq}"
-          class="flex items-center justify-between gap-2 py-1.5"
+          class="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 py-1.5 leading-5"
         >
-          <span class="flex min-w-0 flex-col">
-            <time datetime={new Date(entry.at).toISOString()} class="truncate">
-              {formatStamp(entry.at, stamp)}
-            </time>
-            <span class="text-base-content/70">{formatSize(entry.size)}</span>
-          </span>
+          <time datetime={new Date(entry.at).toISOString()} class="truncate">
+            {formatStamp(entry.at, stamp)}
+          </time>
+          <span class="tabular-nums text-base-content/70">{formatSize(entry.size)}</span>
           <button
             type="button"
             data-testid="history-restore:{entry.seq}"
             aria-label={t.restore_this({ time: formatStamp(entry.at, stamp) })}
             onclick={() => (pending = entry)}
-            class="shrink-0 rounded border border-base-300 px-2 py-1 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+            class="{OUTLINE_BUTTON} px-2 py-1 text-base-content/80"
           >
             {t.restore()}
           </button>

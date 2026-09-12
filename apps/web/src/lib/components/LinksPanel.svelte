@@ -14,6 +14,7 @@
    */
   import type { LinkRef } from '@editor/index'
   import { LL } from '@editor/i18n/i18n-svelte'
+  import { HEADING } from '../ui/styles.js'
 
   interface Props {
     backlinks: LinkRef[]
@@ -44,6 +45,10 @@
     return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   })
 
+  /** A link row: one line, comfortable to hit, no border between rows. */
+  const row =
+    'block w-full truncate rounded py-0.5 text-left text-xs hover:bg-base-200 hover:underline'
+
   function label(link: LinkRef): string {
     return link.alias ?? link.target + (link.anchor ? ` › ${link.anchor}` : '')
   }
@@ -51,12 +56,14 @@
 
 <div data-testid="links-panel" class="flex flex-col">
   {#if !path}
-    <p class="p-4 text-xs text-base-content/70">{t.no_note()}</p>
+    <p class="px-3 py-2 text-xs text-base-content/70">{t.no_note()}</p>
   {:else}
-    <section class="border-b border-base-200 p-3">
-      <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+    <section class="border-b border-base-200 px-3 py-2">
+      <h3 class="mb-1.5 {HEADING}">
         {t.backlinks()}
-        <span data-testid="backlink-count" class="ml-1 font-normal">{backlinks.length}</span>
+        <span data-testid="backlink-count" class="ml-1 font-normal tabular-nums text-base-content/70"
+          >{backlinks.length}</span
+        >
       </h3>
       {#if backlinks.length === 0}
         <p class="text-xs text-base-content/70">{t.no_backlinks()}</p>
@@ -67,7 +74,7 @@
               <button
                 data-testid="backlink-source:{source}"
                 onclick={(e) => onOpen(source, { background: e.metaKey || e.ctrlKey })}
-                class="w-full truncate text-left text-xs font-medium text-ed-wikilink hover:underline"
+                class="{row} font-medium text-ed-wikilink"
               >
                 {source}
               </button>
@@ -87,21 +94,23 @@
       {/if}
     </section>
 
-    <section class="p-3">
-      <h3 class="mb-2 text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+    <section class="px-3 py-2">
+      <h3 class="mb-1.5 {HEADING}">
         {t.outgoing()}
-        <span data-testid="outgoing-count" class="ml-1 font-normal">{outgoing.length}</span>
+        <span data-testid="outgoing-count" class="ml-1 font-normal tabular-nums text-base-content/70"
+          >{outgoing.length}</span
+        >
       </h3>
       {#if outgoing.length === 0}
         <p class="text-xs text-base-content/70">{t.no_outgoing()}</p>
       {:else}
-        <ul class="space-y-1">
+        <ul>
           {#each resolved as link (link.offset)}
             <li>
               <button
                 data-testid="outgoing-link:{link.target}"
                 onclick={(e) => onOpen(link.resolved!, { background: e.metaKey || e.ctrlKey })}
-                class="w-full truncate text-left text-xs text-ed-wikilink hover:underline"
+                class="{row} text-ed-wikilink"
                 title={link.resolved!}
               >
                 {label(link)}
@@ -110,20 +119,15 @@
           {/each}
         </ul>
         {#if unresolved.length > 0}
-          <h4
-            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
-          >
-            {t.not_created()}
-          </h4>
-          <ul class="space-y-1">
+          <h4 class="mt-4 mb-1.5 {HEADING}">{t.not_created()}</h4>
+          <ul>
             {#each unresolved as link (link.offset)}
               <li>
                 <button
                   data-testid="unresolved-link:{link.target}"
                   onclick={() => onCreate(link.target)}
                   title={t.create({ target: link.target })}
-                  class="w-full truncate text-left text-xs text-ed-wikilink-unresolved
-                    decoration-dotted hover:underline"
+                  class="{row} decoration-dotted text-ed-wikilink-unresolved"
                 >
                   {label(link)}
                 </button>
@@ -132,17 +136,13 @@
           </ul>
         {/if}
         {#if missingEmbeds.length > 0}
-          <h4
-            class="mt-3 mb-1 text-[10px] font-semibold tracking-wide text-base-content/70 uppercase"
-          >
-            {t.missing_attachments()}
-          </h4>
-          <ul class="space-y-1">
+          <h4 class="mt-4 mb-1.5 {HEADING}">{t.missing_attachments()}</h4>
+          <ul>
             {#each missingEmbeds as link (link.offset)}
               <li
                 data-testid="missing-embed:{link.target}"
                 title={t.missing_attachment_title()}
-                class="truncate text-xs text-base-content/70 line-through"
+                class="truncate py-0.5 text-xs text-base-content/70 line-through"
               >
                 {link.target}
               </li>

@@ -37,6 +37,11 @@
     /** The note's word count, re-read when the note's text changes. */
     wordsOf: (path: string) => number
     search: (query: string) => Promise<PickerRow[]>
+    /** The empty tab's launcher: its *Recent* list and its two verbs (P5). */
+    recent: () => string[]
+    newNote: (tabId: string) => void
+    openQuick: () => void
+    bindings?: { newNote: string; openQuick: string }
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]
@@ -55,6 +60,10 @@
     dark,
     wordsOf,
     search,
+    recent,
+    newNote,
+    openQuick,
+    bindings,
     resolveLink,
     createFromLink,
     linkCandidates,
@@ -161,6 +170,47 @@
       handle = null
     })
   }
+
+  /**
+   * A note dragged in from the file navigator (P1.2): three handlers feeding
+   * the shell's own hit test, so a tree row behaves exactly like a tab.
+   *
+   * They run in the CAPTURE phase on purpose: CodeMirror answers `drop` on its
+   * content with "insert the dropped text", which for a tree row would paste
+   * the path into the note. Taking the event before it reaches the editor —
+   * and only for our own MIME type, so a text drag inside the editor is
+   * untouched — is what stops that.
+   */
+  const EXTERNAL = 'application/x-editor-path'
+  const carriesPath = (e: DragEvent): boolean =>
+    e.dataTransfer !== null && [...e.dataTransfer.types].includes(EXTERNAL)
+
+  function onDragOver(e: DragEvent): void {
+    if (!carriesPath(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    // `move`, not `link`: the tree's `dragstart` declares `effectAllowed =
+    // 'move'`, and a `dropEffect` that its source does not allow makes the
+    // browser call the whole operation off — no cursor, and no `drop` event.
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    panes.hoverExternal(e.clientX, e.clientY)
+  }
+
+  function onDragLeave(e: DragEvent): void {
+    // Row-to-row inside the pane is not leaving it; only the section boundary is.
+    const to = e.relatedTarget
+    if (to instanceof Node && host?.contains(to)) return
+    panes.leaveExternal()
+  }
+
+  function onDrop(e: DragEvent): void {
+    if (!carriesPath(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    const path = e.dataTransfer?.getData(EXTERNAL) ?? ''
+    if (path) panes.dropExternal(path)
+    else panes.leaveExternal()
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- clicking
@@ -172,6 +222,9 @@
   data-testid="pane:{index}"
   aria-label={$LL.web.panes.label({ n: index })}
   onpointerdowncapture={() => panes.focusPane(pane.id)}
+  ondragovercapture={onDragOver}
+  ondropcapture={onDrop}
+  ondragleave={onDragLeave}
   class="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ed-surface
     {focused && panes.mode ? 'outline-1 -outline-offset-1 outline-accent' : ''}"
 >
@@ -210,8 +263,12 @@
       {:else}
         <EmptyTab
           {search}
+          {recent}
+          {bindings}
           testid="empty-tab:{pane.id}"
           onPick={(picked) => panes.navigate(picked, tab.id)}
+          onNew={() => newNote(tab.id)}
+          onOpenQuick={openQuick}
         />
       {/if}
     </div>

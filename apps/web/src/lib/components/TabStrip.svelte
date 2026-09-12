@@ -168,6 +168,7 @@
     role="presentation"
     data-slot-index={item.index}
     data-slot-kind="tab"
+    data-slot-group={item.group?.id}
     data-testid="tab:{pane.id}:{tab.id}"
     data-path={tab.path}
     style={item.group ? `--ed-tab-group: var(--ed-group-${item.group.color})` : undefined}

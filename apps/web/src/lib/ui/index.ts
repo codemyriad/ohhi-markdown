@@ -5,6 +5,7 @@
  * field. See `.claude/skills/ui-development`.
  */
 export { default as Dialog } from './Dialog.svelte'
+export { default as Popover } from './Popover.svelte'
 export { default as Tooltip } from './Tooltip.svelte'
 export { default as IconButton } from './IconButton.svelte'
 export { default as DropdownMenu } from './DropdownMenu.svelte'

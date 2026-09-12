@@ -7,7 +7,7 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { dragTo, editors, openApp, panes, tabNamed } from './fixtures.js'
+import { dragRowTo, dragTo, editors, newNote, openApp, panes, tabNamed } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -289,4 +289,126 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
   await page.getByTestId('settings-close').click()
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
   await expect(page.getByRole('tab')).toHaveCount(2)
+})
+
+/**
+ * The empty tab is a launcher, not a list (shell-polish P5). The thing worth
+ * asserting is where the note lands: *New note* fills the tab you are standing
+ * in, so the tab count must not move.
+ */
+test('the empty tab launches: Recent is folded, New note fills THIS tab', async ({ page }) => {
+  await openApp(page, 'panes-launcher')
+  await page.getByTestId(`file-item:${WELCOME}`).click()
+  await expect(page.getByRole('tab')).toHaveCount(1)
+
+  // Mod+t opens a second, empty tab — which is the launcher. Its testids are
+  // per-pane, so the pane says its own id rather than the spec guessing.
+  await page.keyboard.press('ControlOrMeta+t')
+  await expect(page.getByRole('tab')).toHaveCount(2)
+  const paneId = await page.locator('[data-pane-id]').first().getAttribute('data-pane-id')
+  const launcher = page.getByTestId(`empty-tab:${paneId}`)
+  await expect(launcher).toBeVisible()
+
+  // Folded by default; unfolding shows the note this session has opened.
+  const recent = launcher.locator('[data-testid$="-recent"]')
+  await expect(recent).toHaveAttribute('aria-expanded', 'false')
+  await expect(launcher.locator('[data-testid$="-row"]')).toHaveCount(0)
+  await recent.click()
+  await expect(recent).toHaveAttribute('aria-expanded', 'true')
+  await expect(launcher.locator('[data-testid$="-row"]').first()).toContainText('welcome.md')
+
+  // Typing swaps the disclosure for results, over the same matcher as Mod+O.
+  await launcher.locator('[data-testid$="-input"]').fill('ideas')
+  await expect(launcher.locator('[data-testid$="-recent"]')).toHaveCount(0)
+  await expect(launcher.locator('[data-testid$="-row"]')).toHaveCount(1)
+  await launcher.locator('[data-testid$="-input"]').fill('')
+
+  // New note fills the tab it was launched from: still two tabs, and an editor.
+  await launcher.locator('[data-testid$="-new"]').click()
+  await expect(page.getByTestId('file-item:untitled-1.md')).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(launcher).toHaveCount(0)
+  await expect(page.getByTestId('editor-pane').locator('.cm-content')).toBeVisible()
+})
+
+test('a note dragged out of the navigator lands as a tab, a pane, or inside a group', async ({
+  page,
+}) => {
+  // The bridge P1.2 builds: the tree is an HTML5 drag source, the strip is a
+  // pointer-drag surface, and a row has to behave exactly like a tab.
+  await openApp(page, 'panes-tree-drag')
+  const spare = await newNote(page, 1)
+  const joiner = await newNote(page, 2)
+  await page.getByTestId(`file-item:${WELCOME}`).click()
+  await expect(page.getByRole('tab')).toHaveCount(3)
+
+  // Onto the trailing half of the last tab: past the end of the run, so the
+  // note opens as a tab of its own at the end of the strip.
+  const last = (await tabNamed(page, 'welcome').boundingBox())!
+  await dragRowTo(
+    page,
+    page.getByTestId(`file-item:${IDEAS}`),
+    last.x + last.width * 0.9,
+    last.y + last.height / 2
+  )
+  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(page.getByTestId('editor-pane').locator('.cm-content')).toContainText('Ideas')
+
+  // A FOLDER is not a note: the tree still drags it (that is how you move
+  // one), but a pane is not a place it can land — there is no doc behind it,
+  // and a tab for it would sit there under the folder's name showing the empty
+  // launcher. Measured fresh, because the strip just grew a tab. Nothing is
+  // asserted right here: "the count did not move" reads as true a beat before
+  // the drop would have moved it, so the witness is the strip's contents after
+  // the NEXT drop has settled, below.
+  const onIdeas = (await tabNamed(page, 'ideas').boundingBox())!
+  await dragRowTo(
+    page,
+    page.getByTestId('dir-item:notes'),
+    onIdeas.x + onIdeas.width * 0.6,
+    onIdeas.y + onIdeas.height / 2
+  )
+
+  // Onto a pane's right edge: a pane of its own beside the one it was dropped
+  // on — `splitWith`, reached from the tree. The note is already a tab here,
+  // so this is also R3: it MOVES rather than twinning.
+  const box = (await panes(page).first().boundingBox())!
+  await dragRowTo(
+    page,
+    page.getByTestId(`file-item:${spare}`),
+    box.x + box.width * 0.92,
+    box.y + box.height * 0.6
+  )
+  await expect(panes(page)).toHaveCount(2)
+  // …and the folder above left nothing behind: a real change has landed since,
+  // so the strip has been re-rendered and this is what it holds.
+  await expect(page.locator('[data-slot-kind="tab"][data-path="notes"]')).toHaveCount(0)
+  const moved = panes(page).nth(1).locator('[data-slot-kind="tab"]')
+  await expect(moved).toHaveCount(1)
+  await expect(moved).toContainText('untitled-1')
+  await expect(panes(page).first().locator('[data-slot-kind="tab"]')).toHaveCount(3)
+
+  // Group the *ideas* tab, so its single tab is both the head and the tail of
+  // the run — the shape a drop from the right could not reach before P1.1.
+  await tabNamed(page, 'ideas').click({ button: 'right' })
+  await page.getByTestId('tab-menu:new-group').click()
+  await page.getByTestId('group-name').fill('Edible')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('group-manage')).toHaveCount(0)
+  const chip = page.locator('[data-testid^="group-chip:"]').first()
+  await expect(chip).toHaveText(/Edible/)
+
+  // Onto the TRAILING half of that grouped tab: inside the group.
+  const grouped = (await tabNamed(page, 'ideas').boundingBox())!
+  await dragRowTo(
+    page,
+    page.getByTestId(`file-item:${joiner}`),
+    grouped.x + grouped.width * 0.85,
+    grouped.y + grouped.height / 2
+  )
+  // Folding is what makes membership visible: both tabs go behind the chip,
+  // which then counts them.
+  await chip.click()
+  await expect(chip).toHaveAttribute('aria-expanded', 'false')
+  await expect(chip).toHaveText(/2/)
 })
