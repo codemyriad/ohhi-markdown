@@ -145,14 +145,17 @@ export function createNavigation(): {
     upsert(doc) {
       index.upsert(doc)
       revision++
+      refreshTags()
     },
     remove(guid) {
       index.remove(guid)
       revision++
+      refreshTags()
     },
     rename(guid, path) {
       index.rename(guid, path)
       revision++
+      refreshTags()
     },
   }
 
@@ -161,9 +164,37 @@ export function createNavigation(): {
   /** Set when a search result asked to land on a specific character. */
   const pending = $state<{ reveal: { offset: number } | null }>({ reveal: null })
 
-  /** The `#` completion list, and the revision it was computed for. */
+  /**
+   * The `#` completion list, the revision it was computed for, and whether a
+   * recompute is already on its way.
+   */
   let tagList: string[] = []
   let tagsAt = -1
+  let tagsQueued = false
+
+  /**
+   * Keep the `#` completion list warm.
+   *
+   * It is read SYNCHRONOUSLY, from inside a CM6 completion source, and CM6
+   * asks once per typing pause — so a list that is only fetched when it is
+   * asked for is empty exactly when it is first needed, and nothing asks
+   * again. Refreshing when the index changes instead costs one pass per
+   * change, coalesced to one per microtask so that indexing a whole vault at
+   * boot is still one pass (golden rule 8: the query stays Promise-returning
+   * and paged, whatever backs it).
+   */
+  function refreshTags(): void {
+    if (tagsQueued || tagsAt === revision) return
+    tagsQueued = true
+    queueMicrotask(() => {
+      const at = revision
+      tagsQueued = false
+      void index.tags({ limit: TAG_COMPLETION_LIMIT }).then((page) => {
+        tagsAt = at
+        tagList = page.items.map((t) => t.tag)
+      })
+    })
+  }
 
   const openNote = (path: string, offset?: number, background = false): void => {
     if (!workspace) return
@@ -284,16 +315,10 @@ export function createNavigation(): {
       palette.query = query
     },
     tags() {
-      if (tagsAt !== revision) {
-        tagsAt = revision
-        // The list a caller gets is the one from the last revision it asked
-        // on; the refresh lands before the next keystroke's query. Keeping
-        // `tags()` Promise-returning in the index is golden rule 8, and this
-        // is how a synchronous consumer lives with it.
-        void index.tags({ limit: TAG_COMPLETION_LIMIT }).then((page) => {
-          tagList = page.items.map((t) => t.tag)
-        })
-      }
+      // A safety net only: the list is kept warm by the index sink, so this
+      // hands back what the last index change computed rather than starting a
+      // fetch nobody will wait for.
+      refreshTags()
       return tagList
     },
     close() {

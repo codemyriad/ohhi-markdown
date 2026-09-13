@@ -59,6 +59,10 @@ describe('Tag grammar', () => {
       'a#notatag and https://x.dev/p#frag',
       '#tag_with_underscore #tag-with-dash #Ünïcode',
       'punctuation after: #edible/roadmap.',
+      // A code span is not text: the editor's inline parser never looks inside
+      // one, so the index must not count what it holds either (Fork 6).
+      'a `#pool` span beside a #real tag',
+      'an unmatched ` backtick leaves #tags alone',
     ]
     for (const line of corpus) {
       expect(nodes(line, 'Tag')).toEqual(scanTags(line).map((hit) => `#${hit.tag}`))
@@ -113,9 +117,27 @@ describe('Frontmatter grammar', () => {
   })
 
   it('is nothing at all when the block is never closed', () => {
-    // The lines the scan consumed stay unparsed; nothing is hidden, and typing
-    // the closing `---` restores the block (R4.1.1).
+    // Nothing is hidden, and typing the closing `---` restores the block
+    // (R4.1.1).
     expect(nodes('---\ntitle: half typed\n\n# Body\n', 'Frontmatter')).toEqual([])
+  })
+
+  it('leaves the note parsing while the block is half typed', () => {
+    // A block parser cannot rewind: every line it looks at is consumed whether
+    // or not a node comes of it. So the scan starts only when the line under
+    // the `---` could be YAML, and stops at the first line that could not —
+    // otherwise typing `---` at the top of a long note would blank the next
+    // sixty-four lines until the closing fence was typed.
+    const typing = ['---', 'title: half typed', '', 'Prose about it.', '- a bullet', '# A heading']
+    expect(nodes(typing.join('\n'), 'Frontmatter')).toEqual([])
+    expect(nodes(typing.join('\n'), 'ATXHeading1')).toEqual(['# A heading'])
+    expect(nodes(typing.join('\n'), 'ListMark')).toEqual(['-'])
+
+    // And `---` above ordinary prose is the thematic break it looks like,
+    // without a single line consumed.
+    const above = ['---', '# A heading', '', 'Some prose.'].join('\n')
+    expect(nodes(above, 'HorizontalRule')).toEqual(['---'])
+    expect(nodes(above, 'ATXHeading1')).toEqual(['# A heading'])
   })
 
   it('gives up rather than swallowing a long note that merely starts with `---`', () => {

@@ -40,6 +40,8 @@ export interface FrontmatterView {
 export interface ReadLabels {
   /** Placeholder under an embed whose file this device does not hold. */
   missingAttachment: string
+  /** Accessible name for a checkbox whose task has no text yet (the a11y gate). */
+  task: string
   /** The dim `4 properties` label on the collapsed strip; plural is the host's. */
   properties(count: number): string
   /** Badge in place of chips when the YAML is not in the patchable subset. */
@@ -82,6 +84,7 @@ const NOOP_HOST: ReadHost = {
   tags: () => [],
   labels: {
     missingAttachment: 'Not on this device',
+    task: 'Task',
     properties: (count) => `${count} properties`,
     frontmatterUnsupported: 'Frontmatter does not parse',
   },

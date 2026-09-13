@@ -59,6 +59,7 @@ export function testHost(over: Partial<ReadHost> = {}): ReadHost {
     tags: () => [],
     labels: {
       missingAttachment: 'missing',
+      task: 'Task',
       properties: (n) => `${n} properties`,
       frontmatterUnsupported: 'unsupported',
     },

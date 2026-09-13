@@ -261,6 +261,8 @@ const read = {
   /** The icon a Source/Reading tab carries; Live tabs carry nothing. */
   tab_mode: '{mode:string} view',
   missing_attachment: 'Missing attachment',
+  /** The accessible name of a checkbox whose task has no text yet. */
+  task: 'Task',
   /** The dim count beside the collapsed strip's chips. */
   properties: '{count:number} propert{{y|ies}}',
   /** Shown instead of chips when the YAML is outside the patchable subset. */

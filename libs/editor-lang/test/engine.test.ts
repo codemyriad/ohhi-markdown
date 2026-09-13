@@ -139,4 +139,26 @@ describe('the frontmatter block through an edit (R4.1.1)', () => {
     const fixed = broken.update({ changes: { from: 0, insert: '-' } }).state
     expect(widgets(fixed)).toEqual(['FrontmatterStripWidget'])
   })
+
+  it('comes back after a line above it is put in and taken out again', () => {
+    // The same promise, through the edit that lezer cannot see: a DELETION AT
+    // OFFSET 0 leaves a reusable fragment starting at 0, and the block parser
+    // only ever runs there — so the tree still says "rule, setext heading"
+    // after the note is whole again. The text is the authority on what a note
+    // is, and the engine asks it (R4.1.1).
+    const note = '---\ntags: [a]\n---\n\nbody\n'
+    const block = makeState(note, { at: note.length })
+    expect(widgets(block)).toEqual(['FrontmatterStripWidget'])
+
+    const pushed = block.update({ changes: { from: 0, insert: '\n' } }).state
+    expect(widgets(pushed)).toEqual(['RuleWidget'])
+
+    const back = pushed.update({ changes: { from: 0, to: 1 } }).state
+    expect(back.doc.toString()).toBe(note)
+    expect(widgets(back)).toEqual(['FrontmatterStripWidget'])
+    // …and nothing the stale tree still believes is drawn over the block.
+    expect(
+      buildBlockPreview(back).decorations.size + buildInlinePreview(back, [{ from: 0, to: 17 }]).decorations.size
+    ).toBe(1)
+  })
 })

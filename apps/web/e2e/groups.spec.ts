@@ -178,7 +178,11 @@ test('a group copies out as wikilinks, and a note of links opens as a group', as
     await page.keyboard.press('Escape')
     await page.keyboard.press('Enter')
   }
-  await expect(editor).toContainText('[[welcome]]')
+  // Live renders a wikilink as its target, so the note of links reads as a
+  // list of note names; `.cm-wikilink` is what says they are links.
+  await expect(editor.locator('.cm-wikilink').first()).toBeVisible()
+  await expect(editor).toContainText('welcome')
+  await expect(editor).toContainText('ideas')
 
   await more(page).click()
   await page.getByTestId('groups-menu:open-links').click()

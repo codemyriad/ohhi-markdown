@@ -36,6 +36,15 @@ export const previewClicks = EditorView.domEventHandlers({
     const target = event.target as HTMLElement | null
     if (!target) return false
 
+    // A checkbox toggles on MOUSEDOWN, not on click, and claims the event so
+    // the caret does not move: moving it changes the active region, which
+    // re-renders the line, which destroys the very element the mouseup needed
+    // to land on — and a browser fires no `click` when that happens. (The
+    // click handler below still cancels the browser's own toggle: what the
+    // box shows is the document, never the last thing the pointer did.)
+    const box = target.closest('input.cm-task')
+    if (box) return done(event, () => toggleTaskAt(view, view.posAtDOM(box)))
+
     // Inside a widget there is no document position to resolve, so the widget
     // says what it is with data attributes (the strip's chips, a Reading
     // table's links).
@@ -66,13 +75,12 @@ export const previewClicks = EditorView.domEventHandlers({
     return false
   },
 
-  click(event, view) {
-    const box = (event.target as HTMLElement | null)?.closest?.('input.cm-task')
-    if (!box) return false
-    // preventDefault reverts the browser's own toggle: the document is what
-    // says whether the task is done, and the widget redraws from it.
+  click(event) {
+    // The edit already happened on mousedown; this only reverts the browser's
+    // own toggle, so the box always shows what the document says.
+    if (!(event.target as HTMLElement | null)?.closest?.('input.cm-task')) return false
     event.preventDefault()
-    return toggleTaskAt(view, view.posAtDOM(box))
+    return true
   },
 })
 

@@ -151,14 +151,22 @@ test('the frontmatter block is a strip until you are in it — and stops being o
   await expect(editor).toContainText('properties')
   await expect(editor).not.toContainText('status: On deck')
 
-  // Click the strip: the caret lands in the block and it is YAML again.
-  await page.locator('.cm-tag[data-tag="composition"]').click()
+  // Click the strip — anywhere but a chip, which searches for itself (B4.2):
+  // the caret lands in the block and it is YAML again.
+  await page.locator('.cm-frontmatter-count').click()
+  await expect(editor).toContainText('status: On deck')
+
+  // …and the keyboard gets in too: the strip is a block widget over an atomic
+  // range, so `Mod+Home` landing at offset 0 is what makes the block reachable
+  // without a pointer.
+  await page.keyboard.press('ControlOrMeta+End')
+  await expect(editor).not.toContainText('status: On deck')
+  await page.keyboard.press('ControlOrMeta+Home')
   await expect(editor).toContainText('status: On deck')
 
   // R4.1.1: one blank line above it and it is not frontmatter any more — the
   // `---` is a rule, like any other `---`, and the keys are a paragraph.
   // Nothing prompts, nothing repairs, nothing is held together.
-  await page.keyboard.press('ControlOrMeta+Home')
   await page.keyboard.press('Enter')
   await page.keyboard.press('ControlOrMeta+End')
   await expect(page.locator('.cm-content hr')).not.toHaveCount(0)
@@ -176,12 +184,71 @@ test('the frontmatter block is a strip until you are in it — and stops being o
   await expect(editor).not.toContainText('status: On deck')
 })
 
+/**
+ * R2.2 in the one place a caret can actually meet hidden text: a checkbox
+ * stays drawn on the caret's own line, where every other marker is given back
+ * as text. Everything else about the invariant is a unit test over every
+ * offset in a note (preview.test.ts); this is the half that needs a browser —
+ * real key presses, real atomic ranges, and a real undo manager.
+ */
+test('the caret steps over a checkbox instead of into it, and undo puts it back', async ({
+  page,
+}) => {
+  await seedReadNote(page, 'read-caret', '# Head\n\n- [ ] one\n- [ ] two\n')
+  const editor = content(page)
+  const box = page.locator('input.cm-task')
+  await expect(box).toHaveCount(2)
+
+  // Rightwards: `-`, the space, then the WHOLE `[ ]` in one step — it is one
+  // atomic range, not three characters — and one more onto the `o` of `one`.
+  await page.keyboard.press('ControlOrMeta+Home')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Home')
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight')
+  await page.keyboard.type('X')
+
+  // Leftwards on the next task, which is the direction that would land between
+  // the brackets if the range were three ordinary characters.
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('End')
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowLeft')
+  await page.keyboard.type('Y')
+
+  // Source is where the document says where the characters went.
+  await page.getByTestId('mode-menu').click()
+  await page.getByTestId('mode-menu:source').click()
+  await expect(editor).toContainText('- [ ] Xone')
+  await expect(editor).toContainText('- Y[ ] two')
+  await page.getByTestId('mode-menu').click()
+  await page.getByTestId('mode-menu:live').click()
+
+  // A checkbox click is an edit like any other, so ONE undo takes it back —
+  // the widget is view state, and the undo manager only ever saw the character.
+  // The wait is the undo manager's own 500 ms capture window: inside it, Yjs
+  // merges the click into the edit before it (as it merges consecutive
+  // keystrokes), and this test is about one undo item, not about grouping.
+  await page.waitForTimeout(600)
+  await expect(box.first()).not.toBeChecked()
+  await box.first().click()
+  await expect(box.first()).toBeChecked()
+  await editor.press('ControlOrMeta+z')
+  await expect(box.first()).not.toBeChecked()
+  await expect(editor).toContainText('Xone')
+})
+
 test('a tag chip searches for it, and `#` completes from the index', async ({ page }) => {
   await seedReadNote(page, 'read-tags')
 
   await page.locator('.cm-tag[data-tag="edible/roadmap"]').click()
   await expect(page.getByTestId('search-input')).toHaveValue('tag:#edible/roadmap')
   await expect(page.getByTestId('search-results')).toContainText(READ_NOTE)
+  await page.keyboard.press('Escape')
+
+  // The chips in the frontmatter strip are the same chip and do the same
+  // thing — the one place a click is on a widget rather than on the document.
+  await page.locator('.cm-frontmatter-strip .cm-tag[data-tag="composition"]').click()
+  await expect(page.getByTestId('search-input')).toHaveValue('tag:#composition')
   await page.keyboard.press('Escape')
 
   // The completion source is the index, so it knows the tag this note carries.

@@ -376,6 +376,22 @@ export function describeIndexConformance(name: string, make: IndexFactory): void
         expect(tags).not.toContain('#Systems')
       })
 
+      it('leaves a tag inside a code span out, as the editor’s own parser does', () => {
+        // Fork 6, one grammar: `#pool` in a code span is never decorated, so a
+        // backend that counted it would answer `tag:#pool` with a note the
+        // reader can see no chip in.
+        const index = make()
+        index.rebuild([
+          { guid: 'g1', path: 'a.md', text: 'set `#pool` in the config, tagged #ops' },
+        ])
+        return Promise.all([
+          index.tags().then((page) => {
+            expect(page.items.map((t) => t.tag)).toEqual(['#ops'])
+          }),
+          index.byTag('#pool').then((page) => expect(page.items).toEqual([])),
+        ])
+      })
+
       it('lists notes by tag', async () => {
         const index = build()
         const { items } = await index.byTag('index')

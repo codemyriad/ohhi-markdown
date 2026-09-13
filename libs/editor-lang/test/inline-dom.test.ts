@@ -61,4 +61,18 @@ describe('extractInline', () => {
       { kind: 'wikilink', target: 'Note', label: 'Note', resolved: false },
     ])
   })
+
+  it('reads a cell’s escaped pipes as the characters they stand for', () => {
+    // A table cell escapes `|`, so an aliased wikilink inside one is written
+    // `[[Target\|alias]]` (Obsidian's own instruction). The target is `Target`:
+    // with the backslash left on it the link resolves to nothing and the cell
+    // renders a broken link over a note that is right there.
+    const cell = cells('| x |\n| --- |\n| [[Target\\|alias]] and a \\| pipe |\n')[1]
+    expect(cell).toEqual([
+      { kind: 'wikilink', target: 'Target', label: 'alias', resolved: false },
+      { kind: 'text', text: ' and a ' },
+      { kind: 'text', text: '|' },
+      { kind: 'text', text: ' pipe' },
+    ])
+  })
 })

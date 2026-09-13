@@ -82,7 +82,16 @@ export const READ_FIXTURE = [
 /** The seeded note the Read specs write into. */
 export const READ_NOTE = 'notes/welcome.md'
 
-/** Boot, open the note, replace it with `text`, and leave the caret at the end. */
+/**
+ * Boot, open the note, replace it with `text`, and leave the caret at the end.
+ *
+ * `insertText`, not `type`: markdown's own Enter binding continues a list for
+ * you (that is `markdown({ addKeymap })`, and it is a feature), so TYPING a
+ * fixture that contains `- [ ] a task` on the line after `- a bullet` lands
+ * `- - [ ] a task` in the document. The subject of these specs is the fixture,
+ * not the continuation, so the text goes in as text — which is also what a
+ * paste does, and what the reconciler does when the file changes on disk.
+ */
 export async function seedReadNote(
   page: Page,
   room: string,
@@ -93,7 +102,7 @@ export async function seedReadNote(
   const content = page.locator('[data-testid="editor-pane"] .cm-content')
   await content.click()
   await page.keyboard.press('ControlOrMeta+a')
-  await page.keyboard.type(text)
+  await page.keyboard.insertText(text)
   await page.keyboard.press('ControlOrMeta+End')
 }
 

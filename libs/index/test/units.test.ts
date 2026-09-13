@@ -88,6 +88,22 @@ describe('parseMarkdown', () => {
     expect(parseMarkdown('# no block').aliases).toEqual([])
   })
 
+  it('leaves a tag inside a code span out, exactly as the editor does (Fork 6)', () => {
+    const tags = (text: string): string[] => parseMarkdown(text).tags.map((t) => t.tag)
+    // The editor's inline parser consumes a whole code span before any other
+    // handler sees it, so `#pool` in one is never a chip. A hit here would be a
+    // search result with nothing to click.
+    expect(tags('a `#pool` span and a #real tag')).toEqual(['#real'])
+    expect(tags('``a `#x` b`` and #y')).toEqual(['#y'])
+    // An unmatched backtick is literal text, and the tag after it is a tag.
+    expect(tags('one ` backtick and #still a tag')).toEqual(['#still'])
+    // A span cannot cross a paragraph break, or one stray backtick would eat
+    // the rest of the note's tags.
+    expect(tags('a ` tick\n\n#after the break')).toEqual(['#after'])
+    // Fences were already out, and still are.
+    expect(tags('```\n#no\n```\n\n#yes')).toEqual(['#yes'])
+  })
+
   it('does not treat a frontmatter value as a tag or a heading', () => {
     const parsed = parseMarkdown('---\ntags: [x]\n---\n# Real')
     expect(parsed.headings.map((h) => h.text)).toEqual(['Real'])

@@ -93,8 +93,20 @@ function pushNode(out: InlinePiece[], state: EditorState, node: SyntaxNode): voi
     return
   }
 
+  if (name === 'Escape') {
+    // A cell escapes its own pipes (`a \| b`); what the cell SAYS is the
+    // character, not the backslash that got it past the table parser.
+    pushText(out, state, node.from + 1, node.to)
+    return
+  }
+
   if (name === 'WikiLink' || name === 'WikiLinkEmbed') {
-    const inner = state.doc.sliceString(node.from + (name === 'WikiLink' ? 2 : 3), node.to - 2)
+    // Same reason, one node up: `[[Target\|alias]]` is how a wikilink survives
+    // a table row, and the target is `Target` — with the backslash left on it
+    // the link resolves to nothing and renders as a broken one.
+    const inner = state.doc
+      .sliceString(node.from + (name === 'WikiLink' ? 2 : 3), node.to - 2)
+      .replace(/\\\|/g, '|')
     const parts = splitWikiLink(inner)
     out.push({
       kind: 'wikilink',

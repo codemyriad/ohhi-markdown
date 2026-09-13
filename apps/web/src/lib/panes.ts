@@ -50,6 +50,15 @@ export interface Cursor {
  * A path plus where you were in it. One trail entry, and one saved tab: both
  * answer the same question (R2.3 — a tab resumes where it was), so they are
  * the same shape and read by the same tolerant normaliser.
+ *
+ * Deliberately no `mode` (read-shaping B3, R1 2026-09-13): a view mode belongs
+ * to the TAB, and a tab keeps its mode while its trail is walked — putting one
+ * on every waypoint would mean a back step could change how the note is read.
+ * The one place that costs anything is a saved group: its tabs come back in
+ * the Settings default rather than in the mode they were closed in. That is a
+ * mode the reader can see and change in one keystroke, which is a smaller
+ * price than a field that means something different in each of the two places
+ * this shape is used.
  */
 export interface Waypoint {
   path: string

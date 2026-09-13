@@ -155,6 +155,10 @@ export function createMarkdownEditor(
     state: EditorState.create({ doc: opts.doc.getText(), extensions }),
     parent,
   })
+  // What the mode compartment is actually configured for. The wrapper applies
+  // the `mode` prop through an effect that also runs on mount, so without this
+  // every view would reconfigure itself once for the mode it already has.
+  let current = opts.mode ?? 'live'
   return {
     view,
     setDark(dark) {
@@ -166,6 +170,8 @@ export function createMarkdownEditor(
       view.dispatch({ effects: hostCompartment.reconfigure(next) })
     },
     setMode(mode) {
+      if (mode === current) return
+      current = mode
       view.dispatch({ effects: modeCompartment.reconfigure(modeExtensions(mode)) })
     },
     reveal(offset) {

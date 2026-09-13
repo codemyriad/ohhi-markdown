@@ -13,13 +13,41 @@
  *   ---           FrontmatterMark
  *
  * A block is recognised ONLY at offset 0, and only when a closing `---`/`...`
- * line follows — the same rule libs/index/src/parse.ts applies, so the strip
- * and the index always agree about whether a note has frontmatter.
+ * line follows within MAX_LINES. This grammar is deliberately the NARROWER of
+ * the two readers — it refuses shapes @editor/frontmatter accepts (see FIRST),
+ * because a false start here costs a note its rendering. What a note HAS is
+ * decided by @editor/frontmatter, in preview/build.ts and in libs/index, so
+ * the strip, search and the CLI still agree with each other.
  */
 import { tags as t } from '@lezer/highlight'
 import type { MarkdownConfig } from '@lezer/markdown'
 
 const OPEN = /^-{3}\s*$/
+
+/**
+ * What the line under the opening `---` has to look like before the scan below
+ * starts: a top-level YAML key, or the closing delimiter of an empty block.
+ *
+ * This is the guard that keeps the cost of a false start at zero. `---` above
+ * a heading, a bullet or a sentence is a thematic break — which is what a
+ * reader typing `---` at the top of an existing note has written — and this
+ * says so without consuming a single line.
+ *
+ * A block whose first line is a YAML comment is therefore not a node here,
+ * because `# comment` and `# Heading` are the same line and the heading is the
+ * one that exists (the vault's 37 frontmatter lines are all `key: value`). It
+ * is still a block: @editor/frontmatter reads one, and preview/build.ts draws
+ * the strip from the text when the tree and the text disagree.
+ */
+const FIRST = /^[^\s#][^:]*:([ \t]|$)|^(?:-{3}|\.{3})\s*$/
+
+/**
+ * What a line inside the block may be: blank, a comment, a top-level key, or
+ * an indented continuation. The scan stops at the first line that is none of
+ * them, so a note whose block is not closed yet loses its rendering for the
+ * two lines you have typed rather than for MAX_LINES of body.
+ */
+const CONTINUES = /^\s*$|^#|^[^\s][^:]*:([ \t]|$)|^\s+\S/
 
 function isClose(text: string): boolean {
   const trimmed = text.trimEnd()
@@ -52,14 +80,19 @@ export const Frontmatter: MarkdownConfig = {
       before: 'HorizontalRule',
       parse(cx, line) {
         if (cx.lineStart !== 0 || !OPEN.test(line.text)) return false
+        // Peeked, not consumed: `nextLine` cannot be undone, so the cheap
+        // rejection has to happen before the scan (see MAX_LINES).
+        if (!FIRST.test(cx.peekLine())) return false
         const from = cx.lineStart
         const marks = [cx.elt('FrontmatterMark', from, from + line.text.length)]
         let to = -1
         for (let scanned = 0; scanned < MAX_LINES && cx.nextLine(); scanned++) {
-          if (!isClose(line.text)) continue
-          to = cx.lineStart + line.text.length
-          marks.push(cx.elt('FrontmatterMark', cx.lineStart, to))
-          break
+          if (isClose(line.text)) {
+            to = cx.lineStart + line.text.length
+            marks.push(cx.elt('FrontmatterMark', cx.lineStart, to))
+            break
+          }
+          if (!CONTINUES.test(line.text)) break
         }
         // Unterminated: the lines this scan consumed stay unparsed (there is no
         // way to give them back), but the rest of the note still parses.

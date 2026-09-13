@@ -58,17 +58,25 @@ test('wikilinks resolve, click through, and unresolved ones create the note', as
   await expect(page.getByTestId('outgoing-link:welcome')).toBeVisible()
   await expect(page.getByTestId('unresolved-link:Brand New Note')).toBeVisible()
 
-  // Mod-click navigates in the editor; a plain click must still place the
-  // caret, because the brackets are visible characters you edit.
-  const linkInEditor = page.locator('.cm-wikilink').first()
-  await linkInEditor.click()
-  await expect(page.locator('[data-testid="editor-pane"] .cm-content')).toContainText(
-    'Brand New Note'
-  )
-  await linkInEditor.click({ modifiers: ['ControlOrMeta'] })
-  await expect(page.locator('[data-testid="editor-pane"] .cm-content')).toContainText(
-    'Welcome to Editor'
-  )
+  // The rule the Read slice settled (R2.4): where live preview has RENDERED a
+  // link there is no `[[` to put a caret in, so a plain click follows it.
+  const editor = page.locator('[data-testid="editor-pane"] .cm-content')
+  await page.locator('.cm-wikilink').first().click()
+  await expect(editor).toContainText('Welcome to Editor')
+  await page.getByTestId('file-item:notes/ideas.md').click()
+
+  // Where the brackets are text — the caret's own line — a plain click still
+  // places the caret and Mod-click is what navigates, because a link you can
+  // see the markup of is a link you are editing. (`press` rather than `click`
+  // to get there: a click in a rendered note is itself a navigation, which is
+  // the rule under test.)
+  await editor.press('ControlOrMeta+Home')
+  await expect(editor).toContainText('[[welcome]]')
+  const raw = page.locator('.cm-wikilink').first()
+  await raw.click()
+  await expect(editor).toContainText('Brand New Note')
+  await raw.click({ modifiers: ['ControlOrMeta'] })
+  await expect(editor).toContainText('Welcome to Editor')
   await page.getByTestId('file-item:notes/ideas.md').click()
 
   // Click-through from the panel needs no modifier.
@@ -177,7 +185,9 @@ test("Mod+[ and Mod+] walk the tab's own trail", async ({ page }) => {
   await expect(editor).toContainText('Welcome to Editor')
 
   await page.keyboard.press('ControlOrMeta+[')
-  await expect(editor).toContainText('[[welcome]]')
+  // Back in the note that links out — and in Live the link reads as its
+  // target, not as its brackets.
+  await expect(editor).toContainText('see welcome')
   await page.keyboard.press('ControlOrMeta+]')
   await expect(editor).toContainText('Welcome to Editor')
 })

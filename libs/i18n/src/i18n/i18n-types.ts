@@ -781,6 +781,10 @@ export type NamespaceWebTranslation = {
 		 */
 		missing_attachment: string
 		/**
+		 * T​a​s​k
+		 */
+		task: string
+		/**
 		 * {​c​o​u​n​t​}​ ​p​r​o​p​e​r​t​{​{​y​|​i​e​s​}​}
 		 * @param {number} count
 		 */
@@ -3387,6 +3391,10 @@ export type TranslationFunctions = {
 			 * Missing attachment
 			 */
 			missing_attachment: () => LocalizedString
+			/**
+			 * Task
+			 */
+			task: () => LocalizedString
 			/**
 			 * {count} propert{{y|ies}}
 			 */

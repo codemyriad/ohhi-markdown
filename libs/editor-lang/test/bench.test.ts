@@ -86,6 +86,29 @@ describe('R7: the reveal engine on the heaviest note', () => {
     expect(all.decorations.size).toBeGreaterThan(20_000)
   })
 
+  it('walks the vault’s deepest nesting in the same budget', () => {
+    // The other shape the vault has: tab-indented lists eleven deep (515 files
+    // never nest, 25 go past depth 5). The block half walks every container
+    // node in the tree — a ListItem is a container — so nesting is the input
+    // that multiplies its work, where the URLs multiply the inline half's.
+    const nested = Array.from({ length: 3000 }, (_, i) =>
+      `${'\t'.repeat(i % 11)}- [ ] item ${i} with **emphasis** and a [link](https://ex.dev/${i})`
+    ).join('\n')
+    const state = makeState(nested, { at: 0 })
+    const viewport = [{ from: 0, to: state.doc.line(50).to }]
+    const runs: number[] = []
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now()
+      buildBlockPreview(state)
+      buildInlinePreview(state, viewport)
+      runs.push(performance.now() - t0)
+    }
+    const ms = median(runs)
+    if (calibrate() / 12 > 3) return
+    console.log(`nested to depth 11 over ${state.doc.lines} lines: ${ms.toFixed(1)} ms`)
+    expect(ms).toBeLessThan(FRAME_MS)
+  })
+
   it('measures the selection-only rebuild, which is what arrow keys cost', () => {
     const state = makeState(doc, { at: 0 })
     const moved = state.update({ selection: EditorSelection.single(200) }).state

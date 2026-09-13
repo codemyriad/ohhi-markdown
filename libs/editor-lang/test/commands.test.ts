@@ -42,6 +42,15 @@ describe('taskOnLine', () => {
     expect(taskOnLine(state.doc.line(3))).toBe(null)
     expect(taskOnLine(makeState('[ ] not in a list\n').doc.line(1))).toBe(null)
   })
+
+  it('finds a task nested on one line — the widget comes from the tree, so this must too', () => {
+    // `- - [ ] x` is what continuing a list and typing a task produces. The
+    // tree calls it a Task and the engine draws a checkbox; a click on that
+    // checkbox asks this function where the character is.
+    const nested = makeState('- - [ ] deep\n\t\t- [x] deeper\n')
+    expect(taskOnLine(nested.doc.line(1))).toEqual({ at: 5, done: false })
+    expect(taskOnLine(nested.doc.line(2))).toEqual({ at: 18, done: true })
+  })
 })
 
 describe('toggleTask', () => {

@@ -8,7 +8,14 @@
  */
 import type { Line } from '@codemirror/state'
 
-const TASK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[([ xX])\]/
+/**
+ * Indent, one or more list markers, then the brackets. More than one marker
+ * because a nested item can sit on one line — `- - [ ] x` is what markdown's
+ * own Enter binding writes when you continue a list and type a task — and the
+ * checkbox WIDGET comes from the tree, which sees the nested item. If this
+ * regex did not, the box would be drawn and refuse to be clicked.
+ */
+const TASK = /^[ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+)+\[([ xX])\]/
 
 export interface TaskState {
   /** Absolute offset of the single character between the brackets. */

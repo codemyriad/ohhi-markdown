@@ -89,6 +89,19 @@ describe('lists (14,909 bullets / 9,055 ordered / 1,941 tasks)', () => {
     expect(decos.some((d) => d.value === 'CheckboxWidget')).toBe(true)
   })
 
+  it('names a checkbox after its task — and a task with no text after nothing else', () => {
+    const decos = decorations(makeState('- [ ] write the report\n', { at: 40 }))
+    expect((decos.find((d) => d.value === 'CheckboxWidget')?.widget as CheckboxWidget).label).toBe(
+      'write the report'
+    )
+    // A task you have only just opened has no text; an unnamed checkbox is an
+    // axe violation and a screen-reader dead end, so the host's word stands in.
+    const empty = decorations(makeState('- [ ] \n', { at: 40 }))
+    expect((empty.find((d) => d.value === 'CheckboxWidget')?.widget as CheckboxWidget).label).toBe(
+      'Task'
+    )
+  })
+
   it('gives the brackets back when the selection is inside them', () => {
     const note2 = '- [ ] todo\n'
     const decos = decorations(makeState(note2, { at: 3 }))
@@ -177,6 +190,23 @@ describe('embeds (14, all .png)', () => {
     const embed = decos.find((d) => d.value === 'EmbedWidget')
     expect(embed?.kind).toBe('widget')
     expect((embed?.widget as EmbedWidget).block).toBe(false)
+  })
+
+  it('draws nothing but pictures — a PDF or a transclusion stays as its text', () => {
+    // An <img> over bytes that are not an image is a broken image, and a
+    // *missing attachment* placeholder over a file that is right there is a
+    // lie. Both are markup this renderer has no picture for, so both stay text.
+    for (const name of ['paper.pdf', 'Some Note', 'archive.zip']) {
+      const decos = decorations(makeState(`![[${name}]]\n`, { at: 30 }))
+      expect(decos.some((d) => d.value === 'EmbedWidget')).toBe(false)
+      expect(hidden(makeState(`![[${name}]]\n`, { at: 30 }))).toEqual([])
+    }
+    // …and the picture types still draw, whatever their case.
+    for (const name of ['shot.PNG', 'a.jpeg', 'b.svg']) {
+      expect(
+        decorations(makeState(`![[${name}]]\n`, { at: 30 })).some((d) => d.value === 'EmbedWidget')
+      ).toBe(true)
+    }
   })
 })
 
@@ -306,11 +336,97 @@ describe('the frontmatter strip (17 files, Fork 5-C)', () => {
     expect(decos.filter((d) => d.value === 'cm-live-frontmatter')).toHaveLength(4)
   })
 
+  it('collapses a block the GRAMMAR will not claim — the text is the authority', () => {
+    // `# why` is a YAML comment and an ATX heading, and the block parser reads
+    // it as the heading (see frontmatter-block.ts). @editor/frontmatter reads
+    // the block, so the strip is drawn from the text and the markdown the tree
+    // thinks is in there — a rule, a setext heading — is not drawn at all.
+    const commented = '---\n# why\ntags: [a]\n---\n\nbody\n'
+    const decos = decorations(makeState(commented, { at: commented.length }))
+    const strip = decos.find((d) => d.value === 'FrontmatterStripWidget')
+    expect(strip?.from).toBe(0)
+    expect(strip?.to).toBe(23)
+    expect((strip?.widget as FrontmatterStripWidget).tags).toEqual(['a'])
+    expect(decos.filter((d) => d.from < 23)).toHaveLength(1)
+  })
+
   it('never collapses a block that is still being typed', () => {
     const half = '---\ntags: [a]\n\n# Body\n'
     const decos = decorations(makeState(half, { at: half.length }))
     expect(decos.some((d) => d.value === 'FrontmatterStripWidget')).toBe(false)
     expect(hidden(makeState(half, { at: half.length }))).toEqual([])
+  })
+})
+
+/**
+ * S12: a peer's edit is an ordinary transaction (yCollab dispatches changes the
+ * way typing does), so the question is what the engine does when one lands
+ * INSIDE a range the local reader cannot see. The answer is that both halves
+ * rebuild from the new tree on `docChanged` — nothing is mapped forward, so
+ * there is no stale marker to leave behind.
+ */
+describe('an edit inside a hidden range (Spike S12)', () => {
+  const hiddenAt = (state: ReturnType<typeof makeState>): string[] =>
+    hidden(state).map((h) => state.doc.sliceString(h.from, h.to))
+
+  it('rebuilds the markers around a peer’s insert inside them', () => {
+    const note = 'a **bold** word\n\nthe caret is here\n'
+    const state = makeState(note, { at: note.length - 1 })
+    expect(hiddenAt(state)).toEqual(['**', '**'])
+
+    // The peer types inside the hidden emphasis: `bold` → `bolder`.
+    const grown = state.update({ changes: { from: 8, insert: 'er' } }).state
+    expect(hiddenAt(grown)).toEqual(['**', '**'])
+    expect(grown.doc.toString()).toContain('**bolder**')
+
+    // …and when the peer's edit BREAKS the construct, the markers that are no
+    // longer markers become text again rather than staying hidden.
+    const broken = state.update({ changes: { from: 2, to: 4 } }).state
+    expect(broken.doc.sliceString(0, 13)).toBe('a bold** word')
+    expect(hiddenAt(broken)).toEqual([])
+  })
+
+  it('re-reads the frontmatter strip when a peer edits the block', () => {
+    const note = '---\ntags: [a]\n---\n\nbody\n'
+    const state = makeState(note, { at: note.length })
+    const chips = (s: ReturnType<typeof makeState>): readonly string[] =>
+      (decorations(s).find((d) => d.value === 'FrontmatterStripWidget')
+        ?.widget as FrontmatterStripWidget).tags
+    expect(chips(state)).toEqual(['a'])
+
+    // A peer adds a tag inside the collapsed block: the strip is a function of
+    // the text, so the chip is there on the next build.
+    const added = state.update({ changes: { from: 12, insert: ' b' } }).state
+    expect(chips(added)).toEqual(['a', 'b'])
+
+    // A peer breaks the block: no strip, and nothing hidden that a reader
+    // cannot get to (R4.1.1 — nothing holds the block together).
+    const broken = state.update({ changes: { from: 0, insert: '\n' } }).state
+    expect(decorations(broken).some((d) => d.value === 'FrontmatterStripWidget')).toBe(false)
+  })
+
+  it('keeps typing at a marker’s boundary out of the marker', () => {
+    const note = 'a **bold** word\n\nelsewhere\n'
+    const state = makeState(note, { at: note.length - 1 })
+    // Insert at the two edges of a hidden range. `inclusive: false` is what
+    // decides this: the inserted text belongs to the document, not to the
+    // decoration, so it is never swallowed by it.
+    const before = state.update({ changes: { from: 2, insert: 'X' } }).state
+    expect(before.doc.sliceString(0, 16)).toBe('a X**bold** word')
+    expect(hidden(before).map((h) => before.doc.sliceString(h.from, h.to))).toEqual(['**', '**'])
+    const after = state.update({ changes: { from: 4, insert: 'X' } }).state
+    expect(after.doc.sliceString(0, 12)).toBe('a **Xbold** ')
+    expect(hidden(after).map((h) => after.doc.sliceString(h.from, h.to))).toEqual(['**', '**'])
+  })
+
+  it('leaves nothing hidden when a delete eats into a marker', () => {
+    const note = 'a **bold** word\n\nelsewhere\n'
+    const state = makeState(note, { at: note.length - 1 })
+    // Backspace over the closing pair: what is left is not emphasis, so the
+    // opening pair stops being a marker instead of staying invisible.
+    const eaten = state.update({ changes: { from: 8, to: 10 } }).state
+    expect(eaten.doc.sliceString(0, 13)).toBe('a **bold word')
+    expect(hidden(eaten).map((h) => eaten.doc.sliceString(h.from, h.to))).toEqual([])
   })
 })
 

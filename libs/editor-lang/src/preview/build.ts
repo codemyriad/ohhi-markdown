@@ -21,7 +21,7 @@
 import { syntaxTree } from '@codemirror/language'
 import type { EditorState, Line, Range } from '@codemirror/state'
 import { Decoration, type DecorationSet, type WidgetType } from '@codemirror/view'
-import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common'
+import type { SyntaxNode, SyntaxNodeRef, Tree } from '@lezer/common'
 import { previewMode, readHost, type ReadHost, type ViewMode } from '../read-host.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { activeSpans, inActiveRegion, type Span } from './active-lines.js'
@@ -69,6 +69,12 @@ const EMPHASIS = new Set(['StrongEmphasis', 'Emphasis', 'Strikethrough', 'Highli
 const HTML = new Set(['HTMLBlock', 'HTMLTag', 'Comment', 'CommentBlock', 'ProcessingInstruction'])
 /** `^abc123` at the end of a block. Dim, never resolved (D8). */
 const BLOCK_ID_RE = /(?:^|\s)(\^[A-Za-z0-9-]+)[ \t]*$/
+/** The frontmatter delimiters and the scan bound — frontmatter-block.ts's rule. */
+const FM_OPEN = /^-{3}\s*$/
+const FM_CLOSE = /^(?:-{3}|\.{3})\s*$/
+const FM_MAX_LINES = 64
+/** Embeddable pictures — the set `attachmentType` in apps/web can name. */
+const IMAGE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
 
 /**
  * Every decoration for the whole document. The one-shot form: what the tests
@@ -119,6 +125,8 @@ class Builder {
   private readonly inlineHidden: Range<Decoration>[] = []
   private readonly block: Range<Decoration>[] = []
   private readonly blockHidden: Range<Decoration>[] = []
+  /** End of the frontmatter block drawn from the text, when the tree is stale. */
+  private skipTo = 0
   private readonly spans: Span[]
   private readonly mode: ViewMode
   private readonly host: ReadHost
@@ -137,8 +145,13 @@ class Builder {
 
   run(scope: 'all' | 'block' | 'inline'): PreviewDecorations {
     const tree = syntaxTree(this.state)
-    const enter = (node: SyntaxNodeRef): boolean | void =>
-      this.opts.blocksOnly ? this.enterBlock(node) : this.enter(node)
+    this.skipTo = this.restoreFrontmatter(tree)
+    const enter = (node: SyntaxNodeRef): boolean | void => {
+      // Nodes the tree is stale about (see restoreFrontmatter) are not
+      // decorated at all: the block above them is drawn from the text.
+      if (node.from < this.skipTo && node.to <= this.skipTo) return false
+      return this.opts.blocksOnly ? this.enterBlock(node) : this.enter(node)
+    }
     if (this.opts.ranges) {
       for (const { from, to } of this.opts.ranges) tree.iterate({ from, to, enter })
     } else {
@@ -238,13 +251,17 @@ class Builder {
   // --- constructs ----------------------------------------------------------
 
   private frontmatter(node: SyntaxNodeRef): boolean {
+    return this.frontmatterRange(node.from, node.to)
+  }
+
+  private frontmatterRange(from: number, to: number): boolean {
     const info = this.host.frontmatter?.(
-      this.doc.sliceString(0, Math.min(node.to + 1, this.doc.length))
+      this.doc.sliceString(0, Math.min(to + 1, this.doc.length))
     )
-    if (!this.revealed(node.from, node.to) && info?.present) {
+    if (!this.revealed(from, to) && info?.present) {
       this.replaceBlock(
-        this.doc.lineAt(node.from),
-        this.doc.lineAt(node.to),
+        this.doc.lineAt(from),
+        this.doc.lineAt(to),
         new FrontmatterStripWidget(
           info.tags,
           info.entries.length,
@@ -257,8 +274,39 @@ class Builder {
     }
     // Caret inside, Source mode, or no reader configured: the YAML itself,
     // fenced so you can see you have crossed into a structured region.
-    this.eachLine(node.from, node.to, (l) => this.line(l, FRONTMATTER_LINE))
+    this.eachLine(from, to, (l) => this.line(l, FRONTMATTER_LINE))
     return false
+  }
+
+  /**
+   * Draw the frontmatter block the TEXT says is there, when the tree does not.
+   *
+   * The block parser only ever runs at offset 0, and lezer's incremental parse
+   * reuses the fragment that starts at offset 0 after a deletion there — so a
+   * block that has just been restored (delete the blank line that broke it,
+   * R4.1.1) is still parsed as a rule and a setext heading, for good. The text
+   * is the authority on what a note is; when the two disagree it wins, and the
+   * stale nodes inside the block are left undecorated rather than drawn as the
+   * markdown they are not.
+   *
+   * Returns the end of the block it drew, or 0 — the common path, where the
+   * tree is right, costs one line read.
+   */
+  private restoreFrontmatter(tree: Tree): number {
+    if (!this.host.frontmatter || this.doc.lines < 2) return 0
+    if (!FM_OPEN.test(this.doc.line(1).text)) return 0
+    const first = tree.resolveInner(0, 1)
+    if (first.name === 'Frontmatter' || first.parent?.name === 'Frontmatter') return 0
+    // The same bounded scan for the closing delimiter the grammar makes, so a
+    // block the parser would refuse is not drawn here either.
+    const last = Math.min(this.doc.lines, 1 + FM_MAX_LINES)
+    for (let n = 2; n <= last; n++) {
+      const line = this.doc.line(n)
+      if (!FM_CLOSE.test(line.text)) continue
+      this.frontmatterRange(0, line.to)
+      return line.to
+    }
+    return 0
   }
 
   private heading(node: SyntaxNodeRef): void {
@@ -339,7 +387,9 @@ class Builder {
     const lineEnd = this.doc.lineAt(node.from).to
     const parent = node.node.parent
     const label = this.doc.sliceString(node.to, Math.min(parent ? parent.to : lineEnd, lineEnd)).trim()
-    this.replace(node.from, node.to, new CheckboxWidget(done, label))
+    // A task you have just opened has no text, and a checkbox with no
+    // accessible name is an axe violation as well as a screen-reader dead end.
+    this.replace(node.from, node.to, new CheckboxWidget(done, label || this.host.labels.task))
   }
 
   private inlineCode(node: SyntaxNodeRef): boolean {
@@ -402,7 +452,13 @@ class Builder {
     if (this.revealed(node.from, node.to)) return false
     const inner = this.doc.sliceString(node.from + 3, node.to - 2)
     const name = (inner.split('|')[0] ?? '').trim()
-    if (!name) return false
+    // Only a picture is drawn. `![[note]]` (transclusion) and `![[paper.pdf]]`
+    // are markup this renderer has no picture for, and an <img> over bytes
+    // that are not an image is a broken image, while a *missing attachment*
+    // placeholder over a file that is right there is a lie. Both stay as the
+    // text they are. (The vault's 14 embeds are all .png; the media types for
+    // the same set live in apps/web's `attachmentType`.)
+    if (!IMAGE.test(name)) return false
     const l = this.doc.lineAt(node.from)
     // An embed on a line of its own becomes a block; one inside a sentence
     // stays in the sentence, because a block widget may not split a line.

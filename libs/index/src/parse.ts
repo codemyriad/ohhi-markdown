@@ -80,6 +80,13 @@ export function parseMarkdown(text: string): ParsedDoc {
   const fenced = fencedRanges(body)
   const inFence = (offset: number): boolean =>
     fenced.some(([from, to]) => offset >= from && offset < to)
+  // Tags are the one thing that must also stay out of `#code spans`: the
+  // editor's inline parser never looks inside one (the code-span parser
+  // consumes the whole run), so a tag counted here would be a chip that does
+  // not exist and a search hit with nothing to click (Fork 6 — one grammar).
+  const spans = inlineCodeRanges(body, inFence)
+  const inCode = (offset: number): boolean =>
+    inFence(offset) || spans.some(([from, to]) => offset >= from && offset < to)
 
   const links: RawLink[] = []
   WIKILINK.lastIndex = 0
@@ -101,7 +108,7 @@ export function parseMarkdown(text: string): ParsedDoc {
   // One tag grammar for the index and the editor: tag-syntax.ts.
   const tags: RawTag[] = []
   for (const hit of scanTags(body)) {
-    if (inFence(hit.offset)) continue
+    if (inCode(hit.offset)) continue
     tags.push({ tag: `#${hit.tag}`, offset: hit.offset })
   }
 
@@ -162,6 +169,55 @@ function readFrontmatter(text: string): {
     frontmatterTags,
     aliases: fm.aliases,
   }
+}
+
+/**
+ * [from, to) ranges covered by inline code spans.
+ *
+ * CommonMark's rule, and @lezer/markdown's: a run of N backticks opens a span
+ * that the next run of exactly N closes; an unmatched run is literal text. The
+ * search for the closer stops at a blank line, because inline parsing never
+ * crosses a paragraph — without that, one stray backtick would swallow the
+ * rest of the note's tags.
+ */
+function inlineCodeRanges(
+  text: string,
+  inFence: (offset: number) => boolean
+): [number, number][] {
+  const ranges: [number, number][] = []
+  /** End of the backtick run that starts at `at`. */
+  const runEnd = (at: number): number => {
+    let end = at
+    while (text.charCodeAt(end) === 96 /* ` */) end++
+    return end
+  }
+  let i = text.indexOf('`')
+  while (i !== -1) {
+    if (inFence(i)) {
+      i = text.indexOf('`', i + 1)
+      continue
+    }
+    const open = runEnd(i)
+    const para = text.indexOf('\n\n', open)
+    const stop = para === -1 ? text.length : para
+    let closed = -1
+    for (let next = text.indexOf('`', open); next !== -1 && next < stop; ) {
+      const end = runEnd(next)
+      if (end - next === open - i) {
+        closed = end
+        break
+      }
+      next = text.indexOf('`', end)
+    }
+    if (closed === -1) {
+      // An unmatched run is literal text; carry on from just past it.
+      i = text.indexOf('`', open)
+      continue
+    }
+    ranges.push([i, closed])
+    i = text.indexOf('`', closed)
+  }
+  return ranges
 }
 
 /** [from, to) ranges covered by fenced code blocks. */

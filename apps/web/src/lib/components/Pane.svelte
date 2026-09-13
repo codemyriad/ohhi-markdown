@@ -123,6 +123,7 @@
       const t = untrack(() => $LL.web.read)
       return {
         missingAttachment: t.missing_attachment(),
+        task: t.task(),
         properties: (count: number) => t.properties({ count }),
         frontmatterUnsupported: t.frontmatter_unsupported(),
       }
@@ -169,23 +170,12 @@
   /** The live handle, kept so `onhandle(null)` can still capture from it. */
   let handle: MarkdownEditorHandle | null = null
   /**
-   * The same handle as a signal, for the one thing that has to happen AFTER
-   * the view exists: applying this tab's mode. `MarkdownEditor` has no `mode`
-   * prop yet (X1 owns it), so the mode is reconfigured through the handle —
-   * one dispatch, same document, same scroll, which is what B3 asks for
-   * either way.
+   * The same handle as a signal, for the one thing that needs the view itself
+   * rather than a prop: `Mod+L` reaching whichever pane has the focus. The
+   * MODE is a prop — `MarkdownEditor` applies it by reconfigure — so there is
+   * no second path that could disagree with it.
    */
   let live = $state.raw<MarkdownEditorHandle | null>(null)
-  /** The mode the live view is actually configured for; CM6 starts in Live. */
-  let appliedMode: ViewMode = 'live'
-
-  $effect(() => {
-    const want = mode
-    const view = live
-    if (!view || appliedMode === want) return
-    appliedMode = want
-    view.setMode(want)
-  })
 
   /**
    * `Mod+L` acts on whichever pane has the focus, so the command reaches the
@@ -223,7 +213,6 @@
       if (next) {
         handle = next
         live = next
-        appliedMode = 'live'
         const resume = pane.tabs.find((t) => t.id === tabId)
         if (resume?.cursor) next.restore({ cursor: resume.cursor, scroll: resume.scroll })
         return
@@ -273,6 +262,7 @@
             {awareness}
             {undoManager}
             user={workspace.user}
+            {mode}
             {dark}
             {extensions}
             reveal={focused ? reveal : null}
