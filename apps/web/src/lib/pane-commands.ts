@@ -13,7 +13,7 @@
  * mode letter and a palette entry only, and R1.3's override map is how it gets
  * a key if one is ever missed.
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import type { Command } from './commands.js'
 import type { Dir, Side } from './panes.js'
 

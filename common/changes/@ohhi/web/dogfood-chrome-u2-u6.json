@@ -1,0 +1,35 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A new shell: a one-line header with a breadcrumb of the open note, a wider file navigator you can resize (from the keyboard too) and hide, with Open / Search / Commands at the top and your vault and settings at the bottom, and a right sidebar that collapses to icons. The word count and the open note's sync state sit in a status bar under the editor. Your layout is remembered.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The file tree is quiet when things are fine: a synced note carries no dot, a shared folder shows one rollup and a guide down its subtree, and only a problem row lights up. Toolbar buttons are icons with labels, the sharing filter is a menu, a refused drag says why, F2 renames and Delete deletes, and Mod+Shift+R / Mod+Shift+A act on the open note. Add a shared folder from the tree's menu or the command palette.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The sidebar's This note section says where the open note lives, whether that folder is local, shared by you or shared with you, who is online there, and which links have access — and offers the sharing actions that apply. The header only shows a sync pill when something is actually shared.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Errors no longer flash past in the header: each one is announced once and kept in the sidebar's Activity log with its time and the note it concerns, with an unread count until you look.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Settings are organised in tabs (General, Appearance, Sync, Vaults & shares, Developer); the relay URL is validated, each form has its own Save, and closing with unsaved changes asks first.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Every surface passes an automated accessibility check: menus and tabs are real keyboard widgets, icon buttons carry their label as a tooltip on hover and focus, and faded text was raised to a readable contrast.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

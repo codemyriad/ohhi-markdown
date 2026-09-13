@@ -12,7 +12,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { ErrorOut, OP_NAMES, OP_SCHEMAS, schemaName } from '@editor/agent'
+import { ErrorOut, OP_NAMES, OP_SCHEMAS, schemaName } from '@ohhi/agent'
 import { SCHEMA_ID_BASE, specDir } from './spec-dir.js'
 
 /** File name for an op's output schema, e.g. `ohhi.search.v1.schema.json`. */

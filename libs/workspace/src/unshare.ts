@@ -18,8 +18,8 @@
  * normal tree delete afterwards, once the folder is local — journaled, and
  * with no peer-visible tombstones, which an in-mount delete would sync.)
  */
-import type { MountsFile, StoreDir } from '@editor/vault'
-import type { SyncEngine } from '@editor/sync'
+import type { MountsFile, StoreDir } from '@ohhi/vault'
+import type { SyncEngine } from '@ohhi/sync'
 import { absorbMount } from './vault-boot.js'
 import type { MountSession } from './mount-session.js'
 

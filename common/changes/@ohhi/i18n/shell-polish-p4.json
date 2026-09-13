@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Strings for the redesigned vault manager: the empty-vault-list sentence, the hint under Your name, and the row menu's label and Remove item.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

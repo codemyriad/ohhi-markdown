@@ -13,8 +13,8 @@
  * on the same key while apart.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine, type EngineDoc, type SyncEngine } from '@editor/sync'
-import { SimClock, TestNetwork } from '@editor/testkit'
+import { createYjsEngine, type EngineDoc, type SyncEngine } from '@ohhi/sync'
+import { SimClock, TestNetwork } from '@ohhi/testkit'
 import { enrollFolder, joinFolder } from '../src/enrollment.js'
 import { MemVaultAdapter } from '../src/mem-adapter.js'
 import { MemJournal, MemLcaStore } from '../src/stores.js'

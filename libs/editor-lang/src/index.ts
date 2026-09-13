@@ -1,5 +1,5 @@
 /**
- * @editor/editor-lang — markdown language extras for the CM6 surface.
+ * @ohhi/editor-lang — markdown language extras for the CM6 surface.
  * V2c ships wikilinks; the Read slice adds the rest of the grammar (tags,
  * highlights, frontmatter) and the live-preview reveal engine.
  *

@@ -1,5 +1,5 @@
 /**
- * Svelte shim over @editor/workspace: the host-neutral orchestration lives in
+ * Svelte shim over @ohhi/workspace: the host-neutral orchestration lives in
  * MountSession (libs/workspace — one mount = one vault subtree bound to a
  * room); this module owns only the reactive view state. It builds the $state
  * ui object, injects stable per-guid record factories, mirrors session events
@@ -23,8 +23,8 @@
  * mounts.json, so a mount being adopted, waiting for a key, or folded back
  * says so rather than appearing and disappearing.
  */
-import { getLL } from '@editor/i18n'
-import type { DivergenceReview, StoreDir, VaultAdapter } from '@editor/vault'
+import { getLL } from '@ohhi/i18n'
+import type { DivergenceReview, StoreDir, VaultAdapter } from '@ohhi/vault'
 import {
   BlobDocStore,
   FileJournal,
@@ -39,10 +39,10 @@ import {
   type MountDesc,
   type MountProvenance,
   type MountStatus,
-} from '@editor/vault'
-import { createYjsEngine, type EngineDoc } from '@editor/sync'
+} from '@ohhi/vault'
+import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
 import type { Awareness } from 'y-protocols/awareness'
-import { createUndoManager, type CollabUndoManager, type CollabUser } from '@editor/editor'
+import { createUndoManager, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
 import {
   activateMount,
   bootFlagsFor,
@@ -64,7 +64,7 @@ import {
   type PreImageInfo,
   type PullProgress,
   type RelayConfig,
-} from '@editor/workspace'
+} from '@ohhi/workspace'
 import {
   defaultRelay,
   getVault,
@@ -100,7 +100,7 @@ export function textPaths(files: readonly FileRow[]): string[] {
 
 /**
  * The index's write side, as the workspace needs it. Structurally
- * `IndexWriter` from @editor/index minus `rebuild` — typed here so
+ * `IndexWriter` from @ohhi/index minus `rebuild` — typed here so
  * libs/workspace stays index-agnostic and the app owns the wiring.
  */
 export interface IndexSink {

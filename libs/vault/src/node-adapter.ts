@@ -1,7 +1,7 @@
 /**
  * Node VaultAdapter for CLI tools and the nightly real-filesystem fuzz lane.
  * Atomic writes: temp file in the same directory + fsync + rename.
- * Import via '@editor/vault/node' (keeps the main entry browser-safe).
+ * Import via '@ohhi/vault/node' (keeps the main entry browser-safe).
  */
 import { watch } from 'node:fs'
 import {

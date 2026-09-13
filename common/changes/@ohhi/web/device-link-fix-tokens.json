@@ -1,0 +1,30 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Your device link is never sent to a relay other than your vault's own. A shared folder that names a different relay now waits for its own link instead, so nobody who can see your vault's folder list can talk your device into handing over the key to the whole vault.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A shared folder that arrived from another of your devices and is refused by the relay now says \"link needed\" and offers Add link…, instead of sitting there as a shared folder that never syncs.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "\"Add a shared folder here…\" now refuses a device link and tells you to use \"Link this device\" in the vault manager — a device link is a key to a whole vault, not to one folder.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "You can no longer add a shared folder inside a folder that another of your devices just shared, even before this device has caught up with it.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Stopping sharing a folder, or removing a shared folder from this device, now forgets its key as well — it is no longer passed on in the next device link you create.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

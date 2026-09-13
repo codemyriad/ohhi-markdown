@@ -6,7 +6,7 @@
    * hotkey; the rows exist so the keys are discoverable.
    */
   import { Command, FileSearch, Search } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
 
   interface Props {
     bindings: { quickOpen: string; search: string; commands: string }

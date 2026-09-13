@@ -12,7 +12,7 @@
    * is a slot waiting for a note.
    */
   import { ChevronDown, FilePlus, FileSearch, Search } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { segments, within, type Span } from '../highlight.js'
   import { CARD, HEADING } from '../ui/styles.js'
 

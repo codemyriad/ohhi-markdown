@@ -8,7 +8,7 @@
  * MountDesc never carries a token (parent D4: descs/maps are advisory,
  * never an auth source) — tokens live in app config, keyed by room.
  */
-import type { FileEntry } from '@editor/sync'
+import type { FileEntry } from '@ohhi/sync'
 import type { StoreIo } from './stores.js'
 
 /**

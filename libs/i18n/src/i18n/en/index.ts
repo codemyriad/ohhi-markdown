@@ -10,7 +10,7 @@ import type { BaseTranslation } from '../i18n-types.js'
  * `extendDictionary(en, mergeTranslations(en, json))`.
  */
 const common = {
-  app_name: 'Editor',
+  app_name: 'Oh hi markdown',
   cancel: 'Cancel',
   close: 'Close',
   save: 'Save',

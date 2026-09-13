@@ -15,7 +15,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMemStorage } from './storage.fixture.js'
-import { createYjsEngine } from '@editor/sync'
+import { createYjsEngine } from '@ohhi/sync'
 import {
   docBlobName,
   FOLDER_DOC_KEY,
@@ -24,8 +24,8 @@ import {
   MountsFile,
   scopedStoreDir,
   VaultSession,
-} from '@editor/vault'
-import { MountSession } from '@editor/workspace'
+} from '@ohhi/vault'
+import { MountSession } from '@ohhi/workspace'
 import { setOperatorSecret, setRoomToken } from './config.js'
 import { encodeShareLink } from './share-link.js'
 import { setupWorkspace, type Workspace } from './workspace.svelte.js'

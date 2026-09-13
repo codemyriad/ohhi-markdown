@@ -352,7 +352,7 @@ describe('the frontmatter strip (17 files, Fork 5-C)', () => {
 
   it('collapses a block the GRAMMAR will not claim — the text is the authority', () => {
     // `# why` is a YAML comment and an ATX heading, and the block parser reads
-    // it as the heading (see frontmatter-block.ts). @editor/frontmatter reads
+    // it as the heading (see frontmatter-block.ts). @ohhi/frontmatter reads
     // the block, so the strip is drawn from the text and the markdown the tree
     // thinks is in there — a rule, a setext heading — is not drawn at all.
     const commented = '---\n# why\ntags: [a]\n---\n\nbody\n'

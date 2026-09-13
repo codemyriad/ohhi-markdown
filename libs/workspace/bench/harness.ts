@@ -17,7 +17,7 @@
  *   LCA store rewrites the whole shadow file on every put);
  * - the WebSocket constructor — one socket per provider (concurrency).
  */
-import { RealClock, type Clock } from '@editor/testkit'
+import { RealClock, type Clock } from '@ohhi/testkit'
 import {
   BlobDocStore,
   FileJournal,
@@ -30,9 +30,9 @@ import {
   type StoreIo,
   type VaultAdapter,
   type WatchEvent,
-} from '@editor/vault'
-import { NodeStoreDir, NodeVaultAdapter } from '@editor/vault/node'
-import { createYjsEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import { NodeStoreDir, NodeVaultAdapter } from '@ohhi/vault/node'
+import { createYjsEngine } from '@ohhi/sync'
 import { MountSession } from '../src/mount-session.js'
 import { FOLDER_RECORD_KEY, type SyncRecordFields } from '../src/types.js'
 

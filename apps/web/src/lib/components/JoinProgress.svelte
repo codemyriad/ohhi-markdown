@@ -16,7 +16,7 @@
    * Decision 6 is stated plainly rather than discovered: images and PDFs do
    * not travel until attachment sync (D2f) lands.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { PullProgress } from '../workspace.svelte.js'
 
   interface Props {

@@ -9,7 +9,7 @@
  */
 import type { Extension } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
-import type { EngineDoc } from '@editor/sync'
+import type { EngineDoc } from '@ohhi/sync'
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next'
 import { Awareness } from 'y-protocols/awareness'
 import * as Y from 'yjs'

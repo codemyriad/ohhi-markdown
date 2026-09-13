@@ -5,10 +5,10 @@
  * System root (`vaults/<vaultId>/…`), so multiple vaults coexist in one origin.
  * Paths are vault-relative POSIX strings; nested paths create intermediate
  * directories on write. Same contract/semantics as MemVaultAdapter and
- * NodeVaultAdapter (see @editor/vault) — mirror them when in doubt.
+ * NodeVaultAdapter (see @ohhi/vault) — mirror them when in doubt.
  */
-import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@editor/vault'
-import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@editor/vault'
+import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@ohhi/vault'
+import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
 /** Container dir (under the OPFS root) that holds one subdirectory per vault. */
 const VAULTS_DIR = 'vaults'

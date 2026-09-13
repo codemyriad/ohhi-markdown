@@ -14,7 +14,7 @@
   import type { LucideIcon } from '@lucide/svelte'
   import { ChevronDown, ChevronsLeft, ChevronsRight } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { RailSectionId } from '../layout.js'
   import IconButton from '../ui/IconButton.svelte'
   import { HEADING } from '../ui/styles.js'

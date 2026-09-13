@@ -11,8 +11,8 @@
  * one module owns the preference, Settings writes through it, and nothing
  * else reads config for it.
  */
-import type { ReadLabels } from '@editor/editor-lang'
-import { getLL } from '@editor/i18n'
+import type { ReadLabels } from '@ohhi/editor-lang'
+import { getLL } from '@ohhi/i18n'
 import type { Command } from './commands.js'
 import { readPrefs, setReadPrefs } from './config.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'

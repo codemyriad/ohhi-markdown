@@ -32,7 +32,7 @@ if (process.env.SEED_SHARE) {
 }
 
 await relay.listen()
-console.log(`@editor/relay listening on ws://0.0.0.0:${relay.port} (db: ${dbPath})`)
+console.log(`@ohhi/relay listening on ws://0.0.0.0:${relay.port} (db: ${dbPath})`)
 
 // Flush pending doc stores before exiting (`docker stop` sends SIGTERM,
 // Ctrl-C SIGINT). In the container node runs as PID 1, which gets no default

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { createFilesBackend, OP_NAMES } from '@editor/agent'
+import { createFilesBackend, OP_NAMES } from '@ohhi/agent'
 import { run, redact } from '../src/run.js'
 import { bufferIo } from '../src/io.js'
 import { parseCommand, usageLine } from '../src/grammar.js'

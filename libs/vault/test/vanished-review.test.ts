@@ -5,8 +5,8 @@
  * copy, tombstones the map entry for peers, and drops the LCA.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine } from '@ohhi/sync'
+import { SimClock } from '@ohhi/testkit'
 import {
   enrollFolder,
   MemJournal,

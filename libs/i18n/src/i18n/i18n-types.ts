@@ -18,7 +18,7 @@ export type Translations = RootTranslation &
 type RootTranslation = {
 	common: {
 		/**
-		 * E​d​i​t​o​r
+		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n
 		 */
 		app_name: string
 		/**
@@ -1331,7 +1331,7 @@ export type NamespaceWebTranslation = {
 	}
 	daily: {
 		/**
-		 * O​b​s​i​d​i​a​n​’​s​ ​d​a​i​l​y​-​n​o​t​e​ ​f​o​r​m​a​t​ ​“​{​f​o​r​m​a​t​}​”​ ​u​s​e​s​ ​{​t​o​k​e​n​s​}​,​ ​w​h​i​c​h​ ​E​d​i​t​o​r​ ​d​o​e​s​ ​n​o​t​ ​u​n​d​e​r​s​t​a​n​d​ ​y​e​t​ ​a​n​d​ ​p​r​i​n​t​s​ ​a​s​ ​w​r​i​t​t​e​n​.​ ​T​o​d​a​y​’​s​ ​n​o​t​e​ ​m​a​y​ ​n​o​t​ ​b​e​ ​t​h​e​ ​o​n​e​ ​O​b​s​i​d​i​a​n​ ​w​o​u​l​d​ ​o​p​e​n​.
+		 * O​b​s​i​d​i​a​n​’​s​ ​d​a​i​l​y​-​n​o​t​e​ ​f​o​r​m​a​t​ ​“​{​f​o​r​m​a​t​}​”​ ​u​s​e​s​ ​{​t​o​k​e​n​s​}​,​ ​w​h​i​c​h​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​d​o​e​s​ ​n​o​t​ ​u​n​d​e​r​s​t​a​n​d​ ​y​e​t​ ​a​n​d​ ​p​r​i​n​t​s​ ​a​s​ ​w​r​i​t​t​e​n​.​ ​T​o​d​a​y​’​s​ ​n​o​t​e​ ​m​a​y​ ​n​o​t​ ​b​e​ ​t​h​e​ ​o​n​e​ ​O​b​s​i​d​i​a​n​ ​w​o​u​l​d​ ​o​p​e​n​.
 		 * @param {string} format
 		 * @param {string} tokens
 		 */
@@ -1343,7 +1343,7 @@ export type NamespaceWebTranslation = {
 		 */
 		no_note: string
 		/**
-		 * N​o​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​y​e​t​ ​—​ ​E​d​i​t​o​r​ ​s​a​v​e​s​ ​o​n​e​ ​e​v​e​r​y​ ​t​i​m​e​ ​i​t​ ​w​r​i​t​e​s​ ​t​h​i​s​ ​f​i​l​e​.
+		 * N​o​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​y​e​t​ ​—​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​s​a​v​e​s​ ​o​n​e​ ​e​v​e​r​y​ ​t​i​m​e​ ​i​t​ ​w​r​i​t​e​s​ ​t​h​i​s​ ​f​i​l​e​.
 		 */
 		empty: string
 		/**
@@ -1664,7 +1664,7 @@ export type NamespaceWebTranslation = {
 		 */
 		open_folder: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​d​o​e​s​n​'​t​ ​s​u​p​p​o​r​t​ ​t​h​e​ ​p​r​i​v​a​t​e​ ​f​i​l​e​ ​s​t​o​r​a​g​e​ ​(​O​P​F​S​)​ ​E​d​i​t​o​r​ ​n​e​e​d​s​ ​—​ ​t​r​y​ ​a​ ​r​e​c​e​n​t​ ​C​h​r​o​m​e​,​ ​E​d​g​e​,​ ​o​r​ ​F​i​r​e​f​o​x​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​d​o​e​s​n​'​t​ ​s​u​p​p​o​r​t​ ​t​h​e​ ​p​r​i​v​a​t​e​ ​f​i​l​e​ ​s​t​o​r​a​g​e​ ​(​O​P​F​S​)​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​—​ ​t​r​y​ ​a​ ​r​e​c​e​n​t​ ​C​h​r​o​m​e​,​ ​E​d​g​e​,​ ​o​r​ ​F​i​r​e​f​o​x​.
 		 */
 		no_opfs: string
 		/**
@@ -1863,7 +1863,7 @@ export type NamespaceWebTranslation = {
 			 */
 			system: string
 			/**
-			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​.​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​;​ ​t​h​e​ ​t​w​o​ ​E​d​i​t​o​r​ ​t​h​e​m​e​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​d​e​f​a​u​l​t​s​.
+			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​.​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​;​ ​t​h​e​ ​t​w​o​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​t​h​e​m​e​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​d​e​f​a​u​l​t​s​.
 			 * @param {string} system
 			 */
 			theme_help: RequiredParams<'system'>
@@ -1971,7 +1971,7 @@ export type NamespaceWebTranslation = {
 			 */
 			conflict: RequiredParams<'commands'>
 			/**
-			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​s​h​o​r​t​c​u​t​ ​b​e​f​o​r​e​ ​E​d​i​t​o​r​ ​c​a​n​ ​s​e​e​ ​i​t​.
+			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​s​h​o​r​t​c​u​t​ ​b​e​f​o​r​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​c​a​n​ ​s​e​e​ ​i​t​.
 			 */
 			reserved: string
 		}
@@ -2076,7 +2076,7 @@ export type NamespaceWebTranslation = {
 			 */
 			missing_fields: string
 			/**
-			 * T​h​a​t​ ​l​i​n​k​ ​w​a​s​ ​m​a​d​e​ ​b​y​ ​a​ ​n​e​w​e​r​ ​v​e​r​s​i​o​n​ ​o​f​ ​E​d​i​t​o​r​ ​—​ ​u​p​d​a​t​e​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​i​r​s​t​.
+			 * T​h​a​t​ ​l​i​n​k​ ​w​a​s​ ​m​a​d​e​ ​b​y​ ​a​ ​n​e​w​e​r​ ​v​e​r​s​i​o​n​ ​o​f​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​u​p​d​a​t​e​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​i​r​s​t​.
 			 */
 			unknown_kind: string
 			/**
@@ -2619,7 +2619,7 @@ export type NamespaceWebTranslation = {
 		 */
 		description: RequiredParams<'reason'>
 		/**
-		 * T​h​i​s​ ​f​i​l​e​ ​w​a​s​ ​d​e​l​e​t​e​d​ ​o​n​ ​d​i​s​k​ ​o​u​t​s​i​d​e​ ​E​d​i​t​o​r​,​ ​b​u​t​ ​i​t​s​ ​s​y​n​c​e​d​ ​c​o​n​t​e​n​t​ ​s​t​i​l​l​ ​e​x​i​s​t​s​.​ ​R​e​s​t​o​r​e​ ​i​t​,​ ​o​r​ ​c​o​n​f​i​r​m​ ​t​h​e​ ​d​e​l​e​t​i​o​n​ ​—​ ​c​o​n​f​i​r​m​i​n​g​ ​r​e​m​o​v​e​s​ ​i​t​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​a​ ​r​e​c​o​v​e​r​y​ ​c​o​p​y​ ​i​s​ ​j​o​u​r​n​a​l​e​d​)​.
+		 * T​h​i​s​ ​f​i​l​e​ ​w​a​s​ ​d​e​l​e​t​e​d​ ​o​n​ ​d​i​s​k​ ​o​u​t​s​i​d​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​,​ ​b​u​t​ ​i​t​s​ ​s​y​n​c​e​d​ ​c​o​n​t​e​n​t​ ​s​t​i​l​l​ ​e​x​i​s​t​s​.​ ​R​e​s​t​o​r​e​ ​i​t​,​ ​o​r​ ​c​o​n​f​i​r​m​ ​t​h​e​ ​d​e​l​e​t​i​o​n​ ​—​ ​c​o​n​f​i​r​m​i​n​g​ ​r​e​m​o​v​e​s​ ​i​t​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​a​ ​r​e​c​o​v​e​r​y​ ​c​o​p​y​ ​i​s​ ​j​o​u​r​n​a​l​e​d​)​.
 		 */
 		vanished: string
 		/**
@@ -2804,7 +2804,7 @@ type DisallowNamespaces = {
 export type TranslationFunctions = {
 	common: {
 		/**
-		 * Editor
+		 * Oh hi markdown
 		 */
 		app_name: () => LocalizedString
 		/**
@@ -4065,7 +4065,7 @@ export type TranslationFunctions = {
 		}
 		daily: {
 			/**
-			 * Obsidian’s daily-note format “{format}” uses {tokens}, which Editor does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.
+			 * Obsidian’s daily-note format “{format}” uses {tokens}, which Oh hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.
 			 */
 			unsupported_format: (arg: { format: string, tokens: string }) => LocalizedString
 		}
@@ -4075,7 +4075,7 @@ export type TranslationFunctions = {
 			 */
 			no_note: () => LocalizedString
 			/**
-			 * No earlier versions yet — Editor saves one every time it writes this file.
+			 * No earlier versions yet — Oh hi markdown saves one every time it writes this file.
 			 */
 			empty: () => LocalizedString
 			/**
@@ -4381,7 +4381,7 @@ export type TranslationFunctions = {
 			 */
 			open_folder: () => LocalizedString
 			/**
-			 * This browser doesn't support the private file storage (OPFS) Editor needs — try a recent Chrome, Edge, or Firefox.
+			 * This browser doesn't support the private file storage (OPFS) Oh hi markdown needs — try a recent Chrome, Edge, or Firefox.
 			 */
 			no_opfs: () => LocalizedString
 			/**
@@ -4576,7 +4576,7 @@ export type TranslationFunctions = {
 				 */
 				system: () => LocalizedString
 				/**
-				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Editor themes are our own defaults.
+				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.
 				 */
 				theme_help: (arg: { system: string }) => LocalizedString
 				/**
@@ -4670,7 +4670,7 @@ export type TranslationFunctions = {
 				 */
 				conflict: (arg: { commands: string }) => LocalizedString
 				/**
-				 * Your desktop takes this shortcut before Editor can see it.
+				 * Your desktop takes this shortcut before Oh hi markdown can see it.
 				 */
 				reserved: () => LocalizedString
 			}
@@ -4772,7 +4772,7 @@ export type TranslationFunctions = {
 				 */
 				missing_fields: () => LocalizedString
 				/**
-				 * That link was made by a newer version of Editor — update this device first.
+				 * That link was made by a newer version of Oh hi markdown — update this device first.
 				 */
 				unknown_kind: () => LocalizedString
 				/**
@@ -5289,7 +5289,7 @@ export type TranslationFunctions = {
 			 */
 			description: (arg: { reason: string }) => LocalizedString
 			/**
-			 * This file was deleted on disk outside Editor, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).
+			 * This file was deleted on disk outside Oh hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).
 			 */
 			vanished: () => LocalizedString
 			/**

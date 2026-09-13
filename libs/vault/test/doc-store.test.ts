@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine, type SyncEngine } from '@editor/sync'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine, type SyncEngine } from '@ohhi/sync'
+import { SimClock } from '@ohhi/testkit'
 import { MemStoreDir, type StoreDir } from '../src/store-dir.js'
 import { BlobDocStore, FOLDER_DOC_KEY, lcaGuard } from '../src/doc-store.js'
 import { JsonFileLcaStore, MemJournal } from '../src/stores.js'

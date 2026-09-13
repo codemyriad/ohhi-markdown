@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/sync",
+      "comment": "Directories are first-class in sync — creating, renaming, listing and removing a folder reaches collaborators directly, instead of being inferred from the paths of the files inside it.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/sync"
+}

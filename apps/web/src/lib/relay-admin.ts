@@ -4,7 +4,7 @@
  * relay URL users configure is the ws:// endpoint; the admin API lives on the
  * same server over http(s).
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import type { ShareKind } from './share-link.js'
 
 /**

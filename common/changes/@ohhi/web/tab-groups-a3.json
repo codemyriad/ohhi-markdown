@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Every keyboard shortcut can be changed: a new Hotkeys tab in Settings lists every command with the key that runs it, a field to type a new one (or press Record and hit the keys), and a Reset per row. Overrides are per device and apply immediately; clearing a field removes the shortcut.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

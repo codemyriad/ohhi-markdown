@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "A shared folder being folded back into a vault survives an interruption: a crash or a quit part-way through is finished the next time the vault opens, rather than started over.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

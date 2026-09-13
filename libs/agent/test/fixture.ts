@@ -8,7 +8,7 @@
  *
  *   IT IMPORTS NOTHING BUT NODE BUILT-INS.
  *
- * No vitest, no `@editor/*`, no testkit — `apps/cli` does not depend on those
+ * No vitest, no `@ohhi/*`, no testkit — `apps/cli` does not depend on those
  * and must not have to. Anything that needs a `Clock` or a backend belongs in
  * `test/harness.ts` beside it, not here.
  *

@@ -2,7 +2,7 @@
  * op → text renderer. `--json` does not come through here at all: it prints
  * the contract document verbatim, which is the point of having a contract.
  */
-import type { OpName, OpOutput } from '@editor/agent'
+import type { OpName, OpOutput } from '@ohhi/agent'
 import type { Sink } from '../io.js'
 import { renderChanges, renderFm, renderLs, renderRead, renderStats } from './read.js'
 import { renderBacklinks, renderLinks, renderResolve, renderTags, renderUnresolved } from './graph.js'

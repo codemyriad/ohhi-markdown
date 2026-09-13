@@ -8,7 +8,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
 
 const t = getLL().web.tabs.picker

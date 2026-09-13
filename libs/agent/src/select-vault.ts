@@ -13,7 +13,7 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { hashText } from '@editor/vault'
+import { hashText } from '@ohhi/vault'
 import { OpError } from './contract.js'
 
 /** A directory holding one of these IS a vault, as far as the walk is concerned. */

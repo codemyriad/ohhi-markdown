@@ -3,7 +3,7 @@
  * the pill component renders f(syncRecord) and contains no further logic.
  * Status table: docs/architecture/sync.md ("syncRecord and the pill").
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 
 export type PillStatus = 'green' | 'yellow' | 'red' | 'offline'
 

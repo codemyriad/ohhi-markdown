@@ -9,7 +9,7 @@
  * component, and the tests run it on node after `test-setup.ts` has loaded
  * the locale.
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import type { MountLike } from './share-status.js'
 import type { FileRow, MountUiStatus } from './workspace.svelte.js'
 

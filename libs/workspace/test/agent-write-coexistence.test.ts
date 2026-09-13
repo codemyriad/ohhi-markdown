@@ -32,7 +32,7 @@
  * chosen, not raced.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { FileJournal, MemStoreDir, scopedStoreDir, type WriteOptions } from '@editor/vault'
+import { FileJournal, MemStoreDir, scopedStoreDir, type WriteOptions } from '@ohhi/vault'
 import {
   bootVault,
   dec,

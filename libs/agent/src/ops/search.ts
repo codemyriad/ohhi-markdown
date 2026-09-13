@@ -1,4 +1,4 @@
-import { lineAt, lineStartsOf, type GrepHit, type Page, type SearchHit as IndexHit, type VaultIndex } from '@editor/index'
+import { lineAt, lineStartsOf, type GrepHit, type Page, type SearchHit as IndexHit, type VaultIndex } from '@ohhi/index'
 import type { z } from 'zod'
 import { OP_SCHEMAS, OpError, schemaName, type Span, type SearchHit } from '../contract.js'
 import type { OpDef } from '../op.js'

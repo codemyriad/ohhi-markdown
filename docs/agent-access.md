@@ -22,7 +22,7 @@ This doc is for the human who has to know what the skill is talking about.
 ## 1. What it is, and what it is not
 
 **`ohhi` is files-direct.** It opens the vault folder, reads the canonical `.md`
-files through `@editor/vault`'s Node adapter, builds an in-memory index
+files through `@ohhi/vault`'s Node adapter, builds an in-memory index
 (`libs/index`) for the invocation, answers, and exits. Every write goes through
 the same pre-image journal and temp-fsync-rename that the app's own writes do
 (golden rule 1), then the file on disk is the new truth.

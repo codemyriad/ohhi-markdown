@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import { formatSize, formatStamp } from '../history.js'
 import type { PreImageInfo } from '../workspace.svelte.js'
 import HistorySection from './HistorySection.svelte'

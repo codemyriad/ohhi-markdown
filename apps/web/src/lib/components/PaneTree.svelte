@@ -14,7 +14,7 @@
    * makes the live-editor count drop to one while every other tab stays put.
    */
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import {
     MIN_SIZE,
     panes as panesOf,

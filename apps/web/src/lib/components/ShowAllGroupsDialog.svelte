@@ -9,7 +9,7 @@
    * Same rows and same order as the `▾` menu (`groups.rows()`), untrimmed.
    */
   import { Check } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { formatStamp } from '../history.js'
   import Dialog from '../ui/Dialog.svelte'

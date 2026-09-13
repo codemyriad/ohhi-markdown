@@ -33,7 +33,7 @@
   import { createDialog, melt } from '@melt-ui/svelte'
   import { X } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { currentFocus, firstTabbable } from './focus.js'
 
   interface Props {

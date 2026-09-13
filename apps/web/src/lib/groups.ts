@@ -13,7 +13,7 @@
  * without importing this module back; both are re-exported here, which is
  * where the shaping doc's contract puts them.
  */
-import { basename, normalizeTarget } from '@editor/index'
+import { basename, normalizeTarget } from '@ohhi/index'
 import {
   activeTab,
   detachTabs,

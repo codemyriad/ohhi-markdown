@@ -1,5 +1,5 @@
 /** Text renderers for the link graph: `links`, `backlinks`, `unresolved`, `tags`, `resolve`. */
-import type { OpOutput } from '@editor/agent'
+import type { OpOutput } from '@ohhi/agent'
 import { columnWidth, counters, kv, oneLine, type Sink } from './format.js'
 
 export function renderLinks(o: OpOutput<'links'>, sink: Sink): void {

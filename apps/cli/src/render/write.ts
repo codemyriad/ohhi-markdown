@@ -4,7 +4,7 @@
  * temp-fsync-rename (golden rule 1) — `journalSeq` is the handle
  * `ohhi restore` takes back.
  */
-import type { OpOutput } from '@editor/agent'
+import type { OpOutput } from '@ohhi/agent'
 import { bytes, columnWidth, kv, type Sink } from './format.js'
 
 const verb = (dryRun: boolean, done: string, would: string): string => (dryRun ? `would ${would}` : done)

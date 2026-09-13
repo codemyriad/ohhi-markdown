@@ -12,7 +12,7 @@
  * `lcaGuard` enforces the safe ordering at the only choke point that
  * advances an LCA: flush the doc blob first, then write the record.
  */
-import type { EngineDoc, SyncEngine } from '@editor/sync'
+import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import type { LcaRecord, LcaStore } from './types.js'
 import type { Clock } from './session.js'
 import type { StoreDir } from './store-dir.js'

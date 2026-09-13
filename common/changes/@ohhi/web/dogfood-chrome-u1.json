@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Every dialog now closes on Escape and on a click outside it (confirmations and the divergence review stay explicit), keeps keyboard focus inside while open and hands it back afterwards. The vault switcher is a real keyboard menu, and icon-only controls carry their label for screen readers and as a tooltip on hover or focus.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

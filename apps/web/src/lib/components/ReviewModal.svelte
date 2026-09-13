@@ -3,8 +3,8 @@
     computeMergeHunks,
     tryCleanMerge,
     type DivergenceReview,
-  } from '@editor/vault'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  } from '@ohhi/vault'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import Dialog from '../ui/Dialog.svelte'
 
   interface Props {

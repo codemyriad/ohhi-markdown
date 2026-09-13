@@ -1,5 +1,5 @@
 /**
- * @editor/index — the vault's derived index: full text, links, tags,
+ * @ohhi/index — the vault's derived index: full text, links, tags,
  * headings, frontmatter keys. Droppable by construction; never a system of
  * record (parent shaping R7).
  */

@@ -1,0 +1,45 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Tabs can be gathered into named, coloured groups inside a pane's strip. A group's chip folds its tabs away to a single chip with a count and unfolds them again; the tabs behind a fold cost nothing, because a background tab never had an editor to unload.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Right-clicking a chip opens Manage group: rename it as you type, pick one of eight colours, add a new tab inside it, copy its notes as a wikilink list, fold it, close it, ungroup its tabs, or delete it. Delete is the only action that loses anything, and it asks first.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Closing a group is the save: it leaves the strip and waits in a device-local list with each tab's cursor and scroll position, and reopening it — in any pane — puts every note back where you left it. Nothing expires and nothing is deleted on its own.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The strip-end ▾ menu lists the groups open in any pane, ticked, and the ones waiting in the list by recency, with Show all… for the full picture. It can also open a note's outgoing links as a group, or make a group out of the active tab.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A tab's context menu can add it to any group in its pane, start a new group from it, fold that group, leave it, or close it.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "New commands: New group from this tab (Mod+Shift+G), Fold / unfold group (Mod+Shift+E), Close group, Copy group as links and Ungroup tabs — all also on the pane mode's g sub-mode (g then n f x c u), all rebindable in Settings › Hotkeys. The command palette additionally offers every saved group by name.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Dragging a group's chip moves the whole group — its name and colour included — to another pane's strip, onto a pane, or onto a pane edge to split there.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A note's cursor and scroll position are now read from the live editor before a group or pane is closed, so what is tucked away is where you actually were rather than where you were when that tab last lost focus. Reloading after typing restores the same spot.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

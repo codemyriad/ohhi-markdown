@@ -23,7 +23,7 @@ import {
 } from '../src/index.js'
 
 /**
- * A stand-in for @editor/frontmatter's `parseFrontmatter` (A3's contract).
+ * A stand-in for @ohhi/frontmatter's `parseFrontmatter` (A3's contract).
  * Deliberately minimal and deliberately test-only: the engine reads the real
  * parser through the host facet, so a double here is enough to drive the strip.
  */

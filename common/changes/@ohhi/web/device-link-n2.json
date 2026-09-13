@@ -1,0 +1,50 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Link a device: Settings › Sync (and the command palette) creates a link that puts this whole vault on another of your own devices, with the plain warning that it is a full-access key and must never be given to anyone else.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The vault manager gains \"Link this device…\": paste a device link, pick an empty folder (or a fresh browser vault), and the whole vault arrives — with the shared folders that device already held, already connected.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A device being linked shows what is happening: \"Pulling N notes from the relay…\", then \"Writing files into <folder>…\", each with a count — instead of an inert window for the whole wait.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A link that stalls or is refused says so on that panel and offers to try again, rather than leaving the window on \"connecting…\".",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "It says linked, not shared: a vault synced to your own devices reads \"Synced to your devices\", and a note in it \"On your devices\". Sharing stays what you do with other people, folder by folder.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A shared folder that arrived from another of your devices is told apart from one somebody else shared with you, so \"Shared by you\" and \"Shared with you\" are right on every device.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Pasting a folder link into \"Link this device\" is refused with the reason and pointed at \"Add a shared folder here…\", instead of opening someone's folder as a whole vault.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Linking into a folder that already has files in it is refused before anything is written.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The vault manager no longer becomes clickable again while a vault is still arriving.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

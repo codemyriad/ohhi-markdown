@@ -12,7 +12,7 @@
    * This is the keyboard (and pointer) equivalent of dropping a tab between
    * two of a group's tabs, which is what R8 asks of every drag gesture.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { groupOf, paneOfTab, type Tab } from '../panes.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'

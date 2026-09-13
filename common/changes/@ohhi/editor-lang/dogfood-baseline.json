@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor-lang",
+      "comment": "Wikilinks are understood in markdown, added as an extension to the upstream markdown language rather than a fork of its grammar, so it keeps pace with upstream.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor-lang"
+}

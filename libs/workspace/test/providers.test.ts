@@ -17,8 +17,8 @@ import { createServer, type AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { createYjsEngine, type EngineDoc, type SyncEngine } from '@editor/sync'
-import { RealClock, SimClock } from '@editor/testkit'
+import { createYjsEngine, type EngineDoc, type SyncEngine } from '@ohhi/sync'
+import { RealClock, SimClock } from '@ohhi/testkit'
 import { startRelay, type RelayHandle } from '../bench/relay-child.js'
 import {
   connectDoc,

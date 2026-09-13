@@ -12,18 +12,18 @@ importers:
 
   ../../apps/cli:
     dependencies:
-      '@editor/agent':
-        specifier: workspace:*
-        version: link:../../libs/agent
-      '@editor/index':
-        specifier: workspace:*
-        version: link:../../libs/index
-      '@editor/vault':
-        specifier: workspace:*
-        version: link:../../libs/vault
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@4.1.13)
+      '@ohhi/agent':
+        specifier: workspace:*
+        version: link:../../libs/agent
+      '@ohhi/index':
+        specifier: workspace:*
+        version: link:../../libs/index
+      '@ohhi/vault':
+        specifier: workspace:*
+        version: link:../../libs/vault
       zod:
         specifier: ~4.1.13
         version: 4.1.13
@@ -86,39 +86,39 @@ importers:
 
   ../../apps/web:
     dependencies:
-      '@editor/editor':
-        specifier: workspace:*
-        version: link:../../libs/editor
-      '@editor/editor-lang':
-        specifier: workspace:*
-        version: link:../../libs/editor-lang
-      '@editor/frontmatter':
-        specifier: workspace:*
-        version: link:../../libs/frontmatter
-      '@editor/i18n':
-        specifier: workspace:*
-        version: link:../../libs/i18n
-      '@editor/index':
-        specifier: workspace:*
-        version: link:../../libs/index
-      '@editor/sync':
-        specifier: workspace:*
-        version: link:../../libs/sync
-      '@editor/ui':
-        specifier: workspace:*
-        version: link:../../libs/ui
-      '@editor/vault':
-        specifier: workspace:*
-        version: link:../../libs/vault
-      '@editor/workspace':
-        specifier: workspace:*
-        version: link:../../libs/workspace
       '@lucide/svelte':
         specifier: ^1.44.0
         version: 1.44.0(svelte@5.56.3)
       '@melt-ui/svelte':
         specifier: ~0.86.6
         version: 0.86.6(svelte@5.56.3)
+      '@ohhi/editor':
+        specifier: workspace:*
+        version: link:../../libs/editor
+      '@ohhi/editor-lang':
+        specifier: workspace:*
+        version: link:../../libs/editor-lang
+      '@ohhi/frontmatter':
+        specifier: workspace:*
+        version: link:../../libs/frontmatter
+      '@ohhi/i18n':
+        specifier: workspace:*
+        version: link:../../libs/i18n
+      '@ohhi/index':
+        specifier: workspace:*
+        version: link:../../libs/index
+      '@ohhi/sync':
+        specifier: workspace:*
+        version: link:../../libs/sync
+      '@ohhi/ui':
+        specifier: workspace:*
+        version: link:../../libs/ui
+      '@ohhi/vault':
+        specifier: workspace:*
+        version: link:../../libs/vault
+      '@ohhi/workspace':
+        specifier: workspace:*
+        version: link:../../libs/workspace
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.11.0
@@ -144,12 +144,12 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.10.0
         version: 4.13.0(playwright-core@1.60.0)
-      '@editor/testkit':
-        specifier: workspace:*
-        version: link:../../libs/testkit
       '@melt-ui/pp':
         specifier: ~0.3.2
         version: 0.3.2(@melt-ui/svelte@0.86.6(svelte@5.56.3))(svelte@5.56.3)
+      '@ohhi/testkit':
+        specifier: workspace:*
+        version: link:../../libs/testkit
       '@playwright/test':
         specifier: ^1.50.0
         version: 1.60.0
@@ -195,13 +195,13 @@ importers:
 
   ../../libs/agent:
     dependencies:
-      '@editor/index':
+      '@ohhi/index':
         specifier: workspace:*
         version: link:../index
-      '@editor/testkit':
+      '@ohhi/testkit':
         specifier: workspace:*
         version: link:../testkit
-      '@editor/vault':
+      '@ohhi/vault':
         specifier: workspace:*
         version: link:../vault
       zod:
@@ -238,18 +238,18 @@ importers:
       '@codemirror/view':
         specifier: ^6.36.0
         version: 6.43.1
-      '@editor/editor-lang':
-        specifier: workspace:*
-        version: link:../editor-lang
-      '@editor/sync':
-        specifier: workspace:*
-        version: link:../sync
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
       '@lezer/markdown':
         specifier: ^1.4.0
         version: 1.6.4
+      '@ohhi/editor-lang':
+        specifier: workspace:*
+        version: link:../editor-lang
+      '@ohhi/sync':
+        specifier: workspace:*
+        version: link:../sync
       y-codemirror.next:
         specifier: ^0.3.5
         version: 0.3.5(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)(yjs@13.6.31)
@@ -281,9 +281,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.36.0
         version: 6.43.1
-      '@editor/index':
-        specifier: workspace:*
-        version: link:../index
       '@lezer/common':
         specifier: ^1.2.0
         version: 1.5.2
@@ -293,6 +290,9 @@ importers:
       '@lezer/markdown':
         specifier: ^1.4.0
         version: 1.6.4
+      '@ohhi/index':
+        specifier: workspace:*
+        version: link:../index
     devDependencies:
       '@codemirror/lang-markdown':
         specifier: ^6.3.0
@@ -337,7 +337,7 @@ importers:
 
   ../../libs/index:
     dependencies:
-      '@editor/frontmatter':
+      '@ohhi/frontmatter':
         specifier: workspace:*
         version: link:../frontmatter
     devDependencies:
@@ -366,7 +366,7 @@ importers:
 
   ../../libs/testkit:
     dependencies:
-      '@editor/sync':
+      '@ohhi/sync':
         specifier: workspace:*
         version: link:../sync
       fast-check:
@@ -404,12 +404,12 @@ importers:
 
   ../../libs/vault:
     dependencies:
-      '@editor/sync':
-        specifier: workspace:*
-        version: link:../sync
       '@noble/hashes':
         specifier: ^1.5.0
         version: 1.8.0
+      '@ohhi/sync':
+        specifier: workspace:*
+        version: link:../sync
       diff-match-patch:
         specifier: ^1.0.5
         version: 1.0.5
@@ -417,7 +417,7 @@ importers:
         specifier: ^3.1.2
         version: 3.2.1
     devDependencies:
-      '@editor/testkit':
+      '@ohhi/testkit':
         specifier: workspace:*
         version: link:../testkit
       '@types/diff-match-patch':
@@ -438,15 +438,15 @@ importers:
 
   ../../libs/workspace:
     dependencies:
-      '@editor/sync':
-        specifier: workspace:*
-        version: link:../sync
-      '@editor/vault':
-        specifier: workspace:*
-        version: link:../vault
       '@hocuspocus/provider':
         specifier: ^4.0.0
         version: 4.1.2(y-protocols@1.0.7(yjs@13.6.31))(yjs@13.6.31)
+      '@ohhi/sync':
+        specifier: workspace:*
+        version: link:../sync
+      '@ohhi/vault':
+        specifier: workspace:*
+        version: link:../vault
       y-protocols:
         specifier: ^1.0.6
         version: 1.0.7(yjs@13.6.31)
@@ -454,7 +454,7 @@ importers:
         specifier: ^13.6.27
         version: 13.6.31
     devDependencies:
-      '@editor/testkit':
+      '@ohhi/testkit':
         specifier: workspace:*
         version: link:../testkit
       '@types/node':

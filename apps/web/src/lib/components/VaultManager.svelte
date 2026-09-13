@@ -7,7 +7,7 @@
    */
   import { HardDrive, MoreHorizontal } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import MenuItem from '../ui/MenuItem.svelte'

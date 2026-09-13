@@ -22,7 +22,7 @@
  * of writing, so those bytes are either ingested or surfaced for review.
  */
 import DiffMatchPatch from 'diff-match-patch'
-import type { EngineDoc, SyncEngine } from '@editor/sync'
+import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
 import { WriteConflictError } from './types.js'

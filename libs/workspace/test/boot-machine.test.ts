@@ -7,7 +7,7 @@
  * re-enrollment, no false divergence, offline-friendly.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
+import { createYjsEngine } from '@ohhi/sync'
 import {
   BlobDocStore,
   FileJournal,
@@ -20,8 +20,8 @@ import {
   type DivergenceReview,
   type StoreDir,
   type VaultAdapter,
-} from '@editor/vault'
-import { SimClock } from '@editor/testkit'
+} from '@ohhi/vault'
+import { SimClock } from '@ohhi/testkit'
 import { MountSession } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
 import type { SyncRecordFields } from '../src/types.js'

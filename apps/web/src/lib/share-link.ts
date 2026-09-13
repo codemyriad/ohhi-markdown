@@ -28,7 +28,7 @@
  * copy in all three (the i18n rule). `shareLinkErrorText` maps a code to the
  * dictionary for the rendering sites.
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 
 export type ShareKind = 'folder' | 'device'
 

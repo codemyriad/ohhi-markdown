@@ -1,5 +1,5 @@
 /**
- * Paging, carried through from `@editor/index` (contract rule 3: every list
+ * Paging, carried through from `@ohhi/index` (contract rule 3: every list
  * has `{returned, total, nextCursor}`).
  *
  * The slicing and the cursor spelling are the INDEX's — `paginate` there is
@@ -8,7 +8,7 @@
  * kind of opaque string and resume the same way. All this file adds is
  * `returned`, which the contract names and the index's `Page` does not.
  */
-import { paginate as pageOf, type Page } from '@editor/index'
+import { paginate as pageOf, type Page } from '@ohhi/index'
 
 export interface PageResult<T> {
   items: T[]

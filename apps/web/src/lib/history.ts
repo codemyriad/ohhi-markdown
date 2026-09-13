@@ -7,7 +7,7 @@
  * "Now" is a parameter, not a `Date.now()` call: golden rule 5 reaches this
  * far, and "was that today?" is exactly the kind of thing a test must pin.
  */
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 
 /**
  * `14:37` for a version from today, `10 Sep 14:37` for an older one.

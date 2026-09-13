@@ -16,8 +16,8 @@ import {
   NEVER_ON_DISK,
   scopedAdapter,
   type StoreDir,
-} from '@editor/vault'
-import { createYjsEngine, type SyncEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import { createYjsEngine, type SyncEngine } from '@ohhi/sync'
 import { carveFolder } from '../src/carve.js'
 import { joinMount } from '../src/join.js'
 import type { MountSession } from '../src/mount-session.js'

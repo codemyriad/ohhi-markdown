@@ -11,8 +11,8 @@
    */
   import { melt } from '@melt-ui/svelte'
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
-  import { basename } from '@editor/index'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { basename } from '@ohhi/index'
   import { activeTab, panes as panesOf, type Pane, type Tab } from '../panes.js'
   import DropdownMenu, {
     type MenuItemAttrs,

@@ -12,7 +12,7 @@
    * does the same thing (R8).
    */
   import { File } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { LAYER } from '../ui/Dialog.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import GroupDot from './GroupDot.svelte'

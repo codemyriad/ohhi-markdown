@@ -5,7 +5,7 @@
  * without a node the block is actively WRONG on screen: `---` becomes a
  * thematic break, `title: x` under it becomes a setext heading, and
  * `tags: [a b]` becomes a markdown link. So the block gets one leaf node whose
- * contents are opaque — the YAML is read by @editor/frontmatter, never by this
+ * contents are opaque — the YAML is read by @ohhi/frontmatter, never by this
  * grammar (read-shaping.md B4.2, R4.1.1: the block is ordinary text).
  *
  *   ---           FrontmatterMark
@@ -14,9 +14,9 @@
  *
  * A block is recognised ONLY at offset 0, and only when a closing `---`/`...`
  * line follows within FM_MAX_LINES. This grammar is deliberately the NARROWER
- * of the two readers — it refuses shapes @editor/frontmatter accepts (FIRST),
+ * of the two readers — it refuses shapes @ohhi/frontmatter accepts (FIRST),
  * because a false start here costs a note its rendering. What a note HAS is
- * decided by @editor/frontmatter, in preview/build.ts and in libs/index, so
+ * decided by @ohhi/frontmatter, in preview/build.ts and in libs/index, so
  * the strip, search and the CLI still agree with each other.
  */
 import { tags as t } from '@lezer/highlight'
@@ -43,7 +43,7 @@ export const FM_CLOSE = /^(?:-{3}|\.{3})\s*$/
  * A block whose first line is a YAML comment is therefore not a node here,
  * because `# comment` and `# Heading` are the same line and the heading is the
  * one that exists (the vault's 37 frontmatter lines are all `key: value`). It
- * is still a block: @editor/frontmatter reads one, and preview/build.ts draws
+ * is still a block: @ohhi/frontmatter reads one, and preview/build.ts draws
  * the strip from the text when the tree and the text disagree.
  */
 const FIRST = /^[^\s#][^:]*:([ \t]|$)|^(?:-{3}|\.{3})\s*$/

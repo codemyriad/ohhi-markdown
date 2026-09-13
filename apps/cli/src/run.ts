@@ -10,7 +10,7 @@
  *   exit    0 success (empty results included) · 1 runtime/not_found/refused
  *           · 2 usage and vault selection · 3 `--expect-hash` mismatch
  */
-import { ErrorOut, OpError, exitCodeFor, runOp, type OpName } from '@editor/agent'
+import { ErrorOut, OpError, exitCodeFor, runOp, type OpName } from '@ohhi/agent'
 import { openVault } from './backend.js'
 import { parseCommand } from './grammar.js'
 import { Sink, type Io } from './io.js'

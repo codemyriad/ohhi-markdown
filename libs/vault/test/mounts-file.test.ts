@@ -6,7 +6,7 @@ import {
   mountRootsFrom,
   type MountDesc,
 } from '../src/mounts-file.js'
-import type { FileEntry } from '@editor/sync'
+import type { FileEntry } from '@ohhi/sync'
 
 const desc = (over: Partial<MountDesc>): MountDesc => ({
   room: 'room-1',

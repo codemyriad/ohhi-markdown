@@ -1,0 +1,30 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/index",
+      "comment": "Search now puts the note you meant first. A note whose name is what you typed wins over one that merely mentions it a lot, so searching “JSON” finds the note called JSON rather than the longest note containing the word.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/index",
+      "comment": "Pasted links and code blocks no longer outrank prose: a long reading list with forty URLs containing “html” stops burying the note actually called HTML. The text is still there for an exact or regular-expression search.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/index",
+      "comment": "A search of several words prefers notes where those words appear together and in order.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/index",
+      "comment": "Search can explain itself: ask, and each result reports which words earned it its place and how much.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/index",
+      "comment": "Added a literal find over the raw text of every note, for the times you want a term exactly as written — inside a URL, a code block or a snippet of punctuation — rather than ranked.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/index"
+}

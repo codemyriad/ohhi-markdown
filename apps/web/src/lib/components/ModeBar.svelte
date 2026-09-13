@@ -9,7 +9,7 @@
    * rebound key changes both, and a command W2 has not registered yet simply
    * has no row.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
   interface Props {

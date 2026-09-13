@@ -13,7 +13,7 @@
  * one auth outcome is reported.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { MemVaultAdapter } from '@editor/vault'
+import { MemVaultAdapter } from '@ohhi/vault'
 import {
   bootDevice,
   memDir,

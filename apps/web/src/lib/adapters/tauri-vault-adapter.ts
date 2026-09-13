@@ -1,7 +1,7 @@
 /**
  * Tauri VaultAdapter: on-disk vault backend for the desktop shell.
  *
- * Implements the `@editor/vault` VaultAdapter over the Tauri 2 `plugin-fs`
+ * Implements the `@ohhi/vault` VaultAdapter over the Tauri 2 `plugin-fs`
  * (filesystem) and `plugin-dialog` (folder picker) APIs, so the web app can
  * read/write a real markdown vault when running inside the desktop shell.
  *
@@ -25,10 +25,10 @@ import {
   writeFile,
   type UnwatchFn,
 } from '@tauri-apps/plugin-fs'
-import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@editor/vault'
-import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@editor/vault'
+import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@ohhi/vault'
+import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
-/** Shared with every other adapter — see IGNORED_DIRS in @editor/vault. */
+/** Shared with every other adapter — see IGNORED_DIRS in @ohhi/vault. */
 const IGNORED = IGNORED_DIRS
 
 /** Counter for unique temp names within a single ms tick. */

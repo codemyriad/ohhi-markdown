@@ -34,8 +34,8 @@
 import { HocuspocusProvider, HocuspocusProviderWebsocket, WebSocketStatus } from '@hocuspocus/provider'
 import { Awareness } from 'y-protocols/awareness'
 import type * as Y from 'yjs'
-import type { EngineDoc } from '@editor/sync'
-import type { Clock } from '@editor/vault'
+import type { EngineDoc } from '@ohhi/sync'
+import type { Clock } from '@ohhi/vault'
 import type { CollabUser, SyncRecordFields } from './types.js'
 
 /**

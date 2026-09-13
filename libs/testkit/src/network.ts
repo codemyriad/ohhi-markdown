@@ -5,7 +5,7 @@
  * Frames are buffered, never dropped — a partition delays delivery, like a
  * relay holding updates for an offline peer.
  */
-import type { EngineDoc, SyncEngine } from '@editor/sync'
+import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import { type Rng, randInt } from './prng.js'
 
 interface Frame {

@@ -2,13 +2,13 @@
  * Line and section arithmetic — the machinery behind "read the PART of the
  * note you need" (shaping R4).
  *
- * Headings and line offsets come from `@editor/index`, never from a second
+ * Headings and line offsets come from `@ohhi/index`, never from a second
  * scanner (R3): it already knows that a `#` inside a fenced code block is not
  * a heading, and two answers to that question is exactly the drift the
  * one-implementation rule exists to prevent. What is left here is the slicing
  * the contract needs on top of those primitives.
  */
-import { lineAt, lineStartsOf, parseMarkdown } from '@editor/index'
+import { lineAt, lineStartsOf, parseMarkdown } from '@ohhi/index'
 import type { z } from 'zod'
 import type { OutlineEntry } from './contract.js'
 

@@ -3,7 +3,7 @@
  * UI framework: hosts (the web shell, a future Obsidian plugin, a headless
  * peer) inject reactive record objects and consume events.
  */
-import type { DivergenceReview } from '@editor/vault'
+import type { DivergenceReview } from '@ohhi/vault'
 
 /** Presence identity for cursors/awareness (plain twin of the editor's type). */
 export interface CollabUser {

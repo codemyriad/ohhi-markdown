@@ -1,9 +1,9 @@
 /**
- * Wall-clock Clock for the app shell. Inlined (not from @editor/testkit) so
+ * Wall-clock Clock for the app shell. Inlined (not from @ohhi/testkit) so
  * production code never depends on the test kit; libs still get injected
  * clocks per golden rule 5.
  */
-import type { Clock } from '@editor/vault'
+import type { Clock } from '@ohhi/vault'
 
 export const realClock: Clock = {
   now: () => Date.now(),

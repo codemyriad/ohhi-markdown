@@ -1,5 +1,5 @@
 {
-  "name": "@editor/cli",
+  "name": "@ohhi/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,9 +13,9 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@editor/agent": "workspace:*",
-    "@editor/index": "workspace:*",
-    "@editor/vault": "workspace:*",
+    "@ohhi/agent": "workspace:*",
+    "@ohhi/index": "workspace:*",
+    "@ohhi/vault": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "~4.1.13"
   },

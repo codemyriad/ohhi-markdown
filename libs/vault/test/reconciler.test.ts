@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
+import { createYjsEngine } from '@ohhi/sync'
 import { decodeFile, renderFile } from '../src/eol.js'
 import { enrollFolder } from '../src/enrollment.js'
 import { MemVaultAdapter } from '../src/mem-adapter.js'

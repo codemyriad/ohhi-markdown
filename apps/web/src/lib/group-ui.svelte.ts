@@ -12,8 +12,8 @@
  * The components under `components/` render this and nothing else, so there
  * is exactly one place where a group decision is made.
  */
-import { basename } from '@editor/index'
-import { getLL } from '@editor/i18n'
+import { basename } from '@ohhi/index'
+import { getLL } from '@ohhi/i18n'
 import type { Command } from './commands.js'
 import { groupRows, linksOf, type GroupRow } from './groups.js'
 import { groupCommands, type GroupActions } from './pane-commands.js'

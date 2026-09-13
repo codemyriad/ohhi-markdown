@@ -31,7 +31,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
   - **`apps/`** – Application packages.
   - **`libs/`** – Shared libraries.
   - **Rush config** – Lives at the repo root (`rush.json`, `common/config/**`).
-- **Package naming**: `@editor/<name>` (for example `@editor/sync`, `@editor/vault`).
+- **Package naming**: `@ohhi/<name>` (for example `@ohhi/sync`, `@ohhi/vault`).
 
 ### V1 packages (per `plans/shaping.md` D10)
 
@@ -54,8 +54,8 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | `libs/index` | The derived index: full text, links, tags, headings, frontmatter keys | V2b |
 | `libs/editor-lang` | `[[wikilink]]` grammar and decorations on `@codemirror/lang-markdown` | V2c |
 | `libs/i18n` | Dictionaries + typesafe-i18n wiring; `rushx generate` regenerates the typed accessors | V2 |
-| `libs/agent` | `@editor/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
-| `apps/cli` | `@editor/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates `spec/` | G1 |
+| `libs/agent` | `@ohhi/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
+| `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates `spec/` | G1 |
 
 `apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `plans/slices.md`).
 

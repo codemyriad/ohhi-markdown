@@ -1,12 +1,12 @@
 /**
- * The seam onto `@editor/agent`. Vault selection and backend construction are
+ * The seam onto `@ohhi/agent`. Vault selection and backend construction are
  * the ONLY places the CLI touches the core's constructors — everything else
  * goes through `OPS[op].run(backend, input)`.
  *
  * Golden rule 5: the core takes an injected clock; the CLI is the host, so
  * the CLI is where the real one is built.
  */
-import { createFilesBackend, resolveDataDir, resolveVault, type VaultBackend, type VaultSelection } from '@editor/agent'
+import { createFilesBackend, resolveDataDir, resolveVault, type VaultBackend, type VaultSelection } from '@ohhi/agent'
 import { RealClock } from './clock.js'
 import type { Globals } from './grammar.js'
 import type { Io } from './io.js'

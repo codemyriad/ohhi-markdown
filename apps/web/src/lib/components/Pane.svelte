@@ -14,11 +14,11 @@
    * was. Undo survives too, because the `Y.UndoManager` belongs to the doc
    * (the facade owns it), not to the view.
    */
-  import MarkdownEditor from '@editor/editor/src/MarkdownEditor.svelte'
-  import type { MarkdownEditorHandle } from '@editor/editor'
-  import { readHost, toggleTask, wikiLinkHost, type WikiLinkHost } from '@editor/editor-lang'
-  import { parseFrontmatter } from '@editor/frontmatter'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import MarkdownEditor from '@ohhi/editor/src/MarkdownEditor.svelte'
+  import type { MarkdownEditorHandle } from '@ohhi/editor'
+  import { readHost, toggleTask, wikiLinkHost, type WikiLinkHost } from '@ohhi/editor-lang'
+  import { parseFrontmatter } from '@ohhi/frontmatter'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { untrack, type Snippet } from 'svelte'
   import { activeTab, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
   import { openExternal, readLabels } from '../read.svelte.js'

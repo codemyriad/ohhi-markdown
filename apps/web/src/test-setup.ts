@@ -1,8 +1,8 @@
 // Vitest setup: jest-dom matchers (`toBeVisible`, `toHaveAccessibleName`, …)
 // for the component tests. Harmless in node-environment suites.
 import '@testing-library/jest-dom/vitest'
-import { setLocale } from '@editor/i18n/i18n-svelte'
-import { loadLocale } from '@editor/i18n/i18n-util.sync'
+import { setLocale } from '@ohhi/i18n/i18n-svelte'
+import { loadLocale } from '@ohhi/i18n/i18n-util.sync'
 
 // The dictionary, synchronously (Edible's vitest.setup does the same): the
 // pure modules read `getLL()` and the components `$LL`, on node and jsdom

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { Extension } from '@codemirror/state'
-  import type { EngineDoc } from '@editor/sync'
+  import type { EngineDoc } from '@ohhi/sync'
   import type { Awareness } from 'y-protocols/awareness'
-  import type { ViewMode } from '@editor/editor-lang'
+  import type { ViewMode } from '@ohhi/editor-lang'
   import { createMarkdownEditor, type MarkdownEditorHandle } from './markdown-editor.js'
   import type { CollabUndoManager, CollabUser } from './binding.js'
 

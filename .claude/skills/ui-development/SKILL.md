@@ -153,7 +153,7 @@ Storybook is not set up; add it later if needed.
 
 ---
 
-## Strings and i18n — `libs/i18n` (`@editor/i18n`, typesafe-i18n)
+## Strings and i18n — `libs/i18n` (`@ohhi/i18n`, typesafe-i18n)
 
 **No hardcoded user-facing strings.** Every label, heading, placeholder,
 `aria-label`, tooltip, dialog title/body, menu item, refusal reason, toast
@@ -187,7 +187,7 @@ libs/i18n/src/index.ts             re-exports the types + `getLL()`
 
    ```svelte
    <script lang="ts">
-     import { LL } from '@editor/i18n/i18n-svelte'
+     import { LL } from '@ohhi/i18n/i18n-svelte'
      const t = $derived($LL.web.tree)
    </script>
    <h2>{t.files()}</h2>
@@ -196,7 +196,7 @@ libs/i18n/src/index.ts             re-exports the types + `getLL()`
 
    In a module that is not a component (`.ts`, `.svelte.ts` — `tree-model`,
    `pill-status`, `navigation`, the workspace shim), call `getLL()` from
-   `@editor/i18n` at the point of use: `getLL().web.tree.drop.already_there({ name })`.
+   `@ohhi/i18n` at the point of use: `getLL().web.tree.drop.already_there({ name })`.
    It reads the same store, so the module stays a pure function of its
    inputs and unit-tests on node — `apps/web/src/test-setup.ts` does
    `loadLocale('en'); setLocale('en')` first, as Edible's `vitest.setup` does.

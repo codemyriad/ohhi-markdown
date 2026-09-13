@@ -17,7 +17,7 @@ Plans are ground truth. If implementation diverges from a plan, update the plan 
 
 ## Repo layout
 
-Rush monorepo (same conventions as the Edible repo). Packages are created per-slice — `rush.json`'s projects list is the source of truth; V1 creates `apps/web`, `apps/desktop` (Tauri 2), `apps/relay` (Hocuspocus v4), `libs/sync`, `libs/vault`, `libs/editor`, `libs/testkit`. Naming: `@editor/<name>`.
+Rush monorepo (same conventions as the Edible repo). Packages are created per-slice — `rush.json`'s projects list is the source of truth; V1 creates `apps/web`, `apps/desktop` (Tauri 2), `apps/relay` (Hocuspocus v4), `libs/sync`, `libs/vault`, `libs/editor`, `libs/testkit`. Naming: `@ohhi/<name>`.
 
 Packages beyond V1's set, created by their slices: `libs/workspace` (M1),
 `libs/ui` (V2a — design tokens + themes), `libs/index` (V2b — the derived

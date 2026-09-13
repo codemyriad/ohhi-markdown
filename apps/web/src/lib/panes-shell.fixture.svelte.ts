@@ -12,11 +12,11 @@
  * ever reads four things off it.
  */
 import { flushSync } from 'svelte'
-import type { FileRow } from '@editor/workspace'
+import type { FileRow } from '@ohhi/workspace'
 import { CommandRegistry } from './commands.js'
 import type { Workspace } from './workspace.svelte.js'
 import { createPanes, type PaneShell } from './workspace-panes.svelte.js'
-import type { Clock } from '@editor/testkit'
+import type { Clock } from '@ohhi/testkit'
 
 /** Everything the controller reads or writes on the facade, and nothing else. */
 export interface FakeWorkspace {

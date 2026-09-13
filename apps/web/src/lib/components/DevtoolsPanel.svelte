@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Workspace, WorkspaceInspection } from '../workspace.svelte.js'
-  import type { MountStats } from '@editor/workspace'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import type { MountStats } from '@ohhi/workspace'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { pillStatus } from '../pill-status.js'
 
   interface Props {

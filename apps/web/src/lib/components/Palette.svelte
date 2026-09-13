@@ -10,7 +10,7 @@
    * loading state. That absence is the feature (parent R4.1).
    */
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { segments, type Span } from '../highlight.js'
   import Dialog from '../ui/Dialog.svelte'
 

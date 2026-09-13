@@ -9,7 +9,7 @@
    * refuses it too; this is the refusal a person actually sees.
    */
   import { z } from 'zod'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { decodeShareLink, looksLikeShareLink, shareLinkErrorText } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'

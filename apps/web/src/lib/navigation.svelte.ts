@@ -6,8 +6,8 @@
  * shell stays a renderer (the tree-model.ts pattern — the only testable-UI
  * convention this repo has).
  */
-import { getLL } from '@editor/i18n'
-import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@editor/index'
+import { getLL } from '@ohhi/i18n'
+import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@ohhi/index'
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
 import { recentPaths, touchPath } from './recent.js'

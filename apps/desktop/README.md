@@ -1,6 +1,6 @@
-# @editor/desktop
+# @ohhi/desktop
 
-Tauri 2 desktop shell for Editor. It hosts the `@editor/web` frontend in a native
+Tauri 2 desktop shell for Editor. It hosts the `@ohhi/web` frontend in a native
 webview and exposes native filesystem + dialog capabilities (the vault lives on
 disk; see `plans/shaping.md` D6 — Tauri 2 is the V1 tracer client).
 

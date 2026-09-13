@@ -30,7 +30,7 @@
  * `neighbour` takes the rects rather than reading the DOM.
  */
 
-import type { ViewMode } from '@editor/editor'
+import type { ViewMode } from '@ohhi/editor'
 
 export type Dir = 'row' | 'col'
 export type Side = 'left' | 'right' | 'up' | 'down'

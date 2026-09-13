@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "The manage-group popover's description sentence retired with the dialog that carried it.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}
