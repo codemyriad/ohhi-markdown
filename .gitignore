@@ -38,3 +38,6 @@ common/autoinstallers/*/node_modules
 !.vscode/settings.json
 **/.DS_Store
 *.pem
+
+# The relay dev database is runtime state, never source (team-dogfood DEL-73).
+apps/relay/data/
