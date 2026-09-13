@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/web",
+      "comment": "The vault's sync state moved out of the header and down beside the vault's own name, where it says a word — Synced, Syncing, Diverged, Offline — instead of printing the status key.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/web",
+      "comment": "The file navigator's toolbar stays put while the tree scrolls under it, the note you are looking at is revealed in the tree wherever it was opened from, a new folder is revealed and becomes the place the next new note lands, and dragging the navigator's edge far enough to the left closes it — reopening restores the width you had.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/web"
+}

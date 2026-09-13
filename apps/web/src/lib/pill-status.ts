@@ -51,3 +51,16 @@ export function pillLabel(status: PillStatus): string {
 export function pillTitle(status: PillStatus): string {
   return getLL().web.pill.title[status]()
 }
+
+/**
+ * The VAULT rollup's own copy (P3): Title case beside the vault's name, and a
+ * title that says whose state it is. The pill in the navigator answers "what
+ * is this?" on its own — the status key never reaches a person.
+ */
+export function vaultLabel(status: PillStatus): string {
+  return getLL().web.pill.vault[status]()
+}
+
+export function vaultTitle(status: PillStatus): string {
+  return getLL().web.pill.vault_title[status]()
+}

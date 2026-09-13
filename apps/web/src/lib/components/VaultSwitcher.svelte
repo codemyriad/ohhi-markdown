@@ -24,7 +24,7 @@
     <button
       use:melt={t}
       data-testid="vault-switcher"
-      class="flex items-center gap-1 rounded px-2 py-1 text-sm font-semibold hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+      class="flex min-w-0 items-center gap-1 rounded px-2 py-1 text-sm font-semibold hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
     >
       <span class="max-w-48 truncate">{current.name}</span>
       <ChevronDown size={14} aria-hidden="true" class="text-base-content/70" />

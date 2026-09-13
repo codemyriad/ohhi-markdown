@@ -43,6 +43,14 @@
      */
     wordsOf: (path: string) => number
     search: (query: string) => Promise<PickerRow[]>
+    /** The empty tab's *Recent* list: paths this vault opened lately, newest first. */
+    recent: () => string[]
+    /** The empty tab's *New note*: the host creates the file and fills THAT tab with it. */
+    newNote: (tabId: string) => void
+    /** The empty tab's *Open note…*: hand over to the quick-open palette. */
+    openQuick: () => void
+    /** Bindings for those two verbs, shown on the launcher when the host knows them. */
+    bindings?: { newNote: string; openQuick: string }
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]

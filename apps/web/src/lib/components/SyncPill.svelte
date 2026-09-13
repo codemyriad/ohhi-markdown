@@ -5,11 +5,17 @@
     status: PillStatus
     testid: string
     label?: string
+    /**
+     * Overrides the per-doc title for a pill that is about something else —
+     * the vault rollup says "This vault: …" (P3). Still copy about `status`,
+     * still from the dictionary; the pill itself decides nothing.
+     */
+    title?: string
   }
 
-  let { status, testid, label = '' }: Props = $props()
+  let { status, testid, label = '', title = '' }: Props = $props()
 
-  const title = $derived(pillTitle(status))
+  const titleText = $derived(title || pillTitle(status))
 </script>
 
 <!-- Pure rendering of f(syncRecord) — no status logic lives here. -->
@@ -19,7 +25,7 @@
 <span
   data-testid={testid}
   data-status={status}
-  {title}
+  title={titleText}
   class="relative inline-flex shrink-0 items-center gap-1.5"
 >
   <!-- Size, shape AND colour all come from libs/ui's UNLAYERED
@@ -30,5 +36,5 @@
        signal that must never lie. -->
   <span class="ed-sync-dot" aria-hidden="true"></span>
   {#if label}<span class="text-xs text-base-content/70">{label}</span>{/if}
-  <span class="sr-only">{title}</span>
+  <span class="sr-only">{titleText}</span>
 </span>

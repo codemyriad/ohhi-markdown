@@ -294,8 +294,9 @@ tab, and a sync pill that goes **green** when synced with the relay.
 
 These are the real, URL-param-free flows (onboarding-shaping.md, extended by
 dogfood-shaping M2). With no URL params the app shows the **vault manager**: a
-list of your known vaults (open on click, ✕ to forget — files are never
-touched), plus *Open folder as vault…* (desktop), *Create vault* (browser:
+list of your known vaults on the left (open on click; the row's **…** menu
+forgets one, after an inline confirm — files are never touched), and on the
+right *Open folder as vault…* (desktop), *Create vault* (browser:
 a named, OPFS-backed private vault — offered only when the browser supports
 OPFS), and *Join a share*. On relaunch the app reopens your last vault
 automatically — and if that boot fails (moved folder, dead relay), you land
@@ -427,8 +428,8 @@ every peer; a recovery copy lands in the journal first).
 > confirmation. See `plans/spike-s8-mount-lifecycle.md`.
 
 **Resetting a test vault.** To restart a vault with completely fresh shared
-state while keeping every `.md` on disk: manager → **✕** on the vault →
-confirm ("Remove?") → reopen the same folder via *Open folder as vault…*.
+state while keeping every `.md` on disk: manager → the vault row's **…** → *Remove from
+this list* → confirm ("Remove?") → reopen the same folder via *Open folder as vault…*.
 Forgetting a vault deletes its entire durable store namespace (mounts,
 CRDT blobs, LCA records, journal) plus its tokens and remembered share
 links; the reopened folder enrolls fresh under a **new room**, so old share

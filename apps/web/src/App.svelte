@@ -51,7 +51,7 @@
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
-  import { touchPath } from './lib/recent.js'
+  import { recentPaths, touchPath } from './lib/recent.js'
   import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
   import IconButton from './lib/ui/IconButton.svelte'
@@ -92,12 +92,13 @@
     type DailyConfig,
   } from './lib/daily-notes.js'
   import { realClock } from './lib/real-clock.js'
+  import { vaultLabel, vaultTitle } from './lib/pill-status.js'
   import { scopedRollup } from './lib/share-status.js'
   import { unreadCount } from './lib/notices.js'
   import { toast } from './lib/ui/toaster.js'
   import { setDevtools } from './lib/config.js'
   import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
-  import { TREE_WIDTH, toggleFolded } from './lib/layout.js'
+  import { RAIL_SECTIONS, TREE_WIDTH, showOnly, toggleFolded } from './lib/layout.js'
   import { LL } from '@editor/i18n/i18n-svelte'
 
   const url = new URLSearchParams(location.search)
@@ -989,7 +990,12 @@
     treeOp = null
     if (!op || !workspace) return
     if (op.type === 'new-folder') {
-      await workspace.createDir(op.dir ? `${op.dir}/${value}` : value)
+      const path = op.dir ? `${op.dir}/${value}` : value
+      await workspace.createDir(path)
+      // Show what was just made: reveal expands its ancestors, scrolls to it
+      // AND focuses it as the tree's context dir, so the next New note lands
+      // inside the folder the person was clearly working on (P3).
+      revealDir = { path }
     } else if (op.type === 'rename') {
       const parent = op.path.includes('/') ? op.path.slice(0, op.path.lastIndexOf('/')) : ''
       await workspace.renamePath(op.path, parent ? `${parent}/${value}` : value)
@@ -1060,6 +1066,33 @@
             const page = await nav.index.quickOpen(query, { limit: 50 })
             return page.items.map((hit) => ({ path: hit.path, spans: hit.spans }))
           },
+          /**
+           * Recency is filtered against the file list rather than trusted: the
+           * store survives renames and deletes made in another app, and a row
+           * for a note that is gone opens nothing (P5).
+           */
+          recent: () => {
+            if (!workspace) return []
+            const existing = new Set(textPaths(workspace.ui.files))
+            return recentPaths(workspace.room).filter((p) => existing.has(p))
+          },
+          /**
+           * *New note* fills THIS tab (`navigate`), never a new one beside it:
+           * an empty tab is a slot waiting for a note.
+           */
+          newNote: (tabId) => {
+            void (async () => {
+              const created = await workspace?.createFile('')
+              if (!created || !workspace) return
+              panes.navigate(created, tabId)
+              touchPath(workspace.room, created)
+            })()
+          },
+          openQuick: () => nav.open('quick-open'),
+          bindings: {
+            newNote: nav.registry.binding('file.new'),
+            openQuick: nav.registry.binding('nav.quick-open'),
+          },
           resolveLink: (target, from) => nav.resolveLink(target, from),
           createFromLink: (target) => void createFromLink(target),
           linkCandidates: () => textPaths(workspace?.ui.files ?? []),
@@ -1074,6 +1107,23 @@
   )
   /** The group the manage popover is on, or null — it may have been closed. */
   const managed = $derived(groups.manage ? panes.findGroup(groups.manage.groupId) : null)
+  /**
+   * What that popover hangs off (P1.3): its own chip, or — for a group whose
+   * pane is zoomed away — the focused pane's `▾` button, where its list lives.
+   * Null parks the popover near the top rather than dropping the surface.
+   */
+  const manageAnchor = $derived.by(() => {
+    // The REQUEST, not the group: `openManage` mints a new object every time,
+    // so this re-reads the DOM on every open. Keyed on the group it would not,
+    // and re-opening over a chip since rebuilt (a move to another pane) would
+    // hang off a detached node, which measures 0×0 at the viewport corner.
+    const request = groups.manage
+    if (!request) return null
+    // Ids are minted by `nextId`, so they are safe inside the selector string.
+    const at = (testid: string): HTMLElement | null =>
+      document.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
+    return at(`group-chip:${request.groupId}`) ?? at(`tab-more:${panes.layout.focus}`)
+  })
   const confirmingGroup = $derived(groups.confirming ? panes.findGroup(groups.confirming) : null)
   /** Zoom mounts one pane and nothing else — that is the whole memory story. */
   const treeRoot = $derived(
@@ -1101,6 +1151,7 @@
     {failure}
     {busy}
     canGoBack={workspace !== null}
+    currentRoom={workspace?.room ?? null}
     onOpenVault={(entry) => void bootVault(entry)}
     onRemoveVault={removeVaultEntry}
     onOpenFolder={openFolder}
@@ -1159,12 +1210,9 @@
         onclick={() => (treeOpen = !treeOpen)}
       />
       <Breadcrumb path={selectedPath} onReveal={revealInTree} />
+      <!-- The vault rollup moved to the navigator, beside the vault it is
+           about (P3); the header keeps the breadcrumb and the two toggles. -->
       <div class="ml-auto flex min-w-0 items-center gap-3">
-        {#if globalStatus}
-          <SyncPill status={globalStatus} testid="sync-pill-global" label={globalStatus} />
-        {:else}
-          <span data-testid="sync-summary" class="text-xs text-base-content/70">{$LL.web.shell.nothing_shared()}</span>
-        {/if}
         <IconButton
           label={railOpen ? $LL.web.shell.hide_sidebar() : $LL.web.shell.show_sidebar()}
           icon={PanelRight}
@@ -1207,7 +1255,7 @@
               onNotice={(level, text, path) => workspace?.notify({ level, text, path })}
             />
           </div>
-          <div class="flex items-center gap-1 border-t border-base-300 px-2 py-1">
+          <div class="flex min-w-0 items-center gap-1 border-t border-base-300 px-2 py-1">
             <VaultSwitcher
               current={{ room: workspace.room, name: currentVaultName }}
               {vaults}
@@ -1217,6 +1265,23 @@
                 view = 'manager'
               }}
             />
+            <!-- The vault's own rollup, beside the vault's name: a dot and a
+                 word, and a title that says whose state it is (P3). -->
+            {#if globalStatus}
+              <SyncPill
+                status={globalStatus}
+                testid="sync-pill-global"
+                label={vaultLabel(globalStatus)}
+                title={vaultTitle(globalStatus)}
+              />
+            {:else}
+              <span
+                data-testid="sync-summary"
+                class="min-w-0 truncate text-xs text-base-content/70"
+              >
+                {$LL.web.shell.nothing_shared()}
+              </span>
+            {/if}
             <div class="ml-auto">
               <IconButton
                 label={$LL.web.shell.settings_with_binding({ binding: nav.registry.binding('app.settings') })}
@@ -1234,6 +1299,8 @@
             step={TREE_WIDTH.step}
             label={$LL.web.shell.resize_navigator()}
             testid="tree-resize"
+            collapseBelow={TREE_WIDTH.collapseBelow}
+            onCollapse={() => (treeOpen = false)}
             onChange={(px) => (treeWidth = px)}
             onCommit={() => setLayoutPrefs({ treeWidth })}
           />
@@ -1259,6 +1326,8 @@
         folded={railFolded}
         onOpenChange={(o) => (railOpen = o)}
         onFoldChange={(id, f) => (railFolded = toggleFolded(railFolded, id, f))}
+        onShowOnly={(id) => (railFolded = showOnly(RAIL_SECTIONS, id))}
+        onCollapse={() => (railOpen = false)}
       >
         {#snippet children(id)}
           {#if id === 'links'}
@@ -1410,19 +1479,6 @@
       }}
     />
   {/if}
-  {#if deviceLinkOpen}
-    <DeviceLinkDialog
-      vaultName={currentVaultName}
-      room={workspace.room}
-      relayUrl={relayDefault}
-      secret={opSecret}
-      onCreate={createDeviceLink}
-      onClose={() => {
-        deviceLinkOpen = false
-        refreshLists()
-      }}
-    />
-  {/if}
   {#if nav.palette.mode}
     <Palette
       placeholder={nav.meta.placeholder}
@@ -1448,6 +1504,7 @@
         group={managed}
         {panes}
         {groups}
+        anchor={manageAnchor}
         fresh={groups.manage.fresh}
         onDelete={() => groups.askDelete(managed.id)}
         onClose={() => groups.closeManage()}
@@ -1485,6 +1542,22 @@
 {/if}
 
 <Toaster />
+
+<!-- Outside the workspace branch (shell-polish P4): Settings can be opened
+     from the vault manager, and its "Link a device" must not wait for a Back. -->
+{#if deviceLinkOpen && workspace}
+  <DeviceLinkDialog
+    vaultName={currentVaultName}
+    room={workspace.room}
+    relayUrl={relayDefault}
+    secret={opSecret}
+    onCreate={createDeviceLink}
+    onClose={() => {
+      deviceLinkOpen = false
+      refreshLists()
+    }}
+  />
+{/if}
 
 {#if linkDeviceOpen}
   <LinkDeviceDialog

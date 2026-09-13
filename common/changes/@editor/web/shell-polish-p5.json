@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/web",
+      "comment": "An empty tab is a launcher rather than a list: New note (which fills that tab) and Open note… side by side, a search field, and a Recent list that stays folded until you ask for it; typing swaps it for the results.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/web"
+}

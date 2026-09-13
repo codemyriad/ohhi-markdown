@@ -12,6 +12,11 @@
  * immediately after its chip, or anywhere on a folded chip. Landing on a
  * group's leading edge leaves you outside it, which is what makes a group's
  * first tab draggable out at all.
+ *
+ * That rule is SYMMETRIC (shell-polish P1.1): the trailing half of a group's
+ * last visible tab is its tail, mirroring its chip's trailing half as the
+ * head. Without the mirror a one-tab group could not be joined from the right
+ * at all — there was no "between two of its tabs" to aim at.
  */
 
 /** One item as drawn in a strip, in draw order. */
@@ -20,6 +25,8 @@ export type StripSlot =
       kind: 'tab'
       /** This tab's index in `pane.tabs`. */
       index: number
+      /** The group this tab belongs to as the strip draws it, else null. */
+      groupId: string | null
       left: number
       right: number
     }
@@ -88,7 +95,8 @@ export function stripDrop(
   tabCount: number,
   stripLeft: number
 ): StripDrop {
-  for (const slot of slots) {
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i]
     // A folded group is one box; anywhere on it means "put it in there".
     if (slot.kind === 'chip' && slot.folded && x >= slot.left && x <= slot.right) {
       return { at: slot.endIndex, indicatorX: slot.right, groupId: slot.groupId }
@@ -104,9 +112,23 @@ export function stripDrop(
     if (slot.kind === 'chip' && !slot.folded && x <= slot.right) {
       return { at: slot.index, indicatorX: slot.right, groupId: slot.groupId }
     }
+    // …and its mirror at the other end of the run. Past the tab's trailing
+    // edge the next item decides again, so the leading half of whatever
+    // follows stays outside and the boundary stays draggable (P1.1).
+    if (slot.kind === 'tab' && slot.groupId && x <= slot.right && endsGroup(slots, i)) {
+      return { at: slot.index + 1, indicatorX: slot.right, groupId: slot.groupId }
+    }
   }
   const last = slots[slots.length - 1]
   return { at: tabCount, indicatorX: last ? last.right : stripLeft }
+}
+
+/** Is the tab at `i` the last of its group as the strip is drawn right now? */
+function endsGroup(slots: readonly StripSlot[], i: number): boolean {
+  const slot = slots[i]
+  const next = slots[i + 1]
+  if (slot.kind !== 'tab' || !slot.groupId) return false
+  return !next || next.kind === 'chip' || next.groupId !== slot.groupId
 }
 
 /** Measured boxes for a pane's strip items, read off the DOM in draw order. */
@@ -130,7 +152,7 @@ export function slotsFrom(
         right,
       })
     } else {
-      out.push({ kind: 'tab', index, left, right })
+      out.push({ kind: 'tab', index, groupId: el.dataset.slotGroup ?? null, left, right })
     }
   }
   return out

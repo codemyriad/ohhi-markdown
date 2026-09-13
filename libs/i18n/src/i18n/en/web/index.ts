@@ -127,6 +127,11 @@ const tabs = {
     lead: 'Open a note',
     placeholder: 'Type to filter…',
     empty: 'No note matches',
+    new_note: 'New note',
+    open_note: 'Open note…',
+    recent: 'Recent',
+    recent_empty: 'No notes opened here yet',
+    results: 'Results',
   },
   commands: {
     new: 'New tab',
@@ -157,8 +162,8 @@ const groups = {
     tabs: '{count:number} tab{{s}}',
   },
   manage: {
+    /** The popover's accessible name only — P1.3 dropped the title line. */
     title: 'Manage group',
-    description: 'Rename it, recolour it, or put it away — closing a group keeps it in the list.',
     name: 'Group name',
     colour: 'Colour',
     colour_n: 'Colour {n:number}',
@@ -287,6 +292,22 @@ const pill = {
     yellow: 'working — ops or disk flush in flight',
     red: 'diverged — review required',
     offline: 'offline — edits safe locally, nothing reaching the relay',
+  },
+  /**
+   * The vault rollup beside the vault name (P3). Title case and a word, not a
+   * status key: it sits in a row of names, and "green" told nobody anything.
+   */
+  vault: {
+    green: 'Synced',
+    yellow: 'Syncing',
+    red: 'Diverged',
+    offline: 'Offline',
+  },
+  vault_title: {
+    green: 'This vault: synced (relay)',
+    yellow: 'This vault: working — ops or disk flush in flight',
+    red: 'This vault: diverged — review required',
+    offline: 'This vault: offline — edits safe locally, nothing reaching the relay',
   },
 }
 
@@ -505,7 +526,9 @@ const manager = {
   tagline: 'Collaborative markdown over a plain-text vault. Files on disk stay the source of truth.',
   your_name: 'Your name',
   name_placeholder: 'Anonymous',
+  name_hint: 'Shown to people you share with.',
   your_vaults: 'Your vaults',
+  no_vaults: 'No vaults yet. Add a folder, link a device, or join a share to get started.',
   /**
    * A vault entry with a relay: since N2 that means LINKED to your own
    * devices (the legacy whole-vault join reads the same way, and it is).
@@ -514,6 +537,8 @@ const manager = {
   browser_vault: 'browser vault',
   memory_vault: 'memory',
   remove: 'Remove {name:string} from this list',
+  row_menu: 'More actions for {name:string}',
+  remove_item: 'Remove from this list',
   remove_confirm: 'Remove?',
   remove_note_opfs:
     "This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and tokens.",

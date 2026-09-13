@@ -10,6 +10,7 @@
   import { listShares, type RelayShare } from '../relay-admin.js'
   import { mountTone, onlineIn, relayHost, shareStateFor, type MountLike } from '../share-status.js'
   import { decodeShareLink } from '../share-link.js'
+  import { FACT, OUTLINE_BUTTON } from '../ui/styles.js'
 
   interface Props {
     /** The open note, or null. */
@@ -120,6 +121,12 @@
       share.provenance !== 'root'
   )
 
+  /**
+   * The section's verbs. Rule 4 allows one accent per surface and the rail's
+   * is the icon column's pressed state, so nothing here is primary.
+   */
+  const verb = `${OUTLINE_BUTTON} px-2 py-1 text-base-content/80`
+
   $effect(() => {
     void revision
     const s = share
@@ -148,32 +155,32 @@
 <div data-testid="note-section" class="flex flex-col gap-3 px-3 py-2 text-xs text-base-content/80">
   {#if !path}
     <p class="text-base-content/70">{t.no_note()}</p>
-    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.vault()}</dt>
+    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+      <dt class={FACT}>{t.vault()}</dt>
       <dd class="truncate">{vaultName}</dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
+      <dt class={FACT}>{t.sharing()}</dt>
       <dd data-testid="share-state">
         {#if rootLinked}{t.synced_to_devices()}{:else if sharedMountCount > 0}
           {t.shared_folders({ count: sharedMountCount })}
         {:else}{t.local_nothing_shared()}{/if}
       </dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.online()}</dt>
+      <dt class={FACT}>{t.online()}</dt>
       <dd data-testid="presence">
         {#if presenceAll.length === 0}{t.only_you()}{:else}{presenceAll.join(', ')}{/if}
       </dd>
     </dl>
   {:else}
-    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.folder()}</dt>
+    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+      <dt class={FACT}>{t.folder()}</dt>
       <dd class="truncate font-ed-mono">{dir || t.vault_root()}</dd>
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.sharing()}</dt>
+      <dt class={FACT}>{t.sharing()}</dt>
       <dd data-testid="share-state">{shareLine}</dd>
       {#if share.kind === 'shared' && connected}
-        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.online_here()}</dt>
+        <dt class={FACT}>{t.online_here()}</dt>
         <dd data-testid="presence">
           {#if online.length === 0}{t.only_you()}{:else}{online.join(', ')}{/if}
         </dd>
-        <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.access()}</dt>
+        <dt class={FACT}>{t.access()}</dt>
         <dd data-testid="share-access">
           {#if !ownShare && share.provenance !== 'root'}
             {t.access_joined()}
@@ -212,7 +219,7 @@
           type="button"
           data-testid="note-add-link"
           onclick={() => onAddLink(share.mountPath)}
-          class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          class={verb}
         >
           {mnt.add_link()}
         </button>
@@ -222,7 +229,7 @@
           type="button"
           data-testid="note-manage-sharing"
           onclick={() => onManage(share.mountPath)}
-          class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          class={verb}
         >
           {ownShare ? t.manage_sharing() : t.details()}
         </button>
@@ -232,7 +239,7 @@
           type="button"
           data-testid="note-share-folder"
           onclick={() => onShareFolder(dir)}
-          class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          class={verb}
         >
           {t.share_folder()}
         </button>
@@ -242,7 +249,7 @@
           type="button"
           data-testid="note-add-share"
           onclick={() => onAddShare(dir)}
-          class="rounded border border-base-300 px-2 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          class={verb}
         >
           {t.add_share_here()}
         </button>

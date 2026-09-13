@@ -644,6 +644,35 @@ export function openPath(
   })
 }
 
+/**
+ * Open `path` at a SPOT rather than beside the active tab — what a file-tree
+ * row dropped on a strip lands as (shell-polish P1.2). `index` is an insertion
+ * index in the target strip as it looks now (the end when absent) and
+ * `groupId` overrides the group that spot implies, exactly as `moveTab`'s do,
+ * so the drag hit test feeds both ops the same answer.
+ *
+ * R3 holds: a tab for `path` already in that pane is MOVED to the spot rather
+ * than twinned — dropping a note that is already open is a rearrangement.
+ */
+export function openPathAt(
+  l: Layout,
+  path: string,
+  at: { paneId: string; index?: number; groupId?: string | null },
+  ids: () => string = nextId,
+  now = Date.now()
+): Layout {
+  return editLayout(l, (d) => {
+    const p = findPane(d, at.paneId)
+    if (!p) return
+    const index = at.index ?? p.tabs.length
+    const dup = p.tabs.find((t) => t.path === path)
+    const t = dup ?? newTab(ids, path)
+    if (dup) reorderIn(p, t, index, at.groupId)
+    else placeTabAt(p, t, index, at.groupId)
+    activateIn(d, p, t.id, now)
+  })
+}
+
 export function activate(l: Layout, paneId: string, tabId: string, now = Date.now()): Layout {
   return editLayout(l, (d) => {
     const p = findPane(d, paneId)

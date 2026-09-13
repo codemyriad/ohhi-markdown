@@ -117,6 +117,9 @@ describe('TabStrip', () => {
     expect(open.map((s) => s.kind)).toEqual(['tab', 'chip', 'tab', 'tab', 'tab'])
     expect(open[1]).toMatchObject({ kind: 'chip', index: 1, endIndex: 3, groupId: id, folded: false })
     expect(open.filter((s) => s.kind === 'tab').map((s) => s.index)).toEqual([0, 1, 2, 3])
+    // A tab says which group it is in, which is what lets the hit test find
+    // the END of a run and treat its trailing half as the group's tail (P1.1).
+    expect(open.filter((s) => s.kind === 'tab').map((s) => s.groupId)).toEqual([null, id, id, null])
 
     cleanup()
     panes.toggleGroup(id)

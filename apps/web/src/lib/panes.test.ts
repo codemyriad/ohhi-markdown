@@ -21,6 +21,7 @@ import {
   neighbour,
   normalize,
   openPath,
+  openPathAt,
   panes,
   parentOf,
   prune,
@@ -55,9 +56,6 @@ import {
   strip,
   tabIdFor,
   trailOf,
-  BOTTOM_LEFT,
-  DAILIES,
-  RIGHT,
   TOP,
 } from './panes.fixture.js'
 
@@ -301,6 +299,54 @@ describe('openPath (Fork 1-B: every open is a tab)', () => {
     l = openPath(l, 'b.md', { background: true }, gen)
     expect(activeTab(paneAt(l, 0))?.path).toBe('a.md')
     expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+  })
+})
+
+describe('openPathAt (a file-tree row dropped on a strip — P1.2)', () => {
+  it('lands at the spot the hit test named, and takes focus there', () => {
+    let { l, gen } = strip('a.md', 'b.md')
+    const p = paneAt(l, 0)
+    l = openPathAt(l, 'c.md', { paneId: p.id, index: 1 }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'c.md', 'a.md', 'b.md'])
+    expect(activeTab(paneAt(l, 0))?.path).toBe('c.md')
+    expect(l.focus).toBe(p.id)
+  })
+
+  it('appends when the drop was past the last slot', () => {
+    let { l, gen } = strip('a.md')
+    l = openPathAt(l, 'c.md', { paneId: paneAt(l, 0).id }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'c.md'])
+  })
+
+  it('joins the group the spot names — the tail rule, applied (P1.1)', () => {
+    let { l, gen } = strip('a.md', 'b.md')
+    const b = tabIdFor(paneAt(l, 0), 'b.md')
+    l = { ...l, tree: withGroup(paneAt(l, 0), 'cluster', [b]) }
+    const p = paneAt(l, 0)
+    // Right after the group's only tab, with its id forced: inside it.
+    l = openPathAt(l, 'c.md', { paneId: p.id, index: 3, groupId: 'g-cluster' }, gen)
+    const after = paneAt(l, 0)
+    expect(pathsOf(after)).toEqual([null, 'a.md', 'b.md', 'c.md'])
+    expect(groupOf(after, tabIdFor(after, 'c.md'))?.name).toBe('cluster')
+  })
+
+  it('moves the tab that is already there rather than twinning it (R3)', () => {
+    let { l, gen } = strip('a.md', 'b.md')
+    const p = paneAt(l, 0)
+    const held = tabIdFor(p, 'b.md')
+    l = openPathAt(l, 'b.md', { paneId: p.id, index: 1 }, gen)
+    const after = paneAt(l, 0)
+    expect(pathsOf(after)).toEqual([null, 'b.md', 'a.md'])
+    // The SAME tab, so its cursor and its trail came with it.
+    expect(tabIdFor(after, 'b.md')).toBe(held)
+  })
+
+  it('does nothing for a pane that is not there', () => {
+    const { l, gen } = strip('a.md')
+    expect(pathsOf(paneAt(openPathAt(l, 'c.md', { paneId: 'gone' }, gen), 0))).toEqual([
+      null,
+      'a.md',
+    ])
   })
 })
 

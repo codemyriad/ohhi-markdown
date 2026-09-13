@@ -403,6 +403,26 @@ export type NamespaceWebTranslation = {
 			 * N​o​ ​n​o​t​e​ ​m​a​t​c​h​e​s
 			 */
 			empty: string
+			/**
+			 * N​e​w​ ​n​o​t​e
+			 */
+			new_note: string
+			/**
+			 * O​p​e​n​ ​n​o​t​e​…
+			 */
+			open_note: string
+			/**
+			 * R​e​c​e​n​t
+			 */
+			recent: string
+			/**
+			 * N​o​ ​n​o​t​e​s​ ​o​p​e​n​e​d​ ​h​e​r​e​ ​y​e​t
+			 */
+			recent_empty: string
+			/**
+			 * R​e​s​u​l​t​s
+			 */
+			results: string
 		}
 		commands: {
 			/**
@@ -481,10 +501,6 @@ export type NamespaceWebTranslation = {
 			 * M​a​n​a​g​e​ ​g​r​o​u​p
 			 */
 			title: string
-			/**
-			 * R​e​n​a​m​e​ ​i​t​,​ ​r​e​c​o​l​o​u​r​ ​i​t​,​ ​o​r​ ​p​u​t​ ​i​t​ ​a​w​a​y​ ​—​ ​c​l​o​s​i​n​g​ ​a​ ​g​r​o​u​p​ ​k​e​e​p​s​ ​i​t​ ​i​n​ ​t​h​e​ ​l​i​s​t​.
-			 */
-			description: string
 			/**
 			 * G​r​o​u​p​ ​n​a​m​e
 			 */
@@ -847,6 +863,42 @@ export type NamespaceWebTranslation = {
 			red: string
 			/**
 			 * o​f​f​l​i​n​e​ ​—​ ​e​d​i​t​s​ ​s​a​f​e​ ​l​o​c​a​l​l​y​,​ ​n​o​t​h​i​n​g​ ​r​e​a​c​h​i​n​g​ ​t​h​e​ ​r​e​l​a​y
+			 */
+			offline: string
+		}
+		vault: {
+			/**
+			 * S​y​n​c​e​d
+			 */
+			green: string
+			/**
+			 * S​y​n​c​i​n​g
+			 */
+			yellow: string
+			/**
+			 * D​i​v​e​r​g​e​d
+			 */
+			red: string
+			/**
+			 * O​f​f​l​i​n​e
+			 */
+			offline: string
+		}
+		vault_title: {
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​:​ ​s​y​n​c​e​d​ ​(​r​e​l​a​y​)
+			 */
+			green: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​:​ ​w​o​r​k​i​n​g​ ​—​ ​o​p​s​ ​o​r​ ​d​i​s​k​ ​f​l​u​s​h​ ​i​n​ ​f​l​i​g​h​t
+			 */
+			yellow: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​:​ ​d​i​v​e​r​g​e​d​ ​—​ ​r​e​v​i​e​w​ ​r​e​q​u​i​r​e​d
+			 */
+			red: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​:​ ​o​f​f​l​i​n​e​ ​—​ ​e​d​i​t​s​ ​s​a​f​e​ ​l​o​c​a​l​l​y​,​ ​n​o​t​h​i​n​g​ ​r​e​a​c​h​i​n​g​ ​t​h​e​ ​r​e​l​a​y
 			 */
 			offline: string
 		}
@@ -1535,9 +1587,17 @@ export type NamespaceWebTranslation = {
 		 */
 		name_placeholder: string
 		/**
+		 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​.
+		 */
+		name_hint: string
+		/**
 		 * Y​o​u​r​ ​v​a​u​l​t​s
 		 */
 		your_vaults: string
+		/**
+		 * N​o​ ​v​a​u​l​t​s​ ​y​e​t​.​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​,​ ​l​i​n​k​ ​a​ ​d​e​v​i​c​e​,​ ​o​r​ ​j​o​i​n​ ​a​ ​s​h​a​r​e​ ​t​o​ ​g​e​t​ ​s​t​a​r​t​e​d​.
+		 */
+		no_vaults: string
 		/**
 		 * l​i​n​k​e​d
 		 */
@@ -1555,6 +1615,15 @@ export type NamespaceWebTranslation = {
 		 * @param {string} name
 		 */
 		remove: RequiredParams<'name'>
+		/**
+		 * M​o​r​e​ ​a​c​t​i​o​n​s​ ​f​o​r​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		row_menu: RequiredParams<'name'>
+		/**
+		 * R​e​m​o​v​e​ ​f​r​o​m​ ​t​h​i​s​ ​l​i​s​t
+		 */
+		remove_item: string
 		/**
 		 * R​e​m​o​v​e​?
 		 */
@@ -3026,6 +3095,26 @@ export type TranslationFunctions = {
 				 * No note matches
 				 */
 				empty: () => LocalizedString
+				/**
+				 * New note
+				 */
+				new_note: () => LocalizedString
+				/**
+				 * Open note…
+				 */
+				open_note: () => LocalizedString
+				/**
+				 * Recent
+				 */
+				recent: () => LocalizedString
+				/**
+				 * No notes opened here yet
+				 */
+				recent_empty: () => LocalizedString
+				/**
+				 * Results
+				 */
+				results: () => LocalizedString
 			}
 			commands: {
 				/**
@@ -3102,10 +3191,6 @@ export type TranslationFunctions = {
 				 * Manage group
 				 */
 				title: () => LocalizedString
-				/**
-				 * Rename it, recolour it, or put it away — closing a group keeps it in the list.
-				 */
-				description: () => LocalizedString
 				/**
 				 * Group name
 				 */
@@ -3456,6 +3541,42 @@ export type TranslationFunctions = {
 				red: () => LocalizedString
 				/**
 				 * offline — edits safe locally, nothing reaching the relay
+				 */
+				offline: () => LocalizedString
+			}
+			vault: {
+				/**
+				 * Synced
+				 */
+				green: () => LocalizedString
+				/**
+				 * Syncing
+				 */
+				yellow: () => LocalizedString
+				/**
+				 * Diverged
+				 */
+				red: () => LocalizedString
+				/**
+				 * Offline
+				 */
+				offline: () => LocalizedString
+			}
+			vault_title: {
+				/**
+				 * This vault: synced (relay)
+				 */
+				green: () => LocalizedString
+				/**
+				 * This vault: working — ops or disk flush in flight
+				 */
+				yellow: () => LocalizedString
+				/**
+				 * This vault: diverged — review required
+				 */
+				red: () => LocalizedString
+				/**
+				 * This vault: offline — edits safe locally, nothing reaching the relay
 				 */
 				offline: () => LocalizedString
 			}
@@ -4110,9 +4231,17 @@ export type TranslationFunctions = {
 			 */
 			name_placeholder: () => LocalizedString
 			/**
+			 * Shown to people you share with.
+			 */
+			name_hint: () => LocalizedString
+			/**
 			 * Your vaults
 			 */
 			your_vaults: () => LocalizedString
+			/**
+			 * No vaults yet. Add a folder, link a device, or join a share to get started.
+			 */
+			no_vaults: () => LocalizedString
 			/**
 			 * linked
 			 */
@@ -4129,6 +4258,14 @@ export type TranslationFunctions = {
 			 * Remove {name} from this list
 			 */
 			remove: (arg: { name: string }) => LocalizedString
+			/**
+			 * More actions for {name}
+			 */
+			row_menu: (arg: { name: string }) => LocalizedString
+			/**
+			 * Remove from this list
+			 */
+			remove_item: () => LocalizedString
 			/**
 			 * Remove?
 			 */

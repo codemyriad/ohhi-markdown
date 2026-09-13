@@ -11,6 +11,7 @@
    */
   import type { Snippet } from 'svelte'
   import { LL } from '@editor/i18n/i18n-svelte'
+  import { segments, type Span } from '../highlight.js'
   import Dialog from '../ui/Dialog.svelte'
 
   export interface PaletteRow {
@@ -18,12 +19,12 @@
     id: string
     title: string
     /** Highlight ranges into `title`. */
-    spans?: { from: number; to: number }[]
+    spans?: Span[]
     subtitle?: string
     /** Right-aligned hint: a key binding, a match count. */
     hint?: string
     /** Extra lines under the row (search snippets). */
-    detail?: { text: string; spans: { from: number; to: number }[] }[]
+    detail?: { text: string; spans: Span[] }[]
     /** Character offset to land the caret on when this row is picked. */
     offset?: number
   }
@@ -93,24 +94,6 @@
     }
   }
 
-  /** Split `text` into alternating plain/highlighted segments. */
-  function segments(
-    text: string,
-    spans: { from: number; to: number }[] = []
-  ): { text: string; hit: boolean }[] {
-    if (spans.length === 0) return [{ text, hit: false }]
-    const out: { text: string; hit: boolean }[] = []
-    let at = 0
-    for (const span of spans) {
-      const from = Math.max(0, Math.min(span.from, text.length))
-      const to = Math.max(from, Math.min(span.to, text.length))
-      if (from > at) out.push({ text: text.slice(at, from), hit: false })
-      if (to > from) out.push({ text: text.slice(from, to), hit: true })
-      at = to
-    }
-    if (at < text.length) out.push({ text: text.slice(at), hit: false })
-    return out
-  }
 </script>
 
 <Dialog

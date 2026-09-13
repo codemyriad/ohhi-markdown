@@ -34,8 +34,8 @@
         <li data-testid="notice:{n.id}" data-level={n.level} class="flex items-start gap-2 px-3 py-2">
           <Icon size={14} aria-hidden="true" class="mt-0.5 shrink-0 {TONE[n.level]}" />
           <div class="min-w-0 flex-1">
-            <p class="text-wrap break-words">{n.text}</p>
-            <p class="mt-0.5 flex items-center gap-2 text-[10px] text-base-content/70">
+            <p class="text-wrap break-words leading-5">{n.text}</p>
+            <p class="mt-1 flex items-center gap-2 text-[11px] text-base-content/70">
               <time datetime={new Date(n.at).toISOString()}>{formatTime(n.at)}</time>
               {#if n.path}
                 <button
@@ -57,7 +57,7 @@
         type="button"
         data-testid="activity-clear"
         onclick={onClear}
-        class="rounded px-2 py-0.5 text-[10px] text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+        class="rounded px-2 py-0.5 text-[11px] text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
       >
         {t.clear()}
       </button>
@@ -71,6 +71,6 @@
       onchange={(e) => onDevtools(e.currentTarget.checked)}
     />
     {t.devtools()}
-    <span class="text-[10px] text-base-content/70">{t.devtools_hint()}</span>
+    <span class="text-[11px] text-base-content/70">{t.devtools_hint()}</span>
   </label>
 </div>

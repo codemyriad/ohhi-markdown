@@ -15,13 +15,38 @@ export interface LayoutPrefs {
   railFolded: string[]
 }
 
-export const TREE_WIDTH = { min: 192, max: 640, default: 288, step: 16 } as const
+/**
+ * `collapseBelow` is the drag-to-hide threshold, deliberately BELOW `min`:
+ * dragging the navigator past the point where it stops being usable means
+ * "close it", and the handle ends the gesture there (P3).
+ */
+export const TREE_WIDTH = { min: 192, max: 640, default: 288, step: 16, collapseBelow: 120 } as const
+
+/**
+ * The rail's sections, in the order the shell stacks them. They live here
+ * rather than in the component because the fold set is a layout preference:
+ * the default has to name the sections that start shut, and `RailSectionId`
+ * is what stops it naming one the shell does not render — or missing one.
+ */
+export const RAIL_SECTIONS = ['links', 'note', 'activity', 'history'] as const
+export type RailSectionId = (typeof RAIL_SECTIONS)[number]
+
+/**
+ * The folded list that leaves `id` — and nothing else — open (P2). A rail icon
+ * shows ITS section, so "show only" is the rail's whole fold model;
+ * `toggleFolded` stays for the headers, which open a deliberate second one.
+ */
+export function showOnly(sections: readonly string[], id: string): string[] {
+  return sections.filter((s) => s !== id)
+}
 
 export const LAYOUT_DEFAULTS: LayoutPrefs = {
   treeOpen: true,
   treeWidth: TREE_WIDTH.default,
   railOpen: true,
-  railFolded: [],
+  // One section on a fresh install, not four stacked (P2): Links is the one
+  // that is worth having open with no note in focus, so the rest start folded.
+  railFolded: showOnly(RAIL_SECTIONS, 'links'),
 }
 
 export function clampTreeWidth(px: unknown): number {
@@ -36,9 +61,14 @@ export function normalizeLayout(raw: unknown): LayoutPrefs {
     treeOpen: typeof r.treeOpen === 'boolean' ? r.treeOpen : LAYOUT_DEFAULTS.treeOpen,
     treeWidth: clampTreeWidth(r.treeWidth),
     railOpen: typeof r.railOpen === 'boolean' ? r.railOpen : LAYOUT_DEFAULTS.railOpen,
-    railFolded: Array.isArray(r.railFolded)
-      ? r.railFolded.filter((s): s is string => typeof s === 'string')
-      : [],
+    // An EMPTY list reads as unset, not as "every section open": it was the
+    // pre-P2 default, i.e. the wall of sections P2 exists to lose, and never
+    // something a person chose one fold at a time. Guessing wrong costs one
+    // icon click; keeping it costs the redesign every existing profile.
+    railFolded:
+      Array.isArray(r.railFolded) && r.railFolded.length > 0
+        ? r.railFolded.filter((s): s is string => typeof s === 'string')
+        : [...LAYOUT_DEFAULTS.railFolded],
   }
 }
 

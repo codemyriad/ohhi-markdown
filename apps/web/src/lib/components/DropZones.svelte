@@ -63,25 +63,33 @@
       ></div>
     {/if}
 
-    <div
-      data-testid="drag-ghost"
-      class="absolute flex translate-x-3.5 translate-y-3.5 items-center gap-1.5 rounded-md border border-base-300 bg-base-100 px-3 py-1.5 text-xs font-medium text-base-content shadow-xl"
-      style="left: {drag.x}px; top: {drag.y}px"
-    >
-      {#if drag.payload.color}
-        <GroupDot color={drag.payload.color} />
-      {:else}
-        <File size={13} />
-      {/if}
-      {drag.payload.label}
-      {#if drag.payload.tabIds.length > 1}
-        <span class="text-base-content/70">{drag.payload.tabIds.length}</span>
-      {/if}
-      {#if promise}
-        <span data-testid="drag-promise" class="border-l border-base-300 pl-1.5 text-base-content/70">
-          {promise}
-        </span>
-      {/if}
-    </div>
+    <!-- A native drag already has a ghost: the browser's own drag image of
+         the tree row. Drawing a second one beside it would be two answers to
+         "what am I holding" (P1.2). -->
+    {#if !drag.payload.external}
+      <div
+        data-testid="drag-ghost"
+        class="absolute flex translate-x-3.5 translate-y-3.5 items-center gap-1.5 rounded-md border border-base-300 bg-base-100 px-3 py-1.5 text-xs font-medium text-base-content shadow-xl"
+        style="left: {drag.x}px; top: {drag.y}px"
+      >
+        {#if drag.payload.color}
+          <GroupDot color={drag.payload.color} />
+        {:else}
+          <File size={13} />
+        {/if}
+        {drag.payload.label}
+        {#if drag.payload.tabIds.length > 1}
+          <span class="text-base-content/70">{drag.payload.tabIds.length}</span>
+        {/if}
+        {#if promise}
+          <span
+            data-testid="drag-promise"
+            class="border-l border-base-300 pl-1.5 text-base-content/70"
+          >
+            {promise}
+          </span>
+        {/if}
+      </div>
+    {/if}
   </div>
 {/if}

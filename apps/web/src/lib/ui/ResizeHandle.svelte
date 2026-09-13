@@ -33,6 +33,13 @@
     inline?: boolean
     /** Value units per pixel of pointer travel; 1 for a pixel-valued handle. */
     perPixel?: number
+    /**
+     * Drag the panel narrower than this (UNCLAMPED — `min` is a floor for
+     * resizing, not for the gesture) and it is a "hide it", not a resize.
+     */
+    collapseBelow?: number
+    /** Fired once when a drag crosses `collapseBelow`; the gesture then ends. */
+    onCollapse?: () => void
     onChange: (next: number) => void
     onCommit?: () => void
     testid?: string
@@ -48,6 +55,8 @@
     orientation = 'vertical',
     inline = false,
     perPixel = 1,
+    collapseBelow,
+    onCollapse,
     onChange,
     onCommit,
     testid,
@@ -72,6 +81,17 @@
   function move(e: PointerEvent): void {
     if (!dragging) return
     const next = startValue + (along(e) - start) * perPixel
+    if (collapseBelow !== undefined && next < collapseBelow) {
+      // Past the threshold the gesture leaves no width behind: the value goes
+      // back where the drag started and the panel closes, so reopening
+      // restores the panel you had rather than the sliver you dragged
+      // through. The keyboard never lands here (`key` clamps to `min`).
+      dragging = false
+      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+      onChange(startValue)
+      onCollapse?.()
+      return
+    }
     onChange(clamp(perPixel === 1 ? Math.round(next) : next))
   }
 

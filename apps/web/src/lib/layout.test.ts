@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { LAYOUT_DEFAULTS, TREE_WIDTH, clampTreeWidth, normalizeLayout, toggleFolded } from './layout.js'
+import {
+  LAYOUT_DEFAULTS,
+  RAIL_SECTIONS,
+  TREE_WIDTH,
+  clampTreeWidth,
+  normalizeLayout,
+  showOnly,
+  toggleFolded,
+} from './layout.js'
 
 describe('layout prefs', () => {
   it('clamps the navigator width into its range and defaults garbage', () => {
@@ -26,5 +34,28 @@ describe('layout prefs', () => {
     expect(toggleFolded([], 'links', true)).toEqual(['links'])
     expect(toggleFolded(['links'], 'links', true)).toEqual(['links'])
     expect(toggleFolded(['links', 'note'], 'links', false)).toEqual(['note'])
+  })
+
+  it('folds everything but the section asked for', () => {
+    // The rail icon's whole job: this one, and nothing else (P2).
+    expect(showOnly(RAIL_SECTIONS, 'note')).toEqual(['links', 'activity', 'history'])
+    // Asking for the section that is already the only open one changes
+    // nothing — which is why the rail collapses on that click instead.
+    expect(showOnly(RAIL_SECTIONS, 'links')).toEqual(LAYOUT_DEFAULTS.railFolded)
+    // An id that is not a section folds them all rather than throwing.
+    expect(showOnly(RAIL_SECTIONS, 'nope')).toEqual([...RAIL_SECTIONS])
+    expect(showOnly([], 'links')).toEqual([])
+  })
+
+  it('opens exactly one section on a fresh install', () => {
+    // A fresh device shows Links alone; the stack of four was the jumble.
+    expect(LAYOUT_DEFAULTS.railFolded).toEqual(['note', 'activity', 'history'])
+    expect(RAIL_SECTIONS.filter((id) => !LAYOUT_DEFAULTS.railFolded.includes(id))).toEqual(['links'])
+    // Corrupt config falls back to that default, and never to a shared array.
+    // The pre-P2 default (`[]`, every section open) migrates to the new one.
+    expect(normalizeLayout({ railFolded: [] }).railFolded).toEqual(LAYOUT_DEFAULTS.railFolded)
+    const fallback = normalizeLayout({ railFolded: 'all' }).railFolded
+    expect(fallback).toEqual(LAYOUT_DEFAULTS.railFolded)
+    expect(fallback).not.toBe(LAYOUT_DEFAULTS.railFolded)
   })
 })

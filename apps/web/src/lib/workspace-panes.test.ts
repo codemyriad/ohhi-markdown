@@ -20,7 +20,7 @@ import { fakeWorkspace, withPanes, type FakeWorkspace, type PanesHarness } from 
 import { setDefaultMode } from './read.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
 import { loadLayout, loadSavedGroups } from './workspace-layout.js'
-import type { PaneShell } from './workspace-panes.svelte.js'
+import { keyboardClaimed, type PaneShell } from './workspace-panes.svelte.js'
 
 const VAULT = 'room-a'
 const FILES = ['a.md', 'b.md', 'c.md', 'd.md']
@@ -488,5 +488,118 @@ describe('a drag can be called off (Minor 9)', () => {
     window.dispatchEvent(new MouseEvent('pointerup', { clientX: 200, clientY: 200 }))
     harness.flush()
     expect(pathsIn()).toEqual(before)
+  })
+})
+
+/**
+ * The bridge from the file tree (P1.2). The tree is an HTML5 drag source and
+ * the strip is a pointer-drag surface; the controller is where the two meet,
+ * so this is the seam that has to be tested — the pure half is
+ * `stripDrop`/`openPathAt`, and the components only forward events.
+ */
+describe('a note dragged in from the file tree (P1.2)', () => {
+  /** A pane element the hit test can find, with a strip of a known height. */
+  function stubPaneUnderPointer(paneId: string): void {
+    const el = document.createElement('section')
+    el.dataset.paneId = paneId
+    const strip = document.createElement('div')
+    strip.setAttribute('data-strip', '')
+    el.append(strip)
+    document.body.append(el)
+    const rect = { top: 0, bottom: 30, left: 0, right: 400, width: 400, height: 30, x: 0, y: 0 }
+    strip.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect }) as DOMRect
+    document.elementFromPoint = () => strip
+  }
+
+  it('hovers with an external payload and opens the path where it was let go', () => {
+    boot()
+    openAll(['a.md'])
+    stubPaneUnderPointer(pane().id)
+
+    panes.hoverExternal(200, 10)
+    harness.flush()
+    // No tabs and no source pane: a row is a path, readable only on `drop`.
+    expect(panes.drag?.payload.external).toBe(true)
+    expect(panes.drag?.payload.tabIds).toEqual([])
+    expect(panes.drag?.target?.kind).toBe('strip')
+
+    panes.dropExternal('c.md')
+    harness.flush()
+    expect(panes.drag).toBeNull()
+    expect(pathsIn()).toEqual(['a.md', 'c.md'])
+    expect(ws.ui.selectedPath).toBe('c.md')
+  })
+
+  it('refuses to overwrite a live pointer drag', () => {
+    boot()
+    openAll(['a.md', 'b.md'])
+    stubPaneUnderPointer(pane().id)
+    const tab = pane().tabs[0]
+
+    // A tab drag is in flight (past the threshold, so `drag` is set)…
+    const down = new MouseEvent('pointerdown', { button: 0, clientX: 10, clientY: 10 })
+    panes.beginDrag(down as unknown as PointerEvent, {
+      tabIds: [tab.id],
+      fromPaneId: pane().id,
+      groupId: null,
+      label: 'a',
+      color: null,
+    })
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 200, clientY: 10 }))
+    harness.flush()
+    expect(panes.drag?.payload.tabIds).toEqual([tab.id])
+
+    // …and a stray native hover must not take the session from under it.
+    panes.hoverExternal(200, 10)
+    harness.flush()
+    expect(panes.drag?.payload.external).toBeUndefined()
+    expect(panes.drag?.payload.tabIds).toEqual([tab.id])
+    window.dispatchEvent(new MouseEvent('pointerup', { clientX: 200, clientY: 10 }))
+  })
+
+  it('leaving the pane drops the indicator without opening anything', () => {
+    boot()
+    openAll(['a.md'])
+    stubPaneUnderPointer(pane().id)
+    const before = pathsIn()
+
+    panes.hoverExternal(200, 10)
+    harness.flush()
+    panes.leaveExternal()
+    harness.flush()
+    expect(panes.drag).toBeNull()
+
+    // A drop that follows a leave has no target left to apply.
+    panes.dropExternal('c.md')
+    harness.flush()
+    expect(pathsIn()).toEqual(before)
+  })
+})
+
+/**
+ * The keyboard guard (M4), extended by shell-polish P1.3: the manage popover
+ * is anchored and NON-modal, so it carries no `aria-modal` — and a pane mode
+ * entered behind it would act on the very tabs its verbs are about.
+ */
+describe('keyboardClaimed', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('counts an open popover as claimed, the way it counts a modal', () => {
+    expect(keyboardClaimed(document)).toBe(false)
+
+    const modal = document.createElement('div')
+    modal.setAttribute('aria-modal', 'true')
+    document.body.append(modal)
+    expect(keyboardClaimed(document)).toBe(true)
+    modal.remove()
+
+    // Melt's own mark on the popover surface — the one thing every popover in
+    // the shell carries, whatever it renders inside.
+    const popover = document.createElement('div')
+    popover.setAttribute('data-melt-popover-content', '')
+    document.body.append(popover)
+    expect(keyboardClaimed(document)).toBe(true)
   })
 })

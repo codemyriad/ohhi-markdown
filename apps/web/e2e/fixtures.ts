@@ -111,6 +111,53 @@ export const paneContent = (page: Page): Locator =>
 export const paneScroller = (page: Page): Locator =>
   page.locator('[data-testid="editor-pane"] .cm-scroller')
 
+/**
+ * A NATIVE (HTML5) drag from a file-tree row to a point (P1.2).
+ *
+ * Not `dragTo`: the tree is a `draggable` element, so Chromium starts a real
+ * drag session instead of dispatching pointer moves — and it only begins
+ * dispatching `dragover` from the *second* move on, which is why the first
+ * one is a short nudge off the row.
+ */
+export async function dragRowTo(page: Page, from: Locator, x: number, y: number): Promise<void> {
+  const box = (await from.boundingBox())!
+  const startX = box.x + box.width / 2
+  const startY = box.y + box.height / 2
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.mouse.move(startX + 12, startY + 12)
+  await page.mouse.move(x, y, { steps: 12 })
+  await page.mouse.move(x, y)
+  await page.mouse.up()
+}
+
+/** A note through the affordance a person has: the tree's own New note. */
+export async function newNote(page: Page, n: number): Promise<string> {
+  await page.getByTestId('file-tree').click({ button: 'right' })
+  await page.getByTestId('tree-menu:new-file').click()
+  const path = `untitled-${n}.md`
+  await expect(page.getByTestId(`file-item:${path}`)).toBeVisible()
+  return path
+}
+
+/**
+ * A BROWSER (OPFS) vault, made the way the manager offers one. The memory
+ * contract the specs boot registers no vault at all, so anything that needs a
+ * vault the manager can LIST has to make one first. Assumes the manager is
+ * already on screen.
+ */
+export async function createBrowserVault(page: Page, name: string): Promise<void> {
+  await page.getByTestId('new-vault-name').fill(name)
+  await page.getByTestId('create-vault').click()
+  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
+}
+
+/** Back into the manager the way a person gets there: the vault switcher. */
+export async function openManager(page: Page): Promise<void> {
+  await page.getByTestId('vault-switcher').click()
+  await page.getByTestId('manage-vaults').click()
+}
+
 export const panes = (page: Page): Locator => page.locator('[data-pane-id]')
 export const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')
 export const chips = (page: Page): Locator => page.locator('[data-testid^="group-chip:"]')

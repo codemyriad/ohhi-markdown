@@ -19,10 +19,8 @@
  */
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { openApp, seedReadNote, tabNamed } from './fixtures.js'
+import { RELAY, createBrowserVault, openApp, openManager, seedReadNote, tabNamed } from './fixtures.js'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
-
-const RELAY = 'ws://localhost:8799'
 
 async function expectAccessible(page: Page, surface: string): Promise<void> {
   const results = await new AxeBuilder({ page })
@@ -41,7 +39,21 @@ async function expectAccessible(page: Page, surface: string): Promise<void> {
 test('the vault manager is accessible', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('open-folder').or(page.getByTestId('create-vault'))).toBeVisible()
-  await expectAccessible(page, 'vault manager')
+  await expectAccessible(page, 'vault manager (empty)')
+
+  // The two columns with a vault in them (shell-polish P4).
+  await createBrowserVault(page, 'A11y')
+  await openManager(page)
+  await expect(page.locator('[data-testid^="open-vault:"]')).toHaveCount(1)
+  await expectAccessible(page, 'vault manager (two columns)')
+
+  // The row's menu, and the inline confirm it arms.
+  await page.locator('[data-testid^="vault-more:"]').click()
+  await expect(page.locator('[data-testid^="vault-menu:"]')).toBeVisible()
+  await expectAccessible(page, 'vault row menu')
+  await page.locator('[data-testid^="remove-vault:"]').click()
+  await expect(page.locator('[data-testid^="remove-note:"]')).toBeVisible()
+  await expectAccessible(page, 'vault remove confirm')
 })
 
 test('the workspace with a note open is accessible', async ({ page }) => {
@@ -78,7 +90,8 @@ test('the tab-group chrome is accessible', async ({ page }) => {
   await page.getByTestId('file-item:notes/ideas.md').click()
 
   // The manage popover: a text field, a radiogroup of eight swatches and the
-  // verb list, all inside one dialog.
+  // verb list, in an anchored, NON-modal `role="dialog"` (P1.3) — so the page
+  // behind it is scanned at the same time, trigger anchor included.
   await page.locator('[data-slot-kind="tab"]').first().click({ button: 'right' })
   await page.getByTestId('tab-menu:new-group').click()
   await expect(page.getByTestId('group-manage')).toBeVisible()
@@ -168,6 +181,10 @@ test('a strip of nothing but folded groups is accessible', async ({ page }) => {
  */
 test('the History rail section and its restore confirm are accessible', async ({ page }) => {
   await openApp(page, 'a11y-history')
+  // A fresh install opens Links alone (P2); the icon shows History instead,
+  // which also puts the expanded rail's pressed toggles under axe.
+  await page.getByTestId('rail-icon:history').click()
+  await expectAccessible(page, 'expanded rail')
   await page.getByTestId('file-item:notes/welcome.md').click()
   const editor = page.locator('[data-testid="editor-pane"] .cm-content')
   await expect(editor).toContainText('Welcome to Editor')

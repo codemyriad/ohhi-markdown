@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick, untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
   import { ChevronsDownUp, FilePlus, FolderPlus, KeyRound, ListFilter, Users } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
@@ -121,15 +122,42 @@
     for (const d of dirPaths(files)) collapsed.add(d)
   }
 
+  /** Expand every folder on the way to `path` (the path itself included, if it is one). */
+  function expandAncestors(path: string): void {
+    const segments = path.split('/')
+    for (let i = 1; i <= segments.length; i++) collapsed.delete(segments.slice(0, i).join('/'))
+  }
+
+  /**
+   * Scroll a row into view AFTER Svelte has flushed: the ancestors just
+   * expanded — and a row just created — are not in the DOM until it has.
+   */
+  function scrollToRow(testid: string): void {
+    void tick().then(() => {
+      host
+        ?.querySelector<HTMLElement>(`[data-testid="${CSS.escape(testid)}"]`)
+        ?.scrollIntoView({ block: 'nearest' })
+    })
+  }
+
   $effect(() => {
     if (!reveal) return
     const path = reveal.path
-    const segments = path.split('/')
-    for (let i = 1; i <= segments.length; i++) collapsed.delete(segments.slice(0, i).join('/'))
+    expandAncestors(path)
     contextDir = path
-    host
-      ?.querySelector<HTMLElement>(`[data-testid="dir-item:${CSS.escape(path)}"]`)
-      ?.scrollIntoView({ block: 'nearest' })
+    scrollToRow(`dir-item:${path}`)
+  })
+
+  /**
+   * Reveal the active file — Obsidian's behaviour, and the reason a note
+   * opened from anywhere (the palette, a link, a new note made in a folded
+   * folder) is visible in the tree rather than hidden somewhere in it.
+   */
+  $effect(() => {
+    const path = selected
+    if (!path) return
+    untrack(() => expandAncestors(containingDir(path, 'text')))
+    scrollToRow(`file-item:${path}`)
   })
 
   // ---- context menu ----
@@ -270,13 +298,22 @@
   /** Mount roots: undraggable, for the same reason Move… is disabled on them. */
   const rootPaths = $derived(mountRoots(mounts))
 
-  function dragStart(e: DragEvent, path: string): void {
+  function dragStart(e: DragEvent, path: string, openable: boolean): void {
     dragging = path
     dropped = false
     e.dataTransfer?.setData('text/plain', path)
+    // The discriminator a pane reads during `dragover`, where only the TYPES
+    // are visible (P1.2). Notes only: a folder or a binary has no doc to open,
+    // so its tab would sit there under its name showing the empty launcher.
+    if (openable) e.dataTransfer?.setData('application/x-editor-path', path)
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   }
 
+  /**
+   * Only a refusing tree row sets `refusal`, and leaving the tree clears it
+   * (`treeLeave`) — so a row dropped on a pane (P1.2) ends quietly: "Not
+   * moved" would be a lie about a move that did happen, elsewhere.
+   */
   function dragEnd(): void {
     if (!dropped && refusal) onNotice('warn', t.not_moved({ reason: refusal.reason }), dragging ?? undefined)
     dragging = null
@@ -334,10 +371,11 @@
   bind:this={host}
   data-testid="file-tree"
   aria-label={t.files()}
-  class="flex h-full flex-col overflow-y-auto"
+  class="flex h-full min-h-0 flex-col"
   ondragleave={treeLeave}
 >
-  <div class="flex items-center gap-0.5 border-b border-base-300 px-2 py-1">
+  <!-- The toolbar stays put: the TREE scrolls, not the nav (P3). -->
+  <div class="flex shrink-0 items-center gap-0.5 border-b border-base-300 bg-base-100 px-2 py-1">
     <h2 class="mr-auto pl-1 text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.files()}</h2>
     <IconButton
       label={targetDir ? t.new_note_in({ dir: targetDir }) : t.new_note()}
@@ -412,7 +450,7 @@
           onclick={() => clickDir(node)}
           oncontextmenu={(e) => openMenu(e, target)}
           onkeydown={(e) => rowKey(e, target)}
-          ondragstart={(e) => dragStart(e, node.path)}
+          ondragstart={(e) => dragStart(e, node.path, false)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, node.path)}
           ondrop={(e) => drop(e, node.path)}
@@ -507,7 +545,7 @@
           onclick={(e) => clickFile(node.path, e)}
           oncontextmenu={(e) => openMenu(e, target)}
           onkeydown={(e) => rowKey(e, target)}
-          ondragstart={(e) => dragStart(e, node.path)}
+          ondragstart={(e) => dragStart(e, node.path, true)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, containingDir(node.path, 'text'))}
           ondrop={(e) => drop(e, containingDir(node.path, 'text'))}
@@ -535,7 +573,7 @@
           draggable="true"
           oncontextmenu={(e) => openMenu(e, target)}
           onkeydown={(e) => rowKey(e, target)}
-          ondragstart={(e) => dragStart(e, node.path)}
+          ondragstart={(e) => dragStart(e, node.path, false)}
           ondragend={dragEnd}
           ondragover={(e) => dragOver(e, containingDir(node.path, 'binary'))}
           ondrop={(e) => drop(e, containingDir(node.path, 'binary'))}
@@ -564,7 +602,9 @@
     oncontextmenu={(e) => openMenu(e, { kind: 'root' })}
     ondragover={(e) => dragOver(e, '')}
     ondrop={(e) => drop(e, '')}
-    class="flex-1 py-1 {dropDir === '' ? 'inset-ring-2 inset-ring-primary' : ''}"
+    class="min-h-0 flex-1 overflow-y-auto py-1 {dropDir === ''
+      ? 'inset-ring-2 inset-ring-primary'
+      : ''}"
   >
     {#each tree as node (node.path)}
       {@render nodeView(node, 0)}
