@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/editor-lang",
+      "comment": "Tag, highlight and frontmatter grammar; the active-region reveal engine with checkbox, bullet, rule, embed, fence, frontmatter-strip and reading-table widgets; plain click on a rendered link navigates; toggleTask and # completion.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/editor-lang"
+}

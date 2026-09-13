@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/frontmatter",
+      "comment": "New package: reads the values of a note's frontmatter block and patches one key at a time without touching any other byte; refuses blocks it cannot round-trip.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/frontmatter"
+}
