@@ -1,19 +1,18 @@
 /**
  * OPFS StoreDir: durable-store namespace under `stores/<sub>/` in the
  * Origin-Private File System (spike S8 layout; separate from the `vaults/`
- * content tree). Browser storage is best-effort durable — creation requests
- * `navigator.storage.persist()` once (denial is non-fatal; the relay remains
- * the browser's real backstop, spike S8 Risks).
+ * content tree). Browser storage is best-effort durable — creation joins the
+ * page's one persistence check-then-ask (`ensurePersistence`); a denial is
+ * non-fatal here and surfaced by the UI (storage-persistence.ts).
  *
  * Handle traversal mirrors opfs-vault-adapter.ts (module-local there); a
  * successful `close()` commits the whole file — this store is the only
  * writer, so no temp+rename dance is needed (same rationale as the adapter).
  */
 import type { StoreDir, StoreIo } from '@editor/vault'
+import { ensurePersistence } from '../storage-persistence.js'
 
 const STORES_DIR = 'stores'
-
-let persistRequested = false
 
 function isNotFound(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'NotFoundError'
@@ -103,10 +102,7 @@ export class OpfsStoreDir implements StoreDir {
  * StoreDir. `sub` is the vault namespace (the root mount's room GUID).
  */
 export async function createOpfsStoreDir(sub: string): Promise<OpfsStoreDir> {
-  if (!persistRequested) {
-    persistRequested = true
-    void navigator.storage.persist?.().catch(() => {})
-  }
+  void ensurePersistence() // never rejects; a no-op after the first call
   const opfsRoot = await navigator.storage.getDirectory()
   const stores = await opfsRoot.getDirectoryHandle(STORES_DIR, { create: true })
   const dir = await stores.getDirectoryHandle(sub, { create: true })

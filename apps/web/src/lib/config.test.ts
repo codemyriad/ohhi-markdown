@@ -1,8 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addShare,
   DEFAULT_RELAY,
   defaultRelay,
+  FALLBACK_RELAY,
+  resolveDefaultRelay,
+  setStorageNoticeDismissed,
+  storageNoticeDismissed,
   deriveVaultName,
   lastVault,
   listVaults,
@@ -51,7 +55,9 @@ describe('v1 → v2 migration', () => {
     const cfg = loadConfig()
     expect(cfg.vaults).toEqual([])
     expect(cfg.lastRoom).toBeNull()
-    expect(cfg.defaultRelay).toBe(DEFAULT_RELAY)
+    // The relay is NOT pinned: '' follows whatever default the running build has.
+    expect(cfg.defaultRelay).toBe('')
+    expect(defaultRelay()).toBe(DEFAULT_RELAY)
     // Persisted: a later corrupted v1 key must not resurrect anything.
     seed('editor:lastSession', { vault: { kind: 'opfs', id: 'x' }, room: 'ghost' })
     expect(listVaults()).toEqual([])
@@ -145,6 +151,16 @@ describe('settings + shares', () => {
     expect(defaultRelay()).toBe(DEFAULT_RELAY)
   })
 
+  it('the storage note’s dismissal is remembered per device', () => {
+    expect(storageNoticeDismissed()).toBe(false)
+    setStorageNoticeDismissed(true)
+    expect(storageNoticeDismissed()).toBe(true)
+    const stored = JSON.parse(store.getItem('editor:config')!)
+    expect(stored.storageNoticeDismissed).toBe(true)
+    setStorageNoticeDismissed(false) // Settings › "Remind me about this"
+    expect(storageNoticeDismissed()).toBe(false)
+  })
+
   it('shares dedupe by room and forget works', () => {
     addShare({ link: 'editor1:a', room: 'r', label: 'one' })
     addShare({ link: 'editor1:b', room: 'r', label: 'two' })
@@ -185,6 +201,69 @@ describe('reading preferences (read-shaping B3)', () => {
   it('a stored mode that is not a mode reads as the default, never as a crash', () => {
     seed('editor:config', { ...loadConfig(), read: { defaultMode: 'preview' } })
     expect(readPrefs().defaultMode).toBe('live')
+  })
+})
+
+describe('the build’s default relay (VITE_DEFAULT_RELAY)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  /** config.ts as a build made with `VITE_DEFAULT_RELAY=value` loads it. */
+  async function build(value: string): Promise<typeof import('./config.js')> {
+    vi.stubEnv('VITE_DEFAULT_RELAY', value)
+    vi.resetModules()
+    return import('./config.js')
+  }
+
+  it('takes a ws(s):// URL from the build, else falls back to local dev', () => {
+    expect(resolveDefaultRelay(undefined)).toBe(FALLBACK_RELAY)
+    expect(resolveDefaultRelay('')).toBe(FALLBACK_RELAY)
+    expect(resolveDefaultRelay('wss://relay.example.test')).toBe('wss://relay.example.test')
+    expect(resolveDefaultRelay('  ws://10.0.0.2:8787  ')).toBe('ws://10.0.0.2:8787')
+    // Malformed values are ignored, never shipped.
+    expect(resolveDefaultRelay('https://relay.example.test')).toBe(FALLBACK_RELAY)
+    expect(resolveDefaultRelay('wss://')).toBe(FALLBACK_RELAY)
+    expect(resolveDefaultRelay('wss://relay example')).toBe(FALLBACK_RELAY)
+    // The test build sets none.
+    expect(DEFAULT_RELAY).toBe(FALLBACK_RELAY)
+  })
+
+  it('a fresh install follows the build’s default — and the next build’s', async () => {
+    const a = await build('wss://relay-a.example')
+    expect(a.defaultRelay()).toBe('wss://relay-a.example')
+    expect(a.loadConfig().defaultRelay).toBe('') // nothing pinned at creation
+    const b = await build('wss://relay-b.example')
+    expect(b.defaultRelay()).toBe('wss://relay-b.example')
+  })
+
+  it('a relay the user saved is never overridden by a rebuild', async () => {
+    const a = await build('wss://relay-a.example')
+    a.setDefaultRelay('ws://mine:9000')
+    const b = await build('wss://relay-b.example')
+    expect(b.defaultRelay()).toBe('ws://mine:9000')
+    b.setDefaultRelay('   ') // cleared: follow the build again
+    expect(b.defaultRelay()).toBe('wss://relay-b.example')
+  })
+
+  it('a value stored by an older build is kept as it is (not migrated)', async () => {
+    seed('editor:config', {
+      version: 2,
+      vaults: [],
+      lastRoom: null,
+      defaultRelay: 'ws://localhost:8787', // what pre-VITE_DEFAULT_RELAY builds pinned
+      operatorSecret: '',
+      shares: [],
+    })
+    const b = await build('wss://relay-b.example')
+    expect(b.defaultRelay()).toBe('ws://localhost:8787')
+  })
+
+  it('a malformed build value falls back rather than shipping', async () => {
+    const c = await build('relay.example.com')
+    expect(c.DEFAULT_RELAY).toBe(FALLBACK_RELAY)
+    expect(c.defaultRelay()).toBe(FALLBACK_RELAY)
   })
 })
 

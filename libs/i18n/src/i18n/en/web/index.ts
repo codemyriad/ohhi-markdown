@@ -582,6 +582,34 @@ const vault_switcher = {
   manage: 'Manage vaults…',
 }
 
+/**
+ * Browser storage the browser may clear unless it promised to keep it. Chrome
+ * and Edge refuse silently and often — never the user's fault — so the copy
+ * stays calm.
+ */
+const storage = {
+  title: "This browser may clear this site's storage",
+  body: "Browsers can delete a site's storage to free up space, and this browser hasn't promised not to. Notes that aren't in a shared folder exist only here.",
+  advice: 'For your own notes, use the desktop app. The browser is best for joining team folders.',
+  ask: 'Ask the browser to keep it',
+  refused:
+    "The browser said no. That's its own call, often based on how much you use the site — bookmarking or installing it can help. You can ask again any time.",
+  granted: "Done — this browser has promised to keep this site's storage.",
+  dismiss: 'Dismiss',
+  /** The one reminder a workspace shows, when the app reopens straight into a browser vault. */
+  notice:
+    "This browser may clear this site's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Vaults & shares can ask the browser again or turn this reminder off.",
+  settings: {
+    heading: 'Storage in this browser',
+    checking: 'Checking…',
+    kept: "Kept — this browser has promised not to clear this site's storage.",
+    best_effort: "Not guaranteed — this browser may clear this site's storage to free up space.",
+    unsupported: "Not guaranteed — this browser can't be asked to keep this site's storage.",
+    usage: 'Using {used:string} of the {quota:string} this browser allows.',
+    remind: 'Remind me about this',
+  },
+}
+
 const settings = {
   title: 'Settings',
   sections: 'Settings sections',
@@ -976,6 +1004,7 @@ const web = {
   note,
   manager,
   vault_switcher,
+  storage,
   settings,
   share,
   mounts,

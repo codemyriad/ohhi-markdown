@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/desktop",
+      "comment": "The desktop app is now called Oh hi markdown (\"ohhi\" in the Applications folder and as the Linux package). It keeps its data in a new place, so an install from an earlier build starts with fresh sync state — your note files are untouched.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/desktop",
+      "comment": "The desktop app enforces a strict content security policy: notes that arrive from shared folders cannot run scripts, load remote images or frames, or submit forms, and the app only talks to other machines over encrypted connections (plain connections are allowed to this computer, for a local relay).",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/desktop",
+      "comment": "Linux (AppImage and .deb) and macOS builds are produced automatically as a draft release with checksums; macOS builds are not notarized yet, and the install notes explain how to open them.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/desktop"
+}

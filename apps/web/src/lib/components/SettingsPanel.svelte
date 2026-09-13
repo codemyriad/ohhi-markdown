@@ -7,12 +7,21 @@
    */
   import { TriangleAlert } from '@lucide/svelte'
   import { z } from 'zod'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL, locale } from '@editor/i18n/i18n-svelte'
+  import { isTauri } from '../platform.js'
+  import { formatBytes, notGuaranteed } from '../storage-persistence.js'
+  import {
+    askToKeepStorage,
+    refreshStorageUsage,
+    setStorageReminder,
+    storageState,
+  } from '../storage.svelte.js'
   import {
     DEFAULT_RELAY,
     defaultRelay,
     devtoolsEnabled,
     hotkeys,
+    isRelayUrl,
     listVaults,
     loadShares,
     loadUser,
@@ -84,16 +93,28 @@
   )
 
   // ---- Sync ----
+  // The relay as the form showed it: saving stores the relay only when the
+  // user changed it, so saving just the secret never pins this build's
+  // default (config.ts, `AppConfigV2.defaultRelay`).
+  let shownRelay = defaultRelay()
+  function persistSync({ relay, secret }: { relay: string; secret: string }): void {
+    if (relay.trim() !== shownRelay) {
+      setDefaultRelay(relay)
+      shownRelay = defaultRelay()
+    }
+    setOperatorSecret(secret)
+  }
+
   const sync = createForm(
     z.object({
       relay: z
         .string()
         .trim()
         .min(1, $LL.web.settings.sync.relay_required())
-        .refine((u) => /^wss?:\/\/\S+$/.test(u), $LL.web.settings.sync.relay_invalid()),
+        .refine(isRelayUrl, $LL.web.settings.sync.relay_invalid()),
       secret: z.string(),
     }),
-    { relay: defaultRelay(), secret: operatorSecret() }
+    { relay: shownRelay, secret: operatorSecret() }
   )
 
   /**
@@ -107,10 +128,7 @@
     await general.submit(({ name }) => saveUser(name))
   }
   async function saveSync(): Promise<void> {
-    await sync.submit(({ relay, secret }) => {
-      setDefaultRelay(relay)
-      setOperatorSecret(secret)
-    })
+    await sync.submit(persistSync)
   }
 
   // ---- Appearance ----
@@ -248,6 +266,21 @@
     vaults = listVaults()
   }
 
+  // Browser storage (storage-persistence.ts): browser only — the desktop app
+  // keeps real files.
+  const inBrowser = !isTauri()
+  const st = $derived($LL.web.storage)
+  const storageStatus = $derived(
+    {
+      unknown: st.settings.checking,
+      persisted: st.settings.kept,
+      'best-effort': st.settings.best_effort,
+      unsupported: st.settings.unsupported,
+    }[storageState.state]()
+  )
+  const storageAtRisk = $derived(notGuaranteed(storageState.state))
+  if (inBrowser) void refreshStorageUsage()
+
   // ---- Developer ----
   let devtools = $state(devtoolsEnabled())
 
@@ -277,10 +310,7 @@
       }
     }
     if (sync.dirty) {
-      const ok = await sync.submit(({ relay, secret }) => {
-        setDefaultRelay(relay)
-        setOperatorSecret(secret)
-      })
+      const ok = await sync.submit(persistSync)
       if (!ok) {
         tab = 'sync'
         return false
@@ -662,6 +692,50 @@
               </ul>
             {/if}
           </section>
+          {#if inBrowser}
+            <!-- The status is a live region: an ask made here changes it in place. -->
+            <section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-storage">
+              <h3 class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">
+                {st.settings.heading()}
+              </h3>
+              <div role="status" class="mt-1">
+                <p class="text-sm text-base-content/80" data-testid="settings-storage-status">{storageStatus}</p>
+                {#if storageState.refused && storageAtRisk}
+                  <p class="mt-1 text-xs text-base-content/70">{st.refused()}</p>
+                {/if}
+              </div>
+              {#if storageState.usage}
+                <p class="mt-1 text-xs text-base-content/70" data-testid="settings-storage-usage">
+                  {st.settings.usage({
+                    used: formatBytes(storageState.usage.usage, $locale),
+                    quota: formatBytes(storageState.usage.quota, $locale),
+                  })}
+                </p>
+              {/if}
+              {#if storageAtRisk}
+                <p class="mt-1 text-xs text-base-content/70">{st.advice()}</p>
+                {#if storageState.state === 'best-effort'}
+                  <button
+                    type="button"
+                    data-testid="settings-storage-keep"
+                    onclick={() => void askToKeepStorage()}
+                    class="mt-2 rounded border border-base-300 px-3 py-1.5 text-xs font-medium text-base-content/80 hover:bg-base-200"
+                  >
+                    {st.ask()}
+                  </button>
+                {/if}
+                <label class="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    data-testid="settings-storage-remind"
+                    checked={!storageState.dismissed}
+                    onchange={(e) => setStorageReminder(e.currentTarget.checked)}
+                  />
+                  <span class="text-sm text-base-content/80">{st.settings.remind()}</span>
+                </label>
+              {/if}
+            </section>
+          {/if}
         {:else if id === 'developer'}
           <label class="flex items-center gap-2">
             <input

@@ -1,0 +1,13 @@
+# Template: one instance per vault, named by `systemd-escape --path <vault>`
+# (%f turns the instance name back into the vault's path). Installed into
+# ~/.config/systemd/user/ by `vault-snapshot.sh install`, which fills in the
+# @…@ placeholders.
+[Unit]
+Description=Snapshot Oh hi markdown vault %f into its local history
+
+[Service]
+Type=oneshot
+Environment="VAULT_SNAPSHOT_HOME=@DATA@"
+ExecStart="@SCRIPT@" snapshot "%f"
+Nice=10
+IOSchedulingClass=idle

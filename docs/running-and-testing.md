@@ -378,6 +378,22 @@ returns to the manager, and **⚙** opens Settings (display name, default relay,
 relay operator secret for the upcoming in-app share minting, remembered
 shares/vaults).
 
+**The default relay is set at build time.** `VITE_DEFAULT_RELAY=wss://… rushx
+build` (or a git-ignored `apps/web/.env.local`, see `apps/web/.env.example`)
+sets the relay a fresh install proposes for new shares; unset or malformed →
+`ws://localhost:8787`. A relay saved in Settings › Sync always wins; an install
+that never saved one follows each new build's default.
+
+**Browser storage.** A browser vault lives in storage the browser may clear
+unless it has promised to keep it. At launch the web app checks
+`navigator.storage.persisted()` and, if false, asks once with `persist()`.
+While the answer is no, the manager shows a dismissible note with *Ask the
+browser to keep it*, a workspace reopened straight into a browser vault gets
+one notice per session, and Settings › Vaults & shares shows the status,
+usage and the reminder switch. None of this runs in the desktop app. To see
+the note in Chromium, use a fresh profile (a well-used site may already hold
+the grant).
+
 **File tree (M3).** The sidebar is a real nested tree: folders collapse
 (click a focused folder to toggle), and empty folders are first-class — they
 enroll, sync, and materialize on peers like files (`mkdir` is part of the
@@ -560,7 +576,7 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 |---|---|
 | Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager** (and "connecting…" has a Cancel). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
 | Boot error mentioning **"relay rejected this token"** | The token isn't a valid share on the relay. Check `SEED_SHARE`, or list shares: `cd apps/relay && node --experimental-strip-types src/cli.ts share-list`. |
-| Need to reset a vault's durable sync state | The per-vault stores (doc blobs, LCA, journal, `mounts.json`) live at `~/.local/share/dev.chris.editor/stores/<room>` (desktop) or OPFS `stores/<room>` (browser). Deleting a vault's store dir forces a fresh enroll (local vault) or a clean rejoin (shared vault) on next launch — file contents on disk are never touched. |
+| Need to reset a vault's durable sync state | The per-vault stores (doc blobs, LCA, journal, `mounts.json`) live at `~/.local/share/md.ohhi.desktop/stores/<room>` (desktop; `dev.chris.editor` before the rename) or OPFS `stores/<room>` (browser). Deleting a vault's store dir forces a fresh enroll (local vault) or a clean rejoin (shared vault) on next launch — file contents on disk are never touched. |
 | Nothing loads, the **vault manager** shows | No `mode` param. Use the full URLs in §4. |
 | `cargo check` fails at a `pkg-config` / `dbus-1.pc` step | Missing system lib — install the §1 apt line (note `libdbus-1-dev`). |
 | `cargo check` fails with `E0119: conflicting implementations … From<…HourBase>` in `cookie`/`time` | The lockfile pinned `time` 0.3.48, a broken release (since yanked) that breaks downstream crates on recent rustc. Fix: `cargo update -p time` (moves to 0.3.49+). See [time#783](https://github.com/time-rs/time/issues/783). |

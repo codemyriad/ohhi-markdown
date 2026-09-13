@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "packageName": "@editor/relay",
+      "comment": "The relay ships as a container image you can run on any Docker host behind your own HTTPS proxy: it installs exactly the versions pinned in the repo, runs as an unprivileged user, keeps its data in one volume, and saves everything cleanly when stopped.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/relay",
+      "comment": "The relay answers a health check at /healthz, so a container host or proxy can tell whether it can still read its database.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@editor/relay",
+      "comment": "You can back up the relay's database while it is running, with one command suitable for a nightly job.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@editor/relay"
+}

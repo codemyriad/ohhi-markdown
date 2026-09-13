@@ -195,18 +195,28 @@ audit ([slices.md](../../plans/slices.md), Later).
 
 ## Persistence and deployment
 
-- **SQLite on a Fly.io volume**: doc state (stock Hocuspocus persistence) and the
-  shares table. One small shared-CPU VM, one volume — the cheap-VPS spirit of R2.1.
-- **Litestream plan**: continuous SQLite replication to object storage is the D4
-  standard; slices schedules *continuous* litestream alongside the V2 update-log work.
-  V1 may run with volume snapshots only — acceptable precisely because the relay is
-  never the sole copy: every enrolled doc's state lives in full on each client, and the
-  files live on disk. Relay loss in V1 means re-seeding coordination (single-seeder
-  rule; automated epoch fencing is Spike S1), not data loss.
-- **Fly.io shape**: single region, single instance, volume-pinned. No horizontal
-  scaling story in V1 and none needed — connection counts are two clients over a test
-  subfolder. The 5k-doc / reconnect-storm question is measured by Spike S5 before
-  full-vault migration, not guessed at now.
+- **SQLite on a container volume**: doc state (stock Hocuspocus persistence), the
+  shares table and room ancestry, in one file under `DATA_DIR` (`/data` in the image).
+  One small container on a cheap host — the spirit of R2.1. Build/run/operate:
+  [apps/relay/README.md](../../apps/relay/README.md).
+- **Image**: `apps/relay/Dockerfile`, built from the repo root with dependencies pinned
+  to the repo lockfile (its header says how). Non-root; node is PID 1 and turns
+  `docker stop`'s SIGTERM into flush-then-exit. `OPERATOR_SECRET` is a runtime secret,
+  never baked in; `SEED_SHARE` is dev/e2e only.
+- **Host shape**: single instance, one volume, port bound to loopback behind the host's
+  reverse proxy (Caddy), which terminates TLS and proxies the websocket. Unauthenticated
+  `GET /healthz` answers 200 only while the database answers a read (503 otherwise) and
+  drives the image's `HEALTHCHECK`. No horizontal scaling story in V1 and none needed —
+  a small team over shared folders. The 5k-doc / reconnect-storm question is measured
+  by Spike S5 before full-vault migration, not guessed at now.
+- **Backups, then litestream**: `cli.ts backup <dest>` takes an online SQLite backup
+  (safe while serving), run nightly from host cron via `docker exec` and pruned there.
+  Continuous replication to object storage (litestream) stays the D4 standard,
+  scheduled alongside the V2 update-log work. Nightly backups suffice until then
+  precisely because the relay is never the sole copy: every enrolled doc's state lives
+  in full on each client, and the files live on disk. Relay loss means re-creating
+  shares and re-seeding coordination (single-seeder rule; automated epoch fencing is
+  Spike S1), not data loss — a backup saves the re-creation.
 - Kill-9/restore of the relay is a standing L1 scenario, and "kill the relay" is in the
   V1 demo script — resilience here is tested behavior, not an ops aspiration
   ([testing.md](testing.md)).

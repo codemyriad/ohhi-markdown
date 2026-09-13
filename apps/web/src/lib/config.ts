@@ -46,7 +46,24 @@ export interface StoredShare {
   label: string
 }
 
-export const DEFAULT_RELAY = 'ws://localhost:8787'
+/** The relay a build falls back to when it was given none: local dev. */
+export const FALLBACK_RELAY = 'ws://localhost:8787'
+
+/** A relay URL as Settings › Sync accepts it (and as a build may set it). */
+export const isRelayUrl = (url: string): boolean => /^wss?:\/\/\S+$/.test(url)
+
+/**
+ * `VITE_DEFAULT_RELAY` when it is a relay URL, else the local-dev fallback: a
+ * typo in a CI variable must not ship a build whose every new share points
+ * nowhere.
+ */
+export function resolveDefaultRelay(buildValue: unknown): string {
+  const url = typeof buildValue === 'string' ? buildValue.trim() : ''
+  return isRelayUrl(url) ? url : FALLBACK_RELAY
+}
+
+/** This build's default relay (`.env.example`); never stored — see `AppConfigV2.defaultRelay`. */
+export const DEFAULT_RELAY = resolveDefaultRelay(import.meta.env.VITE_DEFAULT_RELAY)
 
 /** One room's stored credential. */
 export interface RoomToken {
@@ -60,6 +77,13 @@ interface AppConfigV2 {
   vaults: VaultEntry[]
   /** Room of the vault to auto-reopen on launch; null → show the manager. */
   lastRoom: string | null
+  /**
+   * The relay the user chose in Settings › Sync; '' = none, follow the build's
+   * `DEFAULT_RELAY` (read through `defaultRelay()`). Storing the build default
+   * instead would freeze every install on the build it first ran. Configs from
+   * earlier builds hold a literal `ws://localhost:8787` — indistinguishable
+   * from a deliberate choice, so it is kept.
+   */
   defaultRelay: string
   /** Relay admin credential for in-app token minting (M4). '' = unset. */
   operatorSecret: string
@@ -112,6 +136,8 @@ interface AppConfigV2 {
    * before this shipped simply has none.
    */
   read?: Partial<ReadPrefs>
+  /** The browser-storage note was dismissed. Device-level: the grant is per browser profile. */
+  storageNoticeDismissed?: boolean
 }
 
 /** Device-level reading preferences. One field today; the shape is the seam. */
@@ -209,7 +235,7 @@ function emptyConfig(): AppConfigV2 {
     version: 2,
     vaults: [],
     lastRoom: null,
-    defaultRelay: DEFAULT_RELAY,
+    defaultRelay: '', // follow the build's DEFAULT_RELAY (see AppConfigV2)
     operatorSecret: '',
     shares: [],
     tokensByRoom: {},
@@ -364,13 +390,25 @@ export function lastVault(): VaultEntry | null {
 
 // ---- settings ----
 
+/** The relay new shares are minted on: the user's choice, else this build's default. */
 export function defaultRelay(): string {
   return loadConfig().defaultRelay || DEFAULT_RELAY
 }
 
+/** Store a relay the user chose (never an echo of the default); blank = follow the build again. */
 export function setDefaultRelay(url: string): void {
   const cfg = loadConfig()
-  cfg.defaultRelay = url.trim() || DEFAULT_RELAY
+  cfg.defaultRelay = url.trim()
+  save(cfg)
+}
+
+export function storageNoticeDismissed(): boolean {
+  return loadConfig().storageNoticeDismissed === true
+}
+
+export function setStorageNoticeDismissed(dismissed: boolean): void {
+  const cfg = loadConfig()
+  cfg.storageNoticeDismissed = dismissed
   save(cfg)
 }
 
