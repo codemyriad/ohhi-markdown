@@ -10,13 +10,7 @@
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
 import { syntaxTree } from '@codemirror/language'
 import { Facet, type Extension } from '@codemirror/state'
-import {
-  Decoration,
-  EditorView,
-  ViewPlugin,
-  type DecorationSet,
-  type ViewUpdate,
-} from '@codemirror/view'
+import { EditorView } from '@codemirror/view'
 import { tagCompletions } from './preview/completion.js'
 
 /** What the host lets the editor do with a link target. */
@@ -45,54 +39,6 @@ const NOOP_HOST: WikiLinkHost = {
 export const wikiLinkHost = Facet.define<WikiLinkHost, WikiLinkHost>({
   combine: (values) => values[values.length - 1] ?? NOOP_HOST,
 })
-
-const resolvedMark = Decoration.mark({ class: 'cm-wikilink' })
-const unresolvedMark = Decoration.mark({ class: 'cm-wikilink-unresolved' })
-
-/**
- * Mark each `[[link]]` as resolved or unresolved.
- *
- * 12% of this vault's link targets resolve to nothing, and they read as intent
- * rather than as typos — rendering them identically to resolved links would
- * hide an eighth of the link graph.
- */
-const wikiLinkDecorations = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet
-
-    constructor(view: EditorView) {
-      this.decorations = this.build(view)
-    }
-
-    update(update: ViewUpdate): void {
-      // Also on viewportChanged: only the visible ranges are decorated.
-      if (update.docChanged || update.viewportChanged) {
-        this.decorations = this.build(update.view)
-      }
-    }
-
-    build(view: EditorView): DecorationSet {
-      const host = view.state.facet(wikiLinkHost)
-      const marks: { from: number; to: number; resolved: boolean }[] = []
-      for (const { from, to } of view.visibleRanges) {
-        syntaxTree(view.state).iterate({
-          from,
-          to,
-          enter: (node) => {
-            if (node.name !== 'WikiLinkTarget') return
-            const target = view.state.doc.sliceString(node.from, node.to).trim()
-            marks.push({ from: node.from, to: node.to, resolved: host.resolve(target) !== null })
-          },
-        })
-      }
-      marks.sort((a, b) => a.from - b.from)
-      return Decoration.set(
-        marks.map((m) => (m.resolved ? resolvedMark : unresolvedMark).range(m.from, m.to))
-      )
-    }
-  },
-  { decorations: (v) => v.decorations }
-)
 
 /**
  * Click-through on a RAW link: Mod-click (or middle-click), never a plain one.
@@ -186,16 +132,17 @@ function wikiLinkCompletions(context: CompletionContext): CompletionResult | nul
 export function wikiLinkExtensions(host?: WikiLinkHost): Extension[] {
   return [
     host ? wikiLinkHost.of(host) : [],
-    wikiLinkDecorations,
     wikiLinkClicks,
     // ONE autocompletion() for the whole surface: two of them are a config
     // merge conflict on `override`, which CM6 throws on at startup. So the
     // Read slice's `#` source is listed here rather than in livePreview().
     autocompletion({ override: [wikiLinkCompletions, tagCompletions], activateOnTyping: true }),
     EditorView.theme({
-      // No pointer cursor on a RAW link: a plain click edits here, and a hand
+      // No pointer cursor here: on a RAW link a plain click edits, and a hand
       // would promise navigation that only Mod-click delivers. A rendered one
       // gets `.cm-live-link` (and its pointer) from libs/editor's theme.
+      // The decorations themselves belong to preview/build.ts — ONE owner for
+      // both forms, so a rendered link is not a span inside a span.
       '.cm-wikilink': { color: 'var(--ed-wikilink)' },
       '.cm-wikilink-unresolved': {
         color: 'var(--ed-wikilink-unresolved)',

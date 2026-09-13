@@ -19,7 +19,7 @@ import {
 } from './corpus.js'
 
 describe('patchFrontmatter — byte contract over the vault corpus', () => {
-  const blocks = [...VAULT_BLOCKS.map((b) => b), ...OBSIDIAN_BLOCKS.map((b) => ({ ...b, files: 0 }))]
+  const blocks = [...VAULT_BLOCKS, ...OBSIDIAN_BLOCKS.map((b) => ({ ...b, files: 0 }))]
   for (const { name, block } of blocks) {
     for (const body of BODIES) {
       const text = docOf(block, body)

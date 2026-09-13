@@ -11,11 +11,14 @@
  * The two-context half of R2.3 (the peer sees the checkbox) lives in
  * `collab.spec.ts`, with the other collab scenarios — the one-smoke rule.
  */
-import { expect, test, type Page } from '@playwright/test'
-import { READ_FIXTURE, READ_NOTE, seedReadNote } from './fixtures.js'
-
-const content = (page: Page) => page.locator('[data-testid="editor-pane"] .cm-content')
-const scroller = (page: Page) => page.locator('[data-testid="editor-pane"] .cm-scroller')
+import { expect, test } from '@playwright/test'
+import {
+  paneContent as content,
+  paneScroller as scroller,
+  READ_FIXTURE,
+  READ_NOTE,
+  seedReadNote,
+} from './fixtures.js'
 
 test('Live renders the constructs, and the caret line is where the markers live', async ({
   page,

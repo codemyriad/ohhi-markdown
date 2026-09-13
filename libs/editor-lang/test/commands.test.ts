@@ -7,8 +7,7 @@ import { EditorState, type TransactionSpec } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
 import { describe, expect, it } from 'vitest'
 import { toggleTask } from '../src/index.js'
-import { toggleTaskAt } from '../src/preview/commands.js'
-import { taskOnLine } from '../src/preview/tasks.js'
+import { taskOnLine, toggleTaskAt } from '../src/preview/commands.js'
 import { makeState } from './support.js'
 
 /** What libs/editor's mode compartment installs for Reading. */

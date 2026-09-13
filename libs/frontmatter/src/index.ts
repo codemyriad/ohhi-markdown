@@ -5,7 +5,7 @@
  * Golden rule 2: nothing here ever re-emits a line it did not change. The
  * package is pure and Node-safe: it serves the index, the CLI and any agent.
  */
-export { parseFrontmatter } from './parse.js'
+export { lineIndexAt, lineStartsOf, parseFrontmatter } from './parse.js'
 export { patchFrontmatter } from './patch.js'
 export type {
   FmChange,

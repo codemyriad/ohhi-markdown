@@ -13,8 +13,8 @@
  *   ---           FrontmatterMark
  *
  * A block is recognised ONLY at offset 0, and only when a closing `---`/`...`
- * line follows within MAX_LINES. This grammar is deliberately the NARROWER of
- * the two readers — it refuses shapes @editor/frontmatter accepts (see FIRST),
+ * line follows within FM_MAX_LINES. This grammar is deliberately the NARROWER
+ * of the two readers — it refuses shapes @editor/frontmatter accepts (FIRST),
  * because a false start here costs a note its rendering. What a note HAS is
  * decided by @editor/frontmatter, in preview/build.ts and in libs/index, so
  * the strip, search and the CLI still agree with each other.
@@ -22,7 +22,14 @@
 import { tags as t } from '@lezer/highlight'
 import type { MarkdownConfig } from '@lezer/markdown'
 
-const OPEN = /^-{3}\s*$/
+/**
+ * The delimiters, exported because preview/build.ts draws the same block from
+ * the TEXT when this parser's tree is stale (`restoreFrontmatter`): two
+ * readers that disagreed about where the block ends would put the strip over
+ * the wrong lines. Opening `---`, then a line that is `---` or `...`.
+ */
+export const FM_OPEN = /^-{3}\s*$/
+export const FM_CLOSE = /^(?:-{3}|\.{3})\s*$/
 
 /**
  * What the line under the opening `---` has to look like before the scan below
@@ -45,14 +52,9 @@ const FIRST = /^[^\s#][^:]*:([ \t]|$)|^(?:-{3}|\.{3})\s*$/
  * What a line inside the block may be: blank, a comment, a top-level key, or
  * an indented continuation. The scan stops at the first line that is none of
  * them, so a note whose block is not closed yet loses its rendering for the
- * two lines you have typed rather than for MAX_LINES of body.
+ * two lines you have typed rather than for FM_MAX_LINES of body.
  */
 const CONTINUES = /^\s*$|^#|^[^\s][^:]*:([ \t]|$)|^\s+\S/
-
-function isClose(text: string): boolean {
-  const trimmed = text.trimEnd()
-  return trimmed === '---' || trimmed === '...'
-}
 
 /**
  * How far the parser will look for the closing delimiter.
@@ -66,7 +68,7 @@ function isClose(text: string): boolean {
  * between them); a block longer than this renders as plain text and shows no
  * strip, which is honest and self-correcting.
  */
-const MAX_LINES = 64
+export const FM_MAX_LINES = 64
 
 export const Frontmatter: MarkdownConfig = {
   defineNodes: [
@@ -79,15 +81,15 @@ export const Frontmatter: MarkdownConfig = {
       // Before HorizontalRule, which would otherwise claim the opening `---`.
       before: 'HorizontalRule',
       parse(cx, line) {
-        if (cx.lineStart !== 0 || !OPEN.test(line.text)) return false
+        if (cx.lineStart !== 0 || !FM_OPEN.test(line.text)) return false
         // Peeked, not consumed: `nextLine` cannot be undone, so the cheap
-        // rejection has to happen before the scan (see MAX_LINES).
+        // rejection has to happen before the scan (see FM_MAX_LINES).
         if (!FIRST.test(cx.peekLine())) return false
         const from = cx.lineStart
         const marks = [cx.elt('FrontmatterMark', from, from + line.text.length)]
         let to = -1
-        for (let scanned = 0; scanned < MAX_LINES && cx.nextLine(); scanned++) {
-          if (isClose(line.text)) {
+        for (let scanned = 0; scanned < FM_MAX_LINES && cx.nextLine(); scanned++) {
+          if (FM_CLOSE.test(line.text)) {
             to = cx.lineStart + line.text.length
             marks.push(cx.elt('FrontmatterMark', cx.lineStart, to))
             break

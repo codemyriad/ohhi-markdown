@@ -18,7 +18,7 @@
  */
 import { WidgetType } from '@codemirror/view'
 import type { ReadHost, ReadLabels } from '../read-host.js'
-import { renderInline, type InlinePiece } from './inline-dom.js'
+import { renderInline, tagChip, type InlinePiece } from './inline-dom.js'
 
 function interactive(event: Event): boolean {
   return event.type === 'mousedown' || event.type === 'click'
@@ -191,13 +191,8 @@ export class FrontmatterStripWidget extends ReadWidget {
     const wrap = document.createElement('div')
     wrap.className = 'cm-frontmatter-strip'
     if (this.supported) {
-      for (const tag of this.tags) {
-        const chip = document.createElement('span')
-        chip.className = 'cm-tag'
-        chip.dataset.tag = tag
-        chip.textContent = `#${tag}`
-        wrap.appendChild(chip)
-      }
+      // The same chip the body draws, so one click handler reaches both.
+      for (const tag of this.tags) wrap.appendChild(tagChip(tag))
       const count = document.createElement('span')
       count.className = 'cm-frontmatter-count'
       count.textContent = this.labels.properties(this.properties)

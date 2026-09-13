@@ -22,9 +22,11 @@ import { syntaxTree } from '@codemirror/language'
 import type { EditorState, Line, Range } from '@codemirror/state'
 import { Decoration, type DecorationSet, type WidgetType } from '@codemirror/view'
 import type { SyntaxNode, SyntaxNodeRef, Tree } from '@lezer/common'
+import { FM_CLOSE, FM_MAX_LINES, FM_OPEN } from '../frontmatter-block.js'
 import { previewMode, readHost, type ReadHost, type ViewMode } from '../read-host.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { activeSpans, inActiveRegion, type Span } from './active-lines.js'
+import * as cls from './classes.js'
 import { extractInline } from './inline-dom.js'
 import {
   BulletWidget,
@@ -56,23 +58,23 @@ const CODE_LINE = line('cm-live-code')
 const FRONTMATTER_LINE = line('cm-live-frontmatter')
 const TABLE_HEAD_LINE = line('cm-table-head')
 const LIST_NUM = mark('cm-list-num')
-const INLINE_CODE = mark('cm-inline-code')
-const MD_LINK = mark('cm-md-link cm-live-link')
-const URL_MARK = mark('cm-url cm-live-link')
 const HTML_MARK = mark('cm-html')
 const BLOCK_ID = mark('cm-block-id')
 const TABLE_PIPE = mark('cm-table-pipe')
-const WIKILINK = mark('cm-wikilink cm-live-link')
-const WIKILINK_UNRESOLVED = mark('cm-wikilink-unresolved cm-live-link')
+// The names shared with the widget DOM live in classes.ts; these are the
+// decoration objects built from them, once, because a Decoration is reused.
+const INLINE_CODE = mark(cls.INLINE_CODE)
+const MD_LINK = mark(cls.MD_LINK)
+const URL_MARK = mark(cls.BARE_URL)
+const WIKILINK = mark(cls.WIKILINK)
+const WIKILINK_UNRESOLVED = mark(cls.WIKILINK_UNRESOLVED)
+const RAW_WIKILINK = mark(cls.RAW_WIKILINK)
+const RAW_WIKILINK_UNRESOLVED = mark(cls.RAW_WIKILINK_UNRESOLVED)
 
 const EMPHASIS = new Set(['StrongEmphasis', 'Emphasis', 'Strikethrough', 'Highlight'])
 const HTML = new Set(['HTMLBlock', 'HTMLTag', 'Comment', 'CommentBlock', 'ProcessingInstruction'])
 /** `^abc123` at the end of a block. Dim, never resolved (D8). */
 const BLOCK_ID_RE = /(?:^|\s)(\^[A-Za-z0-9-]+)[ \t]*$/
-/** The frontmatter delimiters and the scan bound — frontmatter-block.ts's rule. */
-const FM_OPEN = /^-{3}\s*$/
-const FM_CLOSE = /^(?:-{3}|\.{3})\s*$/
-const FM_MAX_LINES = 64
 /** Embeddable pictures — the set `attachmentType` in apps/web can name. */
 const IMAGE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
 
@@ -180,7 +182,7 @@ class Builder {
   private enterBlock(node: SyntaxNodeRef): boolean | void {
     switch (node.name) {
       case 'Frontmatter':
-        return this.frontmatter(node)
+        return this.frontmatterRange(node.from, node.to)
       case 'HorizontalRule':
         return this.rule(node)
       case 'FencedCode':
@@ -207,7 +209,7 @@ class Builder {
     }
     switch (name) {
       case 'Frontmatter':
-        return this.frontmatter(node)
+        return this.frontmatterRange(node.from, node.to)
       case 'HeaderMark':
         return this.headerMark(node)
       case 'Blockquote':
@@ -249,10 +251,6 @@ class Builder {
   }
 
   // --- constructs ----------------------------------------------------------
-
-  private frontmatter(node: SyntaxNodeRef): boolean {
-    return this.frontmatterRange(node.from, node.to)
-  }
 
   private frontmatterRange(from: number, to: number): boolean {
     const info = this.host.frontmatter?.(
@@ -433,23 +431,47 @@ class Builder {
     this.mark(node.from, node.to, URL_MARK)
   }
 
+  /**
+   * A wikilink, rendered OR raw — one owner for both, because a second plugin
+   * marking the target left a rendered link as a span inside a span (R1).
+   * Rendered: the brackets go, the label carries the pointer. Raw: only the
+   * target is coloured, and a plain click still edits it.
+   */
   private wikiLink(node: SyntaxNodeRef): boolean {
-    if (this.revealed(node.from, node.to)) return false
+    if (this.revealed(node.from, node.to)) return this.rawWikiLink(node)
     const alias = node.node.getChild('WikiLinkAlias')
-    const target = node.node.getChild('WikiLinkTarget')
     const labelFrom = alias ? alias.from : node.from + 2
     const labelTo = alias ? alias.to : node.to - 2
     if (labelTo <= labelFrom) return false
-    const name = target ? this.doc.sliceString(target.from, target.to).trim() : ''
-    const resolved = this.state.facet(wikiLinkHost).resolve(name) !== null
+    const resolved = this.resolves(node.node.getChild('WikiLinkTarget'))
     this.replace(node.from, labelFrom)
     this.mark(labelFrom, labelTo, resolved ? WIKILINK : WIKILINK_UNRESOLVED)
     this.replace(labelTo, node.to)
     return false
   }
 
+  /**
+   * Resolved reads differently from unresolved because 12% of this vault's
+   * targets point at nothing, and that is intent rather than noise.
+   */
+  private rawWikiLink(node: SyntaxNodeRef): false {
+    const target = node.node.getChild('WikiLinkTarget')
+    if (target) {
+      const deco = this.resolves(target) ? RAW_WIKILINK : RAW_WIKILINK_UNRESOLVED
+      this.mark(target.from, target.to, deco)
+    }
+    return false
+  }
+
+  /** Is there a note behind this target? Asked once per link, by both forms. */
+  private resolves(target: SyntaxNode | null): boolean {
+    if (!target) return false
+    const name = this.doc.sliceString(target.from, target.to).trim()
+    return this.state.facet(wikiLinkHost).resolve(name) !== null
+  }
+
   private embed(node: SyntaxNodeRef): boolean {
-    if (this.revealed(node.from, node.to)) return false
+    if (this.revealed(node.from, node.to)) return this.rawWikiLink(node)
     const inner = this.doc.sliceString(node.from + 3, node.to - 2)
     const name = (inner.split('|')[0] ?? '').trim()
     // Only a picture is drawn. `![[note]]` (transclusion) and `![[paper.pdf]]`
@@ -458,7 +480,7 @@ class Builder {
     // placeholder over a file that is right there is a lie. Both stay as the
     // text they are. (The vault's 14 embeds are all .png; the media types for
     // the same set live in apps/web's `attachmentType`.)
-    if (!IMAGE.test(name)) return false
+    if (!IMAGE.test(name)) return this.rawWikiLink(node)
     const l = this.doc.lineAt(node.from)
     // An embed on a line of its own becomes a block; one inside a sentence
     // stays in the sentence, because a block widget may not split a line.
@@ -476,7 +498,7 @@ class Builder {
       node.from,
       node.to,
       Decoration.mark({
-        class: 'cm-tag',
+        class: cls.TAG,
         attributes: { 'data-tag': this.doc.sliceString(node.from + 1, node.to) },
       })
     )

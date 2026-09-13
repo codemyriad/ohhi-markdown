@@ -139,6 +139,20 @@ describe('links (5,631 markdown / 3,005 bare / 947 wikilinks)', () => {
     })
     expect(classes(decorations(resolving), 'Plain')).toEqual(['cm-wikilink cm-live-link'])
   })
+
+  it('marks a RAW link once, on its target, and without the pointer', () => {
+    // R2 2026-09-13: the raw form used to come from a second ViewPlugin, so a
+    // rendered link carried both its label span and a target span inside it.
+    // One owner now, and `cm-live-link` is what says a plain click follows it.
+    const source = decorations(makeState('see [[Note|alias]] and [[Plain]]\n', { mode: 'source' }))
+    expect(classes(source, 'Note')).toEqual(['cm-wikilink-unresolved'])
+    expect(classes(source, 'Plain')).toEqual(['cm-wikilink-unresolved'])
+    expect(source.filter((d) => d.kind === 'hide')).toEqual([])
+
+    // …and in Live it is the caret's own line that keeps the raw form.
+    const live = decorations(makeState('[[Plain]]\n', { at: 2 }))
+    expect(classes(live, 'Plain')).toEqual(['cm-wikilink-unresolved'])
+  })
 })
 
 describe('blocks: quotes, rules, fences (1,016 / 314 / 527)', () => {

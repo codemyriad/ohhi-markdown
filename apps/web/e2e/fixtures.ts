@@ -99,12 +99,17 @@ export async function seedReadNote(
 ): Promise<void> {
   await openApp(page, room)
   await page.getByTestId(`file-item:${READ_NOTE}`).click()
-  const content = page.locator('[data-testid="editor-pane"] .cm-content')
-  await content.click()
+  await paneContent(page).click()
   await page.keyboard.press('ControlOrMeta+a')
   await page.keyboard.insertText(text)
   await page.keyboard.press('ControlOrMeta+End')
 }
+
+/** The focused pane's editing surface, and the box that scrolls it. */
+export const paneContent = (page: Page): Locator =>
+  page.locator('[data-testid="editor-pane"] .cm-content')
+export const paneScroller = (page: Page): Locator =>
+  page.locator('[data-testid="editor-pane"] .cm-scroller')
 
 export const panes = (page: Page): Locator => page.locator('[data-pane-id]')
 export const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')

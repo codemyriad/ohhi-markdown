@@ -11,6 +11,7 @@
  * one module owns the preference, Settings writes through it, and nothing
  * else reads config for it.
  */
+import type { ReadLabels } from '@editor/editor-lang'
 import { getLL } from '@editor/i18n'
 import type { Command } from './commands.js'
 import { readPrefs, setReadPrefs } from './config.js'
@@ -107,6 +108,21 @@ export function readCommands(a: ReadActions): Command[] {
 }
 
 // ---- the host services (B2.2, B2.3, B5) ----
+
+/**
+ * The strings CM6's widgets print: decoration code has no `$LL`, so the copy
+ * travels down with the rest of the host (the `ReadHost` contract). Read at
+ * the point of use, so a locale switch reaches the next decoration build.
+ */
+export function readLabels(): ReadLabels {
+  const t = getLL().web.read
+  return {
+    missingAttachment: t.missing_attachment(),
+    task: t.task(),
+    properties: (count) => t.properties({ count }),
+    frontmatterUnsupported: t.frontmatter_unsupported(),
+  }
+}
 
 /**
  * The vault-search query a click on a tag chip runs (`parseQuery` already

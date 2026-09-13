@@ -53,15 +53,19 @@ export interface ReadResult {
   lineStarts: number[]
 }
 
-/** Offsets at which each line begins. */
-function lineStartsOf(text: string): number[] {
+/**
+ * Offsets at which each line begins. Exported with `lineIndexAt` because the
+ * index needs the same two over the same note: a line number that disagreed
+ * between the two readers would put a search hit on the wrong line.
+ */
+export function lineStartsOf(text: string): number[] {
   const starts = [0]
   for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
   return starts
 }
 
-/** 0-based line for an offset. */
-function lineAt(starts: number[], offset: number): number {
+/** 0-based line for an offset. Binary search — this runs per entry, per parse. */
+export function lineIndexAt(starts: number[], offset: number): number {
   let lo = 0
   let hi = starts.length - 1
   while (lo < hi) {
@@ -178,8 +182,8 @@ function readEntries(
     if (read.reason) fail(read.reason)
     const endOffset = value?.range ? block.innerFrom + value.range[1] : keyTo
     const lines: [number, number] = [
-      lineAt(lineStarts, keyFrom),
-      lineAt(lineStarts, Math.max(endOffset - 1, keyFrom)),
+      lineIndexAt(lineStarts, keyFrom),
+      lineIndexAt(lineStarts, Math.max(endOffset - 1, keyFrom)),
     ]
     entries.push({
       entry: {

@@ -14,6 +14,7 @@ import type { EditorState } from '@codemirror/state'
 import type { SyntaxNode } from '@lezer/common'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { splitWikiLink } from '../wikilink.js'
+import * as cls from './classes.js'
 
 export type InlinePiece =
   | { kind: 'text'; text: string }
@@ -123,6 +124,15 @@ function pushNode(out: InlinePiece[], state: EditorState, node: SyntaxNode): voi
   else pushText(out, state, node.from, node.to)
 }
 
+/** A `#tag` chip — the same element in a paragraph, a table cell and the strip. */
+export function tagChip(tag: string): HTMLSpanElement {
+  const el = document.createElement('span')
+  el.className = cls.TAG
+  el.dataset.tag = tag
+  el.textContent = `#${tag}`
+  return el
+}
+
 /** Draw extracted pieces. Links and chips carry their target as data, so the
  *  view-level click handler reaches them inside a widget as well as in text. */
 export function renderInline(pieces: readonly InlinePiece[]): DocumentFragment {
@@ -139,13 +149,13 @@ function renderPiece(piece: InlinePiece): Node {
       return document.createTextNode(piece.text)
     case 'code': {
       const el = document.createElement('code')
-      el.className = 'cm-inline-code'
+      el.className = cls.INLINE_CODE
       el.appendChild(renderInline(piece.children))
       return el
     }
     case 'mark': {
       const el = document.createElement('mark')
-      el.className = 'cm-highlight'
+      el.className = cls.HIGHLIGHT
       el.appendChild(renderInline(piece.children))
       return el
     }
@@ -158,23 +168,16 @@ function renderPiece(piece: InlinePiece): Node {
     }
     case 'link': {
       const el = document.createElement('span')
-      el.className = 'cm-md-link cm-live-link'
+      el.className = cls.MD_LINK
       el.dataset.url = piece.url
       el.appendChild(renderInline(piece.children))
       return el
     }
-    case 'tag': {
-      const el = document.createElement('span')
-      el.className = 'cm-tag'
-      el.dataset.tag = piece.tag
-      el.textContent = `#${piece.tag}`
-      return el
-    }
+    case 'tag':
+      return tagChip(piece.tag)
     case 'wikilink': {
       const el = document.createElement('span')
-      el.className = piece.resolved
-        ? 'cm-wikilink cm-live-link'
-        : 'cm-wikilink-unresolved cm-live-link'
+      el.className = piece.resolved ? cls.WIKILINK : cls.WIKILINK_UNRESOLVED
       el.dataset.wikilink = piece.target
       el.textContent = piece.label
       return el

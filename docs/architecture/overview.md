@@ -102,7 +102,9 @@ harness possible.
    imported it would inject a second copy of every theme.
 7. **`libs/index` depends on nothing but `@editor/frontmatter`** (itself pure,
    Node-safe and DOM-free), because a second frontmatter reader would let the
-   index and the editor disagree about a note's tags. It is otherwise a pure
+   index and the editor disagree about a note's tags. For the same reason it
+   takes that package's line-offset helpers (`lineStartsOf`, `lineIndexAt`)
+   rather than repeating the search: a line number has to mean one line. It is otherwise a pure
    data structure over text handed to it: it never reads disk, never touches
    the engine, and is fed from exactly one place (the workspace's index
    sink) — an index with N writers drifts from the vault.

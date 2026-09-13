@@ -21,7 +21,7 @@
   import { LL } from '@editor/i18n/i18n-svelte'
   import { untrack, type Snippet } from 'svelte'
   import { activeTab, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
-  import { openExternal } from '../read.svelte.js'
+  import { openExternal, readLabels } from '../read.svelte.js'
   import { pillStatus } from '../sync-record.svelte.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
@@ -115,18 +115,10 @@
     openExternal,
     searchTag: (tag: string) => untrack(() => searchTag(tag)),
     tags: () => untrack(() => tags()),
-    // CM6 has no `$LL`, so every string its widgets print travels with the
-    // host (the ReadHost contract in libs/editor-lang). A getter, so a locale
-    // switch is picked up by the next decoration build rather than frozen at
-    // the view's creation.
+    // A getter, not a value: the copy is read when a decoration is built, so a
+    // locale switch reaches the widgets (see `readLabels`).
     get labels() {
-      const t = untrack(() => $LL.web.read)
-      return {
-        missingAttachment: t.missing_attachment(),
-        task: t.task(),
-        properties: (count: number) => t.properties({ count }),
-        frontmatterUnsupported: t.frontmatter_unsupported(),
-      }
+      return untrack(readLabels)
     },
     // The strip's reader: the same parser the index and the CLI use, so the
     // chips at the top of a note agree with `tag:#x` search by construction.
@@ -167,15 +159,14 @@
     return () => panes.registerPane(id, null)
   })
 
-  /** The live handle, kept so `onhandle(null)` can still capture from it. */
-  let handle: MarkdownEditorHandle | null = null
   /**
-   * The same handle as a signal, for the one thing that needs the view itself
-   * rather than a prop: `Mod+L` reaching whichever pane has the focus. The
-   * MODE is a prop — `MarkdownEditor` applies it by reconfigure — so there is
-   * no second path that could disagree with it.
+   * The live handle. A signal, because `Mod+L` has to reach whichever pane
+   * holds the focus and that means re-registering when the view changes; every
+   * OTHER read of it is untracked, so the view's own lifecycle never comes to
+   * depend on the pane tree. (The MODE is a prop — `MarkdownEditor` applies it
+   * by reconfigure — so there is no second path that could disagree with it.)
    */
-  let live = $state.raw<MarkdownEditorHandle | null>(null)
+  let handle = $state.raw<MarkdownEditorHandle | null>(null)
 
   /**
    * `Mod+L` acts on whichever pane has the focus, so the command reaches the
@@ -184,7 +175,7 @@
    */
   $effect(() => {
     const id = pane.id
-    const view = live
+    const view = handle
     panes.registerEditor(id, view ? { toggleTask: () => toggleTask(view.view) } : null)
     return () => panes.registerEditor(id, null)
   })
@@ -196,7 +187,7 @@
    */
   $effect(() => {
     const id = pane.id
-    panes.registerCapture(id, () => handle?.capture() ?? null)
+    panes.registerCapture(id, () => untrack(() => handle?.capture() ?? null))
     return () => panes.registerCapture(id, null)
   })
 
@@ -212,14 +203,12 @@
     untrack(() => {
       if (next) {
         handle = next
-        live = next
         const resume = pane.tabs.find((t) => t.id === tabId)
         if (resume?.cursor) next.restore({ cursor: resume.cursor, scroll: resume.scroll })
         return
       }
       if (handle) panes.setResume(tabId, handle.capture())
       handle = null
-      live = null
     })
   }
 </script>

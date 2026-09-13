@@ -5,11 +5,8 @@
  * here would make the popup flicker in behind the next keystroke.
  */
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete'
-import { tagBoundary } from '@editor/index'
+import { isTagBody, tagBoundary } from '@editor/index'
 import { readHost } from '../read-host.js'
-
-/** The tag body's character class — the same one scanTag accepts. */
-const BODY = /^[\p{L}\p{N}][\p{L}\p{N}/_-]*$/u
 
 export function tagCompletions(context: CompletionContext): CompletionResult | null {
   const line = context.state.doc.lineAt(context.pos)
@@ -18,7 +15,7 @@ export function tagCompletions(context: CompletionContext): CompletionResult | n
   if (hash === -1 || !tagBoundary(line.text, hash)) return null
 
   const typed = line.text.slice(hash + 1, typedTo)
-  if (typed && !BODY.test(typed)) return null
+  if (typed && !isTagBody(typed)) return null
 
   const query = typed.toLowerCase()
   const options = context.state

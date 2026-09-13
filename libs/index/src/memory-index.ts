@@ -13,6 +13,7 @@
  * BM25-shaped scores — so the swap stays a day's work. conformance.ts is the
  * suite any replacement must pass.
  */
+import { lineIndexAt, lineStartsOf } from '@editor/frontmatter'
 import {
   SCHEMA_VERSION,
   type Heading,
@@ -605,23 +606,13 @@ export function parseQuery(query: string): {
   return { terms: queryTerms(rest.join(' ')), tag, pathPrefix }
 }
 
-/** Offsets at which each line begins. Computed once per document. */
-function lineStartsOf(text: string): number[] {
-  const starts = [0]
-  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
-  return starts
-}
-
-/** 1-based line for an offset. Binary search — this runs per link, per rebuild. */
+/**
+ * 1-based line for an offset — @editor/frontmatter owns the search, because it
+ * already computes line ranges over the same note and two implementations
+ * would eventually disagree about which line a hit is on.
+ */
 function lineAt(starts: number[], offset: number): number {
-  let lo = 0
-  let hi = starts.length - 1
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1
-    if (starts[mid] <= offset) lo = mid
-    else hi = mid - 1
-  }
-  return lo + 1
+  return lineIndexAt(starts, offset) + 1
 }
 
 function lineTextAt(text: string, offset: number): string {

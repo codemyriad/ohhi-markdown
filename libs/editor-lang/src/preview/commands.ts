@@ -1,11 +1,34 @@
 /**
- * Editing commands the Read slice adds. A checkbox click and `Mod+L` are the
- * same edit through the same path as typing: a one-character change in the
- * document, so the peer sees it, the reconciler flushes it, and `git diff`
+ * The task edit, from where it is to how it flips. A checkbox click and `Mod+L`
+ * are the same edit through the same path as typing: a one-character change in
+ * the document, so the peer sees it, the reconciler flushes it, and `git diff`
  * shows one line (R2.3).
+ *
+ * A task is a list item's first thing — `- [x] done` — which is Obsidian's rule
+ * and the only form the vault uses (1,941 tasks, no `[/]` or `[-]` states).
  */
+import type { Line } from '@codemirror/state'
 import { EditorView, type Command } from '@codemirror/view'
-import { taskOnLine } from './tasks.js'
+
+/**
+ * Indent, one or more list markers, then the brackets. More than one marker
+ * because a nested item can sit on one line — `- - [ ] x` is what markdown's
+ * own Enter binding writes when you continue a list and type a task — and the
+ * checkbox WIDGET comes from the tree, which sees the nested item. If this
+ * regex did not, the box would be drawn and refuse to be clicked.
+ */
+const TASK = /^[ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+)+\[([ xX])\]/
+
+export interface TaskState {
+  /** Absolute offset of the single character between the brackets. */
+  at: number
+  done: boolean
+}
+
+export function taskOnLine(line: Line): TaskState | null {
+  const m = TASK.exec(line.text)
+  return m ? { at: line.from + m[0].length - 2, done: m[1] !== ' ' } : null
+}
 
 /** Flip `[ ]` ↔ `[x]` on every line the main selection touches. */
 export const toggleTask: Command = (view) => {
@@ -37,6 +60,6 @@ export function toggleTaskAt(view: EditorView, pos: number): boolean {
   return true
 }
 
-function flip(task: { at: number; done: boolean }): { from: number; to: number; insert: string } {
+function flip(task: TaskState): { from: number; to: number; insert: string } {
   return { from: task.at, to: task.at + 1, insert: task.done ? ' ' : 'x' }
 }

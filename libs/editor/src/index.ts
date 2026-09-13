@@ -19,4 +19,3 @@ export {
 } from './markdown-editor.js'
 export { editorHighlightStyle, editorTheme, themeModeCompartment } from './theme.js'
 export type { ViewMode } from '@editor/editor-lang'
-

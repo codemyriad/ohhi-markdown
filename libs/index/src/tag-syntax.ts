@@ -12,6 +12,17 @@
 /** Characters allowed in a tag body, as a sticky regex anchored at the body. */
 const TAG_BODY = /[\p{L}\p{N}][\p{L}\p{N}/_-]*/uy
 
+const WHOLE_BODY = new RegExp(`^(?:${TAG_BODY.source})$`, 'u')
+
+/**
+ * Is the whole of `body` (no `#`) spellable as a tag? What `#` completion asks
+ * of half-typed input, so it is the character class ALONE — the all-digits
+ * rule belongs to `scanTag`, which decides a COMPLETE tag.
+ */
+export function isTagBody(body: string): boolean {
+  return WHOLE_BODY.test(body)
+}
+
 /** True when a `#` at `hashAt` sits where a tag may start. */
 export function tagBoundary(text: string, hashAt: number): boolean {
   if (text.charCodeAt(hashAt) !== 35 /* # */) return false

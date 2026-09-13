@@ -8,7 +8,7 @@
  * with the tree fully parsed, which is the worst case: in the app CM6 parses
  * lazily, so the tree is usually the viewport plus what has been scrolled past.
  */
-import { EditorSelection } from '@codemirror/state'
+import { EditorSelection, type EditorState } from '@codemirror/state'
 import { describe, expect, it } from 'vitest'
 import { activeLines } from '../src/index.js'
 import { buildBlockPreview, buildInlinePreview, buildPreview } from '../src/preview/build.js'
@@ -25,9 +25,23 @@ function calibrate(): number {
   return performance.now() - t0
 }
 
-function median(times: number[]): number {
-  const sorted = [...times].sort((a, b) => a - b)
-  return sorted[Math.floor(sorted.length / 2)]
+/**
+ * The median of `runs` rebuilds of what a keystroke actually costs: the active
+ * region, the block field over the whole parsed tree, and the inline plugin
+ * over one screenful. One definition, so every budget below measures the same
+ * thing.
+ */
+function keystrokeMs(state: EditorState, runs = 7): number {
+  const viewport = [{ from: 0, to: state.doc.line(50).to }]
+  const times: number[] = []
+  for (let i = 0; i < runs; i++) {
+    const t0 = performance.now()
+    activeLines(state.selection, state.doc)
+    buildBlockPreview(state)
+    buildInlinePreview(state, viewport)
+    times.push(performance.now() - t0)
+  }
+  return times.sort((a, b) => a - b)[Math.floor(times.length / 2)]
 }
 
 const doc = Array.from(
@@ -38,18 +52,7 @@ const doc = Array.from(
 describe('R7: the reveal engine on the heaviest note', () => {
   it('builds the decorations for a 3,000-URL note inside one frame', () => {
     const state = makeState(doc, { at: 0 })
-    // What a keystroke actually costs: the block field over the whole parsed
-    // tree, plus the inline plugin over one screenful.
-    const viewport = [{ from: 0, to: state.doc.line(50).to }]
-    const runs: number[] = []
-    for (let i = 0; i < 7; i++) {
-      const t0 = performance.now()
-      activeLines(state.selection, state.doc)
-      buildBlockPreview(state)
-      buildInlinePreview(state, viewport)
-      runs.push(performance.now() - t0)
-    }
-    const ms = median(runs)
+    const ms = keystrokeMs(state)
     const slowdown = calibrate() / 12
     // Skip rather than fail on a machine that is simply slower than the one the
     // budget was set on: this must be a performance test, not a runner detector.
@@ -95,15 +98,7 @@ describe('R7: the reveal engine on the heaviest note', () => {
       `${'\t'.repeat(i % 11)}- [ ] item ${i} with **emphasis** and a [link](https://ex.dev/${i})`
     ).join('\n')
     const state = makeState(nested, { at: 0 })
-    const viewport = [{ from: 0, to: state.doc.line(50).to }]
-    const runs: number[] = []
-    for (let i = 0; i < 5; i++) {
-      const t0 = performance.now()
-      buildBlockPreview(state)
-      buildInlinePreview(state, viewport)
-      runs.push(performance.now() - t0)
-    }
-    const ms = median(runs)
+    const ms = keystrokeMs(state, 5)
     if (calibrate() / 12 > 3) return
     console.log(`nested to depth 11 over ${state.doc.lines} lines: ${ms.toFixed(1)} ms`)
     expect(ms).toBeLessThan(FRAME_MS)
@@ -112,9 +107,6 @@ describe('R7: the reveal engine on the heaviest note', () => {
   it('measures the selection-only rebuild, which is what arrow keys cost', () => {
     const state = makeState(doc, { at: 0 })
     const moved = state.update({ selection: EditorSelection.single(200) }).state
-    const t0 = performance.now()
-    buildBlockPreview(moved)
-    buildInlinePreview(moved, [{ from: 0, to: moved.doc.line(50).to }])
-    expect(performance.now() - t0).toBeLessThan(FRAME_MS)
+    expect(keystrokeMs(moved, 3)).toBeLessThan(FRAME_MS)
   })
 })

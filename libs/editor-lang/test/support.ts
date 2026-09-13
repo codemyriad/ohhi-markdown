@@ -157,5 +157,3 @@ export function hidden(state: EditorState): { from: number; to: number }[] {
   return out
 }
 
-export const classesAt = (decos: FlatDeco[], text: string): string[] =>
-  decos.filter((d) => d.text === text).map((d) => d.value)

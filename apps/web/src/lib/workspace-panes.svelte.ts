@@ -417,11 +417,6 @@ export function createPanes(
     if (t) applyMode(t.id, afterToggleReading(modeOf(t), lastEditing.get(t.id)))
   }
 
-  /** Every `view.*` command acts on the tab the keyboard is in. */
-  function modeOfActive(): ViewMode {
-    return modeOf(active())
-  }
-
   function rects(): Record<string, Rect> {
     if (current.zoom === null) {
       for (const [id, el] of paneEls) {
@@ -797,7 +792,8 @@ export function createPanes(
     readCommands: () =>
       readCommands({
         hasNote: () => active()?.path != null,
-        mode: modeOfActive,
+        // Every `view.*` command acts on the tab the keyboard is in.
+        mode: () => modeOf(active()),
         setMode: (mode) => {
           const t = active()
           if (t) applyMode(t.id, mode)
