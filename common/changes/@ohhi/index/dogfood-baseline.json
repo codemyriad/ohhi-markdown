@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/index",
+      "comment": "Quick-open, search, backlinks and tag lookups are answered from a local index in single-digit milliseconds, with the relay stopped. The index is derived, so losing it costs a rebuild and never data.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/index"
+}

@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import type { PullProgress } from '../workspace.svelte.js'
 import JoinProgress from './JoinProgress.svelte'
 

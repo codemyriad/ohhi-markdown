@@ -10,7 +10,7 @@
  * The happy path and the detach-rollforward path are asserted exactly.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine, type SyncEngine } from '@editor/sync'
+import { createYjsEngine, type SyncEngine } from '@ohhi/sync'
 import {
   BlobDocStore,
   FileJournal,
@@ -25,8 +25,8 @@ import {
   type StoreDir,
   type StoreIo,
   type VaultAdapter,
-} from '@editor/vault'
-import { SimClock } from '@editor/testkit'
+} from '@ohhi/vault'
+import { SimClock } from '@ohhi/testkit'
 import { carveFolder } from '../src/carve.js'
 import { MountSession } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'

@@ -5,11 +5,11 @@
  * entry cleanly gone), not a single disk byte changed by unshare.
  */
 import { describe, expect, it } from 'vitest'
-import { MemStoreDir, MountsFile, type StoreDir } from '@editor/vault'
+import { MemStoreDir, MountsFile, type StoreDir } from '@ohhi/vault'
 import { carveFolder } from '../src/carve.js'
 import { unmountMount, unshareMount } from '../src/unshare.js'
 import { bootVault, crashingDir, diskSnapshot, seedAdapter, type BootedVault } from './fixture.js'
-import type { MemVaultAdapter } from '@editor/vault'
+import type { MemVaultAdapter } from '@ohhi/vault'
 
 const ROOT_ROOM = 'root-room'
 const ROOM = 'carved-room'

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "MountSession.setOpenPath(path) is now setOpenPaths(Set): N editor views may hold documents open at once (panes), only the last view to leave a document closes it, and a document whose guid arrives late is marked open when it appears. fileHistory() lists journal pre-images without reading their bytes; restorePreImage() rejects on failure.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}

@@ -6,10 +6,10 @@
  * and the target side picks the file up via the delta scan.
  */
 import { describe, expect, it } from 'vitest'
-import { MemStoreDir } from '@editor/vault'
+import { MemStoreDir } from '@ohhi/vault'
 import { carveFolder } from '../src/carve.js'
 import { bootVault, dec, enc, seedAdapter, type BootedVault } from './fixture.js'
-import type { MemVaultAdapter } from '@editor/vault'
+import type { MemVaultAdapter } from '@ohhi/vault'
 
 const ROOT_ROOM = 'root-room'
 const ROOM = 'carved-room'

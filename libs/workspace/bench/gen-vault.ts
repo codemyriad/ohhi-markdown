@@ -6,11 +6,11 @@
  * checkboxes the highest-count construct, folders 2–4 levels deep.
  *
  * Deterministic: every path, size and byte comes from a seeded mulberry32
- * (`@editor/testkit`), so two runs of the bench pull an identical corpus.
+ * (`@ohhi/testkit`), so two runs of the bench pull an identical corpus.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { mulberry32, pick, randInt, type Rng } from '@editor/testkit'
+import { mulberry32, pick, randInt, type Rng } from '@ohhi/testkit'
 
 const TOP = [
   'Areas', 'Projects', 'Journal', 'Notes', 'Resources',

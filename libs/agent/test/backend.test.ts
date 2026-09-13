@@ -5,7 +5,7 @@
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SimClock } from '@editor/testkit'
+import { SimClock } from '@ohhi/testkit'
 import { createFilesBackend, readNote } from '../src/backend.js'
 import { vaultId } from '../src/select-vault.js'
 import { FIXTURE_BINARIES, FIXTURE_TEXT_NOTES, makeFixtureVault } from './fixture.js'

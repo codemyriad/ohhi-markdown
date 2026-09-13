@@ -22,8 +22,8 @@
  */
 import { stat as fsStat, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Clock } from '@editor/testkit'
-import { MemoryIndex, type IndexDoc, type VaultIndex } from '@editor/index'
+import type { Clock } from '@ohhi/testkit'
+import { MemoryIndex, type IndexDoc, type VaultIndex } from '@ohhi/index'
 import {
   decodeFile,
   FileJournal,
@@ -32,8 +32,8 @@ import {
   looksBinary,
   type PreImageJournal,
   type VaultAdapter,
-} from '@editor/vault'
-import { NodeStoreDir, NodeVaultAdapter } from '@editor/vault/node'
+} from '@ohhi/vault'
+import { NodeStoreDir, NodeVaultAdapter } from '@ohhi/vault/node'
 import { OpError, type Coverage } from './contract.js'
 import { normalizeVaultPath } from './paths.js'
 import { vaultId } from './select-vault.js'

@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "One design-token layer drives the whole interface, so a theme restyles the surrounding chrome and the editing surface together.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "Four themes ship built in: a light and dark pair of our own, plus a light and dark port of the Obsidian theme this replaces.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "The sync indicator’s colours sit outside the theme cascade, so no theme — including one you write yourself — can repaint it into saying something untrue.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/ui"
+}

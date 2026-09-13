@@ -1,5 +1,5 @@
 {
-  "name": "@editor/editor",
+  "name": "@ohhi/editor",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "@codemirror/language-data": "^6.5.0",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.36.0",
-    "@editor/editor-lang": "workspace:*",
-    "@editor/sync": "workspace:*",
+    "@ohhi/editor-lang": "workspace:*",
+    "@ohhi/sync": "workspace:*",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.4.0",
     "y-codemirror.next": "^0.3.5",

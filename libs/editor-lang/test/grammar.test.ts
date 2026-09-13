@@ -3,7 +3,7 @@
  * lezer pipeline (as wikilink.test.ts does) rather than against a hand-rolled
  * scanner — the point of Fork 3 was to stay on upstream lang-markdown.
  */
-import { scanTags } from '@editor/index'
+import { scanTags } from '@ohhi/index'
 import { describe, expect, it } from 'vitest'
 import { makeState } from './support.js'
 import { syntaxTree } from '@codemirror/language'

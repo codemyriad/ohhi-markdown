@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "New English text for the Settings > Hotkeys tab: the shortcut syntax, recording a chord, resetting a command to its default, and the message shown when a typed shortcut cannot be read.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

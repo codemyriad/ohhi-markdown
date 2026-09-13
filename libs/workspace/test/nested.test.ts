@@ -22,8 +22,8 @@ import {
   isRecoverable,
   type MountDesc,
   type StoreDir,
-} from '@editor/vault'
-import { createYjsEngine, type FileEntry, type SyncEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import { createYjsEngine, type FileEntry, type SyncEngine } from '@ohhi/sync'
 import { MAX_SEED_BYTES, type MountSession } from '../src/mount-session.js'
 import {
   applyForeignCarve,

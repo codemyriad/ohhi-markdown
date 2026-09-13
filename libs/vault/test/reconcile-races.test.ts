@@ -17,8 +17,8 @@
  * CORRECT behavior and fail on the pre-fix code.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine } from '@ohhi/sync'
+import { SimClock } from '@ohhi/testkit'
 import { enrollFolder } from '../src/enrollment.js'
 import { hashBytes } from '../src/hash.js'
 import { MemVaultAdapter } from '../src/mem-adapter.js'

@@ -8,9 +8,9 @@
  * (Obsidian, git or Claude Code writing the same folder while Editor runs).
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
-import { MemJournal, MemLcaStore, MemVaultAdapter } from '@editor/vault'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine } from '@ohhi/sync'
+import { MemJournal, MemLcaStore, MemVaultAdapter } from '@ohhi/vault'
+import { SimClock } from '@ohhi/testkit'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import type { FileRow, SyncRecordFields } from '../src/types.js'
 

@@ -20,8 +20,8 @@
  *   register here, because the tree has no idea how wide anything is.
  */
 import { untrack } from 'svelte'
-import { getLL } from '@editor/i18n'
-import type { Clock } from '@editor/vault'
+import { getLL } from '@ohhi/i18n'
+import type { Clock } from '@ohhi/vault'
 import type { Command, CommandRegistry } from './commands.js'
 import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'

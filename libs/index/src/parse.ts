@@ -11,12 +11,12 @@
  * cosmetic surprise, a missing one is a broken navigation graph.
  *
  * Frontmatter is READ ONLY — keys, tags and aliases, through the one parser
- * in @editor/frontmatter. Golden rule 2 (never reserialize what you didn't
+ * in @ohhi/frontmatter. Golden rule 2 (never reserialize what you didn't
  * change) means nothing here ever writes YAML; the patcher lives there, and
  * the index never calls it.
  */
 
-import { parseFrontmatter } from '@editor/frontmatter'
+import { parseFrontmatter } from '@ohhi/frontmatter'
 import { scanTag, scanTags } from './tag-syntax.js'
 
 export interface RawLink {
@@ -194,7 +194,7 @@ const NON_NEWLINE = /[^\n]/g
 
 /**
  * What the leading `---` block contributes to the index: its key names, its
- * tags and aliases, and where the body starts. `@editor/frontmatter` owns the
+ * tags and aliases, and where the body starts. `@ohhi/frontmatter` owns the
  * reading (one parser for the index, the editor's strip and the CLI — R4.5).
  */
 function readFrontmatter(text: string): {

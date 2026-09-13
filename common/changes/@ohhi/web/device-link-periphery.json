@@ -1,0 +1,25 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Pasting a device link where a folder's link belongs — \"Add a shared folder here…\" or \"Add link…\" — is refused at the field, with the reason and where that link does belong. A key to a whole vault can no longer be mounted as a folder by accident.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A link that cannot be used now says which way it is unusable — damaged, incomplete, made by a newer version of Editor, or carrying keys it has no business carrying — instead of one flat \"invalid link\".",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A shared folder this device holds no link for now says its files are staying put and points at \"Add link…\", instead of telling you to rejoin the folder as though it had to be downloaded again.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The sidebar offers \"Share this folder\" and \"Add a shared folder here\" wherever the folder's own menu does. They used to disappear as soon as the vault was synced to your own devices, while the menu still offered them on the same folder.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

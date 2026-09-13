@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "The app's dictionaries: an English base with typed keys, generated with typesafe-i18n, ready for more locales.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

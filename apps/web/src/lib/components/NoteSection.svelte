@@ -6,7 +6,7 @@
    * There is no user identity until device-key tokens (parent D4): access is
    * links and the labels you gave them, never people, and the copy says so.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { listShares, type RelayShare } from '../relay-admin.js'
   import { mountTone, onlineIn, relayHost, shareStateFor, type MountLike } from '../share-status.js'
   import { decodeShareLink } from '../share-link.js'

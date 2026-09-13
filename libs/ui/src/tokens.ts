@@ -1,7 +1,7 @@
 /**
  * Token NAMES as TypeScript constants, plus the built-in theme list.
  *
- * This is the only thing other packages may import from @editor/ui — the CSS
+ * This is the only thing other packages may import from @ohhi/ui — the CSS
  * is applied by the app shell, never imported by a library (dependency rule 6
  * in docs/architecture/overview.md).
  *

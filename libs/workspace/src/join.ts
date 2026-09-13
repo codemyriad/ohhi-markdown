@@ -16,7 +16,7 @@
  * keeps ownership of stores/records/events wiring; on success that session
  * has already upserted its desc as 'active'.
  */
-import type { MountsFile, StoreDir, VaultAdapter } from '@editor/vault'
+import type { MountsFile, StoreDir, VaultAdapter } from '@ohhi/vault'
 import type { MountSession } from './mount-session.js'
 
 export interface JoinMountOptions {

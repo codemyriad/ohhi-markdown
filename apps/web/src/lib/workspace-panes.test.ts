@@ -11,7 +11,7 @@
  * so nothing here waits on real time (golden rule 5).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { SimClock } from '@editor/testkit'
+import { SimClock } from '@ohhi/testkit'
 import { CommandRegistry, type Command } from './commands.js'
 import { createGroupUi } from './group-ui.svelte.js'
 import { activeTab, findPane, panes as panesOf, visibleTabs, type Layout } from './panes.js'

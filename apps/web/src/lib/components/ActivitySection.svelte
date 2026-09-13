@@ -6,7 +6,7 @@
    * tools toggle lives at its foot, next to the diagnostics it enables.
    */
   import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { formatTime, type Notice } from '../notices.js'
 
   interface Props {

@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { OP_NAMES } from '@editor/agent'
+import { OP_NAMES } from '@ohhi/agent'
 import { fixture } from './helpers.js'
 
 const BUNDLE = resolve(process.cwd(), 'dist/ohhi.mjs')

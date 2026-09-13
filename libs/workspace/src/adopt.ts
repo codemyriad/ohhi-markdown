@@ -39,8 +39,8 @@ import {
   type MountProvenance,
   type MountsFile,
   type StoreDir,
-} from '@editor/vault'
-import type { FileEntry, SyncEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import type { FileEntry, SyncEngine } from '@ohhi/sync'
 import { absorbMount } from './vault-boot.js'
 import type { MountSession } from './mount-session.js'
 import type { MountEntryInfo, PullProgress, RelayConfig } from './types.js'

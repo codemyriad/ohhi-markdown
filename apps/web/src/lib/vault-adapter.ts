@@ -12,7 +12,7 @@ import {
   wipeStoreDir,
   type StoreDir,
   type VaultAdapter,
-} from '@editor/vault'
+} from '@ohhi/vault'
 import type { VaultEntry, VaultSourceDesc } from './config.js'
 
 export async function buildAdapter(source: VaultSourceDesc): Promise<VaultAdapter> {

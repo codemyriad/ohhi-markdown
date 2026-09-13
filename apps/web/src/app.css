@@ -1,7 +1,7 @@
-@import "@editor/ui/styles/base.css";
+@import "@ohhi/ui/styles/base.css";
 
 /* Tailwind v4's automatic content detection skips node_modules, and Rush
- * symlinks our @editor/* workspace packages in there. Without these, any
+ * symlinks our @ohhi/* workspace packages in there. Without these, any
  * utility class used only inside a workspace lib is silently dropped from the
  * build — no error, just unstyled DOM. */
 @source "../../../libs/ui/src";

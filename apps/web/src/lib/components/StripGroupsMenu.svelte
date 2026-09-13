@@ -10,7 +10,7 @@
    * never disagree about it. The list is trimmed here because a menu is a
    * glance — everything is in the dialog.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { groupLabel, type GroupShell } from '../group-ui.svelte.js'
   import { formatStamp } from '../history.js'
   import { activeTab, type Pane } from '../panes.js'

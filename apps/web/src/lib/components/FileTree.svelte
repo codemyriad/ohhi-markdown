@@ -3,7 +3,7 @@
   import { SvelteSet } from 'svelte/reactivity'
   import { ChevronsDownUp, FilePlus, FolderPlus, KeyRound, ListFilter, Users } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { pillStatus, type PillStatus, type SyncRecord } from '../sync-record.svelte.js'
   import type { FileRow, MountInfo } from '../workspace.svelte.js'
   import {

@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "You can share a folder from inside a vault that is already synced to your own devices — it used to be refused outright.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Sharing a folder tells the other devices on that vault where it went in the same step that moves it, so the folder is never briefly missing from their view.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}

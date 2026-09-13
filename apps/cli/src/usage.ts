@@ -3,7 +3,7 @@
  * op appears in the usage the moment it appears in `OP_SCHEMAS`. There is no
  * hand-maintained list of commands anywhere in this package.
  */
-import { OP_NAMES, OP_SCHEMAS } from '@editor/agent'
+import { OP_NAMES, OP_SCHEMAS } from '@ohhi/agent'
 import { GLOBAL_FLAGS, usageLine } from './grammar.js'
 
 const WRITE_MARK = '*'

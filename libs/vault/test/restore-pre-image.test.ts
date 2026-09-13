@@ -8,8 +8,8 @@
  * doc is refused rather than written over.
  */
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine } from '@ohhi/sync'
+import { SimClock } from '@ohhi/testkit'
 import {
   enrollFolder,
   MemJournal,

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor",
+      "comment": "The editor parses GitHub-flavoured markdown with syntax-highlighted fences, installs the live-preview engine, and switches between Live, Source and Reading in place with setMode.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor"
+}

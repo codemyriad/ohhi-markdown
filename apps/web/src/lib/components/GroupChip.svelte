@@ -13,7 +13,7 @@
    * group id, and `groups.ts`'s `moveGroup` keeps the name and the colour on
    * the far side of the drop.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { groupLabel } from '../group-ui.svelte.js'
   import type { Group, Pane } from '../panes.js'
   import { DRAG_THRESHOLD_PX, type PaneShell } from '../workspace-panes.svelte.js'

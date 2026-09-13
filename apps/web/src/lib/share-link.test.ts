@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import {
   decodeShareLink,
   encodeDeviceLink,

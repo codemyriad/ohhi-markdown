@@ -1,5 +1,5 @@
 /** Text renderers for the reading vocabulary: `ls`, `read`, `fm`, `stats`, `changes`. */
-import type { OpOutput } from '@editor/agent'
+import type { OpOutput } from '@ohhi/agent'
 import { bytes, columnWidth, counters, coverageNote, kv, oneLine, type Sink } from './format.js'
 
 export function renderLs(o: OpOutput<'ls'>, sink: Sink): void {

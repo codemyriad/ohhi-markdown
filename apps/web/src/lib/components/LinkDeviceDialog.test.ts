@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import { encodeDeviceLink, encodeShareLink } from '../share-link.js'
 import LinkDeviceDialog from './LinkDeviceDialog.svelte'
 

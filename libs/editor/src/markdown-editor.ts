@@ -15,7 +15,7 @@ import { languages } from '@codemirror/language-data'
 import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import type { Awareness } from 'y-protocols/awareness'
-import type { EngineDoc } from '@editor/sync'
+import type { EngineDoc } from '@ohhi/sync'
 import {
   Frontmatter,
   Highlight,
@@ -26,7 +26,7 @@ import {
   type ViewMode,
   WikiLink,
   wikiLinkExtensions,
-} from '@editor/editor-lang'
+} from '@ohhi/editor-lang'
 import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 

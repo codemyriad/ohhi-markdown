@@ -1,9 +1,0 @@
-{
-  "changes": [
-    {
-      "packageName": "@editor/workspace",
-      "comment": "Pinned the behaviour of an outside program writing a note while Editor has it open: the change appears live in the pane, Editor writes no bytes of its own, a pending edit of your own becomes a review rather than a silent loss, and an edit landing mid-save survives.",
-      "type": "patch"
-    }
-  ]
-}

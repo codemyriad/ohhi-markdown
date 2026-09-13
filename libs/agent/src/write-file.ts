@@ -31,7 +31,7 @@ import {
   WriteConflictError,
   type EolFlavor,
   type PreImageJournal,
-} from '@editor/vault'
+} from '@ohhi/vault'
 import type { VaultBackend } from './backend.js'
 import { readNote } from './backend.js'
 import { OpError } from './contract.js'

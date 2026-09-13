@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "The relay knows which folder was carved out of which vault, so a key for one of your own devices reaches the folders you share later without you pasting anything. A folder's own key still reaches only that folder — never the vault it came from, and never a folder beside it.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "An existing relay upgrades its own database the first time it starts on this version, in place. Every key handed out before it keeps working exactly as it did, as a key to its one folder.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "Once the relay has recorded which vault a folder came from, it refuses to re-file that folder under a different vault — so nobody holding the relay's operator password can quietly attach someone else's folder to their own vault. Re-sharing the same folder from the same vault is unaffected.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/relay"
+}

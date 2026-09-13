@@ -1,7 +1,7 @@
 /**
  * `#tag` support for @codemirror/lang-markdown (read-shaping.md B5, Fork 6).
  *
- * The grammar itself is NOT defined here: `scanTag` in @editor/index is the
+ * The grammar itself is NOT defined here: `scanTag` in @ohhi/index is the
  * one definition of what a tag is, and the index scans with the same function.
  * A chip in the note and a hit in `tag:#x` search can therefore never
  * disagree — the failure V2c's review caught with wikilink resolution
@@ -10,7 +10,7 @@
  * Node shape:  `#edible/roadmap`
  *               ^^^^^^^^^^^^^^^ Tag  (the `#` is part of the chip)
  */
-import { scanTag } from '@editor/index'
+import { scanTag } from '@ohhi/index'
 import { tags as t, Tag as HighlightTag } from '@lezer/highlight'
 import type { MarkdownConfig } from '@lezer/markdown'
 

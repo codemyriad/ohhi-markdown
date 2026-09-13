@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { listShares, mintShare, revokeShare, type RelayShare } from '../relay-admin.js'
 
   interface Props {

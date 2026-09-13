@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor",
+      "comment": "MarkdownEditor handle gains capture()/restore() (cursor + scroll resume points) and an undoManager option so one Y.UndoManager per document survives a tab switch; MarkdownEditor.svelte exposes both via undoManager/onhandle props.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor"
+}

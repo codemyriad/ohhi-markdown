@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "Internal: minting a share reports the parent the relay actually recorded — a concurrent mint that lost the write-once ancestry race now gets a 409 instead of a response naming a parent the relay does not hold.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@ohhi/relay"
+}

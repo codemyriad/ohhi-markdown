@@ -34,8 +34,8 @@
     type LucideIcon,
   } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
-  import { basename } from '@editor/index'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { basename } from '@ohhi/index'
   import { groupLabel } from '../group-ui.svelte.js'
   import {
     activeTab,

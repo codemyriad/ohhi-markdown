@@ -4,7 +4,7 @@
  * divergence reviews and the mass-change breaker surfaced as events.
  * All timing goes through the injected Clock (golden rule 5).
  */
-import type { EngineDoc, FileEntry, SyncEngine } from '@editor/sync'
+import type { EngineDoc, FileEntry, SyncEngine } from '@ohhi/sync'
 import {
   reconcileFile,
   resolveDivergence,
@@ -800,7 +800,7 @@ function isForeignOrigin(origin: unknown): boolean {
   return origin !== 'local' && origin !== 'disk' && origin !== 'seed'
 }
 
-function emptyHeads(engine: import('@editor/sync').SyncEngine) {
+function emptyHeads(engine: import('@ohhi/sync').SyncEngine) {
   const tmp = engine.createDoc('empty-baseline')
   const heads = engine.heads(tmp)
   tmp.destroy()

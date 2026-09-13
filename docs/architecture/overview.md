@@ -53,7 +53,7 @@ Two clients in the V1 demo run this whole stack each; they meet only at `apps/re
 
 ## Packages and responsibilities
 
-Rush monorepo, packages named `@editor/<name>`, created per-slice (shaping D10).
+Rush monorepo, packages named `@ohhi/<name>`, created per-slice (shaping D10).
 `rush.json`'s projects list is the source of truth for what exists.
 
 | Package | Responsibility |
@@ -70,7 +70,7 @@ Rush monorepo, packages named `@editor/<name>`, created per-slice (shaping D10).
 | `libs/frontmatter` | The note's leading `---` block. `parseFrontmatter` reads positions, scalar typing, tags (every Obsidian form, including the vault's legacy `[a b]`) and aliases; `patchFrontmatter` writes ONE line-range per op, so no untouched byte is re-emitted (golden rule 2). Flat subset only — nesting, multi-line scalars, anchors and duplicate keys are refused, never repaired. The single frontmatter writer for the index, the editor's tag strip and the CLI's `fm set` (read-shaping.md B4, Fork 4). |
 | `libs/editor-lang` | Markdown language extras for CM6 — the `[[wikilink]]` `MarkdownConfig` on upstream `@codemirror/lang-markdown`, its decorations, click-through and completion. Live-preview decorations land here too. |
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
-| `libs/agent` | The **agent surface's command core** (G1): `VaultBackend` over `@editor/vault`'s Node adapter + `libs/index` + a CLI-owned pre-image journal, and the 17 ops — `ls`, `read`, `search`, `links`, `backlinks`, `unresolved`, `tags`, `resolve`, `stats`, `changes`, `write`, `patch`, `append`, `fm`, `mv`, `rm`, `restore` — declared once in `src/contract.ts`. Host-neutral: no process, no terminal, no transport. See [agent-access.md](../agent-access.md). |
+| `libs/agent` | The **agent surface's command core** (G1): `VaultBackend` over `@ohhi/vault`'s Node adapter + `libs/index` + a CLI-owned pre-image journal, and the 17 ops — `ls`, `read`, `search`, `links`, `backlinks`, `unresolved`, `tags`, `resolve`, `stats`, `changes`, `write`, `patch`, `append`, `fm`, `mv`, `rm`, `restore` — declared once in `src/contract.ts`. Host-neutral: no process, no terminal, no transport. See [agent-access.md](../agent-access.md). |
 | `apps/cli` | The **`ohhi`** binary: `run(argv, io) => exit code`, text for humans and `--json` for machines, plus `ohhi mcp` (a stdio MCP server) and `gen-schemas` (writes `spec/`). esbuild-bundled so a cold invocation beats ~500 ms. A thin adapter over `libs/agent` — it holds no vocabulary of its own. |
 
 Split-on-demand later: `apps/agentd` (V3). Don't reference it before its slice
@@ -103,7 +103,7 @@ harness possible.
    other packages may import its `./tokens` entry (token names and helpers),
    never its CSS. The CSS is applied once by the app shell — a library that
    imported it would inject a second copy of every theme.
-7. **`libs/index` depends on nothing but `@editor/frontmatter`** (itself pure,
+7. **`libs/index` depends on nothing but `@ohhi/frontmatter`** (itself pure,
    Node-safe and DOM-free), because a second frontmatter reader would let the
    index and the editor disagree about a note's tags. For the same reason it
    takes that package's line-offset helpers (`lineStartsOf`, `lineIndexAt`)

@@ -1,5 +1,5 @@
 {
-  "name": "@editor/editor-lang",
+  "name": "@ohhi/editor-lang",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "test": "vitest run", "check": "tsc --noEmit" },
   "dependencies": {
-    "@editor/index": "workspace:*",
+    "@ohhi/index": "workspace:*",
     "@codemirror/autocomplete": "^6.18.0",
     "@codemirror/language": "^6.10.0",
     "@codemirror/state": "^6.5.0",

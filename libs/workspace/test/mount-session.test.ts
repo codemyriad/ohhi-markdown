@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine, type EngineDoc, type SyncEngine } from '@editor/sync'
-import { MemJournal, MemLcaStore, MemVaultAdapter } from '@editor/vault'
-import { SimClock } from '@editor/testkit'
+import { createYjsEngine, type EngineDoc, type SyncEngine } from '@ohhi/sync'
+import { MemJournal, MemLcaStore, MemVaultAdapter } from '@ohhi/vault'
+import { SimClock } from '@ohhi/testkit'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import type { FileRow, MountEntryInfo, SyncRecordFields } from '../src/types.js'
 

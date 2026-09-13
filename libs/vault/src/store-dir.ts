@@ -3,7 +3,7 @@
  * for one vault (spike S8 layout: `mounts.json`, `<room>/lca/<guid>.json`,
  * `<room>/docs/<guid>.bin`, `<room>/journal/…`). Names are '/'-separated
  * relative paths. Implementations: MemStoreDir (tests), NodeStoreDir
- * ('@editor/vault/node'), TauriStoreDir / OpfsStoreDir (apps/web).
+ * ('@ohhi/vault/node'), TauriStoreDir / OpfsStoreDir (apps/web).
  *
  * `io(name)` MUST return an io carrying `binding: { dir: this, name }` —
  * stores that address sibling files (the per-record LCA store) recover their

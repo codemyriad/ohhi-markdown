@@ -1,0 +1,40 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "A folder someone shares out of a vault you also have becomes a shared folder on your copy too, by itself and within seconds — the notes stay exactly where they are on disk, keep their history, and are never re-downloaded or duplicated.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "A device that was closed while the folder was shared catches up the next time it opens, and a device interrupted halfway through — even by a crash — finishes the job on its next start rather than leaving notes in two places.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "A shared folder you hold no link for still works: its notes stay on disk, open and edit normally, and start syncing the moment the link is added — nothing is re-downloaded and no file is touched.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "When the person who shared a folder stops sharing it, your copy folds it back into the vault with its notes intact and their history unbroken.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Adding a shared folder to a vault that is itself synced now works, and the other devices on that vault are told about it.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Edits made while a folder was being shared are no longer lost in the changeover: whatever a note holds at that moment travels into the shared folder with it.",
+      "type": "patch"
+    },
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Renames, deletions and new files that arrive for a folder that has just become shared are replayed inside it instead of being dropped — and a big batch of deletions still waits for your confirmation.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}

@@ -9,7 +9,7 @@
  * successful `close()` commits the whole file — this store is the only
  * writer, so no temp+rename dance is needed (same rationale as the adapter).
  */
-import type { StoreDir, StoreIo } from '@editor/vault'
+import type { StoreDir, StoreIo } from '@ohhi/vault'
 import { ensurePersistence } from '../storage-persistence.js'
 
 const STORES_DIR = 'stores'

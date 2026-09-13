@@ -1,0 +1,65 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Open any local folder as a vault — pick a directory on the desktop app, or create one in the browser that survives a reload.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Keep several vaults and switch between them from a named list, with a settings panel alongside. Booting into a vault that has moved or gone unreadable now recovers instead of dead-ending.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Browse and reorganise a vault in a nested file tree: create, rename, move and delete files and folders, with a confirmation step in front of any change big enough to be a mistake.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Share a folder straight from the tree, by context menu or drag-and-drop, and mint, list or revoke its share tokens without leaving the app.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Join someone else’s shared folder as a mount inside your own vault, move files across the boundary, and fold the share back in when you are done.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Decide for yourself what happens to files that vanish underneath the app, in a review step, instead of having the choice made for you.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Find anything without leaving the keyboard — quick-open ordered by what you touched last, vault-wide search with snippets, and a command palette.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Follow wikilinks: click through them, autocomplete with `[[`, see unresolved links styled apart, and create the missing note by clicking it. Backlinks and outgoing-link panels show what points where.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Move back and forward through the files you have visited.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Choose a theme — two light/dark pairs, one of them a port of the Obsidian theme this replaces.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Forgetting a vault now clears its sync state too, so adding it back starts genuinely fresh.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Inspect what the sync layer is actually doing, in a devtools panel.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

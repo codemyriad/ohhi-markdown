@@ -5,7 +5,7 @@
    * "where am I" lives now that the header carries nothing else.
    */
   import { ChevronRight } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
 
   interface Props {
     path: string | null

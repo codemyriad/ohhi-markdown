@@ -336,21 +336,21 @@
    * 3. It's useful to have a centralized inventory of all projects and their important metadata.
    */
   "projects": [
-    { "packageName": "@editor/sync", "projectFolder": "libs/sync" },
-    { "packageName": "@editor/testkit", "projectFolder": "libs/testkit" },
-    { "packageName": "@editor/vault", "projectFolder": "libs/vault" },
-    { "packageName": "@editor/workspace", "projectFolder": "libs/workspace" },
-    { "packageName": "@editor/editor", "projectFolder": "libs/editor" },
-    { "packageName": "@editor/ui", "projectFolder": "libs/ui" },
-    { "packageName": "@editor/index", "projectFolder": "libs/index" },
-    { "packageName": "@editor/frontmatter", "projectFolder": "libs/frontmatter" },
-    { "packageName": "@editor/editor-lang", "projectFolder": "libs/editor-lang" },
-    { "packageName": "@editor/i18n", "projectFolder": "libs/i18n" },
-    { "packageName": "@editor/agent", "projectFolder": "libs/agent" },
-    { "packageName": "@editor/relay", "projectFolder": "apps/relay" },
-    { "packageName": "@editor/cli", "projectFolder": "apps/cli" },
-    { "packageName": "@editor/web", "projectFolder": "apps/web" },
-    { "packageName": "@editor/desktop", "projectFolder": "apps/desktop" }
+    { "packageName": "@ohhi/sync", "projectFolder": "libs/sync" },
+    { "packageName": "@ohhi/testkit", "projectFolder": "libs/testkit" },
+    { "packageName": "@ohhi/vault", "projectFolder": "libs/vault" },
+    { "packageName": "@ohhi/workspace", "projectFolder": "libs/workspace" },
+    { "packageName": "@ohhi/editor", "projectFolder": "libs/editor" },
+    { "packageName": "@ohhi/ui", "projectFolder": "libs/ui" },
+    { "packageName": "@ohhi/index", "projectFolder": "libs/index" },
+    { "packageName": "@ohhi/frontmatter", "projectFolder": "libs/frontmatter" },
+    { "packageName": "@ohhi/editor-lang", "projectFolder": "libs/editor-lang" },
+    { "packageName": "@ohhi/i18n", "projectFolder": "libs/i18n" },
+    { "packageName": "@ohhi/agent", "projectFolder": "libs/agent" },
+    { "packageName": "@ohhi/relay", "projectFolder": "apps/relay" },
+    { "packageName": "@ohhi/cli", "projectFolder": "apps/cli" },
+    { "packageName": "@ohhi/web", "projectFolder": "apps/web" },
+    { "packageName": "@ohhi/desktop", "projectFolder": "apps/desktop" }
     // {
     //   /**
     //    * The NPM package name of the project (must match package.json)

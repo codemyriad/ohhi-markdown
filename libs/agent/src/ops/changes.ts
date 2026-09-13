@@ -1,4 +1,4 @@
-import type { JournalEntryInfo } from '@editor/vault'
+import type { JournalEntryInfo } from '@ohhi/vault'
 import type { z } from 'zod'
 import { OP_SCHEMAS, ChangesOut, OpError, schemaName } from '../contract.js'
 import type { OpDef } from '../op.js'

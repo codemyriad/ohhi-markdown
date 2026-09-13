@@ -2,7 +2,7 @@
   /** The live region the `toast()` helper writes into. Mount once, in the shell. */
   import { melt } from '@melt-ui/svelte'
   import { X } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { toaster } from './toaster.js'
 
   const {

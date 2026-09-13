@@ -12,8 +12,8 @@
    * nothing, and they read as intent (`Edible Inbox`, `Myriad WORKING`) rather
    * than as typos. That section is a note-creation queue.
    */
-  import type { LinkRef } from '@editor/index'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import type { LinkRef } from '@ohhi/index'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { HEADING } from '../ui/styles.js'
 
   interface Props {

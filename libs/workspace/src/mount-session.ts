@@ -42,7 +42,7 @@ import type {
   PreImageJournal,
   ReconcileThresholds,
   VaultAdapter,
-} from '@editor/vault'
+} from '@ohhi/vault'
 import {
   BlobDocStore,
   decodeFile,
@@ -57,8 +57,8 @@ import {
   NEVER_ON_DISK,
   VaultSession,
   type StoreDir,
-} from '@editor/vault'
-import type { EngineDoc, FileEntry, SyncEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import type { EngineDoc, FileEntry, SyncEngine } from '@ohhi/sync'
 import type { Awareness } from 'y-protocols/awareness'
 import {
   connectDoc,

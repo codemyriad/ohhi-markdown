@@ -1,5 +1,5 @@
 [package]
-name = "editor-desktop"
+name = "ohhi-desktop"
 version = "0.1.0"
 description = "Editor desktop shell (Tauri 2)"
 edition = "2021"
@@ -8,7 +8,7 @@ publish = false
 # The `_lib` suffix avoids the lib/bin artifact name clash on Windows;
 # staticlib/cdylib are required for the (future) mobile targets.
 [lib]
-name = "editor_desktop_lib"
+name = "ohhi_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -12,7 +12,7 @@
  * contract already describes.
  */
 import { parseArgs } from 'node:util'
-import { isOpName, OpError, type OpName } from '@editor/agent'
+import { isOpName, OpError, type OpName } from '@ohhi/agent'
 
 type FlagKind =
   | 'string'

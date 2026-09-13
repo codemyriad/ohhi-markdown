@@ -7,7 +7,7 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hashBytes, type WriteOptions } from '@editor/vault'
+import { hashBytes, type WriteOptions } from '@ohhi/vault'
 import { runOp } from '../src/ops/index.js'
 import { harness, type Harness } from './harness.js'
 

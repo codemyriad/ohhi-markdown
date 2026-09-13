@@ -7,7 +7,7 @@
    */
   import { TriangleAlert } from '@lucide/svelte'
   import { z } from 'zod'
-  import { LL, locale } from '@editor/i18n/i18n-svelte'
+  import { LL, locale } from '@ohhi/i18n/i18n-svelte'
   import { isTauri } from '../platform.js'
   import { formatBytes, notGuaranteed } from '../storage-persistence.js'
   import {
@@ -39,7 +39,7 @@
   import { parseBinding, type CommandBinding, type CommandRegistry } from '../commands.js'
   import { VIEW_MODES, type ViewMode } from '../panes.js'
   import { readState, setDefaultMode } from '../read.svelte.js'
-  import { BUILTIN_THEMES, THEME_LABELS } from '@editor/ui/tokens'
+  import { BUILTIN_THEMES, THEME_LABELS } from '@ohhi/ui/tokens'
   import { escapeHtml } from '../html.js'
   import { applyTheme, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
   import { createForm } from '../ui/form.svelte.js'

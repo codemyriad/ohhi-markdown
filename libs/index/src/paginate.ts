@@ -1,6 +1,6 @@
 /**
  * Paging, in one place. Every list in the index contract — and every list in
- * `@editor/agent`'s op contract, which imports this — carries
+ * `@ohhi/agent`'s op contract, which imports this — carries
  * `{items, total, nextCursor}`, and the cursor is OPAQUE: it is produced here
  * and consumed here, and no caller may parse it.
  *

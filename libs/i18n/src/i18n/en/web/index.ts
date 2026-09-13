@@ -444,7 +444,7 @@ const commands = {
  */
 const history = {
   no_note: 'Open a note to see its history.',
-  empty: 'No earlier versions yet — Editor saves one every time it writes this file.',
+  empty: 'No earlier versions yet — Oh hi markdown saves one every time it writes this file.',
   loading: 'Reading the journal…',
   list_label: 'Earlier versions of {name:string}',
   restore: 'Restore',
@@ -466,7 +466,7 @@ const history = {
  */
 const daily = {
   unsupported_format:
-    'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Editor does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
+    'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Oh hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
 }
 
 const activity = {
@@ -557,7 +557,7 @@ const manager = {
   pick_folder: "Pick a folder on disk (use the dialog's New Folder to create a fresh vault).",
   open_folder: 'Open folder as vault…',
   no_opfs:
-    "This browser doesn't support the private file storage (OPFS) Editor needs — try a recent Chrome, Edge, or Firefox.",
+    "This browser doesn't support the private file storage (OPFS) Oh hi markdown needs — try a recent Chrome, Edge, or Firefox.",
   browser_vault_hint: 'A new vault stored privately in this browser.',
   vault_name_placeholder: 'Vault name',
   create_vault: 'Create vault',
@@ -634,7 +634,7 @@ const settings = {
     theme: 'Theme',
     system: 'System',
     theme_help:
-      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Editor themes are our own defaults.',
+      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.',
     custom_theme: 'Custom theme',
     custom_placeholder: 'my-theme',
     use_custom: 'Use custom',
@@ -666,7 +666,7 @@ const settings = {
     reset: 'Reset',
     reset_for: 'Reset {command:string} to its default shortcut',
     conflict: 'Also runs {commands:string} — only the last one registered wins.',
-    reserved: 'Your desktop takes this shortcut before Editor can see it.',
+    reserved: 'Your desktop takes this shortcut before Oh hi markdown can see it.',
   },
   sync: {
     relay: 'Default relay',
@@ -709,7 +709,7 @@ const link_error = {
   malformed: 'That link is damaged — copy it again from the device that made it.',
   missing_fields:
     'That link is incomplete: it does not say which relay, folder or key it is for. Copy it again from the device that made it.',
-  unknown_kind: 'That link was made by a newer version of Editor — update this device first.',
+  unknown_kind: 'That link was made by a newer version of Oh hi markdown — update this device first.',
   bad_grant:
     'That link is damaged: one of the shared folders it carries is missing its relay, folder or key. Make a new link on the device that produced it.',
   grants_on_folder_link:
@@ -917,7 +917,7 @@ const review = {
   title: 'Divergence review — {path:string}',
   description: 'reason: {reason:string}. Nothing is written to disk until you resolve.',
   vanished:
-    'This file was deleted on disk outside Editor, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).',
+    'This file was deleted on disk outside Oh hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).',
   confirm_removal: 'Confirm removal',
   restore: 'Restore file',
   mine: 'mine (editor)',

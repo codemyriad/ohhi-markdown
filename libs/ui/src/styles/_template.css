@@ -16,7 +16,7 @@
  *     someone else's content, and url() is a working beacon out of a
  *     local-first app. Ship fonts as data: URIs or not at all.
  *
- * Every token below has a default in @editor/ui's _contract.css, so you only
+ * Every token below has a default in @ohhi/ui's _contract.css, so you only
  * need the ones you want to change. The full list, and an Obsidian → Editor
  * porting table, is in docs/theming.md.
  */

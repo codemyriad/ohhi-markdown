@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Strings for the view modes, the tag strip, missing attachments and the default-view setting.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

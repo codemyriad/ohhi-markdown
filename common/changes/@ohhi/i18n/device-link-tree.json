@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Internal: English text for the nested-share states in the file tree. The outcome a person notices belongs to the app that renders it.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

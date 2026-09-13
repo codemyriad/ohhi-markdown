@@ -12,7 +12,7 @@
    */
   import { ChevronDown } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { pillLabel, type PillStatus } from '../pill-status.js'
   import { VIEW_MODES, type ViewMode } from '../panes.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'

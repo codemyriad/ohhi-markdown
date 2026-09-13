@@ -20,7 +20,7 @@ export const previewMode = Facet.define<ViewMode, ViewMode>({
 
 /**
  * What the collapsed frontmatter strip renders — structurally the subset of
- * @editor/frontmatter's `Frontmatter` it needs, so the shell can pass
+ * @ohhi/frontmatter's `Frontmatter` it needs, so the shell can pass
  * `parseFrontmatter` itself with no adapter.
  */
 export interface FrontmatterView {
@@ -62,10 +62,10 @@ export interface ReadHost {
   labels: ReadLabels
   /**
    * Read this note's frontmatter for the collapsed strip — the shell passes
-   * @editor/frontmatter's `parseFrontmatter` straight in.
+   * @ohhi/frontmatter's `parseFrontmatter` straight in.
    *
    * Optional, and the one host capability that is: this package cannot depend
-   * on @editor/frontmatter (adding the dependency means a lockfile change, and
+   * on @ohhi/frontmatter (adding the dependency means a lockfile change, and
    * the wiring costs the shell one line), so without a reader a frontmatter
    * block simply stays visible as YAML rather than collapsing to a strip.
    */

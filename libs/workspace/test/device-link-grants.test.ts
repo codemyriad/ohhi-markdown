@@ -22,7 +22,7 @@
  * for that room's documents — which is the whole of N3.
  */
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest'
-import { MemVaultAdapter } from '@editor/vault'
+import { MemVaultAdapter } from '@ohhi/vault'
 import {
   addMountLink,
   bootDevice,

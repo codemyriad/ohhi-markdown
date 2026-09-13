@@ -10,7 +10,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLL } from '@editor/i18n'
+import { getLL } from '@ohhi/i18n'
 import { CommandRegistry } from '../commands.js'
 import { hotkeys } from '../config.js'
 import SettingsPanel from './SettingsPanel.svelte'

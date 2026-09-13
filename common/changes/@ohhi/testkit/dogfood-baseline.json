@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/testkit",
+      "comment": "Internal test harness for the three-tier collab-correctness suite. No user-facing change.",
+      "type": "none"
+    }
+  ],
+  "packageName": "@ohhi/testkit"
+}

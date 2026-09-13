@@ -27,9 +27,9 @@
     X,
     type LucideIcon,
   } from '@lucide/svelte'
-  import { LL } from '@editor/i18n/i18n-svelte'
-  import { basename } from '@editor/index'
-  import { GROUP_SLOTS } from '@editor/ui/tokens'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { basename } from '@ohhi/index'
+  import { GROUP_SLOTS } from '@ohhi/ui/tokens'
   import type { GroupShell } from '../group-ui.svelte.js'
   import { activeTab, findGroup, panes as panesOf, type Group, type GroupColor } from '../panes.js'
   import Field from '../ui/Field.svelte'

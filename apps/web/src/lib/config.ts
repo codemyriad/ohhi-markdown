@@ -14,7 +14,7 @@ import { normalizeOverrides, parseBinding, type BindingOverrides } from './comma
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
-import type { BuiltinTheme } from '@editor/ui/tokens'
+import type { BuiltinTheme } from '@ohhi/ui/tokens'
 
 /** How to (re)build the VaultAdapter for a session. */
 export type VaultSourceDesc =

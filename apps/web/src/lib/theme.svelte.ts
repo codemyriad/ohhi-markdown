@@ -15,8 +15,8 @@
  * code path is worth more than the CSS-only purity, and the boot script is
  * synchronous so there is no flash either way. Recorded in docs/theming.md.
  */
-import { getLL } from '@editor/i18n'
-import { BUILTIN_THEMES, DARK_THEMES, type BuiltinTheme } from '@editor/ui/tokens'
+import { getLL } from '@ohhi/i18n'
+import { BUILTIN_THEMES, DARK_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
 import { setThemePref, themePref, type ThemePref } from './config.js'
 
 const DEFAULT_LIGHT: BuiltinTheme = 'editor-light'

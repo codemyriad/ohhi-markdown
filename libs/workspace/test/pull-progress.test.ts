@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
+import { createYjsEngine } from '@ohhi/sync'
 import {
   BlobDocStore,
   FileJournal,
@@ -25,8 +25,8 @@ import {
   MountsFile,
   scopedStoreDir,
   type StoreDir,
-} from '@editor/vault'
-import { RealClock } from '@editor/testkit'
+} from '@ohhi/vault'
+import { RealClock } from '@ohhi/testkit'
 import { startRelay, type RelayHandle } from '../bench/relay-child.js'
 import { MountSession } from '../src/mount-session.js'
 import { FOLDER_RECORD_KEY, type PullProgress, type SyncRecordFields } from '../src/types.js'

@@ -32,8 +32,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect } from 'vitest'
-import { createYjsEngine, type SyncEngine } from '@editor/sync'
-import { RealClock } from '@editor/testkit'
+import { createYjsEngine, type SyncEngine } from '@ohhi/sync'
+import { RealClock } from '@ohhi/testkit'
 import {
   BlobDocStore,
   FileJournal,
@@ -50,7 +50,7 @@ import {
   type MountDesc,
   type MountProvenance,
   type StoreDir,
-} from '@editor/vault'
+} from '@ohhi/vault'
 import { startRelay, type RelayHandle } from '../bench/relay-child.js'
 import {
   bootFlagsFor,

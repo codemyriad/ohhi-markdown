@@ -10,10 +10,10 @@
  * `localePreferenceStore`) belongs in `config.ts` beside the theme when there
  * is something to prefer.
  */
-import { setLocale } from '@editor/i18n/i18n-svelte'
-import { detectLocale } from '@editor/i18n/i18n-util'
-import { loadLocaleAsync, loadNamespaceAsync } from '@editor/i18n/i18n-util.async'
-import type { Locales } from '@editor/i18n'
+import { setLocale } from '@ohhi/i18n/i18n-svelte'
+import { detectLocale } from '@ohhi/i18n/i18n-util'
+import { loadLocaleAsync, loadNamespaceAsync } from '@ohhi/i18n/i18n-util.async'
+import type { Locales } from '@ohhi/i18n'
 import { navigatorDetector } from 'typesafe-i18n/detectors'
 
 export async function initI18n(): Promise<Locales> {

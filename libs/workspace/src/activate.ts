@@ -27,7 +27,7 @@
  * into the room to LWW-clobber the owner's entries. `neverHeld` is recorded by
  * the adopt, survives every reopen, and is cleared only by a pull.
  */
-import { wipeStoreDir, type MountDesc, type MountsFile, type StoreDir } from '@editor/vault'
+import { wipeStoreDir, type MountDesc, type MountsFile, type StoreDir } from '@ohhi/vault'
 import type { AdoptedMountOptions } from './adopt.js'
 import type { MountSession } from './mount-session.js'
 import type { PullProgress, RelayConfig } from './types.js'

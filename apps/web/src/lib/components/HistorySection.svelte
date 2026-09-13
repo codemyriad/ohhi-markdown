@@ -13,7 +13,7 @@
    * bytes being replaced are journaled, which is why the confirm can promise
    * that a restore is undoable from this same list.
    */
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { formatSize, formatStamp } from '../history.js'
   import { realClock } from '../real-clock.js'
   import { OUTLINE_BUTTON } from '../ui/styles.js'

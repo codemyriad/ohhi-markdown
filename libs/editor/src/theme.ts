@@ -24,7 +24,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { Compartment, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
-import { highlightTag, tagTag, wikiLinkMarkTag, wikiLinkTag } from '@editor/editor-lang'
+import { highlightTag, tagTag, wikiLinkMarkTag, wikiLinkTag } from '@ohhi/editor-lang'
 
 /** Reconfigured on theme change; nothing else about the view moves. */
 export const themeModeCompartment = new Compartment()

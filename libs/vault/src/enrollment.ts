@@ -4,7 +4,7 @@
  * joiner path binds relay state to a clean local folder (single-seeder rule,
  * V1 — Spike S1 will replace this with a real join state machine).
  */
-import type { EngineDoc, SyncEngine } from '@editor/sync'
+import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import { decodeFile } from './eol.js'
 import { hashBytes } from './hash.js'
 import type { LcaStore, VaultAdapter } from './types.js'

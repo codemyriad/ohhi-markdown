@@ -17,8 +17,8 @@ import {
   MemVaultAdapter,
   MountsFile,
   scopedStoreDir,
-} from '@editor/vault'
-import { createYjsEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import { createYjsEngine } from '@ohhi/sync'
 import {
   isAuthRefusalForAdoptedMount,
   resolveRoomRelay,

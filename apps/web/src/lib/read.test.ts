@@ -6,7 +6,7 @@
  * refusal to climb out of the vault — are the reason this file exists.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { i18nObject } from '@editor/i18n/i18n-util'
+import { i18nObject } from '@ohhi/i18n/i18n-util'
 import {
   afterToggleReading,
   afterToggleSource,

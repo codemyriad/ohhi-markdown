@@ -1,7 +1,7 @@
 /**
  * Spike S10-Q4 — run the real relay as a child process.
  *
- * `libs/workspace` has no dependency on `@editor/relay` (and must not grow
+ * `libs/workspace` has no dependency on `@ohhi/relay` (and must not grow
  * one), so the bench spawns `apps/relay` exactly the way `apps/web`'s
  * `e2e/start-relay.mjs` does: `node --experimental-strip-types src/main.ts`
  * with a throwaway DATA_DIR, `PORT=0` (ephemeral — the bound port is read

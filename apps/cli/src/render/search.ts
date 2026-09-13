@@ -3,7 +3,7 @@
  * snippets indented under it with every match bracketed. References and
  * snippets only — never a body (R4); the hint names the next, cheaper call.
  */
-import type { OpOutput } from '@editor/agent'
+import type { OpOutput } from '@ohhi/agent'
 import { bracket, counters, coverageNote, kv, oneLine, type Sink } from './format.js'
 
 export function renderSearch(o: OpOutput<'search'>, sink: Sink): void {

@@ -1,4 +1,4 @@
-# @editor/relay
+# @ohhi/relay
 
 Thin, self-hostable Hocuspocus v4 sync server (design: `docs/architecture/relay.md`).
 Static per-share bearer tokens, doc names scoped as `<folderGuid>/<docGuid>`,

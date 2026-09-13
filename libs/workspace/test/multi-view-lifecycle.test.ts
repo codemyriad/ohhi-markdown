@@ -23,7 +23,7 @@
  */
 import fc from 'fast-check'
 import { describe, expect, it, vi } from 'vitest'
-import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter } from '@editor/vault'
+import { MemStoreDir, MountsFile, VaultSession, type MemVaultAdapter } from '@ohhi/vault'
 import { carveFolder } from '../src/carve.js'
 import { MountRegistry } from '../src/registry.js'
 import type { MountSession } from '../src/mount-session.js'

@@ -1,11 +1,11 @@
 /**
  * The fixture vault, wired to a backend. Kept apart from `fixture.ts` because
  * that file must import nothing but node built-ins (`apps/cli` imports it);
- * this one is free to reach for `@editor/*`.
+ * this one is free to reach for `@ohhi/*`.
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { SimClock } from '@editor/testkit'
+import { SimClock } from '@ohhi/testkit'
 import { createFilesBackend, type VaultBackend } from '../src/backend.js'
 import { makeFixtureVault, type FixtureVault } from './fixture.js'
 

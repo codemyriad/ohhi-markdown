@@ -106,7 +106,7 @@
   import { setDevtools } from './lib/config.js'
   import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
   import { RAIL_SECTIONS, TREE_WIDTH, showOnly, toggleFolded } from './lib/layout.js'
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)

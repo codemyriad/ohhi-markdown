@@ -16,8 +16,8 @@ import {
   type MountDesc,
   type MountsFile,
   type StoreDir,
-} from '@editor/vault'
-import type { EngineDoc, SyncEngine } from '@editor/sync'
+} from '@ohhi/vault'
+import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import { MAX_SEED_BYTES } from './mount-session.js'
 
 export async function recoverMounts(

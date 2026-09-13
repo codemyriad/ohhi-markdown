@@ -6,7 +6,7 @@
  */
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { createYjsEngine } from '@editor/sync'
+import { createYjsEngine } from '@ohhi/sync'
 import { TestNetwork } from '../src/network.js'
 import { mulberry32 } from '../src/prng.js'
 

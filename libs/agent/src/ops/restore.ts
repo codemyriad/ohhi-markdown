@@ -1,5 +1,5 @@
-import type { JournalEntry, JournalEntryInfo, PreImageJournal } from '@editor/vault'
-import { hashBytes } from '@editor/vault'
+import type { JournalEntry, JournalEntryInfo, PreImageJournal } from '@ohhi/vault'
+import { hashBytes } from '@ohhi/vault'
 import type { z } from 'zod'
 import { OP_SCHEMAS, OpError, RestoreOut, schemaName } from '../contract.js'
 import type { OpDef } from '../op.js'

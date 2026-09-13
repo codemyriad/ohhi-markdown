@@ -1,4 +1,4 @@
-import { presenceColor, PRESENCE_SLOTS } from '@editor/ui/tokens'
+import { presenceColor, PRESENCE_SLOTS } from '@ohhi/ui/tokens'
 
 /**
  * URL-param modes — the contract Playwright L2 drives:

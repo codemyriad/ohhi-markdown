@@ -11,7 +11,7 @@
  * second implementation of the rule it is checking, so the rule moved here and
  * both sides import it.
  */
-import type { MountProvenance } from '@editor/vault'
+import type { MountProvenance } from '@ohhi/vault'
 import type { RelayConfig } from './types.js'
 
 /** What kind of thing a stored token is (mirrors the relay's `ShareKind`). */

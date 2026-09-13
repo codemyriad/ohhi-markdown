@@ -5,7 +5,7 @@
 #
 # Dependencies come from the repo lockfile, never re-resolved:
 # - `rush install` refuses any package.json that drifted from pnpm-lock.yaml.
-#   It is the full install, not `--to @editor/relay`: without Rush's
+#   It is the full install, not `--to @ohhi/relay`: without Rush's
 #   usePnpmFrozenLockfileForRushInstall experiment a filtered install
 #   re-resolves peers (it once dropped @hocuspocus/server's y-protocols peer and
 #   the relay died at import). `cmp` fails the build if pnpm changed the
@@ -27,7 +27,7 @@ WORKDIR /repo
 COPY . .
 RUN node common/scripts/install-run-rush.js install \
   && cmp common/config/rush/pnpm-lock.yaml common/temp/pnpm-lock.yaml \
-  && node common/scripts/install-run-rush.js deploy --project @editor/relay --target-folder /deploy
+  && node common/scripts/install-run-rush.js deploy --project @ohhi/relay --target-folder /deploy
 
 FROM ${NODE_IMAGE}
 ENV NODE_ENV=production DATA_DIR=/data PORT=8787

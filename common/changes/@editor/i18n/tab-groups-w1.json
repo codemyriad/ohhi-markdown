@@ -1,9 +1,0 @@
-{
-  "changes": [
-    {
-      "packageName": "@editor/i18n",
-      "comment": "Strings for panes, tab strips and the pane mode's hint bar, plus the Pane and Tab command groups.",
-      "type": "minor"
-    }
-  ]
-}

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Strings for tab groups: the chip, the Manage group dialog, the delete confirmation, the strip-end list, the Show all dialog, the group rows in a tab's context menu, and the group commands.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

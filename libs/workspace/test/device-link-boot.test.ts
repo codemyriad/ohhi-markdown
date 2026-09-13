@@ -9,7 +9,7 @@
  * to show it is not happening is to look at what the room holds afterwards.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { MountsFile } from '@editor/vault'
+import { MountsFile } from '@ohhi/vault'
 import {
   addMountLink,
   bootDevice,

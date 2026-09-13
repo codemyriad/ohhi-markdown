@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Words for the vault's sync state beside the vault name, and the empty tab's launcher: New note, Open note…, Recent, Results and their empty lines.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

@@ -5,7 +5,7 @@
  * here would make the popup flicker in behind the next keystroke.
  */
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete'
-import { isTagBody, tagBoundary } from '@editor/index'
+import { isTagBody, tagBoundary } from '@ohhi/index'
 import { readHost } from '../read-host.js'
 
 export function tagCompletions(context: CompletionContext): CompletionResult | null {

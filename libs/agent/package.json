@@ -1,5 +1,5 @@
 {
-  "name": "@editor/agent",
+  "name": "@ohhi/agent",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,9 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": { "test": "vitest run", "check": "tsc --noEmit" },
   "dependencies": {
-    "@editor/index": "workspace:*",
-    "@editor/testkit": "workspace:*",
-    "@editor/vault": "workspace:*",
+    "@ohhi/index": "workspace:*",
+    "@ohhi/testkit": "workspace:*",
+    "@ohhi/vault": "workspace:*",
     "zod": "~4.1.13"
   },
   "devDependencies": {

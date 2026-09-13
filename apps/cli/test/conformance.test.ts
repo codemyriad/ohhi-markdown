@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ErrorOut, OP_NAMES, OP_SCHEMAS, type OpName } from '@editor/agent'
+import { ErrorOut, OP_NAMES, OP_SCHEMAS, type OpName } from '@ohhi/agent'
 import { generateSchemas, readSchemas } from '../src/gen-schemas.js'
 import { fixture, inVault, ohhi } from './helpers.js'
 

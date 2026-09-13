@@ -15,7 +15,7 @@
  * and disappear as the machines carve and absorb, and the net links them the
  * moment both sides create a doc of that name. `Cut` adds the kill -9.
  */
-import { createYjsEngine, type EngineDoc, type FileEntry, type SyncEngine } from '@editor/sync'
+import { createYjsEngine, type EngineDoc, type FileEntry, type SyncEngine } from '@ohhi/sync'
 import {
   BlobDocStore,
   FileJournal,
@@ -34,8 +34,8 @@ import {
   type StoreIo,
   type VaultAdapter,
   type WriteOptions,
-} from '@editor/vault'
-import { SimClock } from '@editor/testkit'
+} from '@ohhi/vault'
+import { SimClock } from '@ohhi/testkit'
 import { expect } from 'vitest'
 import { carveFolder } from '../src/carve.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'

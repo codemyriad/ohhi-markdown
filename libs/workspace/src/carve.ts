@@ -24,7 +24,7 @@
  * Token minting happens BEFORE this runs (caller-side): a mint failure is a
  * clean abort with nothing persisted anywhere.
  */
-import { scopedStoreDir, type MountsFile, type StoreDir } from '@editor/vault'
+import { scopedStoreDir, type MountsFile, type StoreDir } from '@ohhi/vault'
 import type { MountSession } from './mount-session.js'
 
 export interface CarveOptions {

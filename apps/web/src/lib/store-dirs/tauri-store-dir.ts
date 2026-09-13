@@ -17,7 +17,7 @@ import {
   rename as fsRename,
   writeFile,
 } from '@tauri-apps/plugin-fs'
-import type { StoreDir, StoreIo } from '@editor/vault'
+import type { StoreDir, StoreIo } from '@ohhi/vault'
 
 /** Counter for unique temp names within a single ms tick. */
 let tmpCounter = 0

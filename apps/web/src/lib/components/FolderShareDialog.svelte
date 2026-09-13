@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LL } from '@editor/i18n/i18n-svelte'
+  import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { MountInfo } from '../workspace.svelte.js'
   import { escapeHtml } from '../html.js'
   import Dialog from '../ui/Dialog.svelte'
