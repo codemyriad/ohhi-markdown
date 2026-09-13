@@ -63,18 +63,62 @@ export interface Page<T> {
 }
 
 /**
+ * Which field earned the hit its place. Results are ordered by TIER FIRST,
+ * then by score — a structure, not a weight, because the measured vault has
+ * hundreds of one-generic-noun filenames (`Docs`, `JSON`, `HTML`) whose own
+ * word is also the vault's most frequent body term. See the ranking section
+ * of memory-index.ts.
+ *
+ *  - `title` — the note's basename IS the query.
+ *  - `path`  — every query term appears somewhere in the path.
+ *  - `body`  — matched in the text, headings or a partial path match.
+ */
+export type SearchTier = 'title' | 'path' | 'body'
+
+/**
+ * One line of a hit's score, for `--explain`. `field` is `body`, `title`,
+ * `heading` or `phrase`; contributions sum to the hit's `score`.
+ */
+export interface ExplainRow {
+  term: string
+  field: string
+  contribution: number
+}
+
+/**
  * A ranked hit. `score` is BM25-shaped (higher is better, unbounded above,
  * comparable only within one result set) so a future FTS5 `bm25()` can be
- * negated into the same ordering.
+ * negated into the same ordering. `tier` orders ABOVE `score`: a backend that
+ * only has bm25() must still compute the tier, which is a pure function of the
+ * query and the path.
  */
 export interface SearchHit {
   guid: string
   path: string
   score: number
+  tier: SearchTier
   /** Match positions in the document text, ascending, non-overlapping. */
   spans: Span[]
   /** One line of context per span group, for the results list. */
   snippets: Snippet[]
+  /** Per-(term, field) contributions. Present only when `explain` was asked. */
+  explain?: ExplainRow[]
+}
+
+/**
+ * An unranked literal/regex match, in document order — the `grep` half of the
+ * contract. Ranked search deliberately does NOT index URL text or fenced code;
+ * `grep` reads the raw text, so what ranking hides is still findable.
+ */
+export interface GrepHit {
+  guid: string
+  path: string
+  /** 1-based. */
+  line: number
+  /** The whole line, untrimmed, as it is in the document. */
+  lineText: string
+  /** Match spans, relative to `lineText`. */
+  spans: Span[]
 }
 
 export interface Snippet {
@@ -149,8 +193,32 @@ export interface IndexStats {
 export interface VaultIndex {
   readonly schemaVersion: number
 
-  /** Full-text search. Supports `tag:#x` and `path:foo/` prefixes in `query`. */
-  search(query: string, opts?: PageOptions): Promise<Page<SearchHit>>
+  /**
+   * Full-text search. Supports `tag:#x` and `path:foo/` prefixes in `query`.
+   *
+   * Ordering is tier → score → recency → path. `recent` is a TIE-BREAK ONLY
+   * (the working set is ~5% of the vault); it never reorders across tiers or
+   * across scores. `explain` is opt-in because building the rows costs a
+   * second pass per hit.
+   */
+  search(
+    query: string,
+    opts?: PageOptions & { explain?: boolean; recent?: string[] }
+  ): Promise<Page<SearchHit>>
+
+  /**
+   * Literal (or regex) match over the RAW document text, unranked, in document
+   * order — paths sorted, then line number. This is the escape hatch from
+   * ranking's noise exclusion: a term that only ever appears inside a URL or a
+   * fenced code block is invisible to `search` and findable here.
+   *
+   * `pattern` is matched case-insensitively unless `caseSensitive`. An invalid
+   * regex must be reported as a thrown `SyntaxError`, never as "no results".
+   */
+  grep(
+    pattern: string,
+    opts?: PageOptions & { regex?: boolean; caseSensitive?: boolean; pathPrefix?: string }
+  ): Promise<Page<GrepHit>>
 
   /** Fuzzy path match for the quick-open switcher. Empty query → MRU order. */
   quickOpen(query: string, opts?: PageOptions & { recent?: string[] }): Promise<Page<PathHit>>

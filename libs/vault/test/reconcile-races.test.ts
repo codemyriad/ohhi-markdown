@@ -25,7 +25,7 @@ import { MemVaultAdapter } from '../src/mem-adapter.js'
 import { reconcileFile, type ReconcileContext } from '../src/reconciler.js'
 import { VaultSession } from '../src/session.js'
 import { MemJournal, MemLcaStore } from '../src/stores.js'
-import { DEFAULT_THRESHOLDS, type VaultAdapter } from '../src/types.js'
+import { DEFAULT_THRESHOLDS, type VaultAdapter, type WriteOptions } from '../src/types.js'
 
 const enc = (s: string) => new TextEncoder().encode(s)
 const dec = (b: Uint8Array | null) => (b ? new TextDecoder().decode(b) : null)
@@ -54,9 +54,9 @@ class GatedAdapter implements VaultAdapter {
   read(path: string) {
     return this.base.read(path)
   }
-  async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
+  async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
     if (this.gateWrites) await new Promise<void>((r) => this.gates.push(r))
-    return this.base.writeAtomic(path, bytes)
+    return this.base.writeAtomic(path, bytes, opts)
   }
   rename(from: string, to: string) {
     return this.base.rename(from, to)

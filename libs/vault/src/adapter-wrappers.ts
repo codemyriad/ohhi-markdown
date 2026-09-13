@@ -8,7 +8,7 @@
  *     carve/join mutate it and the wrapper reads it on every call, so a
  *     session restart picks the change up without rebuilding adapters.
  */
-import type { FileStat, VaultAdapter, WatchEvent } from './types.js'
+import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from './types.js'
 
 /** View of `base` rooted at `prefix` (a directory path, no trailing '/'). */
 export function scopedAdapter(base: VaultAdapter, prefix: string): VaultAdapter {
@@ -21,7 +21,9 @@ export function scopedAdapter(base: VaultAdapter, prefix: string): VaultAdapter 
       (await base.list()).filter((s) => inside(s.path)).map((s): FileStat => ({ ...s, path: toRel(s.path) })),
     listDirs: async () => (await base.listDirs()).filter(inside).map(toRel),
     read: (path) => base.read(toAbs(path)),
-    writeAtomic: (path, bytes) => base.writeAtomic(toAbs(path), bytes),
+    // `opts` is forwarded, never swallowed: a wrapper that drops `expectHash`
+    // turns every compare-and-swap under it into a blind write (S11 F1).
+    writeAtomic: (path, bytes, opts?: WriteOptions) => base.writeAtomic(toAbs(path), bytes, opts),
     rename: (from, to) => base.rename(toAbs(from), toAbs(to)),
     remove: (path) => base.remove(toAbs(path)),
     mkdir: (path) => base.mkdir(toAbs(path)),
@@ -50,7 +52,7 @@ export function ignoringAdapter(base: VaultAdapter, ignored: ReadonlySet<string>
     list: async () => (await base.list()).filter((s) => !hidden(s.path)),
     listDirs: async () => (await base.listDirs()).filter((d) => !hidden(d)),
     read: (path) => base.read(path),
-    writeAtomic: (path, bytes) => base.writeAtomic(path, bytes),
+    writeAtomic: (path, bytes, opts?: WriteOptions) => base.writeAtomic(path, bytes, opts),
     rename: (from, to) => base.rename(from, to),
     remove: (path) => base.remove(path),
     mkdir: (path) => base.mkdir(path),

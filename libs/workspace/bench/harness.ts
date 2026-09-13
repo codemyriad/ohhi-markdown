@@ -90,8 +90,8 @@ function countingAdapter(inner: VaultAdapter, probe: Probe): VaultAdapter {
     list: (): Promise<FileStat[]> => inner.list(),
     listDirs: () => inner.listDirs(),
     read: (p) => inner.read(p),
-    writeAtomic: async (p, bytes) => {
-      await inner.writeAtomic(p, bytes)
+    writeAtomic: async (p, bytes, opts) => {
+      await inner.writeAtomic(p, bytes, opts)
       probe.writes.push({ path: p, at: now() })
     },
     rename: (a, b) => inner.rename(a, b),

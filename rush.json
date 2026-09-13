@@ -346,7 +346,9 @@
     { "packageName": "@editor/frontmatter", "projectFolder": "libs/frontmatter" },
     { "packageName": "@editor/editor-lang", "projectFolder": "libs/editor-lang" },
     { "packageName": "@editor/i18n", "projectFolder": "libs/i18n" },
+    { "packageName": "@editor/agent", "projectFolder": "libs/agent" },
     { "packageName": "@editor/relay", "projectFolder": "apps/relay" },
+    { "packageName": "@editor/cli", "projectFolder": "apps/cli" },
     { "packageName": "@editor/web", "projectFolder": "apps/web" },
     { "packageName": "@editor/desktop", "projectFolder": "apps/desktop" }
     // {

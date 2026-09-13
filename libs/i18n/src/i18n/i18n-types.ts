@@ -1210,6 +1210,16 @@ export type NamespaceWebTranslation = {
 		 * f​i​l​e​n​a​m​e​ ​m​a​t​c​h
 		 */
 		filename_match: string
+		tier: {
+			/**
+			 * n​o​t​e​ ​t​i​t​l​e
+			 */
+			title: string
+			/**
+			 * p​a​t​h​ ​m​a​t​c​h
+			 */
+			path: string
+		}
 	}
 	commands: {
 		groups: {
@@ -3868,6 +3878,16 @@ export type TranslationFunctions = {
 			 * filename match
 			 */
 			filename_match: () => LocalizedString
+			tier: {
+				/**
+				 * note title
+				 */
+				title: () => LocalizedString
+				/**
+				 * path match
+				 */
+				path: () => LocalizedString
+			}
 		}
 		commands: {
 			groups: {

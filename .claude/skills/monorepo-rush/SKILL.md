@@ -45,9 +45,38 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | `libs/editor` | CodeMirror 6 + thin Svelte wrapper |
 | `libs/testkit` | Injected clock, TestNetwork, fuzz driver |
 
-### Later packages (split on demand)
+### Packages added by later slices
 
-`libs/index`, `libs/editor-lang`, `libs/agent`, and `apps/agentd` are split out **only when their slices create them** (see `plans/slices.md`, V2–V3).
+| Package | Purpose | Slice |
+|---------|---------|-------|
+| `libs/workspace` | Host-neutral mounts, folder map, mass-change breaker, boot delta scan | M1 |
+| `libs/ui` | Design tokens + themes (CSS and token names only — no components) | V2a |
+| `libs/index` | The derived index: full text, links, tags, headings, frontmatter keys | V2b |
+| `libs/editor-lang` | `[[wikilink]]` grammar and decorations on `@codemirror/lang-markdown` | V2c |
+| `libs/i18n` | Dictionaries + typesafe-i18n wiring; `rushx generate` regenerates the typed accessors | V2 |
+| `libs/agent` | `@editor/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
+| `apps/cli` | `@editor/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates `spec/` | G1 |
+
+`apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `plans/slices.md`).
+
+### The generated contract (`apps/cli` + `libs/agent`)
+
+`spec/*.schema.json` is **generated** from `libs/agent/src/contract.ts` and committed:
+
+```bash
+cd apps/cli && rushx gen-schemas    # writes spec/ohhi.<op>.v1.schema.json
+```
+
+Regenerate it, never hand-edit it — `apps/cli/test/conformance.test.ts` fails on drift. `apps/cli`'s conformance and cold-start tests run the esbuild bundle, so CI runs `cd apps/cli && rushx build` before the test loop reaches it.
+
+Two install scripts put the surface on a developer's machine (both POSIX `sh`, both symlink rather than copy, both take `--force` and `--dry-run`):
+
+```bash
+./scripts/install-ohhi.sh     # build, then ~/.local/bin/ohhi -> apps/cli/bin/ohhi.mjs
+./scripts/install-skill.sh    # ~/.claude/skills/ohhi-vault -> .claude/skills/ohhi-vault
+```
+
+Reference: [`docs/agent-access.md`](../../../docs/agent-access.md).
 
 **Important — packages are created per‑slice (split‑on‑demand):**
 

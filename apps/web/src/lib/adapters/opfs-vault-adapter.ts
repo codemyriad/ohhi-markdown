@@ -7,8 +7,8 @@
  * directories on write. Same contract/semantics as MemVaultAdapter and
  * NodeVaultAdapter (see @editor/vault) — mirror them when in doubt.
  */
-import { IGNORED_DIRS } from '@editor/vault'
-import type { FileStat, VaultAdapter, WatchEvent } from '@editor/vault'
+import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@editor/vault'
+import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@editor/vault'
 
 /** Container dir (under the OPFS root) that holds one subdirectory per vault. */
 const VAULTS_DIR = 'vaults'
@@ -158,7 +158,16 @@ export class OpfsVaultAdapter implements VaultAdapter {
     }
   }
 
-  async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
+  async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
+    // Compare-and-swap (S11 F1) before the handle is opened for writing. No
+    // external writer can reach OPFS (see `watch` below), so this never fires
+    // in practice — it is implemented because the guarantee belongs to the
+    // SEAM, not to the two adapters that happen to race (adapters.test.ts).
+    if (opts?.expectHash !== undefined) {
+      const current = await this.read(path)
+      const actual = current === null ? '' : hashBytes(current)
+      if (actual !== opts.expectHash) throw new WriteConflictError(path, opts.expectHash, actual)
+    }
     const fh = await this.fileHandle(path, true)
     const writable = await fh.createWritable()
     // write() rejects SharedArrayBuffer-backed views at the type level; our

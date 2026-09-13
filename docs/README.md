@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-06-12
+date: 2026-09-12
 ---
 
 # Editor docs
@@ -12,6 +12,7 @@ Learning and reference documentation for the Editor project — a collaborative,
 | Doc | What it covers |
 |---|---|
 | [running-and-testing.md](running-and-testing.md) | **The runbook.** How to install the toolchain, run the test suite, drive the two-tab collaboration demo in a browser, launch the Tauri desktop shell, and troubleshoot. |
+| [agent-access.md](agent-access.md) | **The agent surface.** The `ohhi` CLI, the `ohhi-vault` skill and the `ohhi mcp` server: installing them, naming a vault, the versioned `--json` contract and exit codes, every read and write operation, and how an agent's write coexists with a running app. |
 | [theming.md](theming.md) | **The design system.** Three token bands driven by one `data-theme` attribute, why the sync-honesty tokens are unlayered, how CodeMirror is themed from the same tokens, the four built-in themes, and the Obsidian→Editor porting table for custom themes. |
 | [glossary.md](glossary.md) | Every term a newcomer hits in this repo, alphabetical, cross-linked to the primers. |
 | [primers/01-crdts-and-yjs.md](primers/01-crdts-and-yjs.md) | What a CRDT is and why; Yjs concretely — Y.Doc, Y.Text, updates, state vectors, delete sets (why heads = SV + DS), transactions/origins, awareness. |

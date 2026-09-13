@@ -2,7 +2,15 @@
  * In-memory VaultAdapter: deterministic, synchronous storage with manual or
  * automatic watch emission. Used by L1 fuzz tests and the web demo mode.
  */
-import { IGNORED_DIRS, type FileStat, type VaultAdapter, type WatchEvent } from './types.js'
+import {
+  IGNORED_DIRS,
+  WriteConflictError,
+  type FileStat,
+  type VaultAdapter,
+  type WatchEvent,
+  type WriteOptions,
+} from './types.js'
+import { hashBytes } from './hash.js'
 
 /** Does any segment of `path` name an ignored directory? */
 function ignored(path: string): boolean {
@@ -80,7 +88,16 @@ export class MemVaultAdapter implements VaultAdapter {
     return bytes ? bytes.slice() : null
   }
 
-  async writeAtomic(path: string, bytes: Uint8Array): Promise<void> {
+  async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
+    // Compare-and-swap (S11 F1) before the map is touched: in memory the swap
+    // IS the rename, so this is the same "as late as possible" point the Node
+    // adapter checks at, and a test that writes from inside a writeAtomic
+    // wrapper exercises exactly the ordering the real adapter races against.
+    if (opts?.expectHash !== undefined) {
+      const current = this.files.get(path)
+      const actual = current === undefined ? '' : hashBytes(current)
+      if (actual !== opts.expectHash) throw new WriteConflictError(path, opts.expectHash, actual)
+    }
     this.files.set(path, bytes.slice())
     this.emit([path])
   }
