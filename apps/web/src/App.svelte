@@ -87,17 +87,7 @@
   import ActivitySection from './lib/components/ActivitySection.svelte'
   import HistorySection from './lib/components/HistorySection.svelte'
   import NoteSection from './lib/components/NoteSection.svelte'
-  import {
-    DAILY_DEFAULTS,
-    dailyPath,
-    dateOfPath,
-    findDaily,
-    loadDailyConfig,
-    neighbours,
-    today,
-    unsupportedTokens,
-    type DailyConfig,
-  } from './lib/daily-notes.js'
+  import { createDaily } from './lib/daily.svelte.js'
   import { realClock } from './lib/real-clock.js'
   import { vaultLabel, vaultTitle } from './lib/pill-status.js'
   import { scopedRollup } from './lib/share-status.js'
@@ -270,84 +260,11 @@
   nav.setLinksVisible(() => linksVisible)
 
   // ---- daily notes (W3): Obsidian's own daily-notes.json drives all three ----
-  /** Read once per vault; `DAILY_DEFAULTS` until it answers (and if it is absent). */
-  let dailyCfg = $state<DailyConfig>(DAILY_DEFAULTS)
-  $effect(() => {
-    const ws = workspace
-    if (!ws) return
-    let live = true
-    void loadDailyConfig((path) => ws.readAppFile(path)).then((cfg) => {
-      if (!live) return
-      dailyCfg = cfg
-      // A format with tokens we do not implement prints them as written, so
-      // Editor and Obsidian would disagree about which file today is with no
-      // symptom but a stray note. Say it once, where the session's notices
-      // are (Minor 17).
-      const unsupported = unsupportedTokens(cfg.format)
-      if (unsupported.length > 0) {
-        ws.notify({
-          level: 'warn',
-          text: $LL.web.daily.unsupported_format({
-            format: cfg.format,
-            tokens: unsupported.join(', '),
-          }),
-        })
-      }
-    })
-    return () => {
-      live = false
-    }
+  const daily = createDaily({
+    workspace: () => workspace,
+    open: (path) => openPath(path),
+    now: () => realClock.now(),
   })
-
-  /**
-   * The dailies either side of where we are — from the focused note's own
-   * date when it is a daily, else from today. Computed fresh because the day
-   * can turn over while the app is open; `dailySteps` is the memoized read,
-   * so the `when` guards (which run on EVERY keypress, via registry.match)
-   * never rescan the vault.
-   */
-  function dailyNeighbours(): { prev: string | null; next: string | null } {
-    const files = workspace?.ui.files
-    if (!files) return { prev: null, next: null }
-    const from =
-      dateOfPath(dailyCfg, workspace?.ui.selectedPath ?? null) ?? today(() => realClock.now())
-    return neighbours(dailyCfg, textPaths(files), from)
-  }
-  const dailySteps = $derived(dailyNeighbours())
-
-  /**
-   * Today's daily note, created if it is not there yet. Empty, as Obsidian
-   * creates it with no template configured — Chris has none.
-   */
-  async function openDailyToday(): Promise<void> {
-    if (!workspace) return
-    const date = today(() => realClock.now())
-    // Matched on the DATE, not on the formatted name (Minor 16): the parser
-    // is padding-tolerant, so an older `Daily/03-01-2025.md` IS that day's
-    // note even though `DD-M-Y` would write it `03-1-2025`.
-    const existing = findDaily(dailyCfg, textPaths(workspace.ui.files), date)
-    if (existing) {
-      openPath(existing)
-      return
-    }
-    const path = dailyPath(dailyCfg, date)
-    const cut = path.lastIndexOf('/')
-    // createFile answers with the path and opens nothing — WHERE a new note
-    // lands is the shell's call now (tab-groups B5). It adopts a file already
-    // on disk rather than clobbering it, so a note Obsidian wrote today opens
-    // untouched.
-    const created = await workspace.createFile(
-      cut === -1 ? '' : path.slice(0, cut),
-      path.slice(cut + 1)
-    )
-    if (created) openPath(created)
-  }
-
-  /** Walk to the neighbouring daily; a no-op at either end (the guards agree). */
-  function stepDaily(side: 'prev' | 'next'): void {
-    const path = dailyNeighbours()[side]
-    if (path) openPath(path)
-  }
 
   nav.registry.register(
     ...defaultCommands({
@@ -381,13 +298,11 @@
       linkDevice: () => {
         if (workspace) deviceLinkOpen = true
       },
-      dailyToday: () => void openDailyToday(),
-      // Fresh, not `dailySteps`: the guard's memo is for the keypress path,
-      // the step itself must be right even if a day turned over since.
-      dailyPrev: () => stepDaily('prev'),
-      dailyNext: () => stepDaily('next'),
-      hasPrevDaily: () => dailySteps.prev !== null,
-      hasNextDaily: () => dailySteps.next !== null,
+      dailyToday: () => void daily.openToday(),
+      dailyPrev: () => daily.step('prev'),
+      dailyNext: () => daily.step('next'),
+      hasPrevDaily: () => daily.steps.prev !== null,
+      hasNextDaily: () => daily.steps.next !== null,
     })
   )
   // Every `workspace.*` and `tab.*` row of the command table (B7). Registered
