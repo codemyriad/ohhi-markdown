@@ -81,7 +81,15 @@
     e.preventDefault()
   }
 
-  const action = `flex items-center justify-center gap-2 ${CARD} px-3 py-2 text-sm font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary`
+  /**
+   * Sized by the PANE, not the window (`@container` below): a four-way split
+   * on a wide monitor makes a pane as narrow as a phone. Under 18rem the two
+   * verbs stack, their hotkey hints go (the palette still shows them) and the
+   * gutter halves — and `min-w-0` + `truncate` keep a label from ever
+   * spilling over its neighbour again. The variant is written out each time
+   * because Tailwind's scanner only sees literal class strings.
+   */
+  const action = `flex min-w-0 items-center justify-center gap-2 ${CARD} px-3 py-2 text-sm font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary`
 </script>
 
 <!-- A row's matched characters. `text-primary` on the row's `bg-primary/15`
@@ -90,25 +98,26 @@
      as whitespace between a mark and the text beside it. -->
 {#snippet marks(text: string, spans: Span[])}{#each segments(text, spans) as seg}{#if seg.hit}<mark class="rounded-sm bg-primary/25 text-base-content">{seg.text}</mark>{:else}{seg.text}{/if}{/each}{/snippet}
 
+<div class="@container h-full w-full">
 <div
-  class="mx-auto flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto px-6 pt-[10vh] pb-8"
+  class="mx-auto flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto px-6 pt-[10vh] pb-8 @max-[18rem]:px-3"
   data-testid={testid}
 >
-  <div class="grid grid-cols-2 gap-2">
+  <div class="grid grid-cols-2 gap-2 @max-[18rem]:grid-cols-1">
     <button type="button" data-testid="{testid}-new" onclick={onNew} class={action}>
       <FilePlus size={16} strokeWidth={1.75} aria-hidden="true" class="text-base-content/70" />
-      <span>{t.new_note()}</span>
+      <span class="truncate">{t.new_note()}</span>
       {#if bindings?.newNote}
-        <kbd class="font-ed-mono text-[10px] font-normal text-base-content/70">
+        <kbd class="font-ed-mono text-[10px] font-normal text-base-content/70 @max-[18rem]:hidden">
           {bindings.newNote}
         </kbd>
       {/if}
     </button>
     <button type="button" data-testid="{testid}-open" onclick={onOpenQuick} class={action}>
       <FileSearch size={16} strokeWidth={1.75} aria-hidden="true" class="text-base-content/70" />
-      <span>{t.open_note()}</span>
+      <span class="truncate">{t.open_note()}</span>
       {#if bindings?.openQuick}
-        <kbd class="font-ed-mono text-[10px] font-normal text-base-content/70">
+        <kbd class="font-ed-mono text-[10px] font-normal text-base-content/70 @max-[18rem]:hidden">
           {bindings.openQuick}
         </kbd>
       {/if}
@@ -186,4 +195,5 @@
       {/if}
     {/if}
   </div>
+</div>
 </div>
