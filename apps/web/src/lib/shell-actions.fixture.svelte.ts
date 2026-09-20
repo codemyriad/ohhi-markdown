@@ -92,3 +92,16 @@ export function withActions<T>(make: () => T): ActionsHarness<T> {
   })
   return { actions, flush: flushSync, stop }
 }
+
+/** A reactive cell a `.test.ts` can write to and have a layer's `$effect`s see. */
+export function box<T>(initial: T): { value: T } {
+  let value = $state.raw(initial)
+  return {
+    get value() {
+      return value
+    },
+    set value(next) {
+      value = next
+    },
+  }
+}

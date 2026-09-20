@@ -38,11 +38,11 @@
     storageState,
     storageWarning,
   } from './lib/storage.svelte.js'
-  import { containingDir, dirPaths } from './lib/tree-model.js'
+  import { dirPaths } from './lib/tree-model.js'
   import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
-  import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
+  import { createNavigation } from './lib/navigation.svelte.js'
   import { recentPaths, touchPath } from './lib/recent.js'
   import { themeState } from './lib/theme.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
@@ -77,14 +77,13 @@
   import { createManager } from './lib/manager.svelte.js'
   import { createShareActions } from './lib/share-actions.svelte.js'
   import { createFileActions } from './lib/file-actions.svelte.js'
+  import { createShellLayout } from './lib/shell-layout.svelte.js'
+  import { installShellCommands } from './lib/shell-commands.js'
   import { realClock } from './lib/real-clock.js'
   import { vaultLabel, vaultTitle } from './lib/pill-status.js'
   import { scopedRollup } from './lib/share-status.js'
-  import { unreadCount } from './lib/notices.js'
-  import { toast } from './lib/ui/toaster.js'
   import { setDevtools } from './lib/config.js'
-  import { layoutPrefs, setLayoutPrefs } from './lib/config.js'
-  import { RAIL_SECTIONS, TREE_WIDTH, showOnly, toggleFolded } from './lib/layout.js'
+  import { TREE_WIDTH } from './lib/layout.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
   const url = new URLSearchParams(location.search)
@@ -211,57 +210,20 @@
   const workspace = $derived(session.workspace)
   const view = $derived(session.view)
 
-  // ---- layout (chrome U2): device-level, persisted like the theme ----
-  const savedLayout = layoutPrefs()
-  let treeOpen = $state(savedLayout.treeOpen)
-  let treeWidth = $state(savedLayout.treeWidth)
-  let railOpen = $state(savedLayout.railOpen)
-  let railFolded = $state<string[]>(savedLayout.railFolded)
-  // ---- notices (chrome U5): every new one toasts; all of them stay in Activity ----
-  /** When the Activity section was last in view; what arrived since is "unread". */
-  let noticesSeenAt = $state(0)
-  let toastedId: string | null = null
-  const activityVisible = $derived(view === 'workspace' && railOpen && !railFolded.includes('activity'))
-  const unread = $derived(workspace ? unreadCount(workspace.ui.notices, noticesSeenAt) : 0)
-  $effect(() => {
-    const newest = workspace?.ui.notices[0]
-    if (!newest || newest.id === toastedId) return
-    toastedId = newest.id
-    toast({
-      level: newest.level,
-      title: $LL.web.notices.toast_title[newest.level](),
-      description: newest.text,
-    })
+  // ---- layout (chrome U2) + notices (chrome U5) ----
+  const layout = createShellLayout({
+    inWorkspace: () => view === 'workspace',
+    notices: () => workspace?.ui.notices ?? null,
+    now: () => realClock.now(),
   })
-  $effect(() => {
-    // Looking at the log reads it — including anything that arrives while it is open.
-    workspace?.ui.notices.length
-    if (activityVisible) noticesSeenAt = Date.now()
-  })
-
   const railSections = $derived<RailSection[]>([
     { id: 'links', label: $LL.web.rail.sections.links(), icon: Link2 },
     // The one place the presence union survives: as a count on the icon.
     { id: 'note', label: $LL.web.rail.sections.note(), icon: Users, badge: workspace?.ui.presence.length || undefined },
-    { id: 'activity', label: $LL.web.rail.sections.activity(), icon: Bell, badge: unread || undefined },
+    { id: 'activity', label: $LL.web.rail.sections.activity(), icon: Bell, badge: layout.unread || undefined },
     { id: 'history', label: $LL.web.rail.sections.history(), icon: History },
   ])
-  const linksVisible = $derived(railOpen && !railFolded.includes('links'))
-  /** A folder the breadcrumb asked the navigator to show (new object per click). */
-  let revealDir = $state<{ path: string } | null>(null)
-
-  // The booleans persist as they change; the width persists when a resize
-  // gesture ENDS (ResizeHandle's onCommit), not on every pointer move.
-  $effect(() => {
-    setLayoutPrefs({ treeOpen, railOpen, railFolded: $state.snapshot(railFolded) })
-  })
-
-  function revealInTree(dir: string): void {
-    treeOpen = true
-    revealDir = { path: dir }
-  }
-
-  nav.setLinksVisible(() => linksVisible)
+  nav.setLinksVisible(() => layout.linksVisible)
 
   // ---- daily notes (W3): Obsidian's own daily-notes.json drives all three ----
   const daily = createDaily({
@@ -269,101 +231,6 @@
     open: (path) => openPath(path),
     now: () => realClock.now(),
   })
-
-  nav.registry.register(
-    ...defaultCommands({
-      quickOpen: () => nav.open('quick-open'),
-      commandPalette: () => nav.open('command'),
-      search: () => nav.open('search'),
-      newNote: () => void fileOps.createNote(''),
-      toggleSidebar: () => (treeOpen = !treeOpen),
-      toggleRail: () => (railOpen = !railOpen),
-      settings: () => (settingsOpen = true),
-      // Fork 4: back/forward walk the FOCUSED TAB's own trail, not one
-      // workspace-wide list — with four panes, "back" jumping panes is a
-      // surprise, and a tab replaced in place is exactly what has a trail.
-      back: () => panes.travel(-1),
-      forward: () => panes.travel(1),
-      hasNote: () => workspace?.ui.selectedPath != null,
-      deleteNote: () => {
-        const path = workspace?.ui.selectedPath
-        if (path) fileOps.op = { type: 'delete', path, kind: 'text' }
-      },
-      moveNote: () => {
-        const path = workspace?.ui.selectedPath
-        if (path) fileOps.op = { type: 'move', path, kind: 'text' }
-      },
-      newFolder: () => {
-        if (workspace) fileOps.op = { type: 'new-folder', dir: containingDir(workspace.ui.selectedPath, 'text') }
-      },
-      addShare: () => {
-        if (workspace) sharing.addShareOpen = { dir: '' }
-      },
-      linkDevice: () => {
-        if (workspace) deviceLinkOpen = true
-      },
-      dailyToday: () => void daily.openToday(),
-      dailyPrev: () => daily.step('prev'),
-      dailyNext: () => daily.step('next'),
-      hasPrevDaily: () => daily.steps.prev !== null,
-      hasNextDaily: () => daily.steps.next !== null,
-    })
-  )
-  // Every `workspace.*` and `tab.*` row of the command table (B7). Registered
-  // after the defaults so a later rebind of a shared key wins, as the registry
-  // documents.
-  nav.registry.register(...panes.commands())
-  // The `group.*` table (W2). Registered after the pane rows for the same
-  // reason they come after the defaults: a later registration wins a shared key.
-  nav.registry.register(...groups.commands())
-  // The `view.*` + `edit.toggle-checkbox` table (read X2). Same order rule:
-  // registered after the defaults so a rebind of a shared key wins.
-  nav.registry.register(...panes.readCommands())
-  // One palette row per SAVED group (Fork 2-A). A provider rather than
-  // registrations, because the ids come and go every time a group is closed
-  // or reopened — and a row nobody can predict is a row nobody can bind.
-  nav.registry.addProvider(() => groups.savedCommands())
-  // The user's own bindings sit over those defaults (R1.3). Settings writes
-  // config and re-applies them itself, so this is the boot read.
-  nav.registry.setOverrides(hotkeys())
-
-  /** Commands that act on the pane tree behind whatever is on top (M4). */
-  const WORKSPACE_COMMANDS = /^(?:workspace|tab|group)\./
-
-  /**
-   * Global hotkeys, in the CAPTURE phase.
-   *
-   * Capture matters: several of Chris's own bindings collide with CodeMirror's
-   * defaults — `Mod+ArrowLeft`/`Mod+ArrowRight` are his Obsidian sidebar
-   * toggles AND `standardKeymap`'s word/line motion. CM6 calls preventDefault
-   * but not stopPropagation, so a bubble-phase handler would run the command
-   * *and* move the caret. Capturing lets an app command claim the key first
-   * and stop it, which is the precedence Obsidian itself has.
-   */
-  function onGlobalKeydown(e: KeyboardEvent): void {
-    if (view !== 'workspace') return
-    // A live pane mode owns the keyboard: its letters are commands, not text,
-    // and this handler is in the capture phase so CodeMirror never sees them.
-    if (panes.handleKey(e)) return
-    const command = nav.registry.match(e)
-    if (!command) return
-    // …but a command that acts on the workspace must not fire from inside a
-    // dialog or a text field: capture phase means `Mod+W` typed into Settings'
-    // relay-URL box used to close a tab behind it (M4). Navigation and the
-    // overlays themselves still answer — they are how you get out.
-    //
-    // Swallowed rather than let through: these are the browser's own chords
-    // (`Mod+W` closes the window, `Mod+P` prints), and handing them back would
-    // be a worse surprise than the command they stand in for.
-    if (WORKSPACE_COMMANDS.test(command.id) && keyboardClaimed()) {
-      e.preventDefault()
-      e.stopPropagation()
-      return
-    }
-    e.preventDefault()
-    e.stopPropagation()
-    void command.run()
-  }
 
   /**
    * Every "open this note" in the shell (Fork 1-B): the tree, the links
@@ -397,9 +264,6 @@
     return files.length === 0 && dirs.length === 0
   }
 
-  // ---- initial routing ----
-  session.start(memConfig, prefillLink !== '')
-
   // ---- in-workspace sharing (M4/M5/N1/N2) and file operations (M3) ----
   const sharing = createShareActions({
     workspace: () => workspace,
@@ -417,11 +281,27 @@
     workspace: () => workspace,
     open: (path) => openPath(path),
     share: sharing,
-    showHistory: () => {
-      railOpen = true
-      railFolded = toggleFolded(railFolded, 'history', false)
-    },
-    reveal: (path) => (revealDir = { path }),
+    showHistory: () => layout.showSection('history'),
+    reveal: (path) => (layout.revealDir = { path }),
+  })
+
+  // ---- the command table (B7/W2/X2/R1.3) and the global keyboard entry ----
+  const commands = installShellCommands({
+    registry: nav.registry,
+    openPalette: (mode) => nav.open(mode),
+    panes,
+    groups,
+    daily,
+    fileOps,
+    sharing,
+    layout,
+    selectedPath: () => workspace?.ui.selectedPath ?? null,
+    hasWorkspace: () => workspace !== null,
+    inWorkspace: () => view === 'workspace',
+    claimed: keyboardClaimed,
+    overrides: hotkeys,
+    openSettings: () => (settingsOpen = true),
+    openDeviceLink: () => (deviceLinkOpen = true),
   })
 
   // ---- workspace-derived view state ----
@@ -534,9 +414,11 @@
     const guid = workspace.ui.files.find((f) => f.path === selectedPath)?.guid
     return (guid ? workspace.ui.records[guid] : undefined) ?? null
   })
+  // ---- initial routing: everything above is wired, now pick a vault ----
+  session.start(memConfig, prefillLink !== '')
 </script>
 
-<svelte:window onkeydowncapture={onGlobalKeydown} />
+<svelte:window onkeydowncapture={commands.onKeydown} />
 
 {#if view === 'manager'}
   <VaultManager
@@ -604,32 +486,32 @@
       <!-- The page's one h1: the vault. -->
       <h1 class="sr-only">{currentVaultName}</h1>
       <IconButton
-        label={treeOpen ? $LL.web.shell.hide_navigator() : $LL.web.shell.show_navigator()}
+        label={layout.treeOpen ? $LL.web.shell.hide_navigator() : $LL.web.shell.show_navigator()}
         icon={PanelLeft}
-        pressed={treeOpen}
+        pressed={layout.treeOpen}
         testid="toggle-tree"
-        onclick={() => (treeOpen = !treeOpen)}
+        onclick={() => (layout.treeOpen = !layout.treeOpen)}
       />
-      <Breadcrumb path={selectedPath} onReveal={revealInTree} />
+      <Breadcrumb path={selectedPath} onReveal={(dir) => layout.revealInTree(dir)} />
       <!-- The vault rollup moved to the navigator, beside the vault it is
            about (P3); the header keeps the breadcrumb and the two toggles. -->
       <div class="ml-auto flex min-w-0 items-center gap-3">
         <IconButton
-          label={railOpen ? $LL.web.shell.hide_sidebar() : $LL.web.shell.show_sidebar()}
+          label={layout.railOpen ? $LL.web.shell.hide_sidebar() : $LL.web.shell.show_sidebar()}
           icon={PanelRight}
-          pressed={railOpen}
+          pressed={layout.railOpen}
           testid="toggle-rail"
-          onclick={() => (railOpen = !railOpen)}
+          onclick={() => (layout.railOpen = !layout.railOpen)}
         />
       </div>
     </header>
 
     <div class="flex min-h-0 flex-1">
-      {#if treeOpen}
+      {#if layout.treeOpen}
         <aside
           data-testid="navigator"
           aria-label={$LL.web.shell.navigator_label()}
-          style="width: {treeWidth}px"
+          style="width: {layout.treeWidth}px"
           class="relative flex shrink-0 flex-col border-r border-base-300 bg-base-100"
         >
           <ActionsCluster
@@ -650,7 +532,7 @@
               mounts={workspace.ui.mounts}
               rootShared={workspace.ui.linked}
               presenceByRoom={workspace.ui.presenceByRoom}
-              reveal={revealDir}
+              reveal={layout.revealDir}
               onSelect={(path, opts) => openPath(path, opts)}
               onOp={fileOps.handle}
               onNotice={(level, text, path) => workspace?.notify({ level, text, path })}
@@ -694,16 +576,16 @@
             </div>
           </div>
           <ResizeHandle
-            value={treeWidth}
+            value={layout.treeWidth}
             min={TREE_WIDTH.min}
             max={TREE_WIDTH.max}
             step={TREE_WIDTH.step}
             label={$LL.web.shell.resize_navigator()}
             testid="tree-resize"
             collapseBelow={TREE_WIDTH.collapseBelow}
-            onCollapse={() => (treeOpen = false)}
-            onChange={(px) => (treeWidth = px)}
-            onCommit={() => setLayoutPrefs({ treeWidth })}
+            onCollapse={() => (layout.treeOpen = false)}
+            onChange={(px) => (layout.treeWidth = px)}
+            onCommit={() => layout.commitTreeWidth()}
           />
         </aside>
       {/if}
@@ -723,12 +605,12 @@
 
       <RightRail
         sections={railSections}
-        open={railOpen}
-        folded={railFolded}
-        onOpenChange={(o) => (railOpen = o)}
-        onFoldChange={(id, f) => (railFolded = toggleFolded(railFolded, id, f))}
-        onShowOnly={(id) => (railFolded = showOnly(RAIL_SECTIONS, id))}
-        onCollapse={() => (railOpen = false)}
+        open={layout.railOpen}
+        folded={layout.railFolded}
+        onOpenChange={(o) => (layout.railOpen = o)}
+        onFoldChange={(id, f) => layout.foldSection(id, f)}
+        onShowOnly={(id) => layout.showOnlySection(id)}
+        onCollapse={() => (layout.railOpen = false)}
       >
         {#snippet children(id)}
           {#if id === 'links'}
