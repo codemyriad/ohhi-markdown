@@ -426,3 +426,6 @@ export function defaultCommands(actions: {
     { id: 'app.settings', title: t.settings(), group: g.app(), keys: 'Mod+,', run: actions.settings },
   ]
 }
+
+/** The navigation object the shell's components are handed (V2b/V2c). */
+export type Navigation = ReturnType<typeof createNavigation>

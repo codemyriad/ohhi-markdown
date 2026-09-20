@@ -49,12 +49,33 @@ vault switcher + settings; resizable via `ResizeHandle`, a valued
 `separator`), the editor `<main>` with `StatusBar` (word count + the note's
 pill), and `RightRail` (collapsed = icon column, expanded = stacked foldable
 sections). **A rail section is data, not markup**: push a `RailSection`
-`{ id, label, icon, badge? }` onto `railSections` in `App.svelte` and render
-its body in the rail's `children(id)` snippet — that is how U4's *This note*
-and U5's *Activity* land. Layout state (`treeOpen`, `treeWidth`, `railOpen`,
-`railFolded`) is device-level, normalised by the pure `lib/layout.ts` and
-persisted through `config.ts` like the theme; the width persists on gesture
-end, never per pointer-move.
+`{ id, label, icon, badge? }` onto `sections` in `components/Rail.svelte` and
+render its body in the rail's `children(id)` snippet — that is how U4's *This
+note* and U5's *Activity* land. Layout state (`treeOpen`, `treeWidth`,
+`railOpen`, `railFolded`) is device-level, owned by `lib/shell-layout.svelte.ts`,
+normalised by the pure `lib/layout.ts` and persisted through `config.ts` like
+the theme; the width persists on gesture end, never per pointer-move.
+
+**The shell's composition (`App.svelte`, split 2026-09-20 — see
+`plans/shell-structure.md`).** `App.svelte` is the composition root and the
+three-way router (manager / connecting / workspace), ~500 lines, and nothing
+else. Each concern is a runes module in `apps/web/src/lib/` built by a
+`create*(host)` factory that takes what it needs as an explicit object and
+exposes state through getters — the `createNavigation` / `createPanes` /
+`createGroupUi` shape — so a `.test.ts` can drive it with a fake:
+`session.svelte.ts` (the boot state machine: view, workspace, `bootGen`),
+`manager.svelte.ts` (the registry mirrors and the four ways a vault gets in),
+`share-actions.svelte.ts` (share dialogs + confirms), `file-actions.svelte.ts`
+(tree ops, the shared `TreeOpDialog`, note creation), `daily.svelte.ts`,
+`shell-layout.svelte.ts` (columns, folds, notices) and `shell-commands.ts`
+(the ordered command registrations and the capture-phase keydown). The
+workspace markup is five hosts under `components/`: `Navigator`, `EditorArea`
+(builds the `PaneRender` context and the strip's group snippets), `Rail`,
+`WorkspaceDialogs` (everything that pops up for files and sharing) and
+`GroupOverlays`. **Adding a shell feature**: state and handlers go in the
+module for its concern (or a new `create*` with a test), the markup in the
+host that renders that region; `App.svelte` only gains a prop or a host
+line. Strings in modules read `getLL()`, never `$LL`.
 
 **The tree's sync policy (chrome U3, Fork 3) is a pure module**,
 `lib/tree-status.ts`: a file row shows its pill only when it is *not* green
