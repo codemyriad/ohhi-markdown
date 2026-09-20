@@ -1,0 +1,146 @@
+// @vitest-environment jsdom
+/**
+ * File operations (`file-actions.svelte.ts`): which tree requests open the
+ * shared dialog and which are dispatched elsewhere, what the dialog's answer
+ * does for each mode, and where a new note lands.
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createFileActions, type FileActions, type FileHost } from './file-actions.svelte.js'
+import {
+  actionsWorkspace,
+  withActions,
+  type ActionsHarness,
+  type ActionsWorkspace,
+} from './shell-actions.fixture.svelte.js'
+
+let ws: ActionsWorkspace
+let harness: ActionsHarness<FileActions>
+let fileOps: FileActions
+let opened: string[]
+let revealed: string[]
+let history: number
+let share: FileHost['share'] & { moves: string[]; asked: string[] }
+
+beforeEach(() => {
+  ws = actionsWorkspace(['docs/a.md', 'notes/b.md'])
+  opened = []
+  revealed = []
+  history = 0
+  share = {
+    folderSharePath: null,
+    addShareOpen: null,
+    addLinkPath: null,
+    moves: [],
+    asked: [],
+    move: async (from, to) => {
+      share.moves.push(`${from} -> ${to}`)
+    },
+    askUnshare: (path) => share.asked.push(`unshare:${path}`),
+    askUnmount: (path) => share.asked.push(`unmount:${path}`),
+  }
+  harness = withActions(() =>
+    createFileActions({
+      workspace: () => ws.asWorkspace(),
+      open: (path) => opened.push(path),
+      share,
+      showHistory: () => {
+        history++
+      },
+      reveal: (path) => revealed.push(path),
+    })
+  )
+  fileOps = harness.actions
+})
+
+afterEach(() => harness.stop())
+
+describe('handle', () => {
+  it('parks the four dialog ops and narrows them for TreeOpDialog', () => {
+    fileOps.handle({ type: 'new-folder', dir: 'docs' })
+    harness.flush()
+    expect(fileOps.dialog).toEqual({ mode: 'new-folder', path: 'docs', kind: 'dir' })
+
+    fileOps.handle({ type: 'rename', path: 'docs/a.md', kind: 'text' })
+    harness.flush()
+    expect(fileOps.dialog).toEqual({ mode: 'rename', path: 'docs/a.md', kind: 'text' })
+
+    fileOps.cancel()
+    harness.flush()
+    expect(fileOps.dialog).toBeNull()
+  })
+
+  it('dispatches the rest to their own affordance and never opens the dialog', async () => {
+    fileOps.handle({ type: 'share-folder', path: 'docs' })
+    fileOps.handle({ type: 'add-share', dir: 'notes' })
+    fileOps.handle({ type: 'add-link', path: 'docs' })
+    fileOps.handle({ type: 'unshare', path: 'docs' })
+    fileOps.handle({ type: 'unmount', path: 'notes' })
+    fileOps.handle({ type: 'move-to', from: 'docs/a.md', to: 'notes/a.md' })
+    fileOps.handle({ type: 'history', path: 'notes/b.md' })
+    fileOps.handle({ type: 'new-file', dir: 'notes' })
+    // createFile is async: two hops (the record wrapper, then the open).
+    await Promise.resolve()
+    await Promise.resolve()
+    harness.flush()
+
+    expect(share.folderSharePath).toBe('docs')
+    expect(share.addShareOpen).toEqual({ dir: 'notes' })
+    expect(share.addLinkPath).toBe('docs')
+    expect(share.asked).toEqual(['unshare:docs', 'unmount:notes'])
+    expect(share.moves).toEqual(['docs/a.md -> notes/a.md'])
+    expect(history).toBe(1)
+    expect(opened).toEqual(['notes/b.md', 'notes/untitled-1.md'])
+    expect(ws.calls).toEqual(['createFile(notes)'])
+    expect(fileOps.dialog).toBeNull()
+  })
+})
+
+describe('confirm', () => {
+  it('new folder: creates it under its dir and reveals it', async () => {
+    fileOps.handle({ type: 'new-folder', dir: 'docs' })
+    await fileOps.confirm('sub')
+    expect(ws.calls).toEqual(['createDir(docs/sub)'])
+    expect(revealed).toEqual(['docs/sub'])
+    expect(fileOps.op).toBeNull()
+  })
+
+  it('rename keeps the parent; move goes through the boundary check', async () => {
+    fileOps.handle({ type: 'rename', path: 'docs/a.md', kind: 'text' })
+    await fileOps.confirm('z.md')
+    expect(ws.calls).toEqual(['renamePath(docs/a.md, docs/z.md)'])
+
+    fileOps.handle({ type: 'move', path: 'docs/a.md', kind: 'text' })
+    await fileOps.confirm('notes')
+    expect(share.moves).toEqual(['docs/a.md -> notes/a.md'])
+
+    fileOps.handle({ type: 'move', path: 'docs/a.md', kind: 'text' })
+    await fileOps.confirm('')
+    expect(share.moves[1]).toBe('docs/a.md -> a.md')
+  })
+
+  it('delete deletes', async () => {
+    fileOps.handle({ type: 'delete', path: 'docs/a.md', kind: 'text' })
+    await fileOps.confirm('')
+    expect(ws.calls).toEqual(['deletePath(docs/a.md)'])
+  })
+})
+
+describe('createFromLink', () => {
+  it('lands beside the linking note, adds .md, seeds a heading, and opens it', async () => {
+    ws.ui.selectedPath = 'docs/a.md'
+    await fileOps.createFromLink(' Ideas ')
+    expect(ws.calls).toEqual(['createFile(docs, Ideas.md, # Ideas\n\n)'])
+    expect(opened).toEqual(['docs/Ideas.md'])
+  })
+
+  it('a path-shaped target is taken as written, from the root', async () => {
+    ws.ui.selectedPath = 'docs/a.md'
+    await fileOps.createFromLink('/archive/old.md')
+    expect(ws.calls).toEqual(['createFile(, archive/old.md, # old.md\n\n)'])
+  })
+
+  it('an empty target is a no-op', async () => {
+    await fileOps.createFromLink('  /// ')
+    expect(ws.calls).toEqual([])
+  })
+})

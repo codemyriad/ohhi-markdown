@@ -17,7 +17,6 @@
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte'
   import FolderShareDialog from './lib/components/FolderShareDialog.svelte'
   import {
-    addShare,
     defaultRelay,
     devtoolsEnabled,
     getVault,
@@ -25,9 +24,7 @@
     lastVault,
     loadUser,
     operatorSecret,
-    removeShare,
     saveUser,
-    setRoomToken,
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
@@ -41,9 +38,8 @@
     storageState,
     storageWarning,
   } from './lib/storage.svelte.js'
-  import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
+  import { containingDir, dirPaths } from './lib/tree-model.js'
   import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
-  import { shareLinkErrorText } from './lib/share-link.js'
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
@@ -79,6 +75,8 @@
   import { createDaily } from './lib/daily.svelte.js'
   import { createSession } from './lib/session.svelte.js'
   import { createManager } from './lib/manager.svelte.js'
+  import { createShareActions } from './lib/share-actions.svelte.js'
+  import { createFileActions } from './lib/file-actions.svelte.js'
   import { realClock } from './lib/real-clock.js'
   import { vaultLabel, vaultTitle } from './lib/pill-status.js'
   import { scopedRollup } from './lib/share-status.js'
@@ -248,8 +246,6 @@
     { id: 'activity', label: $LL.web.rail.sections.activity(), icon: Bell, badge: unread || undefined },
     { id: 'history', label: $LL.web.rail.sections.history(), icon: History },
   ])
-  /** Bumped when a share dialog closes so the note section refetches its access list. */
-  let shareRevision = $state(0)
   const linksVisible = $derived(railOpen && !railFolded.includes('links'))
   /** A folder the breadcrumb asked the navigator to show (new object per click). */
   let revealDir = $state<{ path: string } | null>(null)
@@ -279,7 +275,7 @@
       quickOpen: () => nav.open('quick-open'),
       commandPalette: () => nav.open('command'),
       search: () => nav.open('search'),
-      newNote: () => void createNote(''),
+      newNote: () => void fileOps.createNote(''),
       toggleSidebar: () => (treeOpen = !treeOpen),
       toggleRail: () => (railOpen = !railOpen),
       settings: () => (settingsOpen = true),
@@ -291,17 +287,17 @@
       hasNote: () => workspace?.ui.selectedPath != null,
       deleteNote: () => {
         const path = workspace?.ui.selectedPath
-        if (path) treeOp = { type: 'delete', path, kind: 'text' }
+        if (path) fileOps.op = { type: 'delete', path, kind: 'text' }
       },
       moveNote: () => {
         const path = workspace?.ui.selectedPath
-        if (path) treeOp = { type: 'move', path, kind: 'text' }
+        if (path) fileOps.op = { type: 'move', path, kind: 'text' }
       },
       newFolder: () => {
-        if (workspace) treeOp = { type: 'new-folder', dir: containingDir(workspace.ui.selectedPath, 'text') }
+        if (workspace) fileOps.op = { type: 'new-folder', dir: containingDir(workspace.ui.selectedPath, 'text') }
       },
       addShare: () => {
-        if (workspace) addShareOpen = { dir: '' }
+        if (workspace) sharing.addShareOpen = { dir: '' }
       },
       linkDevice: () => {
         if (workspace) deviceLinkOpen = true
@@ -380,32 +376,6 @@
     touchPath(workspace.room, path)
   }
 
-  /** Create an auto-named note in `dir` and open it in the focused pane. */
-  async function createNote(dir: string): Promise<void> {
-    const created = await workspace?.createFile(dir)
-    if (created) openPath(created)
-  }
-
-  /**
-   * Create the note an unresolved link points at, in the linking note's own
-   * folder — matching where the link's author was working, which is what
-   * Obsidian's default new-note location does in practice.
-   */
-  async function createFromLink(target: string): Promise<void> {
-    if (!workspace) return
-    const clean = target.trim().replace(/^\/+/, '')
-    if (!clean) return
-    const from = workspace.ui.selectedPath ?? ''
-    const dir = clean.includes('/')
-      ? ''
-      : from.includes('/')
-        ? from.slice(0, from.lastIndexOf('/'))
-        : ''
-    const name = clean.endsWith('.md') ? clean : `${clean}.md`
-    const created = await workspace.createFile(dir, name, `# ${clean.split('/').pop()}\n\n`)
-    if (created) openPath(created)
-  }
-
   /**
    * After onboarding, drop any bootstrap query params from the address bar so a
    * reload reopens via the persisted vault (not the deep link) — and so a
@@ -430,240 +400,28 @@
   // ---- initial routing ----
   session.start(memConfig, prefillLink !== '')
 
-  // ---- in-workspace sharing (M4: minted in-app, zero terminal) ----
-  //
-  // The FOLDER is the unit of sharing (dogfood-shaping R3), reached from the
-  // tree's context menu. Promoting the whole vault from the UI was removed on
-  // 2026-09-07: it made every folder share silently impossible afterwards (the
-  // V1 no-nested-shares guard, spike S8 "The mount model") with no visible
-  // rule. Vaults that are ALREADY root-shared — joined from a whole-vault link,
-  // or relay-attached by the memory URL contract — still boot, sync and read
-  // "shared"; they simply have no share-management UI, and the tree says why
-  // their folders cannot be shared.
-
-  /** Folder being shared/managed via the tree's share action, else null. */
-  let folderSharePath = $state<string | null>(null)
-  const folderShareMount = $derived(
-    folderSharePath && workspace
-      ? (workspace.ui.mounts.find((m) => m.path === folderSharePath) ?? null)
-      : null
-  )
-
-  async function carveFolderShare(): Promise<string> {
-    if (!workspace || !folderSharePath) throw new Error('no folder selected')
-    const path = folderSharePath
-    const link = await workspace.carveFolder(path)
-    const room = workspace.ui.mounts.find((m) => m.path === path)?.room
-    if (room) {
-      addShare({ link, room, label: `${getVault(workspace.room)?.name ?? 'vault'}/${path}` })
-    }
-    manager.refresh()
-    return link
-  }
-
-  /**
-   * Mint a device link and promote the root mount (device-link N2, A1). The
-   * shim does the work; this only refreshes what the manager and settings
-   * show, because a linked vault now carries a relay in its registry entry.
-   */
-  async function createDeviceLink(label: string): Promise<string> {
-    if (!workspace) throw new Error($LL.web.device_link.needs_vault())
-    const link = await workspace.linkDevice(label)
-    manager.refresh()
-    shareRevision++
-    return link
-  }
-
-  // ---- M5: add-share, unshare/unmount, cross-mount move confirms ----
-  /** Join-a-share dialog, with the folder it was asked from ('' = vault root). */
-  let addShareOpen = $state<{ dir: string } | null>(null)
-  /**
-   * Add-link dialog for a `needs-token` mount (device-link N1): the mount is
-   * already here, only its key is missing.
-   */
-  let addLinkPath = $state<string | null>(null)
-  const addLinkMount = $derived(
-    addLinkPath && workspace
-      ? (workspace.ui.mounts.find((m) => m.path === addLinkPath) ?? null)
-      : null
-  )
-
-  /**
-   * Activate a needs-token mount in place. The failure is reported twice on
-   * purpose: as a notice (so it is in Activity, like every other workspace
-   * error, chrome U5) and rethrown so the dialog keeps the paste and shows the
-   * reason where the user is looking.
-   */
-  async function addMountLink(path: string, link: string): Promise<void> {
-    if (!workspace) return
-    try {
-      await workspace.addMountLink(path, link)
-      manager.refresh()
-    } catch (err) {
-      workspace.notify({ level: 'error', text: shareLinkErrorText(err), path })
-      throw err
-    }
-  }
-  let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
-  let unmountConfirm = $state<string | null>(null)
-  let moveConfirm = $state<{ from: string; to: string; leavingShared: boolean } | null>(null)
-
-  async function confirmUnshare(revokeTokens: boolean): Promise<void> {
-    const target = unshareConfirm
-    unshareConfirm = null
-    if (!target || !workspace) return
-    const room = workspace.ui.mounts.find((m) => m.path === target.path)?.room
-    try {
-      await workspace.unshare(target.path)
-      if (room) {
-        removeShare(room)
-        setRoomToken(room, '')
-        if (revokeTokens && operatorSecret()) {
-          for (const share of await listShares(defaultRelay(), operatorSecret(), room)) {
-            await revokeShare(defaultRelay(), operatorSecret(), share.token)
-          }
-        }
+  // ---- in-workspace sharing (M4/M5/N1/N2) and file operations (M3) ----
+  const sharing = createShareActions({
+    workspace: () => workspace,
+    refresh: () => manager.refresh(),
+    closeUnder: (path) => panes.closeUnder(path),
+    revokeRoom: async (room) => {
+      const secret = operatorSecret()
+      if (!secret) return
+      for (const share of await listShares(defaultRelay(), secret, room)) {
+        await revokeShare(defaultRelay(), secret, share.token)
       }
-      manager.refresh()
-    } catch (err) {
-      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
-    }
-  }
-
-  async function confirmUnmount(): Promise<void> {
-    const path = unmountConfirm
-    unmountConfirm = null
-    if (!path || !workspace) return
-    // The folder leaves the vault: its tabs go with it, now rather than when
-    // the file list settles (B6).
-    panes.closeUnder(path)
-    const room = workspace.ui.mounts.find((m) => m.path === path)?.room
-    try {
-      await workspace.unmount(path)
-      if (room) {
-        removeShare(room)
-        setRoomToken(room, '')
-      }
-      manager.refresh()
-    } catch (err) {
-      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
-    }
-  }
-
-  async function confirmCrossMove(): Promise<void> {
-    const mv = moveConfirm
-    moveConfirm = null
-    if (!mv || !workspace) return
-    try {
-      await workspace.movePath(mv.from, mv.to)
-    } catch (err) {
-      workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
-    }
-  }
-
-  // ---- tree operations (M3): the tree requests, App owns the dialogs ----
-  let treeOp = $state<TreeOp | null>(null)
-
-  function handleTreeOp(op: TreeOp): void {
-    if (!workspace) return
-    if (op.type === 'new-file') {
-      void createNote(op.dir) // auto-named untitled-N; rename after
-      return
-    }
-    if (op.type === 'share-folder') {
-      folderSharePath = op.path
-      return
-    }
-    if (op.type === 'add-share') {
-      addShareOpen = { dir: op.dir }
-      return
-    }
-    if (op.type === 'add-link') {
-      addLinkPath = op.path
-      return
-    }
-    if (op.type === 'history') {
-      // The section reads the FOCUSED note, so History… focuses this one and
-      // then makes sure the rail is showing that section.
-      openPath(op.path)
+    },
+  })
+  const fileOps = createFileActions({
+    workspace: () => workspace,
+    open: (path) => openPath(path),
+    share: sharing,
+    showHistory: () => {
       railOpen = true
       railFolded = toggleFolded(railFolded, 'history', false)
-      return
-    }
-    if (op.type === 'unshare') {
-      const provenance =
-        workspace.ui.mounts.find((m) => m.path === op.path)?.provenance ?? 'carved'
-      unshareConfirm = { path: op.path, provenance }
-      return
-    }
-    if (op.type === 'unmount') {
-      unmountConfirm = op.path
-      return
-    }
-    if (op.type === 'move-to') {
-      // Drag-and-drop already resolved the destination; the boundary rules are
-      // identical to the Move… dialog's, so both land in one place.
-      void performMove(op.from, op.to)
-      return
-    }
-    treeOp = op
-  }
-
-  /**
-   * Move `from` to `to`, asking first when it crosses a share boundary —
-   * that changes who can see the content, so it is never silent (spike S8 Q5).
-   */
-  async function performMove(from: string, to: string): Promise<void> {
-    if (!workspace) return
-    if (workspace.isCrossMount(from, to)) {
-      const leavingShared = workspace.ui.mounts.some(
-        (m) => from === m.path || from.startsWith(`${m.path}/`)
-      )
-      moveConfirm = { from, to, leavingShared }
-    } else {
-      await workspace.movePath(from, to)
-    }
-  }
-
-  async function confirmTreeOp(value: string): Promise<void> {
-    const op = treeOp
-    treeOp = null
-    if (!op || !workspace) return
-    if (op.type === 'new-folder') {
-      const path = op.dir ? `${op.dir}/${value}` : value
-      await workspace.createDir(path)
-      // Show what was just made: reveal expands its ancestors, scrolls to it
-      // AND focuses it as the tree's context dir, so the next New note lands
-      // inside the folder the person was clearly working on (P3).
-      revealDir = { path }
-    } else if (op.type === 'rename') {
-      const parent = op.path.includes('/') ? op.path.slice(0, op.path.lastIndexOf('/')) : ''
-      await workspace.renamePath(op.path, parent ? `${parent}/${value}` : value)
-    } else if (op.type === 'move') {
-      const base = op.path.slice(op.path.lastIndexOf('/') + 1)
-      await performMove(op.path, value ? `${value}/${base}` : base)
-    } else if (op.type === 'delete') {
-      await workspace.deletePath(op.path)
-    }
-  }
-
-  /** Narrowed props for the dialog (ops with their own affordance never open this one). */
-  const treeOpDialog = $derived.by(() => {
-    if (
-      !treeOp ||
-      treeOp.type === 'new-file' ||
-      treeOp.type === 'move-to' ||
-      treeOp.type === 'share-folder' ||
-      treeOp.type === 'add-share' ||
-      treeOp.type === 'add-link' ||
-      treeOp.type === 'unshare' ||
-      treeOp.type === 'unmount' ||
-      treeOp.type === 'history'
-    )
-      return null
-    if (treeOp.type === 'new-folder')
-      return { mode: 'new-folder' as const, path: treeOp.dir, kind: 'dir' as const }
-    return { mode: treeOp.type, path: treeOp.path, kind: treeOp.kind }
+    },
+    reveal: (path) => (revealDir = { path }),
   })
 
   // ---- workspace-derived view state ----
@@ -734,7 +492,7 @@
             openQuick: nav.registry.binding('nav.quick-open'),
           },
           resolveLink: (target, from) => nav.resolveLink(target, from),
-          createFromLink: (target) => void createFromLink(target),
+          createFromLink: (target) => void fileOps.createFromLink(target),
           linkCandidates: () => textPaths(workspace?.ui.files ?? []),
           searchTag: (tag) => nav.openSearch(tagQuery(tag)),
           tags: () => nav.tags(),
@@ -894,7 +652,7 @@
               presenceByRoom={workspace.ui.presenceByRoom}
               reveal={revealDir}
               onSelect={(path, opts) => openPath(path, opts)}
-              onOp={handleTreeOp}
+              onOp={fileOps.handle}
               onNotice={(level, text, path) => workspace?.notify({ level, text, path })}
             />
           </div>
@@ -979,7 +737,7 @@
               outgoing={nav.links.outgoing}
               path={selectedPath}
               onOpen={openPath}
-              onCreate={(target) => void createFromLink(target)}
+              onCreate={(target) => void fileOps.createFromLink(target)}
             />
           {:else if id === 'note' && workspace}
             <NoteSection
@@ -992,11 +750,11 @@
               presenceAll={workspace.ui.presence}
               relayUrl={manager.relayDefault}
               secret={manager.opSecret}
-              revision={shareRevision}
-              onManage={(mountPath) => (folderSharePath = mountPath)}
-              onShareFolder={(dir) => (folderSharePath = dir)}
-              onAddShare={(dir) => (addShareOpen = { dir })}
-              onAddLink={(mountPath) => (addLinkPath = mountPath)}
+              revision={sharing.revision}
+              onManage={(mountPath) => (sharing.folderSharePath = mountPath)}
+              onShareFolder={(dir) => (sharing.folderSharePath = dir)}
+              onAddShare={(dir) => (sharing.addShareOpen = { dir })}
+              onAddLink={(mountPath) => (sharing.addLinkPath = mountPath)}
             />
           {:else if id === 'history' && workspace}
             <HistorySection
@@ -1035,69 +793,69 @@
     {/key}
   {/if}
 
-  {#if addShareOpen}
+  {#if sharing.addShareOpen}
     <AddShareDialog
       dirs={dirPaths(workspace.ui.files)}
-      initialDest={addShareOpen.dir ? `${addShareOpen.dir}/` : ''}
+      initialDest={sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : ''}
       onJoin={(link, dest) => workspace!.addShareMount(link, dest)}
-      onClose={() => (addShareOpen = null)}
+      onClose={() => (sharing.addShareOpen = null)}
     />
   {/if}
 
-  {#if addLinkPath}
+  {#if sharing.addLinkPath}
     <AddLinkDialog
-      path={addLinkPath}
-      room={addLinkMount?.room ?? ''}
-      onAdd={(link) => addMountLink(addLinkPath!, link)}
-      onClose={() => (addLinkPath = null)}
+      path={sharing.addLinkPath}
+      room={sharing.addLinkMount?.room ?? ''}
+      onAdd={(link) => sharing.addMountLink(sharing.addLinkPath!, link)}
+      onClose={() => (sharing.addLinkPath = null)}
     />
   {/if}
 
-  {#if unshareConfirm}
+  {#if sharing.unshareConfirm}
     <ConfirmDialog
-      title={$LL.web.share.unshare.title({ path: unshareConfirm.path })}
+      title={$LL.web.share.unshare.title({ path: sharing.unshareConfirm.path })}
       body={$LL.web.share.unshare.body()}
       confirmLabel={$LL.web.share.unshare.confirm()}
       checkboxLabel={manager.opSecret ? $LL.web.share.unshare.revoke() : undefined}
       testid="unshare-confirm"
-      onConfirm={(revoke) => void confirmUnshare(revoke)}
-      onCancel={() => (unshareConfirm = null)}
+      onConfirm={(revoke) => void sharing.confirmUnshare(revoke)}
+      onCancel={() => (sharing.unshareConfirm = null)}
     />
   {/if}
 
-  {#if unmountConfirm}
+  {#if sharing.unmountConfirm}
     <ConfirmDialog
-      title={$LL.web.share.unmount.title({ path: unmountConfirm })}
+      title={$LL.web.share.unmount.title({ path: sharing.unmountConfirm })}
       body={$LL.web.share.unmount.body()}
       confirmLabel={$LL.web.share.unmount.confirm()}
       testid="unmount-confirm"
-      onConfirm={() => void confirmUnmount()}
-      onCancel={() => (unmountConfirm = null)}
+      onConfirm={() => void sharing.confirmUnmount()}
+      onCancel={() => (sharing.unmountConfirm = null)}
     />
   {/if}
 
-  {#if moveConfirm}
+  {#if sharing.moveConfirm}
     <ConfirmDialog
       title={$LL.web.share.cross_move.title()}
-      body={moveConfirm.leavingShared
-        ? $LL.web.share.cross_move.leaving({ path: moveConfirm.from })
-        : $LL.web.share.cross_move.entering({ path: moveConfirm.from })}
+      body={sharing.moveConfirm.leavingShared
+        ? $LL.web.share.cross_move.leaving({ path: sharing.moveConfirm.from })
+        : $LL.web.share.cross_move.entering({ path: sharing.moveConfirm.from })}
       confirmLabel={$LL.web.share.cross_move.confirm()}
-      danger={moveConfirm.leavingShared}
+      danger={sharing.moveConfirm.leavingShared}
       testid="cross-move-confirm"
-      onConfirm={() => void confirmCrossMove()}
-      onCancel={() => (moveConfirm = null)}
+      onConfirm={() => void sharing.confirmCrossMove()}
+      onCancel={() => (sharing.moveConfirm = null)}
     />
   {/if}
 
-  {#if treeOpDialog}
+  {#if fileOps.dialog}
     <TreeOpDialog
-      mode={treeOpDialog.mode}
-      path={treeOpDialog.path}
-      kind={treeOpDialog.kind}
+      mode={fileOps.dialog.mode}
+      path={fileOps.dialog.path}
+      kind={fileOps.dialog.kind}
       dirs={dirPaths(workspace.ui.files)}
-      onConfirm={(v) => void confirmTreeOp(v)}
-      onCancel={() => (treeOp = null)}
+      onConfirm={(v) => void fileOps.confirm(v)}
+      onCancel={() => fileOps.cancel()}
     />
   {/if}
 
@@ -1109,16 +867,16 @@
     />
   {/if}
 
-  {#if folderSharePath}
+  {#if sharing.folderSharePath}
     <FolderShareDialog
-      path={folderSharePath}
-      mount={folderShareMount}
+      path={sharing.folderSharePath}
+      mount={sharing.folderShareMount}
       relayUrl={manager.relayDefault}
       secret={manager.opSecret}
-      onShare={carveFolderShare}
+      onShare={() => sharing.carveFolderShare()}
       onClose={() => {
-        folderSharePath = null
-        shareRevision++
+        sharing.folderSharePath = null
+        sharing.touch()
       }}
     />
   {/if}
@@ -1194,7 +952,7 @@
     room={workspace.room}
     relayUrl={manager.relayDefault}
     secret={manager.opSecret}
-    onCreate={createDeviceLink}
+    onCreate={(label) => sharing.createDeviceLink(label)}
     onClose={() => {
       deviceLinkOpen = false
       manager.refresh()
