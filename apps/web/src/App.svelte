@@ -8,7 +8,7 @@
   import SyncPill from './lib/components/SyncPill.svelte'
   import VaultManager from './lib/components/VaultManager.svelte'
   import VaultSwitcher from './lib/components/VaultSwitcher.svelte'
-  import { configForMemory, configForSession, newFolderGuid } from './lib/boot.js'
+  import { configForMemory, configForSession } from './lib/boot.js'
   import AddLinkDialog from './lib/components/AddLinkDialog.svelte'
   import AddShareDialog from './lib/components/AddShareDialog.svelte'
   import DeviceLinkDialog from './lib/components/DeviceLinkDialog.svelte'
@@ -19,25 +19,15 @@
   import {
     addShare,
     defaultRelay,
-    deriveVaultName,
     devtoolsEnabled,
     getVault,
     hotkeys,
     lastVault,
-    listVaults,
-    loadShares,
     loadUser,
-    mergeGrants,
     operatorSecret,
-    purgeRooms,
     removeShare,
-    removeVault,
     saveUser,
     setRoomToken,
-    touchVault,
-    upsertVault,
-    type VaultEntry,
-    type VaultSourceDesc,
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
@@ -52,14 +42,13 @@
     storageWarning,
   } from './lib/storage.svelte.js'
   import { containingDir, dirPaths, type TreeOp } from './lib/tree-model.js'
-  import { decodeShareLink } from './lib/share-link.js'
-  import { setupWorkspace, textPaths, type PullProgress, type Workspace } from './lib/workspace.svelte.js'
+  import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
   import { shareLinkErrorText } from './lib/share-link.js'
   import LinksPanel from './lib/components/LinksPanel.svelte'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation, defaultCommands } from './lib/navigation.svelte.js'
   import { recentPaths, touchPath } from './lib/recent.js'
-  import { themePath, installUserTheme, themeState } from './lib/theme.svelte.js'
+  import { themeState } from './lib/theme.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
   import IconButton from './lib/ui/IconButton.svelte'
   import ResizeHandle from './lib/ui/ResizeHandle.svelte'
@@ -88,6 +77,8 @@
   import HistorySection from './lib/components/HistorySection.svelte'
   import NoteSection from './lib/components/NoteSection.svelte'
   import { createDaily } from './lib/daily.svelte.js'
+  import { createSession } from './lib/session.svelte.js'
+  import { createManager } from './lib/manager.svelte.js'
   import { realClock } from './lib/real-clock.js'
   import { vaultLabel, vaultTitle } from './lib/pill-status.js'
   import { scopedRollup } from './lib/share-status.js'
@@ -101,27 +92,16 @@
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
 
-  let view = $state<'manager' | 'connecting' | 'workspace'>('connecting')
-  let workspace = $state.raw<Workspace | null>(null)
-  /** Boot failure surfaced on the manager — against its vault row when room is set. */
-  let failure = $state<{ room: string | null; message: string } | null>(null)
-  let busy = $state(false)
   let settingsOpen = $state(false)
-  let vaults = $state(listVaults())
-  let shares = $state(loadShares())
-  let relayDefault = $state(defaultRelay())
-  let opSecret = $state(operatorSecret())
   const prefillLink = url.get('share') ?? ''
   /**
    * Device linking (N2). `deviceLinkOpen` is the OWNER's dialog (Settings ›
    * Sync and the command palette both open it — never nested inside the
    * settings dialog); `linkDeviceOpen` is the NEW DEVICE's paste dialog on the
-   * manager; `joining` + `pull` are the two-phase panel's whole state.
+   * manager. The two-phase panel's state (`joining`, `pull`) is the session's.
    */
   let deviceLinkOpen = $state(false)
   let linkDeviceOpen = $state(false)
-  let joining = $state<{ entry: VaultEntry; destination: string } | null>(null)
-  let pull = $state<PullProgress | null>(null)
   /** ?debug=1 forces the sync devtools on for this session (M6). */
   const debugForced = url.get('debug') === '1'
   let devtools = $state(debugForced || devtoolsEnabled())
@@ -204,6 +184,34 @@
     notify: (input) => workspace?.notify(input),
     write: (text) => navigator.clipboard.writeText(text),
   })
+
+  // ---- the session (which vault is open) and the manager over the registry ----
+  const session = createSession({
+    index: nav.sink,
+    attachIndex: (ws) => nav.attach(ws),
+    attachPanes: (ws, room) => panes.attach(ws, room),
+    onRenamed: (moves) => panes.onRenamed(moves),
+    userName: () => loadUser() ?? 'Anonymous',
+    lastVault,
+    onOpened: (ws, entry) => {
+      manager.refresh()
+      if (entry.vault.kind === 'opfs') void remindAboutStorage(ws)
+    },
+    setup: setupWorkspace,
+    configForSession,
+    configForMemory,
+  })
+  const manager = createManager(session, {
+    isTauri,
+    pickFolder: async () => (await import('./lib/adapters/tauri-vault-adapter.js')).pickVaultFolder(),
+    folderIsEmpty,
+    forgetVaultState,
+    cleanUrl,
+    onDeviceLinked: () => (linkDeviceOpen = false),
+  })
+  /** The two things the whole shell reads, aliased so the reads stay short. */
+  const workspace = $derived(session.workspace)
+  const view = $derived(session.view)
 
   // ---- layout (chrome U2): device-level, persisted like the theme ----
   const savedLayout = layoutPrefs()
@@ -399,271 +407,12 @@
   }
 
   /**
-   * Boot generation: bumped by Cancel and by every new boot so a stale
-   * setupWorkspace settling late can neither install itself nor clobber the
-   * view. A cancelled boot's workspace is disposed when it settles.
-   */
-  let bootGen = 0
-
-  function refreshLists(): void {
-    vaults = listVaults()
-    shares = loadShares()
-    relayDefault = defaultRelay()
-    opSecret = operatorSecret()
-  }
-
-  function userName(): string {
-    return loadUser() ?? 'Anonymous'
-  }
-
-  /**
-   * Boot a registered vault; failures land on the manager, never a dead end.
-   *
-   * `busy` stays TRUE until this resolves (device-link N2): the join path used
-   * to clear it and then await the boot, so the manager re-enabled every
-   * button while a whole vault was being pulled. A first join with `joining`
-   * set keeps its failure on the progress panel instead of the manager — the
-   * panel offers the retry, and retrying is the right move for a stall.
-   */
-  async function bootVault(entry: VaultEntry): Promise<void> {
-    const gen = ++bootGen
-    view = 'connecting'
-    failure = null
-    busy = true
-    pull = null
-    // Drop the previous vault's index BEFORE the next one fills it.
-    nav.attach(null)
-    try {
-      const ws = await setupWorkspace({
-        ...(await configForSession(entry, userName())),
-        index: nav.sink,
-        // A rename must reach the tabs and their histories in the same turn
-        // the file list changes, or the prune would close a tab that only
-        // moved (B6, S9-Q4).
-        onPathsRenamed: (moves) => panes.onRenamed(moves),
-        // Reported from inside setupWorkspace, before it resolves — the whole
-        // point of the panel (spike S10 Q4).
-        onPull: (progress) => {
-          if (gen === bootGen) pull = progress
-        },
-      })
-      if (gen !== bootGen) {
-        ws.dispose() // cancelled or superseded while awaiting
-        return
-      }
-      workspace?.dispose()
-      workspace = ws
-      nav.attach(ws)
-      // After `ui.files` exists, so the restored tree is pruned against the
-      // vault before a single editor mounts (B6).
-      panes.attach(ws, entry.room)
-      void restoreCustomTheme(ws)
-      touchVault(entry.room, Date.now())
-      refreshLists()
-      joining = null
-      view = 'workspace'
-      if (entry.vault.kind === 'opfs') void remindAboutStorage(ws)
-    } catch (err) {
-      if (gen !== bootGen) return
-      failure = { room: entry.room, message: err instanceof Error ? err.message : String(err) }
-      if (!joining) view = 'manager'
-    } finally {
-      if (gen === bootGen) busy = false
-    }
-  }
-
-  /** Memory URL contract (dev / Playwright L2) — bypasses the manager entirely. */
-  async function bootMemory(cfg: Extract<typeof memConfig, { kind: 'memory' }>): Promise<void> {
-    const gen = ++bootGen
-    view = 'connecting'
-    nav.attach(null)
-    try {
-      const ws = await setupWorkspace({
-        ...(await configForMemory(cfg)),
-        index: nav.sink,
-        onPathsRenamed: (moves) => panes.onRenamed(moves),
-      })
-      if (gen !== bootGen) {
-        ws.dispose()
-        return
-      }
-      workspace = ws
-      nav.attach(ws)
-      panes.attach(ws, ws.room)
-      view = 'workspace'
-    } catch (err) {
-      if (gen !== bootGen) return
-      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
-      view = 'manager'
-    }
-  }
-
-  /**
-   * The pre-paint script restores the `data-theme` attribute, but a custom
-   * theme's CSS lives in the vault and cannot be read until one is open. Fetch
-   * and install it as soon as it can be; a missing file leaves the attribute
-   * pointing at nothing, which resolves to the contract defaults rather than
-   * to a broken page.
-   */
-  async function restoreCustomTheme(ws: Workspace): Promise<void> {
-    if (!themeState.pref.startsWith('custom:')) return
-    const name = themeState.pref.slice('custom:'.length)
-    try {
-      const css = await ws.readAppFile(themePath(name))
-      if (css) installUserTheme(css)
-    } catch {
-      // A vault without the theme file: the built-in defaults still apply.
-    }
-  }
-
-  function cancelBoot(): void {
-    bootGen++
-    joining = null
-    pull = null
-    busy = false
-    view = workspace ? 'workspace' : 'manager'
-  }
-
-  /**
    * After onboarding, drop any bootstrap query params from the address bar so a
    * reload reopens via the persisted vault (not the deep link) — and so a
    * share secret never lingers in the URL / history (R5).
    */
   function cleanUrl(): void {
     if (location.search) history.replaceState({}, '', location.pathname)
-  }
-
-  // ---- initial routing ----
-  if (memConfig.kind === 'memory') {
-    void bootMemory(memConfig)
-  } else if (memConfig.kind === 'error') {
-    failure = { room: null, message: memConfig.message }
-    view = 'manager'
-  } else {
-    const last = lastVault()
-    if (last && !prefillLink) {
-      // Attempted once; a failure routes to the manager with the error shown
-      // against this entry (no reload retrap — the entry is fixable there).
-      void bootVault(last)
-    } else {
-      view = 'manager'
-    }
-  }
-
-  // ---- manager actions ----
-  async function openFolder(name: string): Promise<void> {
-    saveUser(name)
-    failure = null
-    busy = true
-    try {
-      const { pickVaultFolder } = await import('./lib/adapters/tauri-vault-adapter.js')
-      const path = await pickVaultFolder()
-      if (!path) {
-        busy = false
-        return
-      }
-      // Reopening a known folder resumes its entry (same room/stores) instead
-      // of minting a second identity for the same bytes.
-      const existing = listVaults().find((v) => v.vault.kind === 'tauri' && v.vault.path === path)
-      const entry: VaultEntry = existing ?? {
-        name: deriveVaultName({ kind: 'tauri', path }),
-        vault: { kind: 'tauri', path },
-        room: newFolderGuid(),
-      }
-      upsertVault(entry)
-      refreshLists()
-      cleanUrl()
-      await bootVault(entry)
-    } catch (err) {
-      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
-      busy = false
-    }
-  }
-
-  async function createBrowserVault(name: string, vaultName: string): Promise<void> {
-    saveUser(name)
-    failure = null
-    const entry: VaultEntry = {
-      name: vaultName,
-      vault: { kind: 'opfs', id: crypto.randomUUID() },
-      room: newFolderGuid(),
-    }
-    upsertVault(entry)
-    refreshLists()
-    cleanUrl()
-    await bootVault(entry)
-  }
-
-  async function joinShare(name: string, link: string): Promise<void> {
-    saveUser(name)
-    failure = null
-    busy = true
-    let target: ReturnType<typeof decodeShareLink>
-    try {
-      target = decodeShareLink(link)
-    } catch (err) {
-      // The codec throws a code; the manager is a rendering site, so it says
-      // WHICH way the link is unusable rather than "invalid link".
-      failure = { room: null, message: shareLinkErrorText(err) }
-      busy = false
-      return
-    }
-    // A device link pasted here is not a folder share — it is this vault, and
-    // it wants the device path (grants merged before boot, the destination
-    // checked, the token stored as a device key).
-    if (target.kind === 'device') {
-      try {
-        await linkThisDevice(link)
-      } catch (err) {
-        failure = { room: null, message: shareLinkErrorText(err) }
-        busy = false
-      }
-      return
-    }
-    try {
-      let entry: VaultEntry
-      if (isTauri()) {
-        const { pickVaultFolder } = await import('./lib/adapters/tauri-vault-adapter.js')
-        const path = await pickVaultFolder()
-        if (!path) {
-          busy = false
-          return
-        }
-        entry = {
-          name: deriveVaultName({ kind: 'tauri', path }),
-          vault: { kind: 'tauri', path },
-          room: target.room,
-          relay: { url: target.relay, token: target.token },
-          firstJoin: true,
-        }
-      } else {
-        entry = {
-          name: 'Shared vault',
-          vault: { kind: 'opfs', id: target.room },
-          room: target.room,
-          relay: { url: target.relay, token: target.token },
-          firstJoin: true,
-        }
-      }
-      upsertVault(entry)
-      // Label the remembered share by the vault it opens as — not the joiner's
-      // own name (the "Recent shares show my name" bug).
-      addShare({ link, room: target.room, label: entry.name })
-      refreshLists()
-      cleanUrl()
-      // A whole-vault pull gets the panel too: it is the same minute of
-      // waiting whichever affordance started it.
-      joining = { entry, destination: destinationOf(entry.vault) }
-      await bootVault(entry)
-    } catch (err) {
-      failure = { room: null, message: err instanceof Error ? err.message : String(err) }
-      busy = false
-    }
-  }
-
-  /** What the progress panel calls the place the vault is being written. */
-  function destinationOf(vault: VaultSourceDesc): string {
-    return vault.kind === 'tauri' ? vault.path : $LL.web.manager.browser_vault()
   }
 
   /**
@@ -678,81 +427,8 @@
     return files.length === 0 && dirs.length === 0
   }
 
-  /**
-   * Link THIS device (device-link-shaping A1/A4-B, slice N2): the whole vault
-   * arrives here from the master copy. Rejects with the reason — the dialog
-   * keeps the paste and shows it.
-   *
-   * Order matters: the link's grants are merged BEFORE the boot, so the root's
-   * firstJoin pull and every adopt that follows find their tokens already in
-   * place rather than flashing `needs-token` and repairing themselves
-   * (spike S10 Q7).
-   */
-  async function linkThisDevice(link: string): Promise<void> {
-    const target = decodeShareLink(link)
-    if (target.kind !== 'device') throw new Error($LL.web.device_link.join_not_device())
-    const existing = getVault(target.room)
-    if (existing) throw new Error($LL.web.device_link.already_linked({ name: existing.name }))
-    let vault: VaultSourceDesc
-    if (isTauri()) {
-      const { pickVaultFolder } = await import('./lib/adapters/tauri-vault-adapter.js')
-      const path = await pickVaultFolder()
-      if (!path) return // the picker was cancelled; nothing has happened yet
-      if (!(await folderIsEmpty(path))) {
-        throw new Error($LL.web.device_link.not_empty({ path }))
-      }
-      vault = { kind: 'tauri', path }
-    } else {
-      // A fresh private vault, not one keyed by the room: linking twice into
-      // the same browser must not land in a half-written directory.
-      vault = { kind: 'opfs', id: crypto.randomUUID() }
-    }
-    if (target.grants.length > 0) mergeGrants(target.grants)
-    setRoomToken(target.room, target.token, target.relay, 'device')
-    const entry: VaultEntry = {
-      name: deriveVaultName(vault),
-      vault,
-      room: target.room,
-      relay: { url: target.relay, token: target.token },
-      firstJoin: true,
-    }
-    upsertVault(entry)
-    refreshLists()
-    cleanUrl()
-    linkDeviceOpen = false
-    joining = { entry, destination: destinationOf(vault) }
-    await bootVault(entry)
-  }
-
-  async function removeVaultEntry(room: string): Promise<void> {
-    const entry = getVault(room)
-    // Removing the vault that is OPEN right now: dispose the workspace first
-    // so its debounced flushes can't write into a half-wiped namespace. Any
-    // flush already in flight may still land after the wipe — the remnant is
-    // inert, since a reopen mints a new room and never reads the old one.
-    if (workspace?.room === room) {
-      ++bootGen // supersede any in-flight boot of this vault
-      nav.attach(null)
-      panes.attach(null, '')
-      workspace.dispose()
-      workspace = null
-    }
-    // Config entry goes first and unconditionally (never strand the registry
-    // on a store-wipe failure — leftover stores are inert for the same
-    // new-room reason).
-    removeVault(room)
-    if (failure?.room === room) failure = null
-    refreshLists()
-    if (entry) {
-      try {
-        purgeRooms(await forgetVaultState(entry))
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        failure = { room: null, message: $LL.web.manager.errors.forget_partial({ message: msg }) }
-      }
-      refreshLists()
-    }
-  }
+  // ---- initial routing ----
+  session.start(memConfig, prefillLink !== '')
 
   // ---- in-workspace sharing (M4: minted in-app, zero terminal) ----
   //
@@ -781,7 +457,7 @@
     if (room) {
       addShare({ link, room, label: `${getVault(workspace.room)?.name ?? 'vault'}/${path}` })
     }
-    refreshLists()
+    manager.refresh()
     return link
   }
 
@@ -793,7 +469,7 @@
   async function createDeviceLink(label: string): Promise<string> {
     if (!workspace) throw new Error($LL.web.device_link.needs_vault())
     const link = await workspace.linkDevice(label)
-    refreshLists()
+    manager.refresh()
     shareRevision++
     return link
   }
@@ -822,7 +498,7 @@
     if (!workspace) return
     try {
       await workspace.addMountLink(path, link)
-      refreshLists()
+      manager.refresh()
     } catch (err) {
       workspace.notify({ level: 'error', text: shareLinkErrorText(err), path })
       throw err
@@ -848,7 +524,7 @@
           }
         }
       }
-      refreshLists()
+      manager.refresh()
     } catch (err) {
       workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
     }
@@ -868,7 +544,7 @@
         removeShare(room)
         setRoomToken(room, '')
       }
-      refreshLists()
+      manager.refresh()
     } catch (err) {
       workspace?.notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
     }
@@ -1109,43 +785,43 @@
     isTauri={isTauri()}
     hasOpfs={hasOpfs()}
     defaultUser={loadUser() ?? ''}
-    {vaults}
-    {shares}
+    vaults={manager.vaults}
+    shares={manager.shares}
     {prefillLink}
-    {failure}
-    {busy}
+    failure={session.failure}
+    busy={session.busy}
     canGoBack={workspace !== null}
     currentRoom={workspace?.room ?? null}
-    onOpenVault={(entry) => void bootVault(entry)}
-    onRemoveVault={removeVaultEntry}
-    onOpenFolder={openFolder}
-    onCreateBrowserVault={createBrowserVault}
-    onJoin={joinShare}
+    onOpenVault={(entry) => void session.boot(entry)}
+    onRemoveVault={(room) => void manager.removeVault(room)}
+    onOpenFolder={(name) => void manager.openFolder(name)}
+    onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
+    onJoin={(name, link) => void manager.joinShare(name, link)}
     onLinkDevice={(name) => {
       saveUser(name)
-      failure = null
+      session.failure = null
       linkDeviceOpen = true
     }}
-    onBack={() => (view = 'workspace')}
+    onBack={() => session.showWorkspace()}
     onSettings={() => (settingsOpen = true)}
     {storageNote}
     onKeepStorage={keepStorage}
     onDismissStorage={dismissStorage}
   />
 {:else if view === 'connecting' || !workspace}
-  {#if joining}
+  {#if session.joining}
     <!-- A whole vault is arriving: two determinate phases, no editor surface
          until the boot resolves (the tree is empty and the folder is
          half-written until then). -->
     <JoinProgress
-      vaultName={joining.entry.name}
-      destination={joining.destination}
-      progress={pull}
-      error={failure?.message ?? null}
+      vaultName={session.joining.entry.name}
+      destination={session.joining.destination}
+      progress={session.pull}
+      error={session.failure?.message ?? null}
       onRetry={() => {
-        if (joining) void bootVault(joining.entry)
+        if (session.joining) void session.boot(session.joining.entry)
       }}
-      onCancel={cancelBoot}
+      onCancel={() => session.cancel()}
     />
   {:else}
     <main
@@ -1156,7 +832,7 @@
       {#if memConfig.kind !== 'memory'}
         <button
           data-testid="boot-cancel"
-          onclick={cancelBoot}
+          onclick={() => session.cancel()}
           class="rounded border border-base-300 px-3 py-1 text-xs text-base-content/70 hover:bg-base-200"
         >
           {$LL.common.cancel()}
@@ -1225,11 +901,11 @@
           <div class="flex min-w-0 items-center gap-1 border-t border-base-300 px-2 py-1">
             <VaultSwitcher
               current={{ room: workspace.room, name: currentVaultName }}
-              {vaults}
-              onSwitch={(entry) => void bootVault(entry)}
+              vaults={manager.vaults}
+              onSwitch={(entry) => void session.boot(entry)}
               onManage={() => {
-                refreshLists()
-                view = 'manager'
+                manager.refresh()
+                session.showManager()
               }}
             />
             <!-- The vault's own rollup, beside the vault's name: a dot and a
@@ -1314,8 +990,8 @@
               rootRoom={workspace.room}
               presenceByRoom={workspace.ui.presenceByRoom}
               presenceAll={workspace.ui.presence}
-              relayUrl={relayDefault}
-              secret={opSecret}
+              relayUrl={manager.relayDefault}
+              secret={manager.opSecret}
               revision={shareRevision}
               onManage={(mountPath) => (folderSharePath = mountPath)}
               onShareFolder={(dir) => (folderSharePath = dir)}
@@ -1382,7 +1058,7 @@
       title={$LL.web.share.unshare.title({ path: unshareConfirm.path })}
       body={$LL.web.share.unshare.body()}
       confirmLabel={$LL.web.share.unshare.confirm()}
-      checkboxLabel={opSecret ? $LL.web.share.unshare.revoke() : undefined}
+      checkboxLabel={manager.opSecret ? $LL.web.share.unshare.revoke() : undefined}
       testid="unshare-confirm"
       onConfirm={(revoke) => void confirmUnshare(revoke)}
       onCancel={() => (unshareConfirm = null)}
@@ -1437,8 +1113,8 @@
     <FolderShareDialog
       path={folderSharePath}
       mount={folderShareMount}
-      relayUrl={relayDefault}
-      secret={opSecret}
+      relayUrl={manager.relayDefault}
+      secret={manager.opSecret}
       onShare={carveFolderShare}
       onClose={() => {
         folderSharePath = null
@@ -1516,12 +1192,12 @@
   <DeviceLinkDialog
     vaultName={currentVaultName}
     room={workspace.room}
-    relayUrl={relayDefault}
-    secret={opSecret}
+    relayUrl={manager.relayDefault}
+    secret={manager.opSecret}
     onCreate={createDeviceLink}
     onClose={() => {
       deviceLinkOpen = false
-      refreshLists()
+      manager.refresh()
     }}
   />
 {/if}
@@ -1530,7 +1206,7 @@
   <LinkDeviceDialog
     isTauri={isTauri()}
     initialLink={prefillLink}
-    onLink={linkThisDevice}
+    onLink={(link) => manager.linkThisDevice(link)}
     onClose={() => (linkDeviceOpen = false)}
   />
 {/if}
@@ -1543,14 +1219,14 @@
       ? () => {
           // Settings saved its forms before calling this (see the panel), so
           // the dialog reads the operator secret the user just typed.
-          refreshLists()
+          manager.refresh()
           settingsOpen = false
           deviceLinkOpen = true
         }
       : undefined}
     onClose={() => {
       settingsOpen = false
-      refreshLists()
+      manager.refresh()
       devtools = debugForced || devtoolsEnabled()
     }}
   />
