@@ -132,6 +132,16 @@
     --ed-presence-6: #d19a66;
     --ed-presence-7: #56d1b0;
     --ed-presence-8: #b0b7c3;
+    /* Dark ink on every slot: white reached 1.7–2.9:1 on these. */
+    --ed-peer-label-fg: #14181d;
+    --ed-presence-fg-1: #14181d;
+    --ed-presence-fg-2: #14181d;
+    --ed-presence-fg-3: #14181d;
+    --ed-presence-fg-4: #14181d;
+    --ed-presence-fg-5: #14181d;
+    --ed-presence-fg-6: #14181d;
+    --ed-presence-fg-7: #14181d;
+    --ed-presence-fg-8: #14181d;
 
     /* Tab-group slots (W2): this theme's own accents — primary blue, the
      * string green, the keyword purple, the number amber, the code teal, a

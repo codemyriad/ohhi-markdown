@@ -140,9 +140,12 @@
     --ed-search-match-active-bg: #ebcb8b;
 
     --ed-presence-1: #88c0d0;
-    --ed-presence-2: #a3be8c;
+    /* Slots 2 and 4 are NOT Nord's green and yellow: those ARE this theme's
+     * --ed-sync-ok and --ed-sync-pending, and a peer must never read as a
+     * sync state (sharing R5). A rose and Nord's own snow (nord4) instead. */
+    --ed-presence-2: #e0a3b8;
     --ed-presence-3: #b48ead;
-    --ed-presence-4: #ebcb8b;
+    --ed-presence-4: #d8dee9;
     --ed-presence-5: #8fbcbb;
     --ed-presence-6: #81a1c1;
     --ed-presence-7: #5e81ac;
@@ -153,6 +156,17 @@
      * family rather than one of its canonical fifteen. Second and last
      * documented deviation from the port — see docs/theming.md. */
     --ed-presence-8: #cbb69a;
+    /* Near-black ink: nord0 (#2e3440) reaches only 4.4:1 on slot 3 and
+     * 3.1:1 on slot 7, and white 4.0:1 on slot 7. */
+    --ed-peer-label-fg: #0b0e13;
+    --ed-presence-fg-1: #0b0e13;
+    --ed-presence-fg-2: #0b0e13;
+    --ed-presence-fg-3: #0b0e13;
+    --ed-presence-fg-4: #0b0e13;
+    --ed-presence-fg-5: #0b0e13;
+    --ed-presence-fg-6: #0b0e13;
+    --ed-presence-fg-7: #0b0e13;
+    --ed-presence-fg-8: #0b0e13;
 
     /* Tab-group slots (W2): Nord's own frost + aurora, minus the aurora red
      * band C reserves. Slot 7 KEEPS Nord's orange #d08770 even though the

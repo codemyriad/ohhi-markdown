@@ -8,7 +8,11 @@
     "./styles/_template.css": "./src/styles/_template.css",
     "./tokens": "./src/tokens.ts"
   },
-  "scripts": { "test": "vitest run", "check": "tsc --noEmit" },
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit",
+    "fonts": "node scripts/fetch-fonts.mjs"
+  },
   "dependencies": {
     "daisyui": "^5.0.8"
   },

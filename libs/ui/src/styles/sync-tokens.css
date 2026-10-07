@@ -132,6 +132,16 @@
   background-color: #6b7684;
 }
 
+/* The pill's HOST (SyncPill's button or span, the element carrying the
+ * testid and data-status) keeps its display unlayered too: a layered
+ * `[data-testid="toolbar-vault-pill"] { display: none }` would otherwise hide
+ * the dot with its parent. An ANCESTOR's display is beyond any CSS defence —
+ * sanitizeThemeCss strips every rule that names a test hook, a pill or a
+ * sync surface for that. */
+.ed-sync-host {
+  display: inline-flex;
+}
+
 [data-status='green'] > .ed-sync-dot {
   background-color: #2f7d3f;
 }
@@ -145,20 +155,7 @@
   background-color: #6b7684;
 }
 
-[data-theme='editor-dark'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
- * `display: none` would otherwise hide the honesty signal outright, and
- * unlayered normal declarations outrank every layered one. This also means
- * the dot needs no Tailwind sizing utilities — they would lose to these. */
-.ed-sync-dot {
-  display: inline-block;
-  flex: 0 0 auto;
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 9999px;
-  background-color: #6b7684;
-}
-
-[data-status='green'] > .ed-sync-dot {
+[data-theme='editor-dark'] [data-status='green'] > .ed-sync-dot {
   background-color: #56b96f;
 }
 [data-theme='editor-dark'] [data-status='yellow'] > .ed-sync-dot {
@@ -171,20 +168,7 @@
   background-color: #8b96a6;
 }
 
-[data-theme='nord-dark'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
- * `display: none` would otherwise hide the honesty signal outright, and
- * unlayered normal declarations outrank every layered one. This also means
- * the dot needs no Tailwind sizing utilities — they would lose to these. */
-.ed-sync-dot {
-  display: inline-block;
-  flex: 0 0 auto;
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 9999px;
-  background-color: #6b7684;
-}
-
-[data-status='green'] > .ed-sync-dot {
+[data-theme='nord-dark'] [data-status='green'] > .ed-sync-dot {
   background-color: #a3be8c;
 }
 [data-theme='nord-dark'] [data-status='yellow'] > .ed-sync-dot {
@@ -197,20 +181,7 @@
   background-color: #4c566a;
 }
 
-[data-theme='nord-light'] /* The dot's GEOMETRY is unlayered too, not just its colour: a layered
- * `display: none` would otherwise hide the honesty signal outright, and
- * unlayered normal declarations outrank every layered one. This also means
- * the dot needs no Tailwind sizing utilities — they would lose to these. */
-.ed-sync-dot {
-  display: inline-block;
-  flex: 0 0 auto;
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 9999px;
-  background-color: #6b7684;
-}
-
-[data-status='green'] > .ed-sync-dot {
+[data-theme='nord-light'] [data-status='green'] > .ed-sync-dot {
   background-color: #4a7a2e;
 }
 [data-theme='nord-light'] [data-status='yellow'] > .ed-sync-dot {
@@ -221,4 +192,79 @@
 }
 [data-theme='nord-light'] [data-status='offline'] > .ed-sync-dot {
   background-color: #6b7690;
+}
+
+/*
+ * The sync ICON (foundations-plan P5): the toolbar's one sync readout is the
+ * Shared view's glyph, and its STROKE is the state — so the same two defences
+ * apply to it as to the dot. Its geometry, visibility and paint are unlayered
+ * longhands on the svg itself, and again on every shape inside it, because a
+ * layered `.lucide path { stroke: red }` lands on the CHILD, where an
+ * inherited stroke would lose to it. `fill: none` too: a filled glyph is a
+ * repaint by other means. Literal colours, the dot's, per theme.
+ */
+.ed-sync-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  visibility: visible;
+  opacity: 1;
+  fill: none;
+  stroke: #6b7684;
+}
+.ed-sync-icon * {
+  display: inline;
+  visibility: visible;
+  opacity: 1;
+  fill: none;
+  stroke: inherit;
+}
+[data-status='green'] > .ed-sync-icon {
+  stroke: #2f7d3f;
+}
+[data-status='yellow'] > .ed-sync-icon {
+  stroke: #8a6300;
+}
+[data-status='red'] > .ed-sync-icon {
+  stroke: #b3271e;
+}
+[data-status='offline'] > .ed-sync-icon {
+  stroke: #6b7684;
+}
+[data-theme='editor-dark'] [data-status='green'] > .ed-sync-icon {
+  stroke: #56b96f;
+}
+[data-theme='editor-dark'] [data-status='yellow'] > .ed-sync-icon {
+  stroke: #d9a441;
+}
+[data-theme='editor-dark'] [data-status='red'] > .ed-sync-icon {
+  stroke: #e05252;
+}
+[data-theme='editor-dark'] [data-status='offline'] > .ed-sync-icon {
+  stroke: #8b96a6;
+}
+[data-theme='nord-dark'] [data-status='green'] > .ed-sync-icon {
+  stroke: #a3be8c;
+}
+[data-theme='nord-dark'] [data-status='yellow'] > .ed-sync-icon {
+  stroke: #ebcb8b;
+}
+[data-theme='nord-dark'] [data-status='red'] > .ed-sync-icon {
+  stroke: #bf616a;
+}
+[data-theme='nord-dark'] [data-status='offline'] > .ed-sync-icon {
+  stroke: #4c566a;
+}
+[data-theme='nord-light'] [data-status='green'] > .ed-sync-icon {
+  stroke: #4a7a2e;
+}
+[data-theme='nord-light'] [data-status='yellow'] > .ed-sync-icon {
+  stroke: #8a6300;
+}
+[data-theme='nord-light'] [data-status='red'] > .ed-sync-icon {
+  stroke: #b3271e;
+}
+[data-theme='nord-light'] [data-status='offline'] > .ed-sync-icon {
+  stroke: #6b7690;
 }

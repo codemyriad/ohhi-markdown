@@ -212,13 +212,44 @@ describe('sync honesty (band C)', () => {
     // The dot's GEOMETRY is unlayered too — otherwise a layered
     // `display: none` hides the signal rather than recolouring it.
     expect(SYNC).toMatch(/\.ed-sync-dot \{[^}]*display:\s*inline-block/)
+    // …and the host's, so hiding the pill's own element fails as well.
+    expect(SYNC).toMatch(/\.ed-sync-host \{[^}]*display:\s*inline-flex/)
+    // Exactly one unscoped rule per status (the editor-light defaults).
+    for (const status of ['green', 'yellow', 'red', 'offline']) {
+      const unscoped = SYNC.match(new RegExp(`(^|\\})\\s*\\[data-status='${status}'\\] > \\.ed-sync-dot`, 'g')) ?? []
+      expect(unscoped.length, `unscoped ${status} dot rules`).toBe(1)
+    }
     // ...and it must all stay unlayered: `@layer` anywhere in this file would
     // put it behind a user theme's normal rules.
     expect(SYNC.includes('@layer')).toBe(false)
     // ...and a theme override for every non-default theme.
     for (const theme of BUILTIN_THEMES) {
       if (theme === 'editor-light') continue // the defaults above ARE its palette
-      expect(SYNC, `${theme} has no dot rules`).toContain(`[data-theme='${theme}'] [data-status=`)
+      // Every status, scoped: an unscoped override would repaint every theme's dot.
+      for (const status of ['green', 'yellow', 'red', 'offline']) {
+        expect(SYNC, `${theme} has no scoped ${status} dot rule`).toContain(
+          `[data-theme='${theme}'] [data-status='${status}'] > .ed-sync-dot {`
+        )
+      }
+    }
+  })
+
+  it('paints the sync ICON the same way: its stroke, per status and theme, the dot\'s colour', () => {
+    // foundations-plan P5: the toolbar's sync readout is a glyph whose STROKE
+    // is the state. Longhands on the svg AND on every shape inside it — a
+    // layered `path { stroke: … }` lands on the child, past an inherited one.
+    expect(SYNC).toMatch(/\.ed-sync-icon \{[^}]*display:\s*inline-block[^}]*fill:\s*none[^}]*stroke:/)
+    expect(SYNC).toMatch(/\.ed-sync-icon \* \{[^}]*fill:\s*none[^}]*stroke:\s*inherit/)
+    const colour = (selector: string, prop: string): string | undefined =>
+      SYNC.match(new RegExp(`${selector.replace(/[[\]().*>]/g, '\\$&')} \\{\\s*${prop}:\\s*(#[0-9a-f]+)`))?.[1]
+    for (const theme of [null, ...BUILTIN_THEMES.filter((t) => t !== 'editor-light')]) {
+      for (const status of ['green', 'yellow', 'red', 'offline']) {
+        const scope = theme ? `[data-theme='${theme}'] ` : ''
+        const dot = colour(`${scope}[data-status='${status}'] > .ed-sync-dot`, 'background-color')
+        const icon = colour(`${scope}[data-status='${status}'] > .ed-sync-icon`, 'stroke')
+        expect(icon, `${theme ?? 'default'} ${status} icon`).toBeTruthy()
+        expect(icon, `${theme ?? 'default'} ${status}: icon and dot must say the same`).toBe(dot)
+      }
     }
   })
 
@@ -296,6 +327,47 @@ describe('sync honesty (band C)', () => {
 })
 
 /**
+ * Presence avatars and sync dots share rows (tabs, the tree, the toolbar), so
+ * a peer must never read as a STATE (sharing R5) — not only the diverged red
+ * above, but every one of the four. And an avatar's initials sit on its slot
+ * colour, so each slot's ink must clear WCAG 1.4.3's 4.5:1 on it, per theme
+ * (white on a dark theme's light slots reached 1.6:1).
+ */
+describe('presence colours (band B)', () => {
+  const presenceSource = (theme: string, name: string): string | null => {
+    const block = themeBlock(THEME_CSS[theme], theme)
+    return tokenValue(block, name) ?? tokenValue(CONTRACT, name)
+  }
+
+  it('declares an ink per presence slot in the contract', () => {
+    const contract = declaredTokens(CONTRACT)
+    for (let i = 1; i <= PRESENCE_SLOTS; i++) expect(contract.has(`--ed-presence-fg-${i}`), `slot ${i} fg`).toBe(true)
+  })
+
+  for (const theme of BUILTIN_THEMES) {
+    for (let i = 1; i <= PRESENCE_SLOTS; i++) {
+      it(`${theme} slot ${i}: initials clear 4.5:1, and the colour is no sync state`, () => {
+        const slot = presenceSource(theme, `--ed-presence-${i}`)!
+        const ink = presenceSource(theme, `--ed-presence-fg-${i}`)!
+        expect(slot, `${theme} slot ${i}`).toMatch(/^#/)
+        expect(ink, `${theme} slot ${i} fg`).toMatch(/^#/)
+        expect(contrastRatio(slot, ink), `${theme} slot ${i} (${slot}) with ink ${ink}`).toBeGreaterThanOrEqual(4.5)
+        const sync = themeBlock(SYNC, theme)
+        for (const state of SYNC_STATES) {
+          const value = tokenValue(sync, `--ed-sync-${state}`)!
+          // 30: "not the same colour" — catches a slot that IS a state
+          // (#8a6300 was presence and pending) or a near-copy of one.
+          expect(
+            colorDistance(slot, value),
+            `${theme}: presence slot ${i} (${slot}) reads as sync ${state} (${value})`
+          ).toBeGreaterThan(30)
+        }
+      })
+    }
+  }
+})
+
+/**
  * Tab-group colours (W2, tab-groups-shaping Fork 5-B).
  *
  * A group colour is TASTE — a user theme may retint the whole band, and two
@@ -308,9 +380,9 @@ describe('sync honesty (band C)', () => {
  *    every Editor theme (the same reservation the presence band carries).
  *
  * NOT asserted: separation from ok / pending / offline. In nord-* the theme's
- * own green and yellow ARE its sync ok and pending (as they already are for
- * --ed-presence-2/4), and a named chip in a tab strip is not the pill in the
- * status bar. Red is the reservation that matters, and it is checked here.
+ * own green and yellow ARE its sync ok and pending, and a named chip that
+ * carries its name is not the pill in the status bar. (Presence, an unlabelled
+ * avatar beside the dots, does assert it — above.) Red is the reservation that matters, and it is checked here.
  */
 describe('tab-group colours (band B)', () => {
   /** Where a theme's group slots are declared: its own block, else the contract. */
@@ -376,6 +448,53 @@ describe('tab-group colours (band B)', () => {
   })
 })
 
+/**
+ * The pane focus mark (spike S21 Q3): with two panes and no strip, a 2 px edge
+ * in --ed-pane-focus is the only thing that says where the keyboard is. A
+ * state indicator, so WCAG 1.4.11's 3:1 against the chrome surface is the bar
+ * — in every built-in theme, whether it states the token or inherits the
+ * contract's `var(--color-primary)`.
+ */
+describe('pane focus mark (band B)', () => {
+  /** A token's value in a theme: its own block, else the contract; `var(--color-*)` resolved through band A. */
+  const resolve = (theme: string, name: string): string | null => {
+    const block = themeBlock(THEME_CSS[theme], theme)
+    let value = tokenValue(block, name) ?? tokenValue(CONTRACT, name)
+    for (let depth = 0; value?.startsWith('var(') && depth < 4; depth++) {
+      const inner = value.slice(4, -1).trim()
+      value = inner.startsWith('--color-')
+        ? tokenValue(daisyBlock(THEME_CSS[theme]), inner)
+        : (tokenValue(block, inner) ?? tokenValue(CONTRACT, inner))
+    }
+    return value
+  }
+
+  it('declares the eight pane tokens in the contract', () => {
+    const contract = declaredTokens(CONTRACT)
+    for (const name of [
+      '--ed-pane-divider',
+      '--ed-pane-focus',
+      '--ed-pane-focus-width',
+      '--ed-pane-mode',
+      '--ed-group-cap',
+      '--ed-strip-bg',
+      '--ed-tab-active-bg',
+      '--ed-tab-live',
+    ]) {
+      expect(contract.has(name), name).toBe(true)
+    }
+  })
+
+  it('clears 3:1 against --color-base-100 in every built-in theme', () => {
+    for (const theme of BUILTIN_THEMES) {
+      const base = tokenValue(daisyBlock(THEME_CSS[theme]), '--color-base-100')!
+      const focus = resolve(theme, '--ed-pane-focus')
+      expect(focus, `${theme} resolves no --ed-pane-focus`).toMatch(/^#/)
+      expect(contrastRatio(focus!, base), `${theme} pane focus (${focus}) on ${base}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+})
+
 describe('editor readability', () => {
   it('keeps body ink readable on the editing surface', () => {
     for (const theme of BUILTIN_THEMES) {
@@ -427,6 +546,40 @@ describe('editor readability', () => {
         tokenValue(block, '--ed-wikilink-unresolved') ??
         tokenValue(CONTRACT, '--ed-wikilink-unresolved')!
       expect(colorDistance(link, unresolved), `${theme} wikilink states`).toBeGreaterThan(40)
+    }
+  })
+})
+
+/**
+ * List depth guides (Chris, 2026-10-06). The guide is a structural hairline,
+ * so it takes the rule's treatment rather than a contrast floor of its own: in
+ * every built-in theme `--ed-list-guide` resolves to exactly `--ed-hr` — a
+ * theme that wants a different guide states it, and this test is where that
+ * decision gets made on purpose.
+ */
+describe('list guides and indent (band B)', () => {
+  const resolve = (theme: string, name: string): string | null => {
+    const block = themeBlock(THEME_CSS[theme], theme)
+    let value = tokenValue(block, name) ?? tokenValue(CONTRACT, name)
+    for (let depth = 0; value?.startsWith('var(--ed-') && depth < 4; depth++) {
+      const inner = value.slice(4, -1).trim()
+      value = tokenValue(block, inner) ?? tokenValue(CONTRACT, inner)
+    }
+    return value
+  }
+
+  it('declares the two list tokens in the contract, read now (no (V2e) marker)', () => {
+    for (const name of ['--ed-list-indent', '--ed-list-guide']) {
+      expect(declaredTokens(CONTRACT).has(name), name).toBe(true)
+      expect(CONTRACT).not.toMatch(new RegExp(`${name}:[^\\n]*\\(V2e\\)`))
+    }
+  })
+
+  it('paints the guide as the rule in every built-in theme', () => {
+    for (const theme of BUILTIN_THEMES) {
+      const guide = resolve(theme, '--ed-list-guide')
+      expect(guide, `${theme} resolves no --ed-list-guide`).toMatch(/^#/)
+      expect(guide, `${theme} list guide`).toBe(resolve(theme, '--ed-hr'))
     }
   })
 })

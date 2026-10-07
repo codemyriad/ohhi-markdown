@@ -60,3 +60,14 @@ export function presenceColor(i: number): string {
   const slot = (((i % PRESENCE_SLOTS) + PRESENCE_SLOTS) % PRESENCE_SLOTS) + 1
   return readToken(`--ed-presence-${slot}`) || '#6b7684'
 }
+
+/**
+ * The ink for presence slot `i` (0-based) in the ACTIVE theme — the colour
+ * initials are drawn in on `presenceColor(i)`, asserted to clear 4.5:1 per
+ * built-in theme (theme-contract.test.ts). Components use the token directly
+ * (`var(--ed-presence-fg-N)`); this is for code that needs the value.
+ */
+export function presenceInk(i: number): string {
+  const slot = (((i % PRESENCE_SLOTS) + PRESENCE_SLOTS) % PRESENCE_SLOTS) + 1
+  return readToken(`--ed-presence-fg-${slot}`) || '#ffffff'
+}
