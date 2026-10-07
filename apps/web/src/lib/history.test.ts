@@ -10,7 +10,7 @@ describe('formatStamp', () => {
 
   it('is just the clock time for a version from today', () => {
     const stamp = formatStamp(at(2026, 9, 10, 14, 37), now)
-    expect(stamp).toMatch(/\b14[:.]37\b|\b2[:.]37/) // 24h or 12h locale
+    expect(stamp).toMatch(/\b14[:.]37\b|\b0?2[:.]37\b/) // 24h or 12h locale
     expect(stamp).not.toMatch(/\d{1,2} \w{3}/)
   })
 
