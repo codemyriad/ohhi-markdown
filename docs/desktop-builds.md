@@ -82,6 +82,22 @@ kept its state elsewhere, so it starts with fresh sync state; files are untouche
 it to the picked vault folders is tracked separately. Until then the CSP below
 is the main barrier.
 
+## Linux: the WebKitGTK renderer workaround
+
+On at least one Linux setup (Ubuntu 24.04, WebKitGTK 2.52, Wayland, AMD GPU)
+WebKitGTK's DMA-BUF renderer draws the note's text visibly bolder than the
+loaded face: the bundled Public Sans 400 loads, computes to weight 400, and
+still renders heavy. Launching with `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+fixes it, so the desktop binary sets that variable itself before the first
+webview exists (`apps/desktop/src-tauri/src/lib.rs`, Linux only). The cost
+is the webview's GPU-composited path, which a text editor does not need.
+
+- To test whether a newer WebKitGTK still needs it, launch with
+  `OHHI_WEBKIT_DMABUF=1` (the app then leaves WebKit's default alone).
+- A `WEBKIT_DISABLE_DMABUF_RENDERER` you set yourself is respected as is.
+- Diagnosed 2026-10-07; the evidence is in `plans/foundations-plan.md`
+  (Round 4 build outcome, the open item).
+
 ## Content Security Policy
 
 ### Threat model
