@@ -19,6 +19,12 @@ Editor is a collaborative, agent-native markdown editor: a drop-in replacement f
 
 Plans are ground truth. If implementation diverges from a plan, update the plan in the same change (multi-level consistency: frame → shaping → slices → code).
 
+**`plans/` is not in the repo** (git-ignored since 2026-10-07; history up to
+then still has it). The plans are being moved into a team vault managed with
+Oh hi itself. Until then they live in the author's checkout under the same
+`plans/…` paths that code and docs cite. If `plans/` is absent, say so and
+work from `docs/` and the code instead; don't recreate plan files.
+
 ## Repo layout
 
 Rush monorepo (same conventions as the Edible repo). Packages are created per-slice — `rush.json`'s projects list is the source of truth; V1 creates `apps/web`, `apps/desktop` (Tauri 2), `apps/relay` (Hocuspocus v4), `libs/sync`, `libs/vault`, `libs/editor`, `libs/testkit`. Naming: `@ohhi/<name>`.

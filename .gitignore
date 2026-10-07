@@ -41,3 +41,6 @@ common/autoinstallers/*/node_modules
 
 # The relay dev database is runtime state, never source (team-dogfood DEL-73).
 apps/relay/data/
+
+# Plans live outside the repo (local to their author; moving into a team vault)
+/plans/
