@@ -2759,6 +2759,11 @@ export type NamespaceWebTranslation = {
 			 * @param {string} key
 			 */
 			default_mode_hint: RequiredParams<'key'>
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
+			 * @param {string} version
+			 */
+			version: RequiredParams<'version'>
 		}
 		appearance: {
 			/**
@@ -4157,6 +4162,19 @@ export type NamespaceWebTranslation = {
 		 * D​i​s​m​i​s​s​ ​n​o​t​i​f​i​c​a​t​i​o​n
 		 */
 		dismiss_notification: string
+		/**
+		 * U​p​d​a​t​e​ ​i​n​s​t​a​l​l​e​d
+		 */
+		update_ready: string
+		/**
+		 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​i​s​ ​r​e​a​d​y​.​ ​R​e​s​t​a​r​t​ ​t​o​ ​s​t​a​r​t​ ​u​s​i​n​g​ ​i​t​.
+		 * @param {string} version
+		 */
+		update_ready_body: RequiredParams<'version'>
+		/**
+		 * R​e​s​t​a​r​t
+		 */
+		restart: string
 	}
 	workspace: {
 		/**
@@ -6960,6 +6978,10 @@ export type TranslationFunctions = {
 				 * Applies to any tab you have not given a view of its own. {key} switches one tab between editing and reading.
 				 */
 				default_mode_hint: (arg: { key: string }) => LocalizedString
+				/**
+				 * Version {version}
+				 */
+				version: (arg: { version: string }) => LocalizedString
 			}
 			appearance: {
 				/**
@@ -8295,6 +8317,18 @@ export type TranslationFunctions = {
 			 * Dismiss notification
 			 */
 			dismiss_notification: () => LocalizedString
+			/**
+			 * Update installed
+			 */
+			update_ready: () => LocalizedString
+			/**
+			 * Version {version} is ready. Restart to start using it.
+			 */
+			update_ready_body: (arg: { version: string }) => LocalizedString
+			/**
+			 * Restart
+			 */
+			restart: () => LocalizedString
 		}
 		workspace: {
 			/**

@@ -47,5 +47,10 @@
     "macOS": {
       "signingIdentity": "-"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZFRkQ0NTIxN0MzQzYwOUYKUldTZllEeDhJVVg5L3BUei9EekZaM282N1N6T3M4aTVzUnoxWm1KY2JjL0tWTEpaZDlGUG1VOXAK"
+    }
   }
 }

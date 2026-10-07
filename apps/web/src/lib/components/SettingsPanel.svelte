@@ -106,6 +106,14 @@
   let tab = $state<string>(initialTab)
 
   // ---- General ----
+  /** The desktop build's version (bug reports name a build); null in the browser. */
+  let appVersion = $state<string | null>(null)
+  if (isTauri()) {
+    void import('@tauri-apps/api/app')
+      .then(({ getVersion }) => getVersion())
+      .then((v) => (appVersion = v))
+      .catch(() => {})
+  }
   const general = createForm(
     z.object({ name: z.string().trim().min(1, $LL.web.settings.general.name_required()) }),
     { name: loadUser() ?? '' }
@@ -377,6 +385,11 @@
               {@html t.general.default_mode_hint({ key: code(readingKey) })}
             </p>
           </fieldset>
+          {#if appVersion}
+            <p class="mt-4 text-xs text-base-content/70" data-testid="settings-version">
+              {t.general.version({ version: appVersion })}
+            </p>
+          {/if}
         {:else if id === 'appearance'}
           <fieldset>
             <legend class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.appearance.theme()}</legend>
