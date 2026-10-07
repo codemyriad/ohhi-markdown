@@ -19,6 +19,7 @@
   import { hasOpfs, isTauri, userResourceRoot } from './lib/platform.js'
   import { createCustomise } from './lib/customise.svelte.js'
   import { createStorageNote } from './lib/storage-note.svelte.js'
+  import { startDesktopUpdates } from './lib/updater.js'
   import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation } from './lib/navigation.svelte.js'
@@ -72,6 +73,9 @@
 
   // ---- browser storage (lib/storage-persistence.ts): the manager's note, or one reminder ----
   const storage = createStorageNote({ onManager: () => view === 'manager', hasOpfs })
+
+  // ---- desktop self-update (lib/updater.ts): check on launch and every 6 h ----
+  if (isTauri()) startDesktopUpdates(realClock).catch((err) => console.info('[ohhi] updater unavailable', err))
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()

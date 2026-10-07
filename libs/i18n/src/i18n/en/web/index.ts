@@ -953,6 +953,7 @@ const settings = {
     default_mode: 'Default view for new tabs',
     default_mode_hint:
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
+    version: 'Version {version:string}',
   },
   appearance: {
     theme: 'Theme',
@@ -1428,6 +1429,9 @@ const devtools = {
 const ui = {
   notifications: 'Notifications',
   dismiss_notification: 'Dismiss notification',
+  update_ready: 'Update installed',
+  update_ready_body: 'Version {version:string} is ready. Restart to start using it.',
+  restart: 'Restart',
 }
 
 /** Errors the workspace shim raises; they land in a toast, a dialog, or the Activity log. */

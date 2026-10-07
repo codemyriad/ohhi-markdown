@@ -4,6 +4,20 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            // The update feed and the relaunch into an update are desktop
+            // only. A build with no `plugins.updater.endpoints` (every local
+            // build; CI injects the team feed) still loads the plugin: its
+            // check rejects, which the web layer reads as "no update feed".
+            #[cfg(desktop)]
+            {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
+            #[cfg(not(desktop))]
+            let _ = app;
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

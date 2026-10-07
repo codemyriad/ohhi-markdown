@@ -73,6 +73,17 @@
             {t.data.description}
           </p>
         {/if}
+        {#if t.data.action}
+          {@const action = t.data.action}
+          <button
+            type="button"
+            data-testid="toast-action"
+            onclick={() => action.run()}
+            class="mt-2 rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-content hover:bg-primary/90"
+          >
+            {action.label}
+          </button>
+        {/if}
       </div>
       <button
         use:melt={$close(t.id)}

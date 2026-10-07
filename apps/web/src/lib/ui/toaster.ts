@@ -12,6 +12,8 @@ export interface ToastData {
   level: ToastLevel
   title: string
   description?: string
+  /** One button beside the dismiss control (e.g. "Restart" for an installed update). */
+  action?: { label: string; run(): void }
 }
 
 export const toaster = createToaster<ToastData>({ closeDelay: 6000, type: 'background' })
