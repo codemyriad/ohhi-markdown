@@ -149,6 +149,11 @@ reaches desktop dev (HMR is unaffected). CSP regressions therefore show only in
 built apps: check with `tauri build --debug --no-bundle` (embedded assets, the
 real policy, Web Inspector).
 
+**Desktop dev renders whatever is on `:5173`.** If a font can't be found, the
+usual cause is a Vite dev server that was started before a `vite.config.ts`
+change (it 403s `libs/ui/fonts/`). The CSP does not block it in dev. Restart `rushx dev` in `apps/web` and then in `apps/desktop`; see
+[running-and-testing §5](running-and-testing.md#5-the-desktop-tauri-shell).
+
 ### The connect-src trade-off
 
 Because the relay can be any host, `connect-src` allows every `https:`/`wss:`

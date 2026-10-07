@@ -657,6 +657,17 @@ cd apps/web && rushx dev
 cd apps/desktop && rushx dev
 ```
 
+**Restart terminal 1 after any `apps/web/vite.config.ts` change** (including one
+that arrives with a `git pull` or merge). `tauri dev` renders whatever answers on
+`:5173`. A dev server started before a config change keeps serving the old config,
+or, if its automatic restart fails, keeps running with nothing listening. With the
+config from before the `server.fs.allow` fix, every bundled woff2 under
+`libs/ui/fonts/` gets a 403 and the webview falls back to a system face (Noto Sans
+on Ubuntu). Restart: Ctrl-C both terminals, run
+`rushx dev` in `apps/web`, then run `rushx dev` in `apps/desktop`. To check, run
+`curl -sI http://localhost:5173/` and expect `200`. In the browser, the Network
+tab should show every `*.woff2` returning 200 from `/@fs/…/libs/ui/fonts/`.
+
 Full desktop notes (icons, fs capability scope, how the web app detects Tauri via
 `window.__TAURI_INTERNALS__`) are in [`apps/desktop/README.md`](../apps/desktop/README.md).
 
@@ -673,6 +684,7 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 | `cargo check` fails at a `pkg-config` / `dbus-1.pc` step | Missing system lib — install the §1 apt line (note `libdbus-1-dev`). |
 | `cargo check` fails with `E0119: conflicting implementations … From<…HourBase>` in `cookie`/`time` | The lockfile pinned `time` 0.3.48, a broken release (since yanked) that breaks downstream crates on recent rustc. Fix: `cargo update -p time` (moves to 0.3.49+). See [time#783](https://github.com/time-rs/time/issues/783). |
 | Playwright e2e can't find a browser | Run `./node_modules/.bin/playwright install chromium` in `apps/web`. |
+| Console says a font can't be found, or `*.woff2` returns 403 under `vite dev` / desktop dev | A stale Vite dev server: it was started before a `vite.config.ts` change and is 403-ing the bundled woff2, or it is no longer listening. Restart `cd apps/web && rushx dev`, then `cd apps/desktop && rushx dev` (§5). `npx playwright test fonts.spec.ts` in `apps/web` checks a fresh dev server. |
 | Relay won't start: port in use | Another relay is running on `8787`. Stop it, or set `PORT=…` before `rushx dev`. |
 
 ---
