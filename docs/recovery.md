@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-09-10
+date: 2026-10-06
 ---
 
 # When something goes wrong
@@ -39,10 +39,13 @@ first**.
 | **Pre-image journal** | a note's previous content, saved before *every* write or delete Oh hi markdown makes to it; the newest 20 per note | Oh hi markdown's app data (see [below](#getting-a-version-out-of-the-journal)) | by hand only |
 | **Synced copies** | shared folders only | teammates' devices, and the relay | re-join the folder |
 
-Snapshots are the recovery tool. The journal is a last resort: there is no
-restore command for it yet. (The `editor restore` in the glossary hasn't been
-built.) The sync devtools panel lists a note's journal entries by time and
-size, but can't restore them.
+Snapshots are the recovery tool. The journal is the last resort, and it has
+two front doors: the *History* tab of the dock (the small icon strip at the
+editor's right edge; it opens as a floating panel, or as the right sidebar
+when pinned) lists a note's saved versions and puts one back, and `ohhi restore` does the same from a
+terminal (`ohhi restore --list <path>`, then `--seq`). The developer
+inspector (Settings › Developer, then *Open inspector*) shows how many
+versions each file has, but restoring is the History section's job.
 
 ## Undo a change with your snapshots
 
@@ -118,9 +121,10 @@ This is desktop only, and a last resort. Oh hi markdown keeps its own data in:
 - macOS: `~/Library/Application Support/md.ohhi.desktop/`
 
 Each saved version is one file under `stores/…/journal/`. The file is named
-`<n>.<time>-<path>.bin`:
+`<n>.<time>.<size>-<path>.bin` (older versions may lack the `.<size>` part):
 
 - `<time>` is milliseconds since 1970.
+- `<size>` is the version's length in bytes.
 - `<path>` is the note's path, with `/` written as `%2F`.
 
 The file holds the note's old content byte for byte. Copy it somewhere, rename
@@ -139,8 +143,10 @@ folder. A browser vault's journal is inside the browser and can't be reached.
 
 - **Desktop:** the app data folder above. `stores/<vault>/` holds the vault's
   folder list (`mounts.json`). For the vault and for each shared folder, it
-  also holds the sync state, what Oh hi markdown last saw on disk (`lca.json`), and the
-  journal. The vault list, settings and share tokens live in the app's own
+  also holds the sync state, what Oh hi markdown last saw on disk (`lca.json`), the
+  journal, and `events.json` — that folder's recent changes and connection
+  history as the Log view and the Shared view's Changes show them (capped, and
+  safe to delete: it only empties those lists). The vault list, settings and share tokens live in the app's own
   local storage.
 - **Browser:** the browser's private file storage (OPFS): `stores/` (the same
   sync state) and `vaults/` (browser vaults' notes). None of it is visible as
@@ -157,13 +163,17 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
    broken state.
 2. **What you did, and roughly when.** Snapshots and the journal are
    timestamped, so the time narrows things down.
-3. **The Activity section** in the right rail. It keeps every notice and error
-   from the session, even after the toast has gone. Take a screenshot.
-4. **The sync devtools for the affected note.** Turn them on in
-   *Settings › Developer › Developer tools*, or with the toggle at the foot of
-   Activity. In the browser, adding `?debug=1` to the URL turns them on for one
-   session. Select the note and screenshot the panel. It shows the sync record,
-   disk ↔ CRDT state and journal entries.
+3. **The Log view.** Open it from the bell at the toolbar's right end with
+   *Open the Log*, or with *Open log* in the command palette. It keeps every error,
+   warning and notice from the session — and each shared folder's changes and
+   connection history across restarts — even after the toast has gone. *Copy
+   as text* puts the whole list on the clipboard; paste it, or take a
+   screenshot.
+4. **The sync inspector for the affected note.** Turn developer tools on in
+   *Settings › Developer*, then run *Open inspector* from the command palette. In
+   the browser, adding `?debug=1` to the URL opens it for one session. Select
+   the note and screenshot it. It shows the sync record, disk ↔ CRDT state and
+   journal entries.
 5. **The sync pill's colour**, and whether a teammate sees the same thing.
 6. **Desktop app or browser** (and which browser), plus which vault and folder.
 

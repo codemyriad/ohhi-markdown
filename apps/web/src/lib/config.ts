@@ -10,8 +10,11 @@
  * are then ignored; `editor:user` stays its own key (the name helpers below
  * also heal values double-JSON-encoded by earlier builds).
  */
-import { normalizeOverrides, parseBinding, type BindingOverrides } from './commands.js'
+import { normalizeOverrides, type BindingOverrides } from './commands.js'
+import { parseKeymapChoice, type KeymapChoice } from './keymap-spec.js'
 import { normalizeLayout, type LayoutPrefs } from './layout.js'
+import { normalizePins, type LayoutPins } from './pin-layout.js'
+import { normalizeOverrides as normalizeLayoutOverrides, type LayoutFile } from './layout-spec.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
 import type { BuiltinTheme } from '@ohhi/ui/tokens'
@@ -120,8 +123,17 @@ interface AppConfigV2 {
    * collaborator's aesthetics another's problem.
    */
   theme?: ThemePref
-  /** Rails, navigator width, folded rail sections (chrome U2). Device-level, like theme. */
-  layout?: Partial<LayoutPrefs>
+  /**
+   * The active layout file (quiet-shell F2: `default` or `custom:<name>`,
+   * chosen by the palette's *Use layout file…*), plus the navigator width
+   * (chrome U2). Device-level, like theme: the FILE travels with the vault,
+   * the device holds only the choice. Which columns are open is not stored —
+   * the spec seeds it; the toggles are session-only. `overrides` (round 3,
+   * Q6): Settings › Layout's edits, a layout-file delta laid over the active
+   * file. `pins` (Round 2, P7): the sides this device shows as a column
+   * whatever the layout and the overrides say (`pin-layout.ts`).
+   */
+  layout?: Partial<LayoutPrefs> & { pins?: LayoutPins; overrides?: LayoutFile }
   /**
    * Per-command binding overrides (tab-groups R1.3), Obsidian's
    * `hotkeys.json`: `null` clears a default, an absent id keeps it. Additive
@@ -129,6 +141,14 @@ interface AppConfigV2 {
    * simply has none, and garbage in one entry never costs the others.
    */
   hotkeys?: BindingOverrides
+  /**
+   * The active keymap FILE (quiet-shell F10): `default` or `custom:<name>`.
+   * Device-level like `layout.active` — the file travels with the vault, the
+   * device holds only the choice. A non-empty `hotkeys` above is migrated
+   * into `.ohhi/keymaps/device.json` the first time a vault is open, and
+   * this then names it (`keymap.svelte.ts`).
+   */
+  keymap?: { active?: KeymapChoice }
   /**
    * Reading preferences (read-shaping B3): the view mode a tab that was never
    * given one is read in. Device-level like `layout` and `theme` — how you
@@ -138,6 +158,12 @@ interface AppConfigV2 {
   read?: Partial<ReadPrefs>
   /** The browser-storage note was dismissed. Device-level: the grant is per browser profile. */
   storageNoticeDismissed?: boolean
+  /**
+   * When the notification drawer was last opened, per vault room (quiet-shell
+   * F13, spike-one-log): the event log persists, so what has been read of it
+   * does too. Device-level — reading is about this screen. Additive on read.
+   */
+  drawerSeen?: Record<string, number>
 }
 
 /** Device-level reading preferences. One field today; the shape is the seam. */
@@ -151,7 +177,7 @@ export const READ_DEFAULTS: ReadPrefs = { defaultMode: 'live' }
 /**
  * `system` is a preference, not a theme — it resolves to a built-in at boot
  * against `prefers-color-scheme`. `custom:<name>` names a theme file in
- * `<vault>/.editor/themes/<name>/theme.css`.
+ * `<vault>/.ohhi/themes/<name>/theme.css`.
  */
 export type ThemePref = BuiltinTheme | 'system' | `custom:${string}`
 
@@ -439,9 +465,49 @@ export function layoutPrefs(): LayoutPrefs {
   return normalizeLayout(loadConfig().layout)
 }
 
+/** `config.layout`, every part read tolerantly and `patch` laid over it. */
+function writeLayout(
+  cfg: AppConfigV2,
+  patch: Partial<LayoutPrefs> & { pins?: LayoutPins; overrides?: LayoutFile }
+): void {
+  const now = cfg.layout
+  cfg.layout = {
+    ...normalizeLayout(now),
+    ...patch,
+    pins: normalizePins(patch.pins ?? now?.pins),
+    overrides: normalizeLayoutOverrides(patch.overrides ?? now?.overrides),
+  }
+}
+
 export function setLayoutPrefs(patch: Partial<LayoutPrefs>): void {
   const cfg = loadConfig()
-  cfg.layout = { ...normalizeLayout(cfg.layout), ...patch }
+  writeLayout(cfg, patch)
+  save(cfg)
+}
+
+/** The sides this device pins as columns (Round 2, P7); tolerant like the rest of `layout`. */
+export function layoutPins(): LayoutPins {
+  return normalizePins(loadConfig().layout?.pins)
+}
+
+export function setLayoutPins(pins: LayoutPins): void {
+  const cfg = loadConfig()
+  writeLayout(cfg, { pins })
+  save(cfg)
+}
+
+/**
+ * This device's layout overrides (round 3, Q6): Settings › Layout's edits,
+ * a layout-file delta over the active file. Tolerant: anything that is not
+ * a valid layout file reads as none.
+ */
+export function layoutOverrides(): LayoutFile {
+  return normalizeLayoutOverrides(loadConfig().layout?.overrides)
+}
+
+export function setLayoutOverrides(overrides: LayoutFile): void {
+  const cfg = loadConfig()
+  writeLayout(cfg, { overrides })
   save(cfg)
 }
 
@@ -470,34 +536,51 @@ export function setReadPrefs(patch: Partial<ReadPrefs>): void {
 // ---- hotkeys (tab-groups R1.3) ----
 
 /**
- * The user's binding overrides, normalized. Hand it to
- * `CommandRegistry.setOverrides` — the registry, not this module, is what
- * merges them over the command table.
+ * The legacy per-device binding overrides (before keymaps were files),
+ * normalized. Read only by the keymap migration (`keymap.svelte.ts`), which
+ * applies them until a vault is open and then writes them into a keymap
+ * file — nothing writes them any more.
  */
 export function hotkeys(): BindingOverrides {
   return normalizeOverrides(loadConfig().hotkeys)
 }
 
 /**
- * Bind a command to `keys`, or to nothing at all (`null`). An unparseable
- * binding is refused rather than stored: the Settings field validates before
- * calling, and a value that no resolver can read would look bound and behave
- * unbound.
+ * Forget the legacy per-device override map — after it has been written into
+ * a keymap file (the F10 migration), so it is never read again.
  */
-export function setHotkey(id: string, keys: string | null): void {
-  if (!id) return
-  if (typeof keys === 'string' && !parseBinding(keys)) return
+export function clearHotkeys(): void {
   const cfg = loadConfig()
-  cfg.hotkeys = { ...normalizeOverrides(cfg.hotkeys), [id]: keys }
+  delete cfg.hotkeys
   save(cfg)
 }
 
-/** Forget an override; the command goes back to the binding it ships with. */
-export function resetHotkey(id: string): void {
+// ---- the drawer's read state (quiet-shell F13) ----
+
+/** When this vault's notification drawer was last opened on this device; null if never. */
+export function drawerSeenAt(room: string): number | null {
+  const at = loadConfig().drawerSeen?.[room]
+  return typeof at === 'number' && Number.isFinite(at) ? at : null
+}
+
+export function setDrawerSeenAt(room: string, at: number): void {
   const cfg = loadConfig()
-  const next = normalizeOverrides(cfg.hotkeys)
-  delete next[id]
-  cfg.hotkeys = next
+  const seen = cfg.drawerSeen && typeof cfg.drawerSeen === 'object' ? cfg.drawerSeen : {}
+  cfg.drawerSeen = { ...seen, [room]: at }
+  save(cfg)
+}
+
+// ---- keymap (quiet-shell F10) ----
+
+/** The active keymap choice; anything unreadable reads as `default`. */
+export function keymapChoice(): KeymapChoice {
+  return parseKeymapChoice(loadConfig().keymap?.active) ?? 'default'
+}
+
+export function setKeymapChoice(choice: KeymapChoice): void {
+  if (!parseKeymapChoice(choice)) return
+  const cfg = loadConfig()
+  cfg.keymap = { ...cfg.keymap, active: choice }
   save(cfg)
 }
 

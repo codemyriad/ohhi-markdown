@@ -22,6 +22,9 @@ import {
   normalize,
   openPath,
   openPathAt,
+  openView,
+  VIEW_KINDS,
+  isViewKind,
   panes,
   parentOf,
   prune,
@@ -299,6 +302,63 @@ describe('openPath (Fork 1-B: every open is a tab)', () => {
     l = openPath(l, 'b.md', { background: true }, gen)
     expect(activeTab(paneAt(l, 0))?.path).toBe('a.md')
     expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+  })
+})
+
+describe("openPath with replace (panes.open: 'replace', quiet-shell F3)", () => {
+  it('navigates the active tab in place: one tab, and the old note is on its Back trail', () => {
+    let { l, gen } = strip('a.md')
+    const before = paneAt(l, 0).tabs.length
+    const held = activeTab(paneAt(l, 0))!.id
+    l = setResume(l, held, 7, 30)
+    l = openPath(l, 'b.md', { replace: true }, gen)
+    const pane = paneAt(l, 0)
+    expect(pane.tabs).toHaveLength(before)
+    expect(activeTab(pane)).toMatchObject({ id: held, path: 'b.md', historyAt: 1 })
+    expect(trailOf(tabOf(l, held))).toEqual(['a.md', 'b.md'])
+    // The replaced note keeps where you were in it, so Back lands there.
+    expect(tabOf(l, held)!.history[0]).toMatchObject({ cursor: { anchor: 7, head: 7 }, scroll: 30 })
+    l = travelTab(l, held, -1)
+    expect(tabOf(l, held)).toMatchObject({ path: 'a.md', cursor: { anchor: 7, head: 7 } })
+  })
+
+  it('fills an empty tab, exactly as a plain open does', () => {
+    const gen = ids()
+    let l = createLayout(gen)
+    l = openPath(l, 'a.md', { replace: true }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual(['a.md'])
+  })
+
+  it('still dedupes: a note already open in the pane is activated, not twinned', () => {
+    let { l, gen } = strip('a.md', 'b.md')
+    const pane = paneAt(l, 0)
+    l = activate(l, pane.id, tabIdFor(pane, 'b.md'), 1)
+    l = openPath(l, 'a.md', { replace: true }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+    expect(activeTab(paneAt(l, 0))?.path).toBe('a.md')
+  })
+
+  it('never replaces a pinned tab or a view tab — those open a new tab', () => {
+    let { l, gen } = strip('a.md')
+    const held = activeTab(paneAt(l, 0))!.id
+    l = editLayout(l, (d) => {
+      tabOf(d, held)!.pinned = true
+    })
+    l = openPath(l, 'b.md', { replace: true }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+    expect(tabOf(l, held)?.path).toBe('a.md')
+
+    l = openView(l, 'inspector', {}, gen)
+    l = openPath(l, 'c.md', { replace: true }, gen)
+    expect(paneAt(l, 0).tabs.some((t) => t.view === 'inspector')).toBe(true)
+    expect(activeTab(paneAt(l, 0))?.path).toBe('c.md')
+  })
+
+  it('a background open is always a new tab', () => {
+    let { l, gen } = strip('a.md')
+    l = openPath(l, 'b.md', { replace: true, background: true }, gen)
+    expect(pathsOf(paneAt(l, 0))).toEqual([null, 'a.md', 'b.md'])
+    expect(activeTab(paneAt(l, 0))?.path).toBe('a.md')
   })
 })
 
@@ -963,5 +1023,88 @@ describe('tree reading helpers', () => {
     closePane(l, paneAt(l, 1).id)
     prune(l, new Set(), ids())
     expect(JSON.stringify(serialize(l))).toBe(before)
+  })
+})
+
+describe('openView (devtools-shaping D1-A: a shell surface as a tab)', () => {
+  it('fills an empty tab, then dedupes per pane', () => {
+    const gen = ids('v')
+    let l = openView(createLayout(gen), 'inspector', {}, gen)
+    expect(paneAt(l, 0).tabs).toHaveLength(1)
+    expect(activeTab(paneAt(l, 0))).toMatchObject({ path: null, view: 'inspector' })
+    l = openView(l, 'inspector', {}, gen)
+    expect(paneAt(l, 0).tabs).toHaveLength(1)
+  })
+
+  it('opens beside a note and activates; a note opened next does not take its slot', () => {
+    // `strip` seeds an empty tab ahead of its paths; the note is active.
+    let { l, gen } = strip('a.md')
+    l = openView(l, 'inspector', {}, gen)
+    expect(paneAt(l, 0).tabs.map((t) => t.view ?? t.path)).toEqual([null, 'a.md', 'inspector'])
+    expect(activeTab(paneAt(l, 0))?.view).toBe('inspector')
+    // `liveGuidsInput` (the open-path refcount) and `prune` ignore it: no path.
+    expect(liveGuidsInput(l)).toEqual([])
+    l = prune(l, new Set(['a.md']), gen)
+    expect(paneAt(l, 0).tabs).toHaveLength(3)
+    l = prune(l, new Set(), gen)
+    expect(paneAt(l, 0).tabs.map((t) => t.view ?? t.path)).toEqual([null, 'inspector'])
+  })
+
+  it('survives a save and a load; a stray view on a note tab does not', () => {
+    const gen = ids('v')
+    const l = openView(createLayout(gen), 'inspector', {}, gen)
+    const back = normalize(serialize(l), ids('w'))
+    expect(activeTab(paneAt(back!, 0))).toMatchObject({ path: null, view: 'inspector' })
+    const bad = normalize(
+      { version: 1, tree: { kind: 'pane', id: 'p', tabs: [{ id: 't', path: 'a.md', view: 'inspector' }], groups: [], active: 't' }, focus: 'p', zoom: null },
+      ids('x')
+    )
+    expect(activeTab(paneAt(bad!, 0))?.view).toBeUndefined()
+  })
+
+  it('dedupes per (view, arg): another argument is another tab, and it persists', () => {
+    const gen = ids('v')
+    let l = openView(createLayout(gen), 'inspector', { arg: 's1' }, gen)
+    l = openView(l, 'inspector', { arg: 's2' }, gen)
+    l = openView(l, 'inspector', { arg: 's1' }, gen)
+    expect(paneAt(l, 0).tabs.map((t) => t.viewArg)).toEqual(['s1', 's2'])
+    expect(activeTab(paneAt(l, 0))?.viewArg).toBe('s1')
+    l = openView(l, 'inspector', {}, gen)
+    expect(paneAt(l, 0).tabs).toHaveLength(3)
+    const back = normalize(serialize(l), ids('w'))
+    // The argless one opened beside the active s1, as any new tab does.
+    expect(paneAt(back!, 0).tabs.map((t) => [t.view, t.viewArg])).toEqual([
+      ['inspector', 's1'],
+      ['inspector', undefined],
+      ['inspector', 's2'],
+    ])
+  })
+
+  it('reads any registered view kind back, and an unknown one as an empty tab', () => {
+    expect(VIEW_KINDS).toContain('inspector')
+    for (const kind of VIEW_KINDS) expect(isViewKind(kind)).toBe(true)
+    expect(isViewKind('nope')).toBe(false)
+    const read = normalize(
+      {
+        version: 1,
+        tree: {
+          kind: 'pane',
+          id: 'p',
+          tabs: [
+            { id: 't', path: null, view: 'from-a-newer-build' },
+            { id: 'u', path: null, view: VIEW_KINDS[0], viewArg: 7 },
+          ],
+          groups: [],
+          active: 't',
+        },
+        focus: 'p',
+        zoom: null,
+      },
+      ids('x')
+    )
+    expect(paneAt(read!, 0).tabs.map((t) => [t.path, t.view, t.viewArg])).toEqual([
+      [null, undefined, undefined],
+      [null, VIEW_KINDS[0], undefined],
+    ])
   })
 })

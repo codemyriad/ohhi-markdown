@@ -56,10 +56,10 @@ every restored file ([why](../../docs/recovery.md#undo-a-change-with-your-snapsh
 Everything in the vault except:
 
 - `.git/`
-- the app's in-flight temp files (`*.editor-tmp-*`)
+- the app's in-flight temp files (`*.ohhi-tmp-*`, and `*.editor-tmp-*` from builds before the rename)
 - `.trash/`
 - Obsidian's layout files (`.obsidian/workspace.json`, `workspace-mobile.json`)
-- `node_modules/` and `.editor-cache/`
+- `node_modules/`, `.ohhi-cache/` and the pre-rename `.editor-cache/`
 - OS junk: `.DS_Store`, `Thumbs.db` and the like
 
 Your vault's own `.gitignore` files are *not* honoured: a backup should include

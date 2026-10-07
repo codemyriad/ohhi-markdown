@@ -43,18 +43,114 @@ This project uses:
 | `Toaster` + `toast()` | announcing a notice without stealing focus (`role=status`, polite) | an inline error string in the header |
 | `createForm` + `Field` / `TextControl` / `CheckControl` / `FieldErrors` / `Description` | any form with a rule in it — the field wires `aria-invalid`, `aria-required` and `aria-describedby` (description + errors) exactly as Edible's `form-field` builder does | inputs with ad-hoc `error` spans |
 
-**The shell's layout (chrome U2)** is three columns under a one-line header:
-the **navigator** (`data-testid="navigator"`: actions cluster → `FileTree` →
-vault switcher + settings; resizable via `ResizeHandle`, a valued
-`separator`), the editor `<main>` with `StatusBar` (word count + the note's
-pill), and `RightRail` (collapsed = icon column, expanded = stacked foldable
-sections). **A rail section is data, not markup**: push a `RailSection`
-`{ id, label, icon, badge? }` onto `sections` in `components/Rail.svelte` and
-render its body in the rail's `children(id)` snippet — that is how U4's *This
-note* and U5's *Activity* land. Layout state (`treeOpen`, `treeWidth`,
-`railOpen`, `railFolded`) is device-level, owned by `lib/shell-layout.svelte.ts`,
-normalised by the pure `lib/layout.ts` and persisted through `config.ts` like
-the theme; the width persists on gesture end, never per pointer-move.
+**The shell's layout is data (quiet-shell F1–F9, foundations Stages 1–2 and
+rounds 2–3).** What the shell draws is a resolved **layout spec**
+(`lib/layout-spec.ts`, zod): `regions` (header `toolbar|breadcrumb`,
+navigator `column|drawer|off`, rail `dock|column`, tabs `auto|always`,
+statusbar `pane|merged`, format `bottom|top|off`, status `corner|off`),
+`bars` (`toolbar.left`, `toolbar.center`, `toolbar.right`, `format`,
+`statusbar`, `status`),
+`toolbar.position`, `dock.position` (`top-right|bottom-right`), `panes`
+(`borders`, `focusMark`, `lead`, `open: tab|replace`), `views`, `editor`
+(`measure`, `typewriter`, `inlineTitle`) and `focus.keep`. A layout **file**
+may `extends` another and edit lists with `+id` / `-id` / `"|"`; every file
+goes through `upgradeLayout()`, which reads the old names (`extends:
+"light"` / `"dense"`, `rail: "menu"`, `bars["toolbar.format"]`, readouts
+`note.pill` / `people`) as today's — write the new ones. **One layout ships
+built in, `default`** (`lib/layouts/default.json`: header = back / forward,
+nothing in the centre, `sync`, the drawer and — with developer tools on —
+the `inspector` bug icon; the tab strip from one note (`tabs: always`; `auto`
+is still an option); the format bar floating at the editor's bottom; words ·
+characters in the editor's corner; the navigator as a floating panel; the
+rail as the dock; an inline title); `light`
+and `dense` are aliases of it, and `dense` (the U2–U6 column shell) lives on
+only as an **example file**, `lib/layouts/examples/dense.json`, which the
+built-in root answers by name but never lists (the e2e fixtures' `?layout=dense`
+→ `custom:dense`). Files are read by `lib/resources.svelte.ts` from ordered
+**resource roots** — the vault's `.ohhi/<kind>/` → `~/.config/ohhi/<kind>/`
+(desktop, read-only) → built-in; the vault wins — for the kinds `layouts`,
+`keymaps`, `templates`. The app **never writes a layout file**: a person
+picks one with the palette's *Use layout file…* (`layout.use-file`, the
+`layouts` palette mode) and an agent writes them. On the device, three
+layers: the active file → **overrides** (`config.layout.overrides`, a
+`LayoutFile` delta; `applyOverrides`, `overridesFor`) → **pins**
+(`config.layout.pins`, `navigator` / `rail` as a column; `applyPins`).
+Settings › Layout (`LayoutSettings.svelte`) is **one live form** over the
+overrides — curated fields only (files, sidebar + its corner, tabs, toolbar
+position, format bar, word count, how notes open, line width, typewriter,
+inline title), each applied under the dialog and persisted at once, *Reset to
+default*, no Save, no dirty guard. `lib/shell-layout.svelte.ts` holds the
+spec, the overrides, the pins (`pin` / `unpin` / `pinned` / `resetPins`)
+and **seeds** the column toggles (`treeOpen`, `railOpen`) from it; after
+that they are session-only (`sessionStorage`). The wiring lives in
+`lib/customise.svelte.ts`; what every resource kind shares is
+`lib/resource-kind.ts`. `treeWidth` persists through `config.ts` (on gesture
+end, never per pointer-move). `app.reload-resources` re-reads the roots.
+The regions' hosts: `components/ShellHeader.svelte` (whichever header the
+layout draws, inside the always-present banner landmark, and the bottom
+toolbar's footer); `components/Toolbar.svelte` (one
+`role=toolbar`, roving focus, three **readout** groups; the `title` readout,
+`toolbar-title`, is a strip-less pane's drag handle and tab menu wherever a
+layout still puts it — `default`'s centre is empty because the strip names
+the note); the strip's `+` sits after the last tab and docks left of the mode
+control on overflow (`newTabDocks`, `lib/pane-chrome.ts`, over a
+`ResizeObserver`); `components/FormatBar.svelte` (`bars.format`: **command
+ids** rendered as buttons from the registry, folding into a *Format* menu at
+narrow widths; a pill **floating inside the editor area** — bottom centre,
+or under the header for `top` — in `EditorArea`'s floating layer, whose
+height pads every CM6 scroller through `--ed-float-bottom` / `--ed-float-top`
+so it never covers the last line); `components/CornerStatus.svelte`
+(`bars.status`, by default `words` and `chars` — `note-count.svelte.ts`,
+the note or the selection — floating bottom right in the same layer); the
+mode menu is **not** a toolbar readout any more: the tab strip's own control
+(`tab-mode:<pane>`) offers Live / Source / Reading; `components/NavigatorDrawer.svelte` (the unpinned navigator: the same
+`Navigator` as a **non-modal floating panel** from the editor area's left
+edge — no scrim, no focus trap, a click in the editor leaves it open, Escape
+closes, a tree row drags onto a pane; the `Navigator`'s own 32 px header row
+carries pin / unpin); the **dock**
+(`components/Dock.svelte`, a floating icon strip at `dock.position` — the
+collapsed form **always**, pinned or not — and `components/DockPanel.svelte`,
+Links and History behind a compact `ui/Tabs` row (`size: 'sm'`, 32 px, 11 px
+labels with `icon`s, pin and collapse in its `end` snippet — **pinned, unpin
+only**, and `Mod+ArrowRight` then focuses its tab; a bottom-right strip
+stacks above the corner count) — **one
+panel for both expanded forms**: floating from `EditorArea`, or the pinned
+rail column, `Rail.svelte` = `<Dock
+form="column">`; one `railOpen` + one `railTab`, so a pinned column never
+also opens a popover; testids `dock`, `dock-panel`, `rail-tab:<id>`,
+`rail-pin` / `rail-unpin`); `components/InlineTitle.svelte` (an `<input>`
+in an `<h1>`, mounted by `Pane.svelte` into the CM6 scroller, never part of
+the document; it renames through `file-actions.renameNote` and reads
+`--ed-title`); `Pane.svelte`'s strip / status bar / focus edge / off-focus
+sync dot decided by the pure `lib/pane-chrome.ts`. **A readout is data, not
+markup**: one entry in `READOUTS` (`lib/readouts.ts`; 14 ids plus the
+aliases `note.pill` and `people`, which render `sync`) + its id in
+`READOUT_IDS` + a component under `components/readouts/` that reads shell
+state from a `ReadoutContext`, never per-pane props; it follows the focused
+pane (`lib/readout-state.ts`). **Every readout bar renders through one
+`components/BarItems.svelte`** — the toolbar's three groups and the per-pane
+`StatusBar`'s `spec.bars.statusbar` alike, so the sync state everywhere *is*
+the `sync` readout (`readouts/Sync.svelte`: the Shared view's glyph stroked
+by the **unlayered** `[data-status] > .ed-sync-icon` rules, avatars beside
+it, a who-is-where hover card, a click to Shared); never hand-place a readout
+in a bar. **Verbs come only from the `ViewShell` context** (`lib/views.ts`,
+`getViewShell()`): a readout or a view that opens a note or a view, creates
+or pins calls it — there is no `open` on `ReadoutContext` and no
+`onOpenPath` prop on a view; a component test injects a recording shell from
+`lib/readouts.fixture.ts` (`viewShellContext`).
+**The tables ARE the command table, for bars too**: every format-bar item is
+a registry command id (or a `TOOLBAR_ITEM_IDS` entry such as
+`format.paragraph-style`), every bar readout a catalogue id — never a button
+written into a host. **Focus mode** (`view.focus`, `Mod+.`, `Escape` leaves)
+hides every region outside `focus.keep` (`default` keeps the toolbar and the
+format bar; the dock and the corner hide); the schema refuses
+`regions.statusbar: "merged"` unless `regions.header` is `"toolbar"` (no other
+bar would carry the merged `sync`; Settings does not offer either field), a spec whose on-screen bar lacks `sync`, and one whose `focus.keep`
+would hide it (golden rule 4 in the file format). A layout's `views` decides
+which view tabs the palette offers (`offersView`; empty = all). **A dock tab
+is data**: `RAIL_SECTIONS` (`lib/layout.ts`, `links`,
+`history`) plus its icon in `Dock.svelte`'s `DOCK_ICONS` and its body in
+`DockPanel`. Agent-facing reference: `docs/customising.md`.
 
 **The shell's composition (`App.svelte`, split 2026-09-20 — see
 `plans/shell-structure.md`).** `App.svelte` is the composition root and the
@@ -67,12 +163,17 @@ exposes state through getters — the `createNavigation` / `createPanes` /
 `manager.svelte.ts` (the registry mirrors and the four ways a vault gets in),
 `share-actions.svelte.ts` (share dialogs + confirms), `file-actions.svelte.ts`
 (tree ops, the shared `TreeOpDialog`, note creation), `daily.svelte.ts`,
-`shell-layout.svelte.ts` (columns, folds, notices) and `shell-commands.ts`
-(the ordered command registrations and the capture-phase keydown). The
-workspace markup is five hosts under `components/`: `Navigator`, `EditorArea`
+`shell-layout.svelte.ts` (the spec, columns, folds, Focus, the drawer's read
+state, toasts), `shell-commands.ts` (the ordered command registrations and
+the capture-phase keydown), and since the foundations build
+`resources.svelte.ts`, `keymap.svelte.ts`, `templates.svelte.ts`,
+`customise.svelte.ts`, `note-count.svelte.ts` and `shared.svelte.ts`
+(`plans/shell-structure.md` lists
+them with their pure halves). The workspace markup is hosts under
+`components/`: `Toolbar`, `Navigator` / `NavigatorDrawer`, `EditorArea`
 (builds the `PaneRender` context and the strip's group snippets), `Rail`,
 `WorkspaceDialogs` (everything that pops up for files and sharing) and
-`GroupOverlays`. **Adding a shell feature**: state and handlers go in the
+`GroupOverlays`; view tabs are `Inspector`, `LogView` and `SharedView`. **Adding a shell feature**: state and handlers go in the
 module for its concern (or a new `create*` with a test), the markup in the
 host that renders that region; `App.svelte` only gains a prop or a host
 line. Strings in modules read `getLL()`, never `$LL`.
@@ -89,35 +190,81 @@ the point of refusal: `planDrop`'s reason renders on the hovered row
 tree's context menu (`Share…`, `Add a shared folder here…`, disabled-with-
 reason where mounts would nest) and the command palette — never in the header.
 
-**Sharing and presence live where the thing is (chrome U4, Fork 2 C)**: the
-rail's *This note* section (`NoteSection.svelte`) says where the open note
-lives, whether that place is Local / Shared by you / Shared with you (+ relay
-host), who is online **there** (`ui.presenceByRoom`, per room — the union
-`ui.presence` survives only as the count on the rail icon), and who holds
-access — **links and the labels you gave them, never people**: there is no
-identity until device-key tokens, and the copy says so. The header pill is
+**Sharing and presence live where the thing is (sharing E1–E6; chrome U4's
+*This note* is dissolved)**: presence is drawn in place from
+`ui.presenceByPath` through the pure `lib/presence.ts` (on tree rows and mount
+roots one `PresenceChip` — at most two initials, then the count; avatars in
+tabs; beside the `sync` icon a stack capped at three + "+N", with a hover /
+focus card of who is editing where — colours from the
+presence band `--ed-presence-N` with initials in its ink `--ed-presence-fg-N`, **nothing when alone**; a theme's slots must clear 4.5:1 with their ink and sit 30+ units from every sync colour — `theme-contract.test.ts`). Where a folder
+lives (Local / Shared by you / Shared with you, + relay) is the
+**breadcrumb's folder popover** (`folderShareFacts`); the whole shared world
+is the **Shared view** (`view: 'shared'`, `app.shared`, `Mod+Shift+S`) over
+`SharedSnapshot` from `libs/workspace` — relays, shared folders (carved /
+joined only; the root-linked vault is under *Your devices*), People (one fact
+each: the note their caret is in), devices, Changes; a relay card says "in sync with the relay since …" / "last in sync …", never "durable" — green is relay receipt today. A room's relay is resolved once, by `roomRelayUrl` in `libs/workspace`. **The door is the `sync` icon** (`readouts/Sync.svelte`, round 2 P5): click
+opens Shared; old testids (`sync-pill-note`, `toolbar-vault-pill`) and
+`data-status` ride its button; the navigator's foot has no pill any more. In
+the tree, `SyncPill` (the unlayered dot) still marks a row that is not
+green. Access is **links and the labels you gave them, never
+people** (`ShareSheet.svelte`; joining is `AddSharedFolderDialog.svelte`):
+there is no identity until device-key tokens, and the copy says so. The header pill is
 `scopedRollup` (`lib/share-status.ts`, pure): fed only by docs that have a
 relay; with nothing shared it renders "Local vault · nothing shared" in
-words, because a pill for an absence reads as a problem. A shared folder's
-tree badge carries its online count.
+words, because a pill for an absence reads as a problem — the `sync` icon
+falls back to it when no note with a relay is focused. Delete-only remote
+edits carry no author; `libs/workspace`'s `attribution.ts` credits them to
+the one peer whose awareness says the note is open (`here`), else the peer
+last attributed there, else the relay.
 
-**Notices (chrome U5, Fork 4 C)**: there is no `ui.error` string. Anything
-worth telling the user goes through `workspace.notify({ level, text, path? })`
-(the shim's own writers and the shell's handlers alike; a component reports
-through an `onNotice` prop, never by calling `toast()` itself). The log is
-`ui.notices` (pure `lib/notices.ts`: newest first, capped, an immediate
-repeat refreshes rather than stacks). The shell toasts each new notice once
-(`role=status`, polite) and lists them all in the rail's Activity section
-with time and the path they concern; the rail icon carries the unread count
-until the section is in view. The developer-tools toggle lives at the foot
-of Activity (and in Settings).
+**Events, flashes, the Log view and the drawer (spike S22, quiet-shell
+F12/F13, Stages 4a + 4c)**: there is no `ui.error` string and no rail *Activity*.
+Anything worth keeping goes into the one event log —
+`workspace.notify({ level, code, params?, path?, room?, mount? })` for the
+app's own complaints, `workspace.log(event)` for anything else — as an
+`AppEvent` (`libs/workspace/src/events.ts`: kind, level, scope, actor,
+`count`, a typed payload of **code + params, never words**) on the injected
+clock in `ui.events` (newest first, capped; an immediate repeat folds into
+`×N`). The app's own log is in memory; each mount's room log
+(`RoomEventLog`, `<room>/events.json`) persists changes, peers and relay
+state, and is merged in on open — history, so it never toasts. The words are chosen at render time by `describeEvent(event,
+LL)` (`lib/event-text.ts`); a new notice code is a row in `NOTICE_TEXT` plus a
+dictionary key. Feedback to a gesture the person just made (a refused drop, a
+copy confirmation) is `workspace.flash({ level, text })`: toasted, never
+logged. `shell-layout.svelte.ts` toasts each logged error/warning once (info
+never; `toastsWhenLogged`) and each flash once; a component reports through an
+`onNotice` prop, never by calling `toast()` itself. Two readers: the **Log
+view** (`view: 'log'`, `components/LogView.svelte`, command `app.log`, one per
+pane) filters by level chips, scope (all / this vault / a shared folder / this
+note) and time over the pure `lib/log-view.ts`, offers *Copy as text* (a
+plain-text report, with a select-it-yourself fallback) and *Clear* (confirmed);
+the **drawer** (`components/readouts/Drawer.svelte`, the `drawer` readout —
+the toolbar's right end, and in the dense header beside the rail toggle) is a
+bell whose badge counts errors and warnings, plus other people's shared
+changes, since `layout.lastSeenAt` (kept per vault on the device,
+`config.drawerSeen`; opening the drawer marks seen) and whose `ui/Popover`
+says what is in it in one line, then errors and warnings, then others'
+changes **one row per note with names** (`groupForDrawer`, `lib/changes.ts`),
+and one footer link, *Open the Log* (no count) — no *Open Shared*.
+Both render rows through `EventRow.svelte` (level glyph in the semantic
+`text-error`/`-warning`/`-info` colour — never the sync tokens — relative time
+from the pure `relativeTime` re-read on a `clockTick`, scope, ×N, and a hint
+for an error the app can help with). A view tab is a row in `VIEW_KINDS`
+(`panes.ts`) plus a `ViewDef` in `lib/views.ts`. The developer-tools toggle
+lives in Settings › Developer only.
 
 **Settings (chrome U6)** is a `Dialog` of vertical `Tabs` — General,
-Appearance, Sync, Vaults & shares, Developer — with `createForm` behind the
+Appearance (theme only — fonts come from the theme, there is no font
+choice), Hotkeys (over the active keymap file), Sync, Vaults & shares, Layout
+(one live form over the device's layout overrides, *Reset to default*; it
+applies as you change it, so it has no Save and nothing for the dirty guard),
+Developer — with `createForm` behind the
 two tabs that validate (display name; relay URL must be `ws(s)://`), a Save
 per form (disabled until `form.dirty`), and a **dirty guard**: `Dialog`'s
 `beforeClose` veto keeps the dialog open and shows Discard / Save-and-close
-instead of silently persisting or dropping edits. Add a setting to the tab it
+instead of silently persisting or dropping edits (`ui/Tabs` honours a
+`value` the parent sets, which is how *Save and close* lands you on the tab
+that needs attention). Add a setting to the tab it
 belongs to; add a validated setting to that tab's schema, never as a bare
 `bind:value`.
 
@@ -144,8 +291,8 @@ Storybook is not set up; add it later if needed.
 | Band | Use it for | Examples |
 |---|---|---|
 | **A — chrome** (DaisyUI) | every app surface | `bg-base-100`, `bg-base-200`, `text-base-content/70`, `border-base-300`, `bg-primary text-primary-content`, `text-error`, `dui-btn` |
-| **B — editor** (`--ed-*`) | anything inside or about the editing surface | `bg-ed-surface`, `text-ed-wikilink`, `font-ed-mono`, or `var(--ed-h1)` from CM6 |
-| **C — sync honesty** (`--ed-sync-*`) | the pill and nothing else | `bg-ed-sync-ok` / `-pending` / `-diverged` / `-offline` |
+| **B — editor** (`--ed-*`) | anything inside or about the editing surface, and type everywhere | `bg-ed-surface`, `text-ed-wikilink`, `font-ed-ui` / `font-ed-prose` / `font-ed-mono` (never raw `font-sans` / `font-mono` — `check-design-tokens.sh` refuses them), or `var(--ed-h1)` from CM6 |
+| **C — sync honesty** (`--ed-sync-*`) | the pill's dot and the `sync` icon (`.ed-sync-icon`), nothing else | `bg-ed-sync-ok` / `-pending` / `-diverged` / `-offline` |
 
 **Rules, all enforced or load-bearing:**
 
@@ -339,6 +486,21 @@ manager, the remote carets and `git diff` never see it
   the one-character change `[ ]` ↔ `[x]`, which travels the path typing takes
   (Y.Text → peer → disk → one line in `git diff`). Never mutate a widget's DOM
   to *show* a change; re-render from the document.
+- **List markers are the one exception to the caret's-line rule** (round 4;
+  `plans/read-shaping.md` B2.3 amended): a bullet's `- ` renders as the
+  bullet widget on the caret's line too, once complete, and turns back to
+  text only while the selection is on the marker; an empty item hides only
+  the dash; Backspace at the text's start first selects the marker; the
+  widget is a plain inline span on the baseline, never an inline-block (CM6
+  draws the caret beside a widget from its client rect, and an inline-block's
+  rect is the whole line box, so the caret came out taller and higher). Tab / Shift+Tab indent / outdent list lines
+  (`edit.indent-list` / `edit.outdent-list`, `libs/editor-lang`
+  `preview/commands.ts`, bound in the editor's own keymap — not yet in
+  `COMMAND_IDS`, so not rebindable from a keymap file). Depth guides are a
+  background over `--cm-list-depth`, sized by `--ed-list-indent` and
+  painted `--ed-list-guide`. `libs/editor` and `libs/editor-lang` are read
+  from source by `vite dev`: hard-reload after changing them (extensions are
+  built when a view mounts).
 - **Class names are `cm-*`, and every colour is a token.** The rules live in
   `libs/editor/src/theme.ts` and read `--ed-*` only — `docs/theming.md` lists
   the `(V2e)` entries and what reads each. A new construct usually needs no
@@ -404,7 +566,9 @@ manager, the remote carets and `git diff` never see it
 Key UI locations in this repo:
 
 - **Svelte 5 app**: `apps/web` (hosted by the `apps/desktop` Tauri shell)
-- **Shell primitives**: `apps/web/src/lib/ui/` (Melt-backed Dialog / menus / Tooltip / IconButton / Tabs / Toaster / form fields)
+- **Shell primitives**: `apps/web/src/lib/ui/` (Melt-backed Dialog / menus / Tooltip / IconButton / Tabs / Toaster / Popover / form fields)
+- **Layout spec, presets and resources**: `apps/web/src/lib/layout-spec.ts`, `lib/layouts/*.json`, `lib/resources.svelte.ts`; the toolbar `components/Toolbar.svelte`, readouts `components/readouts/` via `lib/readouts.ts`, view tabs via `lib/views.ts`
+- **Bundled fonts**: `libs/ui/fonts/` + the generated `libs/ui/src/styles/fonts.css` (`cd libs/ui && rushx fonts`): Public Sans and JetBrains Mono, read through `--ed-font-*` only; no per-device choice. `vite dev` serves them through `server.fs.allow` in `apps/web/vite.config.ts`
 - **Editor wrapper + CM6 integration**: `libs/editor` (vendored y-codemirror.next lives with it)
 - **Sync provider and sync records**: `libs/sync`
 - **Ground truth for UI decisions**: `/plans/shaping.md` (D3 editor, D11 sync state) and `/plans/slices.md` (V1 UI affordances)

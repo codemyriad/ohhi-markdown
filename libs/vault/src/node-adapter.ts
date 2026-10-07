@@ -17,6 +17,8 @@ import {
 import { dirname, join, relative, sep } from 'node:path'
 import {
   IGNORED_DIRS,
+  isTempName,
+  TEMP_INFIX,
   WriteConflictError,
   type FileStat,
   type VaultAdapter,
@@ -24,6 +26,7 @@ import {
   type WriteOptions,
 } from './types.js'
 import { hashBytes } from './hash.js'
+import { AppDirListeners } from './app-dir.js'
 import type { StoreIo } from './stores.js'
 import type { StoreDir } from './store-dir.js'
 
@@ -31,6 +34,8 @@ import type { StoreDir } from './store-dir.js'
 const IGNORED = IGNORED_DIRS
 
 export class NodeVaultAdapter implements VaultAdapter {
+  private appDirs = new AppDirListeners()
+
   constructor(private root: string) {}
 
   private abs(path: string): string {
@@ -107,7 +112,7 @@ export class NodeVaultAdapter implements VaultAdapter {
   async writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void> {
     const full = this.abs(path)
     await mkdir(dirname(full), { recursive: true })
-    const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
+    const tmp = `${full}${TEMP_INFIX}${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
     const handle = await open(tmp, 'w')
     try {
       await handle.writeFile(bytes)
@@ -147,12 +152,32 @@ export class NodeVaultAdapter implements VaultAdapter {
   watch(cb: (ev: WatchEvent) => void): () => void {
     const watcher = watch(this.root, { recursive: true }, (_event, filename) => {
       if (!filename) return
-      const path = filename.split(sep).join('/')
-      if (path.split('/').some((seg) => IGNORED.has(seg))) return
-      if (path.includes('.editor-tmp-')) return
-      cb({ paths: [path] })
+      // Ignored dirs and temp names never reach `cb`; a path under a
+      // `watchAppDir` directory goes to that listener instead (S20 Q1).
+      const paths = this.appDirs.route([filename.split(sep).join('/')])
+      if (paths.length) cb({ paths })
     })
     return () => watcher.close()
+  }
+
+  async listAppDir(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    let entries
+    try {
+      entries = await readdir(this.abs(rel), { withFileTypes: true })
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') return []
+      throw err
+    }
+    return entries
+      .filter((e) => e.isFile() && !isTempName(e.name))
+      .map((e) => `${rel}/${e.name}`)
+      .sort()
+  }
+
+  watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
+    return this.appDirs.add(dir, cb)
   }
 }
 
@@ -185,7 +210,7 @@ export class NodeStoreDir implements StoreDir {
       },
       writeAtomic: async (bytes) => {
         await mkdir(dirname(full), { recursive: true })
-        const tmp = `${full}.editor-tmp-${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
+        const tmp = `${full}${TEMP_INFIX}${process.pid}-${Date.now()}` // clock-exempt: unique temp name, not timing logic
         const handle = await open(tmp, 'w')
         try {
           await handle.writeFile(bytes)
@@ -216,7 +241,7 @@ export class NodeStoreDir implements StoreDir {
       for (const entry of entries) {
         const full = join(dir, entry.name)
         if (entry.isDirectory()) await walk(full)
-        else if (!entry.name.includes('.editor-tmp-')) {
+        else if (!isTempName(entry.name)) {
           out.push(relative(this.root, full).split(sep).join('/'))
         }
       }

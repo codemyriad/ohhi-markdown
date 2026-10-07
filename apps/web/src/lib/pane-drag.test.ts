@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { slotsFrom, stripDrop, zoneBox, type StripSlot } from './pane-drag.js'
+import { slotsFrom, stripDrop, tabDragSource, zoneBox, type StripSlot } from './pane-drag.js'
 
 /** `[a] [chip Edible] [b] [c] [d]` — a group over tabs 1 and 2, 100 px each. */
 function strip(folded = false): StripSlot[] {
@@ -139,5 +139,17 @@ describe('slotsFrom', () => {
     expect(
       slotsFrom([el({ slotKind: 'tab' }), el({ slotIndex: 'x', slotKind: 'tab' })], boxOf)
     ).toEqual([])
+  })
+})
+
+describe('tabDragSource (the lone tab’s handle — S21 Q2)', () => {
+  it('starts the strip’s own payload on the primary button only', () => {
+    const calls: unknown[] = []
+    const attrs = tabDragSource({ beginDrag: (_e, payload) => calls.push(payload) }, 'p1', 't1', 'a')
+    expect(attrs['data-drag-source']).toBe('tab')
+    attrs.onpointerdown({ button: 2 } as PointerEvent)
+    expect(calls).toEqual([])
+    attrs.onpointerdown({ button: 0 } as PointerEvent)
+    expect(calls).toEqual([{ tabIds: ['t1'], fromPaneId: 'p1', groupId: null, label: 'a', color: null }])
   })
 })

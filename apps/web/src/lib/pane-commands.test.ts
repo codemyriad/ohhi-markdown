@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MODES } from './mode.js'
+import { FORMAT_COMMANDS } from '@ohhi/editor'
+import { CommandRegistry } from './commands.js'
 import {
   familyTitle,
+  formatCommands,
   groupCommands,
   paneCommands,
+  type FormatActions,
   type GroupActions,
   type PaneActions,
 } from './pane-commands.js'
@@ -157,5 +161,54 @@ describe('the group command table (W2)', () => {
     expect(a.newFromActive).toHaveBeenCalled()
     void byId.get('group.copy-links')!.run()
     expect(a.copyLinks).toHaveBeenCalled()
+  })
+})
+
+describe('the format command table (quiet-shell F4)', () => {
+  function formatActions(can = true): FormatActions & { ran: string[] } {
+    const ran: string[] = []
+    return { ran, canFormat: () => can, format: (id) => void ran.push(id) }
+  }
+
+  it('is FORMAT_COMMANDS, in order, each with a title and the Format group', () => {
+    const rows = formatCommands(formatActions())
+    expect(rows.map((r) => r.id)).toEqual(FORMAT_COMMANDS.map((c) => c.id))
+    for (const row of rows) {
+      expect(row.title).not.toBe('')
+      expect(row.group).toBe('Format')
+    }
+    expect(new Set(rows.map((r) => r.title)).size).toBe(rows.length)
+  })
+
+  it('binds Obsidian’s three keys and leaves the rest unbound', () => {
+    const bound = formatCommands(formatActions())
+      .filter((r) => r.keys)
+      .map((r) => [r.id, r.keys])
+    expect(bound).toEqual([
+      ['format.bold', 'Mod+b'],
+      ['format.italic', 'Mod+i'],
+      ['format.link', 'Mod+k'],
+    ])
+  })
+
+  it('runs the command by id in the focused view', () => {
+    const a = formatActions()
+    for (const row of formatCommands(a)) void row.run()
+    expect(a.ran).toEqual(FORMAT_COMMANDS.map((c) => c.id))
+  })
+
+  it('is hidden and its keys fall through when no editable note has the focus', () => {
+    const registry = new CommandRegistry(false)
+    let can = true
+    registry.register(...formatCommands({ canFormat: () => can, format: () => {} }))
+    const modB = { key: 'b', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }
+    expect(registry.match(modB)?.id).toBe('format.bold')
+    expect(registry.available().some((c) => c.id.startsWith('format.'))).toBe(true)
+
+    can = false
+    expect(registry.match(modB)).toBeNull()
+    expect(registry.available().some((c) => c.id.startsWith('format.'))).toBe(false)
+    // …but still listed in the hotkeys tab, where it can be rebound.
+    expect(registry.bindings().filter((b) => b.id.startsWith('format.'))).toHaveLength(FORMAT_COMMANDS.length)
   })
 })

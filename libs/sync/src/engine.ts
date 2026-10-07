@@ -110,6 +110,24 @@ export interface SyncEngine {
   headsEqual(a: Heads, b: Heads): boolean
   encodeHeads(h: Heads): Uint8Array
   decodeHeads(bytes: Uint8Array): Heads
+  /**
+   * The engine client ids whose inserts an encoded update carries, ascending
+   * (sharing E3 / spike S22 Q2: remote attribution). A peer's client id is
+   * per DOC INSTANCE — the same id its awareness announces itself under on
+   * that doc — so the caller maps ids → names through that doc's awareness.
+   * Delete-only updates carry no insert, so they return `[]`: a delete set is
+   * keyed by the deleted item's AUTHOR, never by whoever deleted it, and
+   * reading it as attribution would name the wrong person.
+   */
+  clientIdsOf(update: Uint8Array): number[]
+  /**
+   * Cheap character delta of an encoded update: text inserted (live string
+   * content) and items deleted (the delete set). For the Changes feed's
+   * `+added / −removed` — a display hint, never a correctness input.
+   */
+  charDeltaOf(update: Uint8Array): { added: number; removed: number }
+  /** This replica's own client id on `doc` (what its updates carry). */
+  clientIdOf(doc: EngineDoc): number
   /** Subscribe to update emission (fires for local and applied updates). */
   onUpdate(
     doc: EngineDoc,

@@ -86,6 +86,8 @@ describe('the shim: mounts.json drives ui.mounts (N1)', () => {
         // Its room lives on a relay this vault has nothing to do with, so it
         // reads as somebody else's share (device-link N2, `isForeignMount`).
         foreign: true,
+        // …and the room's relay is resolved once, as its session resolves it.
+        relay: RELAY,
       },
     ])
     // "Keep + mark": the folder is in the tree and its note is openable — a

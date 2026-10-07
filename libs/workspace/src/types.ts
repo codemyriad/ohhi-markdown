@@ -4,6 +4,7 @@
  * peer) inject reactive record objects and consume events.
  */
 import type { DivergenceReview } from '@ohhi/vault'
+import type { AppEvent } from './events.js'
 
 /** Presence identity for cursors/awareness (plain twin of the editor's type). */
 export interface CollabUser {
@@ -76,6 +77,18 @@ export interface PullProgress {
   total: number
 }
 
+/**
+ * One peer present in one doc (sharing E1): their awareness client id on that
+ * doc, the name they announce, and — when their view has focus — the caret as
+ * a Yjs relative position (JSON), which the host resolves at the moment it
+ * jumps. Names are self-reported, never verified.
+ */
+export interface DocPeer {
+  clientId: number
+  name: string
+  cursor: { anchor: unknown; head: unknown } | null
+}
+
 /** UI-facing events; every mutation the host must mirror into its view state. */
 export interface MountEvents {
   /** Full row list after any folder-map change (sorted by path). */
@@ -110,6 +123,14 @@ export interface MountEvents {
   onMapChanged?: () => void
   /** Sorted unique presence names from the folder-doc awareness. */
   onPresence?: (names: string[]) => void
+  /**
+   * Who is IN one doc (sharing E1): the peers whose awareness on this doc's
+   * provider says `here: true` — set by their session while a view holds the
+   * note (`setOpenPaths`), cleared when the last one leaves. Ourselves
+   * excluded. Keyed by guid (rename-stable); an empty list when nobody is,
+   * and on every teardown of the doc's connection.
+   */
+  onDocPresence?: (guid: string, peers: DocPeer[]) => void
   onReview?: (review: DivergenceReview) => void
   onReviewCleared?: (guid: string) => void
   /**
@@ -154,4 +175,16 @@ export interface MountEvents {
    */
   onPathsRenamed?: (moves: { from: string; to: string }[]) => void
   onError?: (err: unknown) => void
+  /**
+   * One event appended to this room's log (sharing E3, spike S22): an
+   * attributed remote or disk edit (`doc.changed`, folded per note per
+   * window), a peer's map change (`file.*`), a peer joining or leaving, a
+   * relay edge, a review or a held batch, a mount status transition. A fold
+   * re-reports the SAME `id` with the new `count`/`at` — hosts replace by id.
+   * The stored history is `MountSession.roomEvents()`, read on mount open.
+   *
+   * Notices are not here: `onError` and the adopt machine's notices keep
+   * their own paths, worded by the host. Fire-and-forget; must not throw.
+   */
+  onEvent?: (event: AppEvent) => void
 }

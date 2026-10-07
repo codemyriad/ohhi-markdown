@@ -7,7 +7,7 @@
  * directories on write. Same contract/semantics as MemVaultAdapter and
  * NodeVaultAdapter (see @ohhi/vault) — mirror them when in doubt.
  */
-import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@ohhi/vault'
+import { hashBytes, IGNORED_DIRS, isTempName, WriteConflictError } from '@ohhi/vault'
 import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
 /** Container dir (under the OPFS root) that holds one subdirectory per vault. */
@@ -206,6 +206,22 @@ export class OpfsVaultAdapter implements VaultAdapter {
     // external-ingest path legitimately never fires for an OPFS-backed vault.
     // Return a no-op disposer to satisfy the interface.
     return () => {}
+  }
+
+  /**
+   * The files in one ignored app dir (`.ohhi/layouts`) — what the resource
+   * loader lists. No `watchAppDir`: nothing but the app writes OPFS, and the
+   * app's own writes notify in-process (S20 Q1).
+   */
+  async listAppDir(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    const handle = await this.resolveDir(rel.split('/').filter((p) => p.length > 0), false)
+    if (!handle) return []
+    const out: string[] = []
+    for await (const entry of handle.values()) {
+      if (entry.kind === 'file' && !isTempName(entry.name)) out.push(`${rel}/${entry.name}`)
+    }
+    return out.sort()
   }
 }
 

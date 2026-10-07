@@ -54,17 +54,29 @@ export class CheckboxWidget extends ReadWidget {
   }
 }
 
-/** `- ` off the active region. Indentation is untouched text, so tab-size places it. */
+/**
+ * `- `, drawn as a filled dot — everywhere but while the marker itself is being
+ * edited. Indentation is untouched text, so the tab stop places it; the dot is
+ * the theme's (a box `--ed-list-indent` wide, a circle in `--ed-bullet`), so it
+ * has no glyph of its own and nothing for a screen reader to announce twice.
+ */
 export class BulletWidget extends ReadWidget {
-  override eq(): boolean {
-    return true
+  constructor(
+    /** Only the `-` is replaced: the item is empty and its space is still text. */
+    readonly open = false
+  ) {
+    super()
+  }
+
+  override eq(other: BulletWidget): boolean {
+    return other.open === this.open
   }
 
   toDOM(): HTMLElement {
-    const dot = document.createElement('span')
-    dot.className = 'cm-bullet'
-    dot.textContent = '•'
-    return dot
+    const box = document.createElement('span')
+    box.className = this.open ? 'cm-bullet cm-bullet-open' : 'cm-bullet'
+    box.setAttribute('aria-hidden', 'true')
+    return box
   }
 }
 

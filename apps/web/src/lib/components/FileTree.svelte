@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
   import { SvelteSet } from 'svelte/reactivity'
-  import { ChevronsDownUp, FilePlus, FolderPlus, KeyRound, ListFilter, Users } from '@lucide/svelte'
+  import { ChevronsDownUp, FilePlus, FolderPlus, KeyRound, ListFilter } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { pillStatus, type PillStatus, type SyncRecord } from '../sync-record.svelte.js'
@@ -22,9 +22,11 @@
   } from '../tree-model.js'
   import { inRelayMount, mountRollup, rowStatus } from '../tree-status.js'
   import { inQuietMount, mountHasRelay, mountTone } from '../share-status.js'
+  import { onlinePeers, presenceFor, stackFor, uniquePeers, type PresenceByPath } from '../presence.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
+  import PresenceChip from './PresenceChip.svelte'
   import SyncPill from './SyncPill.svelte'
   import TreeContextMenu from './TreeContextMenu.svelte'
 
@@ -36,8 +38,23 @@
     mounts: MountInfo[]
     /** The whole vault is shared (badge/filter treat everything as shared). */
     rootShared: boolean
-    /** Names online per room — the count on a shared folder's badge (chrome U4). */
+    /** Names online per room — the people on a shared folder's chip (chrome U4, P7). */
     presenceByRoom?: Record<string, string[]>
+    /** Your own announced name: never on a chip (the room's awareness counts you too). */
+    self?: string
+    /**
+     * Who is in each note (sharing E1, `ui.presenceByPath`): a `PresenceChip`
+     * on the note's row, and on a mount root with whoever is online in its
+     * room (P7). The cap and the order are `presence.ts`'s; `{}` when alone
+     * draws nothing (R6).
+     */
+    presence?: PresenceByPath
+    /**
+     * Notes someone else changed in the last hour, and the mount roots that
+     * hold one (sharing E3, `changes.ts` › `changeTicks`): a small tick on
+     * the row. The host re-reads it on its clock, so a tick ages out.
+     */
+    changed?: ReadonlySet<string>
     /** A folder to expand, focus as the context and scroll to (a NEW object each time). */
     reveal?: { path: string } | null
     /**
@@ -46,7 +63,10 @@
      */
     onSelect: (path: string, opts?: { background?: boolean }) => void
     onOp: (op: TreeOp) => void
-    /** A refusal worth keeping (drop rejected): the host toasts it and logs it. */
+    /**
+     * Feedback to a refused gesture (drop rejected, F2/Delete on a mount
+     * root): the host flashes it — a toast, not a log entry (spike S22 Q1).
+     */
     onNotice: (level: 'warn' | 'error', text: string, path?: string) => void
   }
 
@@ -57,6 +77,9 @@
     mounts,
     rootShared,
     presenceByRoom = {},
+    self = '',
+    presence = {},
+    changed = new Set<string>(),
     reveal = null,
     onSelect,
     onOp,
@@ -466,6 +489,7 @@
             >{collapsed.has(node.path) ? '▸' : '▾'}</span
           >
           <span class="truncate font-medium">{node.name}</span>
+          {#if changed.has(node.path)}{@render changeTick(node.path)}{/if}
           {#if refusal?.dir === node.path}
             <span
               data-testid="drop-refusal"
@@ -476,27 +500,22 @@
           {:else if mount}
             {@const tone = mountTone(mount.provenance, mount.foreign)}
             {@const state = mount.status ?? 'active'}
-            {@const online = (presenceByRoom[mount.room] ?? []).length}
             {@const whose = tone === 'yours' ? t.shared_by_you() : t.shared_with_you()}
             <span class="ml-auto flex shrink-0 items-center gap-1.5">
               {#if state === 'active'}
+                <!-- One chip for the folder's people (P7): whoever is in a
+                     note under it or online in its room — the `👥 N` badge's
+                     count, now with faces. Whose share it is stays in words
+                     for assistive tech; the extent line carries the tint. -->
+                <PresenceChip
+                  peers={uniquePeers([...stackFor(presence, mount).all, ...onlinePeers({ [mount.room]: presenceByRoom[mount.room] ?? [] }, self)])}
+                  testid="mount-presence:{node.path}"
+                />
                 <SyncPill
                   status={rollups.get(node.path) ?? 'offline'}
                   testid="sync-pill:{node.path}"
                 />
-                <span
-                  data-testid="mount-badge:{node.path}"
-                  data-state="active"
-                  title={online ? t.online_title({ whose, count: online }) : whose}
-                  class="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium
-                    {tone === 'yours'
-                    ? 'bg-primary text-primary-content'
-                    : 'bg-secondary text-secondary-content'}"
-                >
-                  <Users size={12} aria-hidden="true" />
-                  {#if online}<span aria-hidden="true">{online}</span>{/if}
-                  <span class="sr-only">{online ? t.online_sr({ whose, count: online }) : whose}</span>
-                </span>
+                <span data-testid="mount-badge:{node.path}" data-state="active" class="sr-only">{whose}</span>
               {:else if state === 'needs-token'}
                 <!-- No pill, by design: this mount has no relay to be in sync
                      with, so it is not offline — this device has no key for it
@@ -557,9 +576,13 @@
             : 'text-base-content hover:bg-base-200'}"
         >
           <span class="truncate">{node.name}</span>
-          {#if status}
-            <SyncPill {status} testid="sync-pill:{node.path}" />
-          {/if}
+          <span class="flex shrink-0 items-center gap-1.5">
+            {#if changed.has(node.path)}{@render changeTick(node.path)}{/if}
+            <PresenceChip peers={presenceFor(presence, node.path)} testid="tree-presence:{node.path}" />
+            {#if status}
+              <SyncPill {status} testid="sync-pill:{node.path}" />
+            {/if}
+          </span>
         </button>
       {:else}
         <!-- Binaries are excluded from sync; the pill never claims them (D2f).
@@ -622,3 +645,12 @@
     onClose={closeMenu}
   />
 {/if}
+
+{#snippet changeTick(path: string)}
+  <!-- sharing E3: changed by someone else lately. A neutral dot — never a
+       sync colour, which is the pill's alone (golden rule 4). -->
+  <span data-testid="change-tick:{path}" title={$LL.web.shared.tick()} class="relative inline-flex shrink-0">
+    <span aria-hidden="true" class="size-1.5 rounded-full bg-base-content/70"></span>
+    <span class="sr-only">{$LL.web.shared.tick()}</span>
+  </span>
+{/snippet}

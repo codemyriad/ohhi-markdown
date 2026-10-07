@@ -21,11 +21,12 @@
  */
 import { untrack } from 'svelte'
 import { getLL } from '@ohhi/i18n'
+import type { FormatBindings, FormatCommandId } from '@ohhi/editor'
 import type { Clock } from '@ohhi/vault'
 import type { Command, CommandRegistry } from './commands.js'
 import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
-import { familyTitle, paneCommands } from './pane-commands.js'
+import { familyTitle, formatCommands, paneCommands } from './pane-commands.js'
 import { slotsFrom, stripDrop, zoneBox, type Box } from './pane-drag.js'
 import * as tree from './panes.js'
 import {
@@ -45,6 +46,7 @@ import type {
   SavedGroup,
   Side,
   Tab,
+  TabView,
   ViewMode,
 } from './panes.js'
 import { loadLayout, loadSavedGroups, saveWorkspace } from './workspace-layout.js'
@@ -57,8 +59,9 @@ import { textPaths, type Workspace } from './workspace.svelte.js'
  * chords act on the tabs behind whatever is on top — so `Mod+P` pressed in
  * Settings' relay-URL field used to swallow the rest of the typing, and
  * `Mod+W` in a dialog closed a tab nobody could see (M4). Two things claim
- * the keyboard: a text field that is not the editing surface (CodeMirror is
- * where the pane keys are SUPPOSED to work), and an open modal overlay.
+ * the keyboard: a text field outside the panes (CodeMirror, and any field a
+ * pane draws itself, are where the pane keys are SUPPOSED to work), and an
+ * open modal overlay.
  *
  * Read off the document rather than from a shell-level counter because there
  * is no such counter: `Dialog` is mounted and unmounted by its parent, and
@@ -73,7 +76,11 @@ export function keyboardClaimed(doc: Document | undefined = globalThis.document)
   if (doc.querySelector('[aria-modal="true"], [data-melt-popover-content]')) return true
   const el = doc.activeElement
   if (!el || !(el instanceof Element)) return false
-  if (el.closest('.cm-editor')) return false
+  // A field that is part of a pane — the empty tab's picker, a view's filter,
+  // the inline title — is the pane tree's own: the tab keys act on THAT tab
+  // (`Mod+W` closes it, `Mod+Shift+T` reopens what it replaced), as in a
+  // browser's address bar. Only fields outside the panes claim the keyboard.
+  if (el.closest('.cm-editor, [data-pane-id]')) return false
   const tag = el.tagName.toLowerCase()
   return (
     tag === 'input' ||
@@ -124,6 +131,12 @@ export interface Resume {
 export interface PaneEditor {
   /** `toggleTask` over the main selection; false when no line qualifies. */
   toggleTask(): boolean
+  /** One of `FORMAT_COMMANDS` by id (quiet-shell F4); false when it did nothing. */
+  format(id: FormatCommandId): boolean
+  /** Replace the selection with `text` at the caret (a template, F11); false when read-only. */
+  insertText?(text: string): boolean
+  /** Re-key the view's own format keymap to the resolved keymap (F10). */
+  setFormatBindings?(bindings: FormatBindings): void
 }
 
 export type { Box }
@@ -172,10 +185,17 @@ export interface PaneShell {
   leaveMode(): void
 
   // ---- opening (B5) ----
-  /** Fork 1-B: every open is a tab. `background` = Mod+click / Mod+Enter. */
-  open(path: string, opts?: { background?: boolean; paneId?: string }): void
+  /**
+   * Fork 1-B: every open is a tab. `background` = Mod+click / Mod+Enter.
+   * `replace` (the layout's `panes.open: 'replace'`) navigates the pane's
+   * active tab in place instead — never a pinned or view tab, never a
+   * background open (`panes.ts` `openPath`).
+   */
+  open(path: string, opts?: { background?: boolean; paneId?: string; replace?: boolean }): void
   /** The one in-place navigation: a `[[link]]`, or the empty tab's picker. */
   navigate(path: string, tabId?: string): void
+  /** A shell surface as a tab (devtools-shaping D1-A); one per pane per (view, arg). */
+  openView(view: TabView, arg?: string): void
   travel(delta: number): void
   canTravel(delta: number): boolean
 
@@ -212,11 +232,24 @@ export interface PaneShell {
    * ever learning what a CodeMirror is.
    */
   registerEditor(paneId: string, editor: PaneEditor | null): void
+  /**
+   * Insert text at the focused pane's caret (`template.insert`, quiet-shell
+   * F11). False when no live, editable note holds the focus.
+   */
+  insertText(text: string): boolean
+  /**
+   * The resolved keymap's `format.*` chords (F10), handed to every live view
+   * now and to each one as it registers — so a keymap that clears
+   * `format.bold` takes `Mod-b` out of CodeMirror too.
+   */
+  setFormatBindings(bindings: FormatBindings): void
   beginDrag(e: PointerEvent, payload: DragPayload): void
 
   // ---- view modes (read-shaping B3) ----
   /** The `view.*` and `edit.toggle-checkbox` rows of the command table. */
   readCommands(): Command[]
+  /** The `format.*` rows (quiet-shell F4), run in the focused pane's view. */
+  formatCommands(): Command[]
   /** A tab's mode — its own, or the Settings default when it has none. */
   modeOf(tab: Tab | null): ViewMode
   setMode(tabId: string, mode: ViewMode): void
@@ -425,6 +458,8 @@ export function createPanes(
    */
   const lastEditing = new Map<string, ViewMode>()
   const editors = new Map<string, PaneEditor>()
+  /** The resolved keymap's format chords; null until a keymap was applied (the editor's defaults hold). */
+  let formatBindings: FormatBindings | null = null
 
   const modeOf = (tab: Tab | null): ViewMode => tab?.mode ?? readState.defaultMode
 
@@ -888,6 +923,16 @@ export function createPanes(
         toggleCheckbox: () => void editors.get(current.focus)?.toggleTask(),
       }),
 
+    formatCommands: () =>
+      formatCommands({
+        // A note, with a live view to act on, that is not being read.
+        canFormat: () => {
+          const t = active()
+          return t?.path != null && modeOf(t) !== 'reading' && editors.has(current.focus)
+        },
+        format: (id) => void editors.get(current.focus)?.format(id),
+      }),
+
     modeOf,
     setMode: applyMode,
     toggleReading: toggleReadingOf,
@@ -968,11 +1013,18 @@ export function createPanes(
       const slot = p ? tree.activeTab(p) : null
       // An empty tab is a slot waiting for a note (that is what its picker is
       // for), so a foreground open fills it rather than leaving it behind.
-      if (!opts.background && p && slot && slot.path === null) {
+      if (!opts.background && p && slot && slot.path === null && !slot.view) {
         commit(tree.navigateInTab(current, slot.id, path, now()))
         return
       }
+      // Replacing leaves the note on the tab's Back trail: where the view is
+      // NOW is what that trail entry keeps, exactly as `navigate` does.
+      if (opts.replace && !opts.background) captureLive()
       commit(tree.openPath(current, path, opts, ids, now()))
+    },
+
+    openView(view, arg) {
+      commit(tree.openView(current, view, arg === undefined ? {} : { arg }, ids, now()))
     },
 
     navigate(path, tabId) {
@@ -1025,14 +1077,27 @@ export function createPanes(
       else paneEls.delete(paneId)
     },
 
+    insertText(text) {
+      const t = active()
+      if (t?.path == null || modeOf(t) === 'reading') return false
+      return editors.get(current.focus)?.insertText?.(text) ?? false
+    },
+
+    setFormatBindings(bindings) {
+      formatBindings = bindings
+      for (const editor of editors.values()) editor.setFormatBindings?.(bindings)
+    },
+
     registerCapture(paneId, capture) {
       if (capture) captures.set(paneId, capture)
       else captures.delete(paneId)
     },
 
     registerEditor(paneId, editor) {
-      if (editor) editors.set(paneId, editor)
-      else editors.delete(paneId)
+      if (editor) {
+        editors.set(paneId, editor)
+        if (formatBindings) editor.setFormatBindings?.(formatBindings)
+      } else editors.delete(paneId)
     },
 
     beginDrag,

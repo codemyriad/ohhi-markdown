@@ -17,6 +17,7 @@ import {
   rename as fsRename,
   writeFile,
 } from '@tauri-apps/plugin-fs'
+import { isTempName, TEMP_INFIX } from '@ohhi/vault'
 import type { StoreDir, StoreIo } from '@ohhi/vault'
 
 /** Counter for unique temp names within a single ms tick. */
@@ -71,7 +72,7 @@ export class TauriStoreDir implements StoreDir {
       },
       writeAtomic: async (bytes) => {
         await mkdir(dirnamePosix(full), { recursive: true })
-        const tmp = `${full}.editor-tmp-${Date.now()}-${tmpCounter++}`
+        const tmp = `${full}${TEMP_INFIX}${Date.now()}-${tmpCounter++}`
         await writeFile(tmp, bytes)
         // Atomicity note: plugin-fs exposes no fsync, so we cannot flush the
         // temp file to durable storage before renaming. temp+rename still
@@ -95,7 +96,7 @@ export class TauriStoreDir implements StoreDir {
       for (const entry of await readDir(dirAbs)) {
         const relPath = relDir ? `${relDir}/${entry.name}` : entry.name
         if (entry.isDirectory) await walk(relPath)
-        else if (!entry.name.includes('.editor-tmp-')) out.push(relPath)
+        else if (!isTempName(entry.name)) out.push(relPath)
       }
     }
     await walk('')

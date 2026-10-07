@@ -24,9 +24,13 @@
     --ed-ink: #1f242b;
     --ed-ink-muted: #4d5765;
     --ed-ink-faint: #78838f;
-    --ed-font-prose: ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
-    --ed-font-mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
-    --ed-font-ui: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    /* App-wide defaults: the bundled faces first (fonts.css) — Public Sans
+     * for notes and the interface, JetBrains Mono for code — the system
+     * stack as fallback. A theme may redeclare any of them; there is no
+     * per-device choice (round 3 Q7). */
+    --ed-font-prose: "Public Sans", ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    --ed-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ed-font-ui: "Public Sans", ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
     --ed-font-size: 15px;
     --ed-line-height: 1.65;
     /* A full-bleed 2560px line is unreadable and CM6 has no opinion. */
@@ -39,8 +43,9 @@
     --ed-h4: var(--ed-ink);
     --ed-h5: var(--ed-ink);
     --ed-h6: var(--ed-ink);
-    /* The filename-as-title line — a different thing from h1. */
-    --ed-title: var(--ed-ink); /* (V2e) */
+    /* The filename-as-title line — a different thing from h1: the inline
+     * title above a note's text (InlineTitle.svelte, P3). */
+    --ed-title: var(--ed-ink);
     --ed-h1-size: 1.9em;
     --ed-h2-size: 1.55em;
     --ed-h3-size: 1.3em;
@@ -106,6 +111,13 @@
      * heading's hash from a list's dash. */
     --ed-marker: #b0bac5;
     --ed-bullet: #78838f; /* (V2e) rendered bullets, once markers are hidden */
+    /* Lists in Live and Reading: the width of one nesting level (a tab stop,
+     * and the bullet's own box), and the hairline guide down each level's
+     * children. The guide IS the rule's colour unless a theme says otherwise
+     * — a structural hairline, like `---`, asserted equal in every built-in
+     * theme by theme-contract.test.ts. */
+    --ed-list-indent: 1.6em;
+    --ed-list-guide: var(--ed-hr);
     --ed-checkbox: #1d7f9c; /* (V2e) */
     --ed-checkbox-done: #1f242b66; /* (V2e) */
     --ed-table-header-bg: #f5f7f9; /* (V2e) */
@@ -131,15 +143,23 @@
 
     /* --- collaboration --------------------------------------------------- */
     --ed-peer-caret-width: 2px;
+    /* The caret label's ink. The label's FILL is the sender's colour, written
+     * inline from awareness (a hex chosen in the SENDER's theme), so one ink
+     * per theme is a best effort there; the avatars below use the per-slot
+     * pairs, which are asserted. */
     --ed-peer-label-fg: #ffffff;
     --ed-peer-label-radius: 3px;
     --ed-peer-label-font-size: 11px;
-    /* HOUSE RULE, asserted by theme-contract.test.ts: no presence colour may
-     * be near --ed-sync-diverged. A peer's caret must never be mistakable for
-     * a conflict marker. */
+    /* HOUSE RULES, asserted by theme-contract.test.ts: no presence colour may
+     * be near --ed-sync-diverged (a peer's caret must never be mistakable for
+     * a conflict marker), nor the same colour as any other sync state (an
+     * avatar sits beside the sync dots in tabs and the tree: a peer must
+     * never read as a state — sharing R5). Each slot has an ink,
+     * --ed-presence-fg-N, that clears 4.5:1 on it (an avatar's initials). */
     --ed-presence-1: #2b7f8a;
     --ed-presence-2: #4d7c2f;
-    --ed-presence-3: #8a6300;
+    /* Not the amber #8a6300: that IS --ed-sync-pending. */
+    --ed-presence-3: #5b55b5;
     --ed-presence-4: #7d3fa8;
     --ed-presence-5: #2f6fbf;
     /* Not the brown-red it wants to be: #9c5335 sits ~55 units from the
@@ -147,6 +167,14 @@
     --ed-presence-6: #a8327d;
     --ed-presence-7: #1f7a68;
     --ed-presence-8: #55606f;
+    --ed-presence-fg-1: #ffffff;
+    --ed-presence-fg-2: #ffffff;
+    --ed-presence-fg-3: #ffffff;
+    --ed-presence-fg-4: #ffffff;
+    --ed-presence-fg-5: #ffffff;
+    --ed-presence-fg-6: #ffffff;
+    --ed-presence-fg-7: #ffffff;
+    --ed-presence-fg-8: #ffffff;
 
     /* --- tab groups (W2) -------------------------------------------------
      * Eight slots a user picks from when naming a group of tabs — a chip's
@@ -170,5 +198,21 @@
     --ed-group-6: #2f6fbf;
     --ed-group-7: #9c5335;
     --ed-group-8: #a8327d;
+
+    /* --- panes & tabs (spike S21, quiet-shell F3) ------------------------
+     * How the pane chrome LOOKS; whether a piece EXISTS is the layout spec's
+     * (`regions.tabs`, `panes.focusMark`, …). Taste, so band B — but the
+     * focus mark is a state indicator: theme-contract.test.ts asserts
+     * --ed-pane-focus clears 3:1 against --color-base-100 in every built-in
+     * theme (WCAG 1.4.11). The off-focus sync dot is NOT here: it is band C.
+     * Defaults are the values the chrome painted before the tokens existed. */
+    --ed-pane-divider: var(--color-base-300);
+    --ed-pane-focus: var(--color-primary);
+    --ed-pane-focus-width: 2px;
+    --ed-pane-mode: var(--color-accent);
+    --ed-group-cap: 2px;
+    --ed-strip-bg: var(--color-base-200);
+    --ed-tab-active-bg: var(--ed-surface);
+    --ed-tab-live: var(--color-primary);
   }
 }

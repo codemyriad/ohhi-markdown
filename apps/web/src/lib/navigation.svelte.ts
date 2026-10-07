@@ -10,10 +10,31 @@ import { getLL } from '@ohhi/i18n'
 import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@ohhi/index'
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
+import type { TabView } from './panes.js'
 import { recentPaths, touchPath } from './recent.js'
+import { splitArgs } from './template.js'
+import { viewCommands } from './views.js'
 import { textPaths, type IndexSink, type Workspace } from './workspace.svelte.js'
 
-export type PaletteMode = 'quick-open' | 'command' | 'search'
+export type PaletteMode = 'quick-open' | 'command' | 'search' | 'templates' | 'layouts'
+
+/**
+ * What the `layouts` mode lists and applies (`layout.use-file`, round 3 Q6):
+ * the layout files every root offers, the built-in first.
+ */
+export interface LayoutFileSource {
+  rows(): Promise<readonly { name: string; title: string; subtitle?: string; active: boolean }[]>
+  use(name: string): void
+}
+
+/**
+ * What the `templates` mode lists and runs (quiet-shell F11): the first word
+ * of the query picks a template, the rest are its arguments.
+ */
+export interface TemplateSource {
+  rows(): readonly { name: string; description: string; argumentHint: string }[]
+  insert(name: string, args: string[]): void
+}
 
 /**
  * How many tags the `#` completion offers. The measured vault has 28; the cap
@@ -22,10 +43,15 @@ export type PaletteMode = 'quick-open' | 'command' | 'search'
 const TAG_COMPLETION_LIMIT = 500
 
 /** The testids are the spec's contract; the copy is the dictionary's (`web.palette`). */
-const MODE_KEYS: Record<PaletteMode, { key: 'quick_open' | 'command' | 'search'; testid: string }> = {
+const MODE_KEYS: Record<
+  PaletteMode,
+  { key: 'quick_open' | 'command' | 'search' | 'templates' | 'layouts'; testid: string }
+> = {
   'quick-open': { key: 'quick_open', testid: 'quick-open' },
   command: { key: 'command', testid: 'command-palette' },
   search: { key: 'search', testid: 'search' },
+  templates: { key: 'templates', testid: 'template-picker' },
+  layouts: { key: 'layouts', testid: 'layout-picker' },
 }
 
 function modeMeta(mode: PaletteMode): { placeholder: string; testid: string; empty: string } {
@@ -56,6 +82,10 @@ export function createNavigation(): {
    * itself. Without one, picking a note does nothing.
    */
   setOpener(open: (path: string, opts: { background?: boolean }) => void): void
+  /** What the `templates` mode lists and inserts (`template.insert`, F11). */
+  setTemplates(source: TemplateSource): void
+  /** What the `layouts` mode lists and applies (`layout.use-file`, round 3 Q6). */
+  setLayoutFiles(source: LayoutFileSource): void
   /**
    * Bumped on every indexed content change, from any writer. Read it inside
    * an `$effect` to re-derive anything that depends on note TEXT — the index
@@ -123,6 +153,9 @@ export function createNavigation(): {
   let linksWanted: () => boolean = () => true
   /** Set by the host: opens a path in the pane tree. */
   let opener: (path: string, opts: { background?: boolean }) => void = () => {}
+  /** Set by the host: the templates the `templates` mode offers. */
+  let templates: TemplateSource | null = null
+  let layoutFiles: LayoutFileSource | null = null
   /**
    * Bumped by the index sink so derived queries re-run on any content change.
    *
@@ -232,6 +265,30 @@ export function createNavigation(): {
   }
 
   async function buildRows(mode: PaletteMode, query: string): Promise<PaletteRow[]> {
+    if (mode === 'layouts') {
+      const q = query.trim().toLowerCase()
+      const inUse = getLL().web.palette.layouts.in_use()
+      return (await (layoutFiles?.rows() ?? Promise.resolve([])))
+        .filter((r) => !q || r.title.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+        .map((r) => ({
+          id: r.name,
+          title: r.title,
+          ...(r.subtitle ? { subtitle: r.subtitle } : {}),
+          ...(r.active ? { hint: inUse } : {}),
+        }))
+    }
+    if (mode === 'templates') {
+      const [first = ''] = splitArgs(query)
+      const q = first.toLowerCase()
+      return (templates?.rows() ?? [])
+        .filter((r) => !q || r.name.toLowerCase().includes(q))
+        .map((r) => ({
+          id: r.name,
+          title: r.name,
+          ...(r.description ? { subtitle: r.description } : {}),
+          ...(r.argumentHint ? { hint: r.argumentHint } : {}),
+        }))
+    }
     if (mode === 'command') {
       const q = query.trim().toLowerCase()
       return registry
@@ -312,6 +369,12 @@ export function createNavigation(): {
     setOpener(open) {
       opener = open
     },
+    setTemplates(source) {
+      templates = source
+    },
+    setLayoutFiles(source) {
+      layoutFiles = source
+    },
     resolveLink(target, fromPath) {
       refreshResolver()
       return resolver.resolve(target, fromPath)
@@ -346,6 +409,19 @@ export function createNavigation(): {
       if (palette.mode === 'command') {
         palette.mode = null
         void registry.get(row.id)?.run()
+        return
+      }
+      if (palette.mode === 'layouts') {
+        palette.mode = null
+        layoutFiles?.use(row.id)
+        return
+      }
+      if (palette.mode === 'templates') {
+        // `meeting Weekly "Ana Bo"`: the first word picked the row, the rest
+        // are its arguments.
+        const args = splitArgs(palette.query).slice(1)
+        palette.mode = null
+        templates?.insert(row.id, args)
         return
       }
       openNote(row.id, row.offset, opts?.background)
@@ -385,6 +461,12 @@ export function defaultCommands(actions: {
   moveNote: () => void
   newFolder: () => void
   addShare: () => void
+  /**
+   * The share sheet for the open note's folder (sharing E4), or for the
+   * shared folder around it; listed only while there is one to share.
+   */
+  shareFolder: () => void
+  canShareFolder: () => boolean
   /** Device linking (N2, A1): opens the device-link dialog. */
   linkDevice: () => void
   /**
@@ -397,6 +479,13 @@ export function defaultCommands(actions: {
   dailyNext: () => void
   hasPrevDaily: () => boolean
   hasNextDaily: () => boolean
+  /**
+   * Open a view tab (the view registry, spike S22 Q5): one palette row per
+   * registered view is generated from `views.ts`, each with its own `when`
+   * (the inspector's is "developer tools are on").
+   */
+  openView: (id: TabView, arg?: string) => void
+  devtools: () => boolean
 }): Command[] {
   // Titles resolve at registration (the locale is loaded before the shell
   // mounts); a locale switch re-registers, the way Edible re-runs its load.
@@ -411,6 +500,7 @@ export function defaultCommands(actions: {
     // Chris's own Obsidian bindings: app:delete-file and file-explorer:move-file.
     { id: 'file.delete', title: t.delete_note(), group: g.file(), keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
     { id: 'file.move', title: t.move_note(), group: g.file(), keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
+    { id: 'share.folder', title: t.share_folder(), group: g.share(), run: actions.shareFolder, when: actions.canShareFolder },
     { id: 'share.add', title: t.add_share(), group: g.share(), run: actions.addShare },
     { id: 'share.link-device', title: t.link_device(), group: g.share(), run: actions.linkDevice },
     // Mod+[ / Mod+] are Chris's own Obsidian bindings for navigation history.
@@ -424,6 +514,7 @@ export function defaultCommands(actions: {
     { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), keys: 'Mod+-', run: actions.dailyPrev, when: actions.hasPrevDaily },
     { id: 'daily.next', title: t.daily_next(), group: g.daily(), keys: 'Mod+=', run: actions.dailyNext, when: actions.hasNextDaily },
     { id: 'app.settings', title: t.settings(), group: g.app(), keys: 'Mod+,', run: actions.settings },
+    ...viewCommands(actions.openView, { devtools: actions.devtools }),
   ]
 }
 

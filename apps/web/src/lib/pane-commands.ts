@@ -13,6 +13,7 @@
  * mode letter and a palette entry only, and R1.3's override map is how it gets
  * a key if one is ever missed.
  */
+import { FORMAT_COMMANDS, type FormatCommandId } from '@ohhi/editor'
 import { getLL } from '@ohhi/i18n'
 import type { Command } from './commands.js'
 import type { Dir, Side } from './panes.js'
@@ -159,6 +160,48 @@ export function groupCommands(a: GroupActions): Command[] {
       run: () => a.move(side),
     })),
   ]
+}
+
+/**
+ * Everything the shell must be able to do for a `format.*` command to exist
+ * (quiet-shell F4). The controller hands the id to the focused pane's view and
+ * never learns what a CodeMirror command is.
+ */
+export interface FormatActions {
+  /** A note tab holds the focus, its view is live, and it is not in Reading. */
+  canFormat(): boolean
+  /** Run `FORMAT_COMMANDS[id]` in the focused pane's view. */
+  format(id: FormatCommandId): void
+}
+
+/**
+ * The `format.*` table, in `FORMAT_COMMANDS`' order — the same table the
+ * toolbar reads (Stage 2), so a palette row, a key and a button are one
+ * command. Keys are the editor's own defaults (Obsidian's `Mod+B`, `Mod+I`,
+ * `Mod+K`); the rest ship unbound and take a key from the hotkeys tab.
+ *
+ * Hidden — and so unbound — outside an editable note: in Reading the key falls
+ * through, and with no note there is nothing to format.
+ */
+export function formatCommands(a: FormatActions): Command[] {
+  const t = getLL().web.commands
+  const group = t.groups.format()
+  const when = (): boolean => a.canFormat()
+  return FORMAT_COMMANDS.map((c) => ({
+    id: c.id,
+    title: t.format[formatKey(c.id)](),
+    group,
+    keys: c.keys,
+    when,
+    run: () => a.format(c.id),
+  }))
+}
+
+type FormatKey = keyof ReturnType<typeof getLL>['web']['commands']['format']
+
+/** `format.ordered-list` → `ordered_list`, the dictionary's spelling. */
+function formatKey(id: FormatCommandId): FormatKey {
+  return id.slice('format.'.length).replace(/-/g, '_') as FormatKey
 }
 
 /**

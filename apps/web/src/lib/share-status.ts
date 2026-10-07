@@ -5,6 +5,7 @@
  * Pure, so the copy the rail shows is provable without a browser.
  */
 import { pillStatus, worstStatus, type PillStatus, type SyncRecordSnapshot } from './pill-status.js'
+import { sameRelay } from '@ohhi/workspace'
 import type { MountUiStatus } from './workspace.svelte.js'
 
 /**
@@ -45,19 +46,8 @@ export function mountTone(
     : 'theirs'
 }
 
-/** Two relay URLs naming the same relay (trailing slash / case of the host). */
-export function sameRelay(a: string, b: string): boolean {
-  const norm = (url: string): string => {
-    const trimmed = url.trim().replace(/\/+$/, '')
-    try {
-      const parsed = new URL(trimmed)
-      return `${parsed.protocol}//${parsed.host}${parsed.pathname.replace(/\/+$/, '')}`.toLowerCase()
-    } catch {
-      return trimmed.toLowerCase()
-    }
-  }
-  return !!a && !!b && norm(a) === norm(b)
-}
+/** Two relay URLs naming the same relay — the ONE copy lives in libs/workspace (`resolve-relay.ts`). */
+export { sameRelay }
 
 /**
  * Is this mount SOMEONE ELSE'S share, rather than a folder of this vault?
@@ -107,76 +97,6 @@ export function quietMountRoots(mounts: MountLike[]): string[] {
 /** Is `path` inside a mount that has no relay yet (so: no pill, ever)? */
 export function inQuietMount(path: string, mounts: MountLike[]): boolean {
   return quietMountRoots(mounts).some((root) => path === root || path.startsWith(`${root}/`))
-}
-
-export type ShareState =
-  | { kind: 'local' }
-  | {
-      kind: 'shared'
-      /**
-       * 'root' = the whole vault is on the relay — since N2 that means
-       * LINKED to your own devices, and the copy says so.
-       */
-      provenance: 'carved' | 'joined' | 'adopted' | 'root'
-      room: string
-      /** The mount root ('' for the root mount). */
-      mountPath: string
-      link: string | null
-      /** The mount's lifecycle state; the root mount is always 'active'. */
-      status: MountUiStatus
-      /** Someone else's share (see isForeignMount); never true for 'root'. */
-      foreign: boolean
-    }
-
-/** The share state of `path` ('' = the vault itself). */
-export function shareStateFor(
-  path: string,
-  mounts: MountLike[],
-  rootLinked: boolean,
-  rootRoom: string,
-  rootLink: string | null = null
-): ShareState {
-  const mount = mounts.find(
-    (m) => m.path !== '' && (path === m.path || path.startsWith(`${m.path}/`))
-  )
-  if (mount && mount.provenance !== 'local') {
-    return {
-      kind: 'shared',
-      provenance: mount.provenance,
-      room: mount.room,
-      mountPath: mount.path,
-      link: mount.link,
-      status: mount.status ?? 'active',
-      foreign: mount.foreign === true,
-    }
-  }
-  if (rootLinked) {
-    return {
-      kind: 'shared',
-      provenance: 'root',
-      room: rootRoom,
-      mountPath: '',
-      link: rootLink,
-      status: 'active',
-      foreign: false,
-    }
-  }
-  return { kind: 'local' }
-}
-
-/** Hostname of a relay URL, for copy like "Shared by you · relay.example.com". */
-export function relayHost(url: string | null | undefined): string | null {
-  if (!url) return null
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
-}
-
-/** Names online in one room (the local user included — they are online there too). */
-export function onlineIn(presenceByRoom: Record<string, string[]>, room: string): string[] {
-  return presenceByRoom[room] ?? []
 }
 
 /**

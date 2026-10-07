@@ -217,6 +217,18 @@ function shareItem(path: string, ctx: { mounts: MountLike[]; rootShared: boolean
 }
 
 /**
+ * The folders *Share a folder…* can offer when no folder is in hand (the
+ * Shared view's door, sharing E2): every directory the tree menu would let
+ * you share — the same `shareItem` rule, so the two never disagree — minus
+ * the mount roots, which are shared already.
+ */
+export function shareableDirs(rows: FileRow[], mounts: MountLike[]): string[] {
+  return dirPaths(rows).filter(
+    (d) => d !== '' && !mounts.some((m) => m.path === d) && !shareItem(d, { mounts, rootShared: false }).disabled
+  )
+}
+
+/**
  * "Add a shared folder here…" (chrome-shaping U3): joining lands a NEW mount
  * inside `dir`, so the same folder-in-folder no-nesting rule as sharing
  * applies — stated, not hidden. A shared (device-linked) root is fine:

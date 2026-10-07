@@ -66,10 +66,40 @@ export interface Waypoint {
   scroll: number
 }
 
+/**
+ * The kinds of tab that show a SHELL SURFACE rather than a note
+ * (devtools-shaping D1-A; the view registry of spike S22 Q5 / sharing R9).
+ * The inspector was the first: it opens as a regular tab so it can be split
+ * beside the editor and watched while a peer edits, with no OS window and no
+ * bridge to another JS context. The list is the pure half of the registry —
+ * what the layout reader and `openView` know; `views.ts` gives each kind its
+ * title, icon, component and command. Adding a view is a row here and a row
+ * there (`log`, `shared` and the harness's `session` register the same way).
+ */
+export const VIEW_KINDS = ['inspector', 'log', 'shared'] as const
+export type TabView = (typeof VIEW_KINDS)[number]
+
+export function isViewKind(value: unknown): value is TabView {
+  return typeof value === 'string' && (VIEW_KINDS as readonly string[]).includes(value)
+}
+
 export interface Tab {
   id: string
-  /** null = an empty tab (a pane must always hold at least one). */
+  /**
+   * null = an empty tab (a pane must always hold at least one) — or a view
+   * tab, which also carries no note. Everything keyed on `path` (the prune,
+   * the open-path refcount, rename-following, the note's word count) ignores
+   * a view tab by construction, which is why a view is not a path.
+   */
   path: string | null
+  /** Set on a view tab; `path` is null alongside it. */
+  view?: TabView
+  /**
+   * Which instance of the view (the harness's session id, say), when the kind
+   * takes one. Dedupe is per pane per (view, viewArg). Optional and tolerant
+   * on read, so no `LAYOUT_VERSION` bump.
+   */
+  viewArg?: string
   pinned: boolean
   /** Resume point, captured when the view goes away (B2). */
   cursor: Cursor | null
@@ -623,11 +653,18 @@ function removePane(l: Layout, p: Pane): Pane | null {
  * is activated instead (R3 — never two tabs of one note in one pane); a new
  * one lands after the active tab, inside its group if the active tab is
  * grouped, and takes focus unless `background`.
+ *
+ * `replace` (the layout's `panes.open: 'replace'`, quiet-shell F3) is the
+ * Typora behaviour: a foreground open NAVIGATES the target pane's active tab
+ * in place — the same move a followed `[[link]]` makes, so the replaced note
+ * stays on that tab's Back trail with its resume point. Never a pinned tab
+ * and never a view tab (both fall back to a new tab), never a background open,
+ * and R3 still wins: a note already open in the pane is activated, not twinned.
  */
 export function openPath(
   l: Layout,
   path: string,
-  opts: { background?: boolean; paneId?: string } = {},
+  opts: { background?: boolean; paneId?: string; replace?: boolean } = {},
   ids: () => string = nextId,
   now = Date.now()
 ): Layout {
@@ -639,6 +676,10 @@ export function openPath(
       return
     }
     const anchor = activeTab(p)
+    if (opts.replace && !opts.background && anchor && !anchor.pinned && !anchor.view) {
+      navigateIn(d, p, anchor, path, now)
+      return
+    }
     const t = insertTab(p, newTab(ids, path), anchor?.id ?? null)
     if (!opts.background) activateIn(d, p, t.id, now)
   })
@@ -654,6 +695,39 @@ export function openPath(
  * R3 holds: a tab for `path` already in that pane is MOVED to the spot rather
  * than twinned — dropping a note that is already open is a rearrangement.
  */
+/**
+ * Open a shell surface as a tab (devtools-shaping D1-A). One per pane per
+ * (view, arg): a second open of the same view — with the same argument —
+ * activates the first. A foreground open fills an empty tab, exactly as
+ * `open` does for a note — an empty tab is a slot waiting for something to show.
+ */
+export function openView(
+  l: Layout,
+  view: TabView,
+  opts: { paneId?: string; arg?: string } = {},
+  ids: () => string = nextId,
+  now = Date.now()
+): Layout {
+  const arg = opts.arg
+  return editLayout(l, (d) => {
+    const p = findPane(d, opts.paneId ?? d.focus) ?? panes(d.tree)[0]
+    const dup = p.tabs.find((t) => t.view === view && t.viewArg === arg)
+    if (dup) {
+      activateIn(d, p, dup.id, now)
+      return
+    }
+    const anchor = activeTab(p)
+    if (anchor && anchor.path === null && !anchor.view) {
+      anchor.view = view
+      if (arg !== undefined) anchor.viewArg = arg
+      activateIn(d, p, anchor.id, now)
+      return
+    }
+    const t = insertTab(p, { ...newTab(ids), view, ...(arg !== undefined ? { viewArg: arg } : {}) }, anchor?.id ?? null)
+    activateIn(d, p, t.id, now)
+  })
+}
+
 export function openPathAt(
   l: Layout,
   path: string,
@@ -1197,17 +1271,22 @@ export function navigateInTab(
       activateIn(d, p, dup.id, now)
       return
     }
-    // Going somewhere new truncates the forward trail, exactly as a browser's
-    // does — and the resume point belongs to the entry being LEFT, so Back
-    // lands on the line the link was followed from.
-    parkResume(t)
-    t.history = [...t.history.slice(0, t.historyAt + 1), { path, cursor: null, scroll: 0 }]
-    t.historyAt = t.history.length - 1
-    t.path = path
-    t.cursor = null
-    t.scroll = 0
-    activateIn(d, p, t.id, now)
+    navigateIn(d, p, t, path, now)
   })
+}
+
+/** Move tab `t` (in pane `p`, inside an edit) to `path`, pushing its trail. */
+function navigateIn(d: Layout, p: Pane, t: Tab, path: string, now: number): void {
+  // Going somewhere new truncates the forward trail, exactly as a browser's
+  // does — and the resume point belongs to the entry being LEFT, so Back
+  // lands on the line the link was followed from.
+  parkResume(t)
+  t.history = [...t.history.slice(0, t.historyAt + 1), { path, cursor: null, scroll: 0 }]
+  t.historyAt = t.history.length - 1
+  t.path = path
+  t.cursor = null
+  t.scroll = 0
+  activateIn(d, p, t.id, now)
 }
 
 /** Stash where the tab is now on the trail entry it is standing on. */
@@ -1444,6 +1523,12 @@ function normalizeTab(raw: unknown, ids: () => string, used: Set<string>): Tab |
   }
   const mode = readMode(r.mode)
   if (mode) t.mode = mode
+  // Any registered view; an unknown kind (a newer build's view) reads as an
+  // empty tab rather than failing the whole layout.
+  if (isViewKind(r.view) && t.path === null) {
+    t.view = r.view
+    if (typeof r.viewArg === 'string') t.viewArg = r.viewArg
+  }
   fixHistoryAt(t)
   return t
 }

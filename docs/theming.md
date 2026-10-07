@@ -14,7 +14,7 @@ Everything hangs off `data-theme` on `<html>`.
 | Band | What | Owner | Cascade |
 |---|---|---|---|
 | **A — Chrome** | DaisyUI v5 semantic tokens: `--color-base-100/200/300`, `--color-base-content`, `primary`/`secondary`/`accent`/`neutral`, `info`/`success`/`warning`/`error` (each with a `-content` pair), `--radius-*`, `--size-*`, `--border`, `--depth`, `--noise` | `@plugin "daisyui/theme"` in `libs/ui/src/styles/tokens/*.css` | DaisyUI's own layers |
-| **B — Editor** | `--ed-*`: surface/ink/measure, h1–h6, emphasis, code + 9 syntax slots, links and wikilinks, tags, frontmatter, block furniture, selection/caret/gutter, peer-cursor chrome, `--ed-presence-1..8`, `--ed-group-1..8` | `libs/ui/src/styles/tokens/` | `@layer editor.tokens`, overridable by `@layer editor.user` |
+| **B — Editor** | `--ed-*`: surface/ink/measure, h1–h6, emphasis, code + 9 syntax slots, links and wikilinks, tags, frontmatter, block furniture, selection/caret/gutter, peer-cursor chrome, `--ed-presence-1..8` and their ink `--ed-presence-fg-1..8`, `--ed-group-1..8`, the pane and tab chrome | `libs/ui/src/styles/tokens/` | `@layer editor.tokens`, overridable by `@layer editor.user` |
 | **C — Honesty** | `--ed-sync-ok` / `-pending` / `-diverged` / `-offline` (+ `-fg`) | `libs/ui/src/styles/sync-tokens.css` | **UNLAYERED** |
 
 **Band C is defended twice, because once is not enough.** Cascade layers only
@@ -25,7 +25,14 @@ picture. So: (1) `sanitizeThemeCss()` strips the sync tokens, pill-targeting
 rules and `!important` before injection; and (2) the dot's **colour and
 geometry are unlayered longhands on the dot's own element** (`.ed-sync-dot`),
 which an ancestor declaration cannot reach and a layered normal rule cannot
-outrank. `apps/web/e2e/v2.spec.ts` attacks it rather than assuming it. That is golden rule 4 ("sync state
+outrank. Since foundations round 2 (2026-10-06) the toolbar's and status
+bar's sync state is an **icon**, not a dot — the `sync` readout — and it is
+defended the same way: `.ed-sync-icon` and the `[data-status] > .ed-sync-icon`
+rules in `sync-tokens.css` are unlayered longhands on the svg itself **and on
+every shape inside it** (a layered `.lucide path { stroke: … }` lands on the
+child, so an inherited stroke would lose), with `fill: none` and literal
+per-theme colours, so no theme can repaint, fill or hide it.
+`apps/web/e2e/v2.spec.ts` attacks it rather than assuming it. That is golden rule 4 ("sync state
 never lies") expressed in the cascade rather than in a code review — and it is
 why offering user themes at all is safe, given a theme file travels with a
 shared vault.
@@ -91,9 +98,84 @@ a non-text graphic and WCAG 1.4.11 is the bar.
 
 Separation from `--ed-sync-ok` / `-pending` / `-offline` is deliberately *not*
 asserted: in the Nord themes the palette's own green and yellow **are** its
-sync ok and pending (as they already are for `--ed-presence-2/4`), and a chip
-that carries the name you gave it, in the tab strip, is not the pill in the
-status bar.
+sync ok and pending, and a chip that carries the name you gave it, in the tab
+strip, is not the pill in the status bar.
+
+## Presence colours (`--ed-presence-1..8`, `--ed-presence-fg-1..8`)
+
+The eight colours a peer is drawn in — their caret, and since sharing E1 the
+initials on tree rows, tab avatars and the people stack. A peer is a **slot
+number** (`presence.ts`), never a hex. Unlike groups, presence sits beside
+the sync pill everywhere, so `theme-contract.test.ts` asserts more:
+
+- no slot is the diverged red, nor within 60 units of it (the long-standing
+  rule);
+- **every slot is more than 30 units from every sync colour** (`ok`,
+  `pending`, `offline`, `diverged`) in its theme — a peer's avatar must never
+  read as a sync state (golden rule 4); this is what retinted editor-light's
+  slot 3 (it *was* the pending amber, `#8a6300` → `#5b55b5`) and the Nord
+  themes' slots 2 and 4 (listed below);
+- each slot has an **ink**, `--ed-presence-fg-N`, the colour initials are
+  drawn in on it, which must clear **4.5:1** (WCAG 1.4.3 — initials are
+  text). The light themes' ink is white; the dark themes' is near-black (`#14181d` in editor-dark, `#0b0e13` in nord-dark). A custom
+  theme that retints a slot must check its ink.
+
+## Panes & tabs (`--ed-pane-*`, `--ed-strip-bg`, `--ed-tab-*`, `--ed-group-cap`)
+
+How the pane chrome **looks** (spike S21, quiet-shell F3). Whether a piece of
+it **exists** — the strip, the per-pane status bar, the focus edge, the
+"Pane 2 · 3 tabs" lead, the split hairline — is the layout spec's
+(`regions.tabs`, `regions.statusbar`, `panes.focusMark`, `panes.lead`,
+`panes.borders`), never a token. Every default is the value the chrome
+painted before the tokens existed, so no built-in theme restates them.
+
+| Token | Default | Read by |
+|---|---|---|
+| `--ed-pane-divider` | `var(--color-base-300)` | the 1 px hairline between two panes (`ResizeHandle`, inline); `panes.borders: "none"` paints it transparent, the separator stays focusable |
+| `--ed-pane-focus` | `var(--color-primary)` | the focused pane's mark: the strip's bottom inset, and the top edge drawn when two or more panes are on screen. **Must clear 3:1 against `--color-base-100`** (`theme-contract.test.ts`, WCAG 1.4.11) |
+| `--ed-pane-focus-width` | `2px` | both focus marks |
+| `--ed-pane-mode` | `var(--color-accent)` | the outline on the focused pane while a pane mode (`Mod+P`) is live |
+| `--ed-group-cap` | `2px` | the group's colour rule over its tabs |
+| `--ed-strip-bg` | `var(--color-base-200)` | the tab strip |
+| `--ed-tab-active-bg` | `var(--ed-surface)` | the selected tab, so it merges with the page under it |
+| `--ed-tab-live` | `var(--color-primary)` | the dot on the selected tab |
+
+Not here, on purpose: the **off-focus sync dot** an unfocused pane shows when
+its note is not in sync (`regions.statusbar: "merged"`, golden rule 4). It is
+the band C `.ed-sync-dot`, unlayered, out of reach of every theme.
+
+## Type (`--ed-font-prose` / `-ui` / `-mono`)
+
+Three roles: note text (CodeMirror and Reading), the chrome, and code. The
+contract defaults are app-wide and **bundled** — **Public Sans** for prose and
+UI (400, 500, 600 and a 400 italic) and **JetBrains Mono** for code (400,
+500), each followed by the system stack — **static** woff2 instances, one file
+per weight (a variable file is the suspected cause of body text rendering
+bold in WebKitGTK, the Linux desktop webview — suspected, not confirmed: the
+bold on Chris's desktop build is still unexplained; `fetch-fonts.mjs` refuses
+a variable file either way), with `font-synthesis: none`
+on `html` so nothing fakes a weight or slant — latin + latin-ext, OFL, 156 KB
+in all, in
+`libs/ui/fonts/`; `libs/ui/src/styles/fonts.css` is generated by
+`cd libs/ui && rushx fonts`, and nothing is fetched at runtime. Under
+`vite dev` the faces are served from `libs/ui/fonts/` through
+`server.fs.allow` in `apps/web/vite.config.ts` (without it each one 403s).
+A theme may redeclare any `--ed-font-*`; one that names another family gets
+the system's copy or the fallback stack. There is **no per-device choice**:
+since round 3 (Q7) Settings has no font pickers and the config no `fonts`.
+
+**Every surface reads these tokens, Tailwind's included.** `base.css` points
+Tailwind's own families at them — `--default-font-family` and `--font-sans`
+at `--ed-font-ui`, `--default-mono-font-family` and `--font-mono` at
+`--ed-font-mono` — because Preflight sets `html` and `code, kbd, samp, pre`
+from those, and left alone they were Tailwind's `ui-sans-serif` /
+`ui-monospace` stacks, which no theme could reach (the file tree's
+font question in round 2). `scripts/check-design-tokens.sh` refuses a raw
+`font-sans` / `font-serif` / `font-mono` utility in `apps/web` and
+`libs/editor` — use `font-ed-ui` / `font-ed-prose` / `font-ed-mono`.
+`chrome.spec.ts` asserts the tree renders in Public Sans in the browser, and
+`fonts.spec.ts` that the build and `vite dev` load every face with no console
+error or failed request; the desktop build is not yet measured.
 
 ## The live-preview tokens (marked `(V2e)` in the contract)
 
@@ -109,7 +191,9 @@ what buys it).
 
 | Token | What reads it |
 |---|---|
-| `--ed-bullet` | the bullet widget that replaces `- ` off the caret's line (X1) |
+| `--ed-bullet` | the bullet widget — a filled dot about 0.4em across, centred on the x-height — that replaces `- ` the moment the space is typed, on the caret's line too; the marker is text only while the selection is on it (X1, amended 2026-10-06) |
+| `--ed-list-indent` | *(not `(V2e)` — read since 2026-10-06)* the width of one list nesting level in Live and Reading: the tab stop on list lines and the bullet's own box, so a child's dot sits under its parent's text. Default `1.6em`. Source keeps the four-column tabs |
+| `--ed-list-guide` | *(not `(V2e)` — read since 2026-10-06)* the 1px depth guide down each nesting level's children, drawn from the syntax tree's depth (a line class, no DOM measurement). Default `var(--ed-hr)` — the rule's hairline; `theme-contract.test.ts` asserts it resolves to `--ed-hr` in every built-in theme |
 | `--ed-checkbox` / `--ed-checkbox-done` | the task checkbox widget, unchecked and checked — 1,941 of them in the real vault (X1) |
 | `--ed-mark-bg` / `--ed-mark-fg` | `==highlight==`, a new inline node (X1) |
 | `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
@@ -120,9 +204,11 @@ what buys it).
 | `--ed-frontmatter-bg` / `--ed-frontmatter-border` | the YAML block's fencing while the caret is inside it (X3) |
 | `--ed-tag-bg-hover` / `--ed-tag-radius` | the tag chip, both in the text and in the collapsed frontmatter strip (X4) |
 
-`--ed-title` is the one exception: it is the filename-as-title line, a
-different thing from `h1`, and Editor has no such line yet. It stays declared,
-defaulted and unread until one exists.
+`--ed-title` is the filename-as-title line, a different thing from `h1`. It
+was declared and unread until round 2 (P3) gave Editor that line: the
+**inline title** (`InlineTitle.svelte`, `editor.inlineTitle` in the layout),
+an `<input>` inside an `<h1>` mounted in the editor's scroller above the note,
+reads it.
 
 ## Theme switching
 
@@ -148,11 +234,16 @@ aesthetics another's problem.
 
 ## Custom themes
 
-Drop a file at `<vault>/.editor/themes/<name>/theme.css` — deliberately the
+Drop a file at `<vault>/.ohhi/themes/<name>/theme.css` — deliberately the
 same shape as `.obsidian/themes/<name>/theme.css` — then name it in Settings.
+(The folder was `.editor/themes/` before the rename; a vault made then needs
+its theme folder moved by hand. On the desktop app, reading `.ohhi/` relies on
+a file-access entry for dot-folders that has not yet been checked on a real
+build — `plans/spike-resource-root.md` F0.)
+
 Start from `libs/ui/src/styles/_template.css`; **the complete, authoritative
 token list with a default for every entry is
-`libs/ui/src/styles/tokens/_contract.css`** (96 tokens, grouped and commented;
+`libs/ui/src/styles/tokens/_contract.css`** (115 tokens, grouped and commented;
 the entries marked `(V2e)` are the live-preview band — see above for what
 reads each one).
 
@@ -251,6 +342,11 @@ Everything else is Nord's own value. These are not port bugs.
 | nord-light | `--ed-ink-muted` | `--text-muted` = dark1 `#3b4252` | `#4c566a` (dark3) | Upstream makes "muted" *darker* than normal text; we step it the other way so the hierarchy reads. |
 | nord-light | `--ed-wikilink` | (Nord has none; dark maps it to `--text-accent`) | `#5e81ac` | On white, the accent orange is the same hue as the unresolved colour; frost separates them. |
 | nord-light | `--ed-presence-8` | `#9c5335` | `#a8327d` | ~55 units from the diverged red — same rule as nord-dark's slot 8. |
+| nord-dark | `--ed-presence-2` | `#a3be8c` (green) | `#e0a3b8` | Nord's green **is** nord-dark's `--ed-sync-ok`: a peer would read as "synced". Presence slots must sit 30+ units from every sync colour. |
+| nord-dark | `--ed-presence-4` | `#ebcb8b` (yellow) | `#d8dee9` | Nord's yellow is its `--ed-sync-pending`. Same rule. |
+| nord-dark | `--ed-presence-fg-1..8` | (none) | `#0b0e13` | Nord-dark's slots are light; dark initials clear 4.5:1 on all eight. |
+| nord-light | `--ed-presence-2` | `#4d7c2f` | `#2f7a5a` | Too near nord-light's sync ok green. Same rule. |
+| nord-light | `--ed-presence-4` | `#8a6300` | `#8f5a2b` | Was nord-light's sync pending amber itself. Same rule. |
 | nord-light | `--ed-selection` | red @ 60% | red @ 30% | 60% red on white drops selected body text to ~3.1:1. |
 | nord-light | `--ed-table-header-bg` | `rgba(light2, .2)` | `#eceff4` | Effectively invisible on white. |
 

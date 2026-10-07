@@ -1,0 +1,14 @@
+{
+  "$schema": "ohhi.keymap.v1",
+  "extends": "default",
+  "bindings": {
+    "daily.prev": "Alt+ArrowLeft",
+    "daily.next": "Alt+ArrowRight",
+    "nav.quick-open": [
+      "Mod+o",
+      "Mod+k"
+    ],
+    "format.link": "Mod+Shift+k",
+    "template.insert": "Mod+Shift+i"
+  }
+}

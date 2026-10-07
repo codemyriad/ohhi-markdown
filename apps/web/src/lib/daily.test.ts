@@ -86,6 +86,6 @@ describe('createDaily', () => {
 
     expect(ws.notices).toHaveLength(1)
     expect(ws.notices[0]?.level).toBe('warn')
-    expect(ws.notices[0]?.text).toContain('W')
+    expect(ws.notices[0]).toMatchObject({ code: 'daily_format', params: { tokens: 'W' } })
   })
 })

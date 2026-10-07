@@ -9,6 +9,7 @@
  * lives here too because every "make a note and show it" — the tree, the
  * command, an unresolved wikilink — lands in the same two lines.
  */
+import { getLL } from '@ohhi/i18n'
 import type { ShareActions } from './share-actions.svelte.js'
 import type { TreeOp } from './tree-model.js'
 import type { Workspace } from './workspace.svelte.js'
@@ -54,6 +55,33 @@ export interface FileActions {
    * Obsidian's default new-note location does in practice.
    */
   createFromLink(target: string): Promise<void>
+  /**
+   * Rename a note in place from its inline title (P3): `newName` is the
+   * basename WITHOUT the extension, which is kept. Same checks and the same
+   * journaled rename as the tree's dialog; a refusal flashes and resolves
+   * `null`, so the title can revert. Resolves the new path (or the old one
+   * when nothing changed).
+   */
+  renameNote(path: string, newName: string): Promise<string | null>
+}
+
+/** Characters no vault file name may hold on any of the platforms a vault syncs to. */
+const ILLEGAL_NAME = /[\\/:*?"<>|\u0000-\u001f]/
+
+/**
+ * Why `name` cannot replace the basename of `from`, or null when it can: an
+ * illegal character or a leading dot (a hidden file the tree would not show),
+ * or another entry in the same folder already called that — compared without
+ * case, because two files that differ only in case are one file on macOS and
+ * Windows. `from` itself never collides (a case-only rename is allowed).
+ */
+export function renameRefusal(ws: Workspace, from: string, name: string): string | null {
+  const t = getLL().web.tree_op
+  if (ILLEGAL_NAME.test(name) || name.startsWith('.') || name !== name.trim()) return t.invalid_name({ name })
+  const parent = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : ''
+  const to = (parent ? `${parent}/${name}` : name).toLowerCase()
+  const taken = ws.ui.files.some((f) => f.path !== from && f.path.toLowerCase() === to)
+  return taken ? t.name_taken({ name }) : null
 }
 
 export function createFileActions(host: FileHost): FileActions {
@@ -147,6 +175,14 @@ export function createFileActions(host: FileHost): FileActions {
       const parent = current.path.includes('/')
         ? current.path.slice(0, current.path.lastIndexOf('/'))
         : ''
+      if (value === current.path.slice(current.path.lastIndexOf('/') + 1)) return
+      // Refused before the vault sees it: a rename onto an existing name
+      // would replace that file on disk.
+      const refusal = renameRefusal(ws, current.path, value)
+      if (refusal) {
+        ws.flash({ level: 'error', text: refusal, path: current.path })
+        return
+      }
       await ws.renamePath(current.path, parent ? `${parent}/${value}` : value)
     } else if (current.type === 'move') {
       const base = current.path.slice(current.path.lastIndexOf('/') + 1)
@@ -154,6 +190,28 @@ export function createFileActions(host: FileHost): FileActions {
     } else if (current.type === 'delete') {
       await ws.deletePath(current.path)
     }
+  }
+
+  async function renameNote(path: string, newName: string): Promise<string | null> {
+    const ws = host.workspace()
+    if (!ws) return null
+    const slash = path.lastIndexOf('/')
+    const base = path.slice(slash + 1)
+    const ext = base.toLowerCase().endsWith('.md') ? base.slice(-3) : ''
+    const name = newName.trim()
+    if (!name) return null
+    const next = `${name}${ext}`
+    if (next === base) return path
+    const refusal = renameRefusal(ws, path, next)
+    if (refusal) {
+      ws.flash({ level: 'error', text: refusal, path })
+      return null
+    }
+    const to = slash >= 0 ? `${path.slice(0, slash)}/${next}` : next
+    await ws.renamePath(path, to)
+    // The vault reports a failure itself (a notice); success is the file
+    // being at its new path.
+    return ws.ui.files.some((f) => f.path === to) ? to : null
   }
 
   return {
@@ -173,5 +231,6 @@ export function createFileActions(host: FileHost): FileActions {
     },
     createNote,
     createFromLink,
+    renameNote,
   }
 }

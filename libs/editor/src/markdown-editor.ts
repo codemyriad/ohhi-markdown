@@ -19,7 +19,9 @@ import type { EngineDoc } from '@ohhi/sync'
 import {
   Frontmatter,
   Highlight,
+  indentListItem,
   livePreview,
+  outdentListItem,
   previewMode,
   Tag,
   toggleTask,
@@ -28,10 +30,35 @@ import {
   wikiLinkExtensions,
 } from '@ohhi/editor-lang'
 import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
+import { editorKeymap, FORMAT_COMMANDS, type EditorKey, type FormatBindings } from './format.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
+import { typewriterCompartment, typewriterExtension } from './typewriter.js'
 
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
 const hostCompartment = new Compartment()
+
+/**
+ * The editor's own keys (`Mod-l` + the format table), reconfigured when the
+ * host's resolved keymap changes (quiet-shell F10) — a rebind or a `[]` in a
+ * keymap file reaches CM6, not only the shell's capture-phase handler.
+ */
+const keysCompartment = new Compartment()
+
+/** Every key the editor binds itself, by the id a host's keymap rebinds it with. */
+const EDITOR_KEYS: readonly EditorKey[] = [
+  { id: 'edit.toggle-checkbox', run: toggleTask, keys: 'Mod+l' },
+  // Only on a list line; anywhere else they return false and Tab is untouched.
+  { id: 'edit.indent-list', run: indentListItem, keys: 'Tab' },
+  { id: 'edit.outdent-list', run: outdentListItem, keys: 'Shift+Tab' },
+  ...FORMAT_COMMANDS,
+]
+
+function editorKeys(bindings: FormatBindings | undefined): Extension {
+  // Above defaultKeymap, and explicitly so: a binding that only wins by
+  // sitting earlier in the array is one refactor away from not winning.
+  // Above defaultKeymap: Mod-i is its selectParentSyntax.
+  return Prec.high(keymap.of(editorKeymap(EDITOR_KEYS, bindings)))
+}
 
 /**
  * The view mode (read-shaping.md B3): Live / Source / Reading are one view
@@ -67,6 +94,16 @@ export interface MarkdownEditorOptions {
    * and yCollab mints a view-lifetime one, as before.
    */
   undoManager?: CollabUndoManager
+  /**
+   * The host's resolved bindings for the `format.*` commands (absent id =
+   * default, `[]` = unbound); `setFormatBindings` changes them in place.
+   */
+  formatBindings?: FormatBindings
+  /**
+   * Keep the caret's line vertically centred while typing (quiet-shell
+   * Decision 5, the layout's `editor.typewriter`); `setTypewriter` toggles it.
+   */
+  typewriter?: boolean
 }
 
 /**
@@ -88,6 +125,10 @@ export interface MarkdownEditorHandle {
   setExtensions(extensions: Extension[]): void
   /** Live / Source / Reading — one dispatch, same document, same scroll. */
   setMode(mode: ViewMode): void
+  /** Typewriter scrolling on or off — one dispatch, no rebuild. */
+  setTypewriter(on: boolean): void
+  /** Re-key the format commands (quiet-shell F10) — one dispatch. */
+  setFormatBindings(bindings: FormatBindings): void
   /**
    * Put the caret at `offset` and scroll it into view — what a search result
    * does on Enter. Clamped to the document, so a stale offset (the note
@@ -116,9 +157,14 @@ export function createMarkdownEditor(
     ...createCollabExtensions(opts.doc, opts.awareness, opts.user, opts.undoManager),
     hostCompartment.of(opts.extensions ?? []),
     modeCompartment.of(modeExtensions(opts.mode ?? 'live')),
-    // Above defaultKeymap, and explicitly so: a binding that only wins by
-    // sitting earlier in the array is one refactor away from not winning.
-    Prec.high(keymap.of([{ key: 'Mod-l', run: toggleTask }])),
+    typewriterCompartment.of(typewriterExtension(opts.typewriter ?? false)),
+    // The format keys (Mod-b/i/k) live here too, so they work in any host
+    // that mounts this editor. In the shell the registry's capture-phase
+    // handler sees the chord first and stops it, so it never fires twice;
+    // these answer when the registry does not (no shell, a pane mode, or a
+    // chord the registry let through). The shell hands its resolved keymap
+    // over, so a cleared binding is cleared here too.
+    keysCompartment.of(editorKeys(opts.formatBindings)),
     keymap.of(defaultKeymap),
     // GFM is the base because the vault is GFM: tables, task lists,
     // strikethrough and bare URLs (3,005 of them) do not parse without it.
@@ -159,6 +205,7 @@ export function createMarkdownEditor(
   // the `mode` prop through an effect that also runs on mount, so without this
   // every view would reconfigure itself once for the mode it already has.
   let current = opts.mode ?? 'live'
+  let typewriter = opts.typewriter ?? false
   return {
     view,
     setDark(dark) {
@@ -168,6 +215,14 @@ export function createMarkdownEditor(
     },
     setExtensions(next) {
       view.dispatch({ effects: hostCompartment.reconfigure(next) })
+    },
+    setFormatBindings(bindings) {
+      view.dispatch({ effects: keysCompartment.reconfigure(editorKeys(bindings)) })
+    },
+    setTypewriter(on) {
+      if (on === typewriter) return
+      typewriter = on
+      view.dispatch({ effects: typewriterCompartment.reconfigure(typewriterExtension(on)) })
     },
     setMode(mode) {
       if (mode === current) return

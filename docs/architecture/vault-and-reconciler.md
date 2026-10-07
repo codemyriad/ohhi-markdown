@@ -1,6 +1,6 @@
 ---
 status: V1 design — update as built
-date: 2026-06-12
+date: 2026-10-04
 ---
 
 # Vault and reconciler — V1 dataflow
@@ -33,7 +33,7 @@ switch, and a single save can produce several events. The adapter layer normaliz
   after a short injected-clock delay; only when two consecutive reads hash identically
   is the content considered settled and handed to the reconciler. This is the defense
   against partial writes from non-atomic external writers.
-- **Ignore list:** `.git/`, `.obsidian/`, `.editor/cache`.
+- **Ignore list:** `libs/vault`'s `IGNORED_DIRS` — `.git/`, `.obsidian/`, `.ohhi/`, `.ohhi-cache/`, `.trash/`, `node_modules/`, plus the pre-rename `.editor/` and `.editor-cache/`.
 
 ## The reconciler: classification matrix
 
@@ -195,9 +195,9 @@ the system (shaping D2a; requirement R1.3):
   the file's current content is snapshotted into the durable store, with bounded
   retention (20 per path). Each entry carries a `seq` — a stable id within the journal,
   because a coarse clock stamps two records of one path identically. Recovery from a
-  reconciler bug must not depend on a git commit having happened. The `editor restore
-  <file> <t>` CLI in `slices.md` is still unbuilt; the shipped affordance is the History
-  rail section.
+  reconciler bug must not depend on a git commit having happened. The shipped
+  affordances are the dock's History tab (floating, or the rail column when
+  pinned) and, from a terminal, `ohhi restore`.
 
   The journal is keyed by **path**, so every rename carries it: `renameFile`,
   `renameDir` (prefix-wise, one call for the whole subtree) and the remote-rename
@@ -215,7 +215,7 @@ the system (shaping D2a; requirement R1.3):
   that actually asks. Two older name layouts (`<seq>.<at>-…`, and pre-S10 `<seq>-…`
   dated from a surviving `index.json`) still read; only those cost a read to size.
 
-  **Restoring one** (`VaultSession.restoreFile`, surfaced as the History rail section in
+  **Restoring one** (`VaultSession.restoreFile`, surfaced as the History section in
   W3 and reachable from `MountSession.fileHistory` / `restorePreImage`) does *not* write
   the bytes back: it **flushes the live doc first**, then decodes the pre-image to text,
   applies it to the CRDT as a minimal diff and materializes, exactly as a divergence

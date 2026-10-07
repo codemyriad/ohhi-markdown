@@ -123,6 +123,13 @@ export interface ConnectDocOptions {
   record: SyncRecordFields
   /** Auth rejection is permanent — surface it instead of retrying silently. */
   onAuthFailed?: (reason: string) => void
+  /**
+   * The socket's status transitions as the provider reports them
+   * (`connecting` / `connected` / `disconnected`), AFTER the record is
+   * updated. The room's relay edge for the event log (sharing E3); must not
+   * throw.
+   */
+  onStatus?: (status: string) => void
   /** Non-browser hosts (headless peer, tests) pass their WebSocket impl. */
   webSocketPolyfill?: unknown
   /**
@@ -154,6 +161,7 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
       // synced is only re-emitted by the provider on the next handshake;
       // degrade immediately so the pill never shows a stale green.
       if (status !== 'connected') opts.record.synced = false
+      opts.onStatus?.(status)
     },
     onSynced: () => {
       opts.record.synced = true

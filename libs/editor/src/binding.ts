@@ -12,6 +12,7 @@ import { keymap } from '@codemirror/view'
 import type { EngineDoc } from '@ohhi/sync'
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next'
 import { Awareness } from 'y-protocols/awareness'
+import { peerLabelInk } from './peer-label.js'
 import * as Y from 'yjs'
 
 export interface CollabUser {
@@ -69,5 +70,6 @@ export function createCollabExtensions(
   // Omitted entirely rather than passed as undefined: yCollab's own
   // destructuring default is what mints the per-view manager.
   const collab = undoManager ? yCollab(ytext, aw, { undoManager }) : yCollab(ytext, aw)
-  return [collab, keymap.of(yUndoManagerKeymap)]
+  // The label's ink by its fill's luminance, not one token (peer-label.ts).
+  return [collab, keymap.of(yUndoManagerKeymap), peerLabelInk()]
 }

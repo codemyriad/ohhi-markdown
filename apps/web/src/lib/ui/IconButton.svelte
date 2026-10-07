@@ -20,6 +20,13 @@
     /** Toggle buttons: rendered as `aria-pressed`. */
     pressed?: boolean
     testid?: string
+    /** Classes for the glyph itself (the sync icon's unlayered `ed-sync-icon`). */
+    iconClass?: string
+    /**
+     * False when the control carries a richer hover surface of its own (the
+     * sync icon's popover): no tooltip, the `aria-label` alone names it.
+     */
+    tooltip?: boolean
   }
 
   let {
@@ -30,6 +37,8 @@
     size = 'sm',
     pressed,
     testid,
+    iconClass,
+    tooltip = true,
     class: klass = '',
     ...rest
   }: Props = $props()
@@ -44,8 +53,12 @@
 
 {#if showLabel}
   <button type="button" aria-pressed={pressed} data-testid={testid} class={cls} {...rest}>
-    <Icon size={px} strokeWidth={1.75} aria-hidden="true" />
+    <Icon size={px} strokeWidth={1.75} aria-hidden="true" class={iconClass} />
     <span class="text-xs">{label}</span>
+  </button>
+{:else if !tooltip}
+  <button type="button" aria-label={label} aria-pressed={pressed} data-testid={testid} class={cls} {...rest}>
+    <Icon size={px} strokeWidth={1.75} aria-hidden="true" class={iconClass} />
   </button>
 {:else}
   <Tooltip text={label} {placement}>
@@ -59,7 +72,7 @@
         class={cls}
         {...rest}
       >
-        <Icon size={px} strokeWidth={1.75} aria-hidden="true" />
+        <Icon size={px} strokeWidth={1.75} aria-hidden="true" class={iconClass} />
       </button>
     {/snippet}
   </Tooltip>

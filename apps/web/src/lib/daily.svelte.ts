@@ -10,7 +10,6 @@
  * can drive it with a fake vault and a pinned clock (golden rule 5) and never
  * mounts a component.
  */
-import { getLL } from '@ohhi/i18n'
 import type { FileRow } from '@ohhi/workspace'
 import {
   DAILY_DEFAULTS,
@@ -82,10 +81,8 @@ export function createDaily(host: DailyHost): DailyShell {
       if (unsupported.length > 0) {
         ws.notify({
           level: 'warn',
-          text: getLL().web.daily.unsupported_format({
-            format: cfg.format,
-            tokens: unsupported.join(', '),
-          }),
+          code: 'daily_format',
+          params: { format: cfg.format, tokens: unsupported.join(', ') },
         })
       }
     })

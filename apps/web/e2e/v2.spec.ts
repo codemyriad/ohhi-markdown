@@ -4,7 +4,7 @@
  * uses, so it needs no real folder and no share.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { openApp } from './fixtures.js'
+import { appUrl, openApp, openByQuickOpen, severableRelay, splitRight } from './fixtures.js'
 
 async function type(page: Page, text: string): Promise<void> {
   const content = page.locator('[data-testid="editor-pane"] .cm-content')
@@ -119,43 +119,101 @@ test('the theme drives chrome and editor together, and survives a reload', async
   expect(await surfaceOf()).toBe('rgb(46, 52, 64)')
 })
 
-test('a theme cannot repaint or hide the sync pill', async ({ page }) => {
+test('a theme cannot repaint or hide the sync icon', async ({ page }) => {
   await openApp(page, 'v2-honesty')
-  const pillColor = () =>
+  // foundations-plan P5: the one sync readout is the Shared view's glyph,
+  // its STROKE the state — on the svg and on every shape inside it.
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  const icon = page.getByTestId('sync-pill-note')
+  await expect(icon).toHaveAttribute('data-status', /.+/)
+  const paint = () =>
     page.evaluate(() => {
-      const dot = document.querySelector('[data-testid="sync-pill-global"] .ed-sync-dot')
-      return dot ? getComputedStyle(dot).backgroundColor : ''
+      const svg = document.querySelector('[data-testid="sync-pill-note"] > .ed-sync-icon')
+      if (!svg) return null
+      const shape = svg.querySelector('path, circle')!
+      const s = getComputedStyle(svg)
+      const p = getComputedStyle(shape)
+      return {
+        stroke: s.stroke,
+        shape: p.stroke,
+        fill: p.fill,
+        shown: s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && p.display !== 'none',
+      }
     })
-  const pillVisible = () =>
-    page.evaluate(() => {
-      const dot = document.querySelector('[data-testid="sync-pill-global"] .ed-sync-dot')
-      return dot ? getComputedStyle(dot).display !== 'none' : false
-    })
-  const before = await pillColor()
-  expect(before).not.toBe('')
+  const before = await paint()
+  expect(before).not.toBeNull()
+  expect(before!.shown).toBe(true)
+  // The glyph and its shapes say the same thing.
+  expect(before!.shape).toBe(before!.stroke)
 
   // Attack 1: the tokens, on :root and [data-theme]. Layer priority handles it.
   // Attack 2: the tokens on BODY — custom properties INHERIT, and cascade
   // layers only settle same-element conflicts, so nothing above would apply.
-  // Attack 3: the dot's own class, and hiding the pill outright.
+  // Attack 3: the glyph's own class, the lucide classes every icon carries,
+  // and the shapes inside it — a stroke set on a CHILD beats an inherited one.
   await page.evaluate(() => {
     const style = document.createElement('style')
     style.textContent = `@layer editor.user {
       :root, [data-theme] { --ed-sync-ok:#f0f; --ed-sync-pending:#f0f; --ed-sync-diverged:#f0f; --ed-sync-offline:#f0f; }
       body, * { --ed-sync-ok:#f0f; --ed-sync-pending:#f0f; --ed-sync-diverged:#f0f; --ed-sync-offline:#f0f; }
-      .ed-sync-dot { background-color:#f0f; }
-      [data-testid="sync-pill-global"] .ed-sync-dot { display:none; }
+      .ed-sync-icon, .lucide, svg { stroke:#f0f; fill:#f0f; opacity:0; visibility:hidden; }
+      .lucide path, .lucide circle, svg * { stroke:#f0f; fill:#f0f; display:none; }
+      [data-testid="sync-pill-note"] svg { display:none; }
     }`
     document.head.append(style)
   })
-  expect(await pillColor()).toBe(before)
-  expect(await pillColor()).not.toBe('rgb(255, 0, 255)')
-  expect(await pillVisible()).toBe(true)
+  const after = await paint()
+  expect(after).toEqual(before)
+  expect(after!.stroke).not.toBe('rgb(255, 0, 255)')
+  expect(after!.fill).toBe('none')
   // `!important` is deliberately NOT attempted here: for important
   // declarations layer order reverses, so a layered important rule outranks
   // every unlayered one and no CSS-only defence exists. That case is handled
   // one step earlier — sanitizeThemeCss strips `!important`, the sync tokens
   // and any pill-targeting rule before injection (apps/web/src/lib/theme.test.ts).
+})
+
+test('a theme cannot hide the DEFAULT layout’s toolbar pill or an off-focus pane dot', async ({ page }) => {
+  // The relay severed from the start: nothing goes green, so the unfocused
+  // pane of a split carries its own dot (quiet-shell F6).
+  await severableRelay(page, { severed: true })
+  await page.goto(appUrl({ room: 'v2-honesty-default', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+  await splitRight(page)
+  // The default toolbar carries `note.pill` (no `vault.pill`: that host's
+  // testid is covered by the sanitizer's unit test, theme.test.ts).
+  const surfaces = ['sync-pill-note']
+  for (const id of surfaces) await expect(page.getByTestId(id)).toBeVisible()
+  const dot = page.locator('[data-testid^="pane-sync-dot:"]')
+  await expect(dot).toHaveCount(1)
+  await expect(dot).toBeVisible()
+  const colours = () =>
+    page.evaluate(() =>
+      [
+        ...[...document.querySelectorAll('[data-status] > .ed-sync-dot')].map((d) => getComputedStyle(d).backgroundColor),
+        ...[...document.querySelectorAll('[data-status] > .ed-sync-icon')].map((d) => getComputedStyle(d).stroke),
+      ]
+    )
+  const before = await colours()
+
+  // Injected straight into the user layer — past the sanitizer — so this is
+  // the CASCADE defence alone: hide each pill's own element, recolour and
+  // hide every dot by class and by status.
+  await page.evaluate(() => {
+    const style = document.createElement('style')
+    style.textContent = `@layer editor.user {
+      [data-testid="toolbar-vault-pill"], [data-testid="sync-pill-note"], [data-testid^="pane-sync-dot"] { display:none; }
+      [data-status] { display:none; }
+      [data-status] > .ed-sync-dot, .ed-sync-dot { display:none; background-color:#f0f; }
+      [data-status] > .ed-sync-icon, .ed-sync-icon, .ed-sync-icon * { display:none; stroke:#f0f; }
+    }`
+    document.head.append(style)
+  })
+  for (const id of surfaces) await expect(page.getByTestId(id)).toBeVisible()
+  await expect(dot).toBeVisible()
+  expect(await colours()).toEqual(before)
+  expect(before).not.toContain('rgb(255, 0, 255)')
 })
 
 test('search Enter lands the caret on the matching line, not the top', async ({ page }) => {

@@ -79,6 +79,31 @@ describe('sanitizeThemeCss', () => {
     expect(out).not.toContain('display:none')
   })
 
+  it('strips rules aimed at EVERY pill and dot surface, not just the global pill', () => {
+    const attacks = [
+      '[data-testid="toolbar-vault-pill"]{display:none}',
+      '[data-testid^="pane-sync-dot"]{display:none}',
+      '[data-testid^="shared-room-pill:"]{visibility:hidden}',
+      '[data-status]{opacity:0}',
+      '[data-status="green"] > span{background:#f00}',
+      'button:has(> .x){display:none}',
+      '.toolbar [data-testid*="ill"]{display:none}',
+      '@media (min-width:1px){[data-testid="sync-pill-note"]{display:none}}',
+      // The sync ICON (foundations-plan P5): its glyph and the shapes in it.
+      '.ed-sync-icon{stroke:#f00}',
+      'svg.ed-sync-icon path{display:none}',
+      '[data-testid="sync-readout"] svg{opacity:0}',
+    ]
+    for (const css of attacks) {
+      const out = sanitizeThemeCss(css)
+      expect(out, css).not.toMatch(/display:none|visibility:hidden|opacity:0|#f00/)
+    }
+    // …while a neighbouring ordinary rule survives.
+    expect(sanitizeThemeCss('[data-testid="toolbar-vault-pill"]{display:none}.cm-content{color:#123}')).toBe(
+      '.cm-content{color:#123}'
+    )
+  })
+
   it('strips !important, which would otherwise outrank every unlayered rule', () => {
     // Counter-intuitive but decisive: for IMPORTANT declarations, layer order
     // reverses and unlayered has the LOWEST priority. A layered

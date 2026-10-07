@@ -112,7 +112,7 @@ export function initTheme(): void {
 }
 
 /** Where a custom theme lives in the vault. Mirrors `.obsidian/themes/`. */
-export const themePath = (name: string): string => `.editor/themes/${name}/theme.css`
+export const themePath = (name: string): string => `.ohhi/themes/${name}/theme.css`
 
 /**
  * Load and apply a vault-resident theme. Returns an error message on failure
@@ -191,9 +191,15 @@ export function sanitizeThemeCss(css: string): string {
       // and the image-producing functions that take a bare string URL.
       .replace(/[^;{}]*:[^;{}]*\b(?:-webkit-)?(?:image-set|cross-fade)\s*\([^;{}]*;?/gi, '')
       .replace(/url\(\s*(['"]?)(?!data:)[^)]*\1\s*\)/gi, 'none')
-      // The honesty tokens, and any rule aimed at the pill itself.
+      // The honesty tokens, and any rule aimed at a pill or a dot. Every sync
+      // surface carries `data-status` and a testid naming it (`sync-pill-*`,
+      // `toolbar-vault-pill`, `pane-sync-dot:*`, `shared-room-pill:*`, …), so
+      // a selector that mentions a testid, `data-status`, a pill or sync at
+      // all is dropped — as is `:has(`, which reaches a pill's host through
+      // its children. A theme styles content and chrome by class and token;
+      // it has no business with test hooks.
       .replace(/--ed-sync-[a-z-]*\s*:[^;}]*;?/gi, '')
-      .replace(/[^{}]*(?:ed-sync-dot|sync-pill)[^{}]*\{[^}]*\}/gi, '')
+      .replace(/[^{}]*(?:data-testid|data-status|pill|sync|:has\()[^{}]*\{[^}]*\}/gi, '')
       // `!important` REVERSES layer order: an important declaration in
       // @layer editor.user outranks every unlayered rule we write, so no
       // CSS-only defence survives it. A theme has no legitimate need for it

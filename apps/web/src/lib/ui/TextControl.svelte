@@ -44,7 +44,7 @@
   const cls = $derived(
     `mt-1 w-full rounded border px-3 py-2 text-sm focus:outline-none ${
       field.errors.length > 0 ? 'border-error focus:border-error' : 'border-base-300 focus:border-primary'
-    } ${mono ? 'font-mono' : ''} ${klass}`
+    } ${mono ? 'font-ed-mono' : ''} ${klass}`
   )
 </script>
 

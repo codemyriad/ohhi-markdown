@@ -20,4 +20,14 @@ export {
   type ReadLabels,
   type ViewMode,
 } from './read-host.js'
-export { activeLines, livePreview, tagCompletions, toggleTask } from './preview/index.js'
+export {
+  activeLines,
+  indentListItem,
+  listLinesIn,
+  listMarkerBefore,
+  outdentListItem,
+  livePreview,
+  selectListMarker,
+  tagCompletions,
+  toggleTask,
+} from './preview/index.js'

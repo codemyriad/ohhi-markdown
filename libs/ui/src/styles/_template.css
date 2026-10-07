@@ -1,7 +1,7 @@
 /*
  * Editor custom theme — copy me.
  *
- * Save as <vault>/.editor/themes/<name>/theme.css. The folder name is the
+ * Save as <vault>/.ohhi/themes/<name>/theme.css. The folder name is the
  * theme name and becomes the [data-theme] value, so keep them in sync.
  *
  * Editor injects this file into @layer editor.user, which sits ABOVE our own

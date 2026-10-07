@@ -93,6 +93,30 @@ describe('what the rest of the app reads off the tree (B3, S9-Q1)', () => {
   })
 })
 
+describe("panes.open: 'replace' (quiet-shell F3)", () => {
+  it('navigates the focused tab in place and keeps the live caret on its Back trail', () => {
+    boot()
+    openAll(['a.md'])
+    const before = pane().tabs.length
+    // The live view reports where it is only when asked (B2).
+    panes.registerCapture(pane().id, () => ({ cursor: { anchor: 5, head: 5 }, scroll: 12 }))
+    panes.open('b.md', { replace: true })
+    harness.flush()
+    expect(pane().tabs).toHaveLength(before)
+    const held = activeTab(pane())!
+    expect(held.path).toBe('b.md')
+    expect(held.history.map((h) => h.path)).toEqual(['a.md', 'b.md'])
+    expect(held.history[0]).toMatchObject({ cursor: { anchor: 5, head: 5 }, scroll: 12 })
+    panes.registerCapture(pane().id, null)
+
+    // Mod+click is still a tab beside it.
+    panes.open('c.md', { replace: true, background: true })
+    harness.flush()
+    expect(pathsIn()).toContain('c.md')
+    expect(activeTab(pane())?.path).toBe('b.md')
+  })
+})
+
 describe('view modes (read-shaping B3, Fork 2-A)', () => {
   const activeTabOf = (i = 0) => activeTab(pane(i))
 
@@ -152,7 +176,7 @@ describe('view modes (read-shaping B3, Fork 2-A)', () => {
     boot()
     openAll(['a.md'])
     let toggled = 0
-    panes.registerEditor(panes.layout.focus, { toggleTask: () => (toggled++, true) })
+    panes.registerEditor(panes.layout.focus, { toggleTask: () => (toggled++, true), format: () => true })
     run('edit.toggle-checkbox')
     expect(toggled).toBe(1)
 
@@ -160,6 +184,35 @@ describe('view modes (read-shaping B3, Fork 2-A)', () => {
     panes.registerEditor(panes.layout.focus, null)
     run('edit.toggle-checkbox')
     expect(toggled).toBe(1)
+  })
+
+  it('format.* reaches the FOCUSED pane\'s view, and hides in Reading or without a view', () => {
+    registry.register(...panes.formatCommands())
+    const shown = (): boolean => registry.available().some((c) => c.id === 'format.bold')
+    boot()
+    openAll(['a.md'])
+    // No live view registered yet: nothing to format.
+    expect(shown()).toBe(false)
+
+    const ran: string[] = []
+    panes.registerEditor(panes.layout.focus, {
+      toggleTask: () => true,
+      format: (id) => (ran.push(id), true),
+    })
+    expect(shown()).toBe(true)
+    run('format.bold')
+    run('format.heading-2')
+    expect(ran).toEqual(['format.bold', 'format.heading-2'])
+
+    run('view.mode-reading')
+    harness.flush()
+    expect(shown()).toBe(false)
+    run('view.mode-live')
+    harness.flush()
+    expect(shown()).toBe(true)
+
+    panes.registerEditor(panes.layout.focus, null)
+    expect(shown()).toBe(false)
   })
 
   it('the checkbox command is hidden in Reading, where commands do not run', () => {
@@ -361,7 +414,7 @@ describe('the hint bar only advertises keys that do something (Minor 2)', () => 
     const groups = createGroupUi(panes, {
       ambiguousName: () => false,
       outgoingPaths: async () => [],
-      notify: () => {},
+      flash: () => {},
       write: async () => {},
     })
     registry.register(...(groups.commands() as Command[]))
@@ -600,6 +653,21 @@ describe('keyboardClaimed', () => {
     const popover = document.createElement('div')
     popover.setAttribute('data-melt-popover-content', '')
     document.body.append(popover)
+    expect(keyboardClaimed(document)).toBe(true)
+  })
+
+  it('a field a pane draws itself (the empty tab’s picker) leaves the tab keys to the panes; one outside them claims', () => {
+    const pane = document.createElement('section')
+    pane.setAttribute('data-pane-id', 'p1')
+    const picker = document.createElement('input')
+    pane.append(picker)
+    const outside = document.createElement('input')
+    document.body.append(pane, outside)
+    picker.focus()
+    // Closing the lone tab lands in its empty tab's picker: Mod+Shift+T from
+    // there must reopen what was closed, not be swallowed.
+    expect(keyboardClaimed(document)).toBe(false)
+    outside.focus()
     expect(keyboardClaimed(document)).toBe(true)
   })
 })

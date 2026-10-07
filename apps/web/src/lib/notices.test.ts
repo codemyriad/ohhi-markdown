@@ -1,39 +1,70 @@
+import { getLL } from '@ohhi/i18n'
+import { EventLog, type AppEvent, type EventInput } from '@ohhi/workspace'
 import { describe, expect, it } from 'vitest'
-import { NOTICE_LIMIT, appendNotice, formatTime, unreadCount, type Notice } from './notices.js'
+import { describeEvent, NOTICE_TEXT, toastsWhenLogged } from './event-text.js'
+import { FLASH_LIMIT, appendFlash, type Flash } from './notices.js'
 
-describe('notice log', () => {
-  it('prepends, ids uniquely, and caps the list', () => {
-    let list: Notice[] = []
-    list = appendNotice(list, { level: 'error', text: 'a' }, 1)
-    list = appendNotice(list, { level: 'warn', text: 'b', path: 'notes/x.md' }, 2)
-    expect(list.map((n) => n.text)).toEqual(['b', 'a'])
-    expect(new Set(list.map((n) => n.id)).size).toBe(2)
-    for (let i = 0; i < NOTICE_LIMIT + 5; i++) list = appendNotice(list, { level: 'info', text: `i${i}` }, 10 + i)
-    expect(list).toHaveLength(NOTICE_LIMIT)
-    expect(list[0].text).toBe(`i${NOTICE_LIMIT + 4}`)
+const clock = { now: () => 1_000, schedule: () => () => {} }
+const one = (input: EventInput): AppEvent => new EventLog({ clock }).append(input)
+
+describe('flashes (gesture feedback, spike S22)', () => {
+  it('prepend with fresh ids, never fold a repeat, and cap the queue', () => {
+    let list: Flash[] = []
+    list = appendFlash(list, { level: 'warn', text: 'Not moved' })
+    list = appendFlash(list, { level: 'warn', text: 'Not moved' })
+    expect(list).toHaveLength(2)
+    expect(new Set(list.map((f) => f.id)).size).toBe(2)
+    for (let i = 0; i < FLASH_LIMIT + 3; i++) list = appendFlash(list, { level: 'info', text: `i${i}` })
+    expect(list).toHaveLength(FLASH_LIMIT)
+    expect(list[0]?.text).toBe(`i${FLASH_LIMIT + 2}`)
+  })
+})
+
+describe('describeEvent: the words come from the code, at render time', () => {
+  const LL = getLL()
+
+  it('keeps every notice string the shell used to bake in, verbatim', () => {
+    const notice = (code: keyof typeof NOTICE_TEXT, params?: Record<string, string | number>): string =>
+      describeEvent(one({ kind: 'notice', level: 'warn', payload: { code, ...(params ? { params } : {}) } }), LL)
+    expect(notice('no_token', { path: 'team' })).toBe(LL.web.workspace.no_token({ path: 'team' }))
+    expect(notice('too_many_grants', { count: 9 })).toBe(LL.web.device_link.too_many_grants({ count: 9 }))
+    expect(notice('storage_evictable')).toBe(LL.web.storage.notice())
+    expect(notice('daily_format', { format: 'YYYY W', tokens: 'W' })).toBe(
+      LL.web.daily.unsupported_format({ format: 'YYYY W', tokens: 'W' })
+    )
+    for (const code of ['mount_error', 'adopt_failed', 'unshare_failed', 'unmount_failed', 'move_failed'] as const) {
+      expect(notice(code, { message: 'relay down' })).toBe('relay down')
+    }
+    expect(notice('add_link_failed', { link_error: 'malformed' })).toBe(LL.web.share.link_error.malformed())
+    expect(notice('add_link_failed', { message: 'boom' })).toBe('boom')
   })
 
-  it('collapses an immediate repeat into a fresher copy instead of stacking it', () => {
-    let list = appendNotice([], { level: 'error', text: 'relay rejected this token' }, 1)
-    list = appendNotice(list, { level: 'error', text: 'relay rejected this token' }, 5)
-    expect(list).toHaveLength(1)
-    expect(list[0].at).toBe(5)
-    list = appendNotice(list, { level: 'error', text: 'something else' }, 6)
-    list = appendNotice(list, { level: 'error', text: 'relay rejected this token' }, 7)
-    expect(list.map((n) => n.text)).toEqual(['relay rejected this token', 'something else', 'relay rejected this token'])
+  it('words the adopt outcomes, including the four that used to be dropped', () => {
+    const mount = (what: AppEvent<'mount.changed'>['payload']['what']): string =>
+      describeEvent(one({ kind: 'mount.changed', level: 'info', scope: { path: 'team' }, payload: { what } }), LL)
+    expect(mount('needs-token')).toBe(LL.web.workspace.no_token({ path: 'team' }))
+    expect(mount('depth-limit')).toBe(LL.web.mounts.reason.depth_limit({ path: 'team' }))
+    expect(mount('mount-moved')).toBe(LL.web.mounts.reason.mount_moved({ path: 'team' }))
+    expect(mount('room-repointed')).toBe(LL.web.mounts.reason.room_repointed({ path: 'team' }))
+    for (const what of ['adopted', 'absorbed', 'adopt-cancelled', 'ghosts-held'] as const) {
+      expect(mount(what)).toContain("'team'")
+    }
   })
 
-  it('counts what arrived since the log was last seen', () => {
-    let list = appendNotice([], { level: 'info', text: 'old' }, 100)
-    list = appendNotice(list, { level: 'info', text: 'new' }, 200)
-    list = appendNotice(list, { level: 'info', text: 'newer' }, 300)
-    expect(unreadCount(list, 150)).toBe(2)
-    expect(unreadCount(list, 300)).toBe(0)
-    expect(unreadCount(list, 0)).toBe(3)
+  it('words a relay refusal through i18n, in terms of links — never tokens or CLI words', () => {
+    const e = one({ kind: 'relay.state', level: 'error', actor: { kind: 'relay' }, payload: { to: 'refused', reason: 'permission-denied' } })
+    expect(describeEvent(e, LL)).toContain('The relay refused the link for this folder (permission-denied)')
+    expect(describeEvent(e, LL)).not.toMatch(/token|SEED_SHARE|CLI/)
   })
 
-  it('formats a clock time', () => {
-    const at = new Date(2026, 8, 10, 9, 5, 7).getTime()
-    expect(formatTime(at)).toBe('09:05:07')
+  it('falls back for a code this build does not know', () => {
+    const e = one({ kind: 'notice', level: 'warn', payload: { code: 'from_the_future' } })
+    expect(describeEvent(e, LL)).toContain('from_the_future')
+  })
+
+  it('toasts errors and warnings once logged, never info, never a self-shown code', () => {
+    expect(toastsWhenLogged(one({ kind: 'notice', level: 'warn', payload: { code: 'no_token' } }))).toBe(true)
+    expect(toastsWhenLogged(one({ kind: 'mount.changed', level: 'info', payload: { what: 'adopted' } }))).toBe(false)
+    expect(toastsWhenLogged(one({ kind: 'notice', level: 'error', payload: { code: 'add_link_failed' } }))).toBe(false)
   })
 })

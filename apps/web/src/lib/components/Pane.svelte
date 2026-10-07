@@ -15,19 +15,24 @@
    * (the facade owns it), not to the view.
    */
   import MarkdownEditor from '@ohhi/editor/src/MarkdownEditor.svelte'
-  import type { MarkdownEditorHandle } from '@ohhi/editor'
+  import { runFormat, type MarkdownEditorHandle } from '@ohhi/editor'
   import { readHost, toggleTask, wikiLinkHost, type WikiLinkHost } from '@ohhi/editor-lang'
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { untrack, type Snippet } from 'svelte'
-  import { activeTab, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
+  import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
+  import { activeTab, panes as panesOf, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
+  import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
+  import { pillTitle } from '../pill-status.js'
   import { openExternal, readLabels } from '../read.svelte.js'
-  import { pillStatus } from '../sync-record.svelte.js'
+  import { noteStatus } from '../readout-state.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
+  import { getViewShell, viewDef } from '../views.js'
+  import InlineTitle from './InlineTitle.svelte'
   import StatusBar from './StatusBar.svelte'
+  import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
 
   interface Props {
@@ -36,8 +41,10 @@
     panes: PaneShell
     workspace: Workspace
     dark: boolean
-    /** The note's word count, re-read when the note's text changes. */
-    wordsOf: (path: string) => number
+    /** The layout's `editor.typewriter`: keep the caret line centred while typing. */
+    typewriter?: boolean
+    /** The layout's `editor.inlineTitle` (P3): the note's name as an editable heading above its text. */
+    inlineTitle?: boolean
     search: (query: string) => Promise<PickerRow[]>
     /** The empty tab's launcher: its *Recent* list and its two verbs (P5). */
     recent: () => string[]
@@ -56,6 +63,8 @@
     groupChip?: Snippet<[Group, Pane]>
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
     moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
+    /** Which chrome the layout gives this pane (spike S21); absent → today's. */
+    chrome?: PaneChrome
   }
 
   let {
@@ -64,7 +73,6 @@
     panes,
     workspace,
     dark,
-    wordsOf,
     search,
     recent,
     newNote,
@@ -79,6 +87,9 @@
     groupChip,
     tabMenuGroupItems,
     moreMenuItems,
+    chrome = DENSE_CHROME,
+    typewriter = false,
+    inlineTitle = true,
   }: Props = $props()
 
   const uid = $props.id()
@@ -88,7 +99,6 @@
   const doc = $derived(path ? workspace.docForPath(path) : null)
   const awareness = $derived(path ? workspace.awarenessForPath(path) : null)
   const undoManager = $derived(path ? workspace.undoManagerFor(path) : null)
-  const zoomed = $derived(panes.layout.zoom === pane.id)
   /** This tab's view mode, or the Settings default when it has none (B3). */
   const mode = $derived<ViewMode>(panes.modeOf(tab))
 
@@ -137,23 +147,16 @@
   // host compartment, never re-created, so the Y.Text binding survives.
   const extensions = [wikiLinkHost.of(linkHost), readHost.of(noteHost)]
 
-  const status = $derived.by(() => {
-    if (!path) return null
-    const guid = workspace.ui.files.find((f) => f.path === path)?.guid
-    const record = guid ? workspace.ui.records[guid] : undefined
-    return record ? pillStatus(record) : null
-  })
+  const status = $derived(noteStatus(workspace.ui.files, workspace.ui.records, path))
 
-  const wordCount = $derived(path ? wordsOf(path) : 0)
-
-  // The separator and the clause order are the dictionary's, not this
-  // component's: a locale that wants "11 tabs, Pane 2" has to be able to say so.
-  const lead = $derived(
-    $LL.web.panes.lead({
-      pane: $LL.web.panes.label({ n: index }),
-      tabs: $LL.web.panes.tab_count({ count: pane.tabs.length }),
-    })
-  )
+  // ---- the chrome the layout gives this pane (spike S21) ----
+  /** No strip for a lone tab under `tabs: 'auto'` — and then no tablist ARIA either. */
+  const strip = $derived(showsStrip(chrome, pane))
+  /** Zoom mounts one pane, so one is on screen whatever the tree holds. */
+  const onScreen = $derived(panes.layout.zoom ? 1 : panesOf(panes.layout.tree).length)
+  const edge = $derived(showsFocusEdge(chrome, focused, onScreen))
+  /** Golden rule 4 with the status bars merged: this pane says it is off green itself. */
+  const dot = $derived(showsSyncDot(chrome, focused, status) ? status : null)
 
   /**
    * The pane's box, registered with the shell: `neighbour` (which pane is
@@ -185,7 +188,32 @@
   $effect(() => {
     const id = pane.id
     const view = handle
-    panes.registerEditor(id, view ? { toggleTask: () => toggleTask(view.view) } : null)
+    panes.registerEditor(
+      id,
+      view
+        ? {
+            toggleTask: () => toggleTask(view.view),
+            // A palette row or a toolbar button took the focus to run this;
+            // the caret belongs back in the text it just formatted.
+            format: (fid) => {
+              const done = runFormat(view.view, fid)
+              view.view.focus()
+              return done
+            },
+            // A template (quiet-shell F11): one dispatch at the caret, the
+            // path typing takes, so undo and the peers see one edit.
+            insertText: (text) => {
+              if (view.view.state.readOnly) return false
+              view.view.dispatch(view.view.state.replaceSelection(text), { scrollIntoView: true })
+              view.view.focus()
+              return true
+            },
+            // The resolved keymap's format chords (F10): a cleared binding
+            // is cleared in CodeMirror too, not only in the shell.
+            setFormatBindings: (bindings) => view.setFormatBindings(bindings),
+          }
+        : null
+    )
     return () => panes.registerEditor(id, null)
   })
 
@@ -219,6 +247,60 @@
       if (handle) panes.setResume(tabId, handle.capture())
       handle = null
     })
+  }
+
+  /**
+   * The inline title (P3): mounted INTO the view's scroller, just before
+   * `.cm-content`, so it scrolls with the note while staying outside the
+   * document — CM6 listens on its content element only, so the title's keys,
+   * clicks and selection never reach the editor, and the resume point (the
+   * scroller's `scrollTop`) still means the same place. It is mounted
+   * imperatively rather than rendered and moved: a Svelte block whose nodes
+   * were moved into CM6's DOM would tear down by walking CM6's siblings.
+   * Only a note gets one — a view tab and the empty tab never reach here.
+   */
+  const shell = getViewShell()
+  const titled = $derived(inlineTitle && !!doc && !!path && !!shell)
+  $effect(() => {
+    const view = handle?.view
+    if (!view || !titled) return
+    const scroller = view.scrollDOM
+    const slot = document.createElement('div')
+    slot.className = 'ed-inline-title'
+    scroller.insertBefore(slot, view.contentDOM)
+    scroller.classList.add('ed-titled')
+    const title = mount(InlineTitle, {
+      target: slot,
+      props: {
+        // A getter: a rename from the tree retitles the field in place.
+        get path() {
+          return path ?? ''
+        },
+        onRename: (name: string) => {
+          const from = untrack(() => path)
+          return from && shell ? shell.renameNote(from, name) : Promise.resolve(null)
+        },
+        onExit: () => void enterText(),
+      },
+    })
+    return () => {
+      void unmount(title)
+      slot.remove()
+      scroller.classList.remove('ed-titled')
+    }
+  })
+
+  /**
+   * Out of the title into the note's first line. After a rename the tab's
+   * path has changed and the view is being rebuilt, so wait for the flush and
+   * take whichever view the pane holds then.
+   */
+  async function enterText(): Promise<void> {
+    await tick()
+    const view = untrack(() => handle)?.view
+    if (!view) return
+    view.focus()
+    view.dispatch({ selection: { anchor: 0 }, scrollIntoView: true })
   }
 
   /**
@@ -276,23 +358,49 @@
   ondropcapture={onDrop}
   ondragleave={onDragLeave}
   class="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ed-surface
-    {focused && panes.mode ? 'outline-1 -outline-offset-1 outline-accent' : ''}"
+    {focused && panes.mode ? 'outline-1 -outline-offset-1 outline-ed-pane-mode' : ''}"
 >
-  <TabStrip
-    {pane}
-    {focused}
-    {panes}
-    {uid}
-    {groupChip}
-    {tabMenuGroupItems}
-    {moreMenuItems}
-  />
+  {#if edge}
+    <!-- Where focus is, when there is more than one pane to tell apart and
+         no strip inset says it (S21 Q3): the same 2 px as that inset. -->
+    <span
+      aria-hidden="true"
+      data-testid="pane-focus-edge"
+      class="pointer-events-none absolute inset-x-0 top-0 z-10 h-ed-pane-focus bg-ed-pane-focus"
+    ></span>
+  {/if}
+  {#if dot}
+    <!-- Band C, unlayered (`.ed-sync-dot`): no theme can repaint or hide it. -->
+    <div class="absolute top-1.5 right-2 z-10">
+      <SyncPill
+        status={dot}
+        testid="pane-sync-dot:{pane.id}"
+        title={$LL.web.panes.sync_dot({ pane: $LL.web.panes.label({ n: index }), state: pillTitle(dot) })}
+      />
+    </div>
+  {/if}
+
+  {#if strip}
+    <TabStrip
+      {pane}
+      {focused}
+      {panes}
+      {uid}
+      {groupChip}
+      {tabMenuGroupItems}
+      {moreMenuItems}
+      insetMark={!chrome.focusMark}
+      presence={workspace.ui.presenceByPath}
+    />
+  {/if}
 
   {#if tab}
+    <!-- With no strip there is no tab to label a tabpanel: a plain region of
+         the pane (the section already names it), never a dangling IDREF. -->
     <div
-      role="tabpanel"
-      id="{uid}-panel-{tab.id}"
-      aria-labelledby="{uid}-tab-{tab.id}"
+      role={strip ? 'tabpanel' : undefined}
+      id={strip ? `${uid}-panel-${tab.id}` : undefined}
+      aria-labelledby={strip ? `${uid}-tab-${tab.id}` : undefined}
       data-testid={focused ? 'editor-pane' : `editor-pane:${pane.id}`}
       class="min-h-0 flex-1 overflow-hidden bg-ed-surface"
     >
@@ -306,11 +414,16 @@
             user={workspace.user}
             {mode}
             {dark}
+            {typewriter}
             {extensions}
             reveal={focused ? reveal : null}
             onhandle={(h) => onHandle(held, h)}
           />
         {/key}
+      {:else if tab.view}
+        <!-- A view tab: whichever component the registry names (S22 Q5). -->
+        {@const View = viewDef(tab.view).component}
+        <View {workspace} {tab} />
       {:else}
         <EmptyTab
           {search}
@@ -325,16 +438,8 @@
     </div>
   {/if}
 
-  <StatusBar
-    hasNote={path !== null}
-    {wordCount}
-    noteStatus={status}
-    {lead}
-    {zoomed}
-    {mode}
-    onMode={(next) => (tab ? panes.setMode(tab.id, next) : undefined)}
-    testid={focused ? 'status-bar' : `pane-status:${pane.id}`}
-    pillTestid={focused ? 'sync-pill-note' : `sync-pill-pane:${pane.id}`}
-    modeTestid={focused ? 'mode-menu' : `mode-menu:${pane.id}`}
-  />
+  {#if chrome.statusbar === 'pane'}
+    <!-- The layout's `bars.statusbar`, through the readout renderer, for THIS pane. -->
+    <StatusBar paneId={pane.id} {focused} lead={chrome.lead} />
+  {/if}
 </section>

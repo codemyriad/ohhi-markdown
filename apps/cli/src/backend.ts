@@ -14,7 +14,7 @@ import type { Io } from './io.js'
 export type Backend = VaultBackend
 
 /**
- * `--vault` → `$OHHI_VAULT` → walk up from cwd for `.editor/` or
+ * `--vault` → `$OHHI_VAULT` → walk up from cwd for `.ohhi/` or
  * `.obsidian/`. Ambiguity and absence are both `OpError('usage')` (exit 2) —
  * the CLI never guesses which vault you meant (R8).
  *

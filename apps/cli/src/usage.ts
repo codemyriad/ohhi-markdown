@@ -31,7 +31,7 @@ export function usageText(): string {
   lines.push('NAMING A VAULT (in order; an ambiguous walk-up is refused, never guessed)')
   lines.push('  1. --vault <path>')
   lines.push('  2. $OHHI_VAULT')
-  lines.push('  3. walk up from the working directory for a folder holding .editor/ or .obsidian/')
+  lines.push('  3. walk up from the working directory for a folder holding .ohhi/ or .obsidian/')
   lines.push('')
   lines.push('OUTPUT')
   lines.push('  Text output is for humans and is NOT a parsing contract.')

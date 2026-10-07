@@ -17,6 +17,7 @@ import {
   parseBinding,
   type KeyEventLike,
 } from './commands.js'
+import { overridesToBindings } from './keymap-spec.js'
 
 const key = (over: Partial<KeyEventLike> & { key: string }): KeyEventLike => ({
   ctrlKey: false,
@@ -169,6 +170,11 @@ describe('CommandRegistry', () => {
   })
 })
 
+/** The legacy per-device map as the registry receives it: normalised, then bindings (`keymap.svelte.ts`). */
+function setOverrides(r: CommandRegistry, raw: unknown): void {
+  r.setKeymap(overridesToBindings(normalizeOverrides(raw)))
+}
+
 describe('binding overrides (R1.3)', () => {
   const registry = (): CommandRegistry => {
     const r = new CommandRegistry(false)
@@ -181,7 +187,7 @@ describe('binding overrides (R1.3)', () => {
 
   it('lets an override win over the default, for matching and for display', () => {
     const r = registry()
-    r.setOverrides({ a: 'Alt+=' })
+    setOverrides(r, { a: 'Alt+=' })
     expect(r.match(key({ key: '=', altKey: true }))?.id).toBe('a')
     expect(r.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
     expect(r.binding('a')).toBe('Alt+=')
@@ -189,14 +195,14 @@ describe('binding overrides (R1.3)', () => {
 
   it('binds a command that ships without a key', () => {
     const r = registry()
-    r.setOverrides({ b: 'Mod+Shift+g' })
+    setOverrides(r, { b: 'Mod+Shift+g' })
     expect(r.match(key({ key: 'g', ctrlKey: true, shiftKey: true }))?.id).toBe('b')
     expect(r.binding('b')).toBe('Ctrl+Shift+G')
   })
 
   it('unbinds on null — the key falls through to the editor', () => {
     const r = registry()
-    r.setOverrides({ a: null })
+    setOverrides(r, { a: null })
     expect(r.match(key({ key: 'o', ctrlKey: true }))).toBeNull()
     expect(r.binding('a')).toBe('')
     expect(r.bindings()[0]).toMatchObject({ keys: '', defaultKeys: 'Mod+o', overridden: true })
@@ -204,15 +210,15 @@ describe('binding overrides (R1.3)', () => {
 
   it('restores the default when the override is dropped', () => {
     const r = registry()
-    r.setOverrides({ a: 'Alt+=' })
-    r.setOverrides({})
+    setOverrides(r, { a: 'Alt+=' })
+    setOverrides(r, {})
     expect(r.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
     expect(r.bindings()[0].overridden).toBe(false)
   })
 
   it('ignores an unparseable override and keeps the default', () => {
     const r = registry()
-    r.setOverrides({ a: 'Hyper+K', b: 42, c: 'Mod+j' })
+    setOverrides(r, { a: 'Hyper+K', b: 42, c: 'Mod+j' })
     expect(r.match(key({ key: 'o', ctrlKey: true }))?.id).toBe('a')
     expect(r.binding('a')).toBe('Ctrl+O')
     // An override for a command nobody registered is kept in the map (the
@@ -230,7 +236,7 @@ describe('binding overrides (R1.3)', () => {
 
   it('sees a command registered after the overrides were set', () => {
     const r = registry()
-    r.setOverrides({ later: 'Mod+9' })
+    setOverrides(r, { later: 'Mod+9' })
     r.register({ id: 'later', title: 'Later', run: () => {} })
     expect(r.match(key({ key: '9', ctrlKey: true }))?.id).toBe('later')
   })
@@ -251,7 +257,7 @@ describe('binding overrides (R1.3)', () => {
     expect(rows.get('a')!.reserved).toBe(false)
 
     // A user override onto GNOME's workspace switcher is bound and dead.
-    r.setOverrides({ c: 'Ctrl+Alt+ArrowRight' })
+    setOverrides(r, { c: 'Ctrl+Alt+ArrowRight' })
     const after = new Map(r.bindings().map((row) => [row.id, row]))
     expect(after.get('c')!.reserved).toBe(true)
     // Not a thing on mac, where the table does not apply.

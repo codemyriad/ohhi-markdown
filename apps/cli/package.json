@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --banner:js=\"import { createRequire as __ohhiCreateRequire } from 'node:module'; const require = __ohhiCreateRequire(import.meta.url);\" --outfile=dist/ohhi.mjs --log-level=warning",
-    "gen-schemas": "esbuild src/gen-schemas.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/gen-schemas.mjs --log-level=warning && node dist/gen-schemas.mjs",
+    "gen-schemas": "esbuild src/gen-schemas.ts --bundle --platform=node --target=node22 --format=esm --banner:js=\"import { createRequire as __ohhiCreateRequire } from 'node:module'; const require = __ohhiCreateRequire(import.meta.url);\" --outfile=dist/gen-schemas.mjs --log-level=warning && node dist/gen-schemas.mjs",
     "test": "vitest run",
     "check": "tsc --noEmit"
   },

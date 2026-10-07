@@ -25,7 +25,7 @@ import type { SyntaxNode, SyntaxNodeRef, Tree } from '@lezer/common'
 import { FM_CLOSE, FM_MAX_LINES, FM_OPEN } from '../frontmatter-block.js'
 import { previewMode, readHost, type ReadHost, type ViewMode } from '../read-host.js'
 import { wikiLinkHost } from '../wikilink-view.js'
-import { activeSpans, inActiveRegion, type Span } from './active-lines.js'
+import { activeSpans, inActiveRegion, markerSelected, type Span } from './active-lines.js'
 import * as cls from './classes.js'
 import { extractInline } from './inline-dom.js'
 import {
@@ -58,6 +58,18 @@ const CODE_LINE = line('cm-live-code')
 const FRONTMATTER_LINE = line('cm-live-frontmatter')
 const TABLE_HEAD_LINE = line('cm-table-head')
 const LIST_NUM = mark('cm-list-num')
+/**
+ * A list line, by nesting depth (0 = top level). The depth is a custom
+ * property the theme turns into both the indent (`--ed-list-indent` per level)
+ * and the depth guides — computed from the tree, never from the DOM. Built on
+ * first use and kept: the vault nests eleven deep, and a Decoration is reused.
+ */
+const LIST_LINE: Decoration[] = []
+const listLine = (depth: number): Decoration =>
+  (LIST_LINE[depth] ??= Decoration.line({
+    class: cls.LIST_LINE,
+    attributes: { style: `--cm-list-depth: ${depth}` },
+  }))
 const HTML_MARK = mark('cm-html')
 const BLOCK_ID = mark('cm-block-id')
 const TABLE_PIPE = mark('cm-table-pipe')
@@ -129,6 +141,8 @@ class Builder {
   private readonly blockHidden: Range<Decoration>[] = []
   /** End of the frontmatter block drawn from the text, when the tree is stale. */
   private skipTo = 0
+  /** The range the walk is over right now — list lines are clamped to it. */
+  private range: { from: number; to: number } = { from: 0, to: 0 }
   private readonly spans: Span[]
   private readonly mode: ViewMode
   private readonly host: ReadHost
@@ -155,8 +169,12 @@ class Builder {
       return this.opts.blocksOnly ? this.enterBlock(node) : this.enter(node)
     }
     if (this.opts.ranges) {
-      for (const { from, to } of this.opts.ranges) tree.iterate({ from, to, enter })
+      for (const range of this.opts.ranges) {
+        this.range = range
+        tree.iterate({ from: range.from, to: range.to, enter })
+      }
     } else {
+      this.range = { from: 0, to: this.doc.length }
       tree.iterate({ enter })
     }
     const deco = scope === 'block' ? this.block : scope === 'inline' ? this.inline : [...this.block, ...this.inline]
@@ -220,6 +238,8 @@ class Builder {
         return this.rule(node)
       case 'FencedCode':
         return this.fence(node)
+      case 'ListItem':
+        return this.listItem(node)
       case 'ListMark':
         return this.listMark(node)
       case 'TaskMarker':
@@ -360,6 +380,42 @@ class Builder {
     return false
   }
 
+  /**
+   * The lines of one list item get its depth (Live and Reading): the indent
+   * per level and the depth guides are the theme's, drawn from this one number.
+   * A line belongs to the innermost item it starts in, so the lines of a nested
+   * list are left to that list's own items.
+   */
+  private listItem(node: SyntaxNodeRef): void {
+    if (this.mode === 'source') return
+    let depth = 0
+    for (let up = node.node.parent; up; up = up.parent) if (up.name === 'ListItem') depth++
+    const nested: [number, number][] = []
+    for (let child = node.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'BulletList' || child.name === 'OrderedList') {
+        nested.push([this.doc.lineAt(child.from).number, this.doc.lineAt(child.to).number])
+      }
+    }
+    const from = Math.max(node.from, this.range.from)
+    const to = Math.min(node.to, this.range.to)
+    if (to < from) return
+    const deco = listLine(depth)
+    const last = this.doc.lineAt(to).number
+    for (let n = this.doc.lineAt(from).number; n <= last; n++) {
+      if (nested.some(([a, b]) => n >= a && n <= b)) continue
+      this.line(this.doc.line(n), deco)
+    }
+  }
+
+  /**
+   * A bullet's `- ` is drawn as the bullet the moment it is a marker — on the
+   * caret's line too (Obsidian's rule; Chris, 2026-10-06: "the space live
+   * previews it"). It goes back to text only while the selection is ON it:
+   * the caret inside it or immediately before it, or a selection over it —
+   * i.e. while someone is editing the marker itself. A caret anywhere after it
+   * keeps the bullet. Incomplete (`-` with no space yet) is text; ordered
+   * numbers stay text in every mode (they are styled, not replaced).
+   */
   private listMark(node: SyntaxNodeRef): void {
     const item = node.node.parent
     const list = item?.parent
@@ -367,13 +423,25 @@ class Builder {
       this.mark(node.from, node.to, LIST_NUM)
       return
     }
-    if (this.revealed(node.from, node.to)) return
+    if (this.mode === 'source') return
     const to = this.skipSpace(node.to, this.doc.lineAt(node.from).to)
     if (to === node.to) return
+    if (this.mode === 'live' && markerSelected(this.state.selection, node.from, to)) return
     // A task's marker IS its checkbox; a bullet beside it is Obsidian's rule
     // and the mock's, and two glyphs where there was one reads as a bug.
     const task = item?.getChild('Task')
-    this.replace(node.from, to, task ? undefined : new BulletWidget())
+    if (task) return this.replace(node.from, to)
+    // An item with nothing after its marker yet (just opened by Enter, or
+    // `- ` just typed): only the `-` is drawn and the space stays TEXT. With
+    // the whole `- ` replaced the line would end in the widget, leaving the
+    // caret no text node to sit in after it — Firefox then normalises the DOM
+    // caret into the indent BEFORE the widget, CM6 reads that back as a user
+    // selection, the marker turns raw and typing lands in front of the `-`
+    // (Chris, 2026-10-06: "the caret is placed before the bullet" from the
+    // first nested level down). The `open` box is narrower by the space, so
+    // the first keystroke does not shift the line.
+    const open = to === this.doc.lineAt(node.from).to
+    this.replace(node.from, open ? node.to : to, new BulletWidget(open))
   }
 
   private task(node: SyntaxNodeRef): void {

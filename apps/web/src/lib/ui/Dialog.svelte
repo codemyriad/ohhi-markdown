@@ -54,8 +54,13 @@
     closeOnOutsideClick?: boolean
     /** Overlay stacking: panels under dialogs under the palette under reviews. */
     layer?: Exclude<Layer, 'drag'>
-    /** Vertical placement: dialogs centre, the palette hangs from the top. */
-    align?: 'center' | 'top'
+    /**
+     * Placement: dialogs centre, the palette hangs from the top, and `left`
+     * is a drawer — full height against the window's leading edge, the same
+     * scrim, focus trap, Escape and click-outside (the navigator as a drawer,
+     * quiet-shell F3). A drawer ignores `width`: its content sizes it.
+     */
+    align?: 'center' | 'top' | 'left'
     width?: 'sm' | 'md' | 'lg' | 'xl'
     /**
      * Selector for the element to focus on open. Default: the first control
@@ -138,8 +143,10 @@
     <div
       use:melt={$content}
       data-testid={testid}
-      class="fixed left-1/2 {LAYER[layer]} flex max-h-[85vh] w-[calc(100%-2rem)] {MAX[width]} -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 text-base-content shadow-xl focus:outline-none
-        {align === 'top' ? 'top-[12vh]' : 'top-1/2 -translate-y-1/2'}"
+      class="fixed {LAYER[layer]} flex flex-col overflow-hidden bg-base-100 text-base-content shadow-xl focus:outline-none
+        {align === 'left'
+        ? 'inset-y-0 left-0 max-w-[calc(100%-2rem)] border-r border-base-300'
+        : `left-1/2 max-h-[85vh] w-[calc(100%-2rem)] ${MAX[width]} -translate-x-1/2 rounded-lg border border-base-300 ${align === 'top' ? 'top-[12vh]' : 'top-1/2 -translate-y-1/2'}`}"
     >
       <h2
         use:melt={$titleEl}

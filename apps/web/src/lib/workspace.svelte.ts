@@ -48,22 +48,34 @@ import {
   bootFlagsFor,
   carveFolder as runCarve,
   resolveRoomRelay,
+  roomRelayUrl,
   FOLDER_RECORD_KEY,
   joinMount,
+  mountInvariants,
   MountRegistry,
   MountSession,
   reconcileMountEntries,
   recoverMounts,
   unmountMount,
   unshareMount,
+  EventLog,
+  RelayRefusedError,
+  mergeNewestFirst,
+  upsertEvent,
   type AdoptContext,
   type AdoptNotice,
+  type AppEvent,
+  type EventInput,
   type DocInspection,
+  type MountInspection,
+  type PathInspection,
+  type PathPeek,
   type FileRow,
   type MountStats,
   type PreImageInfo,
   type PullProgress,
   type RelayConfig,
+  type DocPeer,
 } from '@ohhi/workspace'
 import {
   defaultRelay,
@@ -78,11 +90,12 @@ import {
   setRoomToken,
 } from './config.js'
 import { colorFor } from './params.js'
+import { byPath as presenceByPathOf, type PresenceByPath } from './presence.js'
 import { attachmentCandidates, attachmentType } from './read.svelte.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
-import { appendNotice, type Notice, type NoticeInput } from './notices.js'
+import { appendFlash, type Flash, type FlashInput, type NoticeInput } from './notices.js'
 import { decodeShareLink, encodeDeviceLink, encodeShareLink, type ShareKind } from './share-link.js'
 import { isForeignMount } from './share-status.js'
 
@@ -168,6 +181,12 @@ export interface MountInfo {
    * foreign when its room lives on a relay other than this vault's.
    */
   foreign: boolean
+  /**
+   * The relay this room lives on — the SAME resolution its session connects
+   * with (`roomRelayUrl`): the share sheet lists and revokes links here, the
+   * Shared view and the breadcrumb name its host from it.
+   */
+  relay: string
 }
 
 /** Re-exported so the shell can type a History row without reaching past the facade. */
@@ -203,15 +222,16 @@ export type { PreImageInfo }
  * this device, so a refusal there means the share was revoked or deleted, and
  * "the relay said no" is the true story to leave on screen.
  *
- * Matched on `MountSession.reportAuthFailure`'s wording, which is the only
- * signal a session surfaces for an auth outcome today.
+ * Matched on the error's TYPE (`RelayRefusedError`, which
+ * `MountSession.reportAuthFailure` raises), with its diagnostic wording as the
+ * fallback for an error that crossed a boundary that drops the class.
  */
 export function isAuthRefusalForAdoptedMount(
   desc: { provenance: MountProvenance; status: MountStatus } | undefined,
   err: unknown
 ): boolean {
   const message = err instanceof Error ? err.message : String(err)
-  if (!message.includes('relay rejected this token')) return false
+  if (!(err instanceof RelayRefusedError) && !message.includes('relay rejected this token')) return false
   return !!desc && desc.provenance === 'adopted' && desc.status !== 'needs-token'
 }
 
@@ -231,13 +251,29 @@ export interface WorkspaceUi {
    * surgery machines rebuild sessions one at a time.
    */
   settling: boolean
-  /** Session notice log, newest first (chrome U5). Replaces the one overwritten error string. */
-  notices: Notice[]
+  /**
+   * The session's event log, newest first (spike S22, Stage 4a): every notice
+   * the shell raises and every mount/relay change it reports, as codes +
+   * params on the injected clock — the words come at render time
+   * (`event-text.ts`). In memory, capped at 500; the Log view and the drawer
+   * read it.
+   */
+  events: AppEvent[]
+  /**
+   * Transient gesture feedback, newest first: toasted once by the shell and
+   * NOT logged (a refused drop, a copy confirmation). A queue, not a history.
+   */
+  flashes: Flash[]
   files: FileRow[]
-  /** Names online anywhere in this workspace (the union of every room). */
-  presence: string[]
   /** Names online per room, so the shell can say WHICH shared folder someone is in (chrome U4). */
   presenceByRoom: Record<string, string[]>
+  /**
+   * Who is IN each note (sharing E1): per-doc awareness of every relay-attached
+   * doc, the peers whose client says a view holds it (`here`), ourselves
+   * excluded. A note nobody is in is absent — so `{}` when you are alone (R6).
+   * Read through the pure helpers in `presence.ts`.
+   */
+  presenceByPath: PresenceByPath
   reviews: DivergenceReview[]
   selectedPath: string | null
   /** Per-doc sync records keyed by doc GUID (+ per-mount folder keys) — guids are rename-stable (M3). */
@@ -269,14 +305,53 @@ export interface WorkspaceUi {
  * The only directories `readAppFile` will read. Both are ignored by the vault
  * adapters, so nothing here is ever enrolled, synced or shown in the tree.
  */
-const APP_FILE_DIRS = ['.editor/', '.obsidian/'] as const
+const APP_FILE_DIRS = ['.ohhi/', '.obsidian/'] as const
+
+/**
+ * The one directory `writeAppFile` writes: Editor's own. `.obsidian/` is
+ * Obsidian's state — read, never written (see `readAppFile`).
+ */
+const APP_WRITE_DIR = '.ohhi/'
+
+/**
+ * One save is temp + rename, i.e. several watcher events; a burst of them is
+ * one change to a subscriber (spike-resource-root Q1). On the injected clock.
+ */
+const APP_FILE_DEBOUNCE_MS = 150
+
+/** Throws unless `path` is under one of `dirs`; returns it vault-relative. */
+function appFilePath(path: string, dirs: readonly string[], op: string): string {
+  const rel = path.replace(/^\/+/, '')
+  if (!dirs.some((dir) => rel.startsWith(dir)) || rel.split('/').includes('..')) {
+    throw new Error(`${op} is for ${dirs.join(' / ')} only`)
+  }
+  return rel
+}
 
 export interface Workspace {
   ui: WorkspaceUi
   user: CollabUser
+  /**
+   * When this session began, on the shell's clock. Events older than this
+   * are stored history (a room log merged on mount open): the Log reads
+   * them, the toasts and the unread count never do.
+   */
+  startedAt: number
+  /**
+   * The relay the ROOT room lives on, resolved as its session resolves it
+   * (`roomRelayUrl`) — where its device links are listed and minted.
+   */
+  rootRelayUrl(): string
   room: string
-  /** Record a notice for the session (the shell toasts new ones and lists them in Activity). */
+  /**
+   * Log a notice for the session: a `notice` event with a code the shell words
+   * at render time (errors and warnings toast once; info never toasts).
+   */
   notify(input: NoticeInput): void
+  /** Toast gesture feedback without logging it (spike S22: the six gesture sites). */
+  flash(input: FlashInput): void
+  /** Forget the session's events (the Log view's "Clear"), every room's stored log included. */
+  clearEvents(): void
   docForPath(path: string): EngineDoc | null
   awarenessForPath(path: string): Awareness | null
   /**
@@ -367,8 +442,23 @@ export interface Workspace {
   /** Read-only per-mount devtools counts (root mount included). */
   mountStats(): Promise<MountStats[]>
   /**
+   * The whole workspace for the inspector (devtools-shaping D4/D5): one entry
+   * per live mount, root first, each with its `mounts.json` desc, its counts,
+   * every row prefixed back into workspace space, and the LCA records its
+   * map no longer names. Read-only; three store reads per mount.
+   */
+  inspectMounts(): Promise<WorkspaceMountInspection[]>
+  /**
+   * `mountInvariants()` over this shim's live inputs (devtools-shaping D4):
+   * the violations, or an empty list. The checker has always existed for the
+   * tests; this is its first caller in the product.
+   */
+  mountInvariants(): string[]
+  /** The three texts behind one file for the inspector's peek (D3); null for unknown/binary/dir. */
+  peek(path: string): Promise<PathPeek | null>
+  /**
    * Read a file from a configuration directory in the vault: Editor's own
-   * `.editor/` (custom themes) or Obsidian's `.obsidian/` (daily-notes.json,
+   * `.ohhi/` (custom themes) or Obsidian's `.obsidian/` (daily-notes.json,
    * W3). Deliberately narrow, and read-only: the vault adapters IGNORE both,
    * so they are invisible to enrollment, the tree and sync — but they are
    * still inside the vault, so they travel with the folder. Obsidian's
@@ -376,6 +466,32 @@ export interface Workspace {
    * Returns null when absent.
    */
   readAppFile(path: string): Promise<string | null>
+  /**
+   * The files directly inside one app directory (`.ohhi/layouts`), as
+   * vault-relative paths; `[]` when it is absent or the adapter cannot list
+   * ignored directories. Same guard as `readAppFile`.
+   */
+  listAppDir(dir: string): Promise<string[]>
+  /**
+   * Write a file under `.ohhi/` (layouts from Settings, quiet-shell F8): the
+   * pre-image goes to a journal first, then the adapter's atomic temp+rename
+   * write (golden rule 1). Never `.obsidian/`. Listeners of
+   * `onAppFileChange` (this tab, and other tabs over a BroadcastChannel)
+   * hear about it.
+   */
+  writeAppFile(path: string, text: string): Promise<void>
+  /**
+   * Remove a file under `.ohhi/` (Settings › Layout's *Delete*): the same
+   * guard and the same pre-image journal as `writeAppFile`, then the
+   * adapter's remove; listeners hear about it. Never `.obsidian/`.
+   */
+  deleteAppFile(path: string): Promise<void>
+  /**
+   * Subscribe to changes under an app-dir prefix (`.ohhi/layouts/`):
+   * the adapter's `watchAppDir` on desktop, in-app writes everywhere,
+   * debounced on the injected clock. Never fed into the map, index or CRDT.
+   */
+  onAppFileChange(prefix: string, cb: (paths: string[]) => void): () => void
   /**
    * The bytes behind `![[name.png]]` (read-shaping B2.3), or null when this
    * device does not hold them — a joined peer holds no binaries until D2f, so
@@ -396,6 +512,27 @@ export interface Workspace {
 /** DocInspection plus which mount owns the path (workspace-level view). */
 export interface WorkspaceInspection extends DocInspection {
   mount: { path: string; room: string }
+}
+
+/** A `PathInspection` with its path in workspace space. */
+export type WorkspacePathInspection = PathInspection
+
+/** One live mount as the inspector sees it: session facts + the desc that boot reads. */
+export interface WorkspaceMountInspection extends MountInspection {
+  /** Workspace-relative mount root ('' = the root mount). */
+  mountPath: string
+  /**
+   * The `mounts.json` row for this mount, or null when the table has none —
+   * which is itself a finding (`mountInvariants` names it too).
+   */
+  desc: {
+    status: MountStatus
+    provenance: MountProvenance
+    relay: string | null
+    neverHeld: boolean
+    absorbInto: string | null
+  } | null
+  rows: WorkspacePathInspection[]
 }
 
 function seedDemoFiles(adapter: VaultAdapter): Promise<void[]> {
@@ -429,13 +566,15 @@ function seedDemoFiles(adapter: VaultAdapter): Promise<void[]> {
 }
 
 export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
+  const startedAt = realClock.now()
   const ui = $state<WorkspaceUi>({
     phase: 'connecting',
     settling: true,
-    notices: [],
+    events: [],
+    flashes: [],
     files: [],
-    presence: [],
     presenceByRoom: {},
+    presenceByPath: {},
     reviews: [],
     selectedPath: null,
     records: {},
@@ -445,8 +584,48 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     breaker: null,
   })
 
+  // ---- the event log (spike S22, Stage 4a): one writer path, the injected clock ----
+  const eventLog = new EventLog({ clock: realClock })
+  /**
+   * Each mount's room log (sharing E3), by room then id: loaded from the
+   * session on mount open, kept current by `MountEvents.onEvent` (a fold
+   * re-reports the same id). `ui.events` is the app log and these, merged
+   * newest first. Each map is kept OLDEST FIRST and capped at
+   * `EVENT_LOG_CAP` (`upsertEvent`), so a publish is a merge of sorted
+   * lists, never a sort per peer keystroke.
+   */
+  const roomEvents = new Map<string, Map<string, AppEvent>>()
+  const publishEvents = (): void => {
+    ui.events = mergeNewestFirst([eventLog.oldestFirst(), ...[...roomEvents.values()].map((m) => [...m.values()])])
+  }
+  const log = (input: EventInput): void => {
+    eventLog.append(input)
+    publishEvents()
+  }
   const notify = (input: NoticeInput): void => {
-    ui.notices = appendNotice(ui.notices, input, Date.now())
+    const scope = {
+      ...(input.room !== undefined ? { room: input.room } : {}),
+      ...(input.mount !== undefined ? { mount: input.mount } : {}),
+      ...(input.path !== undefined ? { path: input.path } : {}),
+    }
+    log({
+      kind: 'notice',
+      level: input.level,
+      scope,
+      payload: { code: input.code, ...(input.params ? { params: input.params } : {}) },
+    })
+  }
+  const flash = (input: FlashInput): void => {
+    ui.flashes = appendFlash(ui.flashes, input)
+  }
+  const clearEvents = (): void => {
+    eventLog.clear()
+    // Empty each room's map IN PLACE: every mount's `onEvent` closes over its
+    // own map, so a detached one would never publish again.
+    for (const byId of roomEvents.values()) byId.clear()
+    const sessions = new Set([...registry.all().map((h) => h.session), ...(rootSession ? [rootSession] : [])])
+    for (const s of sessions) void s.clearRoomEvents().catch((err) => console.error('[workspace]', err))
+    ui.events = []
   }
 
   const user: CollabUser = { name: cfg.user, color: colorFor(cfg.user) }
@@ -465,6 +644,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const registry = new MountRegistry()
+  const appFiles = createAppFiles(cfg.adapter, cfg.storeDir, cfg.room)
   /**
    * The root mount. Declared here, before anything derived from it: the ignore
    * set reads the root's map on every refresh, and the FIRST refresh happens
@@ -514,8 +694,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const reviewOwner = new Map<string, MountSession>()
   /** Which session raised the held breaker batch. */
   let breakerOwner: MountSession | null = null
-  /** Per-room presence, unioned into ui.presence. */
+  /** Per-room presence, published as ui.presenceByRoom. */
   const presenceByRoom = new Map<string, string[]>()
+  /** Per-doc presence by guid (rename-stable), mapped to paths through the rows. */
+  const docPresence = new Map<string, DocPeer[]>()
+  const refreshPresenceByPath = (): void => {
+    if (docPresence.size === 0 && Object.keys(ui.presenceByPath).length === 0) return
+    ui.presenceByPath = presenceByPathOf(docPresence, ui.files)
+  }
 
   /**
    * The ROOT mount's relay. Mutable because `linkDevice()` attaches one to a
@@ -550,24 +736,30 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
    * This vault's own relay — the one its rooms are minted on. A mount whose
    * room lives somewhere else is somebody else's share (see isForeignMount).
    */
-  const rootRelayUrl = (): string => rootRelay?.url || roomRelay(cfg.room) || defaultRelay()
+  const rootRelayUrl = (): string => roomRelayUrl(rootRelay?.url, roomRelay(cfg.room), defaultRelay())
+  /** Where a mount's room lives: the one resolution (`roomRelayUrl`) its session uses too. */
+  const mountRelayUrl = (m: { room: string; relay?: string }): string =>
+    roomRelayUrl(m.relay, roomRelay(m.room), defaultRelay())
 
   /** ui.mounts is a projection of mounts.json — statuses included. */
   const refreshMounts = (): void => {
     const rootRelay = rootRelayUrl()
     ui.mounts = descs
       .filter((d) => d.path !== '')
-      .map((d) => ({
-        path: d.path,
-        room: d.room,
-        provenance: d.provenance,
-        link: linkByRoom.get(d.room) ?? null,
-        status: uiStatus(d.status),
-        foreign: isForeignMount(
-          { provenance: d.provenance, relay: d.relay?.url || roomRelay(d.room) },
-          rootRelay
-        ),
-      }))
+      .map((d) => {
+        const relay = mountRelayUrl({ room: d.room, ...(d.relay?.url ? { relay: d.relay.url } : {}) })
+        return {
+          path: d.path,
+          room: d.room,
+          provenance: d.provenance,
+          link: linkByRoom.get(d.room) ?? null,
+          status: uiStatus(d.status),
+          // A room with no recorded relay is not "elsewhere": judged on what
+          // was recorded, never on the default the session falls back to.
+          foreign: isForeignMount({ provenance: d.provenance, relay: d.relay?.url || roomRelay(d.room) }, rootRelay),
+          relay,
+        }
+      })
       .sort((a, b) => a.path.localeCompare(b.path))
   }
 
@@ -640,6 +832,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     }
     rows.sort((a, b) => a.path.localeCompare(b.path))
     ui.files = rows
+    // A rename moves a peer with their note: presence is guid-keyed.
+    refreshPresenceByPath()
     syncIndexRows(rows)
     // Records exist for every text row before the tree renders pills for them.
     for (const row of rows) if (row.kind === 'text') recordFor(row.guid)
@@ -647,7 +841,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // rollup never aggregates a dead file's stale status. NEVER while any
     // session boots outside the registry (initial boot, a carve's new mount):
     // pruning then orphans record objects its providers already captured.
-    if (ui.phase === 'ready' && mountsBooting === 0) {
+    // Nor during a surgery: a join's session has finished booting but is not
+    // in the registry yet, so its docs look dead here — pruning them left the
+    // providers writing to orphaned records and every pill in a freshly
+    // joined folder reading "offline" while it synced (golden rule 4).
+    if (ui.phase === 'ready' && mountsBooting === 0 && surgeries === 0) {
       const live = new Set(rows.map((r) => r.guid))
       // Folder records live per room; prune the ones for dead rooms too (an
       // unshared mount's stale offline record would pin the global pill).
@@ -664,9 +862,6 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const refreshPresence = (): void => {
-    const names = new Set<string>()
-    for (const list of presenceByRoom.values()) for (const n of list) names.add(n)
-    ui.presence = [...names].sort()
     ui.presenceByRoom = Object.fromEntries(
       [...presenceByRoom.entries()].map(([room, list]) => [room, [...list].sort()])
     )
@@ -711,11 +906,16 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
         : scopedAdapter(cfg.adapter, opts.path)
     const prefixMoves = (moves: { from: string; to: string }[]) =>
       opts.path === '' ? moves : moves.map((m) => ({ from: `${opts.path}/${m.from}`, to: `${opts.path}/${m.to}` }))
-    return MountSession.create({
+    // This room's log (sharing E3): what the session reports as it happens,
+    // replaced by id (a fold re-reports its id)…
+    const roomLog = new Map<string, AppEvent>()
+    roomEvents.set(opts.room, roomLog)
+    const session = MountSession.create({
       engine,
       adapter,
       user,
       room: opts.room,
+      eventsIo: mountDir.io('events.json'),
       firstJoin: opts.firstJoin,
       neverHeld: opts.neverHeld,
       relay: opts.relay,
@@ -756,6 +956,12 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           presenceByRoom.set(opts.room, names)
           refreshPresence()
         },
+        onDocPresence: (guid, peers) => {
+          if (peers.length === 0 && !docPresence.has(guid)) return
+          if (peers.length === 0) docPresence.delete(guid)
+          else docPresence.set(guid, peers)
+          refreshPresenceByPath()
+        },
         onReview: (review) => {
           const owner = sessionOf(opts.room)
           if (owner) reviewOwner.set(review.guid, owner)
@@ -790,19 +996,42 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
               onMountEntries: () => (adoptReady ? runReconcile() : undefined),
             }
           : {}),
+        onEvent: (event) => {
+          upsertEvent(roomLog, event)
+          publishEvents()
+        },
         onError: (err) => {
           console.error('[workspace]', err)
-          notify({
-            level: 'error',
-            text: err instanceof Error ? err.message : String(err),
-            path: opts.path || undefined,
-          })
+          // The room is in hand here: the event says WHICH shared folder (S22 Q1).
+          const scope = { room: opts.room, mount: opts.path, ...(opts.path ? { path: opts.path } : {}) }
+          // A refusal is already in the room's log: the session wrote
+          // `relay.state refused` with the reason (`onEvent` above).
+          if (!(err instanceof RelayRefusedError)) {
+            notify({
+              level: 'error',
+              code: 'mount_error',
+              params: { message: err instanceof Error ? err.message : String(err) },
+              ...scope,
+            })
+          }
           // A relay refusal on an adopted mount is a missing key: degrade the
           // mount honestly instead of leaving it 'active' and permanently
           // broken (A1's second half — see degradeOnAuthRefusal).
           degradeOnAuthRefusal(opts.room, err)
         },
       },
+    })
+    // …and, once open, the stored history the session loaded before booting.
+    return session.then((s) => {
+      const stored = s.roomEvents().filter((e) => !roomLog.has(e.id))
+      if (stored.length > 0) {
+        // Stored history predates what arrived live: rebuild oldest first, once.
+        const all = [...stored, ...roomLog.values()].sort((a, b) => a.at - b.at)
+        roomLog.clear()
+        for (const e of all) upsertEvent(roomLog, e)
+      }
+      if (roomEvents.get(opts.room) === roomLog) publishEvents()
+      return s
     })
   }
 
@@ -815,28 +1044,30 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   /** False until the first boot finishes: the machine needs a live root. */
   let adoptReady = false
 
+  /**
+   * Every adopt outcome is a `mount.changed` event carrying its room (S22 Q1).
+   * The ones a person must act on or would not otherwise notice warn; the
+   * rest — including the four that used to be dropped because "the tree says
+   * it" (adopted, absorbed, adopt-cancelled, ghosts-held) — are logged at
+   * info, which never toasts.
+   */
+  const ADOPT_LEVEL: Record<AdoptNotice['kind'], 'warn' | 'info'> = {
+    'needs-token': 'warn',
+    'depth-limit': 'warn',
+    'room-repointed': 'warn',
+    'mount-moved': 'info',
+    adopted: 'info',
+    absorbed: 'info',
+    'adopt-cancelled': 'info',
+    'ghosts-held': 'info',
+  }
   const adoptNotice = (n: AdoptNotice): void => {
-    const t = getLL().web.workspace
-    switch (n.kind) {
-      case 'needs-token':
-        notify({ level: 'warn', text: t.no_token({ path: n.path }), path: n.path })
-        return
-      case 'depth-limit':
-        notify({ level: 'warn', text: getLL().web.mounts.reason.depth_limit({ path: n.path }), path: n.path })
-        return
-      case 'mount-moved':
-        notify({ level: 'info', text: getLL().web.mounts.reason.mount_moved({ path: n.path }), path: n.path })
-        return
-      case 'room-repointed':
-        notify({
-          level: 'warn',
-          text: getLL().web.mounts.reason.room_repointed({ path: n.path }),
-          path: n.path,
-        })
-        return
-      default:
-        return // adopted / absorbed / adopt-cancelled: the tree says it
-    }
+    log({
+      kind: 'mount.changed',
+      level: ADOPT_LEVEL[n.kind],
+      scope: { room: n.room, mount: n.path, path: n.path },
+      payload: { what: n.kind },
+    })
   }
 
   const adoptContext = (): AdoptContext => ({
@@ -896,7 +1127,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       .then(() => refreshTree())
       .catch((err) => {
         console.error('[workspace] mount reconcile', err)
-        notify({ level: 'error', text: err instanceof Error ? err.message : String(err) })
+        notify({ level: 'error', code: 'adopt_failed', params: { message: err instanceof Error ? err.message : String(err) } })
       })
     return adoptWork
   }
@@ -910,7 +1141,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: MountProvenance
   }): RelayConfig | null =>
     resolveRoomRelay({
-      url: m.relay || roomRelay(m.room) || defaultRelay(),
+      url: mountRelayUrl(m),
       provenance: m.provenance,
       exactToken: roomToken(m.room),
       rootToken: roomToken(cfg.room),
@@ -964,8 +1195,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       if (desc.status !== 'needs-token') await mountsFile.setStatus(desc.room, 'needs-token')
       notify({
         level: 'warn',
-        text: getLL().web.workspace.no_token({ path: desc.path }),
+        code: 'no_token',
+        params: { path: desc.path },
         path: desc.path,
+        room: desc.room,
+        mount: desc.path,
       })
     }
     const session = await buildMount({
@@ -1227,7 +1461,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const held = grantsForBundle().filter((g) => g.room !== cfg.room)
     const tooMany = held.length > MAX_BUNDLED_GRANTS
     if (tooMany) {
-      notify({ level: 'warn', text: getLL().web.device_link.too_many_grants({ count: held.length }) })
+      notify({ level: 'warn', code: 'too_many_grants', params: { count: held.length }, room: cfg.room })
     }
     return encodeDeviceLink({
       relay: relayUrl,
@@ -1570,7 +1804,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
 
   return {
     ui,
+    startedAt,
+    rootRelayUrl,
     notify,
+    flash,
+    clearEvents,
     user,
     room: cfg.room,
     docForPath: (path) => {
@@ -1622,7 +1860,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       if (!r || !rTo) return
       if (r.session !== rTo.session) {
         // Cross-mount: the caller must route through movePath (confirm first).
-        notify({ level: 'error', text: getLL().web.workspace.cross_mount_move(), path: from })
+        // Gesture feedback (S22 Q1): toasted where the drop happened, not logged.
+        flash({ level: 'error', text: getLL().web.workspace.cross_mount_move(), path: from })
         return
       }
       await r.session.renamePath(r.rel, rTo.rel)
@@ -1675,6 +1914,38 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return insp ? { ...insp, path, mount: { path: r.mountPath, room: r.session.room } } : null
     },
     mountStats: () => Promise.all(registry.all().map((h) => h.session.mountStats())),
+    inspectMounts: async () => {
+      const hosts = [...registry.all()].sort((a, b) => a.mountPath.localeCompare(b.mountPath))
+      return Promise.all(
+        hosts.map(async ({ mountPath, session }) => {
+          const m = await session.inspectMount()
+          const d = descs.find((x) => x.path === mountPath) ?? null
+          return {
+            ...m,
+            mountPath,
+            desc: d
+              ? {
+                  status: d.status,
+                  provenance: d.provenance,
+                  relay: d.relay?.url ?? null,
+                  neverHeld: d.neverHeld === true,
+                  absorbInto: d.absorbInto ?? null,
+                }
+              : null,
+            rows: m.rows.map((r) => ({ ...r, path: mountPath ? `${mountPath}/${r.path}` : r.path })),
+            lcaOrphans: m.lcaOrphans.map((o) => ({
+              ...o,
+              path: mountPath ? `${mountPath}/${o.path}` : o.path,
+            })),
+          }
+        })
+      )
+    },
+    mountInvariants: () => mountInvariants({ descs, ignore: ignoreSet, mounts: registry.all() }),
+    peek: async (path) => {
+      const r = registry.resolve(path)
+      return r ? r.session.peekPath(r.rel) : null
+    },
     readAttachment: async (name, fromPath) => {
       for (const candidate of attachmentCandidates(name, fromPath)) {
         const bytes = await cfg.adapter.read(candidate).catch(() => null)
@@ -1683,17 +1954,103 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return null
     },
     readAppFile: async (path) => {
-      const rel = path.replace(/^\/+/, '')
-      if (!APP_FILE_DIRS.some((dir) => rel.startsWith(dir))) {
-        throw new Error(`readAppFile is for ${APP_FILE_DIRS.join(' / ')} only`)
-      }
+      // The same guard as the writer: a `..` (a palette template name
+      // `../../x`) must not climb out of `.ohhi/` (correctness #23).
+      const rel = appFilePath(path, APP_FILE_DIRS, 'readAppFile')
       const bytes = await cfg.adapter.read(rel)
       return bytes ? new TextDecoder().decode(bytes) : null
     },
+    listAppDir: async (dir) => {
+      const rel = appFilePath(dir.endsWith('/') ? dir : `${dir}/`, APP_FILE_DIRS, 'listAppDir')
+      return (await cfg.adapter.listAppDir?.(rel.replace(/\/+$/, ''))) ?? []
+    },
+    writeAppFile: async (path, text) => {
+      const rel = appFilePath(path, [APP_WRITE_DIR], 'writeAppFile')
+      // Golden rule 1: the bytes this write replaces are journaled first.
+      await appFiles.journal().record(rel, await cfg.adapter.read(rel))
+      await cfg.adapter.writeAtomic(rel, new TextEncoder().encode(text))
+      appFiles.changed([rel])
+      appFiles.broadcast([rel])
+    },
+    deleteAppFile: async (path) => {
+      const rel = appFilePath(path, [APP_WRITE_DIR], 'deleteAppFile')
+      const before = await cfg.adapter.read(rel)
+      if (before === null) return
+      // Golden rule 1: the bytes a delete loses are journaled first.
+      await appFiles.journal().record(rel, before)
+      await cfg.adapter.remove(rel)
+      appFiles.changed([rel])
+      appFiles.broadcast([rel])
+    },
+    onAppFileChange: (prefix, cb) => appFiles.subscribe(prefix, cb),
     dispose: () => {
       for (const manager of undoManagers.values()) manager.destroy()
       undoManagers.clear()
       registry.dispose()
+      appFiles.dispose()
+    },
+  }
+}
+
+/**
+ * The `.ohhi/` side channel (foundations Stage 1, F8/F9): its journal, its
+ * change listeners, and the three ways a change arrives — the adapter's
+ * `watchAppDir` (desktop), this tab's own writes, another tab's writes over
+ * a BroadcastChannel (the browser has no other change source). Nothing here
+ * touches a mount, the path map, the index or a CRDT.
+ */
+function createAppFiles(adapter: VaultAdapter, storeDir: StoreDir, room: string) {
+  const listeners = new Set<{ prefix: string; cb: (paths: string[]) => void }>()
+  const pending = new Set<string>()
+  let cancel: (() => void) | null = null
+  let journal: FileJournal | null = null
+
+  function flush(): void {
+    cancel = null
+    const batch = [...pending]
+    pending.clear()
+    for (const { prefix, cb } of [...listeners]) {
+      const mine = batch.filter((p) => p.startsWith(prefix))
+      if (mine.length > 0) cb(mine)
+    }
+  }
+  function changed(paths: readonly string[]): void {
+    for (const p of paths) pending.add(p)
+    cancel ??= realClock.schedule(flush, APP_FILE_DEBOUNCE_MS)
+  }
+
+  const stopWatch = adapter.watchAppDir?.(APP_WRITE_DIR.slice(0, -1), changed) ?? null
+  const channel =
+    typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`ohhi-app-files:${room}`)
+  if (channel) {
+    channel.onmessage = (e: MessageEvent<unknown>) => {
+      if (Array.isArray(e.data)) changed(e.data.filter((p): p is string => typeof p === 'string'))
+    }
+  }
+
+  return {
+    /** A journal of its own (`<room>/app-files/journal/`), so its seq never races a mount's. */
+    journal(): FileJournal {
+      journal ??= new FileJournal(scopedStoreDir(storeDir, `${room}/app-files/`), {
+        now: () => realClock.now(),
+      })
+      return journal
+    },
+    changed,
+    broadcast(paths: string[]): void {
+      channel?.postMessage(paths)
+    },
+    subscribe(prefix: string, cb: (paths: string[]) => void): () => void {
+      const entry = { prefix: prefix.replace(/^\/+/, ''), cb }
+      listeners.add(entry)
+      return () => listeners.delete(entry)
+    },
+    dispose(): void {
+      stopWatch?.()
+      channel?.close()
+      cancel?.()
+      cancel = null
+      listeners.clear()
     },
   }
 }

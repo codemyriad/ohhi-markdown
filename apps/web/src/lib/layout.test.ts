@@ -4,9 +4,12 @@ import {
   RAIL_SECTIONS,
   TREE_WIDTH,
   clampTreeWidth,
+  layoutName,
   normalizeLayout,
-  showOnly,
-  toggleFolded,
+  parseLayoutChoice,
+  parseLayoutParam,
+  railForm,
+  railSection,
 } from './layout.js'
 
 describe('layout prefs', () => {
@@ -22,40 +25,50 @@ describe('layout prefs', () => {
   it('normalizes missing, partial and corrupt config to something usable', () => {
     expect(normalizeLayout(undefined)).toEqual(LAYOUT_DEFAULTS)
     expect(normalizeLayout('nope')).toEqual(LAYOUT_DEFAULTS)
-    expect(normalizeLayout({ treeOpen: false, treeWidth: 400 })).toEqual({
+    expect(normalizeLayout({ active: 'custom:dense', treeWidth: 400 })).toEqual({
       ...LAYOUT_DEFAULTS,
-      treeOpen: false,
+      active: 'custom:dense',
       treeWidth: 400,
     })
-    expect(normalizeLayout({ railFolded: ['links', 7, null] }).railFolded).toEqual(['links'])
+    // A pre-dock fold list (Round 2 P4) is dropped: the dock has one active tab.
+    expect(normalizeLayout({ railFolded: ['links'] })).toEqual(LAYOUT_DEFAULTS)
   })
 
-  it('toggles folded sections without duplicates', () => {
-    expect(toggleFolded([], 'links', true)).toEqual(['links'])
-    expect(toggleFolded(['links'], 'links', true)).toEqual(['links'])
-    expect(toggleFolded(['links', 'note'], 'links', false)).toEqual(['note'])
+  it('reads the active layout tolerantly; a pre-layout config resolves to default', () => {
+    // The old booleans are not migrated (nothing shipped) — they are dropped.
+    expect(normalizeLayout({ treeOpen: false, railOpen: false, treeWidth: 300 })).toEqual({
+      ...LAYOUT_DEFAULTS,
+      treeWidth: 300,
+    })
+    expect(normalizeLayout({ active: 'custom:writing chris' }).active).toBe('custom:writing chris')
+    expect(normalizeLayout({ active: 'custom:' }).active).toBe('default')
+    expect(normalizeLayout({ active: 'custom:../../etc' }).active).toBe('default')
+    expect(normalizeLayout({ active: 'workspace' }).active).toBe('default')
+    // Round 3 (Q6): one built-in. A stored `light` (round 2's name) or
+    // `dense` (a built-in until round 3) keeps working, as `default`.
+    expect(parseLayoutChoice('light')).toBe('default')
+    expect(parseLayoutChoice('dense')).toBe('default')
+    expect(parseLayoutChoice('default')).toBe('default')
+    expect(parseLayoutChoice(7)).toBeNull()
+    expect(layoutName('custom:writing')).toBe('writing')
+    expect(layoutName('default')).toBe('default')
+    // …but `?layout=dense` (the e2e fixtures' boot) is the example FILE.
+    expect(parseLayoutParam('dense')).toBe('custom:dense')
+    expect(parseLayoutParam('light')).toBe('default')
+    expect(parseLayoutParam('custom:mine')).toBe('custom:mine')
   })
 
-  it('folds everything but the section asked for', () => {
-    // The rail icon's whole job: this one, and nothing else (P2).
-    expect(showOnly(RAIL_SECTIONS, 'note')).toEqual(['links', 'activity', 'history'])
-    // Asking for the section that is already the only open one changes
-    // nothing — which is why the rail collapses on that click instead.
-    expect(showOnly(RAIL_SECTIONS, 'links')).toEqual(LAYOUT_DEFAULTS.railFolded)
-    // An id that is not a section folds them all rather than throwing.
-    expect(showOnly(RAIL_SECTIONS, 'nope')).toEqual([...RAIL_SECTIONS])
-    expect(showOnly([], 'links')).toEqual([])
+  it('names the dock tabs and refuses anything else', () => {
+    expect(RAIL_SECTIONS).toEqual(['links', 'history'])
+    expect(railSection('history')).toBe('history')
+    expect(railSection('note')).toBeNull()
+    expect(railSection(7)).toBeNull()
   })
 
-  it('opens exactly one section on a fresh install', () => {
-    // A fresh device shows Links alone; the stack of four was the jumble.
-    expect(LAYOUT_DEFAULTS.railFolded).toEqual(['note', 'activity', 'history'])
-    expect(RAIL_SECTIONS.filter((id) => !LAYOUT_DEFAULTS.railFolded.includes(id))).toEqual(['links'])
-    // Corrupt config falls back to that default, and never to a shared array.
-    // The pre-P2 default (`[]`, every section open) migrates to the new one.
-    expect(normalizeLayout({ railFolded: [] }).railFolded).toEqual(LAYOUT_DEFAULTS.railFolded)
-    const fallback = normalizeLayout({ railFolded: 'all' }).railFolded
-    expect(fallback).toEqual(LAYOUT_DEFAULTS.railFolded)
-    expect(fallback).not.toBe(LAYOUT_DEFAULTS.railFolded)
+  it('reads the dock form tolerantly', () => {
+    expect(railForm({ rail: 'column' })).toBe('column')
+    expect(railForm({ rail: 'dock' })).toBe('dock')
+    // A pre-dock file's `menu` is the dock.
+    expect(railForm({ rail: 'menu' })).toBe('dock')
   })
 })

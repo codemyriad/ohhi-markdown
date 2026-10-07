@@ -14,11 +14,11 @@
   import { dirPaths } from '../tree-model.js'
   import type { Workspace } from '../workspace.svelte.js'
   import AddLinkDialog from './AddLinkDialog.svelte'
-  import AddShareDialog from './AddShareDialog.svelte'
+  import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
   import BreakerDialog from './BreakerDialog.svelte'
   import ConfirmDialog from './ConfirmDialog.svelte'
-  import FolderShareDialog from './FolderShareDialog.svelte'
   import ReviewModal from './ReviewModal.svelte'
+  import ShareSheet from './ShareSheet.svelte'
   import TreeOpDialog from './TreeOpDialog.svelte'
 
   interface Props {
@@ -28,9 +28,15 @@
     /** The relay new shares are minted on, and the operator secret if the user has one. */
     relayUrl: string
     secret: string
+    /** The open vault's name, as *Add a shared folder* offers it as a destination. */
+    vaultName: string
+    /** The share sheet's first run: remember the relay and secret in Settings › Sync. */
+    onRemember: (relay: string, secret: string) => void
+    /** *Add a shared folder* → as its own vault: the manager's join. Rejects with the reason. */
+    onJoinAsVault: (link: string) => Promise<void>
   }
 
-  let { workspace, sharing, fileOps, relayUrl, secret }: Props = $props()
+  let { workspace, sharing, fileOps, relayUrl, secret, vaultName, onRemember, onJoinAsVault }: Props = $props()
 
   const activeReview = $derived(workspace.ui.reviews[0] ?? null)
 </script>
@@ -46,10 +52,12 @@
 {/if}
 
 {#if sharing.addShareOpen}
-  <AddShareDialog
+  <AddSharedFolderDialog
+    {vaultName}
     dirs={dirPaths(workspace.ui.files)}
     initialDest={sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : ''}
-    onJoin={(link, dest) => workspace.addShareMount(link, dest)}
+    onJoinIntoVault={(link, dest) => workspace.addShareMount(link, dest)}
+    {onJoinAsVault}
     onClose={() => (sharing.addShareOpen = null)}
   />
 {/if}
@@ -120,12 +128,19 @@
 {/if}
 
 {#if sharing.folderSharePath}
-  <FolderShareDialog
+  <ShareSheet
     path={sharing.folderSharePath}
     mount={sharing.folderShareMount}
     {relayUrl}
     {secret}
     onShare={() => sharing.carveFolderShare()}
+    {onRemember}
+    onStopSharing={() => {
+      const path = sharing.folderSharePath
+      sharing.folderSharePath = null
+      sharing.touch()
+      if (path) sharing.askUnshare(path)
+    }}
     onClose={() => {
       sharing.folderSharePath = null
       sharing.touch()

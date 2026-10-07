@@ -1,5 +1,4 @@
 <script lang="ts">
-  import DevtoolsPanel from './lib/components/DevtoolsPanel.svelte'
   import SettingsPanel from './lib/components/SettingsPanel.svelte'
   import VaultManager from './lib/components/VaultManager.svelte'
   import { configForMemory, configForSession } from './lib/boot.js'
@@ -7,10 +6,8 @@
   import JoinProgress from './lib/components/JoinProgress.svelte'
   import LinkDeviceDialog from './lib/components/LinkDeviceDialog.svelte'
   import {
-    defaultRelay,
     devtoolsEnabled,
     getVault,
-    hotkeys,
     lastVault,
     loadUser,
     operatorSecret,
@@ -18,29 +15,26 @@
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
-  import { parseAppConfig } from './lib/params.js'
-  import { hasOpfs, isTauri } from './lib/platform.js'
-  import {
-    askToKeepStorage,
-    initStorage,
-    setStorageReminder,
-    storageState,
-    storageWarning,
-  } from './lib/storage.svelte.js'
+  import { parseAppConfig, parseAppParams } from './lib/params.js'
+  import { hasOpfs, isTauri, userResourceRoot } from './lib/platform.js'
+  import { createCustomise } from './lib/customise.svelte.js'
+  import { createStorageNote } from './lib/storage-note.svelte.js'
   import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation } from './lib/navigation.svelte.js'
   import Toaster from './lib/ui/Toaster.svelte'
-  import IconButton from './lib/ui/IconButton.svelte'
-  import Breadcrumb from './lib/components/Breadcrumb.svelte'
   import DropZones from './lib/components/DropZones.svelte'
   import { createPanes, keyboardClaimed } from './lib/workspace-panes.svelte.js'
   import { createGroupUi } from './lib/group-ui.svelte.js'
-  import { PanelLeft, PanelRight } from '@lucide/svelte'
   import { touchPath } from './lib/recent.js'
+  import { dirPaths } from './lib/tree-model.js'
   import Navigator from './lib/components/Navigator.svelte'
+  import NavigatorDrawer from './lib/components/NavigatorDrawer.svelte'
+  import type { ShellSpec } from './lib/layout-spec.js'
   import EditorArea from './lib/components/EditorArea.svelte'
+  import ShellHeader from './lib/components/ShellHeader.svelte'
   import Rail from './lib/components/Rail.svelte'
+  import { railForm } from './lib/layout.js'
   import WorkspaceDialogs from './lib/components/WorkspaceDialogs.svelte'
   import GroupOverlays from './lib/components/GroupOverlays.svelte'
   import { createDaily } from './lib/daily.svelte.js'
@@ -49,15 +43,20 @@
   import { createShareActions } from './lib/share-actions.svelte.js'
   import { createFileActions } from './lib/file-actions.svelte.js'
   import { createShellLayout } from './lib/shell-layout.svelte.js'
-  import { installShellCommands } from './lib/shell-commands.js'
+  import { installShellCommands, layoutFileSource } from './lib/shell-commands.js'
   import { realClock } from './lib/real-clock.js'
-  import { setDevtools } from './lib/config.js'
+  import { createSharedFeed } from './lib/shared.svelte.js'
+  import { setViewShell } from './lib/views.js'
+  import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
+  const appParams = parseAppParams(url)
 
   let settingsOpen = $state(false)
+  /** The tab Settings opens on (the Shared view's *Change relay…* asks for Sync). */
+  let settingsTab = $state<'sync' | undefined>(undefined)
   const prefillLink = url.get('share') ?? ''
   /**
    * Device linking (N2). `deviceLinkOpen` is the OWNER's dialog (Settings ›
@@ -71,46 +70,8 @@
   const debugForced = url.get('debug') === '1'
   let devtools = $state(debugForced || devtoolsEnabled())
 
-  // ---- browser storage (lib/storage-persistence.ts) ----
-  const storageReady = initStorage() // the launch check-then-ask; a no-op under Tauri
-  /** The manager note's own ask was granted: the note stays up to say so. */
-  let storageGranted = $state(false)
-  // On the manager a browser vault is always at stake: creating, joining and
-  // linking a device all make one.
-  const storageNote = $derived.by(() => {
-    if (storageGranted) return { canAsk: false, outcome: 'granted' as const }
-    if (!storageWarning(hasOpfs())) return null
-    return {
-      canAsk: storageState.state === 'best-effort',
-      outcome: storageState.refused ? ('refused' as const) : null,
-    }
-  })
-
-  function keepStorage(): void {
-    // Straight from the click, so persist() carries the gesture (Firefox).
-    void askToKeepStorage().then(() => {
-      if (storageState.state === 'persisted') storageGranted = true
-    })
-  }
-
-  function dismissStorage(): void {
-    if (storageGranted) storageGranted = false
-    else setStorageReminder(false)
-  }
-
-  // One reminder per session, on whichever surface comes first: the manager's
-  // note, or a single notice when the app reopens straight into a browser vault.
-  let storageReminded = false
-  $effect(() => {
-    if (view === 'manager' && storageNote) storageReminded = true
-  })
-
-  async function remindAboutStorage(ws: Workspace): Promise<void> {
-    await storageReady
-    if (storageReminded || workspace !== ws || !storageWarning(true)) return
-    storageReminded = true
-    ws.notify({ level: 'warn', text: $LL.web.storage.notice() })
-  }
+  // ---- browser storage (lib/storage-persistence.ts): the manager's note, or one reminder ----
+  const storage = createStorageNote({ onManager: () => view === 'manager', hasOpfs })
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()
@@ -146,7 +107,7 @@
       }
       return out
     },
-    notify: (input) => workspace?.notify(input),
+    flash: (input) => workspace?.flash(input),
     write: (text) => navigator.clipboard.writeText(text),
   })
 
@@ -160,7 +121,11 @@
     lastVault,
     onOpened: (ws, entry) => {
       manager.refresh()
-      if (entry.vault.kind === 'opfs') void remindAboutStorage(ws)
+      if (entry.vault.kind === 'opfs') {
+        void storage.remind(() => ws.notify({ level: 'warn', code: 'storage_evictable' }), () => workspace === ws)
+      }
+      // ?debug=1 used to force the drawer on; now it opens the inspector tab.
+      if (debugForced) panes.openView('inspector')
     },
     setup: setupWorkspace,
     configForSession,
@@ -178,13 +143,37 @@
   const workspace = $derived(session.workspace)
   const view = $derived(session.view)
 
-  // ---- layout (chrome U2) + notices (chrome U5) ----
+  // ---- customising from files (quiet-shell F8–F11): resources, keymap, templates ----
+  const userRoot = userResourceRoot()
+  const customise = createCustomise({
+    workspace: () => workspace,
+    userRoot: () => userRoot,
+    registry: nav.registry,
+    setFormatBindings: (bindings) => panes.setFormatBindings(bindings),
+    now: () => realClock.now(),
+    notePath: () => workspace?.ui.selectedPath ?? null,
+    dateFormat: () => daily.config.format,
+    insertText: (text) => panes.insertText(text),
+  })
+  const { resources, keymap, templates } = customise
+  nav.setTemplates({ rows: () => templates.rows, insert: (name, args) => void templates.insert(name, args) })
+
+  // ---- layout (chrome U2, quiet-shell F2) + notices (chrome U5) ----
   const layout = createShellLayout({
     inWorkspace: () => view === 'workspace',
-    notices: () => workspace?.ui.notices ?? null,
+    events: () => workspace?.ui.events ?? null,
+    flashes: () => workspace?.ui.flashes ?? null,
+    eventSource: () => workspace,
+    sessionStart: () => workspace?.startedAt ?? null,
     now: () => realClock.now(),
+    resolveLayout: (active, pins, overrides) => resources.resolveLayout(active, pins, overrides),
+    refreshResources: () => resources.refresh(),
+    layoutOverride: appParams.layout,
+    onLayoutsChange: (cb) => resources.onChange('layouts', cb),
+    room: () => workspace?.room ?? null,
   })
   nav.setLinksVisible(() => layout.linksVisible)
+  nav.setLayoutFiles(layoutFileSource(resources, layout))
 
   // ---- daily notes (W3): Obsidian's own daily-notes.json drives all three ----
   const daily = createDaily({
@@ -195,13 +184,24 @@
 
   /**
    * Every "open this note" in the shell (Fork 1-B): the tree, the links
-   * panel, quick-open, search, Activity, daily notes. `background` is
+   * panel, quick-open, search, the Log view, daily notes. `background` is
    * Mod+click / Mod+Enter — a tab, but stay where you are.
    */
   function openPath(path: string, opts: { background?: boolean } = {}): void {
     if (!workspace) return
-    panes.open(path, opts)
+    // `panes.open: 'replace'` (quiet-shell F3): a foreground open navigates
+    // the focused tab in place, Typora's way; Mod+click stays a new tab.
+    const replace = layout.spec.panes.open === 'replace' && !opts.background
+    panes.open(path, { ...opts, replace })
     touchPath(workspace.room, path)
+    // The drawer has done its job once the note it opened is on the page.
+    if (replace && layout.spec.regions.navigator === 'drawer') layout.treeOpen = false
+  }
+
+  /** *Pin as a column* (Round 2, P7): a device pin per side (`layout.pin`), never a file. */
+  const pin = (regions: Partial<ShellSpec['regions']>): void => {
+    if (regions.navigator === 'column') layout.pin('navigator')
+    if (regions.rail === 'column') layout.pin('rail')
   }
 
   /**
@@ -230,14 +230,54 @@
     workspace: () => workspace,
     refresh: () => manager.refresh(),
     closeUnder: (path) => panes.closeUnder(path),
-    revokeRoom: async (room) => {
+    // On the ROOM's relay (`MountInfo.relay`), never the current default.
+    revokeRoom: async (room, relay) => {
       const secret = operatorSecret()
       if (!secret) return
-      for (const share of await listShares(defaultRelay(), secret, room)) {
-        await revokeShare(defaultRelay(), secret, share.token)
+      for (const share of await listShares(relay, secret, room)) {
+        await revokeShare(relay, secret, share.token)
       }
     },
   })
+  // ---- the Shared view (sharing E2): its ack tracker and the verbs every view tab may use ----
+  const sharedFeed = createSharedFeed({ workspace: () => workspace, clock: realClock })
+  setViewShell({
+    clock: realClock,
+    openPath: (path, opts) => openPath(path, opts),
+    openView: (id, arg) => panes.openView(id, arg),
+    createFromLink: (target) => void fileOps.createFromLink(target),
+    renameNote: (path, name) => fileOps.renameNote(path, name),
+    pin,
+    openSettings: (tab) => {
+      settingsTab = tab
+      settingsOpen = true
+    },
+    shareFolder: (path) => (sharing.folderSharePath = path),
+    addSharedFolder: (dir = '') => (sharing.addShareOpen = { dir }),
+    linkDevice: () => (deviceLinkOpen = true),
+    revealFolder: (path) => layout.revealInTree(path),
+    relayUrl: () => manager.relayDefault,
+    secret: () => manager.opSecret,
+    revision: () => sharing.revision,
+    inSyncByRoom: () => sharedFeed.inSyncByRoom,
+  })
+  // ---- the readouts' context (readouts.ts): the toolbar's, and every per-pane status bar's ----
+  const readoutCtx: ReadoutContext = {
+    // Read only inside the workspace branch, where it is set.
+    get workspace() {
+      return workspace as Workspace
+    },
+    panes,
+    layout,
+    nav,
+    daily,
+    groups,
+    get merged() {
+      return layout.spec.regions.statusbar === 'merged'
+    },
+    devtools: () => devtools,
+  }
+  setReadoutContext(readoutCtx)
   const fileOps = createFileActions({
     workspace: () => workspace,
     open: (path) => openPath(path),
@@ -257,20 +297,51 @@
     sharing,
     layout,
     selectedPath: () => workspace?.ui.selectedPath ?? null,
+    mounts: () => workspace?.ui.mounts ?? [],
     hasWorkspace: () => workspace !== null,
     inWorkspace: () => view === 'workspace',
     claimed: keyboardClaimed,
-    overrides: hotkeys,
     openSettings: () => (settingsOpen = true),
     openDeviceLink: () => (deviceLinkOpen = true),
+    openView: (id, arg) => panes.openView(id, arg),
+    devtools: () => devtools,
+    reloadResources: () => customise.reloadAll(),
+    templates,
+    focusMode: {
+      active: () => layout.focus,
+      toggle: () => layout.toggleFocus(),
+      leave: () => layout.setFocus(false),
+    },
   })
 
   // ---- workspace-derived view state ----
   const currentVaultName = $derived(
     (workspace ? getVault(workspace.room)?.name : undefined) ?? $LL.web.shell.unnamed_vault()
   )
-  /** The focused pane's active path — what the breadcrumb follows. */
-  const selectedPath = $derived(workspace?.ui.selectedPath ?? null)
+  /**
+   * *Add a shared folder* from the manager, into the vault open behind it
+   * (sharing E4): the same join the tree runs, then back to that vault.
+   */
+  async function joinIntoOpenVault(link: string, dest: string): Promise<void> {
+    if (!workspace) return
+    await workspace.addShareMount(link, dest)
+    session.showWorkspace()
+  }
+  /** What both navigators — the column and the drawer — are handed. */
+  const navigatorProps = $derived({
+    nav,
+    layout,
+    vaults: manager.vaults,
+    vaultName: currentVaultName,
+    onOpen: openPath,
+    onOp: fileOps.handle,
+    onSwitch: (entry: Parameters<typeof session.boot>[0]) => void session.boot(entry),
+    onManage: () => {
+      manager.refresh()
+      session.showManager()
+    },
+    onSettings: () => (settingsOpen = true),
+  })
 
   // ---- initial routing: everything above is wired, now pick a vault ----
   session.start(memConfig, prefillLink !== '')
@@ -295,6 +366,9 @@
     onOpenFolder={(name) => void manager.openFolder(name)}
     onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
     onJoin={(name, link) => void manager.joinShare(name, link)}
+    joinInto={workspace
+      ? { vaultName: currentVaultName, dirs: dirPaths(workspace.ui.files), join: joinIntoOpenVault }
+      : null}
     onLinkDevice={(name) => {
       saveUser(name)
       session.failure = null
@@ -302,9 +376,9 @@
     }}
     onBack={() => session.showWorkspace()}
     onSettings={() => (settingsOpen = true)}
-    {storageNote}
-    onKeepStorage={keepStorage}
-    onDismissStorage={dismissStorage}
+    storageNote={storage.note}
+    onKeepStorage={() => storage.keep()}
+    onDismissStorage={() => storage.dismiss()}
   />
 {:else if view === 'connecting' || !workspace}
   {#if session.joining}
@@ -340,46 +414,19 @@
   {/if}
 {:else}
   <div class="flex h-screen flex-col bg-base-100 text-base-content">
-    <header class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-2 py-1">
-      <!-- The page's one h1: the vault. -->
-      <h1 class="sr-only">{currentVaultName}</h1>
-      <IconButton
-        label={layout.treeOpen ? $LL.web.shell.hide_navigator() : $LL.web.shell.show_navigator()}
-        icon={PanelLeft}
-        pressed={layout.treeOpen}
-        testid="toggle-tree"
-        onclick={() => (layout.treeOpen = !layout.treeOpen)}
-      />
-      <Breadcrumb path={selectedPath} onReveal={(dir) => layout.revealInTree(dir)} />
-      <!-- The vault rollup moved to the navigator, beside the vault it is
-           about (P3); the header keeps the breadcrumb and the two toggles. -->
-      <div class="ml-auto flex min-w-0 items-center gap-3">
-        <IconButton
-          label={layout.railOpen ? $LL.web.shell.hide_sidebar() : $LL.web.shell.show_sidebar()}
-          icon={PanelRight}
-          pressed={layout.railOpen}
-          testid="toggle-rail"
-          onclick={() => (layout.railOpen = !layout.railOpen)}
-        />
-      </div>
-    </header>
+    <ShellHeader placement="top" {workspace} {layout} registry={nav.registry} ctx={readoutCtx} vaultName={currentVaultName} />
 
-    <div class="flex min-h-0 flex-1">
-      {#if layout.treeOpen}
-        <Navigator
+    <!-- `relative`: the unpinned navigator floats against this row, between the bars. -->
+    <div class="relative flex min-h-0 flex-1">
+      {#if layout.treeOpen && layout.spec.regions.navigator === 'column'}
+        <Navigator {workspace} {...navigatorProps} />
+      {:else if layout.treeOpen && layout.spec.regions.navigator === 'drawer'}
+        <!-- quiet-shell F3: the same navigator, floating over the editor's left edge (not modal). `off` renders nothing. -->
+        <NavigatorDrawer
           {workspace}
-          {nav}
-          {layout}
-          vaults={manager.vaults}
-          vaultName={currentVaultName}
-          onOpen={openPath}
-          onOp={fileOps.handle}
-          onSwitch={(entry) => void session.boot(entry)}
-          onManage={() => {
-            manager.refresh()
-            session.showManager()
-          }}
-          onSettings={() => (settingsOpen = true)}
+          {...navigatorProps}
+          onClose={() => (layout.treeOpen = false)}
+          onPin={() => layout.pin('navigator')}
         />
       {/if}
 
@@ -390,26 +437,18 @@
         {nav}
         now={() => realClock.now()}
         onCreateFromLink={(target) => void fileOps.createFromLink(target)}
+        chrome={layout.paneChrome}
+        editor={layout.spec.editor}
+        {layout}
       />
 
-      <Rail
-        {workspace}
-        {nav}
-        {layout}
-        {sharing}
-        vaultName={currentVaultName}
-        relayUrl={manager.relayDefault}
-        secret={manager.opSecret}
-        {devtools}
-        now={() => realClock.now()}
-        onOpen={openPath}
-        onCreateFromLink={(target) => void fileOps.createFromLink(target)}
-        onDevtools={(on) => {
-          setDevtools(on)
-          devtools = debugForced || on
-        }}
-      />
+      <!-- Round 2 P4: pinned, the dock is this column; otherwise it floats
+           over the editor area (`EditorArea` hosts that form). -->
+      {#if railForm(layout.spec.regions) === 'column' && layout.focusKeeps('rail')}
+        <Rail {workspace} {nav} {layout} />
+      {/if}
     </div>
+    <ShellHeader placement="bottom" {workspace} {layout} registry={nav.registry} ctx={readoutCtx} vaultName={currentVaultName} />
   </div>
 
   <WorkspaceDialogs
@@ -418,6 +457,13 @@
     {fileOps}
     relayUrl={manager.relayDefault}
     secret={manager.opSecret}
+    vaultName={currentVaultName}
+    onRemember={(relay, secret) => manager.rememberRelay(relay, secret)}
+    onJoinAsVault={async (link) => {
+      // From inside a workspace the manager is not on screen: the dialog says why.
+      const failed = await manager.joinShare(loadUser() ?? 'Anonymous', link)
+      if (failed) throw new Error(failed)
+    }}
   />
 
   {#if nav.palette.mode}
@@ -437,9 +483,6 @@
   <DropZones {panes} />
   <GroupOverlays {panes} {groups} now={() => realClock.now()} />
 
-  {#if devtools}
-    <DevtoolsPanel {workspace} />
-  {/if}
 {/if}
 
 <Toaster />
@@ -456,6 +499,7 @@
     onClose={() => {
       deviceLinkOpen = false
       manager.refresh()
+      sharing.touch()
     }}
   />
 {/if}
@@ -471,7 +515,11 @@
 
 {#if settingsOpen}
   <SettingsPanel
+    initialTab={settingsTab}
     registry={nav.registry}
+    {layout}
+    {resources}
+    {keymap}
     readAppFile={workspace ? (p) => workspace!.readAppFile(p) : undefined}
     onLinkDevice={workspace
       ? () => {
@@ -484,6 +532,7 @@
       : undefined}
     onClose={() => {
       settingsOpen = false
+      settingsTab = undefined
       manager.refresh()
       devtools = debugForced || devtoolsEnabled()
     }}

@@ -133,15 +133,26 @@
     --ed-search-match-active-bg: #ebcb8b;
 
     --ed-presence-1: #2b7f8a;
-    --ed-presence-2: #4d7c2f;
+    /* Slots 2 and 4 are not the ported green and amber: #4d7c2f is this
+     * theme's --ed-sync-ok in all but name and #8a6300 IS --ed-sync-pending;
+     * a peer must never read as a sync state (sharing R5). */
+    --ed-presence-2: #2f7a5a;
     --ed-presence-3: #7d3fa8;
-    --ed-presence-4: #8a6300;
+    --ed-presence-4: #8f5a2b;
     --ed-presence-5: #3b6e7d;
     --ed-presence-6: #4c6f8e;
     --ed-presence-7: #365a86;
     /* Not the ported #9c5335: it sits ~55 units from the diverged red, close
      * enough for a peer's caret to read as a conflict marker. */
     --ed-presence-8: #a8327d;
+    --ed-presence-fg-1: #ffffff;
+    --ed-presence-fg-2: #ffffff;
+    --ed-presence-fg-3: #ffffff;
+    --ed-presence-fg-4: #ffffff;
+    --ed-presence-fg-5: #ffffff;
+    --ed-presence-fg-6: #ffffff;
+    --ed-presence-fg-7: #ffffff;
+    --ed-presence-fg-8: #ffffff;
 
     /* Tab-group slots (W2): the same eight hues this file already darkens for
      * headings and links (h6 blue, h3 green, h4 purple, h2 yellow, a deeper

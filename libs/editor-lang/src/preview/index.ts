@@ -20,11 +20,12 @@
  * `bench.test.ts` holds the pair to a frame on a 3,000-URL note.
  */
 import { syntaxTree } from '@codemirror/language'
-import { StateField, type Extension } from '@codemirror/state'
-import { Decoration, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
+import { Prec, StateField, type Extension } from '@codemirror/state'
+import { Decoration, EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view'
 import { previewMode, readHost } from '../read-host.js'
 import { buildBlockPreview, buildInlinePreview, type PreviewDecorations } from './build.js'
 import { previewClicks } from './clicks.js'
+import { selectListMarker } from './commands.js'
 
 /** True when anything the decorations are a function of has moved. */
 function stale(startState: ViewUpdate['startState'], state: ViewUpdate['state']): boolean {
@@ -87,9 +88,19 @@ export function livePreview(): Extension[] {
     EditorView.atomicRanges.of((view) => view.state.field(blockPreviewField).hidden),
     EditorView.atomicRanges.of((view) => view.plugin(inlinePreview)?.hidden ?? Decoration.none),
     previewClicks,
+    // Above markdown's own Backspace (Prec.high, deleteMarkupBackward), which
+    // would turn a drawn bullet into indentation in one invisible step.
+    Prec.highest(keymap.of([{ key: 'Backspace', run: selectListMarker }])),
   ]
 }
 
 export { activeLines } from './active-lines.js'
-export { toggleTask } from './commands.js'
+export {
+  indentListItem,
+  listLinesIn,
+  listMarkerBefore,
+  outdentListItem,
+  selectListMarker,
+  toggleTask,
+} from './commands.js'
 export { tagCompletions } from './completion.js'

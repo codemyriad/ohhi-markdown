@@ -8,7 +8,8 @@
  *
  * Not a `*.spec.ts`, so Playwright's `testMatch` leaves it alone.
  */
-import { expect, type Locator, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
+import { expect, type Locator, type Page, type WebSocketRoute } from '@playwright/test'
 
 export const RELAY = 'ws://localhost:8799'
 
@@ -18,6 +19,14 @@ export interface AppParams {
   role?: 'seed' | 'join'
   token?: string
   user?: string
+  /**
+   * The layout the app boots in (`?layout=`, a session-only choice).
+   * `dense` by default: it is the shell every spec before Stage 1 was written
+   * against — the navigator column `openApp` waits for (spike S21). The
+   * default layout has its own spec (`layout.spec.ts`); pass `null` to boot
+   * whatever the device has chosen.
+   */
+  layout?: string | null
 }
 
 /** The memory-vault URL the specs boot from — no real folder, no share. */
@@ -26,10 +35,19 @@ export function appUrl({
   role = 'seed',
   token = 'e2e-token',
   user = 'Chris',
+  layout = 'dense',
 }: AppParams): string {
   const params = new URLSearchParams({ mode: 'memory', role, relay: RELAY, room, token, user })
+  if (layout) params.set('layout', layout)
   return `/?${params.toString()}`
 }
+
+/**
+ * The vault manager with no vault, in the `dense` layout for the rest of the
+ * tab (the choice survives the shell's URL clean-up and a reload). What a
+ * spec that makes or links a vault from the manager navigates to instead of `/`.
+ */
+export const MANAGER_URL = '/?layout=dense'
 
 /** Boot the app and wait until the vault is actually on screen. */
 export async function openApp(
@@ -161,6 +179,114 @@ export async function openManager(page: Page): Promise<void> {
 export const panes = (page: Page): Locator => page.locator('[data-pane-id]')
 export const editors = (page: Page): Locator => page.locator('[data-pane-id] .cm-content')
 export const chips = (page: Page): Locator => page.locator('[data-testid^="group-chip:"]')
+/**
+ * Focus a note's editor WITHOUT clicking (a click would place the caret
+ * itself), through CodeMirror's own `view.focus()`, which writes the editor's
+ * selection into the DOM in the same call.
+ *
+ * Not `locator.focus()`: a DOM focus leaves the browser's caret at the start
+ * of the content, and CM6 only puts its own selection back if it handles the
+ * `selectionchange` within 200 ms of the focus (`lastFocusTime > Date.now() -
+ * 200` in its DOM observer). A main thread stalled past that — a loaded full
+ * suite — makes CM6 adopt the browser's caret as a user selection, and a
+ * resume point the app restored correctly reads as lost. The view is found
+ * the way `EditorView.findFromDOM` finds it (the content node's tile → its
+ * root → the view); a CM6 upgrade that moves that pointer fails here, loudly.
+ */
+export async function focusEditor(content: Locator): Promise<void> {
+  await content.evaluate((el) => {
+    type Tile = { root?: { view?: { focus(): void } } }
+    const view = (el as unknown as { cmTile?: Tile }).cmTile?.root?.view
+    if (!view) throw new Error('focusEditor: no CodeMirror view behind this .cm-content')
+    view.focus()
+  })
+}
 /** A tab by the note name it prints; `.first()` because a note can be in two panes. */
 export const tabNamed = (page: Page, name: string): Locator =>
   page.locator('[data-slot-kind="tab"]', { hasText: name }).first()
+/**
+ * The editor area's tabs — the panes' strips, not the rail column's own
+ * Links/History tab row (round 2's DockPanel is a `ui/Tabs` too, and in
+ * `dense` it is on screen as the pinned column).
+ */
+export const paneTabs = (page: Page, opts: { selected?: boolean } = {}): Locator =>
+  page.getByTestId('editor-area').getByRole('tab', opts)
+/** Every tab strip on screen (`tabs: 'auto'` draws none for a lone tab). */
+export const strips = (page: Page): Locator => page.locator('[data-strip]')
+
+/**
+ * Axe over the page as it stands, against the WCAG 2.1 AA + best-practice
+ * tags golden rule 7 gates on; a failure lists each rule, node and summary.
+ */
+export async function expectAccessible(page: Page, surface: string): Promise<void> {
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'])
+    .analyze()
+  const report = results.violations
+    .map(
+      (v) =>
+        `${v.id} (${v.impact}): ${v.help}\n` +
+        v.nodes.map((n) => `    ${n.target.join(' ')}\n      ${n.failureSummary?.split('\n').join('\n      ')}`).join('\n')
+    )
+    .join('\n')
+  expect(results.violations, `${surface}\n${report}`).toEqual([])
+}
+
+/** Close every toast on screen (an unseeded room's relay refusal can sit over a target). */
+export async function dismissToasts(page: Page): Promise<void> {
+  for (const toast of await page.getByTestId('toast').all()) await toast.getByRole('button').first().click()
+  await expect(page.getByTestId('toast')).toHaveCount(0)
+}
+
+/** Open a note by quick-open (`Mod+O`) — the way in when there is no navigator column. */
+export async function openByQuickOpen(page: Page, query: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+o')
+  await page.getByTestId('quick-open-input').fill(query)
+  await expect(page.getByTestId('quick-open-row').first()).toContainText(query)
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('quick-open-input')).toHaveCount(0)
+}
+
+/** Run a command by its palette title: `Mod+Shift+P`, the query, Enter on the first row. */
+export async function runCommand(page: Page, query: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill(query)
+  await expect(page.getByTestId('command-palette-row').first()).toBeVisible()
+  await page.keyboard.press('Enter')
+}
+
+/** Split the focused pane to the right (`Alt+=`) and wait for `count` panes. */
+export async function splitRight(page: Page, count = 2): Promise<void> {
+  await page.keyboard.press('Alt+=')
+  await expect(panes(page)).toHaveCount(count)
+}
+
+/**
+ * Route this page's websockets through a switch, so the RELAY can be killed
+ * for this page alone while the app server stays up (setOffline would block
+ * the dev server too). Register BEFORE the navigation it should govern: ws
+ * routes only take effect after one (verified, PW 1.60). `severed: true`
+ * starts with the relay unreachable; `restore()` lets the next connections
+ * through, `kill()` closes the open ones and refuses new ones.
+ */
+export async function severableRelay(
+  page: Page,
+  { severed = false }: { severed?: boolean } = {}
+): Promise<{ kill: () => Promise<void>; restore: () => void }> {
+  const sockets: WebSocketRoute[] = []
+  let cut = severed
+  await page.routeWebSocket(/.*/, (ws) => {
+    if (cut) return void ws.close()
+    sockets.push(ws)
+    ws.connectToServer()
+  })
+  return {
+    kill: async () => {
+      cut = true
+      await Promise.all(sockets.splice(0).map((ws) => ws.close()))
+    },
+    restore: () => {
+      cut = false
+    },
+  }
+}

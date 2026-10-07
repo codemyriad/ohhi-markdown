@@ -42,6 +42,8 @@
      * (tab-groups B2).
      */
     onhandle?: (handle: MarkdownEditorHandle | null) => void
+    /** Typewriter scrolling (the layout's `editor.typewriter`), applied by reconfigure. */
+    typewriter?: boolean
   }
 
   let {
@@ -55,6 +57,7 @@
     reveal = null,
     undoManager = null,
     onhandle,
+    typewriter = false,
   }: Props = $props()
 
   let host = $state<HTMLDivElement>()
@@ -74,6 +77,7 @@
       user,
       readOnly,
       mode: untrack(() => mode),
+      typewriter: untrack(() => typewriter),
       dark: untrack(() => dark),
       extensions: untrack(() => extensions),
       ...(manager ? { undoManager: manager } : {}),
@@ -94,6 +98,10 @@
 
   $effect(() => {
     handle?.setMode(mode)
+  })
+
+  $effect(() => {
+    handle?.setTypewriter(typewriter)
   })
 
   $effect(() => {

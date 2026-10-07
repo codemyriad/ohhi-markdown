@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.keymap.v1.schema.json",
+  "title": "ohhi.keymap.v1",
+  "description": "An Oh hi markdown keymap file: <vault>/.ohhi/keymaps/<name>.json (or ~/.config/ohhi/keymaps/ on desktop). Overrides over the command table's default keys: a chord, several, or [] to unbind. See docs/customising.md.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "ohhi.keymap.v1"
+    },
+    "extends": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bindings": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "nav.quick-open",
+          "nav.command-palette",
+          "nav.search",
+          "file.new",
+          "file.new-folder",
+          "file.delete",
+          "file.move",
+          "share.folder",
+          "share.add",
+          "share.link-device",
+          "nav.back",
+          "nav.forward",
+          "view.sidebar",
+          "view.rail",
+          "daily.today",
+          "daily.prev",
+          "daily.next",
+          "app.settings",
+          "app.inspector",
+          "app.log",
+          "app.shared",
+          "app.reload-resources",
+          "view.focus",
+          "template.insert",
+          "layout.use-file",
+          "workspace.split-auto",
+          "workspace.split-down",
+          "workspace.split-right",
+          "workspace.close-pane",
+          "workspace.focus-left",
+          "workspace.focus-down",
+          "workspace.focus-up",
+          "workspace.focus-right",
+          "workspace.focus-next",
+          "workspace.zoom",
+          "workspace.rotate",
+          "workspace.move-left",
+          "workspace.move-down",
+          "workspace.move-up",
+          "workspace.move-right",
+          "workspace.resize-left",
+          "workspace.resize-down",
+          "workspace.resize-up",
+          "workspace.resize-right",
+          "workspace.equalize",
+          "workspace.mode",
+          "workspace.close-others",
+          "tab.new",
+          "tab.close",
+          "tab.prev",
+          "tab.next",
+          "tab.goto-1",
+          "tab.goto-2",
+          "tab.goto-3",
+          "tab.goto-4",
+          "tab.goto-5",
+          "tab.goto-6",
+          "tab.goto-7",
+          "tab.goto-8",
+          "tab.goto-9",
+          "tab.move-left",
+          "tab.move-down",
+          "tab.move-up",
+          "tab.move-right",
+          "tab.pin",
+          "tab.reopen",
+          "group.new",
+          "group.toggle",
+          "group.close",
+          "group.copy-links",
+          "group.ungroup",
+          "group.move-left",
+          "group.move-down",
+          "group.move-up",
+          "group.move-right",
+          "view.toggle-reading",
+          "view.toggle-source",
+          "view.mode-live",
+          "view.mode-source",
+          "view.mode-reading",
+          "edit.toggle-checkbox",
+          "format.bold",
+          "format.italic",
+          "format.strike",
+          "format.code",
+          "format.heading-1",
+          "format.heading-2",
+          "format.heading-3",
+          "format.paragraph",
+          "format.list",
+          "format.ordered-list",
+          "format.task",
+          "format.quote",
+          "format.link",
+          "format.wikilink",
+          "format.table",
+          "format.image"
+        ]
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:(?:[Mm][Oo][Dd]|[Ss][Hh][Ii][Ff][Tt]|[Aa][Ll][Tt]|[Cc][Tt][Rr][Ll])\\+)*[^+\\s]+$"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:(?:[Mm][Oo][Dd]|[Ss][Hh][Ii][Ff][Tt]|[Aa][Ll][Tt]|[Cc][Tt][Rr][Ll])\\+)*[^+\\s]+$"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "bindings"
+  ],
+  "additionalProperties": false
+}

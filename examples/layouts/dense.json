@@ -1,0 +1,54 @@
+{
+  "$schema": "ohhi.layout.v1",
+  "extends": "default",
+  "regions": {
+    "header": "breadcrumb",
+    "navigator": "column",
+    "rail": "column",
+    "tabs": "always",
+    "statusbar": "pane",
+    "format": "off",
+    "status": "off"
+  },
+  "bars": {
+    "toolbar.left": [],
+    "toolbar.center": [],
+    "toolbar.right": [],
+    "format": [],
+    "statusbar": [
+      "pane.lead",
+      "|",
+      "words",
+      "mode",
+      "sync"
+    ]
+  },
+  "toolbar": {
+    "position": "top"
+  },
+  "dock": {
+    "position": "top-right"
+  },
+  "panes": {
+    "borders": "hairline",
+    "focusMark": false,
+    "lead": true,
+    "open": "tab"
+  },
+  "views": [
+    "inspector",
+    "log",
+    "shared"
+  ],
+  "editor": {
+    "measure": "comfortable",
+    "typewriter": false,
+    "inlineTitle": true
+  },
+  "focus": {
+    "keep": [
+      "header",
+      "statusbar"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-09-12
+date: 2026-10-06
 ---
 
 # Glossary
@@ -38,7 +38,7 @@ A slice-completion criterion defined by real use, not features: gate 1 (closes V
 The transition period where the same edits travel via both git and the relay, requiring a dedup rule so a git pull of already-relayed edits doesn't duplicate content (D2c, Spike S2).
 
 ### Durable ack
-Confirmation that the relay has *fsynced* an update to persistent storage, not merely received it. The [sync pill](#sync-pill) shows green only on durable ack — the y-protocol has no per-update acks, so this needs a small protocol extension (Spike S4). See [primer 05](primers/05-sync-and-relay.md#sync-state-that-never-lies).
+Confirmation that the relay has *fsynced* an update to persistent storage, not merely received it. The design target for the [sync pill](#sync-pill)'s green — but **not built yet**: the y-protocol has no per-update acks, so it needs a small protocol extension (Spike S4), and today green means the relay has **received** every edit (`apps/web/src/lib/pill-status.ts`). Surfaces that report it say so: the Shared view's relay card says "in sync with the relay since …" / "last in sync …" (`inSyncSince` / `lastInSyncAt`), never "durable". See [primer 05](primers/05-sync-and-relay.md#sync-state-that-never-lies).
 
 ### Eg-walker
 A 2025 algorithm (Gentle & Kleppmann) that keeps a document as plain text plus an event graph, engaging CRDT machinery only when concurrency must actually be merged. Intellectual support for files-first thinking; not something we run. See [file-crdt-reconciliation research](../plans/research/file-crdt-reconciliation.md).
@@ -141,7 +141,7 @@ An external write that re-asserts old content — typically another editor (Obsi
 A compact map of `clientID → highest op counter seen`; the "what have you seen?" half of the sync handshake. Insufficient alone for equality checks because deletes don't advance it — see [delete set](#delete-set) and [heads](#heads). See [primer 01](primers/01-crdts-and-yjs.md).
 
 ### Sync pill
-The per-doc (plus quiet global rollup) status indicator, computed as a *pure function* of the sync record `{connected, pendingOps, diskMatchesCrdt, diverged, durableAck}`. Green requires [durable ack](#durable-ack); honesty under partition is harness-asserted (R2.3, D11). See [primer 05](primers/05-sync-and-relay.md#sync-state-that-never-lies).
+The per-doc (plus quiet global rollup) status indicator, computed as a *pure function* of the sync record `{connected, pendingOps, diskMatchesCrdt, diverged, durableAck}`. Green means connected, nothing pending, disk matching and the relay having **received** every edit — [durable ack](#durable-ack) is the target, not yet built; honesty under partition is harness-asserted (R2.3, D11). See [primer 05](primers/05-sync-and-relay.md#sync-state-that-never-lies). Since foundations round 2 (2026-10-06) the toolbar and the status bar show it as the **`sync` icon** — the Shared view's glyph stroked in the sync colour (`.ed-sync-icon`, unlayered like the dot), with avatars beside it when people are online, a hover card of who is where, and a click to the Shared view; the tree still draws dots.
 
 ### Three-way merge
 Merging two changed versions through their common base so each side's changes are identified precisely — what [diff3](#diff3) does with the [LCA](#lca-last-common-ancestor) as base when both disk and CRDT moved. See [primer 03](primers/03-lca-reconciliation.md).
@@ -228,8 +228,55 @@ palette and printed by `ohhi search`. See
 ### Coverage counters
 `{ docs, skippedBinary, ignored }` — on every agent-surface answer that walks the
 vault: notes indexed, files seen and not indexed, directory names never listed
-(`libs/vault`'s `IGNORED_DIRS` — `.editor`, `.editor-cache`, `.git`,
-`.obsidian`, `.trash`, `node_modules`). They are what stop "nothing found" from being
+(`libs/vault`'s `IGNORED_DIRS` — `.ohhi`, `.ohhi-cache`, `.git`,
+`.obsidian`, `.trash`, `node_modules`, and the pre-rename `.editor` and
+`.editor-cache`). They are what stop "nothing found" from being
 read as "nothing exists"; a non-zero `skippedBinary` means the answer had blind
 spots and should say so. The same honesty discipline as the [sync
 pill](#sync-pill), applied to queries. See [agent-access.md](agent-access.md).
+
+### Layout (spec)
+What the shell draws, as data: `.ohhi/layouts/<name>.json`, a partial that
+`extends` another layout and edits its lists with `+id` / `-id`. One ships
+built in, **default** (the quiet shell; `light` and `dense` are retired names
+read as it); `dense` survives as an example file. On a device the active file
+is followed by its **overrides** (what Settings › Layout edits, live) and
+then its **pins**. See [customising.md](customising.md) and
+`plans/quiet-shell-shaping.md`.
+
+### Resource root
+Where layouts, keymaps and templates are read from, in order: the vault's
+`.ohhi/`, then `~/.config/ohhi/` on desktop, then the built-ins — the first
+that has a name wins. Data, never code; ignored by sync and the index.
+
+### Readout
+One item of a bar (the toolbar's three groups, the status bar) named by id in
+a layout — `nav`, `sync`, `drawer`, `inspector`, and `words` · `chars` in the
+editor's corner… Every bar draws
+its ids through one renderer (`BarItems.svelte`); a toolbar *button* is
+instead a registry command id in `bars.format`.
+
+### Dock
+The right side of the shell: a small floating strip of icons at the
+editor's top-right (or bottom-right) — always, pinned or not — that opens a
+panel with its own tabs, Links and History: floating over the editor, or,
+when pinned, as the rail column.
+
+### Pins
+*Pin as a column* on the navigator or the dock: a device-level override laid
+over whichever layout is active, after its overrides (`config.layout.pins`),
+never written into a layout file. Each side is pinned on its own; a pinned
+side reads *(pinned)* in Settings › Layout with *Unpin* beside it.
+
+### View tab
+A tab whose body is a view over vault and session state rather than a note —
+the Inspector, the Log view, the Shared view — registered once in
+`VIEW_KINDS` / `views.ts`, so each opens, splits, persists and is named the
+same way.
+
+### Event log
+The app's one record of what happened — errors, warnings, notices, others'
+changes, peers joining, relay state — as `AppEvent`s (a code and parameters,
+never rendered words). Read by the Log view, the notification drawer and the
+Shared view's Changes; each shared folder's part persists at
+`<room>/events.json` and is droppable. See `plans/spike-one-log.md`.

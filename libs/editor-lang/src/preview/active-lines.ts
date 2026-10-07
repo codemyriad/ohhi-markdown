@@ -56,6 +56,18 @@ export function inActiveRegion(spans: readonly Span[], from: number, to: number)
 }
 
 /**
+ * Is a list marker `[from, to)` (the `-` and the spaces after it) being
+ * edited? True when a selection range overlaps it, or a caret sits inside it
+ * or immediately BEFORE it; a caret at `to` — anywhere after the marker — is
+ * not editing it, so the bullet stays drawn. This is the whole of the list
+ * marker's caret-line rule (read-shaping.md B2.3, amended 2026-10-06): unlike
+ * a heading's `#`, a bullet is rendered on the caret's line too.
+ */
+export function markerSelected(selection: EditorSelection, from: number, to: number): boolean {
+  return selection.ranges.some((r) => r.from < to && r.to >= from)
+}
+
+/**
  * Is the construct at `[from, to]` drawn as itself rather than as its markup?
  *
  * The click rule rests on this (R2.4): a rendered link navigates, a link whose

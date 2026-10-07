@@ -1,0 +1,78 @@
+{
+  "$schema": "ohhi.layout.v1",
+  "regions": {
+    "header": "toolbar",
+    "navigator": "drawer",
+    "rail": "dock",
+    "tabs": "always",
+    "statusbar": "merged",
+    "format": "bottom",
+    "status": "corner"
+  },
+  "bars": {
+    "toolbar.left": [
+      "nav"
+    ],
+    "toolbar.center": [],
+    "toolbar.right": [
+      "sync",
+      "drawer",
+      "inspector"
+    ],
+    "format": [
+      "format.paragraph-style",
+      "|",
+      "format.bold",
+      "format.italic",
+      "format.strike",
+      "format.code",
+      "|",
+      "format.list",
+      "format.ordered-list",
+      "format.task",
+      "format.quote",
+      "|",
+      "format.link",
+      "format.wikilink",
+      "format.table",
+      "format.image"
+    ],
+    "statusbar": [
+      "pane.lead",
+      "|",
+      "sync"
+    ],
+    "status": [
+      "words",
+      "chars"
+    ]
+  },
+  "toolbar": {
+    "position": "top"
+  },
+  "dock": {
+    "position": "top-right"
+  },
+  "panes": {
+    "borders": "hairline",
+    "focusMark": true,
+    "lead": false,
+    "open": "replace"
+  },
+  "views": [
+    "inspector",
+    "log",
+    "shared"
+  ],
+  "editor": {
+    "measure": "comfortable",
+    "typewriter": false,
+    "inlineTitle": true
+  },
+  "focus": {
+    "keep": [
+      "toolbar",
+      "format"
+    ]
+  }
+}

@@ -95,6 +95,21 @@ describe('TabStrip', () => {
     }
   })
 
+  it('puts the new-tab button right after the last tab, beside the tablists rather than in one', () => {
+    stripWithGroup()
+    show()
+    const plus = screen.getByTestId(`tab-new:${pane().id}`)
+    const lists = screen.getAllByRole('tablist')
+    // In the scrolling run, after the final tablist: it follows the last tab.
+    expect(plus.closest(`[data-testid="tabs:${pane().id}"]`)).not.toBeNull()
+    expect(lists[lists.length - 1].compareDocumentPosition(plus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    for (const list of lists) expect(list.contains(plus)).toBe(false)
+    // A button, never a tab: the roving row is still the tabs alone.
+    expect(plus).not.toHaveAttribute('role', 'tab')
+    expect(plus.tagName).toBe('BUTTON')
+    expect(plus.closest('[data-slot-index]')).toBeNull()
+  })
+
   it('keeps one roving tab stop across every run', () => {
     stripWithGroup()
     show()

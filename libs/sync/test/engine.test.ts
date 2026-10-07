@@ -85,3 +85,40 @@ describe('engine seam (Yjs impl)', () => {
     expect(b.getText()).toBe(a.getText())
   })
 })
+
+describe('update inspection (sharing E3: attribution at arrival)', () => {
+  it('clientIdsOf names the replicas whose inserts an update carries', () => {
+    const { a, b } = connect2('attr-1', 'base')
+    const seen: Uint8Array[] = []
+    const off = engine.onUpdate(b, (u) => seen.push(u))
+    b.transact((t) => t.insert(0, 'B '), 'local')
+    off()
+    expect(engine.clientIdsOf(seen[0]!)).toEqual([engine.clientIdOf(b)])
+    expect(engine.clientIdOf(a)).not.toBe(engine.clientIdOf(b))
+    // A full-state update carries every author, ascending.
+    const full = engine.encodeUpdateSince(b, null)
+    expect(engine.clientIdsOf(full)).toEqual([engine.clientIdOf(a), engine.clientIdOf(b)].sort((x, y) => x - y))
+  })
+
+  it('a delete-only update carries no client id (the delete set names authors, not deleters)', () => {
+    const { b } = connect2('attr-2', 'abcdef')
+    const seen: Uint8Array[] = []
+    const off = engine.onUpdate(b, (u) => seen.push(u))
+    b.transact((t) => t.delete(0, 3), 'local')
+    off()
+    expect(engine.clientIdsOf(seen[0]!)).toEqual([])
+    expect(engine.charDeltaOf(seen[0]!)).toEqual({ added: 0, removed: 3 })
+  })
+
+  it('charDeltaOf counts inserted characters and deleted items', () => {
+    const { b } = connect2('attr-3', 'abcdef')
+    const seen: Uint8Array[] = []
+    const off = engine.onUpdate(b, (u) => seen.push(u))
+    b.transact((t) => {
+      t.delete(0, 2)
+      t.insert(0, 'hello')
+    }, 'local')
+    off()
+    expect(engine.charDeltaOf(seen[0]!)).toEqual({ added: 5, removed: 2 })
+  })
+})

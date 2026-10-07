@@ -2,7 +2,7 @@
   /**
    * "Link a device" (device-link-shaping A1, slice N2) — the OWNER's side.
    *
-   * Deliberately not a mode of `FolderShareDialog`: a folder share is a thing
+   * Deliberately not a mode of `ShareSheet`: a folder share is a thing
    * you give to other people, one folder at a time, and it can be read-only.
    * A device link is a full-access key to the whole vault for one person's own
    * devices (R5), so the R5 sentence sits beside the copy button, and there is

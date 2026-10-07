@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-09-12
+date: 2026-10-04
 ---
 
 # Editor docs
@@ -13,6 +13,7 @@ Learning and reference documentation for the Editor project — a collaborative,
 |---|---|
 | [running-and-testing.md](running-and-testing.md) | **The runbook.** How to install the toolchain, run the test suite, drive the two-tab collaboration demo in a browser, launch the Tauri desktop shell, and troubleshoot. |
 | [agent-access.md](agent-access.md) | **The agent surface.** The `ohhi` CLI, the `ohhi-vault` skill and the `ohhi mcp` server: installing them, naming a vault, the versioned `--json` contract and exit codes, every read and write operation, and how an agent's write coexists with a running app. |
+| [customising.md](customising.md) | **Changing the app's own shape** (for people and agents). The `.ohhi/` resource root — layouts, keymaps, templates (themes: theming.md) — its folders and precedence, the `extends` + delta grammar, and every command, readout, region and view id (those lists are generated: `cd apps/web && rushx gen-schemas`). |
 | [recovery.md](recovery.md) | **When something goes wrong** (for dogfooders). Set up snapshots first; undo changes from snapshots; a failure-mode table (bad write, a teammate's delete, broken sync state, relay lost, browser storage cleared, machine lost); what to capture when reporting a problem. |
 | [theming.md](theming.md) | **The design system.** Three token bands driven by one `data-theme` attribute, why the sync-honesty tokens are unlayered, how CodeMirror is themed from the same tokens, the four built-in themes, and the Obsidian→Editor porting table for custom themes. |
 | [glossary.md](glossary.md) | Every term a newcomer hits in this repo, alphabetical, cross-linked to the primers. |
