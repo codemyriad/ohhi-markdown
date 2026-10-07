@@ -19,12 +19,9 @@ export type TokenKind = 'folder' | 'device' | ''
 
 /**
  * Do these two URLs name the same relay? Trailing slashes and case are noise;
- * host and port are not.
- *
- * (`apps/web/src/lib/share-status.ts` keeps its own copy for the TREE tint —
- * that one is about how a mount is drawn, this one gates a credential. They
- * agree by construction because they are the same six lines; if they ever have
- * to stop agreeing, this is the one that decides who gets a token.)
+ * host and port are not. The one copy: `apps/web/src/lib/share-status.ts`
+ * re-exports it for the tree tint, so drawing a mount and handing it a
+ * credential can never disagree about which relay is which.
  */
 export function sameRelay(a: string, b: string): boolean {
   const norm = (url: string): string => {
@@ -37,6 +34,24 @@ export function sameRelay(a: string, b: string): boolean {
     }
   }
   return !!a && !!b && norm(a) === norm(b)
+}
+
+/**
+ * WHERE a room lives — the one resolution every reader of a room's relay
+ * uses: the session that connects to it, the Shared view's relay card, the
+ * share sheet that lists and revokes its links, and the breadcrumb. In order:
+ * the mount table's own relay (mounts.json / the vault entry), else the one
+ * this device remembered for the room, else the build's default. Before this
+ * there were three orders (link-first in the view, link-then-global in the
+ * sheet, entry-first in the session), and *Stop sharing* revoked on the
+ * default relay while the room lived on another.
+ */
+export function roomRelayUrl(
+  entry: string | null | undefined,
+  remembered: string | null | undefined,
+  fallback: string
+): string {
+  return entry || remembered || fallback
 }
 
 /**

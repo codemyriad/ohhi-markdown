@@ -11,6 +11,7 @@ import {
   type WriteOptions,
 } from './types.js'
 import { hashBytes } from './hash.js'
+import { AppDirListeners } from './app-dir.js'
 
 /** Does any segment of `path` name an ignored directory? */
 function ignored(path: string): boolean {
@@ -22,6 +23,7 @@ export class MemVaultAdapter implements VaultAdapter {
   /** Explicitly created directories; parents of files are implied (see listDirs). */
   private dirs = new Set<string>()
   private watchers = new Set<(ev: WatchEvent) => void>()
+  private appDirs = new AppDirListeners()
   /** When true (default), mutations emit watch events automatically. */
   autoEmit = true
 
@@ -120,6 +122,17 @@ export class MemVaultAdapter implements VaultAdapter {
     return () => this.watchers.delete(cb)
   }
 
+  async listAppDir(dir: string): Promise<string[]> {
+    const prefix = `${dir.replace(/\/+$/, '')}/`
+    return [...this.files.keys()]
+      .filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/'))
+      .sort()
+  }
+
+  watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
+    return this.appDirs.add(dir, cb)
+  }
+
   /** Test hook: external writer that bypasses nothing — same as writeAtomic. */
   externalWrite(path: string, bytes: Uint8Array): void {
     this.files.set(path, bytes.slice())
@@ -135,11 +148,22 @@ export class MemVaultAdapter implements VaultAdapter {
 
   private emit(paths: string[]): void {
     if (!this.autoEmit) return
-    for (const cb of this.watchers) cb({ paths })
+    this.deliver(paths)
   }
 
   /** Manual emission when autoEmit is off (batch simulation). */
   emitBatch(paths: string[]): void {
-    for (const cb of this.watchers) cb({ paths })
+    this.deliver(paths)
+  }
+
+  /**
+   * Same filter as the real adapters' watchers: a path under an ignored
+   * directory never reaches `watch`; under a watched app dir it goes to that
+   * listener instead (`watchAppDir`).
+   */
+  private deliver(paths: string[]): void {
+    const vault = this.appDirs.route(paths)
+    if (vault.length === 0) return
+    for (const cb of this.watchers) cb({ paths: vault })
   }
 }

@@ -17,21 +17,37 @@ export interface WatchEvent {
  */
 /**
  * Directories every VaultAdapter must hide from `list`, `listDirs` and the
- * watcher. Not per-adapter policy: `.editor/` holding a user theme that gets
+ * watcher. Not per-adapter policy: `.ohhi/` holding a user theme that gets
  * enrolled as a note, synced to every peer, and simultaneously read as the
  * stylesheet Editor is rendering itself with is the same bug in each one.
  *
  * `read`/`writeAtomic` are deliberately NOT filtered — Editor reads its own
- * `.editor/` files directly (see Workspace.readAppFile).
+ * `.ohhi/` files directly (see Workspace.readAppFile).
  */
 export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   '.git',
   '.obsidian',
+  '.ohhi',
+  '.ohhi-cache',
+  // The pre-rename app folders: ignored so a vault made before the rename never enrols them as notes.
   '.editor',
   '.editor-cache',
   '.trash',
   'node_modules',
 ])
+
+/**
+ * The infix every `writeAtomic` temp file carries (`<file>.ohhi-tmp-…`).
+ * Listings and watchers skip any name for which `isTempName` holds.
+ */
+export const TEMP_INFIX = '.ohhi-tmp-'
+
+/**
+ * True for a `writeAtomic` temp name — the current `.ohhi-tmp-` infix or the
+ * pre-rename `.editor-tmp-` one, which a crashed older build can leave behind.
+ */
+export const isTempName = (name: string): boolean =>
+  name.includes(TEMP_INFIX) || name.includes('.editor-tmp-')
 
 /**
  * Compare-and-swap for `writeAtomic` (Spike S11 finding F1).
@@ -103,6 +119,24 @@ export interface VaultAdapter {
   renameDir(from: string, to: string): Promise<void>
   /** Raw change notifications; QuiescedWatcher turns these into stable events. */
   watch(cb: (ev: WatchEvent) => void): () => void
+  /**
+   * The files directly inside one IGNORED app directory (`.ohhi/layouts`),
+   * as vault-relative paths; `[]` when it does not exist. `list()` never sees
+   * them, by design (IGNORED_DIRS), so the resource loader asks here. Optional:
+   * an adapter without it simply has no vault-root resources to list.
+   */
+  listAppDir?(dir: string): Promise<string[]>
+  /**
+   * Changes under ONE ignored app directory (`.ohhi`), routed to their own
+   * listener (spike-resource-root Q1). The events already reach the adapter's
+   * watcher and are dropped there; with a listener they go HERE instead —
+   * never to `watch`'s callback, so they cannot reach the path map, the index
+   * or a CRDT. No second native watcher: delivery rides on an active
+   * `watch()`. Raw and undebounced (one save is temp + rename = several
+   * events); the subscriber debounces on its own scheduler. OPFS omits it:
+   * nothing but the app writes there.
+   */
+  watchAppDir?(dir: string, cb: (paths: string[]) => void): () => void
 }
 
 export type EolFlavor = 'lf' | 'crlf' | 'raw'

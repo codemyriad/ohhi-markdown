@@ -125,6 +125,21 @@ export function createYjsEngine(): SyncEngine {
     encodeHeads: packHeads,
     decodeHeads: unpackHeads,
 
+    clientIdsOf: (update) => [...Y.parseUpdateMeta(update).to.keys()].sort((a, b) => a - b),
+
+    charDeltaOf: (update) => {
+      const { structs, ds } = Y.decodeUpdate(update)
+      let added = 0
+      for (const s of structs) {
+        if (s instanceof Y.Item && s.content instanceof Y.ContentString) added += s.length
+      }
+      let removed = 0
+      for (const items of ds.clients.values()) for (const d of items) removed += d.len
+      return { added, removed }
+    },
+
+    clientIdOf: (doc) => asYjsDoc(doc).ydoc.clientID,
+
     onUpdate: (doc, cb) => {
       const ydoc = asYjsDoc(doc).ydoc
       const handler = (update: Uint8Array, origin: unknown) => cb(update, origin)

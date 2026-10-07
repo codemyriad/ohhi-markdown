@@ -41,8 +41,12 @@ import type {
   MountStatus,
   PreImageJournal,
   ReconcileThresholds,
+  StoreIo,
   VaultAdapter,
 } from '@ohhi/vault'
+import { DOC_CHANGE_WINDOW_MS, RelayRefusedError, type Actor, type AppEvent, type EventInput, type EventScope } from './events.js'
+import { RoomEventLog } from './event-store.js'
+import { attributeUpdate, relayHost } from './attribution.js'
 import {
   BlobDocStore,
   decodeFile,
@@ -71,6 +75,7 @@ import {
 import {
   FOLDER_RECORD_KEY,
   type CollabUser,
+  type DocPeer,
   type FileRow,
   type MountEntryInfo,
   type MountEvents,
@@ -81,6 +86,19 @@ import {
 
 const FLUSH_DEBOUNCE_MS = 800
 const CLOSED_RECONCILE_MS = 200
+/**
+ * A room's relay has been unreachable this long → `relay.state offline`
+ * (after `reconnecting`, or from boot when it never connected). Edge-only
+ * history; the pill stays the live truth (golden rule 4).
+ */
+export const RELAY_OFFLINE_MS = 30_000
+/**
+ * After OUR folder connection comes (back) up, peer joins/leaves are not
+ * believed for this long: the peers' awareness arrives after the connect, so
+ * diffing at once would log every present peer as left and then joined. The
+ * diff runs once the window closes, against the set from before the drop.
+ */
+export const PEER_SETTLE_MS = 3_000
 
 export interface MountSessionConfig {
   engine: SyncEngine
@@ -129,6 +147,11 @@ export interface MountSessionConfig {
   makeShareLink: (relay: RelayConfig, room: string) => string
   /** Non-browser hosts pass their WebSocket impl through to providers. */
   webSocketPolyfill?: unknown
+  /**
+   * `<room>/events.json` in the vault's StoreDir: this room's persisted event
+   * log (sharing E3, `event-store.ts`). Absent → the log is in memory only.
+   */
+  eventsIo?: StoreIo
 }
 
 /** How a mount namespace is seeded (spike S10 Q1 step 3). */
@@ -244,6 +267,53 @@ export interface MountStats {
   journalCount: number
 }
 
+/**
+ * One row of a mount-wide inspection (devtools-shaping D5): the same facts
+ * `inspectPath` reports for one file, without the journal timeline, for
+ * every non-deleted entry of the map. Mount entries are boundaries, not
+ * files, so they are left out — the nested mount reports its own rows.
+ */
+export interface PathInspection {
+  /** Mount-relative; the facade prefixes it back into workspace space. */
+  path: string
+  guid: string
+  kind: 'text' | 'binary' | 'dir'
+  /** Text entries only: null = no LCA record yet (never reconciled). */
+  lca: { headsDigest: string; contentHash: string } | null
+  /** Text entries only: null = no Y.Doc in memory for this guid. */
+  doc: { headsDigest: string; equalsLca: boolean | null } | null
+  providerAttached: boolean
+  /** Pre-images retained for this path (0..retention). */
+  journalCount: number
+  /** A live editor view holds this path open (materialization deferred). */
+  open: boolean
+}
+
+/** A whole mount at once: identity, counts, every row, and what the map does not name. */
+export interface MountInspection {
+  stats: MountStats
+  relay: string | null
+  rows: PathInspection[]
+  /** LCA records whose guid no non-deleted map entry names — a rebuild-only leftover. */
+  lcaOrphans: { guid: string; path: string }[]
+}
+
+/**
+ * The three texts behind one file (devtools-shaping D3, the peek): what is
+ * on disk, what disk and doc last agreed on, and what the doc holds now. The
+ * inspector diffs them pairwise — the hashes only ever say *whether* two of
+ * them differ; this is *how*. Read on demand for ONE selected file, never
+ * per row.
+ */
+export interface PathPeek {
+  /** Decoded as the CRDT would hold it (BOM off, CRLF → LF); null when absent on disk. */
+  disk: { text: string; hash: string } | null
+  /** The LCA's base text; null with no LCA record. */
+  lca: { text: string; hash: string } | null
+  /** The live doc's text; null when no doc is in memory. */
+  doc: { text: string } | null
+}
+
 /** Short stable digest of encoded heads for eyeball comparison. */
 function shortDigest(bytes: Uint8Array): string {
   return hashBytes(bytes).slice(0, 12)
@@ -307,9 +377,36 @@ export class MountSession {
   private pullWritten = 0
   private pullPhase: PullProgress['phase'] | null = null
 
+  // ---- the room's event log (sharing E3, spike S22) ----
+  /** This room's persisted, droppable event log. One writer: `logEvent`. */
+  private readonly roomLog: RoomEventLog
+  /**
+   * The folder map as `{path, kind}` by guid, for the `file.*` diff. Kept on
+   * every map change; diffed only for FOREIGN changes once boot is over (a
+   * first join's pull is not "a peer created 1,000 files").
+   */
+  private fileView = new Map<string, { path: string; kind: FileEntry['kind'] }>()
+  private fileViewReady = false
+  /** A foreign map diff waiting for its update bytes (Yjs emits `update` after observers). */
+  private pendingFileEvents: EventInput[] | null = null
+  /** The room's relay edge, as last logged. */
+  private relayState: 'connected' | 'reconnecting' | 'offline' | 'refused' | null = null
+  private relayRefusedReason: string | null = null
+  private cancelOffline: (() => void) | null = null
+  /** Our folder connection is up: peer joins/leaves are only believed while it is. */
+  private folderConnected = false
+  /** Pending end of the post-connect settle window (`PEER_SETTLE_MS`); null when settled. */
+  private cancelPeerSettle: (() => void) | null = null
+  /** Peers present in the folder awareness (name → color), ourselves excluded. */
+  private presentPeers = new Map<string, string | undefined>()
+
   static async create(cfg: MountSessionConfig): Promise<MountSession> {
     const session = new MountSession(cfg)
+    // The stored history first, so a boot's own events land after it.
+    await session.roomLog.load()
     await session.boot()
+    session.fileView = session.currentFileView()
+    session.fileViewReady = true
     return session
   }
 
@@ -325,9 +422,18 @@ export class MountSession {
     this.events = cfg.events ?? {}
     this.relay = cfg.relay ?? null
     this.folderDoc = cfg.engine.createDoc(`${cfg.room}/folder`)
+    this.roomLog = new RoomEventLog({
+      clock: cfg.clock,
+      room: cfg.room,
+      ...(cfg.eventsIo ? { io: cfg.eventsIo } : {}),
+    })
+    // AFTER the map observer below has run for a transaction: the bytes that
+    // attribute a foreign map diff (`noteMapChange`).
+    this.engine.onUpdate(this.folderDoc, (update) => this.flushFileEvents(update))
 
     this.folderDoc.getMap().observe((origin) => {
       if (this.stopped) return // torn down; nothing here is ours any more
+      this.noteMapChange(origin)
       this.guidPaths = null // any map change can move a guid's path
       // Only a FOREIGN map change can tell us about someone else's carve or
       // unshare; our own carve wrote the entry itself (N1, shaping A2/A3).
@@ -365,6 +471,20 @@ export class MountSession {
   }
 
   // ---- public surface ----
+
+  /**
+   * This room's event log, newest first: the stored history (loaded at
+   * create) plus everything since. What `MountEvents.onEvent` reports one at
+   * a time, as a snapshot — the host's merge point on mount open.
+   */
+  roomEvents(): AppEvent[] {
+    return this.roomLog.events()
+  }
+
+  /** Drop this room's history (golden rule 8's rebuild: an empty log, written at once). */
+  clearRoomEvents(): Promise<void> {
+    return this.roomLog.rebuild()
+  }
 
   isShared(): boolean {
     return this.sharedLink !== null
@@ -431,6 +551,7 @@ export class MountSession {
    * reconciler was free to materialize over (golden rule 1).
    */
   private markOpenPaths(): void {
+    this.syncHere()
     if (!this.sessionRef) return
     for (const rel of this.openPaths) {
       const guid = this.guidFor(rel)
@@ -794,8 +915,11 @@ export class MountSession {
     for (const guid of guids) {
       this.debounces.get(guid)?.()
       this.debounces.delete(guid)
-      this.conns.get(guid)?.destroy()
-      this.conns.delete(guid)
+      if (this.conns.has(guid)) {
+        this.conns.get(guid)?.destroy()
+        this.conns.delete(guid)
+        this.events.onDocPresence?.(guid, [])
+      }
       this.tracked.delete(guid)
       this.cfg.docStore?.untrack(guid)
       // Blob BEFORE the LCA (Invariant D): the residue of a crash between the
@@ -966,6 +1090,19 @@ export class MountSession {
     }
   }
 
+  /** The three texts of one text file (see `PathPeek`); null for unknown/binary/dir. */
+  async peekPath(path: string): Promise<PathPeek | null> {
+    const guid = this.guidFor(path)
+    if (!guid) return null
+    const [bytes, lca] = await Promise.all([this.adapter.read(path), this.lcaStore.get(guid)])
+    const doc = this.docs.get(guid) ?? null
+    return {
+      disk: bytes ? { text: decodeFile(bytes).text, hash: hashBytes(bytes) } : null,
+      lca: lca ? { text: lca.baseText, hash: lca.contentHash } : null,
+      doc: doc ? { text: doc.getText().toString() } : null,
+    }
+  }
+
   /** Per-mount counts + identity for the devtools footer. */
   async mountStats(): Promise<MountStats> {
     const entries = this.folderDoc.getMap().entries()
@@ -981,6 +1118,60 @@ export class MountSession {
     }
   }
 
+  /**
+   * Every row of this mount in one read (devtools-shaping D5). Three store
+   * reads regardless of size — the map, `lcaStore.all()`, `journal.list()` —
+   * never one per path: the inspector refreshes this on demand over a
+   * thousand-note vault, and `inspectPath` per row would be a thousand
+   * journal listings.
+   */
+  async inspectMount(): Promise<MountInspection> {
+    const stats = await this.mountStats()
+    const lcaByGuid = new Map((await this.lcaStore.all()).map((r) => [r.guid, r] as const))
+    const journalCounts = new Map<string, number>()
+    for (const e of await this.journal.list()) {
+      journalCounts.set(e.path, (journalCounts.get(e.path) ?? 0) + 1)
+    }
+    const rows: PathInspection[] = []
+    const named = new Set<string>()
+    for (const [path, entry] of this.mapEntries()) {
+      if (entry.kind === 'mount') continue
+      named.add(entry.guid)
+      const isText = entry.kind === 'text'
+      const lca = isText ? (lcaByGuid.get(entry.guid) ?? null) : null
+      const doc = isText ? (this.docs.get(entry.guid) ?? null) : null
+      const lcaHeads = lca ? this.engine.decodeHeads(lca.heads) : null
+      const docHeads = doc ? this.engine.heads(doc) : null
+      rows.push({
+        path,
+        guid: entry.guid,
+        kind: entry.kind,
+        lca: lca
+          ? {
+              headsDigest: shortDigest(lca.heads),
+              contentHash: lca.contentHash === NEVER_ON_DISK ? '(never on disk)' : lca.contentHash,
+            }
+          : null,
+        doc:
+          doc && docHeads
+            ? {
+                headsDigest: shortDigest(this.engine.encodeHeads(docHeads)),
+                equalsLca: lcaHeads ? this.engine.headsEqual(docHeads, lcaHeads) : null,
+              }
+            : null,
+        providerAttached: this.conns.has(entry.guid),
+        journalCount: journalCounts.get(path) ?? 0,
+        open: this.openPaths.has(path),
+      })
+    }
+    rows.sort((a, b) => a.path.localeCompare(b.path))
+    const lcaOrphans = [...lcaByGuid.values()]
+      .filter((r) => !named.has(r.guid))
+      .map((r) => ({ guid: r.guid, path: r.path }))
+      .sort((a, b) => a.path.localeCompare(b.path))
+    return { stats, relay: this.relay?.url ?? null, rows, lcaOrphans }
+  }
+
   /** Promote a local mount to a shared one; returns the copyable link. */
   enableSharing(newRelay: RelayConfig): { link: string } {
     // RE-KEY when a relay is already attached. `connectFolder` returns early
@@ -992,13 +1183,20 @@ export class MountSession {
     // (golden rule 4). Tearing the old ones down first is what makes a paste
     // mean something.
     if (this.relay) {
-      for (const conn of this.conns.values()) conn.destroy()
-      this.conns.clear()
+      this.destroyConns()
       this.folderConn?.destroy()
       this.folderConn = null
       this.roomSocket?.destroy() // after the per-doc detaches, never before
       this.roomSocket = null
       this.authFailure = null
+      // A new credential starts a new relay story: the refusal no longer holds.
+      this.cancelOffline?.()
+      this.cancelOffline = null
+      this.relayState = null
+      this.relayRefusedReason = null
+      this.folderConnected = false
+      this.cancelPeerSettle?.()
+      this.cancelPeerSettle = null
       // Every record goes back to "not connected" until the NEW provider says
       // otherwise: the pill must never carry a previous credential's verdict.
       const folder = this.recordFor(FOLDER_RECORD_KEY)
@@ -1026,9 +1224,14 @@ export class MountSession {
     this.stopped = true
     for (const cancel of this.debounces.values()) cancel()
     this.debounces.clear()
+    this.cancelOffline?.()
+    this.cancelOffline = null
+    this.cancelPeerSettle?.()
+    this.cancelPeerSettle = null
+    // Best-effort, like the blob tail below: the log is droppable (rule 8).
+    void this.roomLog.flush().finally(() => this.roomLog.dispose())
     this.sessionRef?.dispose()
-    for (const conn of this.conns.values()) conn.destroy()
-    this.conns.clear()
+    this.destroyConns()
     this.folderConn?.destroy()
     this.folderConn = null
     // The shared socket closes LAST: each doc detaches from it first, so the
@@ -1089,10 +1292,16 @@ export class MountSession {
     this.stopped = true
     for (const cancel of this.debounces.values()) cancel()
     this.debounces.clear()
+    this.cancelOffline?.()
+    this.cancelOffline = null
+    this.cancelPeerSettle?.()
+    this.cancelPeerSettle = null
+    // The debounced tail of the event log, durably (sharing E3).
+    await this.roomLog.flush()
+    this.roomLog.dispose()
     this.sessionRef?.dispose()
     this.sessionRef = null
-    for (const conn of this.conns.values()) conn.destroy()
-    this.conns.clear()
+    this.destroyConns()
     this.folderConn?.destroy()
     this.folderConn = null
     this.roomSocket?.destroy() // after the per-doc detaches, never before
@@ -1106,6 +1315,278 @@ export class MountSession {
     for (const doc of this.docs.values()) doc.destroy()
     this.docs.clear()
     this.folderDoc.destroy()
+  }
+
+  // ---- the room's event log (sharing E3) ----
+
+  /**
+   * The one writer into this room's log. Never lets the log or a listener
+   * break the path that reported it: the log is a derived convenience
+   * (golden rule 8), the sync path is not.
+   */
+  private logEvent(input: EventInput): void {
+    if (this.stopped) return
+    let event: AppEvent
+    try {
+      event = this.roomLog.append(input)
+    } catch (err) {
+      this.pushError(err)
+      return
+    }
+    if (!this.events.onEvent) return
+    try {
+      this.events.onEvent(event)
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /** `{room, mount, path}` with the path WORKSPACE-relative (the tree opens it as is). */
+  private scopeFor(path?: string): EventScope {
+    const mount = this.cfg.mountPath ?? ''
+    const scope: EventScope = { room: this.room, mount }
+    if (path !== undefined) scope.path = mount && path ? `${mount}/${path}` : path || mount
+    else if (mount) scope.path = mount
+    return scope
+  }
+
+  /**
+   * `doc.changed` for an edit that arrived: a peer's (attributed through the
+   * doc's awareness at arrival — `attribution.ts`), or a disk ingest
+   * (Obsidian, git, an agent: `disk`). Only those two: an update logs only
+   * when its origin is that doc's PROVIDER (or the seam's `'remote'`) or a
+   * disk ingest. Every other origin is a local transaction — `'local'`, the
+   * editor binding's, the undo manager's — and is never logged: a local
+   * delete-only edit carries no inserted client ids, so attribution would
+   * fall through to "via the relay" and badge the drawer with our own
+   * Backspace.
+   */
+  private noteDocChange(guid: string, path: string, update: Uint8Array, origin: unknown): void {
+    const provider = this.conns.get(guid)?.provider
+    const remote = origin === 'remote' || (provider !== undefined && origin === provider)
+    if (origin !== 'disk' && !remote) return
+    // A first join's pull is the room arriving, not a thousand edits.
+    if (this.pullPhase !== null) return
+    try {
+      let actor: Actor
+      if (origin === 'disk') {
+        actor = { kind: 'disk' }
+      } else {
+        const doc = this.docs.get(guid)
+        actor = attributeUpdate({
+          clientIds: this.engine.clientIdsOf(update),
+          self: doc ? this.engine.clientIdOf(doc) : null,
+          states: this.conns.get(guid)?.awareness.getStates() ?? null,
+          relayHost: relayHost(this.relay?.url),
+          recent: this.recentActor(guid),
+        })
+        if (actor.kind === 'me') return // an echo of our own ops
+      }
+      const { added, removed } = this.engine.charDeltaOf(update)
+      if (added === 0 && removed === 0) return
+      this.logEvent({
+        kind: 'doc.changed',
+        level: 'info',
+        scope: this.scopeFor(path),
+        actor,
+        payload: { guid, added, removed },
+      })
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /**
+   * Who this note's newest `doc.changed` within the fold window was
+   * attributed to — the tie-break for a delete-only update when several
+   * people have the note open (`attribution.ts` rule 3).
+   */
+  private recentActor(guid: string): Actor | null {
+    const floor = this.clock.now() - DOC_CHANGE_WINDOW_MS
+    for (const e of this.roomLog.events()) {
+      if (e.at < floor) return null
+      if (e.kind === 'doc.changed' && (e.payload as { guid?: string }).guid === guid) return e.actor
+    }
+    return null
+  }
+
+  /** The map's files/dirs by guid, mount boundaries and tombstones excluded. */
+  private currentFileView(): Map<string, { path: string; kind: FileEntry['kind'] }> {
+    const view = new Map<string, { path: string; kind: FileEntry['kind'] }>()
+    const roots = this.mountRoots()
+    for (const [path, entry] of this.folderDoc.getMap().entries()) {
+      if (entry.deleted || entry.kind === 'mount' || this.underMount(path, roots)) continue
+      view.set(entry.guid, { path, kind: entry.kind })
+    }
+    return view
+  }
+
+  /**
+   * Called first thing in the map observer: refresh the file view, and for a
+   * FOREIGN change diff it into `file.created` / `file.deleted` /
+   * `file.moved`. Children of a created, deleted or moved directory fold into
+   * the directory's one line. The events wait in `pendingFileEvents` for the
+   * transaction's update bytes (`flushFileEvents`), which is what names the
+   * peer — Yjs emits `update` after the observers have run.
+   */
+  private noteMapChange(origin: unknown): void {
+    try {
+      // A diff whose update never came (not expected) still gets logged.
+      if (this.pendingFileEvents) this.flushFileEvents(null)
+      const next = this.currentFileView()
+      const prev = this.fileView
+      this.fileView = next
+      if (!this.fileViewReady || !isForeignOrigin(origin)) return
+      const created: { path: string; kind: FileEntry['kind'] }[] = []
+      const deleted: { path: string; kind: FileEntry['kind'] }[] = []
+      const moved: { from: string; to: string; kind: FileEntry['kind'] }[] = []
+      for (const [guid, now] of next) {
+        const was = prev.get(guid)
+        if (!was) created.push(now)
+        else if (was.path !== now.path) moved.push({ from: was.path, to: now.path, kind: now.kind })
+      }
+      for (const [guid, was] of prev) if (!next.has(guid)) deleted.push(was)
+      const under = (p: string, dirs: string[]): boolean => dirs.some((d) => p.startsWith(`${d}/`))
+      const newDirs = created.filter((c) => c.kind === 'dir').map((c) => c.path)
+      const goneDirs = deleted.filter((d) => d.kind === 'dir').map((d) => d.path)
+      const dirMoves = moved.filter((m) => m.kind === 'dir')
+      const inMovedDir = (m: { from: string; to: string }): boolean =>
+        dirMoves.some((d) => m.from.startsWith(`${d.from}/`) && m.to === `${d.to}${m.from.slice(d.from.length)}`)
+      const out: EventInput[] = []
+      for (const c of created) {
+        if (under(c.path, newDirs)) continue
+        out.push({ kind: 'file.created', level: 'info', scope: this.scopeFor(c.path), payload: {} })
+      }
+      for (const d of deleted) {
+        if (under(d.path, goneDirs)) continue
+        out.push({ kind: 'file.deleted', level: 'info', scope: this.scopeFor(d.path), payload: {} })
+      }
+      for (const m of moved) {
+        if (inMovedDir(m)) continue
+        out.push({
+          kind: 'file.moved',
+          level: 'info',
+          scope: this.scopeFor(m.to),
+          payload: { from: this.scopeFor(m.from).path ?? m.from },
+        })
+      }
+      if (out.length > 0) this.pendingFileEvents = out
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /** Log the pending foreign map diff, attributed by the transaction's update. */
+  private flushFileEvents(update: Uint8Array | null): void {
+    const pending = this.pendingFileEvents
+    if (!pending) return
+    this.pendingFileEvents = null
+    try {
+      const actor =
+        update === null
+          ? this.relayActor()
+          : attributeUpdate({
+              clientIds: this.engine.clientIdsOf(update),
+              self: this.engine.clientIdOf(this.folderDoc),
+              states: this.folderConn?.awareness.getStates() ?? null,
+              relayHost: relayHost(this.relay?.url),
+            })
+      if (actor.kind === 'me') return
+      for (const input of pending) this.logEvent({ ...input, actor })
+    } catch (err) {
+      this.pushError(err)
+    }
+  }
+
+  /**
+   * Peer joins / leaves from the folder awareness, by announced name (the
+   * same names `onPresence` reports). Frozen while our own folder connection
+   * is down: awareness ages everyone out when WE drop, and "B left" would be
+   * a lie about B. And frozen for `PEER_SETTLE_MS` after it comes back up:
+   * the peers' states arrive after the connect, so an immediate diff would
+   * log everyone as left, then joined.
+   */
+  private notePeers(peers: Map<string, string | undefined>): void {
+    if (!this.folderConnected || this.cancelPeerSettle) return
+    for (const [name, color] of peers) {
+      if (this.presentPeers.has(name)) continue
+      this.logEvent({
+        kind: 'peer.joined',
+        level: 'info',
+        scope: this.scopeFor(),
+        actor: { kind: 'peer', name, ...(color ? { color } : {}) },
+        payload: {},
+      })
+    }
+    for (const [name, color] of this.presentPeers) {
+      if (peers.has(name)) continue
+      this.logEvent({
+        kind: 'peer.left',
+        level: 'info',
+        scope: this.scopeFor(),
+        actor: { kind: 'peer', name, ...(color ? { color } : {}) },
+        payload: {},
+      })
+    }
+    this.presentPeers = peers
+  }
+
+  private relayActor(): Actor {
+    const name = relayHost(this.relay?.url)
+    return { kind: 'relay', ...(name ? { name } : {}) }
+  }
+
+  /** The folder provider's socket status → the room's relay edge. */
+  private noteRelayStatus(status: string): void {
+    if (this.stopped) return
+    if (status === 'connected') {
+      if (this.folderConnected) return
+      this.folderConnected = true
+      this.cancelOffline?.()
+      this.cancelOffline = null
+      this.setRelayState('connected')
+      // Presence was frozen while we were down: diff it once the peers'
+      // awareness has had time to arrive, never at the connect itself.
+      this.cancelPeerSettle?.()
+      this.cancelPeerSettle = this.clock.schedule(() => {
+        this.cancelPeerSettle = null
+        if (!this.stopped) this.updatePresence()
+      }, PEER_SETTLE_MS)
+      return
+    }
+    this.folderConnected = false
+    this.cancelPeerSettle?.()
+    this.cancelPeerSettle = null
+    if (this.relayState === 'refused') return // retrying will not change a refusal
+    if (this.relayState === 'connected') this.setRelayState('reconnecting')
+    this.armOffline()
+  }
+
+  /** `offline` after `RELAY_OFFLINE_MS` without a connection, on the injected clock. */
+  private armOffline(): void {
+    if (this.cancelOffline || this.relayState === 'offline' || this.relayState === 'refused') return
+    this.cancelOffline = this.clock.schedule(() => {
+      this.cancelOffline = null
+      if (this.stopped || this.relayState === 'connected' || this.relayState === 'refused') return
+      this.setRelayState('offline')
+    }, RELAY_OFFLINE_MS)
+  }
+
+  private setRelayState(to: 'connected' | 'reconnecting' | 'offline' | 'refused', reason?: string): void {
+    if (to === this.relayState && (to !== 'refused' || reason === this.relayRefusedReason)) return
+    this.relayState = to
+    this.relayRefusedReason = to === 'refused' ? (reason ?? null) : null
+    if (to === 'refused') {
+      this.cancelOffline?.()
+      this.cancelOffline = null
+    }
+    this.logEvent({
+      kind: 'relay.state',
+      level: to === 'refused' ? 'error' : 'info',
+      scope: this.scopeFor(),
+      actor: this.relayActor(),
+      payload: { to, ...(to === 'refused' && reason !== undefined ? { reason } : {}) },
+    })
   }
 
   // ---- internals ----
@@ -1481,13 +1962,15 @@ export class MountSession {
     }
   }
 
-  private routeDocUpdate(guid: string, origin: unknown): void {
+  private routeDocUpdate(guid: string, update: Uint8Array, origin: unknown): void {
     const path = this.pathForGuid(guid)
     if (!path) return
     // BEFORE the origin filter: a content-change listener (the index) must see
     // 'disk' ingests — Obsidian, git and Claude Code writing the same files —
     // and 'seed' restores, or it silently drifts from the vault.
     this.emitDocChanged(guid, path, origin)
+    // Attribution happens HERE, at arrival: awareness is ephemeral (E3).
+    this.noteDocChange(guid, path, update, origin)
     if (origin === 'seed' || origin === 'disk') return
     this.recordFor(guid).diskMatchesCrdt = false
     if (this.openPaths.has(path)) {
@@ -1575,6 +2058,60 @@ export class MountSession {
         ...(socket ? { socket } : {}),
       })
     )
+    const conn = this.conns.get(guid)!
+    conn.awareness.on('change', () => this.reportDocPresence(guid))
+    this.syncHere()
+    this.reportDocPresence(guid)
+  }
+
+  // ---- per-doc presence (sharing E1) ----
+
+  /**
+   * Announce `here: true` on the awareness of every doc a view holds, and
+   * `false` on the rest. Every connected doc announces `user` (the provider
+   * does, always-on CRDT), so `user` alone says nothing about where someone
+   * IS; this flag does. Derived from `openPaths`, so it follows the same
+   * refcount that closes a doc: the last view to leave clears it.
+   */
+  private syncHere(): void {
+    if (this.conns.size === 0) return
+    const held = new Set<string>()
+    for (const rel of this.openPaths) {
+      const guid = this.guidFor(rel)
+      if (guid) held.add(guid)
+    }
+    for (const [guid, conn] of this.conns) {
+      const here = held.has(guid)
+      const local = conn.awareness.getLocalState() as { here?: boolean } | null
+      if (local && (local.here === true) !== here) conn.awareness.setLocalStateField('here', here)
+    }
+  }
+
+  /** Who is in one doc, ourselves excluded — `onDocPresence`. */
+  private reportDocPresence(guid: string): void {
+    const conn = this.conns.get(guid)
+    if (!conn) {
+      this.events.onDocPresence?.(guid, [])
+      return
+    }
+    const self = conn.awareness.clientID
+    const peers: DocPeer[] = []
+    for (const [clientId, state] of conn.awareness.getStates()) {
+      if (clientId === self) continue
+      const s = state as { here?: unknown; user?: { name?: unknown }; cursor?: DocPeer['cursor'] }
+      if (s.here !== true || typeof s.user?.name !== 'string' || !s.user.name) continue
+      peers.push({ clientId, name: s.user.name, cursor: s.cursor ?? null })
+    }
+    this.events.onDocPresence?.(guid, peers)
+  }
+
+  /** Destroy every doc connection, telling the host nobody is in them any more. */
+  private destroyConns(): void {
+    for (const [guid, conn] of this.conns) {
+      conn.destroy()
+      this.events.onDocPresence?.(guid, [])
+    }
+    this.conns.clear()
   }
 
   /**
@@ -1587,7 +2124,7 @@ export class MountSession {
     if (!doc) return
     if (!this.tracked.has(guid)) {
       this.tracked.add(guid)
-      this.engine.onUpdate(doc, (_update, origin) => this.routeDocUpdate(guid, origin))
+      this.engine.onUpdate(doc, (update, origin) => this.routeDocUpdate(guid, update, origin))
     }
     this.attachProvider(guid, path)
   }
@@ -1674,6 +2211,15 @@ export class MountSession {
             return
           }
           this.recordFor(review.guid).diverged = true
+          // Level info: the review has its own demanding surface; the log is
+          // its history (spike S22 Q1 "WARNINGS … each with its own surface").
+          this.logEvent({
+            kind: 'review.opened',
+            level: 'info',
+            scope: this.scopeFor(review.path),
+            actor: { kind: 'app' },
+            payload: { guid: review.guid, reason: review.reason },
+          })
           this.events.onReview?.(review)
         },
         onReviewCleared: (guid) => {
@@ -1716,6 +2262,14 @@ export class MountSession {
 
   private holdBatch(kind: 'watch' | 'boot' | 'ghost', paths: string[], apply?: () => Promise<void>): void {
     if (kind === 'ghost') this.pendingGhostBatch = apply ?? null
+    // Held behind BreakerDialog (its own surface), so info, like reviews.
+    this.logEvent({
+      kind: 'breaker.held',
+      level: 'info',
+      scope: this.scopeFor(),
+      actor: { kind: kind === 'ghost' ? 'app' : 'disk' },
+      payload: { count: paths.length },
+    })
     if (this.events.onBreaker) {
       this.pendingBatchKind = kind
       this.events.onBreaker(paths)
@@ -1769,8 +2323,12 @@ export class MountSession {
   // ---- relay / presence (only when a relay is attached) ----
 
   private reportAuthFailure(reason: string): void {
+    // The message is a developer-facing diagnostic (it also rejects a join's
+    // `whenSynced`); what a person reads comes from the host's i18n, keyed on
+    // the error's type and `reason` (spike S22: a `relay.state` refused event).
     this.authFailure = `relay rejected this token (${reason}) — check that the share exists on the relay (share CLI / SEED_SHARE) and that the room/token match it`
-    this.pushError(new Error(this.authFailure))
+    this.setRelayState('refused', reason)
+    this.pushError(new RelayRefusedError(reason, this.authFailure))
   }
 
   private updatePresence(): void {
@@ -1779,10 +2337,16 @@ export class MountSession {
       return
     }
     const names = new Set<string>()
-    for (const state of this.folderConn.awareness.getStates().values()) {
-      const name = (state as { user?: { name?: string } }).user?.name
-      if (name) names.add(name)
+    const peers = new Map<string, string | undefined>()
+    const self = this.folderConn.awareness.clientID
+    for (const [id, state] of this.folderConn.awareness.getStates()) {
+      const user = (state as { user?: { name?: string; color?: string } }).user
+      const name = user?.name
+      if (!name) continue
+      names.add(name)
+      if (id !== self && !peers.has(name)) peers.set(name, typeof user.color === 'string' ? user.color : undefined)
     }
+    this.notePeers(peers)
     this.events.onPresence?.([...names].sort())
   }
 
@@ -1798,8 +2362,12 @@ export class MountSession {
       user: this.user,
       record: this.recordFor(FOLDER_RECORD_KEY),
       onAuthFailed: (reason) => this.reportAuthFailure(reason),
+      onStatus: (status) => this.noteRelayStatus(status),
       ...(socket ? { socket } : {}),
     })
+    // A shared socket that is already open never re-announces its status.
+    if (this.recordFor(FOLDER_RECORD_KEY).connected) this.noteRelayStatus('connected')
+    else this.armOffline()
     this.folderConn.awareness.on('change', () => this.updatePresence())
     this.folderConn.awareness.on('update', () => this.updatePresence())
     this.updatePresence()
@@ -2223,6 +2791,8 @@ export class MountSession {
    * a status or forget a relay it simply has no credential for.
    */
   private async writeMountDesc(): Promise<void> {
+    // The status transition this write makes, if any — logged after it lands.
+    let transition: { from?: MountStatus; to: MountStatus } | null = null
     // The merge runs INSIDE the mount table's serialized read-modify-write:
     // reading the desc first and upserting after would widen the window a
     // concurrent lifecycle transition writes in.
@@ -2240,6 +2810,9 @@ export class MountSession {
       // PULLED the room — a firstJoin boot is the only thing that clears it,
       // because it is the only thing that puts the room's content here (N3).
       const neverHeld = (existing?.neverHeld === true || this.enrolledForRoom) && !this.pulledRoom
+      // A desc's first write is the mount's birth, which the host already
+      // words (adopt notices, the share flow); only a CHANGE is a transition.
+      if (existing && existing.status !== status) transition = { from: existing.status, to: status }
       return {
         room: this.room,
         path: this.cfg.mountPath ?? '',
@@ -2249,6 +2822,16 @@ export class MountSession {
         ...(neverHeld ? { neverHeld: true } : {}),
       }
     })
+    const t = transition as { from?: MountStatus; to: MountStatus } | null
+    if (t) {
+      this.logEvent({
+        kind: 'mount.changed',
+        level: 'info',
+        scope: this.scopeFor(),
+        actor: { kind: 'app' },
+        payload: { what: 'status', ...(t.from ? { from: t.from } : {}), to: t.to },
+      })
+    }
   }
 
   /**
