@@ -23,7 +23,7 @@ async function tree(spec: Record<string, string | null>): Promise<string> {
 
 describe('resolveVault', () => {
   it('takes an explicit vault first, realpath.d', async () => {
-    const root = await tree({ vault: '.editor' })
+    const root = await tree({ vault: '.ohhi' })
     const chosen = await resolveVault({ vault: join(root, 'vault'), env: {}, cwd: '/' })
     expect(chosen).toEqual({ root: join(root, 'vault'), source: 'flag' })
   })
@@ -41,8 +41,26 @@ describe('resolveVault', () => {
     expect(chosen).toEqual({ root: join(root, 'vault'), source: 'marker', marker: '.obsidian' })
   })
 
+  it("finds a vault by Oh hi markdown's own .ohhi/ folder", async () => {
+    const root = await tree({ vault: '.ohhi', 'vault/Areas': null })
+    const chosen = await resolveVault({ env: {}, cwd: join(root, 'vault/Areas') })
+    expect(chosen).toEqual({ root: join(root, 'vault'), source: 'marker', marker: '.ohhi' })
+  })
+
+  it('counts .ohhi/ and .obsidian/ in one folder as one vault, not an ambiguity', async () => {
+    const root = await tree({ vault: '.ohhi' })
+    await mkdir(join(root, 'vault/.obsidian'))
+    const chosen = await resolveVault({ env: {}, cwd: join(root, 'vault') })
+    expect(chosen).toEqual({ root: join(root, 'vault'), source: 'marker', marker: '.ohhi' })
+  })
+
+  it('no longer treats the pre-rename .editor/ folder as a marker', async () => {
+    const root = await tree({ vault: '.editor' })
+    await expect(resolveVault({ env: {}, cwd: join(root, 'vault') })).rejects.toMatchObject({ code: 'usage' })
+  })
+
   it('refuses two markers on the walk and names both candidates', async () => {
-    const root = await tree({ outer: '.editor', 'outer/inner': '.obsidian' })
+    const root = await tree({ outer: '.ohhi', 'outer/inner': '.obsidian' })
     const failure = await resolveVault({ env: {}, cwd: join(root, 'outer/inner') }).catch((e: unknown) => e)
     expect(failure).toMatchObject({
       code: 'usage',
@@ -58,11 +76,12 @@ describe('resolveVault', () => {
     const message = (failure as Error).message
     expect(message).toContain('--vault')
     expect(message).toContain('OHHI_VAULT')
+    expect(message).toContain('.ohhi/')
     expect(message).toContain('.obsidian')
   })
 
   it('refuses an explicit path that is missing or is a file', async () => {
-    const root = await tree({ vault: '.editor' })
+    const root = await tree({ vault: '.ohhi' })
     await writeFile(join(root, 'note.md'), 'x\n', 'utf8')
     await expect(resolveVault({ vault: join(root, 'nope'), env: {}, cwd: '/' })).rejects.toMatchObject({
       code: 'usage',

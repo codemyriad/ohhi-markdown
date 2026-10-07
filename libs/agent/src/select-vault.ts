@@ -3,7 +3,7 @@
  * "installable, multi-vault, NEVER GUESSING").
  *
  * Three ways to say which vault, in this order: `--vault`, `OHHI_VAULT`, or a
- * walk up from the working directory for a folder holding `.editor/` or
+ * walk up from the working directory for a folder holding `.ohhi/` or
  * `.obsidian/`. Two markers on the walk is an AMBIGUITY, not a tie to break:
  * a vault inside a vault is a real shape (an Obsidian vault checked into a
  * repo that is itself a vault), and picking one silently is how an agent
@@ -17,7 +17,7 @@ import { hashText } from '@ohhi/vault'
 import { OpError } from './contract.js'
 
 /** A directory holding one of these IS a vault, as far as the walk is concerned. */
-export const VAULT_MARKERS = ['.editor', '.obsidian'] as const
+export const VAULT_MARKERS = ['.ohhi', '.obsidian'] as const
 
 export interface VaultSelection {
   /** Absolute, realpath'd. */
@@ -37,7 +37,7 @@ export interface SelectVaultOptions {
 
 /** The sentence every "which vault?" failure ends with. Written once. */
 const HOW =
-  'name a vault with --vault <path>, set OHHI_VAULT, or run inside a folder containing .editor/ or .obsidian/'
+  'name a vault with --vault <path>, set OHHI_VAULT, or run inside a folder containing .ohhi/ or .obsidian/'
 
 export async function resolveVault(opts: SelectVaultOptions): Promise<VaultSelection> {
   if (opts.vault) return { root: await requireDir(opts.vault, '--vault'), source: 'flag' }
