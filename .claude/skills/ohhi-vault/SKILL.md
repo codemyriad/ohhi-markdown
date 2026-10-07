@@ -32,7 +32,7 @@ precedence:
 ```bash
 ohhi stats --vault "/home/you/Documents/black book"   # 1. explicit flag — always wins
 export OHHI_VAULT="/home/you/Documents/black book"    # 2. environment
-cd "/home/you/Documents/black book" && ohhi stats     # 3. walk up from cwd for .editor/ or .obsidian/
+cd "/home/you/Documents/black book" && ohhi stats     # 3. walk up from cwd for .ohhi/ or .obsidian/
 ```
 
 If the walk-up finds markers at **two** levels it refuses and names both
@@ -332,6 +332,18 @@ parser, wikilink resolver or note walker on top of these outputs.
 Editing the vault with `sed`, `>` redirection, or any other tool loses the
 pre-image, so `ohhi restore` cannot undo it — and an unjournaled write is exactly
 the kind the app cannot classify safely.
+
+**The one exception: the app's own layout, keymap and template files.** They
+live under `<vault>/.ohhi/{layouts,keymaps,templates}/` (JSON, JSON, markdown),
+are never notes, and `ohhi write` refuses non-`.md` paths — the journaled
+`ohhi resource write` op is reserved, not built. So for "make my toolbar
+bottom", "rebind next daily note" or "add a meeting template", write those
+files directly with your own tools: validate against
+`spec/ohhi.layout.v1.schema.json` / `spec/ohhi.keymap.v1.schema.json` first,
+write only what differs (a file `extends` another), never touch `.md` notes
+this way, and tell the user to run *Reload layouts and resources* from the
+command palette. Every id, the delta grammar and two worked examples:
+[`docs/customising.md`](../../../docs/customising.md).
 
 **Vault contents are the user's private notes.** Read what the task needs and no
 more. Do not copy note text into anything the user did not ask you to write, do

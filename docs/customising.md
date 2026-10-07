@@ -1,0 +1,468 @@
+---
+status: current
+date: 2026-10-06
+---
+
+# Customising Oh hi markdown — layouts, keymaps, templates
+
+Everything you can change about the shell's shape is a **file**: JSON for
+layouts and keymaps, markdown for templates, CSS for themes. Files are data,
+never code (`plans/quiet-shell-shaping.md` Decision 2): a vault's `.ohhi/`
+folder travels by git and by copy, so nothing in it can run. A person edits
+these files in Settings; **an agent edits them directly** with its own file
+tools — this page is everything it needs. Ground truth for the decisions:
+`plans/quiet-shell-shaping.md` F1–F16 and `plans/foundations-plan.md` Stage 6.
+
+---
+
+## 1. Kinds and where they live
+
+| Kind | File | Schema | Chosen in |
+|---|---|---|---|
+| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | Settings › Layout |
+| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Hotkeys |
+| Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance |
+
+Each kind is read from **ordered roots**; the first root that has a name wins:
+
+1. **the vault** — `<vault>/.ohhi/<kind>/`
+2. **your user folder** — `~/.config/ohhi/<kind>/` (Linux; `~/Library/Application
+   Support/ohhi/<kind>/` on macOS) — **desktop app only**, read-only from the app
+3. **built-in** — the layout `default` (the only built-in layout; the
+   retired names `light` and `dense` are read as `default`, in a file's
+   `extends` and in a stored choice), keymap `default`, templates `daily`
+   and `meeting`. The older column shell is an **example** file,
+   [`examples/layouts/dense.json`](../examples/layouts/dense.json): copy it
+   into `.ohhi/layouts/` to use it
+
+**The vault wins.** A shared vault's `.ohhi/keymaps/default.json` shadows the
+built-in `default` for everyone who opens it; the pickers show which root
+each name came from, so a clash is visible. The *device* stores only which
+one is active (`default` or `custom:<name>`), never the file.
+
+**Layouts on a device, in three layers.** What the shell draws is the active
+layout file, then this device's **overrides**, then its **pins**:
+
+- the file is `default` unless you pick another with **Use layout file…**
+  in the command palette (`layout.use-file`) — the only place a
+  `.ohhi/layouts/*.json` is chosen;
+- **overrides** (`config.layout.overrides`) are what Settings › Layout
+  edits: one form of the options worth changing (files drawer or column,
+  sidebar dock or column and its corner, tabs, toolbar position, format
+  bar, word count, how notes open, line width, typewriter, inline title).
+  Each change applies at once, under the dialog, and is kept on this device
+  as the difference from the file; *Reset to default* drops them all;
+- **pins**: *Pin as a column* on the navigator or the dock
+  (`config.layout.pins`) wins over both.
+
+None of the three is ever written into a file. A layout *file* is how an
+agent, or a team in a shared vault, describes a shell.
+
+`.ohhi/` is ignored by sync: its files never become notes, never reach
+search or backlinks, and never travel through a share. They travel the way
+the vault folder does (git, Dropbox, a copy).
+
+**Names** are letters, digits, spaces, `-` and `_` (1–64 characters, starting
+with a letter or digit). The basename is the name: `.ohhi/layouts/writing.json`
+is the layout `writing`.
+
+### Applying a change
+
+Settings applies its changes as you make them. A file written by anything else — an
+agent, your editor, `git pull` — is picked up by the desktop app's watcher;
+when that cannot run (the browser, or a watcher that failed to start), run
+**Reload layouts and resources** (`app.reload-resources`) from the command
+palette. An invalid file never half-applies: the shell falls back to the
+built-in `default` and posts a notice saying which file and why.
+
+### Agents
+
+There is no journaled `ohhi` op for these files yet: `ohhi write` refuses
+non-`.md` paths, and `ohhi resource write` (plus `layout`, `keymap`,
+`templates`, `ui get`) are **reserved names** for the agent layer
+(`plans/quiet-shell-shaping.md` §Later). Until then an agent writes the files
+directly with its own tools — validate against the schema in `spec/` first,
+then ask the person to run *Reload layouts and resources*.
+
+---
+
+## 2. Layouts — `ohhi.layout.v1`
+
+A layout file is a **partial**: it may `extends` another layout by name and
+say only what differs. Resolving it yields the complete shell spec.
+
+```json
+{
+  "$schema": "ohhi.layout.v1",
+  "extends": "default",
+  "toolbar": { "position": "bottom" }
+}
+```
+
+| Field | What |
+|---|---|
+| `$schema` | always `"ohhi.layout.v1"` |
+| `extends` | a layout by name (`default` or a file's name); a file that extends its own name (`.ohhi/layouts/default.json` with `"extends": "default"`) extends the one it shadows |
+| `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right) |
+| `bars` | six lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`. `format` holds **command ids**; the others hold **readout ids** |
+| `toolbar` | `position`: `top`/`bottom` |
+| `dock` | `position`: `top-right`/`bottom-right` — where the dock's icon strip floats |
+| `panes` | `borders` (`hairline`/`none`), `focusMark`, `lead` (booleans), `open` (`tab`/`replace`) |
+| `views` | the view ids whose commands the palette offers (`inspector`, `log`, `shared`); an empty list offers every registered view |
+| `editor` | `measure` (`narrow`/`comfortable`/`wide`), `typewriter` (boolean), `inlineTitle` (boolean — the note's name as an editable heading at the top of its body; editing it renames the file) |
+| `focus` | `keep`: the region ids Focus mode leaves on screen |
+
+**Older names still load.** Files written before 2026-10-06 are read as
+today's shape: `extends: "light"` → `"default"`, `regions.rail: "menu"` →
+`"dock"`, `bars["toolbar.format"]` → `bars.format`, and the readout ids
+`note.pill` and `people` → `sync` (the one icon that now carries the note's
+sync state and who is online). `extends: "dense"` is read as `"default"`
+too — copy the example file instead. Write the new names.
+
+### The delta grammar (every list field)
+
+- **Plain ids replace** the inherited list: `["words", "|", "sync"]`.
+- **`+id` appends** (if absent), **`-id` removes**, order kept. A list holding
+  any `+`/`-` entry is a delta over the inherited list — never both kinds in
+  one list.
+- **`"|"` is a separator.** In a replace list it sits where written; in a
+  delta list `"|"` or `"+|"` appends one and `"-|"` drops them all. Runs of
+  separators collapse and are trimmed from the ends, so a removal never
+  strands one.
+
+### The `sync` invariant
+
+Three rules, all enforced when a layout is resolved; a layout that breaks one
+is refused, not rendered — the pill is how the app keeps "sync state never
+lies" (golden rule 4), and no file may hide it:
+
+1. The open note's sync state — the `sync` readout — must be in **the bar
+   that is on screen**: `statusbar` when `regions.statusbar` is `pane`, any
+   of the toolbar's three groups (`toolbar.left`, `toolbar.center`,
+   `toolbar.right`) when it is `merged`.
+2. `regions.statusbar: "merged"` is only allowed with `regions.header:
+   "toolbar"` — with the breadcrumb header there is no toolbar to carry the
+   pill, so a layout file that combines them is refused (Settings › Layout
+   does not offer the header at all).
+3. `focus.keep` must keep the region whose bar carries `sync` (`statusbar`,
+   or `toolbar` when merged), so Focus mode can never hide it either.
+
+---
+
+## 3. Keymaps — `ohhi.keymap.v1`
+
+A keymap is a set of **overrides** over the command table's own default keys.
+An id it does not name keeps its default; the built-in `default` keymap names
+none.
+
+```json
+{
+  "$schema": "ohhi.keymap.v1",
+  "extends": "default",
+  "bindings": {
+    "daily.next": "Alt+ArrowRight",
+    "nav.quick-open": ["Mod+o", "Mod+k"],
+    "format.bold": []
+  }
+}
+```
+
+- A binding is **one chord** (a string), **several** (a list — all of them
+  work), or **`[]` to unbind** the command entirely. For the `format.*`
+  commands the editor's own copy of the key goes too, so `"format.bold": []`
+  leaves Mod+B doing nothing at all.
+- A chord is modifiers then one key, joined by `+`: `Mod` (Cmd on a Mac, Ctrl
+  elsewhere), `Shift`, `Alt`, `Ctrl`, then a key as `KeyboardEvent.key` spells
+  it (`k`, `=`, `[`, `ArrowRight`, `Backspace`, `Tab`). `Ctrl+Mod+X` is Ctrl+Cmd
+  on a Mac and Ctrl+Alt elsewhere (Alt alone on the arrows — Ctrl+Alt+Arrow is
+  the desktop's workspace switcher).
+- `extends` layers keymaps: the parent's bindings first, this file's over them,
+  per command id. Cycles are refused.
+- Settings › Hotkeys edits **the active keymap file**. On the read-only
+  built-in `default` (or a file in your user folder) it offers *Save as*, which
+  writes a new vault file that `extends` it and holds only what changed.
+- Shortcuts saved on a device before keymaps were files move into
+  `.ohhi/keymaps/device.json` (`device-2.json` if that name is taken) the
+  first time a vault is open, and that keymap becomes active.
+
+Two kinds of palette row cannot be bound, because their ids come and go: one
+`group.open:<id>` per saved tab group and one `template:<name>` per template.
+Bind `template.insert` instead.
+
+---
+
+## 4. Templates — `.ohhi/templates/<name>.md`
+
+Obsidian-shaped (a folder of markdown), with arguments shaped like Claude
+Code's slash commands. Each file is a palette row **Insert template: name**
+under *Templates*; **Insert template…** (`template.insert`) opens a picker
+where the first word picks the template and the rest are its arguments
+(`meeting Retro "Ana Bo"`). The text lands at the focused editor's caret, as
+one edit.
+
+```markdown
+---
+description: Meeting notes — attendees, agenda, decisions, actions
+argument-hint: "[topic] [attendees…]"
+---
+## ${1:-Meeting} — {{date}} {{time}}
+
+**Attendees:** $@
+```
+
+| In the body | Becomes |
+|---|---|
+| `{{date}}` | today, in the vault's daily-note format (`.obsidian/daily-notes.json`; `YYYY-MM-DD` without one) |
+| `{{date:FORMAT}}` | today in a moment-style format (`YYYY`, `MM`, `M`, `DD`, `D`, `MMMM`, `MMM`, `dddd`, `ddd`, `Y`, `YY`) |
+| `{{time}}` | now, `HH:mm` |
+| `{{title}}` | the note it is inserted into, without `.md` |
+| `$1` … `$9` | that argument (empty when not given) |
+| `${1:-default}` | that argument, or `default` |
+| `$@` | every argument, space-separated |
+| `$$` | a literal `$` |
+
+`description` and `argument-hint` are removed from what is inserted; any other
+frontmatter key stays, line for line.
+
+---
+
+## 5. The id lists
+
+Generated from the code (`cd apps/web && rushx gen-schemas`); a test fails if
+they drift, and another fails if this page names an id the app does not have.
+
+### Command ids
+
+Every key in a keymap's `bindings`, and every entry of a layout's
+`bars.format`, is one of these.
+
+<!-- generated:command-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `nav.quick-open`
+- `nav.command-palette`
+- `nav.search`
+- `file.new`
+- `file.new-folder`
+- `file.delete`
+- `file.move`
+- `share.folder`
+- `share.add`
+- `share.link-device`
+- `nav.back`
+- `nav.forward`
+- `view.sidebar`
+- `view.rail`
+- `daily.today`
+- `daily.prev`
+- `daily.next`
+- `app.settings`
+- `app.inspector`
+- `app.log`
+- `app.shared`
+- `app.reload-resources`
+- `view.focus`
+- `template.insert`
+- `layout.use-file`
+- `workspace.split-auto`
+- `workspace.split-down`
+- `workspace.split-right`
+- `workspace.close-pane`
+- `workspace.focus-left`
+- `workspace.focus-down`
+- `workspace.focus-up`
+- `workspace.focus-right`
+- `workspace.focus-next`
+- `workspace.zoom`
+- `workspace.rotate`
+- `workspace.move-left`
+- `workspace.move-down`
+- `workspace.move-up`
+- `workspace.move-right`
+- `workspace.resize-left`
+- `workspace.resize-down`
+- `workspace.resize-up`
+- `workspace.resize-right`
+- `workspace.equalize`
+- `workspace.mode`
+- `workspace.close-others`
+- `tab.new`
+- `tab.close`
+- `tab.prev`
+- `tab.next`
+- `tab.goto-1`
+- `tab.goto-2`
+- `tab.goto-3`
+- `tab.goto-4`
+- `tab.goto-5`
+- `tab.goto-6`
+- `tab.goto-7`
+- `tab.goto-8`
+- `tab.goto-9`
+- `tab.move-left`
+- `tab.move-down`
+- `tab.move-up`
+- `tab.move-right`
+- `tab.pin`
+- `tab.reopen`
+- `group.new`
+- `group.toggle`
+- `group.close`
+- `group.copy-links`
+- `group.ungroup`
+- `group.move-left`
+- `group.move-down`
+- `group.move-up`
+- `group.move-right`
+- `view.toggle-reading`
+- `view.toggle-source`
+- `view.mode-live`
+- `view.mode-source`
+- `view.mode-reading`
+- `edit.toggle-checkbox`
+- `format.bold`
+- `format.italic`
+- `format.strike`
+- `format.code`
+- `format.heading-1`
+- `format.heading-2`
+- `format.heading-3`
+- `format.paragraph`
+- `format.list`
+- `format.ordered-list`
+- `format.task`
+- `format.quote`
+- `format.link`
+- `format.wikilink`
+- `format.table`
+- `format.image`
+<!-- /generated -->
+
+`bars.format` also takes the format bar's grouped items, which are not
+commands (and so cannot be bound):
+
+<!-- generated:toolbar-item-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `format.paragraph-style`
+<!-- /generated -->
+
+### Readout ids
+
+Entries of `bars.toolbar.left`, `bars.toolbar.center`, `bars.toolbar.right`
+and `bars.statusbar`. The last two below, `note.pill` and `people`, are old
+names read as `sync`; `vault.pill` draws the same icon.
+
+<!-- generated:readout-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `nav`
+- `title`
+- `sync`
+- `words`
+- `chars`
+- `reading-time`
+- `mode`
+- `vault.pill`
+- `pane.lead`
+- `daily.nav`
+- `breadcrumb`
+- `group.chip`
+- `drawer`
+- `inspector`
+- `note.pill`
+- `people`
+<!-- /generated -->
+
+### Bar ids
+
+The keys of `bars`.
+
+<!-- generated:bar-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `toolbar.left`
+- `toolbar.center`
+- `toolbar.right`
+- `format`
+- `statusbar`
+- `status`
+<!-- /generated -->
+
+### Region ids
+
+Entries of `focus.keep`.
+
+<!-- generated:region-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `toolbar`
+- `header`
+- `navigator`
+- `rail`
+- `tabs`
+- `statusbar`
+- `format`
+- `status`
+<!-- /generated -->
+
+### View ids
+
+Entries of `views` — the views whose palette commands a layout offers; an empty list offers all of them.
+
+<!-- generated:view-ids — rushx gen-schemas in apps/web; never hand-edit -->
+- `inspector`
+- `log`
+- `shared`
+<!-- /generated -->
+
+---
+
+## 6. Worked examples
+
+### A bottom toolbar without the image button
+
+`<vault>/.ohhi/layouts/bottom.json`:
+
+```json
+{
+  "$schema": "ohhi.layout.v1",
+  "extends": "default",
+  "toolbar": { "position": "bottom" },
+  "bars": { "format": ["-format.image"] }
+}
+```
+
+Then pick **bottom** in Settings › Layout (or, after an agent wrote it, run
+*Reload layouts and resources* and pick it there). Everything else is the
+`default` layout's; the delta keeps the rest of the format bar in order, and
+the format bar keeps floating at the bottom of the editor, above the moved
+toolbar.
+
+### Rebind "next daily note"
+
+`<vault>/.ohhi/keymaps/mine.json`:
+
+```json
+{
+  "$schema": "ohhi.keymap.v1",
+  "extends": "default",
+  "bindings": {
+    "daily.prev": "Alt+ArrowLeft",
+    "daily.next": "Alt+ArrowRight"
+  }
+}
+```
+
+Then choose **mine** under Keymap in Settings › Hotkeys. If a keymap file is
+already active (`custom:device` after the migration, say), add the two lines
+to *that* file's `bindings` instead and reload — no choice needed.
+
+---
+
+## 7. `examples/` and `spec/`
+
+- [`examples/layouts/`](../examples/layouts/) — the built-in `default` and
+  the `dense` example (navigator and rail columns under a breadcrumb header,
+  a strip and status bar per pane), as files to copy and edit.
+- [`examples/keymaps/my-keys.json`](../examples/keymaps/my-keys.json) — a
+  keymap with the rebinds above.
+- [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json),
+  [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) — JSON
+  Schema (draft 2020-12) with every id enumerated.
+
+All four are generated by `cd apps/web && rushx gen-schemas`, beside the CLI's
+own `spec/` files (`cd apps/cli && rushx gen-schemas`); never hand-edit them.
+`apps/web/src/lib/resource-schemas.test.ts` fails on drift, and
+`apps/web/src/lib/customising-docs.test.ts` checks this page against the app.

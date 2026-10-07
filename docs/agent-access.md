@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-09-12
+date: 2026-10-04
 ---
 
 # Agent access — the `ohhi` CLI, skill and MCP server
@@ -38,6 +38,18 @@ What it deliberately is **not**:
 
 **It works with the app closed and with the app open.** See §8.
 
+**What an agent can do to the app itself — for now, by writing files.** The
+app's layouts, keymaps and templates are files under
+`<vault>/.ohhi/{layouts,keymaps,templates}/`, outside the notes (ignored by
+sync and the index). `ohhi` has no op for them yet — `write` refuses non-`.md`
+paths, and `resource write`, `layout`, `keymap`, `templates` and `ui get` are
+**reserved** op names for the agent layer — so an agent writes them directly
+with its own tools, unjournaled, validating against
+`spec/ohhi.layout.v1.schema.json` / `spec/ohhi.keymap.v1.schema.json`, and the
+person runs *Reload layouts and resources*. The formats, every command,
+readout, region and view id, and worked examples:
+[`customising.md`](customising.md).
+
 **Status.** Slices G1–G4 of `plans/slices.md`. `fm` is read-only until the
 surgical frontmatter patcher (`v2-shaping.md` Spike S3 / read-shaping X3)
 exists — `ohhi` will not reserialize a YAML block (golden rule 2).
@@ -72,7 +84,7 @@ Three ways, in strict precedence order, and **never a guess**:
 
 1. `--vault <path>` — always wins. Must exist and be a directory.
 2. `OHHI_VAULT` in the environment.
-3. A walk up from the current directory for a folder containing `.editor/` or
+3. A walk up from the current directory for a folder containing `.ohhi/` or
    `.obsidian/`.
 
 If the walk-up finds markers at **more than one level**, the CLI refuses with
@@ -121,9 +133,10 @@ and the skill in the same change.
   that there are none. Cursors are opaque — pass them back, never parse them.
 - **Anything that walks the vault carries `coverage`:**
   `{ docs, skippedBinary, ignored }` — notes indexed, files seen and not
-  indexed, and the directory names the adapter never lists (`.editor`,
-  `.editor-cache`, `.git`, `.obsidian`, `.trash`, `node_modules` — shared with
-  the app, `libs/vault`'s `IGNORED_DIRS`). This is the honesty counter that keeps
+  indexed, and the directory names the adapter never lists (`.ohhi`,
+  `.ohhi-cache`, `.git`, `.obsidian`, `.trash`, `node_modules`, and the
+  pre-rename `.editor` and `.editor-cache` — shared with the app,
+  `libs/vault`'s `IGNORED_DIRS`). This is the honesty counter that keeps
   "nothing found" from being read as "nothing exists" (R7).
 - **Search returns references and snippets, never bodies** (R4). Reading is
   `read`, which is addressable below the note and budgeted.
@@ -214,7 +227,7 @@ text   Areas/CS/HTML.md        size=961B   mtime=2026-03-04T11:02:07.000Z     # 
 text   Areas/CS/JSON.md        size=154B   mtime=2025-11-22T09:12:41.000Z
 text   Areas/CS/Networking.md  size=4.1K   mtime=2026-01-18T17:44:00.000Z
 returned=3 total=398 dir=Areas/CS                                             # stderr
-coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .trash, node_modules
+coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
 ```
 
 ```jsonc
@@ -224,7 +237,7 @@ coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cac
   "dir": "Areas/CS",
   "items": [{ "path": "Areas/CS/JSON.md", "kind": "text", "size": 154, "mtime": "2025-11-22T09:12:41.000Z" }],
   "returned": 3, "total": 398, "nextCursor": "…",
-  "coverage": { "docs": 1037, "skippedBinary": 41, "ignored": [".editor", ".editor-cache", ".git", ".obsidian", ".trash", "node_modules"] }
+  "coverage": { "docs": 1037, "skippedBinary": 41, "ignored": [".editor", ".editor-cache", ".git", ".obsidian", ".ohhi", ".ohhi-cache", ".trash", "node_modules"] }
 }
 ```
 
@@ -304,7 +317,7 @@ tier=body path=Edible/Dev Notes/SnapMenu - Restaurant JSON Import.md line=14 sco
 tier=body path=Areas/CS/Postgres.md line=88 score=2.77
        88: `[json]b` columns index better than `[json]`
 returned=3 total=131 query="json" mode=ranked                       # stderr
-coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .trash, node_modules
+coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
 hint=ohhi read --outline Areas/CS/JSON.md   (then --section or --lines; never read a long note whole)
 ```
 
@@ -380,7 +393,7 @@ What the index covers, and what it cost:
 $ ohhi stats
 vault=/home/chris/Documents/black book                     # stdout
 docs=1037 terms=48210 links=949 unresolved=114 tags=37
-skippedBinary=41 ignored=.editor,.editor-cache,.git,.obsidian,.trash,node_modules
+skippedBinary=41 ignored=.editor,.editor-cache,.git,.obsidian,.ohhi,.ohhi-cache,.trash,node_modules
 buildMs=253 indexSchemaVersion=3                           # stderr
 ```
 
@@ -678,6 +691,12 @@ from `libs/agent/src/contract.ts` and committed:
 ```sh
 cd apps/cli && rushx gen-schemas
 ```
+
+Two more files in `spec/` are not op outputs but the app's own resource
+formats — `ohhi.layout.v1.schema.json` and `ohhi.keymap.v1.schema.json` — and
+are generated by the app, which owns the command table and the catalogues they
+enumerate: `cd apps/web && rushx gen-schemas` (drift test:
+`apps/web/src/lib/resource-schemas.test.ts`; see [`customising.md`](customising.md)).
 
 Regenerate, never hand-edit. `apps/cli/test/conformance.test.ts` is the gate,
 and it asserts three things:

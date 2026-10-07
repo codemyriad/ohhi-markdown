@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-09-12
+date: 2026-10-06
 ---
 
 # Running & testing Editor (V1)
@@ -165,6 +165,27 @@ Or without installing: `cd apps/cli && rushx build && node dist/ohhi.mjs stats -
 cd apps/cli && rushx gen-schemas
 ```
 
+Two more schemas in `spec/` are the app's own resource formats, not op
+outputs — `ohhi.layout.v1.schema.json` and `ohhi.keymap.v1.schema.json` — and
+they come from the **app's** generator, which also writes `examples/` and the
+id lists between the `generated:` markers in `docs/customising.md`. Rerun it
+after adding a command (and its id in `apps/web/src/lib/command-ids.ts`), a
+readout, a region or a view; `resource-schemas.test.ts`,
+`command-ids.test.ts` and `customising-docs.test.ts` fail on drift:
+
+```sh
+cd apps/web && rushx gen-schemas
+```
+
+**Fonts.** The bundled typefaces (`libs/ui/fonts/`, woff2 — Public Sans and
+JetBrains Mono) and
+`libs/ui/src/styles/fonts.css` are vendored by a script — the only network
+step, run by a person, output committed; the app never fetches a font:
+
+```sh
+cd libs/ui && rushx fonts
+```
+
 **The cold-start budget.** A cold invocation on the real vault has to stay under
 ~500 ms (shaping R6) — which is why the CLI is an esbuild bundle rather than a
 Rush TypeScript entry point. The check is skipped unless `dist/` exists, and it
@@ -220,8 +241,65 @@ still states its rule** — and **a user theme can neither repaint nor hide the
 sync pill**, which is asserted by actually attacking it rather than assumed from
 the cascade.
 
-`e2e/chrome.spec.ts` covers the shell (chrome U2+): the right rail collapses
-to icons and reopens to the section clicked, `Mod+ArrowRight` toggles it; the
+**Most specs boot the `dense` example layout.** `appUrl()` in
+`e2e/fixtures.ts` adds `?layout=dense` (a session-only layout choice) unless a
+spec passes `layout: null`, because every spec written before the layout spec
+waits for the navigator column (`file-tree`) at boot; the manager entry point
+is `MANAGER_URL` (`/?layout=dense`). Since round 3 there is one built-in
+layout, `default`, and `dense` is an example file: `parseLayoutParam` maps the
+URL's `dense` to `custom:dense`, which the built-in root serves by name (a
+stored `dense` choice, by contrast, reads as `default`). A spec about the
+quiet default boots with `layout: null` and gets a fresh profile's `default`.
+
+`e2e/layout.spec.ts` covers the layout spec (foundations Stage 1, round 3
+Q6): a new install boots `default` (no navigator column, no rail column, the
+format bar at the bottom); Settings › Layout applies live under the dialog,
+closes without asking, persists, and *Reset to default* restores; the Files
+field turns the drawer into a column at once, and a pinned side reads
+"(pinned)" with *Unpin*; no field combination can hide the `sync` icon (word
+count off, toolbar at the bottom); and the palette's *Use layout file…* lists
+a vault file beside Default and applies it; the navigator's pin lives in a
+header row the tab strip's height, in the drawer and as a column.
+
+`e2e/quiet.spec.ts` covers the default layout (Stage 2, rounds 2–4) and the
+format bar (Stage 3): one toolbar and, since round 4, the tab strip with one
+note, its `+` right after the tab (`tabs: auto` hides it until a second tab); `format.bold`
+from the format bar, with the word count following the selection; the format
+bar floating bottom centre with the word-count corner on its row, never
+covering the last line, and `top` floating under the header; the *Format*
+menu at a narrow width; `view.focus` (`Mod+.`) and `Escape`, and the `leave-focus`
+way out when the toolbar is hidden too; a saved layout with the toolbar at the
+bottom, the format bar and the mode bar above it; the header at 480 px
+(arrows, the right end, nothing overflowing); opening from the drawer
+replaces the note in place; the drawer navigator; the dock replacing the Note
+menu; the focus edge on a split following `Alt`+arrows; the off-focus sync
+dot when the relay is gone; and, with no title in the toolbar any more, the
+lone tab as drag handle (a split by dragging it) and tab menu (right-click).
+
+`e2e/dock.spec.ts` covers the dock (round 2 P4, round 3 Q3): the strip floats
+top-right; an icon opens the panel on its tab; `Escape` and `Mod+ArrowRight`
+close it; pin opens it as the rail column, which offers unpin only, and
+unpinned it is the floating strip again; pinned, the format bar and the
+corner span the panes left of the column; bottom-right, the strip stands
+above the corner count at every width; at a narrow width the strip shrinks to
+its expand button, and Focus mode hides it.
+
+`e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
+asserts zero console errors and zero failed font requests — the dev server
+used to 403 every face in `libs/ui/fonts` until `apps/web/vite.config.ts`
+allowed it in `server.fs.allow`. Since round 4 it also opens the app in
+**WebKit** (the desktop's engine on Linux is WebKitGTK) and asserts body text
+is the static 400 face — no variable instance, no synthesised bold; that case
+is skipped unless `npx playwright install webkit` has been run.
+
+`e2e/shared.spec.ts` covers the shared world (Stage 4, sharing E1–E4): Alice
+adds Bob's room from the Shared view, sees him in People and his changes by
+name in the Changes card, and the Shared view stays honest through a relay
+outage; a vault that shares nothing opens Shared on its onboarding.
+
+`e2e/chrome.spec.ts` covers the shell (chrome U2+): the pinned rail is the
+dock panel (its tabs, unpin only — no collapse — one open state and one tab,
+`Mod+ArrowRight` focusing its tab); the
 navigator resizes from the keyboard (its handle is a valued `separator`),
 hides on `Mod+ArrowLeft`, and the layout survives a reload; the breadcrumb
 names the open note and reveals its folder in the tree; the status bar carries
@@ -230,21 +308,29 @@ the word count and the note's own pill. The tree test (U3) needs the
 dot in the tree; the toolbar is icons with names; collapse-all, the filter
 menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
 drop's reason on the hovered row, and *Add a shared folder* (disabled with its
-rule in a root-shared vault; reachable from the palette). The note-section
-test (U4) checks the rail says where the open note lives and who is online
-there, and that the header no longer carries presence. The activity test
-(U5) opens an unseeded room so the relay rejects the token: the error toasts
-once, stays in the rail's Activity log with its time, counts as unread on the
-rail icon until the section is viewed, and the developer-tools toggle there
-shows and hides the sync inspector. The settings test (U6) drives the tabs
+rule in a root-shared vault; reachable from the palette). The where-am-I test
+(sharing E6, *This note* dissolved) checks the breadcrumb's folder popover and
+the Shared view say where the open note lives — a linked vault is "on your
+devices", never "shared". The log test (Stage 4a, which replaced the rail's
+*Activity*) opens an unseeded room so the relay rejects the token: the error
+toasts once, badges the drawer's bell until it is opened, and stays in the
+Log view with its scope and level filters (*Clear* asks first); developer
+tools, switched on in Settings › Developer, open the inspector from the
+palette as a tab. The settings test (U6) drives the tabs
 from the keyboard, refuses an invalid relay URL inline (`aria-invalid` +
 `aria-describedby`), prompts on Escape with unsaved changes, and saves a
-valid change from its own tab.
+valid change from its own tab. The type test (round 2 P9) checks every chrome
+surface renders in the interface token: the file tree in Public Sans, code
+in JetBrains Mono.
 
 `e2e/a11y.spec.ts` is the **accessibility gate**: axe (WCAG 2.1 AA + best
-practice) over the vault manager, the workspace with a note open, quick-open,
-the tree's context menu, a rename dialog, the vault menu, settings and the
-collapsed rail. Any violation fails the run and prints the offending node
+practice) over the default layout (no columns), the vault manager, the
+workspace with a note open, quick-open, the tree's context menu, a rename
+dialog, the vault menu, settings, the collapsed rail, the tab-group chrome,
+the History section, the Live / Reading surfaces, the join-a-share dialog, the
+share sheet's first run and the device-link dialogs; `quiet.spec.ts` runs axe
+over the toolbar, the format bar, Focus mode, the drawer navigator and the
+dock as well. Any violation fails the run and prints the offending node
 with the rule.
 
 `e2e/shots.spec.ts` is a screenshot pass over all four themes, for eyeballing
@@ -324,6 +410,12 @@ cd apps/web && rushx dev
 ```
 
 Vite serves on `http://localhost:5173`.
+
+`libs/editor` and `libs/editor-lang` are consumed **from source** (their
+`main` is `src/index.ts`; there is no `dist` to rebuild), so a change there
+is picked up by the dev server — but **hard-reload the tab** after changing
+either library: CodeMirror extensions are built when an editor view mounts,
+so a hot update does not reach the views already on screen.
 
 ### Step 3 — open two tabs
 

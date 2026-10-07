@@ -1,6 +1,6 @@
 ---
 status: V1 design — update as built
-date: 2026-09-12
+date: 2026-10-04
 ---
 
 # Architecture overview — V1 tracer bullet
@@ -59,19 +59,19 @@ Rush monorepo, packages named `@ohhi/<name>`, created per-slice (shaping D10).
 | Package | Responsibility |
 |---|---|
 | `apps/desktop` | Tauri 2 shell. Hosts `apps/web`; provides native filesystem access (`watchImmediate`, atomic writes) so corruption bugs surface where they actually live (shaping D6). |
-| `apps/web` | Svelte 5 UI: vault picker / first-run enroll, file tree (rendered from the folder doc's path→GUID map), sync pill, crude divergence review, binary badges. |
+| `apps/web` | Svelte 5 UI: vault picker / first-run enroll, file tree (rendered from the folder doc's path→GUID map), sync pill, crude divergence review, binary badges. Since the shell foundations build (`plans/foundations-plan.md`) the shell renders from a **layout spec** read, with keymaps and templates, from ordered resource roots — the vault's `.ohhi/`, `~/.config/ohhi/` on desktop, built-in — and owns the generator for their schemas (`spec/ohhi.layout.v1` / `ohhi.keymap.v1`, `cd apps/web && rushx gen-schemas`). See [customising.md](../customising.md). |
 | `libs/editor` | CodeMirror 6 editing surface in a thin Svelte wrapper; vendored y-codemirror.next binding; remote cursors via awareness. V1 is plain markdown, zero preview (shaping D3). |
 | `libs/sync` | The **engine seam**. Owns Y.Docs, the Hocuspocus client provider per doc, reconnect/backoff, the `syncRecord` per doc, and heads/snapshot encoding. The only package that imports `yjs`. See [sync.md](sync.md). |
 | `libs/vault` | The disk side: `TauriVaultAdapter` (read/write/list/rename + watcher), `enrollmentService` (GUID minting, seeding, binary detection), the `reconciler` (dmp ingest / materialize / diff3 escalation), `lcaStore`, `preImageJournal` + restore CLI. See [vault-and-reconciler.md](vault-and-reconciler.md). |
 | `apps/relay` | Thin Hocuspocus v4 service on Fly.io: static-token auth against a relay-authoritative shares table, SQLite persistence. Deliberately dumb in V1. See [relay.md](relay.md). |
-| `libs/workspace` | Host-neutral orchestration: a workspace is a set of **mounts** (a subtree bound to a room). Owns the folder map, doc lifecycle, carve/join/unshare, the mass-change breaker, and the boot delta scan. Knows nothing about Svelte — `apps/web` mirrors its events into runes. Extracted in M1. |
+| `libs/workspace` | Host-neutral orchestration: a workspace is a set of **mounts** (a subtree bound to a room). Owns the folder map, doc lifecycle, carve/join/unshare, the mass-change breaker, the boot delta scan, the one event log (`AppEvent` / `EventLog`, each room's persisted `RoomEventLog` at `<room>/events.json`), arrival attribution of remote edits, the one room → relay resolver (`roomRelayUrl`), and the `SharedSnapshot` the Shared view renders. Knows nothing about Svelte — `apps/web` mirrors its events into runes. Extracted in M1. |
 | `libs/ui` | Design tokens and themes (Tailwind v4 + DaisyUI v5). CSS + token-name types only — no components, no logic. Three bands driven by `data-theme`: DaisyUI chrome, `--ed-*` editor tokens, and unlayered `--ed-sync-*` honesty tokens. See [theming.md](../theming.md). |
 | `libs/index` | The vault's **derived** index: full text, links, tags, headings, frontmatter keys. Droppable by construction, never a system of record. One swap-proof query interface over an in-memory backend; SQLite/FTS5 sits behind a measured trigger (`plans/v2-shaping.md` Fork 1). |
 | `libs/frontmatter` | The note's leading `---` block. `parseFrontmatter` reads positions, scalar typing, tags (every Obsidian form, including the vault's legacy `[a b]`) and aliases; `patchFrontmatter` writes ONE line-range per op, so no untouched byte is re-emitted (golden rule 2). Flat subset only — nesting, multi-line scalars, anchors and duplicate keys are refused, never repaired. The single frontmatter writer for the index, the editor's tag strip and the CLI's `fm set` (read-shaping.md B4, Fork 4). |
 | `libs/editor-lang` | Markdown language extras for CM6 — the `[[wikilink]]` `MarkdownConfig` on upstream `@codemirror/lang-markdown`, its decorations, click-through and completion. Live-preview decorations land here too. |
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
 | `libs/agent` | The **agent surface's command core** (G1): `VaultBackend` over `@ohhi/vault`'s Node adapter + `libs/index` + a CLI-owned pre-image journal, and the 17 ops — `ls`, `read`, `search`, `links`, `backlinks`, `unresolved`, `tags`, `resolve`, `stats`, `changes`, `write`, `patch`, `append`, `fm`, `mv`, `rm`, `restore` — declared once in `src/contract.ts`. Host-neutral: no process, no terminal, no transport. See [agent-access.md](../agent-access.md). |
-| `apps/cli` | The **`ohhi`** binary: `run(argv, io) => exit code`, text for humans and `--json` for machines, plus `ohhi mcp` (a stdio MCP server) and `gen-schemas` (writes `spec/`). esbuild-bundled so a cold invocation beats ~500 ms. A thin adapter over `libs/agent` — it holds no vocabulary of its own. |
+| `apps/cli` | The **`ohhi`** binary: `run(argv, io) => exit code`, text for humans and `--json` for machines, plus `ohhi mcp` (a stdio MCP server) and `gen-schemas` (writes the op schemas in `spec/`; the two resource schemas there are `apps/web`'s). esbuild-bundled so a cold invocation beats ~500 ms. A thin adapter over `libs/agent` — it holds no vocabulary of its own. |
 
 Split-on-demand later: `apps/agentd` (V3). Don't reference it before its slice
 creates it. `libs/agent` arrived early, with the agent surface (G1), for the

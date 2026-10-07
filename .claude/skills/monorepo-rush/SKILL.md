@@ -50,12 +50,12 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | Package | Purpose | Slice |
 |---------|---------|-------|
 | `libs/workspace` | Host-neutral mounts, folder map, mass-change breaker, boot delta scan | M1 |
-| `libs/ui` | Design tokens + themes (CSS and token names only — no components) | V2a |
+| `libs/ui` | Design tokens + themes (CSS and token names only — no components), and the bundled fonts (`fonts/`, woff2; `rushx fonts` re-vendors them and writes `src/styles/fonts.css` — the only network step, output committed) | V2a |
 | `libs/index` | The derived index: full text, links, tags, headings, frontmatter keys | V2b |
 | `libs/editor-lang` | `[[wikilink]]` grammar and decorations on `@codemirror/lang-markdown` | V2c |
 | `libs/i18n` | Dictionaries + typesafe-i18n wiring; `rushx generate` regenerates the typed accessors | V2 |
 | `libs/agent` | `@ohhi/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
-| `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates `spec/` | G1 |
+| `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates the op schemas in `spec/` | G1 |
 
 `apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `plans/slices.md`).
 
@@ -68,6 +68,14 @@ cd apps/cli && rushx gen-schemas    # writes spec/ohhi.<op>.v1.schema.json
 ```
 
 Regenerate it, never hand-edit it — `apps/cli/test/conformance.test.ts` fails on drift. `apps/cli`'s conformance and cold-start tests run the esbuild bundle, so CI runs `cd apps/cli && rushx build` before the test loop reaches it.
+
+**`gen-schemas` exists in two places.** The app's own resource formats — `spec/ohhi.layout.v1.schema.json` and `spec/ohhi.keymap.v1.schema.json` — plus `examples/` and the generated id lists in `docs/customising.md` come from **`apps/web`**, which owns the command table and the catalogues they enumerate:
+
+```bash
+cd apps/web && rushx gen-schemas    # node scripts/gen-schemas.mjs, over src/lib/resource-schemas.ts
+```
+
+Run it after adding a command (and its id in `apps/web/src/lib/command-ids.ts`), a readout, a region or a view; `resource-schemas.test.ts` fails on drift. Never hand-edit either generator's output.
 
 Two install scripts put the surface on a developer's machine (both POSIX `sh`, both symlink rather than copy, both take `--force` and `--dry-run`):
 
@@ -110,6 +118,7 @@ Same toolchain as the Edible repo:
     - Updates the lockfile and may pull in new minor/patch versions.
     - Run after adding/removing packages or changing version ranges in `package.json`, or after changing common Rush config.
     - Prefer `rush install` for day‑to‑day work so dependency changes are intentional and reviewable.
+- **After moving or renaming the checkout on disk**, the installed `node_modules` links still point at the old path and tools fail in confusing ways (missing modules, stale `.rush/temp`). Reinstall from scratch with `rush update --purge` (then expect no lockfile change; if `common/config/rush/pnpm-lock.yaml` moves, review it before committing).
 
 ---
 
