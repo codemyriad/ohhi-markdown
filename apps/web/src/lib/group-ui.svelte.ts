@@ -5,9 +5,10 @@
  * open dialog; `workspace-panes.svelte.ts` owns the tree and the saved list.
  * This is the thin layer between them: which overlay is open, and the two
  * actions that need something outside the tree — the clipboard (*Copy N
- * links*) and the index (*Open links of this note as a group*). Both report
- * through `notify`, so the notice lands in Activity as well as in a toast
- * (chrome U5), and neither reaches for `toast()` itself.
+ * links*) and the index (*Open links of this note as a group*). Both answer
+ * the gesture through `flash` — a toast, not a log entry: it is feedback in
+ * the place the person just acted (spike S22 Q1) — and neither reaches for
+ * `toast()` itself.
  *
  * The components under `components/` render this and nothing else, so there
  * is exactly one place where a group decision is made.
@@ -36,8 +37,8 @@ export interface GroupHost {
   ambiguousName(name: string): boolean
   /** The notes this note links out to, resolved to paths (R6's other way). */
   outgoingPaths(path: string): Promise<string[]>
-  /** The session notice log — a toast now, a line in Activity after (U5). */
-  notify(input: { level: 'info' | 'warn' | 'error'; text: string; path?: string }): void
+  /** Gesture feedback: toasted once, never logged (spike S22's `flash`). */
+  flash(input: { level: 'info' | 'warn' | 'error'; text: string; path?: string }): void
   /** Clipboard writer; injected so the copy path can be driven in a test. */
   write(text: string): Promise<void>
 }
@@ -103,8 +104,8 @@ export function createGroupUi(panes: PaneShell, host: GroupHost): GroupShell {
     const name = groupLabel(group.name)
     void host
       .write(linksOf(paths, host.ambiguousName))
-      .then(() => host.notify({ level: 'info', text: t.copied({ count: paths.length, name }) }))
-      .catch(() => host.notify({ level: 'warn', text: t.copy_failed() }))
+      .then(() => host.flash({ level: 'info', text: t.copied({ count: paths.length, name }) }))
+      .catch(() => host.flash({ level: 'warn', text: t.copy_failed() }))
   }
 
   function openLinksAsGroup(paneId: string): void {
@@ -113,7 +114,7 @@ export function createGroupUi(panes: PaneShell, host: GroupHost): GroupShell {
     const t = getLL().web.groups
     void host.outgoingPaths(path).then((paths) => {
       if (!paths.length) {
-        host.notify({ level: 'info', text: t.menu.no_links(), path })
+        host.flash({ level: 'info', text: t.menu.no_links(), path })
         return
       }
       // Named after the note, so the group and the note it came from carry the

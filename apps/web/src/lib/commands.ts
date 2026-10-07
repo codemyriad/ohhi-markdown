@@ -9,8 +9,11 @@
  *
  * Bindings default to the ones Chris has actually rebound in Obsidian, so the
  * muscle memory transfers (measured: 17 custom hotkeys in .obsidian/hotkeys.json)
- * — and every one of them is overridable per device (tab-groups R1.3): the
- * registry merges `config.hotkeys` over the defaults, `null` meaning "no key".
+ * — and every one of them is overridable (tab-groups R1.3, quiet-shell F10):
+ * the registry merges the active KEYMAP FILE's resolved bindings over the
+ * defaults (`keymap-spec.ts`; `[]` meaning "no key"). Before a vault is open
+ * the legacy per-device `config.hotkeys` map stands in, as bindings through
+ * the same `setKeymap` (`keymap.svelte.ts` is the one path that applies either).
  * Defaults for everything, then the user's own, is the whole policy.
  *
  * Pure and DOM-free so it is unit-testable without a browser (parent R6): the
@@ -202,8 +205,10 @@ export interface CommandBinding {
   defaultDisplay: string
   /** The binding in force, in the `Mod+Shift+K` form; '' when unbound. */
   keys: string
-  /** `keys` rendered for a human (`⌘⇧P` / `Ctrl+Shift+P`); '' when unbound. */
+  /** `chords` rendered for a human (`⌘⇧P` / `Ctrl+Shift+P`, comma-joined); '' when unbound. */
   display: string
+  /** Every chord in force (a keymap may bind several); `keys` is the first. */
+  chords: string[]
   /** True when the user's override — not the default — produced `keys`. */
   overridden: boolean
   /**
@@ -224,10 +229,26 @@ export interface CommandBinding {
  */
 export type CommandProvider = () => Command[]
 
+/**
+ * Resolved keymap bindings (`keymap-spec.ts`): command id → the chords in
+ * force, `[]` for unbound. An id that is absent keeps its default.
+ */
+export type ResolvedBindings = Readonly<Record<string, readonly string[]>>
+
+/** Tolerant: an unparseable chord is dropped, never stored. */
+function normalizeBindings(raw: ResolvedBindings): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  for (const [id, chords] of Object.entries(raw)) {
+    if (!id || !Array.isArray(chords)) continue
+    out[id] = chords.filter((c) => typeof c === 'string' && parseBinding(c) !== null)
+  }
+  return out
+}
+
 export class CommandRegistry {
   private commands = new Map<string, Command>()
   private providers: CommandProvider[] = []
-  private overrides: BindingOverrides = {}
+  private keymap: Record<string, string[]> = {}
   /** True while Settings is RECORDING a chord: no key may run a command. */
   private suspended = false
   private readonly mac: boolean
@@ -237,12 +258,12 @@ export class CommandRegistry {
   }
 
   /**
-   * Replace the user's overrides (R1.3). Tolerant by construction, so the
-   * caller can hand over whatever config holds; `null` means "unbound", an
-   * absent id means "keep the default".
+   * Replace the user's overrides with the ACTIVE keymap's resolved bindings
+   * (quiet-shell F10): `[]` unbinds, several chords all match, an absent id
+   * keeps its default.
    */
-  setOverrides(raw: unknown): void {
-    this.overrides = normalizeOverrides(raw)
+  setKeymap(bindings: ResolvedBindings): void {
+    this.keymap = normalizeBindings(bindings)
   }
 
   /**
@@ -288,18 +309,23 @@ export class CommandRegistry {
   }
 
   /**
-   * The binding in force: the user's override when there is one, else the
-   * default. '' means unbound — either because the command ships without a
-   * key or because the user cleared it (`null`).
+   * Every chord in force for a command: the keymap's when it names the id,
+   * else the default. `[]` means unbound — the command ships without a key,
+   * or the keymap cleared it. `keymap` previews a draft (Settings).
    */
-  effectiveKeys(id: string): string {
-    if (!this.commands.has(id)) return ''
-    const override = this.overrides[id]
-    if (override === null) return ''
-    return override ?? this.defaultKeys(id)
+  effectiveChords(id: string, keymap: ResolvedBindings = this.keymap): string[] {
+    if (!this.commands.has(id)) return []
+    if (Object.hasOwn(keymap, id)) return [...keymap[id]!]
+    const keys = this.defaultKeys(id)
+    return keys ? [keys] : []
   }
 
-  /** Display binding for a command, or '' when unbound. */
+  /** The first chord in force, or '' when unbound. */
+  effectiveKeys(id: string): string {
+    return this.effectiveChords(id)[0] ?? ''
+  }
+
+  /** Display binding for a command (its first chord), or '' when unbound. */
   binding(id: string): string {
     const keys = this.effectiveKeys(id)
     return keys ? formatBinding(keys, this.mac) : ''
@@ -319,34 +345,44 @@ export class CommandRegistry {
    * INCLUDING commands whose `when` guard is currently false and commands
    * that ship unbound. A guard says when a command can run, not whether the
    * user may bind it, and a key you cannot see is a key you cannot change.
+   *
+   * `keymap` previews a draft keymap instead of the one in force (Settings
+   * shows an unsaved edit's conflicts before it is written).
    */
-  bindings(): CommandBinding[] {
-    const rows = [...this.commands.values()].map((c) => ({
-      id: c.id,
-      title: c.title,
-      group: c.group ?? '',
-      defaultKeys: c.keys ?? '',
-      defaultDisplay: c.keys ? formatBinding(c.keys, this.mac) : '',
-      keys: this.effectiveKeys(c.id),
-      display: this.binding(c.id),
-      overridden: c.id in this.overrides,
-      conflicts: [] as string[],
-      reserved: isDesktopReserved(this.effectiveKeys(c.id), this.mac),
-    }))
+  bindings(keymap: ResolvedBindings = this.keymap): CommandBinding[] {
+    const rows = [...this.commands.values()].map((c) => {
+      const chords = this.effectiveChords(c.id, keymap)
+      return {
+        id: c.id,
+        title: c.title,
+        group: c.group ?? '',
+        defaultKeys: c.keys ?? '',
+        defaultDisplay: c.keys ? formatBinding(c.keys, this.mac) : '',
+        keys: chords[0] ?? '',
+        chords,
+        display: chords.map((k) => formatBinding(k, this.mac)).join(', '),
+        overridden: Object.hasOwn(keymap, c.id),
+        conflicts: [] as string[],
+        reserved: chords.some((k) => isDesktopReserved(k, this.mac)),
+      }
+    })
     // Grouped by the chord as it is PRESSED, not by the stored string: off mac
     // `Ctrl+Mod+X` and `Ctrl+Alt+X` are the same key press, and two commands on
     // them collide however differently they are written down.
     const byChord = new Map<string, CommandBinding[]>()
     for (const row of rows) {
-      if (!row.display) continue
-      const sharing = byChord.get(row.display)
-      if (sharing) sharing.push(row)
-      else byChord.set(row.display, [row])
+      for (const pressed of new Set(row.chords.map((k) => formatBinding(k, this.mac)))) {
+        const sharing = byChord.get(pressed)
+        if (sharing) sharing.push(row)
+        else byChord.set(pressed, [row])
+      }
     }
     for (const sharing of byChord.values()) {
       if (sharing.length < 2) continue
       for (const row of sharing) {
-        row.conflicts = sharing.filter((other) => other !== row).map((other) => other.title)
+        for (const other of sharing) {
+          if (other !== row && !row.conflicts.includes(other.title)) row.conflicts.push(other.title)
+        }
       }
     }
     return rows
@@ -364,11 +400,13 @@ export class CommandRegistry {
     if (this.suspended) return null
     let hit: Command | null = null
     for (const command of this.commands.values()) {
-      const keys = this.effectiveKeys(command.id)
-      if (!keys) continue
+      const chords = this.effectiveChords(command.id)
+      if (chords.length === 0) continue
       if (command.when && !command.when()) continue
-      const parsed = parseBinding(keys)
-      if (parsed && eventMatches(parsed, e, this.mac)) hit = command
+      for (const keys of chords) {
+        const parsed = parseBinding(keys)
+        if (parsed && eventMatches(parsed, e, this.mac)) hit = command
+      }
     }
     return hit
   }

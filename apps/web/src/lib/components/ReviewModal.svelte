@@ -61,7 +61,7 @@
         <p class="text-xs text-base-content/70">{t.vanished()}</p>
         <pre
           data-testid="vanished-content"
-          class="mt-2 max-h-64 overflow-y-auto rounded border border-base-300 bg-base-200 p-2 font-mono text-xs whitespace-pre-wrap text-base-content/80">{review.mine}</pre>
+          class="mt-2 max-h-64 overflow-y-auto rounded border border-base-300 bg-base-200 p-2 font-ed-mono text-xs whitespace-pre-wrap text-base-content/80">{review.mine}</pre>
       </div>
       <footer class="flex items-center justify-end gap-2 border-t border-base-300 px-4 py-3">
         <button
@@ -80,7 +80,7 @@
         </button>
       </footer>
     {:else}
-    <div class="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs">
+    <div class="flex-1 overflow-y-auto px-4 py-3 font-ed-mono text-xs">
       {#each hunks as hunk, i (i)}
         {#if hunk.kind === 'ok'}
           <pre class="whitespace-pre-wrap text-base-content/70">{hunk.lines.join('\n')}</pre>
@@ -93,7 +93,7 @@
                   data-testid="pick-mine:{i}"
                   onclick={() => (picks = { ...picks, [i]: 'mine' })}
                   aria-pressed={picks[i] === 'mine'}
-                  class="rounded border px-2 py-0.5 text-[10px] font-sans
+                  class="rounded border px-2 py-0.5 text-[10px] font-ed-ui
                     {picks[i] === 'mine'
                       ? 'border-error bg-error text-error-content'
                       : 'border-error/40 bg-base-100 text-error hover:bg-error/15'}"
@@ -110,7 +110,7 @@
                   data-testid="pick-theirs:{i}"
                   onclick={() => (picks = { ...picks, [i]: 'theirs' })}
                   aria-pressed={picks[i] === 'theirs'}
-                  class="rounded border px-2 py-0.5 text-[10px] font-sans
+                  class="rounded border px-2 py-0.5 text-[10px] font-ed-ui
                     {picks[i] === 'theirs'
                       ? 'border-warning bg-warning text-warning-content'
                       : 'border-warning/40 bg-base-100 text-warning hover:bg-warning/15'}"

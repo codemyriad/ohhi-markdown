@@ -27,21 +27,22 @@
   import ResizeHandle from '../ui/ResizeHandle.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
+  import type { PaneChrome } from '../pane-chrome.js'
   import type { PickerRow } from './EmptyTab.svelte'
   import Pane from './Pane.svelte'
   import Self from './PaneTree.svelte'
 
   /** Everything a pane needs that is the same for every pane in the tree. */
   export interface PaneRender {
+    /** Which chrome the layout spec gives a pane (absent → `DENSE_CHROME`). */
+    chrome?: PaneChrome
     panes: PaneShell
     workspace: Workspace
     dark: boolean
-    /**
-     * The note's word count. A FUNCTION, not a number: the count changes on
-     * every keystroke, and a number here would put every pane's props — and
-     * so the whole tree — on the editor's input path.
-     */
-    wordsOf: (path: string) => number
+    /** Typewriter scrolling — the layout's `editor.typewriter` (quiet-shell Decision 5). */
+    typewriter?: boolean
+    /** The note's title as an editable heading above its text — the layout's `editor.inlineTitle` (P3). */
+    inlineTitle?: boolean
     search: (query: string) => Promise<PickerRow[]>
     /** The empty tab's *Recent* list: paths this vault opened lately, newest first. */
     recent: () => string[]
@@ -102,6 +103,7 @@
         {@const value = node.sizes[i - 1]}
         <ResizeHandle
           inline
+          hidden={ctx.chrome?.borders === 'none'}
           orientation={node.dir === 'row' ? 'vertical' : 'horizontal'}
           {value}
           min={MIN_SIZE}

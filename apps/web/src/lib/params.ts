@@ -1,4 +1,5 @@
 import { presenceColor, PRESENCE_SLOTS } from '@ohhi/ui/tokens'
+import { parseLayoutChoice, parseLayoutParam, type LayoutChoice } from './layout.js'
 
 /**
  * URL-param modes — the contract Playwright L2 drives:
@@ -44,6 +45,53 @@ export function parseAppConfig(params: URLSearchParams): AppConfig {
     room,
     token: params.get('token') ?? '',
     user: params.get('user') ?? 'Anonymous',
+  }
+}
+
+/** App-wide URL params, beside the memory-mode contract above. */
+export interface AppParams {
+  /**
+   * `?layout=default|dense|custom:<name>` — a SESSION-only layout choice (`dense` is the example file, `parseLayoutParam`)
+   * that wins over the device's stored one (foundations Stage 1, spike S21:
+   * the e2e fixtures force `dense`, whose navigator column every existing
+   * spec waits for). Held in sessionStorage so it survives the shell's own
+   * URL clean-up and a reload in the same tab; a pick in Settings clears it.
+   */
+  layout: { get(): LayoutChoice | null; clear(): void }
+}
+
+const K_LAYOUT_PARAM = 'ohhi:layout'
+
+function sessionStore(): Storage | null {
+  try {
+    return typeof sessionStorage !== 'undefined' ? sessionStorage : null
+  } catch {
+    return null
+  }
+}
+
+export function parseAppParams(params: URLSearchParams, store: Storage | null = sessionStore()): AppParams {
+  const given = parseLayoutParam(params.get('layout'))
+  if (given) {
+    try {
+      store?.setItem(K_LAYOUT_PARAM, given)
+    } catch {
+      /* private mode — the param still holds for this page */
+    }
+  }
+  let held = given ?? parseLayoutChoice(store?.getItem(K_LAYOUT_PARAM) ?? null)
+  return {
+    layout: {
+      get: () => held,
+      clear: () => {
+        held = null
+        try {
+          store?.removeItem(K_LAYOUT_PARAM)
+        } catch {
+          /* nothing held */
+        }
+      },
+    },
   }
 }
 

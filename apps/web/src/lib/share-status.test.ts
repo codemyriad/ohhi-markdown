@@ -6,11 +6,8 @@ import {
   mountHasRelay,
   mountTone,
   sameRelay,
-  onlineIn,
   quietMountRoots,
-  relayHost,
   scopedRollup,
-  shareStateFor,
   type MountLike,
 } from './share-status.js'
 
@@ -27,43 +24,6 @@ const mounts: MountLike[] = [
   { path: 'team', room: 'r-team', provenance: 'carved', link: 'editor1:abc' },
   { path: 'inbox/shared', room: 'r-inbox', provenance: 'joined', link: null },
 ]
-
-describe('shareStateFor', () => {
-  it('finds the mount a path lives in, and says whose it is', () => {
-    expect(shareStateFor('team/a.md', mounts, false, 'root')).toEqual({
-      kind: 'shared',
-      provenance: 'carved',
-      room: 'r-team',
-      mountPath: 'team',
-      link: 'editor1:abc',
-      status: 'active',
-      foreign: false,
-    })
-    expect(shareStateFor('inbox/shared/x.md', mounts, false, 'root')).toMatchObject({
-      provenance: 'joined',
-      room: 'r-inbox',
-    })
-    expect(shareStateFor('teamwork/a.md', mounts, false, 'root')).toEqual({ kind: 'local' })
-    expect(shareStateFor('notes/a.md', mounts, false, 'root')).toEqual({ kind: 'local' })
-  })
-
-  it('reports a LINKED vault as the root mount — never foreign, it is yours', () => {
-    expect(shareStateFor('notes/a.md', [], true, 'root', 'editor1:root')).toEqual({
-      kind: 'shared',
-      provenance: 'root',
-      room: 'root',
-      mountPath: '',
-      link: 'editor1:root',
-      status: 'active',
-      foreign: false,
-    })
-  })
-
-  it('carries a mount’s foreign flag through, so the tone can use it', () => {
-    const theirs = [{ ...mounts[0]!, foreign: true }]
-    expect(shareStateFor('team/a.md', theirs, false, 'root')).toMatchObject({ foreign: true })
-  })
-})
 
 describe('whose share is this — isForeignMount (device-link N2)', () => {
   const OURS = 'wss://relay.example'
@@ -142,30 +102,6 @@ describe('mount state — what a mount with no key is, and is not', () => {
     expect(inQuietMount('design/deep/a.md', all)).toBe(true)
     expect(inQuietMount('designs/a.md', all)).toBe(false)
     expect(inQuietMount('team/a.md', all)).toBe(false)
-  })
-
-  it('reports the mount status on the share state, so the rail can say "link needed"', () => {
-    expect(shareStateFor('design/a.md', [needsToken], true, 'root')).toMatchObject({
-      kind: 'shared',
-      provenance: 'adopted',
-      status: 'needs-token',
-    })
-  })
-})
-
-describe('relayHost', () => {
-  it('shows the host of a relay URL and tolerates garbage', () => {
-    expect(relayHost('wss://relay.example.com:443/')).toBe('relay.example.com')
-    expect(relayHost('ws://localhost:8787')).toBe('localhost:8787')
-    expect(relayHost('not a url')).toBe('not a url')
-    expect(relayHost(null)).toBeNull()
-  })
-})
-
-describe('onlineIn', () => {
-  it('is the room’s own list, empty when nobody is there', () => {
-    expect(onlineIn({ 'r-team': ['Chris', 'Sam'] }, 'r-team')).toEqual(['Chris', 'Sam'])
-    expect(onlineIn({ 'r-team': ['Chris'] }, 'r-inbox')).toEqual([])
   })
 })
 

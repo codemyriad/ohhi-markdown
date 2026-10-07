@@ -3,7 +3,7 @@
    * "Add link…" for a mount this device holds no token for (device-link N1,
    * spike S10 Q2, `status:'needs-token'`).
    *
-   * A SIBLING of `AddShareDialog`, not a mode of it: joining asks for a link
+   * A SIBLING of `AddSharedFolderDialog`, not a mode of it: joining asks for a link
    * AND a destination and creates a mount; this one has a mount already — the
    * folder, its files and its room are all here — and supplies the one thing
    * missing. Pasting activates it in place: no re-seed, no re-download, no

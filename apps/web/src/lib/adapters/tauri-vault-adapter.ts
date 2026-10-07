@@ -25,7 +25,7 @@ import {
   writeFile,
   type UnwatchFn,
 } from '@tauri-apps/plugin-fs'
-import { hashBytes, IGNORED_DIRS, WriteConflictError } from '@ohhi/vault'
+import { AppDirListeners, hashBytes, IGNORED_DIRS, isTempName, TEMP_INFIX, WriteConflictError } from '@ohhi/vault'
 import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
 /** Shared with every other adapter — see IGNORED_DIRS in @ohhi/vault. */
@@ -64,6 +64,8 @@ function dirnamePosix(p: string): string {
 
 export class TauriVaultAdapter implements VaultAdapter {
   private readonly rootAbs: string
+  /** `watchAppDir` listeners: fed from the ONE native watcher below (S20 Q1). */
+  private readonly appDirs = new AppDirListeners()
 
   constructor(private root: string) {
     this.rootAbs = normalizePosix(toPosix(root))
@@ -93,7 +95,7 @@ export class TauriVaultAdapter implements VaultAdapter {
         if (IGNORED.has(entry.name)) continue
         // A crash can leave a writeAtomic temp behind; it must never enroll as
         // a note (the watcher below and the node adapter skip it too).
-        if (entry.name.includes('.editor-tmp-')) continue
+        if (isTempName(entry.name)) continue
         const relPath = relDir ? `${relDir}/${entry.name}` : entry.name
         if (entry.isDirectory) {
           await walk(relPath)
@@ -154,7 +156,7 @@ export class TauriVaultAdapter implements VaultAdapter {
     const full = this.abs(path)
     await mkdir(dirnamePosix(full), { recursive: true })
     // unique temp name
-    const tmp = `${full}.editor-tmp-${Date.now()}-${tmpCounter++}`
+    const tmp = `${full}${TEMP_INFIX}${Date.now()}-${tmpCounter++}`
     await writeFile(tmp, bytes)
     // Atomicity note: plugin-fs exposes no fsync, so we cannot flush the temp
     // file to durable storage before renaming. temp+rename still gives rename
@@ -198,14 +200,14 @@ export class TauriVaultAdapter implements VaultAdapter {
     void watchImmediate(
       this.root,
       (event) => {
-        const paths: string[] = []
+        const rels: string[] = []
         for (const abs of event.paths) {
           const rel = this.toRelative(abs)
-          if (!rel) continue
-          if (rel.split('/').some((seg) => IGNORED.has(seg))) continue
-          if (rel.includes('.editor-tmp-')) continue
-          paths.push(rel)
+          if (rel) rels.push(rel)
         }
+        // Ignored dirs (`.git`, `.ohhi`, …) and temp names never reach `cb`;
+        // a path under a `watchAppDir` directory goes to that listener instead.
+        const paths = this.appDirs.route(rels)
         if (paths.length) cb({ paths })
       },
       { recursive: true },
@@ -226,6 +228,21 @@ export class TauriVaultAdapter implements VaultAdapter {
         unwatch = null
       }
     }
+  }
+
+  async listAppDir(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    const full = this.abs(rel)
+    if (!(await exists(full))) return []
+    const out: string[] = []
+    for (const entry of await readDir(full)) {
+      if (entry.isFile && !isTempName(entry.name)) out.push(`${rel}/${entry.name}`)
+    }
+    return out.sort()
+  }
+
+  watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
+    return this.appDirs.add(dir, cb)
   }
 }
 

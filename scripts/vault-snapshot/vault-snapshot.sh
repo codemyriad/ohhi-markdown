@@ -173,10 +173,11 @@ ensure_repo() {
   {
     note "# Rewritten by $PROG on every run. Add your own patterns (gitignore" \
       "# syntax) to $USER_EXCLUDE"
-    # Editor's atomic writes go through '<file>.editor-tmp-…' temp files
-    # (libs/vault node-adapter, apps/web tauri adapters): never capture one.
+    # Editor's atomic writes go through '<file>.ohhi-tmp-…' temp files
+    # (libs/vault node-adapter, apps/web tauri adapters): never capture one,
+    # nor a '.editor-tmp-' one left by a build from before the rename.
     # shellcheck disable=SC2016 # '$RECYCLE.BIN/' is a literal folder name
-    note .git/ '*.editor-tmp-*' .editor-cache/ .trash/ node_modules/ \
+    note .git/ '*.ohhi-tmp-*' '*.editor-tmp-*' .ohhi-cache/ .editor-cache/ .trash/ node_modules/ \
       .obsidian/workspace.json .obsidian/workspace-mobile.json .obsidian/workspace \
       .DS_Store '._*' .Spotlight-V100/ .Trashes/ .fseventsd/ .TemporaryItems/ \
       Thumbs.db desktop.ini '$RECYCLE.BIN/' '*.swp' '.~lock.*#'
@@ -314,9 +315,9 @@ cmd_restore() {
       continue
     fi
     mkdir -p "$(dirname "$target")"
-    # The '.editor-tmp-' infix is the name Editor's watcher already skips as
+    # The '.ohhi-tmp-' infix is the name Editor's watcher already skips as
     # in-flight, and the snapshot excludes it too.
-    tmp="$(dirname "$target")/.${target##*/}.editor-tmp-restore-$$"
+    tmp="$(dirname "$target")/.${target##*/}.ohhi-tmp-restore-$$"
     if [ -f "$target" ]; then cp -p "$target" "$tmp"; fi # keep its permissions
     g cat-file blob "$obj" > "$tmp"
     if [ "$mode" = 100755 ]; then chmod +x "$tmp"; fi

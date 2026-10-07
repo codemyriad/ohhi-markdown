@@ -23,7 +23,7 @@ export interface ActionsWorkspace {
 }
 
 export function mount(path: string, room: string, provenance: MountInfo['provenance'] = 'carved'): MountInfo {
-  return { path, room, provenance, link: null, status: 'synced', foreign: false } as unknown as MountInfo
+  return { path, room, provenance, link: null, status: 'synced', foreign: false, relay: `wss://relay.of/${room}` } as unknown as MountInfo
 }
 
 export function actionsWorkspace(
@@ -60,6 +60,7 @@ export function actionsWorkspace(
         ui,
         room,
         notify: (input: NoticeInput) => notices.push(input),
+        flash: () => {},
         createFile: record('createFile', (dir = '', name = 'untitled-1.md') =>
           dir ? `${dir}/${name}` : name
         ),

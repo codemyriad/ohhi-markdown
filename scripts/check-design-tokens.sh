@@ -38,6 +38,23 @@ if [ -n "$floor" ]; then
   echo "$floor" >&2
   exit 1
 fi
+# Type (foundations round 2, P9): every surface renders in the --ed-font-*
+# tokens. A raw `font-sans` / `font-serif` / `font-mono` utility reads
+# Tailwind's own family instead — out of reach of a theme and of the person's
+# choice in Settings › Appearance — so use `font-ed-ui` / `font-ed-prose` /
+# `font-ed-mono`. (`--ed-font-mono` and `font-ed-mono` do not match: the class
+# must start the token.)
+fonts=$(grep -rnE '(^|[^-a-zA-Z0-9])font-(sans|serif|mono)([^-a-zA-Z0-9]|$)' apps/web/src libs/editor/src \
+    --include='*.svelte' --include='*.ts' 2>/dev/null \
+  | grep -vE '\.test\.ts:' \
+  | grep -v 'token-exempt' \
+  | grep -vE ':[0-9]+: *(\*|//|<!--)' \
+  || true)
+if [ -n "$fonts" ]; then
+  echo "Raw font-family utilities found — use font-ed-ui / font-ed-prose / font-ed-mono (see docs/theming.md):" >&2
+  echo "$fonts" >&2
+  exit 1
+fi
 # Second gate: the token contract must not accumulate tokens nothing reads.
 # `libs/ui/src/styles/tokens/_contract.css` is a PUBLISHED contract — a theme
 # author writes against it — so a token in there that no consumer resolves is a
@@ -47,7 +64,7 @@ fi
 contract=libs/ui/src/styles/tokens/_contract.css
 consumers=$(cat libs/editor/src/theme.ts libs/editor-lang/src/wikilink-view.ts \
   libs/ui/src/styles/base.css libs/ui/src/tokens.ts 2>/dev/null; \
-  grep -rho --include='*.svelte' 'ed-[a-z0-9-]*' apps/web/src 2>/dev/null)
+  grep -rho --include='*.svelte' -e '--ed-[a-z0-9-]*' apps/web/src 2>/dev/null)
 unread=""
 while read -r token; do
   # A declaration line carrying "(V2e)" is a forward declaration, not a gap.

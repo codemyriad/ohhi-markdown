@@ -22,6 +22,8 @@ import {
   purgeRooms,
   removeVault as removeVaultEntry,
   saveUser,
+  setDefaultRelay,
+  setOperatorSecret,
   setRoomToken,
   upsertVault,
   type StoredShare,
@@ -54,9 +56,22 @@ export interface Manager {
   readonly opSecret: string
   /** Re-read the registry after anything wrote to it. */
   refresh(): void
+  /**
+   * The share sheet's first run (sharing E4, R4): remember the relay and the
+   * operator secret in Settings › Sync. The relay is stored only when it
+   * differs from the one shown, as Settings does — saving just the secret
+   * must never pin this build's default.
+   */
+  rememberRelay(relay: string, secret: string): void
   openFolder(name: string): Promise<void>
   createBrowserVault(name: string, vaultName: string): Promise<void>
-  joinShare(name: string, link: string): Promise<void>
+  /**
+   * Open a folder share as its own vault. Resolves with the failure's words
+   * (also on `session.failure`, for the manager screen) or null — so a dialog
+   * opened from INSIDE a workspace, where the manager is not on screen, can
+   * show why it did not happen.
+   */
+  joinShare(name: string, link: string): Promise<string | null>
   /** Rejects with the reason — the dialog keeps the paste and shows it. */
   linkThisDevice(link: string): Promise<void>
   removeVault(room: string): Promise<void>
@@ -75,6 +90,12 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     shares = loadShares()
     relayDefault = defaultRelay()
     opSecret = operatorSecret()
+  }
+
+  function rememberRelay(relay: string, secret: string): void {
+    if (relay.trim() !== defaultRelay()) setDefaultRelay(relay)
+    setOperatorSecret(secret)
+    refresh()
   }
 
   const message = (err: unknown): string => (err instanceof Error ? err.message : String(err))
@@ -125,7 +146,12 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     await session.boot(entry)
   }
 
-  async function joinShare(name: string, link: string): Promise<void> {
+  async function joinShare(name: string, link: string): Promise<string | null> {
+    await joinShareInto(name, link)
+    return session.failure?.message ?? null
+  }
+
+  async function joinShareInto(name: string, link: string): Promise<void> {
     saveUser(name)
     session.failure = null
     session.busy = true
@@ -274,6 +300,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
       return opSecret
     },
     refresh,
+    rememberRelay,
     openFolder,
     createBrowserVault,
     joinShare,

@@ -84,13 +84,17 @@ export type NamespaceWebTranslation = {
 		 */
 		settings_with_binding: RequiredParams<'binding'>
 		/**
-		 * s​e​l​e​c​t​ ​a​ ​f​i​l​e​ ​t​o​ ​s​t​a​r​t​ ​e​d​i​t​i​n​g
-		 */
-		select_a_file: string
-		/**
 		 * V​a​u​l​t
 		 */
 		unnamed_vault: string
+		/**
+		 * P​i​n​ ​a​s​ ​a​ ​c​o​l​u​m​n
+		 */
+		pin_navigator: string
+		/**
+		 * U​n​p​i​n​ ​—​ ​b​a​c​k​ ​t​o​ ​a​ ​d​r​a​w​e​r
+		 */
+		unpin_navigator: string
 	}
 	notices: {
 		toast_title: {
@@ -107,12 +111,123 @@ export type NamespaceWebTranslation = {
 			 */
 			info: string
 		}
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​{​r​e​a​s​o​n​}​)​.
+		 * @param {string} reason
+		 */
+		relay_refused: RequiredParams<'reason'>
+		/**
+		 * T​h​e​ ​f​o​l​d​e​r​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​s​h​a​r​e​d​,​ ​b​u​t​ ​i​t​s​ ​l​i​n​k​s​ ​o​n​ ​{​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​v​o​k​e​d​:​ ​{​m​e​s​s​a​g​e​}
+		 * @param {string} host
+		 * @param {string} message
+		 */
+		revoke_failed: RequiredParams<'host' | 'message'>
+		mount: {
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​n​o​w​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 * @param {string} path
+			 */
+			adopted: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​s​h​a​r​e​d​ ​—​ ​i​t​s​ ​f​i​l​e​s​ ​a​r​e​ ​l​o​c​a​l​ ​n​o​t​e​s​ ​a​g​a​i​n​.
+			 * @param {string} path
+			 */
+			absorbed: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​s​t​o​p​p​e​d​ ​b​e​i​n​g​ ​s​h​a​r​e​d​ ​b​e​f​o​r​e​ ​i​t​ ​f​i​n​i​s​h​e​d​ ​a​t​t​a​c​h​i​n​g​ ​—​ ​i​t​s​ ​f​i​l​e​s​ ​s​t​a​y​ ​h​e​r​e​.
+			 * @param {string} path
+			 */
+			adopt_cancelled: RequiredParams<'path'>
+			/**
+			 * F​i​l​e​s​ ​i​n​ ​'​{​p​a​t​h​}​'​ ​w​e​r​e​ ​d​e​l​e​t​e​d​ ​o​n​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e​ ​—​ ​t​h​e​ ​d​e​l​e​t​i​o​n​ ​w​a​i​t​s​ ​f​o​r​ ​y​o​u​ ​t​o​ ​c​o​n​f​i​r​m​ ​i​t​.
+			 * @param {string} path
+			 */
+			ghosts_held: RequiredParams<'path'>
+			/**
+			 * '​{​p​a​t​h​}​'​ ​c​h​a​n​g​e​d​ ​s​t​a​t​e​.
+			 * @param {string} path
+			 */
+			status: RequiredParams<'path'>
+		}
+		/**
+		 * S​o​m​e​t​h​i​n​g​ ​h​a​p​p​e​n​e​d​ ​(​{​c​o​d​e​}​)​.
+		 * @param {string} code
+		 */
+		unknown: RequiredParams<'code'>
+		/**
+		 * {​w​h​o​}​ ​c​h​a​n​g​e​d​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 * @param {string} who
+		 */
+		doc_changed: RequiredParams<'path' | 'who'>
+		/**
+		 * {​w​h​o​}​ ​c​r​e​a​t​e​d​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 * @param {string} who
+		 */
+		file_created: RequiredParams<'path' | 'who'>
+		/**
+		 * {​w​h​o​}​ ​d​e​l​e​t​e​d​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 * @param {string} who
+		 */
+		file_deleted: RequiredParams<'path' | 'who'>
+		/**
+		 * {​w​h​o​}​ ​m​o​v​e​d​ ​{​f​r​o​m​}​ ​t​o​ ​{​p​a​t​h​}
+		 * @param {string} from
+		 * @param {string} path
+		 * @param {string} who
+		 */
+		file_moved: RequiredParams<'from' | 'path' | 'who'>
+		/**
+		 * {​n​a​m​e​}​ ​c​a​m​e​ ​o​n​l​i​n​e
+		 * @param {string} name
+		 */
+		peer_joined: RequiredParams<'name'>
+		/**
+		 * {​n​a​m​e​}​ ​w​e​n​t​ ​o​f​f​l​i​n​e
+		 * @param {string} name
+		 */
+		peer_left: RequiredParams<'name'>
+		/**
+		 * {​p​a​t​h​}​ ​c​h​a​n​g​e​d​ ​i​n​ ​t​w​o​ ​p​l​a​c​e​s​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​n​e​e​d​s​ ​y​o​u​r​ ​r​e​v​i​e​w​.
+		 * @param {string} path
+		 */
+		review_opened: RequiredParams<'path'>
+		/**
+		 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}​ ​a​r​r​i​v​e​d​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​w​a​i​t​{​{​s​|​}​}​ ​f​o​r​ ​y​o​u​ ​t​o​ ​c​o​n​f​i​r​m​.
+		 * @param {number} count
+		 */
+		breaker_held: RequiredParams<'count'>
+		/**
+		 * C​o​n​n​e​c​t​e​d​ ​t​o​ ​{​h​o​s​t​}​.
+		 * @param {string} host
+		 */
+		relay_connected: RequiredParams<'host'>
+		/**
+		 * L​o​s​t​ ​{​h​o​s​t​}​ ​—​ ​r​e​c​o​n​n​e​c​t​i​n​g​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_reconnecting: RequiredParams<'host'>
+		/**
+		 * O​f​f​l​i​n​e​ ​f​r​o​m​ ​{​h​o​s​t​}​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_offline: RequiredParams<'host'>
 	}
 	rail: {
 		/**
 		 * S​i​d​e​b​a​r
 		 */
 		label: string
+		/**
+		 * S​i​d​e​b​a​r​ ​s​h​o​r​t​c​u​t​s
+		 */
+		strip: string
+		/**
+		 * S​i​d​e​b​a​r​ ​s​e​c​t​i​o​n​s
+		 */
+		tabs: string
 		/**
 		 * C​o​l​l​a​p​s​e​ ​s​i​d​e​b​a​r
 		 */
@@ -121,19 +236,19 @@ export type NamespaceWebTranslation = {
 		 * E​x​p​a​n​d​ ​s​i​d​e​b​a​r
 		 */
 		expand: string
+		/**
+		 * P​i​n​ ​a​s​ ​a​ ​s​i​d​e​b​a​r
+		 */
+		pin: string
+		/**
+		 * U​n​p​i​n​ ​t​h​e​ ​s​i​d​e​b​a​r
+		 */
+		unpin: string
 		sections: {
 			/**
 			 * L​i​n​k​s
 			 */
 			links: string
-			/**
-			 * T​h​i​s​ ​n​o​t​e
-			 */
-			note: string
-			/**
-			 * A​c​t​i​v​i​t​y
-			 */
-			activity: string
 			/**
 			 * H​i​s​t​o​r​y
 			 */
@@ -160,6 +275,23 @@ export type NamespaceWebTranslation = {
 	}
 	breadcrumb: {
 		/**
+		 * A​b​o​u​t​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 */
+		folder_title: RequiredParams<'path'>
+		/**
+		 * L​o​c​a​l​ ​—​ ​o​n​l​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+		 */
+		local: string
+		/**
+		 * S​h​o​w​ ​i​n​ ​n​a​v​i​g​a​t​o​r
+		 */
+		reveal: string
+		/**
+		 * O​p​e​n​ ​S​h​a​r​e​d
+		 */
+		open_shared: string
+		/**
 		 * C​u​r​r​e​n​t​ ​n​o​t​e
 		 */
 		label: string
@@ -175,10 +307,23 @@ export type NamespaceWebTranslation = {
 	}
 	status_bar: {
 		/**
-		 * {​c​o​u​n​t​}​ ​w​o​r​d​{​{​s​}​}
+		 * {​c​o​u​n​t​|​i​n​t​}​ ​w​o​r​d​{​{​s​}​}
 		 * @param {number} count
 		 */
-		words: RequiredParams<'count'>
+		words: RequiredParams<'count|int'>
+		/**
+		 * {​c​o​u​n​t​|​i​n​t​}​ ​c​h​a​r​a​c​t​e​r​{​{​s​}​}
+		 * @param {number} count
+		 */
+		chars: RequiredParams<'count|int'>
+		/**
+		 * N​o​t​e​ ​s​t​a​t​u​s
+		 */
+		corner: string
+		/**
+		 *  ​·​ 
+		 */
+		join: string
 	}
 	panes: {
 		/**
@@ -224,6 +369,12 @@ export type NamespaceWebTranslation = {
 		 * Z​o​o​m​e​d
 		 */
 		zoomed: string
+		/**
+		 * {​p​a​n​e​}​:​ ​{​s​t​a​t​e​}
+		 * @param {string} pane
+		 * @param {string} state
+		 */
+		sync_dot: RequiredParams<'pane' | 'state'>
 		/**
 		 * M​o​v​e​ ​{​n​a​m​e​}​ ​h​e​r​e
 		 * @param {string} name
@@ -780,13 +931,10 @@ export type NamespaceWebTranslation = {
 		 */
 		mode_menu: string
 		/**
-		 * R​e​a​d​i​n​g​ ​v​i​e​w
+		 * V​i​e​w​ ​m​o​d​e​:​ ​{​m​o​d​e​}
+		 * @param {string} mode
 		 */
-		to_reading: string
-		/**
-		 * B​a​c​k​ ​t​o​ ​e​d​i​t​i​n​g
-		 */
-		to_editing: string
+		mode_menu_current: RequiredParams<'mode'>
 		/**
 		 * {​m​o​d​e​}​ ​v​i​e​w
 		 * @param {string} mode
@@ -975,18 +1123,6 @@ export type NamespaceWebTranslation = {
 		 */
 		shared_with_you: string
 		/**
-		 * {​w​h​o​s​e​}​ ​·​ ​{​c​o​u​n​t​}​ ​o​n​l​i​n​e
-		 * @param {number} count
-		 * @param {string} whose
-		 */
-		online_title: RequiredParams<'count' | 'whose'>
-		/**
-		 * {​w​h​o​s​e​}​,​ ​{​c​o​u​n​t​}​ ​o​n​l​i​n​e
-		 * @param {number} count
-		 * @param {string} whose
-		 */
-		online_sr: RequiredParams<'count' | 'whose'>
-		/**
 		 * n​o​t​ ​s​y​n​c​e​d
 		 */
 		not_synced: string
@@ -1030,7 +1166,7 @@ export type NamespaceWebTranslation = {
 			 */
 			share: string
 			/**
-			 * M​a​n​a​g​e​ ​t​o​k​e​n​s​…
+			 * M​a​n​a​g​e​ ​l​i​n​k​s​…
 			 */
 			manage_tokens: string
 			/**
@@ -1148,6 +1284,16 @@ export type NamespaceWebTranslation = {
 		 * R​e​m​o​v​e​d​ ​f​o​r​ ​y​o​u​ ​a​n​d​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​i​t​.​ ​T​h​e​ ​p​r​e​-​i​m​a​g​e​ ​i​s​ ​j​o​u​r​n​a​l​e​d​.
 		 */
 		delete_file_body: string
+		/**
+		 * “​{​n​a​m​e​}​”​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d​ ​a​s​ ​a​ ​n​a​m​e​:​ ​l​e​a​v​e​ ​o​u​t​ ​\​ ​/​ ​:​ ​*​ ​?​ ​"​ ​<​ ​>​ ​|​ ​a​n​d​ ​d​o​n​’​t​ ​s​t​a​r​t​ ​w​i​t​h​ ​a​ ​d​o​t
+		 * @param {string} name
+		 */
+		invalid_name: RequiredParams<'name'>
+		/**
+		 * “​{​n​a​m​e​}​”​ ​a​l​r​e​a​d​y​ ​e​x​i​s​t​s​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r
+		 * @param {string} name
+		 */
+		name_taken: RequiredParams<'name'>
 		confirm: {
 			/**
 			 * D​e​l​e​t​e
@@ -1201,6 +1347,34 @@ export type NamespaceWebTranslation = {
 			 * N​o​t​h​i​n​g​ ​f​o​u​n​d
 			 */
 			empty: string
+		}
+		templates: {
+			/**
+			 * I​n​s​e​r​t​ ​a​ ​t​e​m​p​l​a​t​e​…​ ​ ​ ​(​n​a​m​e​,​ ​t​h​e​n​ ​i​t​s​ ​a​r​g​u​m​e​n​t​s​)
+			 */
+			placeholder: string
+			/**
+			 * N​o​ ​t​e​m​p​l​a​t​e​ ​m​a​t​c​h​e​s
+			 */
+			empty: string
+		}
+		layouts: {
+			/**
+			 * U​s​e​ ​a​ ​l​a​y​o​u​t​ ​f​i​l​e​…
+			 */
+			placeholder: string
+			/**
+			 * N​o​ ​l​a​y​o​u​t​ ​f​i​l​e​ ​m​a​t​c​h​e​s
+			 */
+			empty: string
+			/**
+			 * D​e​f​a​u​l​t
+			 */
+			builtin: string
+			/**
+			 * i​n​ ​u​s​e
+			 */
+			in_use: string
 		}
 		/**
 		 * r​e​c​e​n​t
@@ -1259,6 +1433,84 @@ export type NamespaceWebTranslation = {
 			 * G​r​o​u​p
 			 */
 			group: string
+			/**
+			 * D​e​v​e​l​o​p​e​r
+			 */
+			developer: string
+			/**
+			 * F​o​r​m​a​t
+			 */
+			format: string
+			/**
+			 * T​e​m​p​l​a​t​e​s
+			 */
+			templates: string
+		}
+		format: {
+			/**
+			 * B​o​l​d
+			 */
+			bold: string
+			/**
+			 * I​t​a​l​i​c
+			 */
+			italic: string
+			/**
+			 * S​t​r​i​k​e​t​h​r​o​u​g​h
+			 */
+			strike: string
+			/**
+			 * I​n​l​i​n​e​ ​c​o​d​e
+			 */
+			code: string
+			/**
+			 * H​e​a​d​i​n​g​ ​1
+			 */
+			heading_1: string
+			/**
+			 * H​e​a​d​i​n​g​ ​2
+			 */
+			heading_2: string
+			/**
+			 * H​e​a​d​i​n​g​ ​3
+			 */
+			heading_3: string
+			/**
+			 * P​a​r​a​g​r​a​p​h
+			 */
+			paragraph: string
+			/**
+			 * B​u​l​l​e​t​e​d​ ​l​i​s​t
+			 */
+			list: string
+			/**
+			 * N​u​m​b​e​r​e​d​ ​l​i​s​t
+			 */
+			ordered_list: string
+			/**
+			 * T​a​s​k​ ​l​i​s​t
+			 */
+			task: string
+			/**
+			 * Q​u​o​t​e
+			 */
+			quote: string
+			/**
+			 * I​n​s​e​r​t​ ​l​i​n​k
+			 */
+			link: string
+			/**
+			 * I​n​s​e​r​t​ ​w​i​k​i​l​i​n​k
+			 */
+			wikilink: string
+			/**
+			 * I​n​s​e​r​t​ ​t​a​b​l​e
+			 */
+			table: string
+			/**
+			 * I​n​s​e​r​t​ ​i​m​a​g​e
+			 */
+			image: string
 		}
 		/**
 		 * O​p​e​n​ ​n​o​t​e​…
@@ -1288,6 +1540,10 @@ export type NamespaceWebTranslation = {
 		 * M​o​v​e​ ​c​u​r​r​e​n​t​ ​n​o​t​e​…
 		 */
 		move_note: string
+		/**
+		 * S​h​a​r​e​ ​t​h​i​s​ ​f​o​l​d​e​r​…
+		 */
+		share_folder: string
 		/**
 		 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​…
 		 */
@@ -1328,6 +1584,34 @@ export type NamespaceWebTranslation = {
 		 * S​e​t​t​i​n​g​s
 		 */
 		settings: string
+		/**
+		 * O​p​e​n​ ​i​n​s​p​e​c​t​o​r
+		 */
+		inspector: string
+		/**
+		 * O​p​e​n​ ​l​o​g
+		 */
+		log: string
+		/**
+		 * O​p​e​n​ ​S​h​a​r​e​d
+		 */
+		shared: string
+		/**
+		 * R​e​l​o​a​d​ ​l​a​y​o​u​t​s​ ​a​n​d​ ​r​e​s​o​u​r​c​e​s
+		 */
+		reload_resources: string
+		/**
+		 * I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…
+		 */
+		template_insert: string
+		/**
+		 * U​s​e​ ​l​a​y​o​u​t​ ​f​i​l​e​…
+		 */
+		layout_use_file: string
+		/**
+		 * T​o​g​g​l​e​ ​F​o​c​u​s​ ​m​o​d​e
+		 */
+		focus_mode: string
 	}
 	daily: {
 		/**
@@ -1391,28 +1675,350 @@ export type NamespaceWebTranslation = {
 			confirm: string
 		}
 	}
-	activity: {
+	log: {
+		/**
+		 * L​o​g
+		 */
+		title: string
+		/**
+		 * C​h​a​n​g​e​s
+		 */
+		title_changes: string
+		/**
+		 * C​h​a​n​g​e​s​ ​o​n​l​y
+		 */
+		changes_only: string
+		/**
+		 * S​h​o​w​ ​e​v​e​r​y​ ​k​i​n​d
+		 */
+		show_everything: string
+		/**
+		 * L​e​v​e​l
+		 */
+		level_label: string
+		levels: {
+			/**
+			 * E​r​r​o​r​s
+			 */
+			error: string
+			/**
+			 * W​a​r​n​i​n​g​s
+			 */
+			warn: string
+			/**
+			 * I​n​f​o
+			 */
+			info: string
+		}
+		/**
+		 * S​c​o​p​e
+		 */
+		scope_label: string
+		scope: {
+			/**
+			 * A​l​l
+			 */
+			all: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t
+			 */
+			vault: string
+			/**
+			 * S​h​a​r​e​d​ ​f​o​l​d​e​r​:​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			mount: RequiredParams<'path'>
+			/**
+			 * T​h​i​s​ ​n​o​t​e
+			 */
+			note: string
+		}
+		/**
+		 * T​i​m​e
+		 */
+		time_label: string
+		time: {
+			/**
+			 * T​o​d​a​y
+			 */
+			today: string
+			/**
+			 * T​h​i​s​ ​w​e​e​k
+			 */
+			week: string
+			/**
+			 * A​l​l​ ​t​i​m​e
+			 */
+			all: string
+		}
 		/**
 		 * N​o​t​h​i​n​g​ ​t​o​ ​r​e​p​o​r​t​ ​t​h​i​s​ ​s​e​s​s​i​o​n​.
 		 */
 		empty: string
+		/**
+		 * N​o​t​h​i​n​g​ ​m​a​t​c​h​e​s​ ​t​h​e​s​e​ ​f​i​l​t​e​r​s​.
+		 */
+		empty_filtered: string
+		/**
+		 * E​v​e​n​t​s
+		 */
+		list_label: string
 		/**
 		 * O​p​e​n​ ​{​p​a​t​h​}
 		 * @param {string} path
 		 */
 		open_path: RequiredParams<'path'>
 		/**
+		 * r​o​o​m​ ​{​r​o​o​m​}
+		 * @param {string} room
+		 */
+		room: RequiredParams<'room'>
+		/**
+		 * ×​{​c​o​u​n​t​}
+		 * @param {number} count
+		 */
+		repeated: RequiredParams<'count'>
+		/**
+		 * r​e​p​e​a​t​e​d​ ​{​c​o​u​n​t​}​ ​t​i​m​e​s
+		 * @param {number} count
+		 */
+		repeated_label: RequiredParams<'count'>
+		/**
+		 * C​o​p​y​ ​a​s​ ​t​e​x​t
+		 */
+		copy: string
+		/**
+		 * L​o​g​ ​c​o​p​i​e​d​ ​t​o​ ​t​h​e​ ​c​l​i​p​b​o​a​r​d​.
+		 */
+		copied: string
+		/**
+		 * T​h​e​ ​c​l​i​p​b​o​a​r​d​ ​i​s​ ​b​l​o​c​k​e​d​ ​—​ ​s​e​l​e​c​t​ ​t​h​e​ ​t​e​x​t​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​.
+		 */
+		copy_failed: string
+		/**
+		 * T​h​e​ ​l​o​g​ ​a​s​ ​t​e​x​t
+		 */
+		copy_fallback_label: string
+		/**
 		 * C​l​e​a​r
 		 */
 		clear: string
+		clear_confirm: {
+			/**
+			 * C​l​e​a​r​ ​t​h​e​ ​l​o​g​?
+			 */
+			title: string
+			/**
+			 * E​v​e​r​y​ ​e​v​e​n​t​ ​o​f​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​i​s​ ​f​o​r​g​o​t​t​e​n​.​ ​Y​o​u​r​ ​n​o​t​e​s​ ​a​r​e​ ​n​o​t​ ​t​o​u​c​h​e​d​.
+			 */
+			body: string
+			/**
+			 * C​l​e​a​r
+			 */
+			confirm: string
+		}
+		report: {
+			/**
+			 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​l​o​g​ ​(​{​c​o​u​n​t​}​ ​e​v​e​n​t​{​{​s​}​}​,​ ​c​o​p​i​e​d​ ​{​t​i​m​e​}​)
+			 * @param {number} count
+			 * @param {string} time
+			 */
+			header: RequiredParams<'count' | 'time'>
+			/**
+			 * h​i​n​t​:​ ​{​h​i​n​t​}
+			 * @param {string} hint
+			 */
+			hint: RequiredParams<'hint'>
+		}
+		level_name: {
+			/**
+			 * e​r​r​o​r
+			 */
+			error: string
+			/**
+			 * w​a​r​n​i​n​g
+			 */
+			warn: string
+			/**
+			 * i​n​f​o
+			 */
+			info: string
+		}
+		hints: {
+			/**
+			 * A​s​k​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​k​,​ ​t​h​e​n​ ​a​d​d​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​m​e​n​u​.
+			 */
+			relay_refused: string
+			/**
+			 * A​d​d​ ​a​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​i​t​s​ ​m​e​n​u​,​ ​o​r​ ​f​o​r​g​e​t​ ​i​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 */
+			no_token: string
+		}
+	}
+	relative_time: {
 		/**
-		 * D​e​v​e​l​o​p​e​r​ ​t​o​o​l​s
+		 * j​u​s​t​ ​n​o​w
 		 */
-		devtools: string
+		now: string
 		/**
-		 * —​ ​t​h​e​ ​s​y​n​c​ ​i​n​s​p​e​c​t​o​r
+		 * {​c​o​u​n​t​}​s​ ​a​g​o
+		 * @param {number} count
 		 */
-		devtools_hint: string
+		seconds: RequiredParams<'count'>
+		/**
+		 * {​c​o​u​n​t​}​ ​m​i​n​ ​a​g​o
+		 * @param {number} count
+		 */
+		minutes: RequiredParams<'count'>
+		/**
+		 * {​c​o​u​n​t​}​ ​h​ ​a​g​o
+		 * @param {number} count
+		 */
+		hours: RequiredParams<'count'>
+		/**
+		 * {​c​o​u​n​t​}​ ​d​a​y​{​{​s​}​}​ ​a​g​o
+		 * @param {number} count
+		 */
+		days: RequiredParams<'count'>
+	}
+	drawer: {
+		/**
+		 * N​o​t​i​f​i​c​a​t​i​o​n​s
+		 */
+		label: string
+		/**
+		 * N​o​t​i​f​i​c​a​t​i​o​n​s​,​ ​{​c​o​u​n​t​}​ ​u​n​r​e​a​d
+		 * @param {number} count
+		 */
+		label_unread: RequiredParams<'count'>
+		/**
+		 * N​o​t​i​f​i​c​a​t​i​o​n​s
+		 */
+		title: string
+		/**
+		 * N​o​ ​e​r​r​o​r​s​,​ ​w​a​r​n​i​n​g​s​ ​o​r​ ​c​h​a​n​g​e​s​ ​f​r​o​m​ ​o​t​h​e​r​s​ ​t​h​i​s​ ​s​e​s​s​i​o​n​.
+		 */
+		empty: string
+		/**
+		 * O​p​e​n​ ​t​h​e​ ​L​o​g
+		 */
+		open_log: string
+		summary: {
+			/**
+			 * {​c​o​u​n​t​}​ ​e​r​r​o​r​{​{​s​}​}
+			 * @param {number} count
+			 */
+			errors: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​w​a​r​n​i​n​g​{​{​s​}​}
+			 * @param {number} count
+			 */
+			warnings: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}​ ​b​y​ ​o​t​h​e​r​s
+			 * @param {number} count
+			 */
+			changes: RequiredParams<'count'>
+		}
+		/**
+		 * E​r​r​o​r​s​ ​a​n​d​ ​w​a​r​n​i​n​g​s
+		 */
+		problems: string
+		/**
+		 * C​h​a​n​g​e​s​ ​b​y​ ​o​t​h​e​r​s
+		 */
+		changes: string
+		group: {
+			/**
+			 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}
+			 * @param {number} count
+			 */
+			count: RequiredParams<'count'>
+			/**
+			 * O​p​e​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			open: RequiredParams<'note'>
+			/**
+			 * {​a​}​ ​a​n​d​ ​{​b​}
+			 * @param {string} a
+			 * @param {string} b
+			 */
+			two: RequiredParams<'a' | 'b'>
+			/**
+			 * {​a​}​,​ ​{​b​}​ ​a​n​d​ ​{​c​o​u​n​t​}​ ​o​t​h​e​r​{​{​s​}​}
+			 * @param {string} a
+			 * @param {string} b
+			 * @param {number} count
+			 */
+			many: RequiredParams<'a' | 'b' | 'count'>
+		}
+	}
+	presence: {
+		/**
+		 * {​c​o​u​n​t​}​ ​m​o​r​e
+		 * @param {number} count
+		 */
+		more: RequiredParams<'count'>
+		/**
+		 * w​i​t​h​ ​{​a​}
+		 * @param {string} a
+		 */
+		with_one: RequiredParams<'a'>
+		/**
+		 * w​i​t​h​ ​{​a​}​ ​a​n​d​ ​{​b​}
+		 * @param {string} a
+		 * @param {string} b
+		 */
+		with_two: RequiredParams<'a' | 'b'>
+		/**
+		 * w​i​t​h​ ​{​a​}​ ​a​n​d​ ​{​c​o​u​n​t​}​ ​o​t​h​e​r​{​{​s​}​}
+		 * @param {string} a
+		 * @param {number} count
+		 */
+		with_many: RequiredParams<'a' | 'count'>
+		people: {
+			/**
+			 * {​c​o​u​n​t​}​ ​{​{​p​e​r​s​o​n​|​p​e​o​p​l​e​}​}​ ​h​e​r​e
+			 * @param {number} count
+			 */
+			label: RequiredParams<'count'>
+			/**
+			 * H​e​r​e​ ​n​o​w
+			 */
+			title: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t
+			 */
+			vault: string
+			/**
+			 * i​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			in_note: RequiredParams<'note'>
+			/**
+			 * G​o​ ​t​o​ ​{​n​a​m​e​}​ ​i​n​ ​{​n​o​t​e​}
+			 * @param {string} name
+			 * @param {string} note
+			 */
+			jump: RequiredParams<'name' | 'note'>
+			/**
+			 * o​n​l​i​n​e
+			 */
+			online: string
+		}
+		sync: {
+			/**
+			 * {​s​t​a​t​u​s​}​ ​·​ ​{​c​o​u​n​t​}​ ​{​{​p​e​r​s​o​n​|​p​e​o​p​l​e​}​}​ ​o​n​l​i​n​e
+			 * @param {number} count
+			 * @param {string} status
+			 */
+			with_people: RequiredParams<'count' | 'status'>
+			/**
+			 * W​h​o​ ​i​s​ ​w​h​e​r​e
+			 */
+			title: string
+		}
 	}
 	links: {
 		/**
@@ -1455,66 +2061,9 @@ export type NamespaceWebTranslation = {
 	}
 	note: {
 		/**
-		 * N​o​ ​n​o​t​e​ ​o​p​e​n​.
-		 */
-		no_note: string
-		/**
-		 * V​a​u​l​t
-		 */
-		vault: string
-		/**
-		 * S​h​a​r​i​n​g
-		 */
-		sharing: string
-		/**
-		 * F​o​l​d​e​r
-		 */
-		folder: string
-		/**
-		 * O​n​l​i​n​e
-		 */
-		online: string
-		/**
-		 * O​n​l​i​n​e​ ​h​e​r​e
-		 */
-		online_here: string
-		/**
-		 * A​c​c​e​s​s
-		 */
-		access: string
-		/**
-		 * (​v​a​u​l​t​ ​r​o​o​t​)
-		 */
-		vault_root: string
-		/**
-		 * S​h​a​r​e​d​ ​a​s​ ​a​ ​w​h​o​l​e
-		 */
-		shared_whole: string
-		/**
-		 * S​y​n​c​e​d​ ​t​o​ ​y​o​u​r​ ​d​e​v​i​c​e​s
-		 */
-		synced_to_devices: string
-		/**
 		 * O​n​ ​y​o​u​r​ ​d​e​v​i​c​e​s
 		 */
 		on_your_devices: string
-		/**
-		 * {​c​o​u​n​t​}​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​{​{​s​}​}
-		 * @param {number} count
-		 */
-		shared_folders: RequiredParams<'count'>
-		/**
-		 * L​o​c​a​l​ ​v​a​u​l​t​ ​—​ ​n​o​t​h​i​n​g​ ​s​h​a​r​e​d
-		 */
-		local_nothing_shared: string
-		/**
-		 * O​n​l​y​ ​y​o​u
-		 */
-		only_you: string
-		/**
-		 * L​o​c​a​l​ ​—​ ​o​n​l​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
-		 */
-		local_device: string
 		/**
 		 * S​h​a​r​e​d​ ​b​y​ ​y​o​u
 		 */
@@ -1530,50 +2079,408 @@ export type NamespaceWebTranslation = {
 		 */
 		with_host: RequiredParams<'host' | 'state'>
 		/**
-		 * M​a​n​a​g​e​d​ ​b​y​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​i​t​ ​w​i​t​h​ ​y​o​u​.
+		 * N​o​t​e​ ​t​i​t​l​e
 		 */
-		access_joined: string
+		inline_title: string
+	}
+	shared: {
 		/**
-		 * T​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​'​s​ ​l​i​n​k​s​ ​—​ ​s​e​e​ ​S​e​t​t​i​n​g​s​.
+		 * S​h​a​r​e​d
 		 */
-		access_root: string
+		title: string
+		actions: {
+			/**
+			 * S​h​a​r​e​ ​a​ ​f​o​l​d​e​r​…
+			 */
+			share: string
+			/**
+			 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​…
+			 */
+			add: string
+			/**
+			 * L​i​n​k​ ​a​ ​d​e​v​i​c​e​…
+			 */
+			link: string
+		}
+		door: {
+			/**
+			 * {​s​t​a​t​u​s​}​ ​—​ ​o​p​e​n​ ​S​h​a​r​e​d
+			 * @param {string} status
+			 */
+			aria: RequiredParams<'status'>
+			/**
+			 * {​c​o​u​n​t​}​ ​r​o​o​m​{​{​s​}​}
+			 * @param {number} count
+			 */
+			rooms: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​o​n​l​i​n​e
+			 * @param {number} count
+			 */
+			people: RequiredParams<'count'>
+		}
+		relay: {
+			/**
+			 * R​e​l​a​y
+			 */
+			title: string
+			/**
+			 * t​h​i​s​ ​v​a​u​l​t​’​s​ ​r​e​l​a​y
+			 */
+			unknown_host: string
+			state: {
+				/**
+				 * C​o​n​n​e​c​t​e​d
+				 */
+				connected: string
+				/**
+				 * R​e​c​o​n​n​e​c​t​i​n​g​…
+				 */
+				reconnecting: string
+				/**
+				 * O​f​f​l​i​n​e
+				 */
+				offline: string
+				/**
+				 * R​e​f​u​s​e​d​ ​b​y​ ​t​h​e​ ​r​e​l​a​y
+				 */
+				refused: string
+			}
+			/**
+			 * R​e​f​u​s​e​d​ ​b​y​ ​t​h​e​ ​r​e​l​a​y​:​ ​{​r​e​a​s​o​n​}
+			 * @param {string} reason
+			 */
+			refused_reason: RequiredParams<'reason'>
+			/**
+			 * {​c​o​u​n​t​}​ ​r​o​o​m​{​{​s​}​}
+			 * @param {number} count
+			 */
+			rooms: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​{​{​p​e​r​s​o​n​|​p​e​o​p​l​e​}​}​ ​o​n​l​i​n​e
+			 * @param {number} count
+			 */
+			people: RequiredParams<'count'>
+			/**
+			 * o​n​l​y​ ​y​o​u
+			 */
+			only_you: string
+			/**
+			 * i​n​ ​s​y​n​c​ ​w​i​t​h​ ​t​h​e​ ​r​e​l​a​y​ ​s​i​n​c​e​ ​{​w​h​e​n​}
+			 * @param {string} when
+			 */
+			in_sync: RequiredParams<'when'>
+			/**
+			 * l​a​s​t​ ​i​n​ ​s​y​n​c​ ​w​i​t​h​ ​t​h​e​ ​r​e​l​a​y​ ​{​w​h​e​n​}
+			 * @param {string} when
+			 */
+			last_in_sync: RequiredParams<'when'>
+			/**
+			 * y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			safe: string
+			/**
+			 * C​h​a​n​g​e​ ​r​e​l​a​y​…
+			 */
+			change: string
+		}
+		folders: {
+			/**
+			 * S​h​a​r​e​d​ ​f​o​l​d​e​r​s
+			 */
+			title: string
+			/**
+			 * S​h​a​r​e​d​ ​b​y​ ​y​o​u
+			 */
+			by_you: string
+			/**
+			 * S​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+			 */
+			with_you: string
+			/**
+			 * {​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
+			 * @param {number} count
+			 */
+			notes: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​l​i​n​k​{​{​s​}​}
+			 * @param {number} count
+			 */
+			links: RequiredParams<'count'>
+			/**
+			 * c​h​a​n​g​e​d​ ​{​w​h​e​n​}
+			 * @param {string} when
+			 */
+			changed: RequiredParams<'when'>
+			/**
+			 * {​c​o​u​n​t​}​ ​o​n​l​i​n​e​ ​h​e​r​e
+			 * @param {number} count
+			 */
+			online: RequiredParams<'count'>
+			/**
+			 * M​a​n​a​g​e​ ​l​i​n​k​s​…
+			 */
+			manage: string
+			/**
+			 * D​e​t​a​i​l​s​…
+			 */
+			details: string
+			/**
+			 * O​p​e​n
+			 */
+			open: string
+			/**
+			 * O​p​e​n​ ​{​p​a​t​h​}​ ​i​n​ ​t​h​e​ ​n​a​v​i​g​a​t​o​r
+			 * @param {string} path
+			 */
+			open_folder: RequiredParams<'path'>
+		}
+		people: {
+			/**
+			 * P​e​o​p​l​e
+			 */
+			title: string
+			/**
+			 * {​c​o​u​n​t​}​ ​o​n​l​i​n​e
+			 * @param {number} count
+			 */
+			online: RequiredParams<'count'>
+			/**
+			 * o​n​l​y​ ​y​o​u
+			 */
+			only_you: string
+			/**
+			 * i​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			in_note: RequiredParams<'note'>
+			/**
+			 * i​n​ ​{​f​o​l​d​e​r​}
+			 * @param {string} folder
+			 */
+			in_folder: RequiredParams<'folder'>
+			/**
+			 * G​o​ ​t​o​ ​{​n​o​t​e​}​,​ ​w​h​e​r​e​ ​{​n​a​m​e​}​ ​i​s
+			 * @param {string} name
+			 * @param {string} note
+			 */
+			jump: RequiredParams<'name' | 'note'>
+			/**
+			 * N​o​b​o​d​y​ ​e​l​s​e​ ​i​s​ ​o​n​l​i​n​e​.
+			 */
+			alone: string
+			/**
+			 * {​n​a​m​e​}​ ​w​a​s​ ​l​a​s​t​ ​h​e​r​e​ ​{​w​h​e​n​}​.
+			 * @param {string} name
+			 * @param {string} when
+			 */
+			last_here: RequiredParams<'name' | 'when'>
+			/**
+			 * N​a​m​e​s​ ​a​r​e​ ​s​e​l​f​-​r​e​p​o​r​t​e​d​.​ ​T​h​e​r​e​ ​a​r​e​ ​n​o​ ​a​c​c​o​u​n​t​s​ ​y​e​t​.
+			 */
+			honesty: string
+		}
+		devices: {
+			/**
+			 * Y​o​u​r​ ​d​e​v​i​c​e​s
+			 */
+			title: string
+			/**
+			 * T​h​i​s​ ​d​e​v​i​c​e
+			 */
+			this_device: string
+			/**
+			 * t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			this_device_tag: string
+			/**
+			 * u​n​n​a​m​e​d​ ​d​e​v​i​c​e
+			 */
+			unnamed: string
+			/**
+			 * T​h​i​s​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​s​y​n​c​s​ ​t​o​ ​y​o​u​r​ ​d​e​v​i​c​e​s​.
+			 */
+			linked: string
+			/**
+			 * o​n​l​i​n​e​ ​{​w​h​e​n​}
+			 * @param {string} when
+			 */
+			online_at: RequiredParams<'when'>
+			/**
+			 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
+			 */
+			needs_secret: string
+		}
+		changes: {
+			/**
+			 * C​h​a​n​g​e​s
+			 */
+			title: string
+			/**
+			 * {​c​o​u​n​t​}​ ​t​o​d​a​y
+			 * @param {number} count
+			 */
+			today: RequiredParams<'count'>
+			/**
+			 * N​o​ ​c​h​a​n​g​e​s​ ​b​y​ ​a​n​y​o​n​e​ ​e​l​s​e​ ​y​e​t​.
+			 */
+			none: string
+			/**
+			 * N​o​t​h​i​n​g​ ​m​a​t​c​h​e​s​ ​t​h​e​s​e​ ​f​i​l​t​e​r​s​.
+			 */
+			none_filtered: string
+			/**
+			 * F​i​l​t​e​r​ ​c​h​a​n​g​e​s
+			 */
+			filters: string
+			/**
+			 * F​o​l​d​e​r
+			 */
+			room_label: string
+			/**
+			 * A​l​l​ ​f​o​l​d​e​r​s
+			 */
+			room_all: string
+			/**
+			 * P​e​r​s​o​n
+			 */
+			person_label: string
+			/**
+			 * E​v​e​r​y​o​n​e
+			 */
+			person_all: string
+			/**
+			 * W​h​e​n
+			 */
+			time_label: string
+			time: {
+				/**
+				 * A​n​y​ ​t​i​m​e
+				 */
+				all: string
+				/**
+				 * T​o​d​a​y
+				 */
+				today: string
+				/**
+				 * T​h​i​s​ ​w​e​e​k
+				 */
+				week: string
+			}
+			/**
+			 * S​h​o​w​ ​a​l​l
+			 */
+			show_all: string
+			/**
+			 * T​o​d​a​y
+			 */
+			day_today: string
+			/**
+			 * Y​e​s​t​e​r​d​a​y
+			 */
+			day_yesterday: string
+			/**
+			 * c​r​e​a​t​e​d
+			 */
+			created: string
+			/**
+			 * d​e​l​e​t​e​d
+			 */
+			deleted: string
+			/**
+			 * m​o​v​e​d​ ​f​r​o​m​ ​{​f​r​o​m​}
+			 * @param {string} from
+			 */
+			moved: RequiredParams<'from'>
+		}
+		who: {
+			/**
+			 * s​o​m​e​o​n​e​ ​v​i​a​ ​{​h​o​s​t​}
+			 * @param {string} host
+			 */
+			relay: RequiredParams<'host'>
+			/**
+			 * s​o​m​e​o​n​e​ ​v​i​a​ ​t​h​e​ ​r​e​l​a​y
+			 */
+			relay_bare: string
+			/**
+			 * a​n​o​t​h​e​r​ ​a​p​p​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			disk: string
+			/**
+			 * y​o​u
+			 */
+			you: string
+		}
+		empty: {
+			/**
+			 * N​o​t​h​i​n​g​ ​i​s​ ​s​h​a​r​e​d​ ​y​e​t
+			 */
+			title: string
+			/**
+			 * Y​o​u​r​ ​n​o​t​e​s​ ​a​r​e​ ​p​l​a​i​n​ ​f​i​l​e​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​S​h​a​r​i​n​g​ ​a​ ​f​o​l​d​e​r​ ​s​y​n​c​s​ ​i​t​ ​t​h​r​o​u​g​h​ ​a​ ​r​e​l​a​y​ ​y​o​u​ ​c​h​o​o​s​e​;​ ​t​h​e​ ​r​e​s​t​ ​o​f​ ​t​h​e​ ​v​a​u​l​t​ ​s​t​a​y​s​ ​h​e​r​e​.
+			 */
+			body: string
+			/**
+			 * S​h​a​r​e​ ​a​ ​f​o​l​d​e​r​ ​w​i​t​h​ ​y​o​u​r​ ​t​e​a​m
+			 */
+			share_title: string
+			/**
+			 * P​i​c​k​ ​a​ ​f​o​l​d​e​r​.​ ​E​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​t​ ​s​y​n​c​s​ ​l​i​v​e​ ​t​o​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​i​t​s​ ​l​i​n​k​.
+			 */
+			share_body: string
+			/**
+			 * A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+			 */
+			add_title: string
+			/**
+			 * P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​t​h​e​y​ ​s​e​n​t​.​ ​I​t​ ​l​a​n​d​s​ ​i​n​s​i​d​e​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​.
+			 */
+			add_body: string
+			/**
+			 * U​s​e​ ​t​h​i​s​ ​v​a​u​l​t​ ​o​n​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e
+			 */
+			link_title: string
+			/**
+			 * S​y​n​c​s​ ​t​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​t​o​ ​a​ ​l​a​p​t​o​p​ ​o​r​ ​a​ ​s​e​c​o​n​d​ ​d​e​s​k​.​ ​O​n​l​y​ ​y​o​u​r​s​:​ ​n​e​v​e​r​ ​s​h​a​r​e​ ​t​h​i​s​ ​l​i​n​k​.
+			 */
+			link_body: string
+			/**
+			 * N​o​ ​r​e​l​a​y​ ​c​o​n​f​i​g​u​r​e​d​.​ ​Y​o​u​ ​w​i​l​l​ ​c​h​o​o​s​e​ ​o​n​e​ ​t​h​e​ ​f​i​r​s​t​ ​t​i​m​e​ ​y​o​u​ ​s​h​a​r​e​.
+			 */
+			no_relay: string
+			/**
+			 * S​h​a​r​e​s​ ​g​o​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​.
+			 * @param {string} host
+			 */
+			relay_is: RequiredParams<'host'>
+		}
 		/**
-		 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​t​o​ ​l​i​s​t​ ​t​h​e​ ​l​i​n​k​s​.
+		 * C​h​a​n​g​e​d​ ​b​y​ ​s​o​m​e​o​n​e​ ​e​l​s​e​ ​i​n​ ​t​h​e​ ​l​a​s​t​ ​h​o​u​r
 		 */
-		access_needs_secret: string
-		/**
-		 * L​o​a​d​i​n​g​ ​l​i​n​k​s​…
-		 */
-		access_loading: string
-		/**
-		 * N​o​ ​l​i​n​k​s​ ​—​ ​n​o​b​o​d​y​ ​e​l​s​e​ ​c​a​n​ ​o​p​e​n​ ​t​h​i​s​ ​y​e​t​.
-		 */
-		access_none: string
-		/**
-		 * r​e​a​d​-​o​n​l​y
-		 */
-		read_only: string
-		/**
-		 * {​c​o​u​n​t​}​ ​l​i​n​k​{​{​s​}​}​ ​—​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​o​n​e​ ​c​a​n​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​.​ ​L​i​n​k​s​,​ ​n​o​t​ ​p​e​o​p​l​e​:​ ​t​h​e​r​e​ ​a​r​e​ ​n​o​ ​a​c​c​o​u​n​t​s​ ​y​e​t​.
-		 * @param {number} count
-		 */
-		access_count: RequiredParams<'count'>
-		/**
-		 * M​a​n​a​g​e​ ​s​h​a​r​i​n​g​…
-		 */
-		manage_sharing: string
-		/**
-		 * D​e​t​a​i​l​s​…
-		 */
-		details: string
-		/**
-		 * S​h​a​r​e​ ​t​h​i​s​ ​f​o​l​d​e​r​…
-		 */
-		share_folder: string
-		/**
-		 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​h​e​r​e​…
-		 */
-		add_share_here: string
+		tick: string
+		pick: {
+			/**
+			 * S​h​a​r​e​ ​a​ ​f​o​l​d​e​r
+			 */
+			title: string
+			/**
+			 * F​o​l​d​e​r
+			 */
+			label: string
+			/**
+			 * E​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​t​ ​w​i​l​l​ ​s​y​n​c​ ​t​o​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​i​t​s​ ​l​i​n​k​.
+			 */
+			help: string
+			/**
+			 * N​o​ ​f​o​l​d​e​r​ ​c​a​n​ ​b​e​ ​s​h​a​r​e​d​ ​y​e​t​:​ ​m​a​k​e​ ​a​ ​f​o​l​d​e​r​ ​f​i​r​s​t​,​ ​o​u​t​s​i​d​e​ ​a​n​y​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​.
+			 */
+			none: string
+			/**
+			 * C​o​n​t​i​n​u​e
+			 */
+			next: string
+		}
 	}
 	manager: {
 		/**
@@ -1605,7 +2512,7 @@ export type NamespaceWebTranslation = {
 		 */
 		your_vaults: string
 		/**
-		 * N​o​ ​v​a​u​l​t​s​ ​y​e​t​.​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​,​ ​l​i​n​k​ ​a​ ​d​e​v​i​c​e​,​ ​o​r​ ​j​o​i​n​ ​a​ ​s​h​a​r​e​ ​t​o​ ​g​e​t​ ​s​t​a​r​t​e​d​.
+		 * N​o​ ​v​a​u​l​t​s​ ​y​e​t​.​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​,​ ​l​i​n​k​ ​a​ ​d​e​v​i​c​e​,​ ​o​r​ ​a​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​t​o​ ​g​e​t​ ​s​t​a​r​t​e​d​.
 		 */
 		no_vaults: string
 		/**
@@ -1639,11 +2546,11 @@ export type NamespaceWebTranslation = {
 		 */
 		remove_confirm: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​v​a​u​l​t​'​s​ ​n​o​t​e​s​ ​l​i​v​e​ ​o​n​l​y​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​—​ ​r​e​m​o​v​i​n​g​ ​i​t​ ​d​e​l​e​t​e​s​ ​t​h​e​ ​n​o​t​e​s​ ​A​N​D​ ​a​l​l​ ​s​y​n​c​ ​s​t​a​t​e​,​ ​s​h​a​r​e​s​,​ ​a​n​d​ ​t​o​k​e​n​s​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​v​a​u​l​t​'​s​ ​n​o​t​e​s​ ​l​i​v​e​ ​o​n​l​y​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​—​ ​r​e​m​o​v​i​n​g​ ​i​t​ ​d​e​l​e​t​e​s​ ​t​h​e​ ​n​o​t​e​s​ ​A​N​D​ ​a​l​l​ ​s​y​n​c​ ​s​t​a​t​e​,​ ​s​h​a​r​e​s​,​ ​a​n​d​ ​l​i​n​k​s​.
 		 */
 		remove_note_opfs: string
 		/**
-		 * F​i​l​e​s​ ​o​n​ ​d​i​s​k​ ​a​r​e​ ​n​e​v​e​r​ ​t​o​u​c​h​e​d​.​ ​S​y​n​c​ ​s​t​a​t​e​,​ ​s​h​a​r​e​s​,​ ​a​n​d​ ​t​o​k​e​n​s​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t​ ​a​r​e​ ​d​e​l​e​t​e​d​ ​—​ ​r​e​o​p​e​n​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​ ​s​t​a​r​t​s​ ​f​r​e​s​h​ ​w​i​t​h​ ​n​e​w​ ​s​h​a​r​e​ ​l​i​n​k​s​.
+		 * F​i​l​e​s​ ​o​n​ ​d​i​s​k​ ​a​r​e​ ​n​e​v​e​r​ ​t​o​u​c​h​e​d​.​ ​S​y​n​c​ ​s​t​a​t​e​,​ ​s​h​a​r​e​s​,​ ​a​n​d​ ​l​i​n​k​s​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t​ ​a​r​e​ ​d​e​l​e​t​e​d​ ​—​ ​r​e​o​p​e​n​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​ ​s​t​a​r​t​s​ ​f​r​e​s​h​ ​w​i​t​h​ ​n​e​w​ ​s​h​a​r​e​ ​l​i​n​k​s​.
 		 */
 		remove_note_disk: string
 		/**
@@ -1680,19 +2587,15 @@ export type NamespaceWebTranslation = {
 		 */
 		create_vault: string
 		/**
-		 * J​o​i​n​ ​a​ ​s​h​a​r​e
+		 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r
 		 */
 		join_share: string
 		/**
-		 * P​a​s​t​e​ ​a​ ​s​h​a​r​e​ ​l​i​n​k​ ​s​o​m​e​o​n​e​ ​s​e​n​t​ ​y​o​u​ ​—​ ​i​t​ ​o​p​e​n​s​ ​a​s​ ​a​ ​n​e​w​ ​v​a​u​l​t​.
+		 * S​o​m​e​o​n​e​ ​s​e​n​t​ ​y​o​u​ ​a​ ​l​i​n​k​?​ ​A​d​d​ ​t​h​e​i​r​ ​f​o​l​d​e​r​ ​i​n​s​i​d​e​ ​a​ ​v​a​u​l​t​,​ ​o​r​ ​o​p​e​n​ ​i​t​ ​a​s​ ​a​ ​v​a​u​l​t​ ​o​f​ ​i​t​s​ ​o​w​n​.
 		 */
 		join_hint: string
 		/**
-		 * e​d​i​t​o​r​1​:​…
-		 */
-		link_placeholder: string
-		/**
-		 * J​o​i​n
+		 * A​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​…
 		 */
 		join: string
 		/**
@@ -1825,6 +2728,10 @@ export type NamespaceWebTranslation = {
 			 * D​e​v​e​l​o​p​e​r
 			 */
 			developer: string
+			/**
+			 * L​a​y​o​u​t
+			 */
+			layout: string
 		}
 		general: {
 			/**
@@ -1892,17 +2799,234 @@ export type NamespaceWebTranslation = {
 			 */
 			needs_vault: string
 		}
-		hotkeys: {
+		layout: {
 			/**
-			 * E​v​e​r​y​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​k​e​y​ ​t​h​a​t​ ​r​u​n​s​ ​i​t​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​i​m​m​e​d​i​a​t​e​l​y​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 * W​h​a​t​ ​t​h​e​ ​s​h​e​l​l​ ​s​h​o​w​s​ ​a​r​o​u​n​d​ ​t​h​e​ ​n​o​t​e​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 			 */
 			intro: string
 			/**
-			 * T​y​p​e​ ​a​ ​s​h​o​r​t​c​u​t​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​,​ ​o​r​ ​p​r​e​s​s​ ​R​e​c​o​r​d​ ​a​n​d​ ​h​i​t​ ​t​h​e​ ​k​e​y​s​.​ ​{​m​o​d​}​ ​i​s​ ​C​m​d​ ​o​n​ ​a​ ​M​a​c​ ​a​n​d​ ​C​t​r​l​ ​e​v​e​r​y​w​h​e​r​e​ ​e​l​s​e​;​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​ ​e​m​p​t​y​ ​t​o​ ​r​e​m​o​v​e​ ​t​h​e​ ​s​h​o​r​t​c​u​t​.
+			 * F​i​l​e​s
+			 */
+			files: string
+			/**
+			 * A​s​ ​a​ ​d​r​a​w​e​r
+			 */
+			files_drawer: string
+			/**
+			 * A​s​ ​a​ ​c​o​l​u​m​n
+			 */
+			files_column: string
+			/**
+			 * H​i​d​d​e​n
+			 */
+			files_off: string
+			/**
+			 * S​i​d​e​b​a​r
+			 */
+			sidebar: string
+			/**
+			 * F​l​o​a​t​i​n​g
+			 */
+			sidebar_dock: string
+			/**
+			 * A​s​ ​a​ ​c​o​l​u​m​n
+			 */
+			sidebar_column: string
+			/**
+			 * S​i​d​e​b​a​r​ ​p​o​s​i​t​i​o​n
+			 */
+			sidebar_position: string
+			/**
+			 * T​o​p​ ​r​i​g​h​t
+			 */
+			sidebar_position_top_right: string
+			/**
+			 * B​o​t​t​o​m​ ​r​i​g​h​t
+			 */
+			sidebar_position_bottom_right: string
+			/**
+			 * T​a​b​s
+			 */
+			tabs: string
+			/**
+			 * W​h​e​n​ ​t​h​e​r​e​ ​a​r​e​ ​t​w​o
+			 */
+			tabs_auto: string
+			/**
+			 * A​l​w​a​y​s
+			 */
+			tabs_always: string
+			/**
+			 * T​o​o​l​b​a​r
+			 */
+			toolbar: string
+			/**
+			 * T​o​p
+			 */
+			toolbar_top: string
+			/**
+			 * B​o​t​t​o​m
+			 */
+			toolbar_bottom: string
+			/**
+			 * F​o​r​m​a​t​t​i​n​g​ ​b​a​r
+			 */
+			format: string
+			/**
+			 * B​o​t​t​o​m
+			 */
+			format_bottom: string
+			/**
+			 * T​o​p
+			 */
+			format_top: string
+			/**
+			 * H​i​d​d​e​n
+			 */
+			format_off: string
+			/**
+			 * W​o​r​d​ ​c​o​u​n​t
+			 */
+			status: string
+			/**
+			 * B​o​t​t​o​m​ ​r​i​g​h​t
+			 */
+			status_corner: string
+			/**
+			 * H​i​d​d​e​n
+			 */
+			status_off: string
+			/**
+			 * O​p​e​n​i​n​g​ ​a​ ​n​o​t​e
+			 */
+			open: string
+			/**
+			 * R​e​p​l​a​c​e​s​ ​t​h​e​ ​c​u​r​r​e​n​t​ ​t​a​b
+			 */
+			open_replace: string
+			/**
+			 * O​p​e​n​s​ ​a​ ​n​e​w​ ​t​a​b
+			 */
+			open_tab: string
+			/**
+			 * L​i​n​e​ ​w​i​d​t​h
+			 */
+			measure: string
+			/**
+			 * N​a​r​r​o​w
+			 */
+			measure_narrow: string
+			/**
+			 * C​o​m​f​o​r​t​a​b​l​e
+			 */
+			measure_comfortable: string
+			/**
+			 * W​i​d​e
+			 */
+			measure_wide: string
+			/**
+			 * T​y​p​e​w​r​i​t​e​r​ ​s​c​r​o​l​l​i​n​g
+			 */
+			typewriter: string
+			/**
+			 * T​i​t​l​e​ ​i​n​ ​t​h​e​ ​n​o​t​e
+			 */
+			inline_title: string
+			/**
+			 * {​v​a​l​u​e​}​ ​(​p​i​n​n​e​d​)
+			 * @param {string} value
+			 */
+			pinned: RequiredParams<'value'>
+			/**
+			 * U​n​p​i​n
+			 */
+			unpin: string
+			/**
+			 * U​n​p​i​n​ ​{​w​h​a​t​}
+			 * @param {string} what
+			 */
+			unpin_label: RequiredParams<'what'>
+			/**
+			 * R​e​s​e​t​ ​t​o​ ​d​e​f​a​u​l​t
+			 */
+			reset: string
+		}
+		hotkeys: {
+			/**
+			 * E​v​e​r​y​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​k​e​y​ ​t​h​a​t​ ​r​u​n​s​ ​i​t​,​ ​f​r​o​m​ ​t​h​e​ ​k​e​y​m​a​p​ ​i​n​ ​u​s​e​.​ ​S​a​v​e​ ​w​r​i​t​e​s​ ​t​h​e​ ​k​e​y​m​a​p​ ​f​i​l​e​,​ ​s​o​ ​y​o​u​r​ ​k​e​y​s​ ​t​r​a​v​e​l​ ​w​i​t​h​ ​t​h​e​ ​v​a​u​l​t​.
+			 */
+			intro: string
+			/**
+			 * T​y​p​e​ ​a​ ​s​h​o​r​t​c​u​t​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​,​ ​o​r​ ​p​r​e​s​s​ ​R​e​c​o​r​d​ ​a​n​d​ ​h​i​t​ ​t​h​e​ ​k​e​y​s​.​ ​{​m​o​d​}​ ​i​s​ ​C​m​d​ ​o​n​ ​a​ ​M​a​c​ ​a​n​d​ ​C​t​r​l​ ​e​v​e​r​y​w​h​e​r​e​ ​e​l​s​e​;​ ​s​e​p​a​r​a​t​e​ ​s​e​v​e​r​a​l​ ​s​h​o​r​t​c​u​t​s​ ​w​i​t​h​ ​a​ ​c​o​m​m​a​,​ ​a​n​d​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​ ​e​m​p​t​y​ ​t​o​ ​r​e​m​o​v​e​ ​t​h​e​ ​s​h​o​r​t​c​u​t​.
 			 * @param {string} example
 			 * @param {string} mod
 			 */
 			syntax: RequiredParams<'example' | 'mod'>
+			/**
+			 * K​e​y​m​a​p
+			 */
+			keymap: string
+			/**
+			 * B​u​i​l​t​ ​i​n​ ​·​ ​r​e​a​d​-​o​n​l​y​ ​—​ ​c​h​a​n​g​e​ ​a​ ​s​h​o​r​t​c​u​t​,​ ​t​h​e​n​ ​S​a​v​e​ ​a​s​ ​t​o​ ​w​r​i​t​e​ ​y​o​u​r​ ​o​w​n
+			 */
+			from_builtin: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​ ​·​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			from_vault: RequiredParams<'path'>
+			/**
+			 * Y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​ ​·​ ​{​p​a​t​h​}​ ​·​ ​r​e​a​d​-​o​n​l​y​ ​h​e​r​e​ ​—​ ​S​a​v​e​ ​a​s​ ​w​r​i​t​e​s​ ​a​ ​c​o​p​y​ ​i​n​t​o​ ​t​h​e​ ​v​a​u​l​t
+			 * @param {string} path
+			 */
+			from_user: RequiredParams<'path'>
+			/**
+			 * S​h​o​r​t​c​u​t​s​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​—​ ​o​p​e​n​ ​a​ ​v​a​u​l​t​ ​a​n​d​ ​t​h​e​y​ ​m​o​v​e​ ​i​n​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​t​h​e​r​e​.
+			 */
+			legacy: string
+			/**
+			 * T​h​e​ ​k​e​y​m​a​p​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​d​e​f​a​u​l​t​ ​k​e​y​s​ ​a​r​e​ ​i​n​ ​f​o​r​c​e​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			fallback: RequiredParams<'error'>
+			/**
+			 * N​o​t​h​i​n​g​ ​c​a​n​ ​b​e​ ​s​a​v​e​d​ ​o​v​e​r​ ​a​ ​k​e​y​m​a​p​ ​t​h​a​t​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​ ​—​ ​f​i​x​ ​i​t​s​ ​f​i​l​e​,​ ​o​r​ ​p​i​c​k​ ​a​n​o​t​h​e​r​ ​k​e​y​m​a​p​ ​f​i​r​s​t​.
+			 */
+			cannot_save_fallback: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​ ​f​i​l​e​ ​i​s​ ​n​a​m​e​d​ ​l​i​k​e​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​“​{​n​a​m​e​}​”​,​ ​s​o​ ​i​t​ ​i​s​ ​r​e​a​d​ ​h​e​r​e​ ​b​u​t​ ​n​e​v​e​r​ ​w​r​i​t​t​e​n​ ​—​ ​S​a​v​e​ ​a​s​ ​u​n​d​e​r​ ​a​n​o​t​h​e​r​ ​n​a​m​e​.
+			 * @param {string} name
+			 */
+			builtin_name: RequiredParams<'name'>
+			/**
+			 * S​a​v​e
+			 */
+			save: string
+			/**
+			 * S​a​v​e​ ​a​s
+			 */
+			save_as: string
+			/**
+			 * m​i​n​e
+			 */
+			name_placeholder: string
+			/**
+			 * W​r​o​t​e​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			saved: RequiredParams<'path'>
+			/**
+			 * U​n​s​a​v​e​d​ ​c​h​a​n​g​e​s
+			 */
+			unsaved: string
+			/**
+			 * D​i​s​c​a​r​d
+			 */
+			discard: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​s​a​v​e​ ​a​ ​k​e​y​m​a​p​ ​—​ ​i​t​ ​i​s​ ​a​ ​f​i​l​e​ ​i​n​s​i​d​e​ ​i​t​.
+			 */
+			needs_vault: string
 			/**
 			 * O​t​h​e​r
 			 */
@@ -2001,7 +3125,7 @@ export type NamespaceWebTranslation = {
 			 */
 			secret_placeholder: string
 			/**
-			 * L​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​m​i​n​t​,​ ​l​i​s​t​ ​a​n​d​ ​r​e​v​o​k​e​ ​s​h​a​r​e​ ​l​i​n​k​s​ ​o​n​ ​y​o​u​r​ ​r​e​l​a​y​.
+			 * L​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​,​ ​l​i​s​t​ ​a​n​d​ ​r​e​m​o​v​e​ ​s​h​a​r​e​ ​l​i​n​k​s​ ​o​n​ ​y​o​u​r​ ​r​e​l​a​y​.
 			 */
 			secret_hint: string
 		}
@@ -2047,7 +3171,7 @@ export type NamespaceWebTranslation = {
 			 */
 			devtools: string
 			/**
-			 * T​h​e​ ​s​y​n​c​ ​i​n​s​p​e​c​t​o​r​:​ ​a​ ​p​e​r​-​f​i​l​e​ ​v​i​e​w​ ​o​f​ ​d​i​s​k​ ​↔​ ​C​R​D​T​ ​s​t​a​t​e​.​ ​A​l​s​o​ ​a​t​ ​t​h​e​ ​f​o​o​t​ ​o​f​ ​t​h​e​ ​r​a​i​l​'​s​ ​A​c​t​i​v​i​t​y​ ​s​e​c​t​i​o​n​,​ ​o​r​ ​f​o​r​c​e​d​ ​f​o​r​ ​o​n​e​ ​s​e​s​s​i​o​n​ ​w​i​t​h​ ​{​f​l​a​g​}​.
+			 * E​n​a​b​l​e​s​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r​ ​—​ ​a​ ​t​a​b​ ​s​h​o​w​i​n​g​ ​t​h​e​ ​d​i​s​k​ ​↔​ ​C​R​D​T​ ​s​t​a​t​e​ ​o​f​ ​e​v​e​r​y​ ​m​o​u​n​t​ ​a​n​d​ ​f​i​l​e​ ​—​ ​i​n​ ​t​h​e​ ​c​o​m​m​a​n​d​ ​p​a​l​e​t​t​e​.​ ​{​f​l​a​g​}​ ​f​o​r​c​e​s​ ​i​t​ ​o​n​ ​a​n​d​ ​o​p​e​n​s​ ​i​t​ ​f​o​r​ ​o​n​e​ ​s​e​s​s​i​o​n​.
 			 * @param {string} flag
 			 */
 			devtools_help: RequiredParams<'flag'>
@@ -2098,11 +3222,11 @@ export type NamespaceWebTranslation = {
 			 */
 			title: string
 			/**
-			 * P​a​s​t​e​ ​a​ ​s​h​a​r​e​ ​l​i​n​k​ ​a​n​d​ ​p​i​c​k​ ​w​h​e​r​e​ ​i​t​ ​l​i​v​e​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​m​u​s​t​ ​b​e​ ​n​e​w​ ​o​r​ ​e​m​p​t​y​ ​—​ ​i​t​ ​f​i​l​l​s​ ​w​i​t​h​ ​t​h​e​ ​s​h​a​r​e​d​ ​c​o​n​t​e​n​t​ ​a​n​d​ ​s​t​a​y​s​ ​i​n​ ​s​y​n​c​ ​a​l​o​n​g​s​i​d​e​ ​y​o​u​r​ ​l​o​c​a​l​ ​n​o​t​e​s​.
+			 * P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​s​o​m​e​o​n​e​ ​s​e​n​t​ ​y​o​u​,​ ​t​h​e​n​ ​c​h​o​o​s​e​ ​w​h​e​r​e​ ​t​h​e​ ​f​o​l​d​e​r​ ​g​o​e​s​.
 			 */
 			description: string
 			/**
-			 * S​h​a​r​e​ ​l​i​n​k
+			 * L​i​n​k
 			 */
 			link: string
 			/**
@@ -2114,7 +3238,41 @@ export type NamespaceWebTranslation = {
 			 */
 			link_invalid: string
 			/**
-			 * D​e​s​t​i​n​a​t​i​o​n​ ​f​o​l​d​e​r
+			 * A​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​o​n​ ​{​h​o​s​t​}​.​ ​I​t​s​ ​n​a​m​e​ ​a​n​d​ ​c​o​n​t​e​n​t​s​ ​a​r​r​i​v​e​ ​o​n​c​e​ ​y​o​u​ ​a​d​d​ ​i​t​.
+			 * @param {string} host
+			 */
+			from_host: RequiredParams<'host'>
+			/**
+			 * W​h​e​r​e​ ​i​t​ ​g​o​e​s
+			 */
+			where: string
+			/**
+			 * I​n​s​i​d​e​ ​{​v​a​u​l​t​}
+			 * @param {string} vault
+			 */
+			into_vault: RequiredParams<'vault'>
+			/**
+			 * I​n​s​i​d​e​ ​a​ ​v​a​u​l​t
+			 */
+			into_a_vault: string
+			/**
+			 * B​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​,​ ​a​n​d​ ​s​e​a​r​c​h​a​b​l​e​ ​w​i​t​h​ ​t​h​e​m​.
+			 */
+			into_vault_hint: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​t​o​ ​a​d​d​ ​a​ ​f​o​l​d​e​r​ ​i​n​s​i​d​e​ ​i​t​.
+			 */
+			into_vault_unavailable: string
+			/**
+			 * A​s​ ​i​t​s​ ​o​w​n​ ​v​a​u​l​t
+			 */
+			own_vault: string
+			/**
+			 * K​e​p​t​ ​a​p​a​r​t​;​ ​s​w​i​t​c​h​ ​t​o​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​m​e​n​u​.
+			 */
+			own_vault_hint: string
+			/**
+			 * F​o​l​d​e​r
 			 */
 			dest: string
 			/**
@@ -2122,7 +3280,7 @@ export type NamespaceWebTranslation = {
 			 */
 			dest_placeholder: string
 			/**
-			 * A​ ​n​e​w​ ​f​o​l​d​e​r​,​ ​o​r​ ​a​n​ ​e​x​i​s​t​i​n​g​ ​e​m​p​t​y​ ​o​n​e​.
+			 * A​ ​n​e​w​ ​f​o​l​d​e​r​,​ ​o​r​ ​a​n​ ​e​x​i​s​t​i​n​g​ ​e​m​p​t​y​ ​o​n​e​.​ ​A​ ​t​o​p​-​l​e​v​e​l​ ​n​a​m​e​ ​k​e​e​p​s​ ​i​t​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​.
 			 */
 			dest_hint: string
 			/**
@@ -2130,49 +3288,172 @@ export type NamespaceWebTranslation = {
 			 */
 			dest_required: string
 			/**
-			 * J​o​i​n​i​n​g​…
+			 * W​h​o​e​v​e​r​ ​s​e​n​t​ ​t​h​i​s​ ​l​i​n​k​ ​c​a​n​ ​s​e​e​ ​e​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​t​h​e​ ​f​o​l​d​e​r​.​ ​T​h​e​ ​l​i​n​k​ ​d​o​e​s​ ​n​o​t​ ​s​a​y​ ​w​h​o​ ​t​h​e​y​ ​a​r​e​,​ ​s​o​ ​c​h​e​c​k​ ​i​t​ ​c​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​p​e​r​s​o​n​ ​y​o​u​ ​t​h​i​n​k​.
+			 */
+			trust: string
+			/**
+			 * A​d​d​i​n​g​…
 			 */
 			joining: string
 			/**
-			 * J​o​i​n​ ​i​n​t​o​ ​t​h​i​s​ ​v​a​u​l​t
+			 * A​d​d​ ​f​o​l​d​e​r
 			 */
 			join: string
 		}
-		folder: {
+		sheet: {
 			/**
 			 * S​h​a​r​e​ ​{​p​a​t​h​}
 			 * @param {string} path
 			 */
 			title: RequiredParams<'path'>
 			/**
-			 * T​h​i​s​ ​f​o​l​d​e​r​ ​i​s​ ​s​h​a​r​e​d​ ​—​ ​e​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​t​ ​s​y​n​c​s​ ​t​o​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​t​h​e​ ​l​i​n​k​.​ ​T​h​e​ ​r​e​s​t​ ​o​f​ ​t​h​e​ ​v​a​u​l​t​ ​s​t​a​y​s​ ​l​o​c​a​l​.
+			 * S​h​a​r​i​n​g​ ​a​ ​f​o​l​d​e​r​ ​s​y​n​c​s​ ​e​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​t​,​ ​l​i​v​e​,​ ​t​o​ ​t​h​e​ ​p​e​o​p​l​e​ ​y​o​u​ ​g​i​v​e​ ​a​ ​l​i​n​k​ ​t​o​.​ ​N​o​t​h​i​n​g​ ​i​s​ ​m​o​v​e​d​ ​o​r​ ​c​h​a​n​g​e​d​ ​o​n​ ​d​i​s​k​;​ ​t​h​e​ ​r​e​s​t​ ​o​f​ ​y​o​u​r​ ​v​a​u​l​t​ ​s​t​a​y​s​ ​h​e​r​e​.
 			 */
-			is_shared: string
+			intro_new: string
 			/**
-			 * C​o​p​i​e​d​!
+			 * E​v​e​r​y​t​h​i​n​g​ ​i​n​ ​{​p​a​t​h​}​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​ ​t​o​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​o​n​e​ ​o​f​ ​t​h​e​s​e​ ​l​i​n​k​s​.​ ​T​h​e​ ​r​e​s​t​ ​o​f​ ​y​o​u​r​ ​v​a​u​l​t​ ​s​t​a​y​s​ ​o​n​ ​y​o​u​r​ ​d​e​v​i​c​e​s​.
+			 * @param {string} host
+			 * @param {string} path
 			 */
-			copied: string
+			intro_shared: RequiredParams<'host' | 'path'>
 			/**
-			 * C​o​p​y
+			 * E​v​e​r​y​t​h​i​n​g​ ​i​n​ ​{​p​a​t​h​}​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​i​t​ ​w​i​t​h​ ​y​o​u​.​ ​I​t​s​ ​l​i​n​k​s​ ​a​r​e​ ​t​h​e​i​r​s​ ​t​o​ ​m​a​n​a​g​e​.
+			 * @param {string} host
+			 * @param {string} path
 			 */
-			copy: string
+			intro_joined: RequiredParams<'host' | 'path'>
 			/**
-			 * S​h​a​r​i​n​g​ ​c​a​r​v​e​s​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​i​n​t​o​ ​i​t​s​ ​o​w​n​ ​s​y​n​c​e​d​ ​s​p​a​c​e​ ​o​n​ ​{​r​e​l​a​y​}​:​ ​e​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​s​y​n​c​s​ ​t​o​ ​a​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​t​h​e​ ​l​i​n​k​;​ ​e​v​e​r​y​t​h​i​n​g​ ​o​u​t​s​i​d​e​ ​s​t​a​y​s​ ​l​o​c​a​l​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​.​ ​N​o​ ​f​i​l​e​s​ ​a​r​e​ ​m​o​v​e​d​ ​o​r​ ​c​h​a​n​g​e​d​.
-			 * @param {string} relay
+			 * W​h​e​r​e​ ​s​h​o​u​l​d​ ​i​t​ ​s​y​n​c​?
 			 */
-			carve_help: RequiredParams<'relay'>
+			where_title: string
 			/**
-			 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​t​o​ ​c​r​e​a​t​e​ ​s​h​a​r​e​s​ ​i​n​-​a​p​p​.
+			 * R​e​l​a​y
 			 */
-			needs_secret: string
+			relay: string
+			/**
+			 * O​p​e​r​a​t​o​r​ ​s​e​c​r​e​t
+			 */
+			secret: string
+			/**
+			 * T​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​s​ ​n​e​e​d​e​d​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​i​t​.
+			 */
+			secret_required: string
+			/**
+			 * T​h​e​ ​s​e​c​r​e​t​ ​l​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​y​o​u​r​ ​t​e​a​m​’​s​ ​r​e​l​a​y​;​ ​a​s​k​ ​w​h​o​e​v​e​r​ ​r​u​n​s​ ​i​t​.​ ​B​o​t​h​ ​a​r​e​ ​r​e​m​e​m​b​e​r​e​d​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​.
+			 */
+			where_hint: string
+			/**
+			 * S​a​v​e
+			 */
+			save_where: string
+			/**
+			 * S​h​a​r​e​ ​a​n​d​ ​c​o​p​y​ ​l​i​n​k
+			 */
+			share: string
 			/**
 			 * S​h​a​r​i​n​g​…
 			 */
 			sharing: string
 			/**
-			 * S​h​a​r​e​ ​t​h​i​s​ ​f​o​l​d​e​r
+			 * S​h​a​r​e​d​.​ ​T​h​e​ ​l​i​n​k​ ​i​s​ ​o​n​ ​y​o​u​r​ ​c​l​i​p​b​o​a​r​d​ ​—​ ​s​e​n​d​ ​i​t​ ​t​o​ ​w​h​o​e​v​e​r​ ​s​h​o​u​l​d​ ​h​a​v​e​ ​i​t​.
 			 */
-			share: string
+			shared_copied: string
+			/**
+			 * S​h​a​r​e​d​.​ ​C​o​p​y​ ​a​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​s​e​n​d​ ​i​t​ ​t​o​ ​w​h​o​e​v​e​r​ ​s​h​o​u​l​d​ ​h​a​v​e​ ​i​t​.
+			 */
+			shared_not_copied: string
+			/**
+			 * L​i​n​k​s​ ​·​ ​{​c​o​u​n​t​}
+			 * @param {number} count
+			 */
+			links: RequiredParams<'count'>
+			/**
+			 * L​o​a​d​i​n​g​ ​l​i​n​k​s​…
+			 */
+			links_loading: string
+			/**
+			 * N​o​ ​l​i​n​k​s​ ​y​e​t​ ​—​ ​n​o​b​o​d​y​ ​e​l​s​e​ ​c​a​n​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​.
+			 */
+			links_none: string
+			/**
+			 * A​d​d​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​t​o​ ​s​e​e​,​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​t​h​i​s​ ​f​o​l​d​e​r​’​s​ ​l​i​n​k​s​.
+			 */
+			links_need_secret: string
+			/**
+			 * T​h​i​s​ ​f​o​l​d​e​r​’​s​ ​l​i​n​k
+			 */
+			this_link: string
+			/**
+			 * U​n​n​a​m​e​d​ ​l​i​n​k
+			 */
+			unnamed: string
+			/**
+			 * r​e​a​d​-​o​n​l​y
+			 */
+			read_only: string
+			/**
+			 * c​r​e​a​t​e​d​ ​{​d​a​t​e​}
+			 * @param {string} date
+			 */
+			created: RequiredParams<'date'>
+			/**
+			 * C​o​p​y​ ​l​i​n​k
+			 */
+			copy_link: string
+			/**
+			 * C​o​p​y​ ​l​i​n​k​ ​f​o​r​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			copy_link_for: RequiredParams<'name'>
+			/**
+			 * C​o​p​i​e​d
+			 */
+			copied: string
+			/**
+			 * R​e​m​o​v​e
+			 */
+			remove: string
+			/**
+			 * R​e​m​o​v​e​ ​l​i​n​k​ ​f​o​r​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			remove_for: RequiredParams<'name'>
+			/**
+			 * N​e​w​ ​l​i​n​k​:​ ​w​h​o​ ​i​s​ ​i​t​ ​f​o​r​?
+			 */
+			new_link: string
+			/**
+			 * e​.​g​.​ ​S​a​m​,​ ​T​e​a​m
+			 */
+			new_link_placeholder: string
+			/**
+			 * N​a​m​e​ ​t​h​e​ ​l​i​n​k​ ​a​f​t​e​r​ ​w​h​o​ ​i​t​ ​i​s​ ​f​o​r​,​ ​s​o​ ​y​o​u​ ​c​a​n​ ​t​e​l​l​ ​t​h​e​ ​l​i​n​k​s​ ​a​p​a​r​t​ ​l​a​t​e​r​.
+			 */
+			name_required: string
+			/**
+			 * R​e​a​d​-​o​n​l​y
+			 */
+			read_only_label: string
+			/**
+			 * C​r​e​a​t​e​ ​l​i​n​k
+			 */
+			create: string
+			/**
+			 * C​r​e​a​t​i​n​g​…
+			 */
+			creating: string
+			/**
+			 * L​i​n​k​s​,​ ​n​o​t​ ​p​e​o​p​l​e​:​ ​t​h​e​r​e​ ​a​r​e​ ​n​o​ ​a​c​c​o​u​n​t​s​ ​y​e​t​.​ ​A​n​y​o​n​e​ ​h​o​l​d​i​n​g​ ​a​ ​l​i​n​k​ ​c​a​n​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​,​ ​a​n​d​ ​r​e​m​o​v​i​n​g​ ​a​ ​l​i​n​k​ ​d​o​e​s​ ​n​o​t​ ​d​i​s​c​o​n​n​e​c​t​ ​a​n​y​o​n​e​ ​a​l​r​e​a​d​y​ ​c​o​n​n​e​c​t​e​d​ ​—​ ​i​t​ ​s​t​o​p​s​ ​n​e​w​ ​c​o​n​n​e​c​t​i​o​n​s​ ​o​n​l​y​,​ ​a​n​d​ ​s​o​m​e​o​n​e​ ​c​o​n​n​e​c​t​e​d​ ​s​t​a​y​s​ ​u​n​t​i​l​ ​t​h​e​y​ ​r​e​c​o​n​n​e​c​t​.
+			 */
+			honesty: string
+			/**
+			 * S​t​o​p​ ​s​h​a​r​i​n​g​…
+			 */
+			stop: string
+			/**
+			 * D​o​n​e
+			 */
+			done: string
 		}
 		unshare: {
 			/**
@@ -2181,7 +3462,7 @@ export type NamespaceWebTranslation = {
 			 */
 			title: RequiredParams<'path'>
 			/**
-			 * T​h​e​ ​f​o​l​d​e​r​ ​a​n​d​ ​i​t​s​ ​f​i​l​e​s​ ​s​t​a​y​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​a​n​d​ ​b​e​c​o​m​e​ ​l​o​c​a​l​ ​n​o​t​e​s​.​ ​O​t​h​e​r​ ​p​e​o​p​l​e​ ​k​e​e​p​ ​t​h​e​ ​c​o​p​i​e​s​ ​t​h​e​y​ ​a​l​r​e​a​d​y​ ​h​a​v​e​,​ ​b​u​t​ ​n​o​t​h​i​n​g​ ​s​y​n​c​s​ ​a​n​y​m​o​r​e​.​ ​E​x​i​s​t​i​n​g​ ​a​c​c​e​s​s​ ​t​o​k​e​n​s​ ​k​e​e​p​ ​w​o​r​k​i​n​g​ ​u​n​t​i​l​ ​r​e​v​o​k​e​d​.
+			 * T​h​e​ ​f​o​l​d​e​r​ ​a​n​d​ ​i​t​s​ ​f​i​l​e​s​ ​s​t​a​y​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​a​n​d​ ​b​e​c​o​m​e​ ​l​o​c​a​l​ ​n​o​t​e​s​.​ ​O​t​h​e​r​ ​p​e​o​p​l​e​ ​k​e​e​p​ ​t​h​e​ ​c​o​p​i​e​s​ ​t​h​e​y​ ​a​l​r​e​a​d​y​ ​h​a​v​e​,​ ​b​u​t​ ​n​o​t​h​i​n​g​ ​s​y​n​c​s​ ​a​n​y​m​o​r​e​.​ ​E​x​i​s​t​i​n​g​ ​l​i​n​k​s​ ​k​e​e​p​ ​w​o​r​k​i​n​g​ ​u​n​t​i​l​ ​r​e​m​o​v​e​d​.
 			 */
 			body: string
 			/**
@@ -2189,7 +3470,7 @@ export type NamespaceWebTranslation = {
 			 */
 			confirm: string
 			/**
-			 * A​l​s​o​ ​r​e​v​o​k​e​ ​a​l​l​ ​a​c​c​e​s​s​ ​t​o​k​e​n​s​ ​o​n​ ​t​h​e​ ​r​e​l​a​y
+			 * A​l​s​o​ ​r​e​m​o​v​e​ ​e​v​e​r​y​ ​l​i​n​k​ ​t​o​ ​i​t​ ​o​n​ ​t​h​e​ ​r​e​l​a​y
 			 */
 			revoke: string
 		}
@@ -2549,40 +3830,6 @@ export type NamespaceWebTranslation = {
 		 */
 		too_many_grants: RequiredParams<'count'>
 	}
-	tokens: {
-		/**
-		 * T​o​k​e​n​s
-		 */
-		title: string
-		/**
-		 * l​o​a​d​i​n​g​…
-		 */
-		loading: string
-		/**
-		 * n​o​ ​t​o​k​e​n​s​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r
-		 */
-		none: string
-		/**
-		 * r​e​a​d​-​o​n​l​y
-		 */
-		read_only: string
-		/**
-		 * r​e​v​o​k​e
-		 */
-		revoke: string
-		/**
-		 * l​a​b​e​l​ ​(​e​.​g​.​ ​l​a​p​t​o​p​,​ ​S​a​m​)
-		 */
-		label_placeholder: string
-		/**
-		 * m​i​n​t
-		 */
-		mint: string
-		/**
-		 * R​e​v​o​k​i​n​g​ ​b​l​o​c​k​s​ ​n​e​w​ ​c​o​n​n​e​c​t​i​o​n​s​;​ ​a​l​r​e​a​d​y​-​c​o​n​n​e​c​t​e​d​ ​p​e​e​r​s​ ​s​t​a​y​ ​u​n​t​i​l​ ​t​h​e​y​ ​r​e​c​o​n​n​e​c​t​.
-		 */
-		revoke_hint: string
-	}
 	breaker: {
 		/**
 		 * {​c​o​u​n​t​}​ ​f​i​l​e​s​ ​c​h​a​n​g​e​d​ ​a​t​ ​o​n​c​e
@@ -2661,29 +3908,224 @@ export type NamespaceWebTranslation = {
 	}
 	devtools: {
 		/**
-		 * S​y​n​c​ ​d​e​v​t​o​o​l​s
+		 * I​n​s​p​e​c​t​o​r
+		 */
+		tab: string
+		/**
+		 * O​p​e​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r
+		 */
+		open: string
+		/**
+		 * I​n​s​p​e​c​t​o​r
 		 */
 		title: string
 		/**
-		 * n​o​ ​f​i​l​e​ ​s​e​l​e​c​t​e​d
-		 */
-		no_file: string
-		/**
-		 * r​e​f​r​e​s​h
+		 * R​e​f​r​e​s​h
 		 */
 		refresh: string
 		/**
-		 * C​o​l​l​a​p​s​e​ ​d​e​v​t​o​o​l​s
+		 * S​c​o​p​e
 		 */
-		collapse: string
+		scope: string
 		/**
-		 * E​x​p​a​n​d​ ​d​e​v​t​o​o​l​s
+		 * A​l​l​ ​m​o​u​n​t​s
 		 */
-		expand: string
+		all_mounts: string
 		/**
-		 * S​e​l​e​c​t​ ​a​ ​t​e​x​t​ ​f​i​l​e​ ​t​o​ ​i​n​s​p​e​c​t​ ​i​t​s​ ​d​i​s​k​ ​↔​ ​C​R​D​T​ ​s​t​a​t​e​.
+		 * r​o​o​t
 		 */
-		select_file: string
+		root_mount: string
+		/**
+		 * i​n​v​a​r​i​a​n​t​s​ ​h​o​l​d
+		 */
+		invariants_ok: string
+		/**
+		 * {​c​o​u​n​t​}​ ​i​n​v​a​r​i​a​n​t​ ​v​i​o​l​a​t​i​o​n​{​{​s​}​}
+		 * @param {number} count
+		 */
+		invariants_failed: RequiredParams<'count'>
+		/**
+		 * n​o​ ​m​o​u​n​t​s​.​j​s​o​n​ ​r​o​w
+		 */
+		no_desc: string
+		/**
+		 * n​e​v​e​r​ ​h​e​l​d
+		 */
+		never_held: string
+		/**
+		 * L​C​A​ ​o​r​p​h​a​n​s
+		 */
+		orphans: string
+		/**
+		 * P​a​t​h​ ​p​r​e​f​i​x
+		 */
+		filter_prefix: string
+		/**
+		 * S​t​a​t​e
+		 */
+		filter_state: string
+		/**
+		 * a​n​y​ ​s​t​a​t​e
+		 */
+		state_any: string
+		states: {
+			/**
+			 * i​n​ ​s​y​n​c
+			 */
+			in_sync: string
+			/**
+			 * d​o​c​ ​a​h​e​a​d
+			 */
+			doc_ahead: string
+			/**
+			 * d​i​s​k​ ​c​h​a​n​g​e​d
+			 */
+			disk_changed: string
+			/**
+			 * d​i​v​e​r​g​e​d
+			 */
+			diverged: string
+			/**
+			 * n​o​ ​L​C​A
+			 */
+			no_lca: string
+			/**
+			 * n​o​ ​d​o​c
+			 */
+			no_doc: string
+			/**
+			 * n​o​t​ ​t​e​x​t
+			 */
+			not_text: string
+		}
+		/**
+		 * {​s​h​o​w​n​}​ ​o​f​ ​{​t​o​t​a​l​}​ ​r​o​w​{​{​s​}​}
+		 * @param {number} shown
+		 * @param {number} total
+		 */
+		rows: RequiredParams<'shown' | 'total'>
+		/**
+		 * N​o​ ​r​o​w​s​ ​m​a​t​c​h​.
+		 */
+		no_rows: string
+		col: {
+			/**
+			 * p​a​t​h
+			 */
+			path: string
+			/**
+			 * k​i​n​d
+			 */
+			kind: string
+			/**
+			 * s​t​a​t​e
+			 */
+			state: string
+			/**
+			 * d​i​s​k
+			 */
+			disk: string
+			/**
+			 * l​c​a
+			 */
+			lca: string
+			/**
+			 * d​o​c
+			 */
+			doc: string
+			/**
+			 * r​e​l​a​y
+			 */
+			relay: string
+			/**
+			 * j​o​u​r​n​a​l
+			 */
+			journal: string
+			/**
+			 * o​p​e​n
+			 */
+			open: string
+		}
+		legend: {
+			/**
+			 * e​q​u​a​l
+			 */
+			equal: string
+			/**
+			 * d​i​f​f​e​r​s
+			 */
+			differs: string
+			/**
+			 * n​o​t​ ​k​n​o​w​n
+			 */
+			unknown: string
+			/**
+			 * s​y​n​c​e​d
+			 */
+			synced: string
+			/**
+			 * n​o​t​ ​y​e​t
+			 */
+			pending: string
+			/**
+			 * o​f​f​l​i​n​e
+			 */
+			offline: string
+			/**
+			 * n​o​ ​r​e​l​a​y
+			 */
+			none: string
+		}
+		peek: {
+			/**
+			 * S​h​o​w
+			 */
+			show: string
+			/**
+			 * d​o​c​ ​v​s​ ​l​c​a
+			 */
+			doc_lca: string
+			/**
+			 * d​i​s​k​ ​v​s​ ​l​c​a
+			 */
+			disk_lca: string
+			/**
+			 * d​i​s​k​ ​v​s​ ​d​o​c
+			 */
+			disk_doc: string
+			/**
+			 * d​i​s​k​ ​t​e​x​t
+			 */
+			disk: string
+			/**
+			 * l​c​a​ ​t​e​x​t
+			 */
+			lca: string
+			/**
+			 * d​o​c​ ​t​e​x​t
+			 */
+			doc: string
+			/**
+			 * (​a​b​s​e​n​t​)
+			 */
+			absent: string
+			/**
+			 * i​d​e​n​t​i​c​a​l
+			 */
+			identical: string
+			/**
+			 * t​o​o​ ​l​a​r​g​e​ ​t​o​ ​d​i​f​f​ ​h​e​r​e
+			 */
+			too_large: string
+			/**
+			 * r​a​w​ ​h​a​s​h​e​s​ ​a​n​d​ ​h​e​a​d​s
+			 */
+			raw: string
+		}
+		/**
+		 * S​e​l​e​c​t​ ​a​ ​t​e​x​t​ ​r​o​w​ ​t​o​ ​i​n​s​p​e​c​t​ ​i​t​s​ ​d​i​s​k​ ​↔​ ​C​R​D​T​ ​s​t​a​t​e​.
+		 */
+		select_row: string
 		/**
 		 * n​o​ ​p​r​e​-​i​m​a​g​e​s​ ​y​e​t
 		 */
@@ -2788,6 +4230,137 @@ export type NamespaceWebTranslation = {
 		 */
 		missing: RequiredParams<'path'>
 	}
+	layouts: {
+		/**
+		 * T​h​e​ ​l​a​y​o​u​t​ ​"​{​n​a​m​e​}​"​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​d​e​f​a​u​l​t​ ​l​a​y​o​u​t​ ​i​s​ ​s​h​o​w​i​n​g​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 * @param {string} name
+		 */
+		invalid: RequiredParams<'error' | 'name'>
+		/**
+		 * N​o​ ​l​a​y​o​u​t​ ​n​a​m​e​d​ ​"​{​n​a​m​e​}​"​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​ ​o​r​ ​t​h​e​ ​b​u​i​l​t​-​i​n​s​.
+		 * @param {string} name
+		 */
+		not_found: RequiredParams<'name'>
+		/**
+		 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​—​ ​a​ ​s​a​v​e​d​ ​l​a​y​o​u​t​ ​i​s​ ​a​ ​f​i​l​e​ ​i​n​s​i​d​e​ ​i​t​.
+		 */
+		needs_vault: string
+		/**
+		 * U​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​,​ ​s​p​a​c​e​s​,​ ​-​ ​a​n​d​ ​_​ ​(​"​d​e​f​a​u​l​t​"​ ​i​s​ ​t​h​e​ ​b​u​i​l​t​-​i​n​)​.
+		 */
+		bad_name: string
+	}
+	keymaps: {
+		/**
+		 * T​h​e​ ​k​e​y​m​a​p​ ​"​{​n​a​m​e​}​"​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​d​e​f​a​u​l​t​ ​k​e​y​s​ ​a​r​e​ ​i​n​ ​f​o​r​c​e​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 * @param {string} name
+		 */
+		invalid: RequiredParams<'error' | 'name'>
+		/**
+		 * N​o​ ​k​e​y​m​a​p​ ​n​a​m​e​d​ ​"​{​n​a​m​e​}​"​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​ ​o​r​ ​t​h​e​ ​b​u​i​l​t​-​i​n​s​.
+		 * @param {string} name
+		 */
+		not_found: RequiredParams<'name'>
+		/**
+		 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​—​ ​a​ ​s​a​v​e​d​ ​k​e​y​m​a​p​ ​i​s​ ​a​ ​f​i​l​e​ ​i​n​s​i​d​e​ ​i​t​.
+		 */
+		needs_vault: string
+		/**
+		 * U​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​,​ ​s​p​a​c​e​s​,​ ​-​ ​a​n​d​ ​_​ ​(​"​d​e​f​a​u​l​t​"​ ​i​s​ ​t​h​e​ ​b​u​i​l​t​-​i​n​)​.
+		 */
+		bad_name: string
+		/**
+		 * Y​o​u​r​ ​s​h​o​r​t​c​u​t​s​ ​a​r​e​ ​n​o​w​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​:​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 */
+		migrated: RequiredParams<'path'>
+		/**
+		 * Y​o​u​r​ ​s​h​o​r​t​c​u​t​s​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​w​r​i​t​t​e​n​ ​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​,​ ​s​o​ ​t​h​e​y​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		migrate_failed: RequiredParams<'error'>
+	}
+	templates: {
+		/**
+		 * I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​:​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		row: RequiredParams<'name'>
+		/**
+		 * O​p​e​n​ ​a​ ​n​o​t​e​ ​y​o​u​ ​c​a​n​ ​e​d​i​t​ ​t​o​ ​i​n​s​e​r​t​ ​a​ ​t​e​m​p​l​a​t​e​ ​i​n​t​o​.
+		 */
+		needs_note: string
+		/**
+		 * N​o​ ​t​e​m​p​l​a​t​e​ ​n​a​m​e​d​ ​"​{​n​a​m​e​}​"​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​ ​o​r​ ​t​h​e​ ​b​u​i​l​t​-​i​n​s​.
+		 * @param {string} name
+		 */
+		not_found: RequiredParams<'name'>
+	}
+	toolbar: {
+		/**
+		 * N​o​t​e​ ​t​o​o​l​b​a​r
+		 */
+		label: string
+		/**
+		 * F​o​r​m​a​t​t​i​n​g
+		 */
+		format_group: string
+		/**
+		 * F​o​r​m​a​t
+		 */
+		format_menu: string
+		/**
+		 * B​a​c​k​ ​a​n​d​ ​f​o​r​w​a​r​d
+		 */
+		nav_label: string
+		/**
+		 * P​a​r​a​g​r​a​p​h​ ​s​t​y​l​e
+		 */
+		paragraph_style: string
+		/**
+		 * {​t​i​t​l​e​}​ ​(​{​b​i​n​d​i​n​g​}​)
+		 * @param {string} binding
+		 * @param {string} title
+		 */
+		with_binding: RequiredParams<'binding' | 'title'>
+		/**
+		 * F​i​l​e​s
+		 */
+		files: string
+		/**
+		 * {​m​i​n​u​t​e​s​}​ ​m​i​n​ ​r​e​a​d
+		 * @param {number} minutes
+		 */
+		reading_time: RequiredParams<'minutes'>
+		/**
+		 * N​o​t​h​i​n​g​ ​t​o​ ​r​e​a​d
+		 */
+		reading_time_none: string
+		/**
+		 * Z​o​o​m​e​d​ ​·​ ​{​c​o​u​n​t​}​ ​m​o​r​e
+		 * @param {number} count
+		 */
+		zoomed_more: RequiredParams<'count'>
+		/**
+		 * T​a​b​ ​g​r​o​u​p​:​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		group: RequiredParams<'name'>
+		focus: {
+			/**
+			 * L​e​a​v​e​ ​F​o​c​u​s​ ​m​o​d​e​ ​(​E​s​c​)
+			 */
+			leave: string
+		}
+		daily: {
+			/**
+			 * D​a​i​l​y​ ​n​o​t​e​s
+			 */
+			label: string
+		}
+	}
 }
 
 export type Namespaces =
@@ -2867,13 +4440,17 @@ export type TranslationFunctions = {
 			 */
 			settings_with_binding: (arg: { binding: string }) => LocalizedString
 			/**
-			 * select a file to start editing
-			 */
-			select_a_file: () => LocalizedString
-			/**
 			 * Vault
 			 */
 			unnamed_vault: () => LocalizedString
+			/**
+			 * Pin as a column
+			 */
+			pin_navigator: () => LocalizedString
+			/**
+			 * Unpin — back to a drawer
+			 */
+			unpin_navigator: () => LocalizedString
 		}
 		notices: {
 			toast_title: {
@@ -2890,12 +4467,98 @@ export type TranslationFunctions = {
 				 */
 				info: () => LocalizedString
 			}
+			/**
+			 * The relay refused the link for this folder ({reason}).
+			 */
+			relay_refused: (arg: { reason: string }) => LocalizedString
+			/**
+			 * The folder is no longer shared, but its links on {host} could not be revoked: {message}
+			 */
+			revoke_failed: (arg: { host: string, message: string }) => LocalizedString
+			mount: {
+				/**
+				 * '{path}' is now a shared folder on this device.
+				 */
+				adopted: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' is no longer shared — its files are local notes again.
+				 */
+				absorbed: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' stopped being shared before it finished attaching — its files stay here.
+				 */
+				adopt_cancelled: (arg: { path: string }) => LocalizedString
+				/**
+				 * Files in '{path}' were deleted on another device — the deletion waits for you to confirm it.
+				 */
+				ghosts_held: (arg: { path: string }) => LocalizedString
+				/**
+				 * '{path}' changed state.
+				 */
+				status: (arg: { path: string }) => LocalizedString
+			}
+			/**
+			 * Something happened ({code}).
+			 */
+			unknown: (arg: { code: string }) => LocalizedString
+			/**
+			 * {who} changed {path}
+			 */
+			doc_changed: (arg: { path: string, who: string }) => LocalizedString
+			/**
+			 * {who} created {path}
+			 */
+			file_created: (arg: { path: string, who: string }) => LocalizedString
+			/**
+			 * {who} deleted {path}
+			 */
+			file_deleted: (arg: { path: string, who: string }) => LocalizedString
+			/**
+			 * {who} moved {from} to {path}
+			 */
+			file_moved: (arg: { from: string, path: string, who: string }) => LocalizedString
+			/**
+			 * {name} came online
+			 */
+			peer_joined: (arg: { name: string }) => LocalizedString
+			/**
+			 * {name} went offline
+			 */
+			peer_left: (arg: { name: string }) => LocalizedString
+			/**
+			 * {path} changed in two places at once and needs your review.
+			 */
+			review_opened: (arg: { path: string }) => LocalizedString
+			/**
+			 * {count} change{{s}} arrived at once and wait{{s|}} for you to confirm.
+			 */
+			breaker_held: (arg: { count: number }) => LocalizedString
+			/**
+			 * Connected to {host}.
+			 */
+			relay_connected: (arg: { host: string }) => LocalizedString
+			/**
+			 * Lost {host} — reconnecting. Your edits are safe on this device.
+			 */
+			relay_reconnecting: (arg: { host: string }) => LocalizedString
+			/**
+			 * Offline from {host}. Your edits are safe on this device.
+			 */
+			relay_offline: (arg: { host: string }) => LocalizedString
 		}
 		rail: {
 			/**
 			 * Sidebar
 			 */
 			label: () => LocalizedString
+			/**
+			 * Sidebar shortcuts
+			 */
+			strip: () => LocalizedString
+			/**
+			 * Sidebar sections
+			 */
+			tabs: () => LocalizedString
 			/**
 			 * Collapse sidebar
 			 */
@@ -2904,19 +4567,19 @@ export type TranslationFunctions = {
 			 * Expand sidebar
 			 */
 			expand: () => LocalizedString
+			/**
+			 * Pin as a sidebar
+			 */
+			pin: () => LocalizedString
+			/**
+			 * Unpin the sidebar
+			 */
+			unpin: () => LocalizedString
 			sections: {
 				/**
 				 * Links
 				 */
 				links: () => LocalizedString
-				/**
-				 * This note
-				 */
-				note: () => LocalizedString
-				/**
-				 * Activity
-				 */
-				activity: () => LocalizedString
 				/**
 				 * History
 				 */
@@ -2943,6 +4606,22 @@ export type TranslationFunctions = {
 		}
 		breadcrumb: {
 			/**
+			 * About {path}
+			 */
+			folder_title: (arg: { path: string }) => LocalizedString
+			/**
+			 * Local — only on this device
+			 */
+			local: () => LocalizedString
+			/**
+			 * Show in navigator
+			 */
+			reveal: () => LocalizedString
+			/**
+			 * Open Shared
+			 */
+			open_shared: () => LocalizedString
+			/**
 			 * Current note
 			 */
 			label: () => LocalizedString
@@ -2957,9 +4636,21 @@ export type TranslationFunctions = {
 		}
 		status_bar: {
 			/**
-			 * {count} word{{s}}
+			 * {count|int} word{{s}}
 			 */
 			words: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count|int} character{{s}}
+			 */
+			chars: (arg: { count: number }) => LocalizedString
+			/**
+			 * Note status
+			 */
+			corner: () => LocalizedString
+			/**
+			 *  · 
+			 */
+			join: () => LocalizedString
 		}
 		panes: {
 			/**
@@ -2998,6 +4689,10 @@ export type TranslationFunctions = {
 			 * Zoomed
 			 */
 			zoomed: () => LocalizedString
+			/**
+			 * {pane}: {state}
+			 */
+			sync_dot: (arg: { pane: string, state: string }) => LocalizedString
 			/**
 			 * Move {name} here
 			 */
@@ -3537,13 +5232,9 @@ export type TranslationFunctions = {
 			 */
 			mode_menu: () => LocalizedString
 			/**
-			 * Reading view
+			 * View mode: {mode}
 			 */
-			to_reading: () => LocalizedString
-			/**
-			 * Back to editing
-			 */
-			to_editing: () => LocalizedString
+			mode_menu_current: (arg: { mode: string }) => LocalizedString
 			/**
 			 * {mode} view
 			 */
@@ -3727,14 +5418,6 @@ export type TranslationFunctions = {
 			 */
 			shared_with_you: () => LocalizedString
 			/**
-			 * {whose} · {count} online
-			 */
-			online_title: (arg: { count: number, whose: string }) => LocalizedString
-			/**
-			 * {whose}, {count} online
-			 */
-			online_sr: (arg: { count: number, whose: string }) => LocalizedString
-			/**
 			 * not synced
 			 */
 			not_synced: () => LocalizedString
@@ -3776,7 +5459,7 @@ export type TranslationFunctions = {
 				 */
 				share: () => LocalizedString
 				/**
-				 * Manage tokens…
+				 * Manage links…
 				 */
 				manage_tokens: () => LocalizedString
 				/**
@@ -3882,6 +5565,14 @@ export type TranslationFunctions = {
 			 * Removed for you and for everyone sharing it. The pre-image is journaled.
 			 */
 			delete_file_body: () => LocalizedString
+			/**
+			 * “{name}” can’t be used as a name: leave out \ / : * ? " < > | and don’t start with a dot
+			 */
+			invalid_name: (arg: { name: string }) => LocalizedString
+			/**
+			 * “{name}” already exists in this folder
+			 */
+			name_taken: (arg: { name: string }) => LocalizedString
 			confirm: {
 				/**
 				 * Delete
@@ -3935,6 +5626,34 @@ export type TranslationFunctions = {
 				 * Nothing found
 				 */
 				empty: () => LocalizedString
+			}
+			templates: {
+				/**
+				 * Insert a template…   (name, then its arguments)
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * No template matches
+				 */
+				empty: () => LocalizedString
+			}
+			layouts: {
+				/**
+				 * Use a layout file…
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * No layout file matches
+				 */
+				empty: () => LocalizedString
+				/**
+				 * Default
+				 */
+				builtin: () => LocalizedString
+				/**
+				 * in use
+				 */
+				in_use: () => LocalizedString
 			}
 			/**
 			 * recent
@@ -3993,6 +5712,84 @@ export type TranslationFunctions = {
 				 * Group
 				 */
 				group: () => LocalizedString
+				/**
+				 * Developer
+				 */
+				developer: () => LocalizedString
+				/**
+				 * Format
+				 */
+				format: () => LocalizedString
+				/**
+				 * Templates
+				 */
+				templates: () => LocalizedString
+			}
+			format: {
+				/**
+				 * Bold
+				 */
+				bold: () => LocalizedString
+				/**
+				 * Italic
+				 */
+				italic: () => LocalizedString
+				/**
+				 * Strikethrough
+				 */
+				strike: () => LocalizedString
+				/**
+				 * Inline code
+				 */
+				code: () => LocalizedString
+				/**
+				 * Heading 1
+				 */
+				heading_1: () => LocalizedString
+				/**
+				 * Heading 2
+				 */
+				heading_2: () => LocalizedString
+				/**
+				 * Heading 3
+				 */
+				heading_3: () => LocalizedString
+				/**
+				 * Paragraph
+				 */
+				paragraph: () => LocalizedString
+				/**
+				 * Bulleted list
+				 */
+				list: () => LocalizedString
+				/**
+				 * Numbered list
+				 */
+				ordered_list: () => LocalizedString
+				/**
+				 * Task list
+				 */
+				task: () => LocalizedString
+				/**
+				 * Quote
+				 */
+				quote: () => LocalizedString
+				/**
+				 * Insert link
+				 */
+				link: () => LocalizedString
+				/**
+				 * Insert wikilink
+				 */
+				wikilink: () => LocalizedString
+				/**
+				 * Insert table
+				 */
+				table: () => LocalizedString
+				/**
+				 * Insert image
+				 */
+				image: () => LocalizedString
 			}
 			/**
 			 * Open note…
@@ -4022,6 +5819,10 @@ export type TranslationFunctions = {
 			 * Move current note…
 			 */
 			move_note: () => LocalizedString
+			/**
+			 * Share this folder…
+			 */
+			share_folder: () => LocalizedString
 			/**
 			 * Add a shared folder…
 			 */
@@ -4062,6 +5863,34 @@ export type TranslationFunctions = {
 			 * Settings
 			 */
 			settings: () => LocalizedString
+			/**
+			 * Open inspector
+			 */
+			inspector: () => LocalizedString
+			/**
+			 * Open log
+			 */
+			log: () => LocalizedString
+			/**
+			 * Open Shared
+			 */
+			shared: () => LocalizedString
+			/**
+			 * Reload layouts and resources
+			 */
+			reload_resources: () => LocalizedString
+			/**
+			 * Insert template…
+			 */
+			template_insert: () => LocalizedString
+			/**
+			 * Use layout file…
+			 */
+			layout_use_file: () => LocalizedString
+			/**
+			 * Toggle Focus mode
+			 */
+			focus_mode: () => LocalizedString
 		}
 		daily: {
 			/**
@@ -4117,27 +5946,315 @@ export type TranslationFunctions = {
 				confirm: () => LocalizedString
 			}
 		}
-		activity: {
+		log: {
+			/**
+			 * Log
+			 */
+			title: () => LocalizedString
+			/**
+			 * Changes
+			 */
+			title_changes: () => LocalizedString
+			/**
+			 * Changes only
+			 */
+			changes_only: () => LocalizedString
+			/**
+			 * Show every kind
+			 */
+			show_everything: () => LocalizedString
+			/**
+			 * Level
+			 */
+			level_label: () => LocalizedString
+			levels: {
+				/**
+				 * Errors
+				 */
+				error: () => LocalizedString
+				/**
+				 * Warnings
+				 */
+				warn: () => LocalizedString
+				/**
+				 * Info
+				 */
+				info: () => LocalizedString
+			}
+			/**
+			 * Scope
+			 */
+			scope_label: () => LocalizedString
+			scope: {
+				/**
+				 * All
+				 */
+				all: () => LocalizedString
+				/**
+				 * This vault
+				 */
+				vault: () => LocalizedString
+				/**
+				 * Shared folder: {path}
+				 */
+				mount: (arg: { path: string }) => LocalizedString
+				/**
+				 * This note
+				 */
+				note: () => LocalizedString
+			}
+			/**
+			 * Time
+			 */
+			time_label: () => LocalizedString
+			time: {
+				/**
+				 * Today
+				 */
+				today: () => LocalizedString
+				/**
+				 * This week
+				 */
+				week: () => LocalizedString
+				/**
+				 * All time
+				 */
+				all: () => LocalizedString
+			}
 			/**
 			 * Nothing to report this session.
 			 */
 			empty: () => LocalizedString
 			/**
+			 * Nothing matches these filters.
+			 */
+			empty_filtered: () => LocalizedString
+			/**
+			 * Events
+			 */
+			list_label: () => LocalizedString
+			/**
 			 * Open {path}
 			 */
 			open_path: (arg: { path: string }) => LocalizedString
 			/**
+			 * room {room}
+			 */
+			room: (arg: { room: string }) => LocalizedString
+			/**
+			 * ×{count}
+			 */
+			repeated: (arg: { count: number }) => LocalizedString
+			/**
+			 * repeated {count} times
+			 */
+			repeated_label: (arg: { count: number }) => LocalizedString
+			/**
+			 * Copy as text
+			 */
+			copy: () => LocalizedString
+			/**
+			 * Log copied to the clipboard.
+			 */
+			copied: () => LocalizedString
+			/**
+			 * The clipboard is blocked — select the text below and copy it.
+			 */
+			copy_failed: () => LocalizedString
+			/**
+			 * The log as text
+			 */
+			copy_fallback_label: () => LocalizedString
+			/**
 			 * Clear
 			 */
 			clear: () => LocalizedString
+			clear_confirm: {
+				/**
+				 * Clear the log?
+				 */
+				title: () => LocalizedString
+				/**
+				 * Every event of this session is forgotten. Your notes are not touched.
+				 */
+				body: () => LocalizedString
+				/**
+				 * Clear
+				 */
+				confirm: () => LocalizedString
+			}
+			report: {
+				/**
+				 * Oh hi markdown — log ({count} event{{s}}, copied {time})
+				 */
+				header: (arg: { count: number, time: string }) => LocalizedString
+				/**
+				 * hint: {hint}
+				 */
+				hint: (arg: { hint: string }) => LocalizedString
+			}
+			level_name: {
+				/**
+				 * error
+				 */
+				error: () => LocalizedString
+				/**
+				 * warning
+				 */
+				warn: () => LocalizedString
+				/**
+				 * info
+				 */
+				info: () => LocalizedString
+			}
+			hints: {
+				/**
+				 * Ask whoever shared the folder for a new link, then add it from the folder’s menu.
+				 */
+				relay_refused: () => LocalizedString
+				/**
+				 * Add a link for this folder from its menu, or forget it on this device.
+				 */
+				no_token: () => LocalizedString
+			}
+		}
+		relative_time: {
 			/**
-			 * Developer tools
+			 * just now
 			 */
-			devtools: () => LocalizedString
+			now: () => LocalizedString
 			/**
-			 * — the sync inspector
+			 * {count}s ago
 			 */
-			devtools_hint: () => LocalizedString
+			seconds: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} min ago
+			 */
+			minutes: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} h ago
+			 */
+			hours: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} day{{s}} ago
+			 */
+			days: (arg: { count: number }) => LocalizedString
+		}
+		drawer: {
+			/**
+			 * Notifications
+			 */
+			label: () => LocalizedString
+			/**
+			 * Notifications, {count} unread
+			 */
+			label_unread: (arg: { count: number }) => LocalizedString
+			/**
+			 * Notifications
+			 */
+			title: () => LocalizedString
+			/**
+			 * No errors, warnings or changes from others this session.
+			 */
+			empty: () => LocalizedString
+			/**
+			 * Open the Log
+			 */
+			open_log: () => LocalizedString
+			summary: {
+				/**
+				 * {count} error{{s}}
+				 */
+				errors: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} warning{{s}}
+				 */
+				warnings: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} change{{s}} by others
+				 */
+				changes: (arg: { count: number }) => LocalizedString
+			}
+			/**
+			 * Errors and warnings
+			 */
+			problems: () => LocalizedString
+			/**
+			 * Changes by others
+			 */
+			changes: () => LocalizedString
+			group: {
+				/**
+				 * {count} change{{s}}
+				 */
+				count: (arg: { count: number }) => LocalizedString
+				/**
+				 * Open {note}
+				 */
+				open: (arg: { note: string }) => LocalizedString
+				/**
+				 * {a} and {b}
+				 */
+				two: (arg: { a: string, b: string }) => LocalizedString
+				/**
+				 * {a}, {b} and {count} other{{s}}
+				 */
+				many: (arg: { a: string, b: string, count: number }) => LocalizedString
+			}
+		}
+		presence: {
+			/**
+			 * {count} more
+			 */
+			more: (arg: { count: number }) => LocalizedString
+			/**
+			 * with {a}
+			 */
+			with_one: (arg: { a: string }) => LocalizedString
+			/**
+			 * with {a} and {b}
+			 */
+			with_two: (arg: { a: string, b: string }) => LocalizedString
+			/**
+			 * with {a} and {count} other{{s}}
+			 */
+			with_many: (arg: { a: string, count: number }) => LocalizedString
+			people: {
+				/**
+				 * {count} {{person|people}} here
+				 */
+				label: (arg: { count: number }) => LocalizedString
+				/**
+				 * Here now
+				 */
+				title: () => LocalizedString
+				/**
+				 * This vault
+				 */
+				vault: () => LocalizedString
+				/**
+				 * in {note}
+				 */
+				in_note: (arg: { note: string }) => LocalizedString
+				/**
+				 * Go to {name} in {note}
+				 */
+				jump: (arg: { name: string, note: string }) => LocalizedString
+				/**
+				 * online
+				 */
+				online: () => LocalizedString
+			}
+			sync: {
+				/**
+				 * {status} · {count} {{person|people}} online
+				 */
+				with_people: (arg: { count: number, status: string }) => LocalizedString
+				/**
+				 * Who is where
+				 */
+				title: () => LocalizedString
+			}
 		}
 		links: {
 			/**
@@ -4179,65 +6296,9 @@ export type TranslationFunctions = {
 		}
 		note: {
 			/**
-			 * No note open.
-			 */
-			no_note: () => LocalizedString
-			/**
-			 * Vault
-			 */
-			vault: () => LocalizedString
-			/**
-			 * Sharing
-			 */
-			sharing: () => LocalizedString
-			/**
-			 * Folder
-			 */
-			folder: () => LocalizedString
-			/**
-			 * Online
-			 */
-			online: () => LocalizedString
-			/**
-			 * Online here
-			 */
-			online_here: () => LocalizedString
-			/**
-			 * Access
-			 */
-			access: () => LocalizedString
-			/**
-			 * (vault root)
-			 */
-			vault_root: () => LocalizedString
-			/**
-			 * Shared as a whole
-			 */
-			shared_whole: () => LocalizedString
-			/**
-			 * Synced to your devices
-			 */
-			synced_to_devices: () => LocalizedString
-			/**
 			 * On your devices
 			 */
 			on_your_devices: () => LocalizedString
-			/**
-			 * {count} shared folder{{s}}
-			 */
-			shared_folders: (arg: { count: number }) => LocalizedString
-			/**
-			 * Local vault — nothing shared
-			 */
-			local_nothing_shared: () => LocalizedString
-			/**
-			 * Only you
-			 */
-			only_you: () => LocalizedString
-			/**
-			 * Local — only on this device
-			 */
-			local_device: () => LocalizedString
 			/**
 			 * Shared by you
 			 */
@@ -4251,49 +6312,383 @@ export type TranslationFunctions = {
 			 */
 			with_host: (arg: { host: string, state: string }) => LocalizedString
 			/**
-			 * Managed by whoever shared it with you.
+			 * Note title
 			 */
-			access_joined: () => LocalizedString
+			inline_title: () => LocalizedString
+		}
+		shared: {
 			/**
-			 * The whole vault's links — see Settings.
+			 * Shared
 			 */
-			access_root: () => LocalizedString
+			title: () => LocalizedString
+			actions: {
+				/**
+				 * Share a folder…
+				 */
+				share: () => LocalizedString
+				/**
+				 * Add a shared folder…
+				 */
+				add: () => LocalizedString
+				/**
+				 * Link a device…
+				 */
+				link: () => LocalizedString
+			}
+			door: {
+				/**
+				 * {status} — open Shared
+				 */
+				aria: (arg: { status: string }) => LocalizedString
+				/**
+				 * {count} room{{s}}
+				 */
+				rooms: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} online
+				 */
+				people: (arg: { count: number }) => LocalizedString
+			}
+			relay: {
+				/**
+				 * Relay
+				 */
+				title: () => LocalizedString
+				/**
+				 * this vault’s relay
+				 */
+				unknown_host: () => LocalizedString
+				state: {
+					/**
+					 * Connected
+					 */
+					connected: () => LocalizedString
+					/**
+					 * Reconnecting…
+					 */
+					reconnecting: () => LocalizedString
+					/**
+					 * Offline
+					 */
+					offline: () => LocalizedString
+					/**
+					 * Refused by the relay
+					 */
+					refused: () => LocalizedString
+				}
+				/**
+				 * Refused by the relay: {reason}
+				 */
+				refused_reason: (arg: { reason: string }) => LocalizedString
+				/**
+				 * {count} room{{s}}
+				 */
+				rooms: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} {{person|people}} online
+				 */
+				people: (arg: { count: number }) => LocalizedString
+				/**
+				 * only you
+				 */
+				only_you: () => LocalizedString
+				/**
+				 * in sync with the relay since {when}
+				 */
+				in_sync: (arg: { when: string }) => LocalizedString
+				/**
+				 * last in sync with the relay {when}
+				 */
+				last_in_sync: (arg: { when: string }) => LocalizedString
+				/**
+				 * your edits are safe on this device
+				 */
+				safe: () => LocalizedString
+				/**
+				 * Change relay…
+				 */
+				change: () => LocalizedString
+			}
+			folders: {
+				/**
+				 * Shared folders
+				 */
+				title: () => LocalizedString
+				/**
+				 * Shared by you
+				 */
+				by_you: () => LocalizedString
+				/**
+				 * Shared with you
+				 */
+				with_you: () => LocalizedString
+				/**
+				 * {count} note{{s}}
+				 */
+				notes: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} link{{s}}
+				 */
+				links: (arg: { count: number }) => LocalizedString
+				/**
+				 * changed {when}
+				 */
+				changed: (arg: { when: string }) => LocalizedString
+				/**
+				 * {count} online here
+				 */
+				online: (arg: { count: number }) => LocalizedString
+				/**
+				 * Manage links…
+				 */
+				manage: () => LocalizedString
+				/**
+				 * Details…
+				 */
+				details: () => LocalizedString
+				/**
+				 * Open
+				 */
+				open: () => LocalizedString
+				/**
+				 * Open {path} in the navigator
+				 */
+				open_folder: (arg: { path: string }) => LocalizedString
+			}
+			people: {
+				/**
+				 * People
+				 */
+				title: () => LocalizedString
+				/**
+				 * {count} online
+				 */
+				online: (arg: { count: number }) => LocalizedString
+				/**
+				 * only you
+				 */
+				only_you: () => LocalizedString
+				/**
+				 * in {note}
+				 */
+				in_note: (arg: { note: string }) => LocalizedString
+				/**
+				 * in {folder}
+				 */
+				in_folder: (arg: { folder: string }) => LocalizedString
+				/**
+				 * Go to {note}, where {name} is
+				 */
+				jump: (arg: { name: string, note: string }) => LocalizedString
+				/**
+				 * Nobody else is online.
+				 */
+				alone: () => LocalizedString
+				/**
+				 * {name} was last here {when}.
+				 */
+				last_here: (arg: { name: string, when: string }) => LocalizedString
+				/**
+				 * Names are self-reported. There are no accounts yet.
+				 */
+				honesty: () => LocalizedString
+			}
+			devices: {
+				/**
+				 * Your devices
+				 */
+				title: () => LocalizedString
+				/**
+				 * This device
+				 */
+				this_device: () => LocalizedString
+				/**
+				 * this device
+				 */
+				this_device_tag: () => LocalizedString
+				/**
+				 * unnamed device
+				 */
+				unnamed: () => LocalizedString
+				/**
+				 * This whole vault syncs to your devices.
+				 */
+				linked: () => LocalizedString
+				/**
+				 * online {when}
+				 */
+				online_at: (arg: { when: string }) => LocalizedString
+				/**
+				 * Set the relay operator secret in Settings › Sync to list your linked devices.
+				 */
+				needs_secret: () => LocalizedString
+			}
+			changes: {
+				/**
+				 * Changes
+				 */
+				title: () => LocalizedString
+				/**
+				 * {count} today
+				 */
+				today: (arg: { count: number }) => LocalizedString
+				/**
+				 * No changes by anyone else yet.
+				 */
+				none: () => LocalizedString
+				/**
+				 * Nothing matches these filters.
+				 */
+				none_filtered: () => LocalizedString
+				/**
+				 * Filter changes
+				 */
+				filters: () => LocalizedString
+				/**
+				 * Folder
+				 */
+				room_label: () => LocalizedString
+				/**
+				 * All folders
+				 */
+				room_all: () => LocalizedString
+				/**
+				 * Person
+				 */
+				person_label: () => LocalizedString
+				/**
+				 * Everyone
+				 */
+				person_all: () => LocalizedString
+				/**
+				 * When
+				 */
+				time_label: () => LocalizedString
+				time: {
+					/**
+					 * Any time
+					 */
+					all: () => LocalizedString
+					/**
+					 * Today
+					 */
+					today: () => LocalizedString
+					/**
+					 * This week
+					 */
+					week: () => LocalizedString
+				}
+				/**
+				 * Show all
+				 */
+				show_all: () => LocalizedString
+				/**
+				 * Today
+				 */
+				day_today: () => LocalizedString
+				/**
+				 * Yesterday
+				 */
+				day_yesterday: () => LocalizedString
+				/**
+				 * created
+				 */
+				created: () => LocalizedString
+				/**
+				 * deleted
+				 */
+				deleted: () => LocalizedString
+				/**
+				 * moved from {from}
+				 */
+				moved: (arg: { from: string }) => LocalizedString
+			}
+			who: {
+				/**
+				 * someone via {host}
+				 */
+				relay: (arg: { host: string }) => LocalizedString
+				/**
+				 * someone via the relay
+				 */
+				relay_bare: () => LocalizedString
+				/**
+				 * another app on this device
+				 */
+				disk: () => LocalizedString
+				/**
+				 * you
+				 */
+				you: () => LocalizedString
+			}
+			empty: {
+				/**
+				 * Nothing is shared yet
+				 */
+				title: () => LocalizedString
+				/**
+				 * Your notes are plain files on this device. Sharing a folder syncs it through a relay you choose; the rest of the vault stays here.
+				 */
+				body: () => LocalizedString
+				/**
+				 * Share a folder with your team
+				 */
+				share_title: () => LocalizedString
+				/**
+				 * Pick a folder. Everything inside it syncs live to anyone holding its link.
+				 */
+				share_body: () => LocalizedString
+				/**
+				 * Add a folder someone shared with you
+				 */
+				add_title: () => LocalizedString
+				/**
+				 * Paste the link they sent. It lands inside this vault, beside your notes.
+				 */
+				add_body: () => LocalizedString
+				/**
+				 * Use this vault on another device
+				 */
+				link_title: () => LocalizedString
+				/**
+				 * Syncs the whole vault to a laptop or a second desk. Only yours: never share this link.
+				 */
+				link_body: () => LocalizedString
+				/**
+				 * No relay configured. You will choose one the first time you share.
+				 */
+				no_relay: () => LocalizedString
+				/**
+				 * Shares go through {host}.
+				 */
+				relay_is: (arg: { host: string }) => LocalizedString
+			}
 			/**
-			 * Set the relay operator secret in Settings to list the links.
+			 * Changed by someone else in the last hour
 			 */
-			access_needs_secret: () => LocalizedString
-			/**
-			 * Loading links…
-			 */
-			access_loading: () => LocalizedString
-			/**
-			 * No links — nobody else can open this yet.
-			 */
-			access_none: () => LocalizedString
-			/**
-			 * read-only
-			 */
-			read_only: () => LocalizedString
-			/**
-			 * {count} link{{s}} — anyone holding one can open this folder. Links, not people: there are no accounts yet.
-			 */
-			access_count: (arg: { count: number }) => LocalizedString
-			/**
-			 * Manage sharing…
-			 */
-			manage_sharing: () => LocalizedString
-			/**
-			 * Details…
-			 */
-			details: () => LocalizedString
-			/**
-			 * Share this folder…
-			 */
-			share_folder: () => LocalizedString
-			/**
-			 * Add a shared folder here…
-			 */
-			add_share_here: () => LocalizedString
+			tick: () => LocalizedString
+			pick: {
+				/**
+				 * Share a folder
+				 */
+				title: () => LocalizedString
+				/**
+				 * Folder
+				 */
+				label: () => LocalizedString
+				/**
+				 * Everything inside it will sync to anyone holding its link.
+				 */
+				help: () => LocalizedString
+				/**
+				 * No folder can be shared yet: make a folder first, outside any shared folder.
+				 */
+				none: () => LocalizedString
+				/**
+				 * Continue
+				 */
+				next: () => LocalizedString
+			}
 		}
 		manager: {
 			/**
@@ -4325,7 +6720,7 @@ export type TranslationFunctions = {
 			 */
 			your_vaults: () => LocalizedString
 			/**
-			 * No vaults yet. Add a folder, link a device, or join a share to get started.
+			 * No vaults yet. Add a folder, link a device, or add a shared folder to get started.
 			 */
 			no_vaults: () => LocalizedString
 			/**
@@ -4357,11 +6752,11 @@ export type TranslationFunctions = {
 			 */
 			remove_confirm: () => LocalizedString
 			/**
-			 * This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and tokens.
+			 * This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and links.
 			 */
 			remove_note_opfs: () => LocalizedString
 			/**
-			 * Files on disk are never touched. Sync state, shares, and tokens for this vault are deleted — reopening the folder starts fresh with new share links.
+			 * Files on disk are never touched. Sync state, shares, and links for this vault are deleted — reopening the folder starts fresh with new share links.
 			 */
 			remove_note_disk: () => LocalizedString
 			/**
@@ -4397,19 +6792,15 @@ export type TranslationFunctions = {
 			 */
 			create_vault: () => LocalizedString
 			/**
-			 * Join a share
+			 * Add a shared folder
 			 */
 			join_share: () => LocalizedString
 			/**
-			 * Paste a share link someone sent you — it opens as a new vault.
+			 * Someone sent you a link? Add their folder inside a vault, or open it as a vault of its own.
 			 */
 			join_hint: () => LocalizedString
 			/**
-			 * editor1:…
-			 */
-			link_placeholder: () => LocalizedString
-			/**
-			 * Join
+			 * Add a shared folder…
 			 */
 			join: () => LocalizedString
 			/**
@@ -4539,6 +6930,10 @@ export type TranslationFunctions = {
 				 * Developer
 				 */
 				developer: () => LocalizedString
+				/**
+				 * Layout
+				 */
+				layout: () => LocalizedString
 			}
 			general: {
 				/**
@@ -4600,15 +6995,225 @@ export type TranslationFunctions = {
 				 */
 				needs_vault: () => LocalizedString
 			}
-			hotkeys: {
+			layout: {
 				/**
-				 * Every command and the key that runs it. Changes apply immediately and stay on this device.
+				 * What the shell shows around the note. Changes apply at once and stay on this device.
 				 */
 				intro: () => LocalizedString
 				/**
-				 * Type a shortcut like {example}, or press Record and hit the keys. {mod} is Cmd on a Mac and Ctrl everywhere else; leave the field empty to remove the shortcut.
+				 * Files
+				 */
+				files: () => LocalizedString
+				/**
+				 * As a drawer
+				 */
+				files_drawer: () => LocalizedString
+				/**
+				 * As a column
+				 */
+				files_column: () => LocalizedString
+				/**
+				 * Hidden
+				 */
+				files_off: () => LocalizedString
+				/**
+				 * Sidebar
+				 */
+				sidebar: () => LocalizedString
+				/**
+				 * Floating
+				 */
+				sidebar_dock: () => LocalizedString
+				/**
+				 * As a column
+				 */
+				sidebar_column: () => LocalizedString
+				/**
+				 * Sidebar position
+				 */
+				sidebar_position: () => LocalizedString
+				/**
+				 * Top right
+				 */
+				sidebar_position_top_right: () => LocalizedString
+				/**
+				 * Bottom right
+				 */
+				sidebar_position_bottom_right: () => LocalizedString
+				/**
+				 * Tabs
+				 */
+				tabs: () => LocalizedString
+				/**
+				 * When there are two
+				 */
+				tabs_auto: () => LocalizedString
+				/**
+				 * Always
+				 */
+				tabs_always: () => LocalizedString
+				/**
+				 * Toolbar
+				 */
+				toolbar: () => LocalizedString
+				/**
+				 * Top
+				 */
+				toolbar_top: () => LocalizedString
+				/**
+				 * Bottom
+				 */
+				toolbar_bottom: () => LocalizedString
+				/**
+				 * Formatting bar
+				 */
+				format: () => LocalizedString
+				/**
+				 * Bottom
+				 */
+				format_bottom: () => LocalizedString
+				/**
+				 * Top
+				 */
+				format_top: () => LocalizedString
+				/**
+				 * Hidden
+				 */
+				format_off: () => LocalizedString
+				/**
+				 * Word count
+				 */
+				status: () => LocalizedString
+				/**
+				 * Bottom right
+				 */
+				status_corner: () => LocalizedString
+				/**
+				 * Hidden
+				 */
+				status_off: () => LocalizedString
+				/**
+				 * Opening a note
+				 */
+				open: () => LocalizedString
+				/**
+				 * Replaces the current tab
+				 */
+				open_replace: () => LocalizedString
+				/**
+				 * Opens a new tab
+				 */
+				open_tab: () => LocalizedString
+				/**
+				 * Line width
+				 */
+				measure: () => LocalizedString
+				/**
+				 * Narrow
+				 */
+				measure_narrow: () => LocalizedString
+				/**
+				 * Comfortable
+				 */
+				measure_comfortable: () => LocalizedString
+				/**
+				 * Wide
+				 */
+				measure_wide: () => LocalizedString
+				/**
+				 * Typewriter scrolling
+				 */
+				typewriter: () => LocalizedString
+				/**
+				 * Title in the note
+				 */
+				inline_title: () => LocalizedString
+				/**
+				 * {value} (pinned)
+				 */
+				pinned: (arg: { value: string }) => LocalizedString
+				/**
+				 * Unpin
+				 */
+				unpin: () => LocalizedString
+				/**
+				 * Unpin {what}
+				 */
+				unpin_label: (arg: { what: string }) => LocalizedString
+				/**
+				 * Reset to default
+				 */
+				reset: () => LocalizedString
+			}
+			hotkeys: {
+				/**
+				 * Every command and the key that runs it, from the keymap in use. Save writes the keymap file, so your keys travel with the vault.
+				 */
+				intro: () => LocalizedString
+				/**
+				 * Type a shortcut like {example}, or press Record and hit the keys. {mod} is Cmd on a Mac and Ctrl everywhere else; separate several shortcuts with a comma, and leave the field empty to remove the shortcut.
 				 */
 				syntax: (arg: { example: string, mod: string }) => LocalizedString
+				/**
+				 * Keymap
+				 */
+				keymap: () => LocalizedString
+				/**
+				 * Built in · read-only — change a shortcut, then Save as to write your own
+				 */
+				from_builtin: () => LocalizedString
+				/**
+				 * This vault · {path}
+				 */
+				from_vault: (arg: { path: string }) => LocalizedString
+				/**
+				 * Your config folder · {path} · read-only here — Save as writes a copy into the vault
+				 */
+				from_user: (arg: { path: string }) => LocalizedString
+				/**
+				 * Shortcuts kept on this device — open a vault and they move into a keymap file there.
+				 */
+				legacy: () => LocalizedString
+				/**
+				 * The keymap could not be used, so the default keys are in force: {error}
+				 */
+				fallback: (arg: { error: string }) => LocalizedString
+				/**
+				 * Nothing can be saved over a keymap that could not be used — fix its file, or pick another keymap first.
+				 */
+				cannot_save_fallback: () => LocalizedString
+				/**
+				 * This vault file is named like the built-in “{name}”, so it is read here but never written — Save as under another name.
+				 */
+				builtin_name: (arg: { name: string }) => LocalizedString
+				/**
+				 * Save
+				 */
+				save: () => LocalizedString
+				/**
+				 * Save as
+				 */
+				save_as: () => LocalizedString
+				/**
+				 * mine
+				 */
+				name_placeholder: () => LocalizedString
+				/**
+				 * Wrote {path}
+				 */
+				saved: (arg: { path: string }) => LocalizedString
+				/**
+				 * Unsaved changes
+				 */
+				unsaved: () => LocalizedString
+				/**
+				 * Discard
+				 */
+				discard: () => LocalizedString
+				/**
+				 * Open a vault to save a keymap — it is a file inside it.
+				 */
+				needs_vault: () => LocalizedString
 				/**
 				 * Other
 				 */
@@ -4700,7 +7305,7 @@ export type TranslationFunctions = {
 				 */
 				secret_placeholder: () => LocalizedString
 				/**
-				 * Lets this app mint, list and revoke share links on your relay.
+				 * Lets this app create, list and remove share links on your relay.
 				 */
 				secret_hint: () => LocalizedString
 			}
@@ -4744,7 +7349,7 @@ export type TranslationFunctions = {
 				 */
 				devtools: () => LocalizedString
 				/**
-				 * The sync inspector: a per-file view of disk ↔ CRDT state. Also at the foot of the rail's Activity section, or forced for one session with {flag}.
+				 * Enables the inspector — a tab showing the disk ↔ CRDT state of every mount and file — in the command palette. {flag} forces it on and opens it for one session.
 				 */
 				devtools_help: (arg: { flag: string }) => LocalizedString
 			}
@@ -4794,11 +7399,11 @@ export type TranslationFunctions = {
 				 */
 				title: () => LocalizedString
 				/**
-				 * Paste a share link and pick where it lives in this vault. The folder must be new or empty — it fills with the shared content and stays in sync alongside your local notes.
+				 * Paste the link someone sent you, then choose where the folder goes.
 				 */
 				description: () => LocalizedString
 				/**
-				 * Share link
+				 * Link
 				 */
 				link: () => LocalizedString
 				/**
@@ -4810,7 +7415,39 @@ export type TranslationFunctions = {
 				 */
 				link_invalid: () => LocalizedString
 				/**
-				 * Destination folder
+				 * A shared folder on {host}. Its name and contents arrive once you add it.
+				 */
+				from_host: (arg: { host: string }) => LocalizedString
+				/**
+				 * Where it goes
+				 */
+				where: () => LocalizedString
+				/**
+				 * Inside {vault}
+				 */
+				into_vault: (arg: { vault: string }) => LocalizedString
+				/**
+				 * Inside a vault
+				 */
+				into_a_vault: () => LocalizedString
+				/**
+				 * Beside your notes, and searchable with them.
+				 */
+				into_vault_hint: () => LocalizedString
+				/**
+				 * Open a vault first to add a folder inside it.
+				 */
+				into_vault_unavailable: () => LocalizedString
+				/**
+				 * As its own vault
+				 */
+				own_vault: () => LocalizedString
+				/**
+				 * Kept apart; switch to it from the vault menu.
+				 */
+				own_vault_hint: () => LocalizedString
+				/**
+				 * Folder
 				 */
 				dest: () => LocalizedString
 				/**
@@ -4818,7 +7455,7 @@ export type TranslationFunctions = {
 				 */
 				dest_placeholder: () => LocalizedString
 				/**
-				 * A new folder, or an existing empty one.
+				 * A new folder, or an existing empty one. A top-level name keeps it beside your notes.
 				 */
 				dest_hint: () => LocalizedString
 				/**
@@ -4826,47 +7463,163 @@ export type TranslationFunctions = {
 				 */
 				dest_required: () => LocalizedString
 				/**
-				 * Joining…
+				 * Whoever sent this link can see everything you put in the folder. The link does not say who they are, so check it came from the person you think.
+				 */
+				trust: () => LocalizedString
+				/**
+				 * Adding…
 				 */
 				joining: () => LocalizedString
 				/**
-				 * Join into this vault
+				 * Add folder
 				 */
 				join: () => LocalizedString
 			}
-			folder: {
+			sheet: {
 				/**
 				 * Share {path}
 				 */
 				title: (arg: { path: string }) => LocalizedString
 				/**
-				 * This folder is shared — everything inside it syncs to anyone holding the link. The rest of the vault stays local.
+				 * Sharing a folder syncs everything inside it, live, to the people you give a link to. Nothing is moved or changed on disk; the rest of your vault stays here.
 				 */
-				is_shared: () => LocalizedString
+				intro_new: () => LocalizedString
 				/**
-				 * Copied!
+				 * Everything in {path} syncs through {host} to anyone holding one of these links. The rest of your vault stays on your devices.
 				 */
-				copied: () => LocalizedString
+				intro_shared: (arg: { host: string, path: string }) => LocalizedString
 				/**
-				 * Copy
+				 * Everything in {path} syncs through {host} with whoever shared it with you. Its links are theirs to manage.
 				 */
-				copy: () => LocalizedString
+				intro_joined: (arg: { host: string, path: string }) => LocalizedString
 				/**
-				 * Sharing carves this folder into its own synced space on {relay}: everything inside syncs to anyone holding the link; everything outside stays local to this vault. No files are moved or changed.
+				 * Where should it sync?
 				 */
-				carve_help: (arg: { relay: string }) => LocalizedString
+				where_title: () => LocalizedString
 				/**
-				 * Set the relay operator secret in Settings to create shares in-app.
+				 * Relay
 				 */
-				needs_secret: () => LocalizedString
+				relay: () => LocalizedString
+				/**
+				 * Operator secret
+				 */
+				secret: () => LocalizedString
+				/**
+				 * The relay’s operator secret is needed to create links on it.
+				 */
+				secret_required: () => LocalizedString
+				/**
+				 * The secret lets this app create links on your team’s relay; ask whoever runs it. Both are remembered in Settings › Sync.
+				 */
+				where_hint: () => LocalizedString
+				/**
+				 * Save
+				 */
+				save_where: () => LocalizedString
+				/**
+				 * Share and copy link
+				 */
+				share: () => LocalizedString
 				/**
 				 * Sharing…
 				 */
 				sharing: () => LocalizedString
 				/**
-				 * Share this folder
+				 * Shared. The link is on your clipboard — send it to whoever should have it.
 				 */
-				share: () => LocalizedString
+				shared_copied: () => LocalizedString
+				/**
+				 * Shared. Copy a link below and send it to whoever should have it.
+				 */
+				shared_not_copied: () => LocalizedString
+				/**
+				 * Links · {count}
+				 */
+				links: (arg: { count: number }) => LocalizedString
+				/**
+				 * Loading links…
+				 */
+				links_loading: () => LocalizedString
+				/**
+				 * No links yet — nobody else can open this folder.
+				 */
+				links_none: () => LocalizedString
+				/**
+				 * Add the relay’s operator secret to see, create and remove this folder’s links.
+				 */
+				links_need_secret: () => LocalizedString
+				/**
+				 * This folder’s link
+				 */
+				this_link: () => LocalizedString
+				/**
+				 * Unnamed link
+				 */
+				unnamed: () => LocalizedString
+				/**
+				 * read-only
+				 */
+				read_only: () => LocalizedString
+				/**
+				 * created {date}
+				 */
+				created: (arg: { date: string }) => LocalizedString
+				/**
+				 * Copy link
+				 */
+				copy_link: () => LocalizedString
+				/**
+				 * Copy link for {name}
+				 */
+				copy_link_for: (arg: { name: string }) => LocalizedString
+				/**
+				 * Copied
+				 */
+				copied: () => LocalizedString
+				/**
+				 * Remove
+				 */
+				remove: () => LocalizedString
+				/**
+				 * Remove link for {name}
+				 */
+				remove_for: (arg: { name: string }) => LocalizedString
+				/**
+				 * New link: who is it for?
+				 */
+				new_link: () => LocalizedString
+				/**
+				 * e.g. Sam, Team
+				 */
+				new_link_placeholder: () => LocalizedString
+				/**
+				 * Name the link after who it is for, so you can tell the links apart later.
+				 */
+				name_required: () => LocalizedString
+				/**
+				 * Read-only
+				 */
+				read_only_label: () => LocalizedString
+				/**
+				 * Create link
+				 */
+				create: () => LocalizedString
+				/**
+				 * Creating…
+				 */
+				creating: () => LocalizedString
+				/**
+				 * Links, not people: there are no accounts yet. Anyone holding a link can open this folder, and removing a link does not disconnect anyone already connected — it stops new connections only, and someone connected stays until they reconnect.
+				 */
+				honesty: () => LocalizedString
+				/**
+				 * Stop sharing…
+				 */
+				stop: () => LocalizedString
+				/**
+				 * Done
+				 */
+				done: () => LocalizedString
 			}
 			unshare: {
 				/**
@@ -4874,7 +7627,7 @@ export type TranslationFunctions = {
 				 */
 				title: (arg: { path: string }) => LocalizedString
 				/**
-				 * The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing access tokens keep working until revoked.
+				 * The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing links keep working until removed.
 				 */
 				body: () => LocalizedString
 				/**
@@ -4882,7 +7635,7 @@ export type TranslationFunctions = {
 				 */
 				confirm: () => LocalizedString
 				/**
-				 * Also revoke all access tokens on the relay
+				 * Also remove every link to it on the relay
 				 */
 				revoke: () => LocalizedString
 			}
@@ -5223,40 +7976,6 @@ export type TranslationFunctions = {
 			 */
 			too_many_grants: (arg: { count: number }) => LocalizedString
 		}
-		tokens: {
-			/**
-			 * Tokens
-			 */
-			title: () => LocalizedString
-			/**
-			 * loading…
-			 */
-			loading: () => LocalizedString
-			/**
-			 * no tokens for this folder
-			 */
-			none: () => LocalizedString
-			/**
-			 * read-only
-			 */
-			read_only: () => LocalizedString
-			/**
-			 * revoke
-			 */
-			revoke: () => LocalizedString
-			/**
-			 * label (e.g. laptop, Sam)
-			 */
-			label_placeholder: () => LocalizedString
-			/**
-			 * mint
-			 */
-			mint: () => LocalizedString
-			/**
-			 * Revoking blocks new connections; already-connected peers stay until they reconnect.
-			 */
-			revoke_hint: () => LocalizedString
-		}
 		breaker: {
 			/**
 			 * {count} files changed at once
@@ -5331,29 +8050,221 @@ export type TranslationFunctions = {
 		}
 		devtools: {
 			/**
-			 * Sync devtools
+			 * Inspector
+			 */
+			tab: () => LocalizedString
+			/**
+			 * Open the inspector
+			 */
+			open: () => LocalizedString
+			/**
+			 * Inspector
 			 */
 			title: () => LocalizedString
 			/**
-			 * no file selected
-			 */
-			no_file: () => LocalizedString
-			/**
-			 * refresh
+			 * Refresh
 			 */
 			refresh: () => LocalizedString
 			/**
-			 * Collapse devtools
+			 * Scope
 			 */
-			collapse: () => LocalizedString
+			scope: () => LocalizedString
 			/**
-			 * Expand devtools
+			 * All mounts
 			 */
-			expand: () => LocalizedString
+			all_mounts: () => LocalizedString
 			/**
-			 * Select a text file to inspect its disk ↔ CRDT state.
+			 * root
 			 */
-			select_file: () => LocalizedString
+			root_mount: () => LocalizedString
+			/**
+			 * invariants hold
+			 */
+			invariants_ok: () => LocalizedString
+			/**
+			 * {count} invariant violation{{s}}
+			 */
+			invariants_failed: (arg: { count: number }) => LocalizedString
+			/**
+			 * no mounts.json row
+			 */
+			no_desc: () => LocalizedString
+			/**
+			 * never held
+			 */
+			never_held: () => LocalizedString
+			/**
+			 * LCA orphans
+			 */
+			orphans: () => LocalizedString
+			/**
+			 * Path prefix
+			 */
+			filter_prefix: () => LocalizedString
+			/**
+			 * State
+			 */
+			filter_state: () => LocalizedString
+			/**
+			 * any state
+			 */
+			state_any: () => LocalizedString
+			states: {
+				/**
+				 * in sync
+				 */
+				in_sync: () => LocalizedString
+				/**
+				 * doc ahead
+				 */
+				doc_ahead: () => LocalizedString
+				/**
+				 * disk changed
+				 */
+				disk_changed: () => LocalizedString
+				/**
+				 * diverged
+				 */
+				diverged: () => LocalizedString
+				/**
+				 * no LCA
+				 */
+				no_lca: () => LocalizedString
+				/**
+				 * no doc
+				 */
+				no_doc: () => LocalizedString
+				/**
+				 * not text
+				 */
+				not_text: () => LocalizedString
+			}
+			/**
+			 * {shown} of {total} row{{s}}
+			 */
+			rows: (arg: { shown: number, total: number }) => LocalizedString
+			/**
+			 * No rows match.
+			 */
+			no_rows: () => LocalizedString
+			col: {
+				/**
+				 * path
+				 */
+				path: () => LocalizedString
+				/**
+				 * kind
+				 */
+				kind: () => LocalizedString
+				/**
+				 * state
+				 */
+				state: () => LocalizedString
+				/**
+				 * disk
+				 */
+				disk: () => LocalizedString
+				/**
+				 * lca
+				 */
+				lca: () => LocalizedString
+				/**
+				 * doc
+				 */
+				doc: () => LocalizedString
+				/**
+				 * relay
+				 */
+				relay: () => LocalizedString
+				/**
+				 * journal
+				 */
+				journal: () => LocalizedString
+				/**
+				 * open
+				 */
+				open: () => LocalizedString
+			}
+			legend: {
+				/**
+				 * equal
+				 */
+				equal: () => LocalizedString
+				/**
+				 * differs
+				 */
+				differs: () => LocalizedString
+				/**
+				 * not known
+				 */
+				unknown: () => LocalizedString
+				/**
+				 * synced
+				 */
+				synced: () => LocalizedString
+				/**
+				 * not yet
+				 */
+				pending: () => LocalizedString
+				/**
+				 * offline
+				 */
+				offline: () => LocalizedString
+				/**
+				 * no relay
+				 */
+				none: () => LocalizedString
+			}
+			peek: {
+				/**
+				 * Show
+				 */
+				show: () => LocalizedString
+				/**
+				 * doc vs lca
+				 */
+				doc_lca: () => LocalizedString
+				/**
+				 * disk vs lca
+				 */
+				disk_lca: () => LocalizedString
+				/**
+				 * disk vs doc
+				 */
+				disk_doc: () => LocalizedString
+				/**
+				 * disk text
+				 */
+				disk: () => LocalizedString
+				/**
+				 * lca text
+				 */
+				lca: () => LocalizedString
+				/**
+				 * doc text
+				 */
+				doc: () => LocalizedString
+				/**
+				 * (absent)
+				 */
+				absent: () => LocalizedString
+				/**
+				 * identical
+				 */
+				identical: () => LocalizedString
+				/**
+				 * too large to diff here
+				 */
+				too_large: () => LocalizedString
+				/**
+				 * raw hashes and heads
+				 */
+				raw: () => LocalizedString
+			}
+			/**
+			 * Select a text row to inspect its disk ↔ CRDT state.
+			 */
+			select_row: () => LocalizedString
 			/**
 			 * no pre-images yet
 			 */
@@ -5451,7 +8362,125 @@ export type TranslationFunctions = {
 			 */
 			missing: (arg: { path: string }) => LocalizedString
 		}
+		layouts: {
+			/**
+			 * The layout "{name}" could not be used, so the default layout is showing: {error}
+			 */
+			invalid: (arg: { error: string, name: string }) => LocalizedString
+			/**
+			 * No layout named "{name}" in this vault, your config folder or the built-ins.
+			 */
+			not_found: (arg: { name: string }) => LocalizedString
+			/**
+			 * Open a vault first — a saved layout is a file inside it.
+			 */
+			needs_vault: () => LocalizedString
+			/**
+			 * Use letters, numbers, spaces, - and _ ("default" is the built-in).
+			 */
+			bad_name: () => LocalizedString
+		}
+		keymaps: {
+			/**
+			 * The keymap "{name}" could not be used, so the default keys are in force: {error}
+			 */
+			invalid: (arg: { error: string, name: string }) => LocalizedString
+			/**
+			 * No keymap named "{name}" in this vault, your config folder or the built-ins.
+			 */
+			not_found: (arg: { name: string }) => LocalizedString
+			/**
+			 * Open a vault first — a saved keymap is a file inside it.
+			 */
+			needs_vault: () => LocalizedString
+			/**
+			 * Use letters, numbers, spaces, - and _ ("default" is the built-in).
+			 */
+			bad_name: () => LocalizedString
+			/**
+			 * Your shortcuts are now a keymap file: {path}
+			 */
+			migrated: (arg: { path: string }) => LocalizedString
+			/**
+			 * Your shortcuts could not be written to a keymap file, so they stay on this device: {error}
+			 */
+			migrate_failed: (arg: { error: string }) => LocalizedString
+		}
+		templates: {
+			/**
+			 * Insert template: {name}
+			 */
+			row: (arg: { name: string }) => LocalizedString
+			/**
+			 * Open a note you can edit to insert a template into.
+			 */
+			needs_note: () => LocalizedString
+			/**
+			 * No template named "{name}" in this vault, your config folder or the built-ins.
+			 */
+			not_found: (arg: { name: string }) => LocalizedString
+		}
+		toolbar: {
+			/**
+			 * Note toolbar
+			 */
+			label: () => LocalizedString
+			/**
+			 * Formatting
+			 */
+			format_group: () => LocalizedString
+			/**
+			 * Format
+			 */
+			format_menu: () => LocalizedString
+			/**
+			 * Back and forward
+			 */
+			nav_label: () => LocalizedString
+			/**
+			 * Paragraph style
+			 */
+			paragraph_style: () => LocalizedString
+			/**
+			 * {title} ({binding})
+			 */
+			with_binding: (arg: { binding: string, title: string }) => LocalizedString
+			/**
+			 * Files
+			 */
+			files: () => LocalizedString
+			/**
+			 * {minutes} min read
+			 */
+			reading_time: (arg: { minutes: number }) => LocalizedString
+			/**
+			 * Nothing to read
+			 */
+			reading_time_none: () => LocalizedString
+			/**
+			 * Zoomed · {count} more
+			 */
+			zoomed_more: (arg: { count: number }) => LocalizedString
+			/**
+			 * Tab group: {name}
+			 */
+			group: (arg: { name: string }) => LocalizedString
+			focus: {
+				/**
+				 * Leave Focus mode (Esc)
+				 */
+				leave: () => LocalizedString
+			}
+			daily: {
+				/**
+				 * Daily notes
+				 */
+				label: () => LocalizedString
+			}
+		}
 	}
 }
 
-export type Formatters = {}
+export type Formatters = {
+	int: (value: number) => unknown
+}

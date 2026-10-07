@@ -7,7 +7,7 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { dragRowTo, dragTo, editors, newNote, openApp, panes, tabNamed } from './fixtures.js'
+import { appUrl, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, panes, tabNamed, paneTabs } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -54,7 +54,7 @@ test('a tab dropped on a pane edge splits it; a tab dropped on a strip moves', a
   await page.getByTestId(`file-item:${IDEAS}`).click()
   await expect(panes(page)).toHaveCount(1)
   // The first open fills the pane's empty tab; the second is a tab of its own.
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
 
   // Drag the *ideas* tab onto the left quarter of the pane: a new pane there.
   const pane = panes(page).first()
@@ -105,7 +105,7 @@ test('a split border drags, and the sizes survive a reload', async ({ page }) =>
   const caretLine = async (): Promise<number> => {
     const content = editors(page).first()
     // Focus without clicking: a click would move the caret to where it landed.
-    await content.focus()
+    await focusEditor(content)
     return content.evaluate((el) => {
       const node = el.ownerDocument.getSelection()?.anchorNode ?? null
       const from = node instanceof Element ? node : (node?.parentElement ?? null)
@@ -238,16 +238,16 @@ test('every open is a tab: the tree, Mod+click and the tab keys', async ({ page 
   await openApp(page, 'panes-tabs')
   // The first open fills the empty tab a fresh pane starts with.
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(1)
+  await expect(paneTabs(page)).toHaveCount(1)
 
   // Fork 1-B: a second note is a second tab, and it takes over.
   await page.getByTestId(`file-item:${IDEAS}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
   await expect(page.getByTestId('editor-pane').locator('.cm-content')).toContainText('Ideas')
 
   // R3: opening it again activates the tab that is already there.
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
   await expect(page.getByTestId('editor-pane').locator('.cm-content')).toContainText('Welcome')
 
   // Ctrl+Tab / Ctrl+Shift+Tab — Obsidian's unrebound defaults.
@@ -258,21 +258,21 @@ test('every open is a tab: the tree, Mod+click and the tab keys', async ({ page 
 
   // Mod+W closes, Mod+Shift+T brings it back at its own place.
   await page.keyboard.press('ControlOrMeta+w')
-  await expect(page.getByRole('tab')).toHaveCount(1)
+  await expect(paneTabs(page)).toHaveCount(1)
   await page.keyboard.press('ControlOrMeta+Shift+t')
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
 
   // The strip is a real tablist: arrows move the roving tab stop.
-  await page.getByRole('tab', { selected: true }).focus()
+  await paneTabs(page, { selected: true }).focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { selected: false })).toBeFocused()
+  await expect(paneTabs(page, { selected: false })).toBeFocused()
 })
 
 test('a dialog owns the keyboard: pane keys never reach the tabs behind it', async ({ page }) => {
   await openApp(page, 'panes-dialog-keys')
   await page.getByTestId(`file-item:${WELCOME}`).click()
   await page.getByTestId(`file-item:${IDEAS}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
 
   await page.keyboard.press('ControlOrMeta+,')
   await page.getByTestId('settings-tab:sync').click()
@@ -288,7 +288,7 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
 
   await page.getByTestId('settings-close').click()
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
 })
 
 /**
@@ -299,12 +299,12 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
 test('the empty tab launches: Recent is folded, New note fills THIS tab', async ({ page }) => {
   await openApp(page, 'panes-launcher')
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(1)
+  await expect(paneTabs(page)).toHaveCount(1)
 
   // Mod+t opens a second, empty tab — which is the launcher. Its testids are
   // per-pane, so the pane says its own id rather than the spec guessing.
   await page.keyboard.press('ControlOrMeta+t')
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
   const paneId = await page.locator('[data-pane-id]').first().getAttribute('data-pane-id')
   const launcher = page.getByTestId(`empty-tab:${paneId}`)
   await expect(launcher).toBeVisible()
@@ -326,7 +326,7 @@ test('the empty tab launches: Recent is folded, New note fills THIS tab', async 
   // New note fills the tab it was launched from: still two tabs, and an editor.
   await launcher.locator('[data-testid$="-new"]').click()
   await expect(page.getByTestId('file-item:untitled-1.md')).toBeVisible()
-  await expect(page.getByRole('tab')).toHaveCount(2)
+  await expect(paneTabs(page)).toHaveCount(2)
   await expect(launcher).toHaveCount(0)
   await expect(page.getByTestId('editor-pane').locator('.cm-content')).toBeVisible()
 })
@@ -340,7 +340,7 @@ test('a note dragged out of the navigator lands as a tab, a pane, or inside a gr
   const spare = await newNote(page, 1)
   const joiner = await newNote(page, 2)
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await expect(page.getByRole('tab')).toHaveCount(3)
+  await expect(paneTabs(page)).toHaveCount(3)
 
   // Onto the trailing half of the last tab: past the end of the run, so the
   // note opens as a tab of its own at the end of the strip.
@@ -351,7 +351,7 @@ test('a note dragged out of the navigator lands as a tab, a pane, or inside a gr
     last.x + last.width * 0.9,
     last.y + last.height / 2
   )
-  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(paneTabs(page)).toHaveCount(4)
   await expect(page.getByTestId('editor-pane').locator('.cm-content')).toContainText('Ideas')
 
   // A FOLDER is not a note: the tree still drags it (that is how you move
@@ -411,4 +411,131 @@ test('a note dragged out of the navigator lands as a tab, a pane, or inside a gr
   await chip.click()
   await expect(chip).toHaveAttribute('aria-expanded', 'false')
   await expect(chip).toHaveText(/2/)
+})
+
+test('the new-tab + follows the last tab while the tabs fit, and docks left of the mode control once they overflow (Chris, 2026-10-06)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 700, height: 700 })
+  await page.goto(appUrl({ room: 'panes-new-tab', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+  const plus = page.locator('[data-testid^="tab-new:"]')
+  const tabs = page.getByRole('tab')
+  await expect(plus).toHaveAttribute('data-docked', 'false')
+
+  // Empty tabs until the run overflows; then a note in the last one, so the
+  // strip has its mode control.
+  for (let i = 0; i < 30 && (await plus.getAttribute('data-docked')) !== 'true'; i++) {
+    const n = await tabs.count()
+    await plus.click()
+    await expect(tabs).toHaveCount(n + 1)
+  }
+  await expect(plus).toHaveAttribute('data-docked', 'true')
+  await openByQuickOpen(page, 'ideas')
+  const mode = page.locator('[data-testid^="tab-mode:"]').first()
+  await expect(mode).toBeVisible()
+  await expect(plus).toBeInViewport()
+  const plusBox = (await plus.boundingBox())!
+  const modeBox = (await mode.boundingBox())!
+  expect(plusBox.x + plusBox.width).toBeLessThanOrEqual(modeBox.x)
+  expect(plusBox.x).toBeGreaterThan(modeBox.x - 40)
+  // Still a plain button on the keyboard, not a tab.
+  await plus.focus()
+  await expect(plus).toBeFocused()
+  await expect(plus).not.toHaveAttribute('role', 'tab')
+
+  // Close them again: it follows the last tab once they fit.
+  for (let i = 0; i < 40 && (await plus.getAttribute('data-docked')) === 'true'; i++) {
+    const n = await tabs.count()
+    await tabs.first().click()
+    await page.keyboard.press('ControlOrMeta+w')
+    await expect(tabs).toHaveCount(n - 1)
+  }
+  await expect(plus).toHaveAttribute('data-docked', 'false')
+  const last = (await tabs.last().boundingBox())!
+  const after = (await plus.boundingBox())!
+  expect(after.x).toBeGreaterThanOrEqual(last.x + last.width)
+  expect(after.x).toBeLessThan(last.x + last.width + 40)
+})
+
+test('the unpinned navigator floats, not modal, over the panes below the strip: a row drags from it onto a pane; both floating panels stay open on a click into the editor (Chris, 2026-10-06)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto(appUrl({ room: 'panes-float-nav', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+
+  await page.keyboard.press('ControlOrMeta+ArrowLeft')
+  const drawer = page.getByTestId('navigator-drawer')
+  await expect(drawer).toBeVisible()
+  // No modal: no dialog, no scrim. It floats over the pane's BODY, as the
+  // dock's panel does: below the tab strip, above the area's foot.
+  await expect(page.locator('[role="dialog"]')).toHaveCount(0)
+  const strip = (await page.locator('[data-strip]').first().boundingBox())!
+  const area = (await page.getByTestId('editor-area').boundingBox())!
+  await expect
+    .poll(async () => (await drawer.boundingBox())!.y)
+    .toBeGreaterThanOrEqual(strip.y + strip.height)
+  const box = (await drawer.boundingBox())!
+  expect(box.y + box.height).toBeLessThanOrEqual(area.y + area.height)
+
+  // A floating section, not a menu: a click into the editor leaves it open —
+  // and the dock's panel the same.
+  await page.locator('.cm-content').first().click()
+  await expect(drawer).toBeVisible()
+  await page.getByTestId('rail-icon:links').click()
+  const dockPanel = page.getByTestId('dock-panel')
+  await expect(dockPanel).toBeVisible()
+  await page.locator('.cm-content').first().click()
+  await expect(drawer).toBeVisible()
+  await expect(dockPanel).toBeVisible()
+  await page.keyboard.press('ControlOrMeta+ArrowRight')
+  await expect(dockPanel).toHaveCount(0)
+
+  // A row onto the pane's right edge: a pane of its own beside it.
+  const pane = (await panes(page).first().boundingBox())!
+  await dragRowTo(page, drawer.getByTestId(`file-item:${IDEAS}`), pane.x + pane.width * 0.92, pane.y + pane.height * 0.6)
+  await expect(panes(page)).toHaveCount(2)
+
+  // Escape from inside closes it, focus back on the files button; the key reopens it.
+  if (!(await drawer.isVisible())) await page.keyboard.press('ControlOrMeta+ArrowLeft')
+  await expect(drawer).toBeVisible()
+  await drawer.getByTestId(`file-item:${IDEAS}`).focus()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toHaveCount(0)
+  await expect(page.getByTestId('toggle-tree')).toBeFocused()
+})
+
+test('Control+Shift+T reopens a closed tab in the default layout — from the editor, and from the empty tab a lone close leaves (Chris, 2026-10-06)', async ({
+  page,
+}) => {
+  await page.goto(appUrl({ room: 'quiet-sync', token: 'quiet-token', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  const tabs = page.getByRole('tab')
+  await openByQuickOpen(page, 'welcome')
+  await page.locator('[data-testid^="tab-new:"]').click()
+  await openByQuickOpen(page, 'ideas')
+  await expect(tabs).toHaveCount(2)
+
+  await page.locator('.cm-content').first().click()
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(tabs).toHaveCount(1)
+  await page.locator('.cm-content').first().click()
+  await page.keyboard.press('Control+Shift+t')
+  await expect(tabs).toHaveCount(2)
+  await expect(tabs.filter({ hasText: 'ideas' })).toHaveAttribute('aria-selected', 'true')
+
+  // Down to one tab, closed: the empty tab's picker holds the focus — the tab
+  // keys still reach the panes from there.
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(tabs).toHaveCount(1)
+  await page.locator('.cm-content').first().click()
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(tabs.filter({ hasText: 'welcome' })).toHaveCount(0)
+  const picker = page.getByTestId('editor-area').locator('input').first()
+  await picker.focus()
+  await page.keyboard.press('Control+Shift+t')
+  await expect(tabs.filter({ hasText: 'welcome' })).toHaveCount(1)
 })

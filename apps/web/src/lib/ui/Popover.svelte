@@ -37,6 +37,13 @@
      * inside, else the content itself.
      */
     openFocus?: string
+    /**
+     * A hover card rather than a dialog you enter (the sync icon's people
+     * list, P5): no focus trap, and focus is neither moved in on open nor
+     * returned on close — opening on hover must not take the caret out of
+     * the note. Escape and click-outside still close it.
+     */
+    peek?: boolean
     onClose: () => void
     children: Snippet
   }
@@ -47,6 +54,7 @@
     title,
     testid,
     openFocus,
+    peek = false,
     onClose,
     children,
   }: Props = $props()
@@ -90,8 +98,11 @@
     // svelte-ignore state_referenced_locally -- placement is fixed at mount
     positioning: { placement, gutter: 4, strategy: 'fixed' },
     // svelte-ignore state_referenced_locally -- fixed at mount
-    openFocus: openFocus ?? (() => (surface ? (firstTabbable(surface) ?? surface) : null)),
-    closeFocus: () => opener,
+    disableFocusTrap: peek,
+    // svelte-ignore state_referenced_locally -- fixed at mount
+    openFocus: peek ? () => null : (openFocus ?? (() => (surface ? (firstTabbable(surface) ?? surface) : null))),
+    // svelte-ignore state_referenced_locally -- fixed at mount
+    closeFocus: () => (peek ? null : opener),
     onOpenChange: ({ next }) => {
       if (!next) onClose()
       return next

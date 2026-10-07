@@ -8,7 +8,8 @@
     "build": "vite build",
     "test": "vitest run",
     "e2e": "playwright test",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "gen-schemas": "node scripts/gen-schemas.mjs"
   },
   "dependencies": {
     "@ohhi/editor": "workspace:*",

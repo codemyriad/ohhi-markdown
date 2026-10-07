@@ -1,0 +1,120 @@
+/**
+ * Sharing E2/E3: the Shared view over a real relay, two contexts. B's vault
+ * is a room A adds as a shared folder; A watches it from the Shared view —
+ * the relay card, the room card with B in its stack, B's edit in Changes —
+ * and when the relay goes away the card reads "Reconnecting…" while every
+ * pill agrees (golden rule 4: all of it is f(records)). A vault that shares
+ * nothing shows the onboarding instead. Axe over each surface.
+ */
+import { expect, test, type Browser, type Page } from '@playwright/test'
+import { encodeShareLink } from '../src/lib/share-link.js'
+import { MANAGER_URL, RELAY, appUrl, createBrowserVault, expectAccessible, severableRelay } from './fixtures.js'
+
+/**
+ * Boot a memory vault whose websockets pass through a switch, so the RELAY
+ * can be killed for this page alone while the app server stays up (the
+ * testing skill: ws routes must be registered before the navigation).
+ */
+async function boot(browser: Browser, room: string, token: string, user: string) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const relay = await severableRelay(page)
+  await page.goto(appUrl({ room, token, user, role: 'seed' }))
+  await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
+  return { context, page, relay }
+}
+
+/**
+ * The one sync icon (foundations-plan P5): its button carries `data-status`
+ * whatever testid it wears (the note's pill, or the vault rollup).
+ */
+const syncIcon = (page: Page) => page.locator('[data-testid="sync-readout"] [data-status]').first()
+
+async function openShared(page: Page): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+S')
+  await expect(page.getByTestId('shared-view')).toBeVisible()
+}
+
+test('the Shared view: relay, a shared folder with its people, changes by name, and an honest outage', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const bob = await boot(browser, 'shared-cs', 'shared-cs-token', 'Bob')
+  const alice = await boot(browser, 'shared-a', 'shared-a-token', 'Alice')
+
+  // Alice adds Bob's room as a shared folder, from the Shared view's own door.
+  await openShared(alice.page)
+  await alice.page.getByTestId('shared-view').getByTestId('shared-add').first().click()
+  await alice.page
+    .getByTestId('add-share-link')
+    .fill(encodeShareLink({ relay: RELAY, room: 'shared-cs', token: 'shared-cs-token' }))
+  await alice.page.getByTestId('add-share-dest').fill('CS')
+  await alice.page.getByTestId('add-share-join').click()
+  await expect(alice.page.getByTestId('file-item:CS/notes/welcome.md')).toBeVisible({ timeout: 20_000 })
+
+  // The relay card first, connected; the room card with Bob in its stack.
+  const relay = alice.page.getByTestId('relay-card')
+  await expect(relay).toHaveAttribute('data-state', 'connected', { timeout: 15_000 })
+  await expect(relay).toContainText('Connected')
+  const room = alice.page.getByTestId('shared-room:CS')
+  await expect(room).toContainText('Shared with you')
+  await expect(alice.page.getByTestId('shared-room-stack:CS')).toHaveAttribute('title', /Bob/, { timeout: 15_000 })
+  await expect(alice.page.getByTestId('shared-person:Bob')).toBeVisible()
+  await expectAccessible(alice.page, 'shared view (connected)')
+
+  // Bob edits a note; Alice's Changes card lists it, by name.
+  await bob.page.getByTestId('file-item:notes/welcome.md').click()
+  const content = bob.page.locator('[data-testid="editor-pane"] .cm-content')
+  await content.click()
+  await bob.page.keyboard.press('ControlOrMeta+Home')
+  await bob.page.keyboard.type('FROM-BOB ')
+  const line = alice.page.getByTestId('change-line').filter({ hasText: 'welcome' }).first()
+  await expect(line).toBeVisible({ timeout: 15_000 })
+  await expect(line).toContainText('Bob')
+
+  // The relay goes away: the card says so in words, and every pill agrees.
+  await expect(syncIcon(alice.page)).toHaveAttribute('data-status', 'green', { timeout: 20_000 })
+  // Bob is online in a room Alice is in: his initial beside the icon (compact
+  // in the dense status bar: a count), and in its name, in words.
+  await expect(alice.page.getByTestId('sync-people-count')).toHaveText('1')
+  await expect(syncIcon(alice.page)).toHaveAttribute('aria-label', /1 person online/)
+  // Hover: who is where, per room — Bob, in the note he is editing.
+  await syncIcon(alice.page).hover()
+  const card = alice.page.getByTestId('sync-people-card')
+  await expect(card.locator('[data-testid="people-row"][data-peer="Bob"]')).toContainText('in welcome')
+  await alice.page.mouse.move(0, 0)
+  await expect(card).toHaveCount(0)
+  // Green is relay RECEIPT (golden rule 4): the card says "in sync", never "durable".
+  await expect(relay).toContainText('in sync with the relay since', { timeout: 15_000 })
+  await expect(relay).not.toContainText(/durable/i)
+  await alice.relay.kill()
+  await expect(relay).toHaveAttribute('data-state', 'reconnecting', { timeout: 15_000 })
+  await expect(relay).toContainText('Reconnecting…')
+  await expect(relay).toContainText('last in sync with the relay')
+  await expect(relay).toContainText('your edits are safe on this device')
+  await expect(syncIcon(alice.page)).not.toHaveAttribute('data-status', 'green')
+  await expect(alice.page.getByTestId('shared-room-pill:CS')).not.toHaveAttribute('data-status', 'green')
+  await expectAccessible(alice.page, 'shared view (reconnecting)')
+
+  alice.relay.restore()
+  await expect(relay).toHaveAttribute('data-state', 'connected', { timeout: 30_000 })
+  await alice.context.close()
+  await bob.context.close()
+})
+
+test('a vault that shares nothing opens Shared on its onboarding', async ({ page }) => {
+  await page.goto(MANAGER_URL)
+  await createBrowserVault(page, 'Lonely')
+  // The sync icon is the door — here with no state to colour (nothing shared).
+  await expect(page.getByTestId('toolbar-vault-summary')).not.toHaveAttribute('data-status')
+  await page.getByTestId('toolbar-vault-summary').click()
+  const empty = page.getByTestId('shared-empty')
+  await expect(empty).toContainText('Nothing is shared yet')
+  await expect(page.getByTestId('relay-card')).toHaveCount(0)
+  await expectAccessible(page, 'shared view (empty)')
+
+  // Share a folder… asks which folder first.
+  await empty.getByTestId('shared-share').click()
+  await expect(page.getByTestId('share-folder-picker')).toBeVisible()
+  await expectAccessible(page, 'share folder picker')
+})

@@ -27,7 +27,7 @@
   testid="breaker-dialog"
   onClose={onDismiss}
 >
-  <ul class="max-h-40 overflow-y-auto rounded bg-base-200 p-2 font-mono text-[11px] text-base-content/80">
+  <ul class="max-h-40 overflow-y-auto rounded bg-base-200 p-2 font-ed-mono text-[11px] text-base-content/80">
     {#each shown as p (p)}
       <li class="truncate">{p}</li>
     {/each}

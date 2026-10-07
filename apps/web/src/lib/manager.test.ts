@@ -7,10 +7,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  defaultRelay,
   getVault,
   listVaults,
+  loadConfig,
   loadShares,
   loadUser,
+  operatorSecret,
   roomToken,
   roomTokenKind,
   upsertVault,
@@ -121,10 +124,11 @@ describe('createManager', () => {
     expect(session.busy).toBe(false)
   })
 
-  it('joinShare says which way a link is unusable, on the manager', async () => {
-    await manager.joinShare('chris', 'not a link')
+  it('joinShare says which way a link is unusable, on the manager and to its caller', async () => {
+    const failed = await manager.joinShare('chris', 'not a link')
     expect(session.failure?.room).toBeNull()
     expect(session.failure?.message).toBeTruthy()
+    expect(failed).toBe(session.failure?.message)
     expect(session.busy).toBe(false)
     expect(session.booted).toEqual([])
   })
@@ -185,6 +189,19 @@ describe('createManager', () => {
     expect(getVault(ROOM)).toBeNull()
     expect(roomToken(ROOM)).toBe('')
     expect(linked).toBe(0)
+  })
+
+  it('rememberRelay: the share sheet\'s first run lands in Settings › Sync, the default relay only when changed', () => {
+    const shown = manager.relayDefault
+    manager.rememberRelay(shown, ' op-secret ')
+    expect(operatorSecret()).toBe('op-secret')
+    expect(manager.opSecret).toBe('op-secret')
+    // The relay as shown is not stored: the build default keeps following the build.
+    expect(loadConfig().defaultRelay).toBe('')
+
+    manager.rememberRelay('wss://team.example', 'op-secret')
+    expect(defaultRelay()).toBe('wss://team.example')
+    expect(manager.relayDefault).toBe('wss://team.example')
   })
 
   it('removeVault: registry first, then the stores; the OPEN vault is closed before either', async () => {

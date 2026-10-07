@@ -14,7 +14,16 @@ import {
   loadShares,
   loadUser,
   grantsForBundle,
+  clearHotkeys,
+  drawerSeenAt,
   hotkeys,
+  layoutPins,
+  layoutPrefs,
+  setDrawerSeenAt,
+  setLayoutPins,
+  layoutOverrides,
+  setLayoutOverrides,
+  setLayoutPrefs,
   mergeGrants,
   operatorSecret,
   purgeRooms,
@@ -24,10 +33,8 @@ import {
   roomRelay,
   roomToken,
   roomTokenKind,
-  resetHotkey,
   saveUser,
   setDefaultRelay,
-  setHotkey,
   setOperatorSecret,
   setReadPrefs,
   setRoomToken,
@@ -391,40 +398,68 @@ describe('device-link grants (device-link-shaping A4-B)', () => {
   })
 })
 
-describe('hotkey overrides (tab-groups R1.3)', () => {
-  it('remembers an override and clears one with null', () => {
-    setHotkey('tab.close', 'Mod+Shift+w')
-    setHotkey('nav.back', null)
-    expect(hotkeys()).toEqual({ 'tab.close': 'Mod+Shift+w', 'nav.back': null })
-  })
-
-  it('reset forgets the override, leaving the others alone', () => {
-    setHotkey('tab.close', 'Mod+Shift+w')
-    setHotkey('nav.back', null)
-    resetHotkey('tab.close')
-    expect(hotkeys()).toEqual({ 'nav.back': null })
-    resetHotkey('never.bound')
-    expect(hotkeys()).toEqual({ 'nav.back': null })
-  })
-
-  it('refuses to store a binding no resolver could read', () => {
-    setHotkey('tab.close', 'Hyper+W')
-    expect(hotkeys()).toEqual({})
-  })
-
-  it('reads a config written before hotkeys existed, and a garbage map', () => {
+describe('legacy hotkey overrides (read once, by the keymap migration)', () => {
+  it('reads a config written before hotkeys existed, and a garbage map; clearHotkeys forgets it', () => {
     expect(hotkeys()).toEqual({})
     const cfg = loadConfig() as unknown as Record<string, unknown>
-    cfg.hotkeys = { good: 'Mod+g', bad: 'Nope+g', worse: 12 }
+    cfg.hotkeys = { good: 'Mod+g', bad: 'Nope+g', worse: 12, gone: null }
     seed('editor:config', cfg)
-    expect(hotkeys()).toEqual({ good: 'Mod+g' })
-  })
-
-  it('survives alongside the rest of the blob', () => {
+    expect(hotkeys()).toEqual({ good: 'Mod+g', gone: null })
     setDefaultRelay('wss://relay.example')
-    setHotkey('tab.new', 'Mod+t')
+    expect(hotkeys()).toEqual({ good: 'Mod+g', gone: null })
+    clearHotkeys()
+    expect(hotkeys()).toEqual({})
     expect(defaultRelay()).toBe('wss://relay.example')
-    expect(hotkeys()).toEqual({ 'tab.new': 'Mod+t' })
+  })
+})
+
+describe('the drawer read state, per vault (quiet-shell F13)', () => {
+  it('is null until set, kept per room, and tolerant of garbage', () => {
+    expect(drawerSeenAt('r1')).toBeNull()
+    setDrawerSeenAt('r1', 1_000)
+    setDrawerSeenAt('r2', 2_000)
+    expect(drawerSeenAt('r1')).toBe(1_000)
+    expect(drawerSeenAt('r2')).toBe(2_000)
+    const cfg = loadConfig() as unknown as Record<string, unknown>
+    cfg.drawerSeen = { r1: 'yesterday' }
+    seed('editor:config', cfg)
+    expect(drawerSeenAt('r1')).toBeNull()
+  })
+})
+
+describe('layout pins (Round 2, P7)', () => {
+  it('are device config, kept per side, survive a layout-prefs write, and are tolerant of garbage', () => {
+    expect(layoutPins()).toEqual({})
+    setLayoutPins({ rail: 'column' })
+    expect(layoutPins()).toEqual({ rail: 'column' })
+    setLayoutPrefs({ active: 'custom:dense', treeWidth: 300 })
+    expect(layoutPins()).toEqual({ rail: 'column' })
+    expect(layoutPrefs().active).toBe('custom:dense')
+    setLayoutPins({})
+    expect(layoutPins()).toEqual({})
+    expect(layoutPrefs().treeWidth).toBe(300)
+    const cfg = loadConfig() as unknown as Record<string, unknown>
+    cfg.layout = { pins: { navigator: 'yes', rail: 'column', extra: 'column' } }
+    seed('editor:config', cfg)
+    expect(layoutPins()).toEqual({ rail: 'column' })
+  })
+})
+
+describe('layout overrides (round 3, Q6)', () => {
+  it('are device config, survive a pins or prefs write, and read garbage as none', () => {
+    expect(layoutOverrides()).toEqual({ $schema: 'ohhi.layout.v1' })
+    setLayoutOverrides({ $schema: 'ohhi.layout.v1', toolbar: { position: 'bottom' } })
+    setLayoutPins({ rail: 'column' })
+    setLayoutPrefs({ treeWidth: 320 })
+    expect(layoutOverrides()).toEqual({ $schema: 'ohhi.layout.v1', toolbar: { position: 'bottom' } })
+    expect(layoutPins()).toEqual({ rail: 'column' })
+    setLayoutOverrides({ $schema: 'ohhi.layout.v1' })
+    expect(layoutOverrides()).toEqual({ $schema: 'ohhi.layout.v1' })
+    expect(layoutPins()).toEqual({ rail: 'column' })
+    const cfg = loadConfig() as unknown as Record<string, unknown>
+    cfg.layout = { overrides: { toolbar: { position: 'sideways' } } }
+    seed('editor:config', cfg)
+    expect(layoutOverrides()).toEqual({ $schema: 'ohhi.layout.v1' })
   })
 })
 

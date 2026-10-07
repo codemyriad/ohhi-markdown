@@ -20,8 +20,11 @@ const shell = {
   resize_navigator: 'Resize file navigator',
   nothing_shared: 'Local vault · nothing shared',
   settings_with_binding: 'Settings ({binding:string})',
-  select_a_file: 'select a file to start editing',
   unnamed_vault: 'Vault',
+  /** The navigator as a drawer over the page (quiet-shell F3): its pin icon (Round 2, P7 — a device pin). */
+  pin_navigator: 'Pin as a column',
+  /** A column this device pinned: back to the layout's own drawer. */
+  unpin_navigator: 'Unpin — back to a drawer',
 }
 
 const notices = {
@@ -30,16 +33,61 @@ const notices = {
     warn: 'Heads up',
     info: 'Note',
   },
+  /**
+   * The words for logged events (spike S22): an event stores a code and its
+   * params, never text, and `describeEvent` (apps/web/src/lib/event-text.ts)
+   * picks the words at render time. A code whose words already live with
+   * their surface (the no-link warning, the mounts reasons) points there
+   * rather than repeating them here.
+   */
+  /** Words for a person: the developer detail (room, token, seeding) stays in the console (`MountSession.authFailure`). */
+  relay_refused: 'The relay refused the link for this folder ({reason:string}).',
+  /** *Stop sharing*'s opt-in revoke failed AFTER the folder was unshared. */
+  revoke_failed: 'The folder is no longer shared, but its links on {host:string} could not be revoked: {message:string}',
+  /** Adopt outcomes that were silently dropped before S22; logged at info, never toasted. */
+  mount: {
+    adopted: "'{path:string}' is now a shared folder on this device.",
+    absorbed: "'{path:string}' is no longer shared — its files are local notes again.",
+    adopt_cancelled: "'{path:string}' stopped being shared before it finished attaching — its files stay here.",
+    ghosts_held: "Files in '{path:string}' were deleted on another device — the deletion waits for you to confirm it.",
+    status: "'{path:string}' changed state.",
+  },
+  /** A code this build does not know how to word (a newer peer, a stale log). */
+  unknown: 'Something happened ({code:string}).',
+  /**
+   * The room logs' own kinds (sharing E3). `{who}` is `shared.who.*` or a
+   * self-reported name; never "has joined", never "verified".
+   */
+  doc_changed: '{who:string} changed {path:string}',
+  file_created: '{who:string} created {path:string}',
+  file_deleted: '{who:string} deleted {path:string}',
+  file_moved: '{who:string} moved {from:string} to {path:string}',
+  peer_joined: '{name:string} came online',
+  peer_left: '{name:string} went offline',
+  review_opened: '{path:string} changed in two places at once and needs your review.',
+  breaker_held: '{count:number} change{{s}} arrived at once and wait{{s|}} for you to confirm.',
+  relay_connected: 'Connected to {host:string}.',
+  relay_reconnecting: 'Lost {host:string} — reconnecting. Your edits are safe on this device.',
+  relay_offline: 'Offline from {host:string}. Your edits are safe on this device.',
 }
 
+/**
+ * The dock (Round 2 P4): a small floating strip over the editor's right edge
+ * that opens a panel with its own tabs; pinned, the same panel is the right
+ * column.
+ */
 const rail = {
   label: 'Sidebar',
+  /** The floating strip's toolbar name. */
+  strip: 'Sidebar shortcuts',
+  /** The panel's tab list name. */
+  tabs: 'Sidebar sections',
   collapse: 'Collapse sidebar',
   expand: 'Expand sidebar',
+  pin: 'Pin as a sidebar',
+  unpin: 'Unpin the sidebar',
   sections: {
     links: 'Links',
-    note: 'This note',
-    activity: 'Activity',
     history: 'History',
   },
 }
@@ -52,13 +100,23 @@ const actions = {
 }
 
 const breadcrumb = {
+  /** The folder popover (sharing E6): what a folder segment is, as far as sharing goes. */
+  folder_title: 'About {path:string}',
+  local: 'Local — only on this device',
+  reveal: 'Show in navigator',
+  open_shared: 'Open Shared',
   label: 'Current note',
   show_in_navigator: 'Show {path:string} in the file navigator',
   no_note: 'No note open',
 }
 
 const status_bar = {
-  words: '{count:number} word{{s}}',
+  /** `words` and `chars` (round 3, Q4): grouped digits, as Obsidian's corner reads — "2,301 characters". */
+  words: '{count:number|int} word{{s}}',
+  chars: '{count:number|int} character{{s}}',
+  /** The corner's readouts (`bars.status`): one item and the next, "412 words · 2,301 characters". */
+  corner: 'Note status',
+  join: ' · ',
 }
 
 /**
@@ -78,6 +136,8 @@ const panes = {
   resize_value: '{pct:number}%',
   tab_count: '{count:number} tab{{s}}',
   zoomed: 'Zoomed',
+  /** An unfocused pane's own sync dot when the status bars are merged (S21, golden rule 4). */
+  sync_dot: '{pane:string}: {state:string}',
   drop_here: 'Move {name:string} here',
   split_here: 'Split with {name:string}',
   commands: {
@@ -260,9 +320,8 @@ const read = {
     reading: 'Reading',
   },
   mode_menu: 'View mode',
-  /** The strip-end toggle, named for what it will do (Obsidian's pair). */
-  to_reading: 'Reading view',
-  to_editing: 'Back to editing',
+  /** The tab strip's mode menu (round 3, Q5): its trigger names the mode it is in. */
+  mode_menu_current: 'View mode: {mode:string}',
   /** The icon a Source/Reading tab carries; Live tabs carry nothing. */
   tab_mode: '{mode:string} view',
   missing_attachment: 'Missing attachment',
@@ -332,8 +391,6 @@ const tree = {
   },
   shared_by_you: 'Shared by you',
   shared_with_you: 'Shared with you',
-  online_title: '{whose:string} · {count:number} online',
-  online_sr: '{whose:string}, {count:number} online',
   not_synced: 'not synced',
   root_actions: 'Vault root actions',
   actions_for: 'Actions for {path:string}',
@@ -345,7 +402,7 @@ const tree = {
     move: 'Move…',
     delete: 'Delete…',
     share: 'Share…',
-    manage_tokens: 'Manage tokens…',
+    manage_tokens: 'Manage links…',
     unshare: 'Unshare…',
     unmount: 'Unmount…',
     add_share: 'Add a shared folder here…',
@@ -381,6 +438,9 @@ const tree_op = {
   delete_folder_body:
     'Everything inside is removed for you and for everyone sharing it. Pre-images are journaled and files can be restored.',
   delete_file_body: 'Removed for you and for everyone sharing it. The pre-image is journaled.',
+  /** Refusals a rename shows (the dialog and the inline title share them, P3). */
+  invalid_name: '“{name:string}” can’t be used as a name: leave out \\ / : * ? " < > | and don’t start with a dot',
+  name_taken: '“{name:string}” already exists in this folder',
   confirm: {
     delete: 'Delete',
     move: 'Move',
@@ -394,6 +454,10 @@ const palette = {
   quick_open: { placeholder: 'Open a note…', empty: 'No note matches' },
   command: { placeholder: 'Run a command…', empty: 'No command matches' },
   search: { placeholder: 'Search the vault…   (tag:#x, path:folder/)', empty: 'Nothing found' },
+  /** `template.insert` (quiet-shell F11): the first word picks, the rest are arguments. */
+  templates: { placeholder: 'Insert a template…   (name, then its arguments)', empty: 'No template matches' },
+  /** `layout.use-file` (round 3, Q6): the vault's `.ohhi/layouts/*.json` and the built-in. */
+  layouts: { placeholder: 'Use a layout file…', empty: 'No layout file matches', builtin: 'Default', in_use: 'in use' },
   recent: 'recent',
   filename_match: 'filename match',
   /**
@@ -417,6 +481,31 @@ const commands = {
     pane: 'Pane',
     tab: 'Tab',
     group: 'Group',
+    developer: 'Developer',
+    format: 'Format',
+    templates: 'Templates',
+  },
+  /**
+   * The `format.*` rows (quiet-shell F4): one per entry of `FORMAT_COMMANDS`
+   * in @ohhi/editor, keyed by the id after `format.` with `-` as `_`.
+   */
+  format: {
+    bold: 'Bold',
+    italic: 'Italic',
+    strike: 'Strikethrough',
+    code: 'Inline code',
+    heading_1: 'Heading 1',
+    heading_2: 'Heading 2',
+    heading_3: 'Heading 3',
+    paragraph: 'Paragraph',
+    list: 'Bulleted list',
+    ordered_list: 'Numbered list',
+    task: 'Task list',
+    quote: 'Quote',
+    link: 'Insert link',
+    wikilink: 'Insert wikilink',
+    table: 'Insert table',
+    image: 'Insert image',
   },
   quick_open: 'Open note…',
   command_palette: 'Command palette',
@@ -425,6 +514,7 @@ const commands = {
   new_folder: 'New folder',
   delete_note: 'Delete current note…',
   move_note: 'Move current note…',
+  share_folder: 'Share this folder…',
   add_share: 'Add a shared folder…',
   link_device: 'Link a device…',
   back: 'Back',
@@ -435,6 +525,18 @@ const commands = {
   daily_prev: 'Previous daily note',
   daily_next: 'Next daily note',
   settings: 'Settings',
+  inspector: 'Open inspector',
+  /** The Log view (quiet-shell F12): every session event, filtered. */
+  log: 'Open log',
+  /** The Shared view (sharing E2): the shared world as a place. */
+  shared: 'Open Shared',
+  /** quiet-shell F9: re-read `.ohhi/` (and the user root) and re-apply the layout. */
+  reload_resources: 'Reload layouts and resources',
+  /** quiet-shell F11: pick a template from `.ohhi/templates/` and insert it at the caret. */
+  template_insert: 'Insert template…',
+  layout_use_file: 'Use layout file…',
+  /** quiet-shell F7: hide every region the layout does not keep; Escape leaves. */
+  focus_mode: 'Toggle Focus mode',
 }
 
 /**
@@ -469,12 +571,134 @@ const daily = {
     'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Oh hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
 }
 
-const activity = {
+/**
+ * The Log view (quiet-shell F12, spike S22 Stage 4a): the session's events,
+ * newest first, filtered by level, scope and time. The rows' words come from
+ * the event's code (`notices`); these are the view's own.
+ */
+const log = {
+  title: 'Log',
+  /** The Log opened from the Changes card's *Show all*: change kinds only. */
+  title_changes: 'Changes',
+  changes_only: 'Changes only',
+  show_everything: 'Show every kind',
+  level_label: 'Level',
+  levels: {
+    error: 'Errors',
+    warn: 'Warnings',
+    info: 'Info',
+  },
+  scope_label: 'Scope',
+  scope: {
+    all: 'All',
+    vault: 'This vault',
+    mount: 'Shared folder: {path:string}',
+    note: 'This note',
+  },
+  time_label: 'Time',
+  time: {
+    today: 'Today',
+    week: 'This week',
+    all: 'All time',
+  },
   empty: 'Nothing to report this session.',
+  empty_filtered: 'Nothing matches these filters.',
+  list_label: 'Events',
   open_path: 'Open {path:string}',
+  room: 'room {room:string}',
+  repeated: '×{count:number}',
+  repeated_label: 'repeated {count:number} times',
+  copy: 'Copy as text',
+  copied: 'Log copied to the clipboard.',
+  copy_failed: 'The clipboard is blocked — select the text below and copy it.',
+  copy_fallback_label: 'The log as text',
   clear: 'Clear',
-  devtools: 'Developer tools',
-  devtools_hint: '— the sync inspector',
+  clear_confirm: {
+    title: 'Clear the log?',
+    body: 'Every event of this session is forgotten. Your notes are not touched.',
+    confirm: 'Clear',
+  },
+  /** The plain-text bug report "Copy as text" produces. */
+  report: {
+    header: 'Oh hi markdown — log ({count:number} event{{s}}, copied {time:string})',
+    hint: 'hint: {hint:string}',
+  },
+  level_name: {
+    error: 'error',
+    warn: 'warning',
+    info: 'info',
+  },
+  /** What to do next, shown under an error row that has one. */
+  hints: {
+    relay_refused: 'Ask whoever shared the folder for a new link, then add it from the folder’s menu.',
+    no_token: 'Add a link for this folder from its menu, or forget it on this device.',
+  },
+}
+
+/** Relative times in the Log view and the drawer (`relative-time.ts`). */
+const relative_time = {
+  now: 'just now',
+  seconds: '{count:number}s ago',
+  minutes: '{count:number} min ago',
+  hours: '{count:number} h ago',
+  days: '{count:number} day{{s}} ago',
+}
+
+/**
+ * The notification drawer (quiet-shell F13): a bell readout with the unread
+ * errors and warnings, opening the last 20 of them.
+ */
+const drawer = {
+  label: 'Notifications',
+  label_unread: 'Notifications, {count:number} unread',
+  title: 'Notifications',
+  empty: 'No errors, warnings or changes from others this session.',
+  /**
+   * The one footer link (foundations-plan P6, Round 3 Q1): the Log, filtered to
+   * what the drawer shows. No count — the bell's badge already counts.
+   */
+  open_log: 'Open the Log',
+  /** The header line: what is in the drawer, in counts. */
+  summary: {
+    errors: '{count:number} error{{s}}',
+    warnings: '{count:number} warning{{s}}',
+    changes: '{count:number} change{{s}} by others',
+  },
+  problems: 'Errors and warnings',
+  changes: 'Changes by others',
+  /** One note's changes: "Cynthia · Raft · 3 changes · 2 min ago". */
+  group: {
+    count: '{count:number} change{{s}}',
+    open: 'Open {note:string}',
+    two: '{a:string} and {b:string}',
+    many: '{a:string}, {b:string} and {count:number} other{{s}}',
+  },
+}
+
+/**
+ * Presence in place (sharing E1): initials on tree rows, mount roots and
+ * tabs, "with …" beside the pane lead, and the people stack's popover. Names
+ * are self-reported — the copy never says "verified" or "joined" (R5).
+ */
+const presence = {
+  more: '{count:number} more',
+  with_one: 'with {a:string}',
+  with_two: 'with {a:string} and {b:string}',
+  with_many: 'with {a:string} and {count:number} other{{s}}',
+  people: {
+    label: '{count:number} {{person|people}} here',
+    title: 'Here now',
+    vault: 'This vault',
+    in_note: 'in {note:string}',
+    jump: 'Go to {name:string} in {note:string}',
+    /** Online in the room, in no note (the sync icon's list, P5). */
+    online: 'online',
+  },
+  /** The sync icon (foundations-plan P5): its state in words, and who is online. */
+  sync: {
+    with_people: '{status:string} · {count:number} {{person|people}} online',
+    title: 'Who is where',
+  },
 }
 
 const links = {
@@ -489,43 +713,143 @@ const links = {
   missing_attachment_title: 'No file at this path — attachments are not created from a link',
 }
 
+/**
+ * The Shared view (sharing-shaping E2/E3/E5): the relay as a thing with a
+ * state, the shared folders, the people and the one note each is in, your
+ * devices, and what changed. Honesty per the shaping's Ground-truth table:
+ * names are self-reported, links are not people, nobody "has joined".
+ */
+const shared = {
+  title: 'Shared',
+  actions: {
+    share: 'Share a folder…',
+    add: 'Add a shared folder…',
+    link: 'Link a device…',
+  },
+  /** The pill as the door (Fork 3-A): its accessible name and its counts. */
+  door: {
+    aria: '{status:string} — open Shared',
+    rooms: '{count:number} room{{s}}',
+    people: '{count:number} online',
+  },
+  relay: {
+    title: 'Relay',
+    unknown_host: 'this vault’s relay',
+    state: {
+      connected: 'Connected',
+      reconnecting: 'Reconnecting…',
+      offline: 'Offline',
+      refused: 'Refused by the relay',
+    },
+    refused_reason: 'Refused by the relay: {reason:string}',
+    rooms: '{count:number} room{{s}}',
+    people: '{count:number} {{person|people}} online',
+    only_you: 'only you',
+    /** Green = the relay RECEIVED every edit (golden rule 4) — receipt, never "durable". */
+    in_sync: 'in sync with the relay since {when:string}',
+    last_in_sync: 'last in sync with the relay {when:string}',
+    safe: 'your edits are safe on this device',
+    change: 'Change relay…',
+  },
+  folders: {
+    title: 'Shared folders',
+    by_you: 'Shared by you',
+    with_you: 'Shared with you',
+    notes: '{count:number} note{{s}}',
+    links: '{count:number} link{{s}}',
+    changed: 'changed {when:string}',
+    online: '{count:number} online here',
+    manage: 'Manage links…',
+    details: 'Details…',
+    open: 'Open',
+    open_folder: 'Open {path:string} in the navigator',
+  },
+  people: {
+    title: 'People',
+    online: '{count:number} online',
+    only_you: 'only you',
+    in_note: 'in {note:string}',
+    in_folder: 'in {folder:string}',
+    jump: 'Go to {note:string}, where {name:string} is',
+    alone: 'Nobody else is online.',
+    last_here: '{name:string} was last here {when:string}.',
+    honesty: 'Names are self-reported. There are no accounts yet.',
+  },
+  devices: {
+    title: 'Your devices',
+    this_device: 'This device',
+    this_device_tag: 'this device',
+    unnamed: 'unnamed device',
+    linked: 'This whole vault syncs to your devices.',
+    online_at: 'online {when:string}',
+    needs_secret: 'Set the relay operator secret in Settings › Sync to list your linked devices.',
+  },
+  changes: {
+    title: 'Changes',
+    today: '{count:number} today',
+    none: 'No changes by anyone else yet.',
+    none_filtered: 'Nothing matches these filters.',
+    filters: 'Filter changes',
+    room_label: 'Folder',
+    room_all: 'All folders',
+    person_label: 'Person',
+    person_all: 'Everyone',
+    time_label: 'When',
+    time: {
+      all: 'Any time',
+      today: 'Today',
+      week: 'This week',
+    },
+    show_all: 'Show all',
+    day_today: 'Today',
+    day_yesterday: 'Yesterday',
+    created: 'created',
+    deleted: 'deleted',
+    moved: 'moved from {from:string}',
+  },
+  /** Who did it, when the log can only say so much (sharing Fork 2-A). */
+  who: {
+    relay: 'someone via {host:string}',
+    relay_bare: 'someone via the relay',
+    disk: 'another app on this device',
+    you: 'you',
+  },
+  empty: {
+    title: 'Nothing is shared yet',
+    body: 'Your notes are plain files on this device. Sharing a folder syncs it through a relay you choose; the rest of the vault stays here.',
+    share_title: 'Share a folder with your team',
+    share_body: 'Pick a folder. Everything inside it syncs live to anyone holding its link.',
+    add_title: 'Add a folder someone shared with you',
+    add_body: 'Paste the link they sent. It lands inside this vault, beside your notes.',
+    link_title: 'Use this vault on another device',
+    link_body: 'Syncs the whole vault to a laptop or a second desk. Only yours: never share this link.',
+    no_relay: 'No relay configured. You will choose one the first time you share.',
+    relay_is: 'Shares go through {host:string}.',
+  },
+  /** The tree's change tick (sharing E3). */
+  tick: 'Changed by someone else in the last hour',
+  /** *Share a folder…* with no folder in hand: pick one first. */
+  pick: {
+    title: 'Share a folder',
+    label: 'Folder',
+    help: 'Everything inside it will sync to anyone holding its link.',
+    none: 'No folder can be shared yet: make a folder first, outside any shared folder.',
+    next: 'Continue',
+  },
+}
+
 const note = {
-  no_note: 'No note open.',
-  vault: 'Vault',
-  sharing: 'Sharing',
-  folder: 'Folder',
-  online: 'Online',
-  online_here: 'Online here',
-  access: 'Access',
-  vault_root: '(vault root)',
-  shared_whole: 'Shared as a whole',
   /**
-   * The linked-vault pair (device-link N2). The vault-level line says what
-   * the vault IS ("Synced to your devices"); the per-note line says where
-   * THIS note lives ("On your devices"). Neither says "shared" — sharing is
-   * what you do with other people, folder by folder.
+   * The breadcrumb folder popover's share line (sharing E6). Where THIS folder
+   * lives: on your own devices (a linked vault — never "shared"), or shared by
+   * you / with you, then the relay's host.
    */
-  synced_to_devices: 'Synced to your devices',
   on_your_devices: 'On your devices',
-  shared_folders: '{count:number} shared folder{{s}}',
-  local_nothing_shared: 'Local vault — nothing shared',
-  only_you: 'Only you',
-  local_device: 'Local — only on this device',
   shared_by_you: 'Shared by you',
   shared_with_you: 'Shared with you',
   with_host: '{state:string} · {host:string}',
-  access_joined: 'Managed by whoever shared it with you.',
-  access_root: "The whole vault's links — see Settings.",
-  access_needs_secret: 'Set the relay operator secret in Settings to list the links.',
-  access_loading: 'Loading links…',
-  access_none: 'No links — nobody else can open this yet.',
-  read_only: 'read-only',
-  access_count:
-    '{count:number} link{{s}} — anyone holding one can open this folder. Links, not people: there are no accounts yet.',
-  manage_sharing: 'Manage sharing…',
-  details: 'Details…',
-  share_folder: 'Share this folder…',
-  add_share_here: 'Add a shared folder here…',
+  /** The editable heading at the top of a note's body (P3); editing it renames the file. */
+  inline_title: 'Note title',
 }
 
 const manager = {
@@ -536,7 +860,7 @@ const manager = {
   name_placeholder: 'Anonymous',
   name_hint: 'Shown to people you share with.',
   your_vaults: 'Your vaults',
-  no_vaults: 'No vaults yet. Add a folder, link a device, or join a share to get started.',
+  no_vaults: 'No vaults yet. Add a folder, link a device, or add a shared folder to get started.',
   /**
    * A vault entry with a relay: since N2 that means LINKED to your own
    * devices (the legacy whole-vault join reads the same way, and it is).
@@ -549,9 +873,9 @@ const manager = {
   remove_item: 'Remove from this list',
   remove_confirm: 'Remove?',
   remove_note_opfs:
-    "This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and tokens.",
+    "This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and links.",
   remove_note_disk:
-    'Files on disk are never touched. Sync state, shares, and tokens for this vault are deleted — reopening the folder starts fresh with new share links.',
+    'Files on disk are never touched. Sync state, shares, and links for this vault are deleted — reopening the folder starts fresh with new share links.',
   vault_error: '{message:string} — fix the folder, or remove this entry (files are untouched).',
   add_vault: 'Add a vault',
   pick_folder: "Pick a folder on disk (use the dialog's New Folder to create a fresh vault).",
@@ -561,10 +885,9 @@ const manager = {
   browser_vault_hint: 'A new vault stored privately in this browser.',
   vault_name_placeholder: 'Vault name',
   create_vault: 'Create vault',
-  join_share: 'Join a share',
-  join_hint: 'Paste a share link someone sent you — it opens as a new vault.',
-  link_placeholder: 'editor1:…',
-  join: 'Join',
+  join_share: 'Add a shared folder',
+  join_hint: 'Someone sent you a link? Add their folder inside a vault, or open it as a vault of its own.',
+  join: 'Add a shared folder…',
   recent_shares: 'Recent shares',
   link_device: 'Link a device',
   link_device_hint:
@@ -620,6 +943,7 @@ const settings = {
     sync: 'Sync',
     vaults: 'Vaults & shares',
     developer: 'Developer',
+    layout: 'Layout',
   },
   general: {
     name: 'Display name',
@@ -643,14 +967,77 @@ const settings = {
     needs_vault: 'Open a vault first — custom themes live inside it.',
   },
   /**
+   * Settings > Layout (round 3, Q6): ONE form over this device's layout
+   * overrides, applied live under the dialog — no names, no files, no Save.
+   * Each field is `<field>` and its values `<field>_<value>`.
+   */
+  layout: {
+    intro: 'What the shell shows around the note. Changes apply at once and stay on this device.',
+    files: 'Files',
+    files_drawer: 'As a drawer',
+    files_column: 'As a column',
+    files_off: 'Hidden',
+    sidebar: 'Sidebar',
+    sidebar_dock: 'Floating',
+    sidebar_column: 'As a column',
+    sidebar_position: 'Sidebar position',
+    sidebar_position_top_right: 'Top right',
+    sidebar_position_bottom_right: 'Bottom right',
+    tabs: 'Tabs',
+    tabs_auto: 'When there are two',
+    tabs_always: 'Always',
+    toolbar: 'Toolbar',
+    toolbar_top: 'Top',
+    toolbar_bottom: 'Bottom',
+    format: 'Formatting bar',
+    format_bottom: 'Bottom',
+    format_top: 'Top',
+    format_off: 'Hidden',
+    status: 'Word count',
+    status_corner: 'Bottom right',
+    status_off: 'Hidden',
+    open: 'Opening a note',
+    open_replace: 'Replaces the current tab',
+    open_tab: 'Opens a new tab',
+    measure: 'Line width',
+    measure_narrow: 'Narrow',
+    measure_comfortable: 'Comfortable',
+    measure_wide: 'Wide',
+    typewriter: 'Typewriter scrolling',
+    inline_title: 'Title in the note',
+    /** A side this device pins as a column (Round 2, P7): the pin wins over the field. */
+    pinned: '{value:string} (pinned)',
+    unpin: 'Unpin',
+    unpin_label: 'Unpin {what:string}',
+    reset: 'Reset to default',
+  },
+  /**
    * Settings > Hotkeys (tab-groups R1.3): every registered command, the key
    * in force, and a field to change it. "Mod" is spelled out wherever the
    * user has to type it — it is the one piece of syntax the field requires.
    */
   hotkeys: {
     intro:
-      'Every command and the key that runs it. Changes apply immediately and stay on this device.',
-    syntax: 'Type a shortcut like {example:string}, or press Record and hit the keys. {mod:string} is Cmd on a Mac and Ctrl everywhere else; leave the field empty to remove the shortcut.',
+      'Every command and the key that runs it, from the keymap in use. Save writes the keymap file, so your keys travel with the vault.',
+    syntax: 'Type a shortcut like {example:string}, or press Record and hit the keys. {mod:string} is Cmd on a Mac and Ctrl everywhere else; separate several shortcuts with a comma, and leave the field empty to remove the shortcut.',
+    /** The active keymap file (quiet-shell F10) and how it is saved. */
+    keymap: 'Keymap',
+    from_builtin: 'Built in · read-only — change a shortcut, then Save as to write your own',
+    from_vault: 'This vault · {path:string}',
+    from_user: 'Your config folder · {path:string} · read-only here — Save as writes a copy into the vault',
+    legacy: 'Shortcuts kept on this device — open a vault and they move into a keymap file there.',
+    fallback: 'The keymap could not be used, so the default keys are in force: {error:string}',
+    cannot_save_fallback:
+      'Nothing can be saved over a keymap that could not be used — fix its file, or pick another keymap first.',
+    builtin_name:
+      'This vault file is named like the built-in “{name:string}”, so it is read here but never written — Save as under another name.',
+    save: 'Save',
+    save_as: 'Save as',
+    name_placeholder: 'mine',
+    saved: 'Wrote {path:string}',
+    unsaved: 'Unsaved changes',
+    discard: 'Discard',
+    needs_vault: 'Open a vault to save a keymap — it is a file inside it.',
     ungrouped: 'Other',
     none: 'No commands are registered yet.',
     unbound: 'No shortcut',
@@ -675,7 +1062,7 @@ const settings = {
     relay_invalid: 'A relay URL starts with ws:// or wss://.',
     secret: 'Relay operator secret',
     secret_placeholder: 'unset',
-    secret_hint: 'Lets this app mint, list and revoke share links on your relay.',
+    secret_hint: 'Lets this app create, list and remove share links on your relay.',
   },
   vaults: {
     vaults: 'Vaults',
@@ -690,7 +1077,7 @@ const settings = {
   developer: {
     devtools: 'Developer tools',
     devtools_help:
-      "The sync inspector: a per-file view of disk ↔ CRDT state. Also at the foot of the rail's Activity section, or forced for one session with {flag:string}.",
+      "Enables the inspector — a tab showing the disk ↔ CRDT state of every mount and file — in the command palette. {flag:string} forces it on and opens it for one session.",
   },
   unsaved: 'You have unsaved changes.',
   discard: 'Discard',
@@ -719,37 +1106,87 @@ const link_error = {
 
 const share = {
   link_error,
+  /**
+   * One *Add a shared folder* dialog (sharing E4): the paste, then a CHOICE of
+   * where it goes — the outcome used to be decided by which screen you were
+   * on (the tree joined into the vault, the manager opened a new vault).
+   */
   add: {
     title: 'Add a shared folder',
-    description:
-      'Paste a share link and pick where it lives in this vault. The folder must be new or empty — it fills with the shared content and stays in sync alongside your local notes.',
-    link: 'Share link',
+    description: 'Paste the link someone sent you, then choose where the folder goes.',
+    link: 'Link',
     link_placeholder: 'editor1:…',
     link_invalid: 'That doesn’t look like a share link — they start with "editor1:".',
-    dest: 'Destination folder',
+    from_host: 'A shared folder on {host:string}. Its name and contents arrive once you add it.',
+    where: 'Where it goes',
+    into_vault: 'Inside {vault:string}',
+    into_a_vault: 'Inside a vault',
+    into_vault_hint: 'Beside your notes, and searchable with them.',
+    into_vault_unavailable: 'Open a vault first to add a folder inside it.',
+    own_vault: 'As its own vault',
+    own_vault_hint: 'Kept apart; switch to it from the vault menu.',
+    dest: 'Folder',
     dest_placeholder: 'e.g. shared/team',
-    dest_hint: 'A new folder, or an existing empty one.',
+    dest_hint: 'A new folder, or an existing empty one. A top-level name keeps it beside your notes.',
     dest_required: 'Pick a folder for the shared content to live in.',
-    joining: 'Joining…',
-    join: 'Join into this vault',
+    trust:
+      'Whoever sent this link can see everything you put in the folder. The link does not say who they are, so check it came from the person you think.',
+    joining: 'Adding…',
+    join: 'Add folder',
   },
-  folder: {
+  /**
+   * The share sheet (sharing E4): the folder's links as named rows, worded as
+   * invitations. "Links, not people" sits in the body, in full — it is the
+   * sentence that keeps the sharing model from being misread.
+   */
+  sheet: {
     title: 'Share {path:string}',
-    is_shared:
-      'This folder is shared — everything inside it syncs to anyone holding the link. The rest of the vault stays local.',
-    copied: 'Copied!',
-    copy: 'Copy',
-    carve_help:
-      'Sharing carves this folder into its own synced space on {relay:string}: everything inside syncs to anyone holding the link; everything outside stays local to this vault. No files are moved or changed.',
-    needs_secret: 'Set the relay operator secret in Settings to create shares in-app.',
+    intro_new:
+      'Sharing a folder syncs everything inside it, live, to the people you give a link to. Nothing is moved or changed on disk; the rest of your vault stays here.',
+    intro_shared:
+      'Everything in {path:string} syncs through {host:string} to anyone holding one of these links. The rest of your vault stays on your devices.',
+    intro_joined:
+      'Everything in {path:string} syncs through {host:string} with whoever shared it with you. Its links are theirs to manage.',
+    where_title: 'Where should it sync?',
+    relay: 'Relay',
+    secret: 'Operator secret',
+    secret_required: 'The relay’s operator secret is needed to create links on it.',
+    where_hint:
+      'The secret lets this app create links on your team’s relay; ask whoever runs it. Both are remembered in Settings › Sync.',
+    save_where: 'Save',
+    share: 'Share and copy link',
     sharing: 'Sharing…',
-    share: 'Share this folder',
+    shared_copied: 'Shared. The link is on your clipboard — send it to whoever should have it.',
+    shared_not_copied: 'Shared. Copy a link below and send it to whoever should have it.',
+    links: 'Links · {count:number}',
+    links_loading: 'Loading links…',
+    links_none: 'No links yet — nobody else can open this folder.',
+    links_need_secret: 'Add the relay’s operator secret to see, create and remove this folder’s links.',
+    this_link: 'This folder’s link',
+    unnamed: 'Unnamed link',
+    read_only: 'read-only',
+    created: 'created {date:string}',
+    copy_link: 'Copy link',
+    copy_link_for: 'Copy link for {name:string}',
+    copied: 'Copied',
+    remove: 'Remove',
+    remove_for: 'Remove link for {name:string}',
+    new_link: 'New link: who is it for?',
+    new_link_placeholder: 'e.g. Sam, Team',
+    name_required: 'Name the link after who it is for, so you can tell the links apart later.',
+    read_only_label: 'Read-only',
+    create: 'Create link',
+    creating: 'Creating…',
+    honesty:
+      'Links, not people: there are no accounts yet. Anyone holding a link can open this folder, and removing a link does not disconnect anyone already connected — it stops new connections only, and someone connected stays until they reconnect.',
+    stop: 'Stop sharing…',
+    done: 'Done',
   },
   unshare: {
     title: "Stop sharing '{path:string}'?",
-    body: 'The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing access tokens keep working until revoked.',
+    body: 'The folder and its files stay in this vault and become local notes. Other people keep the copies they already have, but nothing syncs anymore. Existing links keep working until removed.',
     confirm: 'Stop sharing',
-    revoke: 'Also revoke all access tokens on the relay',
+    revoke: 'Also remove every link to it on the relay',
   },
   unmount: {
     title: "Remove shared folder '{path:string}'?",
@@ -893,17 +1330,6 @@ const device_link = {
     'This device holds {count:number} shared-folder links — too many to bundle into one device link. The other device will ask for each of them once.',
 }
 
-const tokens = {
-  title: 'Tokens',
-  loading: 'loading…',
-  none: 'no tokens for this folder',
-  read_only: 'read-only',
-  revoke: 'revoke',
-  label_placeholder: 'label (e.g. laptop, Sam)',
-  mint: 'mint',
-  revoke_hint: 'Revoking blocks new connections; already-connected peers stay until they reconnect.',
-}
-
 const breaker = {
   title: '{count:number} files changed at once',
   description:
@@ -929,13 +1355,69 @@ const review = {
   accept_merge: 'accept merge',
 }
 
+/** The inspector tab (devtools-shaping D). Field-name echoes are not copy. */
 const devtools = {
-  title: 'Sync devtools',
-  no_file: 'no file selected',
-  refresh: 'refresh',
-  collapse: 'Collapse devtools',
-  expand: 'Expand devtools',
-  select_file: 'Select a text file to inspect its disk ↔ CRDT state.',
+  tab: 'Inspector',
+  /** The `inspector` readout: the toolbar's bug icon, shown while developer tools are on. */
+  open: 'Open the inspector',
+  title: 'Inspector',
+  refresh: 'Refresh',
+  scope: 'Scope',
+  all_mounts: 'All mounts',
+  root_mount: 'root',
+  invariants_ok: 'invariants hold',
+  invariants_failed: '{count:number} invariant violation{{s}}',
+  no_desc: 'no mounts.json row',
+  never_held: 'never held',
+  orphans: 'LCA orphans',
+  filter_prefix: 'Path prefix',
+  filter_state: 'State',
+  state_any: 'any state',
+  states: {
+    in_sync: 'in sync',
+    doc_ahead: 'doc ahead',
+    disk_changed: 'disk changed',
+    diverged: 'diverged',
+    no_lca: 'no LCA',
+    no_doc: 'no doc',
+    not_text: 'not text',
+  },
+  rows: '{shown:number} of {total:number} row{{s}}',
+  no_rows: 'No rows match.',
+  col: {
+    path: 'path',
+    kind: 'kind',
+    state: 'state',
+    disk: 'disk',
+    lca: 'lca',
+    doc: 'doc',
+    relay: 'relay',
+    journal: 'journal',
+    open: 'open',
+  },
+  legend: {
+    equal: 'equal',
+    differs: 'differs',
+    unknown: 'not known',
+    synced: 'synced',
+    pending: 'not yet',
+    offline: 'offline',
+    none: 'no relay',
+  },
+  peek: {
+    show: 'Show',
+    doc_lca: 'doc vs lca',
+    disk_lca: 'disk vs lca',
+    disk_doc: 'disk vs doc',
+    disk: 'disk text',
+    lca: 'lca text',
+    doc: 'doc text',
+    absent: '(absent)',
+    identical: 'identical',
+    too_large: 'too large to diff here',
+    raw: 'raw hashes and heads',
+  },
+  select_row: 'Select a text row to inspect its disk ↔ CRDT state.',
   no_preimages: 'no pre-images yet',
   no_doc_store: 'no doc store',
   never: 'never',
@@ -975,6 +1457,57 @@ const relay = {
   failed: 'relay admin call failed ({status:number})',
 }
 
+/** Layout files (quiet-shell F8): what the loader says when one cannot be used. */
+/** Keymaps as files (quiet-shell F10). */
+const keymaps = {
+  invalid: 'The keymap "{name:string}" could not be used, so the default keys are in force: {error:string}',
+  not_found: 'No keymap named "{name:string}" in this vault, your config folder or the built-ins.',
+  needs_vault: 'Open a vault first — a saved keymap is a file inside it.',
+  bad_name: 'Use letters, numbers, spaces, - and _ ("default" is the built-in).',
+  migrated: 'Your shortcuts are now a keymap file: {path:string}',
+  migrate_failed: 'Your shortcuts could not be written to a keymap file, so they stay on this device: {error:string}',
+}
+
+/** Templates as files (quiet-shell F11). */
+const templates = {
+  row: 'Insert template: {name:string}',
+  needs_note: 'Open a note you can edit to insert a template into.',
+  not_found: 'No template named "{name:string}" in this vault, your config folder or the built-ins.',
+}
+
+const layouts = {
+  invalid: 'The layout "{name:string}" could not be used, so the default layout is showing: {error:string}',
+  not_found: 'No layout named "{name:string}" in this vault, your config folder or the built-ins.',
+  needs_vault: 'Open a vault first — a saved layout is a file inside it.',
+  bad_name: 'Use letters, numbers, spaces, - and _ ("default" is the built-in).',
+}
+
+/**
+ * The toolbar (quiet-shell F5) and its readouts (F6). Format buttons take
+ * their names from `commands.format`, so a button, a palette row and a key
+ * are one string.
+ */
+const toolbar = {
+  label: 'Note toolbar',
+  format_group: 'Formatting',
+  format_menu: 'Format',
+  /** The `nav` readout's group: back and forward through the focused tab's trail. */
+  nav_label: 'Back and forward',
+  paragraph_style: 'Paragraph style',
+  with_binding: '{title:string} ({binding:string})',
+  files: 'Files',
+  reading_time: '{minutes:number} min read',
+  reading_time_none: 'Nothing to read',
+  zoomed_more: 'Zoomed · {count:number} more',
+  group: 'Tab group: {name:string}',
+  focus: {
+    leave: 'Leave Focus mode (Esc)',
+  },
+  daily: {
+    label: 'Daily notes',
+  },
+}
+
 const theme = {
   bad_name: 'Theme names may contain letters, numbers, spaces, - and _ only.',
   missing: 'No theme at {path:string}',
@@ -999,9 +1532,13 @@ const web = {
   commands,
   daily,
   history,
-  activity,
+  log,
+  relative_time,
+  drawer,
+  presence,
   links,
   note,
+  shared,
   manager,
   vault_switcher,
   storage,
@@ -1009,7 +1546,6 @@ const web = {
   share,
   mounts,
   device_link,
-  tokens,
   breaker,
   review,
   devtools,
@@ -1017,6 +1553,10 @@ const web = {
   workspace,
   relay,
   theme,
+  layouts,
+  keymaps,
+  templates,
+  toolbar,
 } satisfies BaseTranslation
 
 export default web

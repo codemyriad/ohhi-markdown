@@ -5,7 +5,7 @@
  */
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
-import { RELAY, appUrl as url } from './fixtures.js'
+import { MANAGER_URL, RELAY, appUrl as url, paneContent, severableRelay } from './fixtures.js'
 
 const ROOM = 'e2eroom'
 const TOKEN = 'e2e-token'
@@ -24,9 +24,8 @@ async function openPeer(
   await page.goto(appUrl(role, user))
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 15_000 })
-  // A fresh install opens the Links section alone (P2); presence and the share
-  // state are read from This note, so ask the rail's icon for that one.
-  await page.getByTestId('rail-icon:note').click()
+  // *This note* is dissolved (sharing E6): presence is read in place (E1) and
+  // the share state from the Shared view (E2).
   return { context, page }
 }
 
@@ -35,12 +34,8 @@ async function openFile(page: Page, path = FILE): Promise<void> {
   await expect(page.getByTestId('editor-pane')).toBeVisible()
 }
 
-function editorContent(page: Page) {
-  return page.locator('[data-testid="editor-pane"] .cm-content')
-}
-
 async function typeAtTop(page: Page, text: string): Promise<void> {
-  const content = editorContent(page)
+  const content = paneContent(page)
   await content.click()
   await page.keyboard.press('ControlOrMeta+Home')
   await page.keyboard.type(text)
@@ -67,7 +62,7 @@ test('link a device into OPFS: the panel, then materialize, co-edit and reopen',
   const link = encodeDeviceLink({ relay: RELAY, room: ROOM, token: TOKEN })
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
-  await page.goto('/')
+  await page.goto(MANAGER_URL)
   await page.getByTestId('manager-name').fill('Bob')
   await page.getByTestId('open-link-device').click()
   await expect(page.getByTestId('link-device-dialog')).toBeVisible()
@@ -84,17 +79,16 @@ test('link a device into OPFS: the panel, then materialize, co-edit and reopen',
   // Relay content materialized into the OPFS vault.
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
-  // The vault is LINKED, not "shared": the rail says so in the vault's own words.
-  await page.getByTestId('rail-icon:note').click()
-  await expect(page.getByTestId('rail-section:note').getByTestId('share-state')).toContainText(
-    'Synced to your devices'
-  )
+  // The vault is LINKED, not "shared": the Shared view says so in the vault's
+  // own words (*This note* is dissolved — sharing E6).
+  await page.keyboard.press('ControlOrMeta+Shift+S')
+  await expect(page.getByTestId('shared-devices-linked')).toBeVisible()
 
   // Live propagation Alice → Bob over the joined OPFS vault.
   await openFile(alice.page)
   await openFile(page)
   await typeAtTop(alice.page, 'OPFS-JOIN ')
-  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+  await expect(paneContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
 
   // The OPEN note's pill lives in the status bar (chrome U3: tree rows go
   // quiet once green — the folder's rollup vouches for them).
@@ -112,25 +106,21 @@ test('link a device into OPFS: the panel, then materialize, co-edit and reopen',
   // wipe+re-pull path would show an empty vault here. A flag flips the route
   // between severed and pass-through: ws routes persist across unrouteAll
   // and only take effect after a navigation (verified empirically, PW 1.60).
-  let relaySevered = true
-  await page.routeWebSocket(/.*/, (ws) => {
-    if (relaySevered) ws.close()
-    else ws.connectToServer()
-  })
+  const relay = await severableRelay(page, { severed: true })
   await page.reload()
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
   await openFile(page)
-  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+  await expect(paneContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
 
   // Reopen ONLINE: a second reload with the relay reachable again — the
   // durable boot catches up and returns honestly to green, with the file
   // singular (the pre-M1 re-pull is gone; nothing doubles, nothing is lost).
-  relaySevered = false
+  relay.restore()
   await page.reload()
   await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 20_000 })
   await openFile(page)
-  await expect(editorContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
+  await expect(paneContent(page)).toContainText('OPFS-JOIN', { timeout: 10_000 })
   await expect(page.getByTestId('sync-pill-note')).toHaveAttribute('data-status', 'green', {
     timeout: 30_000,
   })
@@ -151,13 +141,13 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
 
   // 1) Propagation A→B.
   await typeAtTop(alice.page, 'HELLO-FROM-ALICE ')
-  await expect(editorContent(bob.page)).toContainText('HELLO-FROM-ALICE', {
+  await expect(paneContent(bob.page)).toContainText('HELLO-FROM-ALICE', {
     timeout: 10_000,
   })
 
-  // Presence: both names visible on both sides.
-  await expect(alice.page.getByTestId('presence')).toContainText('Bob')
-  await expect(bob.page.getByTestId('presence')).toContainText('Alice')
+  // Presence, in place (sharing E1): each sees the other on the note's row.
+  await expect(alice.page.getByTestId(`tree-presence:${FILE}`).locator('[data-peer="Bob"]')).toBeVisible()
+  await expect(bob.page.getByTestId(`tree-presence:${FILE}`).locator('[data-peer="Alice"]')).toBeVisible()
 
   // 2) Concurrent typing: both markers survive on both peers.
   await Promise.all([
@@ -165,8 +155,8 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
     typeAtTop(bob.page, 'CONC-B '),
   ])
   for (const page of [alice.page, bob.page]) {
-    await expect(editorContent(page)).toContainText('CONC-A', { timeout: 10_000 })
-    await expect(editorContent(page)).toContainText('CONC-B', { timeout: 10_000 })
+    await expect(paneContent(page)).toContainText('CONC-A', { timeout: 10_000 })
+    await expect(paneContent(page)).toContainText('CONC-B', { timeout: 10_000 })
   }
 
   // Idle → pills go green on both sides (green = synced with relay).
@@ -188,7 +178,7 @@ test('seed + join: edits propagate both ways and pills are honest', async ({ bro
     { timeout: 10_000 }
   )
   await bob.context.setOffline(false)
-  await expect(editorContent(alice.page)).toContainText('OFFLINE-EDIT', {
+  await expect(paneContent(alice.page)).toContainText('OFFLINE-EDIT', {
     timeout: 30_000,
   })
   for (const page of [alice.page, bob.page]) {
@@ -229,7 +219,7 @@ test('a checkbox click travels to the peer as text', async ({ browser }) => {
   await openFile(bob.page)
 
   await typeAtTop(alice.page, '- [ ] a task\n')
-  await expect(editorContent(bob.page)).toContainText('a task', { timeout: 10_000 })
+  await expect(paneContent(bob.page)).toContainText('a task', { timeout: 10_000 })
 
   // Bob reads in Reading view, where the mode gates COMMANDS, not edits —
   // the checkbox is still a control there (R2.3).
@@ -241,7 +231,104 @@ test('a checkbox click travels to the peer as text', async ({ browser }) => {
   // Alice sees the one character that changed, in Source where it is text.
   await alice.page.getByTestId('mode-menu').click()
   await alice.page.getByTestId('mode-menu:source').click()
-  await expect(editorContent(alice.page)).toContainText('- [x] a task', { timeout: 10_000 })
+  await expect(paneContent(alice.page)).toContainText('- [x] a task', { timeout: 10_000 })
+
+  await alice.context.close()
+  await bob.context.close()
+})
+
+/**
+ * Sharing E1, presence in place: who is IN a note shows on that note's tree
+ * row, on its tab and beside the pane lead — and leaves when they do. Alone,
+ * not one presence node exists (R6). The memory vault's root room stands in
+ * for the shared folder; `notes/ideas.md` for *Paxos*.
+ */
+test('presence in place: a peer in a note shows on its row and tab, and leaves with them', async ({
+  browser,
+}) => {
+  const OTHER = 'notes/ideas.md'
+  const PRESENCE_NODES =
+    '[data-testid^="tree-presence:"], [data-testid^="mount-presence:"], [data-testid^="tab-presence:"], [data-testid$="-with"]'
+
+  const alice = await openPeer(browser, 'seed', 'Alice')
+  await openFile(alice.page)
+  await openFile(alice.page, OTHER)
+
+  // Alone: nothing drawn, anywhere — the sync icon is just the icon.
+  await expect(alice.page.locator(PRESENCE_NODES)).toHaveCount(0)
+  await expect(alice.page.locator('[data-testid^="sync-people"]')).toHaveCount(0)
+
+  const bob = await openPeer(browser, 'join', 'Bob')
+  // Bob is online but in no note yet: still nothing in place — only the
+  // sync icon counts him (compact in the dense status bar, P5), and its
+  // hover card says he is online, in no note.
+  await expect(alice.page.getByTestId('sync-people-count')).toHaveText('1', { timeout: 10_000 })
+  await expect(alice.page.locator(PRESENCE_NODES)).toHaveCount(0)
+  await alice.page.getByTestId('sync-pill-note').hover()
+  await expect(alice.page.getByTestId('sync-people-card').locator('[data-peer="Bob"]')).toContainText('online')
+  await alice.page.mouse.move(0, 0)
+
+  // Bob opens the note: his initial on its row, on Alice's tab for it, and
+  // "with Bob" beside the lead of the pane that holds it.
+  await openFile(bob.page, OTHER)
+  const row = alice.page.getByTestId(`tree-presence:${OTHER}`)
+  await expect(row.locator('[data-peer="Bob"]')).toBeVisible({ timeout: 10_000 })
+  await expect(row.locator('[data-peer="Bob"]')).toHaveAttribute('aria-label', 'Bob')
+  await expect(row).toContainText('B')
+  // One chip (P7): his initial, no count beside it for one person, centred on the row.
+  await expect(alice.page.getByTestId(`tree-presence:${OTHER}-count`)).toHaveCount(0)
+  const rowBox = (await alice.page.getByTestId(`file-item:${OTHER}`).boundingBox())!
+  const chipBox = (await row.boundingBox())!
+  expect(Math.abs(chipBox.y + chipBox.height / 2 - (rowBox.y + rowBox.height / 2))).toBeLessThanOrEqual(1)
+  await expect(alice.page.getByTestId(`tab-presence:${OTHER}`).locator('[data-peer="Bob"]')).toBeVisible()
+  await expect(alice.page.getByTestId('status-bar-with')).toContainText('with Bob')
+  await expect(alice.page.getByTestId(`tree-presence:${FILE}`)).toHaveCount(0)
+
+  // He moves to another note: he leaves this one and appears there.
+  await openFile(bob.page, FILE)
+  await expect(alice.page.getByTestId(`tree-presence:${OTHER}`)).toHaveCount(0, { timeout: 10_000 })
+  await expect(alice.page.getByTestId(`tree-presence:${FILE}`).locator('[data-peer="Bob"]')).toBeVisible()
+
+  // He closes his tabs: gone from every row and tab.
+  for (const path of [FILE, OTHER]) {
+    await bob.page.locator(`[data-path="${path}"] [data-tab-close]`).click({ force: true })
+  }
+  await expect(alice.page.locator(PRESENCE_NODES)).toHaveCount(0, { timeout: 10_000 })
+
+  await alice.context.close()
+  await bob.context.close()
+})
+
+/**
+ * foundations-plan P6: the drawer names the peer. A peer's Backspace arrives
+ * as a delete-only update — no inserted client ids to look up in awareness —
+ * and was logged "someone via <relay>", folded into a line of its own that
+ * sat on top of theirs. It is theirs: the one person with the note open.
+ */
+test('the drawer names the peer for every edit, Backspace included, grouped per note', async ({ browser }) => {
+  const alice = await openPeer(browser, 'seed', 'Alice')
+  const bob = await openPeer(browser, 'join', 'Bob')
+  await openFile(alice.page)
+  await openFile(bob.page)
+
+  await typeAtTop(alice.page, 'NAMED ')
+  await alice.page.keyboard.press('Backspace')
+  await alice.page.keyboard.press('Backspace')
+  await expect(paneContent(bob.page)).toContainText('NAME', { timeout: 10_000 })
+  await expect(paneContent(bob.page)).not.toContainText('NAMED', { timeout: 10_000 })
+
+  await bob.page.getByTestId('drawer-bell').click()
+  const drawer = bob.page.getByTestId('drawer')
+  const group = drawer.getByTestId(`drawer-change:${FILE}`)
+  await expect(group).toBeVisible()
+  // One row for the note, by name — never "someone".
+  await expect(group.getByTestId('drawer-change-who')).toHaveText('Alice')
+  await expect(drawer).not.toContainText('someone')
+  await expect(drawer.getByTestId('drawer-summary')).toContainText('by others')
+  // No *Open Shared*; *See all N in the Log* opens the Log on the changes.
+  await expect(drawer.getByTestId('drawer-open-shared')).toHaveCount(0)
+  await drawer.getByTestId('drawer-open-log').click()
+  await expect(bob.page.getByTestId('drawer')).toHaveCount(0)
 
   await alice.context.close()
   await bob.context.close()

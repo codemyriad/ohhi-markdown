@@ -11,6 +11,31 @@
     actions: { portal },
   } = toaster
 
+  /**
+   * Dismissing a notice never strands focus. A toast's close button would
+   * take focus on a click and then unmount, dropping focus to `<body>` — so
+   * the floating drawer or panel the reader was in stops hearing its
+   * Escape. A pointer press does not move focus here at all; a keyboard
+   * dismissal (Enter or Space, which Melt's close handles on keydown) hands
+   * focus back to where it was before it entered the notices.
+   */
+  let region = $state<HTMLElement>()
+  let before: HTMLElement | null = null
+  $effect(() => {
+    const onFocusIn = (e: FocusEvent): void => {
+      if (e.target instanceof HTMLElement && !region?.contains(e.target)) before = e.target
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  })
+  function giveFocusBack(e: KeyboardEvent): void {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    const to = before
+    queueMicrotask(() => {
+      if (to?.isConnected) to.focus()
+    })
+  }
+
   const tone = {
     error: 'border-error/40 bg-error/10',
     warn: 'border-warning/40 bg-warning/10',
@@ -21,6 +46,7 @@
 <!-- A landmark, so the notices are reachable by region navigation and axe's
      "content outside landmarks" rule is satisfied for real, not silenced. -->
 <div
+  bind:this={region}
   use:portal
   role="region"
   aria-label={$LL.web.ui.notifications()}
@@ -34,7 +60,10 @@
       class="flex items-start gap-2 rounded-lg border p-3 text-sm text-base-content shadow-xl {tone[t.data.level]}"
     >
       <div class="min-w-0 flex-1">
-        <h3 use:melt={$title(t.id)} class="text-sm font-medium">{t.data.title}</h3>
+        <!-- Not a heading: a toast lands wherever the page's outline is, and an
+             h3 straight after the page's h1 breaks heading-order (axe). Same
+             weight, and Melt's title id still names the toast. -->
+        <div use:melt={$title(t.id)} class="text-sm font-medium">{t.data.title}</div>
         {#if t.data.description}
           <!-- Body ink, not muted: the tone tints are translucent, so a toast
                over a dialog scrim is measured against the BLEND (#b8abab),
@@ -48,6 +77,8 @@
       <button
         use:melt={$close(t.id)}
         aria-label={$LL.web.ui.dismiss_notification()}
+        onmousedown={(e) => e.preventDefault()}
+        onkeydown={giveFocusBack}
         class="shrink-0 rounded p-0.5 text-base-content/70 hover:bg-base-200 hover:text-base-content"
       >
         <X size={14} aria-hidden="true" />

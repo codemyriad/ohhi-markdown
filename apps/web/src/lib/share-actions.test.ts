@@ -23,6 +23,7 @@ let sharing: ShareActions
 let refreshed: number
 let closed: string[]
 let revoked: string[]
+let failRevoke = ''
 
 beforeEach(() => {
   useMemStorage()
@@ -34,6 +35,7 @@ beforeEach(() => {
   refreshed = 0
   closed = []
   revoked = []
+  failRevoke = ''
   harness = withActions(() =>
     createShareActions({
       workspace: () => ws.asWorkspace(),
@@ -43,8 +45,9 @@ beforeEach(() => {
       closeUnder: (path) => {
         closed.push(path)
       },
-      revokeRoom: async (room) => {
-        revoked.push(room)
+      revokeRoom: async (room, relay) => {
+        if (failRevoke) throw new Error(failRevoke)
+        revoked.push(`${room}@${relay}`)
       },
     })
   )
@@ -93,7 +96,9 @@ describe('add link', () => {
     ws.failNext('addMountLink', 'boom')
     await expect(sharing.addMountLink('docs', 'nope')).rejects.toThrow('boom')
     expect(ws.notices).toHaveLength(1)
-    expect(ws.notices[0]?.path).toBe('docs')
+    // Scoped to the mount AND its room (S22 Q1), and coded so it logs without
+    // a second toast — the dialog already shows it.
+    expect(ws.notices[0]).toMatchObject({ code: 'add_link_failed', path: 'docs', room: 'docs-room' })
     expect(refreshed).toBe(0)
 
     await sharing.addMountLink('docs', 'ok')
@@ -115,7 +120,18 @@ describe('unshare / unmount', () => {
 
     sharing.askUnshare('docs')
     await sharing.confirmUnshare(true)
-    expect(revoked).toEqual(['docs-room'])
+    // On the ROOM's relay, not whatever the default is now.
+    expect(revoked).toEqual(['docs-room@wss://relay.of/docs-room'])
+  })
+
+  it('a failed revoke after a successful unshare is reported as the revoke, not as "unshare failed"', async () => {
+    failRevoke = 'relay said no'
+    sharing.askUnshare('docs')
+    await sharing.confirmUnshare(true)
+    expect(ws.calls).toEqual(['unshare(docs)'])
+    expect(ws.notices.map((n) => [n.code, n.params?.host, n.params?.message])).toEqual([
+      ['revoke_failed', 'relay.of', 'relay said no'],
+    ])
   })
 
   it('unmount closes the tabs under the folder before the shim runs', async () => {
@@ -131,7 +147,7 @@ describe('unshare / unmount', () => {
     sharing.askUnmount('docs')
     ws.failNext('unmount', 'relay down')
     await sharing.confirmUnmount()
-    expect(ws.notices.map((n) => n.text)).toEqual(['relay down'])
+    expect(ws.notices.map((n) => [n.code, n.params?.message, n.room])).toEqual([['unmount_failed', 'relay down', 'docs-room']])
   })
 })
 

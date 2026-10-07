@@ -17,27 +17,24 @@
  * one grep away. Rules are not switched off to make the gate pass — if one
  * must be, it is listed here with the reason and the slice that lifts it.
  */
-import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { RELAY, createBrowserVault, openApp, openManager, seedReadNote, tabNamed } from './fixtures.js'
+import { MANAGER_URL, RELAY, appUrl, createBrowserVault, expectAccessible, openApp, openManager, seedReadNote, tabNamed } from './fixtures.js'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
 
-async function expectAccessible(page: Page, surface: string): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'])
-    .analyze()
-  const report = results.violations
-    .map(
-      (v) =>
-        `${v.id} (${v.impact}): ${v.help}\n` +
-        v.nodes.map((n) => `    ${n.target.join(' ')}\n      ${n.failureSummary?.split('\n').join('\n      ')}`).join('\n')
-    )
-    .join('\n')
-  expect(results.violations, `${surface}\n${report}`).toEqual([])
-}
+test('the default layout (no columns) is accessible', async ({ page }) => {
+  // Every other scan boots `dense` (fixtures.ts); this is the shell a new
+  // install sees until Stage 2 gives it a toolbar of its own.
+  await page.goto(appUrl({ room: 'a11y-default-layout', layout: null }))
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('navigator')).toHaveCount(0)
+  // The unseeded room's relay-refusal toast is part of what a new install
+  // sees, so it is scanned with the shell rather than closed first.
+  await expect(page.getByTestId('toast').first()).toBeVisible()
+  await expectAccessible(page, 'default layout')
+})
 
 test('the vault manager is accessible', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(MANAGER_URL)
   await expect(page.getByTestId('open-folder').or(page.getByTestId('create-vault'))).toBeVisible()
   await expectAccessible(page, 'vault manager (empty)')
 
@@ -82,6 +79,26 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   await expect(page.getByTestId('tab-menu')).toBeVisible()
   await expectAccessible(page, 'tab context menu')
   await page.keyboard.press('Escape')
+
+  // The drawer (quiet-shell F13): the bell's popover, empty or not.
+  await page.getByTestId('drawer-bell').click()
+  await expect(page.getByTestId('drawer')).toBeVisible()
+  await expectAccessible(page, 'notification drawer')
+  // The Log view (F12): level chips, the scope picker, time chips, the rows.
+  await page.getByTestId('drawer-open-log').click()
+  await expect(page.getByTestId('log-view')).toBeVisible()
+  await expectAccessible(page, 'log view')
+
+  // The inspector tab (devtools-shaping D): a table, two filters, a scope nav.
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:developer').click()
+  await page.getByTestId('settings-devtools').check()
+  await page.getByTestId('settings-close').click()
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Open inspector')
+  await page.getByTestId('command-palette-row').first().click()
+  await expect(page.getByTestId('inspector-row:notes/welcome.md')).toBeVisible()
+  await expectAccessible(page, 'inspector')
 })
 
 test('the tab-group chrome is accessible', async ({ page }) => {
@@ -167,9 +184,11 @@ test('a strip of nothing but folded groups is accessible', async ({ page }) => {
   await expect(page.locator('[data-folded="true"]')).toHaveCount(2)
 
   // Whatever the folds did, the strip still has a tablist with a tab stop in
-  // it, and the panel's label still points at something real.
-  await expect(page.getByRole('tablist').first()).toBeVisible()
-  await expect(page.getByRole('tab', { selected: true })).toHaveCount(1)
+  // it, and the panel's label still points at something real. (The editor
+  // area's: the rail's own tab row has its own selected tab.)
+  const area = page.getByTestId('editor-area')
+  await expect(area.getByRole('tablist').first()).toBeVisible()
+  await expect(area.getByRole('tab', { selected: true })).toHaveCount(1)
   await expectAccessible(page, 'strip of folded groups')
 })
 
@@ -181,9 +200,8 @@ test('a strip of nothing but folded groups is accessible', async ({ page }) => {
  */
 test('the History rail section and its restore confirm are accessible', async ({ page }) => {
   await openApp(page, 'a11y-history')
-  // A fresh install opens Links alone (P2); the icon shows History instead,
-  // which also puts the expanded rail's pressed toggles under axe.
-  await page.getByTestId('rail-icon:history').click()
+  // The rail opens on Links; its History tab puts the panel's tab row under axe.
+  await page.getByTestId('rail-tab:history').click()
   await expectAccessible(page, 'expanded rail')
   await page.getByTestId('file-item:notes/welcome.md').click()
   const editor = page.locator('[data-testid="editor-pane"] .cm-content')
@@ -266,11 +284,18 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await page.getByTestId('settings-tab:hotkeys').click()
   await expect(page.getByTestId('settings-hotkeys')).toBeVisible()
   await expectAccessible(page, 'settings hotkeys')
+  // Layout (foundations Stage 1): the named layouts, Customise, Save as.
+  await page.getByTestId('settings-tab:layout').click()
+  await expect(page.getByTestId('settings-layout')).toBeVisible()
+  await expectAccessible(page, 'settings layout')
   await page.getByTestId('settings-close').click()
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
 
-  await page.getByTestId('rail-collapse').click()
-  await expect(page.getByTestId('right-rail')).toHaveAttribute('data-state', 'collapsed')
+  // Unpinned, the column is gone: the floating strip is the dock (a pinned
+  // column has no collapse — Chris, 2026-10-06).
+  await page.getByTestId('rail-unpin').click()
+  await expect(page.getByTestId('right-rail')).toHaveCount(0)
+  await expect(page.getByTestId('dock')).toBeVisible()
   await expectAccessible(page, 'collapsed rail')
 })
 
@@ -294,6 +319,32 @@ test('the join-a-share dialog is accessible', async ({ page }) => {
   await page.getByTestId('add-share-join').click()
   await expect(page.getByTestId('field-errors:link')).toBeVisible()
   await expectAccessible(page, 'add a shared folder (refused)')
+})
+
+/**
+ * The share sheet's first run (sharing E4): with no operator secret yet, the
+ * relay is met inline — two more fields and a refusal, in a dialog that also
+ * carries the honesty paragraph.
+ */
+test('the share sheet, first run, is accessible', async ({ page }) => {
+  await openApp(page, 'a11y-share-sheet')
+  await page.getByTestId('file-item:notes/welcome.md').click()
+
+  // The palette opens it on the open note's folder.
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('share this folder')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('folder-share-dialog')).toBeVisible()
+  await expect(page.getByTestId('share-where')).toBeVisible()
+  await expect(page.getByTestId('share-honesty')).toContainText('Links, not people')
+  await expectAccessible(page, 'share sheet (first run)')
+
+  // A relay that is not ws(s):// and no secret: both refused at their fields.
+  await page.getByTestId('share-relay').fill('http://relay.example')
+  await page.getByTestId('confirm-share-folder').click()
+  await expect(page.getByTestId('field-errors:relay')).toBeVisible()
+  await expect(page.getByTestId('field-errors:secret')).toBeVisible()
+  await expectAccessible(page, 'share sheet (refused)')
 })
 
 test('the owner device-link dialog is accessible', async ({ page }) => {

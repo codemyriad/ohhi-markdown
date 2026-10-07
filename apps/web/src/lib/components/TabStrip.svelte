@@ -23,11 +23,10 @@
    * strip is the only thing that knows where its items are drawn.
    */
   import {
-    BookOpen,
     ChevronDown,
     CodeXml,
     Eye,
-    Pencil,
+    PenLine,
     Pin,
     Plus,
     X,
@@ -45,7 +44,13 @@
     type StripItem,
     type Tab,
     type ViewMode,
+    VIEW_MODES,
   } from '../panes.js'
+  import { viewDef } from '../views.js'
+  import { newTabDocks } from '../pane-chrome.js'
+  import { presenceFor, type PresenceByPath } from '../presence.js'
+  import PresenceStack from './PresenceStack.svelte'
+  import { tabDragSource } from '../pane-drag.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { melt } from '@melt-ui/svelte'
   import DropdownMenu, {
@@ -68,10 +73,26 @@
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
     /** W2 (C1): the strip-end `▾` list — open groups, saved groups, Show all. */
     moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
+    /**
+     * The focused pane's mark is the strip's bottom inset (the `dense` look).
+     * Off when the layout draws the pane's own focus edge instead (S21).
+     */
+    insetMark?: boolean
+    /** Sharing E1: who is in each note — a small avatar on a tab whose note holds a peer. */
+    presence?: PresenceByPath
   }
 
-  let { pane, focused, panes, uid, groupChip, tabMenuGroupItems, moreMenuItems }: Props =
-    $props()
+  let {
+    pane,
+    focused,
+    panes,
+    uid,
+    groupChip,
+    tabMenuGroupItems,
+    moreMenuItems,
+    insetMark = true,
+    presence = {},
+  }: Props = $props()
 
   type TabItem = Extract<StripItem, { kind: 'tab' }>
   type TabRun = { key: string; kind: 'tabs'; group: Group | null; label: string; items: TabItem[] }
@@ -90,9 +111,14 @@
     source: CodeXml,
     reading: Eye,
   }
-  /** The strip-end toggle shows what it will DO, not where you are. */
+  /**
+   * The strip-end mode menu (round 3, Q5) is the active tab's: all three
+   * modes, its trigger drawn with the mode the tab is in. `Mod+E` stays
+   * Obsidian's pair (editing ↔ Reading) and the palette has a row per mode.
+   */
+  const MENU_ICON: Record<ViewMode, LucideIcon> = { live: PenLine, source: CodeXml, reading: Eye }
   const current = $derived(activeTab(pane))
-  const reading = $derived(panes.modeOf(current) === 'reading')
+  const currentMode = $derived(panes.modeOf(current))
   const items = $derived(stripItems(pane))
   /** Consecutive tabs of the same group (or of none) share one tablist. */
   const runs = $derived.by(() => {
@@ -128,13 +154,35 @@
   })
   const tabDomId = (id: string): string => `${uid}-tab-${id}`
   const panelDomId = (id: string): string => `${uid}-panel-${id}`
-  const nameOf = (tab: Tab): string => (tab.path ? basename(tab.path) : t.untitled())
+  const nameOf = (tab: Tab): string =>
+    tab.path ? basename(tab.path) : tab.view ? viewDef(tab.view).title($LL, tab.viewArg) : t.untitled()
   const dragging = $derived(new Set(panes.drag?.payload.tabIds ?? []))
 
   /** Right-clicked tab and where, or null; one menu per strip, not per tab. */
   let menu = $state.raw<{ tab: Tab; x: number; y: number } | null>(null)
 
   let listEl = $state<HTMLElement>()
+  let runEl = $state<HTMLElement>()
+
+  /**
+   * The `+` docks at the strip's end once the tabs overflow (`newTabDocks`):
+   * measured whenever the run's room or its content changes size — a tab
+   * opened or closed, the pane resized. No polling.
+   */
+  let docked = $state(false)
+  $effect(() => {
+    const list = listEl
+    const run = runEl
+    if (!list || !run) return
+    const measure = (): void => {
+      docked = newTabDocks({ content: run.getBoundingClientRect().width, room: list.clientWidth })
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(list)
+    observer.observe(run)
+    measure()
+    return () => observer.disconnect()
+  })
 
   // Keep the active tab in view after a switch, a reorder or a drop — the
   // strip scrolls horizontally and 21 tabs do not fit (the measured vault).
@@ -175,17 +223,21 @@
     })
   }
 
+  /** The same handle the toolbar title is when the strip is not drawn (S21). */
   function startDrag(e: PointerEvent, tab: Tab): void {
-    if (e.button !== 0) return
-    panes.beginDrag(e, {
-      tabIds: [tab.id],
-      fromPaneId: pane.id,
-      groupId: null,
-      label: nameOf(tab),
-      color: null,
-    })
+    tabDragSource(panes, pane.id, tab.id, nameOf(tab)).onpointerdown(e)
   }
 </script>
+
+{#snippet newTab()}
+  <IconButton
+    label={t.new_tab()}
+    icon={Plus}
+    testid="tab-new:{pane.id}"
+    data-docked={docked}
+    onclick={() => panes.newTabIn(pane.id)}
+  />
+{/snippet}
 
 <!-- Only the SELECTED tab gets `aria-controls`: a pane renders one panel,
      for its active tab (R2.1), so a background tab would point at an element
@@ -213,13 +265,13 @@
     onpointerdown={(e) => startDrag(e, tab)}
     ondblclick={() => panes.togglePin(tab.id)}
     class="group relative flex max-w-[11rem] min-w-[4rem] shrink-0 touch-none items-center gap-1 border-r border-base-300 pr-1 pl-2 select-none
-      {selected ? 'bg-ed-surface text-base-content' : 'text-base-content/70 hover:bg-base-300'}
+      {selected ? 'bg-ed-tab-active-bg text-base-content' : 'text-base-content/70 hover:bg-base-300'}
       {dragging.has(tab.id) ? 'opacity-35' : ''}"
   >
     {#if item.group}
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-x-0 top-0 h-0.5"
+        class="pointer-events-none absolute inset-x-0 top-0 h-ed-group-cap"
         style="background: var(--ed-tab-group)"
       ></span>
     {/if}
@@ -230,7 +282,7 @@
       aria-selected={selected}
       aria-controls={selected ? panelDomId(tab.id) : undefined}
       tabindex={selected ? 0 : -1}
-      title={tab.path ?? t.untitled()}
+      title={tab.path ?? nameOf(tab)}
       onclick={(e) => {
         // The ✕ lives inside the tab (the APG's deletable-tabs pattern):
         // a real button there would be a control nested in a control,
@@ -249,11 +301,18 @@
         <span
           data-testid="tab-live"
           aria-hidden="true"
-          class="size-1.5 shrink-0 rounded-full bg-primary"
+          class="size-1.5 shrink-0 rounded-full bg-ed-tab-live"
         ></span>
         <span class="sr-only">{t.live()}</span>
       {/if}
+      {#if tab.view && !tab.path}
+        {@const ViewIcon = viewDef(tab.view).icon}
+        <ViewIcon size={11} aria-hidden="true" class="shrink-0" />
+      {/if}
       <span class="truncate">{nameOf(tab)}</span>
+      {#if tab.path}
+        <PresenceStack peers={presenceFor(presence, tab.path)} testid="tab-presence:{tab.path}" />
+      {/if}
       {#if ModeIcon}
         <ModeIcon size={11} aria-hidden="true" class="shrink-0" />
         <span class="sr-only">{r.tab_mode({ mode: r.modes[tabMode]() })}</span>
@@ -277,52 +336,87 @@
 
 <div
   data-strip
-  class="flex h-8 shrink-0 items-stretch border-b border-base-300 bg-base-200
-    {focused ? 'shadow-[inset_0_-2px_0_var(--color-primary)]' : ''}"
+  class="flex h-8 shrink-0 items-stretch border-b border-base-300 bg-ed-strip-bg"
+  style={focused && insetMark
+    ? 'box-shadow: inset 0 calc(-1 * var(--ed-pane-focus-width)) 0 var(--ed-pane-focus)'
+    : undefined}
 >
   <div
     bind:this={listEl}
     data-testid="tabs:{pane.id}"
     class="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
   >
-    {#each runs as run (run.key)}
-      {#if run.kind === 'chip'}
-        <div
-          role="presentation"
-          data-slot-index={run.item.index}
-          data-slot-end={run.item.endIndex}
-          data-slot-kind="chip"
-          data-slot-group={run.item.group.id}
-          data-slot-folded={run.item.group.collapsed}
-          class="flex items-stretch"
-        >
-          {#if groupChip}{@render groupChip(run.item.group, pane)}{/if}
-        </div>
-      {:else}
-        <div role="tablist" aria-label={run.label} class="flex items-stretch">
-          {#each run.items as item (item.tab.id)}
-            {@render tabSlot(item)}
-          {/each}
-        </div>
+    <!-- The run's content, as wide as its tabs: what the overflow test measures. -->
+    <div bind:this={runEl} class="flex w-max shrink-0 items-stretch">
+      {#each runs as run (run.key)}
+        {#if run.kind === 'chip'}
+          <div
+            role="presentation"
+            data-slot-index={run.item.index}
+            data-slot-end={run.item.endIndex}
+            data-slot-kind="chip"
+            data-slot-group={run.item.group.id}
+            data-slot-folded={run.item.group.collapsed}
+            class="flex items-stretch"
+          >
+            {#if groupChip}{@render groupChip(run.item.group, pane)}{/if}
+          </div>
+        {:else}
+          <div role="tablist" aria-label={run.label} class="flex items-stretch">
+            {#each run.items as item (item.tab.id)}
+              {@render tabSlot(item)}
+            {/each}
+          </div>
+        {/if}
+      {/each}
+      <!-- New tab, right after the last tab (Chris, 2026-10-06), as a browser
+           puts it — while the tabs fit; once they overflow it docks at the
+           strip's end, left of the mode control (`newTabDocks`). A sibling of
+           the tablists, never in one — a tablist owns only tabs — and no
+           `data-slot-*`: the drag hit test skips it. -->
+      {#if !docked}
+        <div class="flex shrink-0 items-center px-1">{@render newTab()}</div>
       {/if}
-    {/each}
+    </div>
   </div>
 
   <div class="flex shrink-0 items-center gap-0.5 border-l border-base-300 px-1">
-    <IconButton
-      label={reading ? r.to_editing() : r.to_reading()}
-      icon={reading ? Pencil : BookOpen}
-      pressed={reading}
-      testid="mode-toggle:{pane.id}"
-      disabled={!current?.path}
-      onclick={() => current && panes.toggleReading(current.id)}
-    />
-    <IconButton
-      label={t.new_tab()}
-      icon={Plus}
-      testid="tab-new:{pane.id}"
-      onclick={() => panes.newTabIn(pane.id)}
-    />
+    {#if docked}{@render newTab()}{/if}
+    {#if current?.path}
+      {@const tabId = current.id}
+      {@const CurrentIcon = MENU_ICON[currentMode]}
+      <DropdownMenu placement="bottom-end" testid="tab-mode-list:{pane.id}">
+        {#snippet trigger(attrs)}
+          <button
+            use:melt={attrs}
+            type="button"
+            aria-label={r.mode_menu_current({ mode: r.modes[currentMode]() })}
+            data-testid="tab-mode:{pane.id}"
+            data-mode={currentMode}
+            class="flex items-center gap-0.5 rounded p-1 text-base-content/70 hover:bg-base-300 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <CurrentIcon size={14} aria-hidden="true" />
+            <ChevronDown size={10} aria-hidden="true" />
+          </button>
+        {/snippet}
+        {#snippet children(attrs)}
+          {#each VIEW_MODES as value (value)}
+            {@const Icon = MENU_ICON[value]}
+            <MenuItem
+              item={attrs.item}
+              checked={currentMode === value}
+              testid="tab-mode:{pane.id}:{value}"
+              onSelect={() => panes.setMode(tabId, value)}
+            >
+              <span class="flex items-center gap-2">
+                <Icon size={14} aria-hidden="true" />
+                {r.modes[value]()}
+              </span>
+            </MenuItem>
+          {/each}
+        {/snippet}
+      </DropdownMenu>
+    {/if}
     <DropdownMenu placement="bottom-end" testid="tab-more-menu:{pane.id}">
       {#snippet trigger(attrs)}
         <button

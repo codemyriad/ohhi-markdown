@@ -53,8 +53,8 @@ test("Mod+\\ opens today's daily note, creating it once, and Mod+- walks to an o
 
 test('History lists the versions the journal already holds, and restores one', async ({ page }) => {
   await openApp(page, 'daily-history')
-  // Links is the section a fresh install opens (P2); this test wants History.
-  await page.getByTestId('rail-icon:history').click()
+  // The rail opens on its Links tab; this test wants History.
+  await page.getByTestId('rail-tab:history').click()
   await page.getByTestId('file-item:notes/welcome.md').click()
   const editor = page.locator('[data-testid="editor-pane"] .cm-content')
   await expect(editor).toContainText('Welcome to Editor')

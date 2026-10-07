@@ -157,3 +157,36 @@ export function slotsFrom(
   }
   return out
 }
+
+/** What a drag source needs from the pane shell: the one way a drag starts. */
+export interface DragHost {
+  beginDrag(
+    e: PointerEvent,
+    payload: { tabIds: string[]; fromPaneId: string; groupId: string | null; label: string; color: number | null }
+  ): void
+}
+
+/**
+ * The pointer half of a TAB as a drag source, as attributes to spread on any
+ * element (spike S21 Q2): the strip's tab wrapper, and — when the strip is
+ * not drawn because the pane holds one tab — the toolbar's title, which then
+ * is the focused pane's only handle for dragging that note to another pane's
+ * edge or centre. Same payload either way, so the hit test, the drop zones
+ * and the outcome are the strip's. Primary button only; the shell's own
+ * 6 px threshold tells a click from a drag. Spread it with `touch-action:
+ * none` on the element so a touch drag is not taken for a scroll.
+ */
+export function tabDragSource(
+  host: DragHost,
+  paneId: string,
+  tabId: string,
+  label: string
+): { onpointerdown: (e: PointerEvent) => void; 'data-drag-source': 'tab' } {
+  return {
+    'data-drag-source': 'tab',
+    onpointerdown: (e) => {
+      if (e.button !== 0) return
+      host.beginDrag(e, { tabIds: [tabId], fromPaneId: paneId, groupId: null, label, color: null })
+    },
+  }
+}

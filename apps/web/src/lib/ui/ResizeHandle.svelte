@@ -31,6 +31,12 @@
     orientation?: 'vertical' | 'horizontal'
     /** In-flow between two flex children instead of an overlay on an edge. */
     inline?: boolean
+    /**
+     * `inline` only: no visible line at rest (`panes.borders: "none"`). The
+     * separator is still there, focusable and draggable, and still tints on
+     * hover, focus and drag — "no border" is a colour, never a missing control.
+     */
+    hidden?: boolean
     /** Value units per pixel of pointer travel; 1 for a pixel-valued handle. */
     perPixel?: number
     /**
@@ -54,6 +60,7 @@
     valueText,
     orientation = 'vertical',
     inline = false,
+    hidden = false,
     perPixel = 1,
     collapseBelow,
     onCollapse,
@@ -136,7 +143,7 @@
   onkeydown={key}
   class="z-10 touch-none select-none hover:bg-primary/30 focus-visible:bg-primary/40 focus-visible:outline-none
     {inline
-    ? `relative shrink-0 bg-base-300 ${vertical ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize'}`
+    ? `relative shrink-0 ${hidden ? 'bg-transparent' : 'bg-ed-pane-divider'} ${vertical ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize'}`
     : 'absolute inset-y-0 -right-1 w-2 cursor-col-resize'}
     {dragging ? 'bg-primary/40' : ''}"
 >

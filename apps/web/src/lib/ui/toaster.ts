@@ -1,7 +1,7 @@
 /**
  * The app's one toast queue. Notices are announced here without stealing
  * focus (`type: 'background'` → `role=status`, `aria-live=polite`); their
- * durable home is the Activity log (chrome-shaping U5), which is why a toast
+ * durable home is the Log view (quiet-shell F12), which is why a toast
  * may vanish — the log does not.
  */
 import { createToaster } from '@melt-ui/svelte'

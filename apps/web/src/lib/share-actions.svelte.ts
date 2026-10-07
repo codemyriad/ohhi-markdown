@@ -18,8 +18,9 @@
  * render it and nothing else.
  */
 import { getLL } from '@ohhi/i18n'
+import { relayHost } from '@ohhi/workspace'
 import { addShare, getVault, removeShare, setRoomToken } from './config.js'
-import { shareLinkErrorText } from './share-link.js'
+import { ShareLinkError } from './share-link.js'
 import type { MountInfo, Workspace } from './workspace.svelte.js'
 
 /** What sharing needs from the rest of the shell. */
@@ -30,8 +31,13 @@ export interface ShareHost {
   refresh(): void
   /** A folder is leaving the vault: its tabs go with it, now (B6). */
   closeUnder(path: string): void
-  /** Revoke every token the relay holds for this room — the unshare checkbox (needs the operator secret). */
-  revokeRoom(room: string): Promise<void>
+  /**
+   * Revoke every token the room's relay holds for it — the unshare checkbox
+   * (needs the operator secret). `relay` is the ROOM's (`MountInfo.relay`),
+   * never the current default: after a relay change in Settings the links
+   * still live where the room was minted.
+   */
+  revokeRoom(room: string, relay: string): Promise<void>
 }
 
 export interface ShareActions {
@@ -118,9 +124,10 @@ export function createShareActions(host: ShareHost): ShareActions {
   }
 
   /**
-   * The failure is reported twice on purpose: as a notice (so it is in
-   * Activity, like every other workspace error, chrome U5) and rethrown so the
-   * dialog keeps the paste and shows the reason where the user is looking.
+   * The failure is logged (so it is in the Log view, like every other workspace
+   * error, chrome U5) and rethrown so the dialog keeps the paste and shows the
+   * reason where the user is looking. It does not ALSO toast: its code,
+   * `add_link_failed`, is marked as shown by its own surface (spike S22 Q3).
    */
   async function addMountLink(path: string, link: string): Promise<void> {
     const ws = host.workspace()
@@ -129,7 +136,15 @@ export function createShareActions(host: ShareHost): ShareActions {
       await ws.addMountLink(path, link)
       host.refresh()
     } catch (err) {
-      ws.notify({ level: 'error', text: shareLinkErrorText(err), path })
+      const room = ws.ui.mounts.find((m) => m.path === path)?.room
+      ws.notify({
+        level: 'error',
+        code: 'add_link_failed',
+        params: err instanceof ShareLinkError ? { link_error: err.code } : { message: message(err) },
+        path,
+        mount: path,
+        ...(room ? { room } : {}),
+      })
       throw err
     }
   }
@@ -139,17 +154,40 @@ export function createShareActions(host: ShareHost): ShareActions {
     unshareConfirm = null
     const ws = host.workspace()
     if (!target || !ws) return
-    const room = ws.ui.mounts.find((m) => m.path === target.path)?.room
+    const mount = ws.ui.mounts.find((m) => m.path === target.path)
+    const room = mount?.room
     try {
       await ws.unshare(target.path)
       if (room) {
         removeShare(room)
         setRoomToken(room, '')
-        if (revokeTokens) await host.revokeRoom(room)
       }
       host.refresh()
     } catch (err) {
-      ws.notify({ level: 'error', text: message(err) })
+      ws.notify({
+        level: 'error',
+        code: 'unshare_failed',
+        params: { message: message(err) },
+        path: target.path,
+        mount: target.path,
+        ...(room ? { room } : {}),
+      })
+      return
+    }
+    // The folder IS unshared now; a revoke that fails says so on its own,
+    // never as "unshare failed".
+    if (!revokeTokens || !room || !mount) return
+    try {
+      await host.revokeRoom(room, mount.relay)
+    } catch (err) {
+      ws.notify({
+        level: 'error',
+        code: 'revoke_failed',
+        params: { host: relayHost(mount.relay) ?? mount.relay, message: message(err) },
+        path: target.path,
+        mount: target.path,
+        room,
+      })
     }
   }
 
@@ -170,7 +208,14 @@ export function createShareActions(host: ShareHost): ShareActions {
       }
       host.refresh()
     } catch (err) {
-      ws.notify({ level: 'error', text: message(err) })
+      ws.notify({
+        level: 'error',
+        code: 'unmount_failed',
+        params: { message: message(err) },
+        path,
+        mount: path,
+        ...(room ? { room } : {}),
+      })
     }
   }
 
@@ -182,7 +227,7 @@ export function createShareActions(host: ShareHost): ShareActions {
     try {
       await ws.movePath(mv.from, mv.to)
     } catch (err) {
-      ws.notify({ level: 'error', text: message(err) })
+      ws.notify({ level: 'error', code: 'move_failed', params: { message: message(err) }, path: mv.from })
     }
   }
 

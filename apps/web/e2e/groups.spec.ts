@@ -7,7 +7,7 @@
  * Memory vault contract, like `panes.spec.ts` — no folder, no share.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { chips, dragTo, editors, newNote, openApp, panes, tabNamed } from './fixtures.js'
+import { chips, dragTo, editors, focusEditor, newNote, openApp, panes, tabNamed, paneTabs } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -20,7 +20,7 @@ test('five notes, two of them a named, coloured group that folds to one chip', a
   for (const path of [WELCOME, IDEAS, ...extra]) {
     await page.getByTestId(`file-item:${path}`).click()
   }
-  await expect(page.getByRole('tab')).toHaveCount(5)
+  await expect(paneTabs(page)).toHaveCount(5)
 
   // Group by menu, not by drag: every gesture has a keyboard equivalent (R8).
   await tabNamed(page, 'ideas').click({ button: 'right' })
@@ -50,14 +50,14 @@ test('five notes, two of them a named, coloured group that folds to one chip', a
   // run stays contiguous (the contiguity invariant).
   await tabNamed(page, 'welcome').click({ button: 'right' })
   await page.getByRole('menuitemradio', { name: 'Edible' }).click()
-  await expect(page.getByRole('tab')).toHaveCount(5)
+  await expect(paneTabs(page)).toHaveCount(5)
 
   // Fold: two tabs go behind the chip, and the pane still has exactly one
   // live editor — a folded tab never had one to lose (R2.1).
   await expect(chip).toHaveAttribute('aria-expanded', 'true')
   await chip.click()
   await expect(chip).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByRole('tab')).toHaveCount(3)
+  await expect(paneTabs(page)).toHaveCount(3)
   await expect(chip).toHaveText(/2/)
   await expect(editors(page)).toHaveCount(1)
 
@@ -112,10 +112,9 @@ test('closing a group keeps it in the list, and it reopens in another pane at it
   // note, not at the top where a fresh view would put it.
   const reopened = page.getByTestId('editor-pane').locator('.cm-content')
   await expect(reopened).toContainText('Welcome to Editor')
-  await reopened.focus()
-  // The restore lands a tick after the view mounts, so wait for the caret to
-  // be on the last line: the assertion below is about the resume point, not
-  // about who won a race with it.
+  // Through CM6's own focus, not a DOM one: see `focusEditor` for the 200 ms
+  // window a DOM focus races, which is what made this flaky in a full run.
+  await focusEditor(reopened)
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -186,7 +185,7 @@ test('a group copies out as wikilinks, and a note of links opens as a group', as
   await page.getByTestId('groups-menu:open-links').click()
   const chip = chips(page).first()
   await expect(chip).toHaveText(/untitled-1/)
-  await expect(page.getByRole('tab')).toHaveCount(3)
+  await expect(paneTabs(page)).toHaveCount(3)
   await expect(page.locator('[data-slot-kind="tab"]', { hasText: 'welcome' })).toHaveCount(1)
   await expect(page.locator('[data-slot-kind="tab"]', { hasText: 'ideas' })).toHaveCount(1)
 })
@@ -308,5 +307,5 @@ test('a chip drag moves the whole group — onto an edge, and back onto a strip'
   await expect(panes(page)).toHaveCount(1)
   await expect(chips(page)).toHaveCount(1)
   await expect(chips(page).first()).toHaveText(/Edible/)
-  await expect(page.getByRole('tab')).toHaveCount(3)
+  await expect(paneTabs(page)).toHaveCount(3)
 })

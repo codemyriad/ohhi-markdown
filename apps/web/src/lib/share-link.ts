@@ -24,7 +24,7 @@
  *
  * Every refusal is a `ShareLinkError` with a `code`, never a sentence: the
  * same failure is rendered in a dialog's error line, in a field refusal and
- * in the Activity log, and a codec that threw English would put untranslated
+ * in the Log view, and a codec that threw English would put untranslated
  * copy in all three (the i18n rule). `shareLinkErrorText` maps a code to the
  * dictionary for the rendering sites.
  */

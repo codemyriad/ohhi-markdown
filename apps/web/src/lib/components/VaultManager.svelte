@@ -10,6 +10,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
+  import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
 
@@ -32,6 +33,11 @@
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
     onJoin: (name: string, link: string) => void
+    /**
+     * The vault open behind the manager, offered by *Add a shared folder* as
+     * a destination beside "as its own vault" (sharing E4); null = none open.
+     */
+    joinInto?: { vaultName: string; dirs: string[]; join: (link: string, dest: string) => Promise<void> } | null
     /** Open the "Link this device…" dialog (device-link N2, A1). */
     onLinkDevice: (name: string) => void
     onBack: () => void
@@ -59,6 +65,7 @@
     onOpenFolder,
     onCreateBrowserVault,
     onJoin,
+    joinInto = null,
     onLinkDevice,
     onBack,
     onSettings,
@@ -73,8 +80,9 @@
   // Seeded once from the initial prop values; these fields are then user-owned.
   // svelte-ignore state_referenced_locally
   let name = $state(defaultUser || '')
+  // A `?share=` link arrives with the dialog already open on it.
   // svelte-ignore state_referenced_locally
-  let link = $state(prefillLink || '')
+  let joinOpen = $state(prefillLink !== '')
   let newVaultName = $state('')
   /** Room whose inline confirm row is showing (Remove is never one click). */
   let confirmRemove = $state<string | null>(null)
@@ -337,19 +345,11 @@
         <section class={card}>
           <h2 class={HEADING}>{t.join_share()}</h2>
           <p class="mt-1.5 text-xs text-base-content/70">{t.join_hint()}</p>
-          <textarea
-            data-testid="join-link"
-            bind:value={link}
-            rows="2"
-            aria-label={t.join_share()}
-            placeholder={t.link_placeholder()}
-            class="mt-3 w-full rounded border border-base-300 px-3 py-2 font-ed-mono text-xs focus:border-primary focus:outline-none"
-          ></textarea>
           <button
             data-testid="join-share"
-            disabled={busy || !link.trim()}
-            onclick={() => onJoin(displayName, link.trim())}
-            class="mt-2 rounded bg-neutral px-4 py-2 text-sm font-medium text-neutral-content hover:bg-neutral/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+            disabled={busy}
+            onclick={() => (joinOpen = true)}
+            class="mt-3 {outline}"
           >
             {t.join()}
           </button>
@@ -375,3 +375,15 @@
     </div>
   </div>
 </main>
+
+{#if joinOpen}
+  <AddSharedFolderDialog
+    vaultName={joinInto?.vaultName ?? null}
+    dirs={joinInto?.dirs ?? []}
+    initialLink={prefillLink}
+    initialWhere="own"
+    onJoinIntoVault={joinInto?.join ?? null}
+    onJoinAsVault={(l) => onJoin(displayName, l)}
+    onClose={() => (joinOpen = false)}
+  />
+{/if}
