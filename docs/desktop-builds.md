@@ -76,14 +76,27 @@ match the public key it was built with.
 
 ### Updates
 
-<!-- updater: extended by the desktop-updater change -->
-Installed apps check `https://<team host>/updates/latest.json` and offer to
-restart into a newer version. That works only on the tailnet: off it, the check
-fails quietly. The macOS app updates through the `.app.tar.gz`, and the Linux
-AppImage replaces itself in place. A `.deb` install never updates: reinstall
-from the newest release, or switch to the AppImage. On macOS only the first
-install needs the Gatekeeper step below, because an update the app downloads
-itself is not quarantined.
+On launch and every 6 hours, installed apps check
+`https://<team host>/updates/latest.json` (Settings › General shows the version
+you're running). A newer build downloads and installs in the background, then a
+toast offers **Restart**. If you ignore it, the new build runs next time you
+open the app. The check only reaches the feed from the tailnet; off it, or in
+a local build with no feed configured, the check fails quietly (one console line)
+and is retried later.
+
+- **Signed:** updates are minisign-signed. The public key is in
+  `tauri.conf.json`, the private key is the repo secret
+  `TAURI_SIGNING_PRIVATE_KEY` (and in the team password manager), and a
+  bad signature is refused. Losing the private key means every installed app
+  must be reinstalled by hand.
+- **macOS:** updates through the `.app.tar.gz`. Only the first install needs
+  the Gatekeeper step below, because an update the app downloads itself is
+  not quarantined.
+- **Linux AppImage:** replaces itself in place.
+- **Linux .deb:** updates through `pkexec dpkg -i`, which asks for your
+  password, but only when the release carries a `.deb.sig`. Otherwise the
+  manifest has no `linux-x86_64-deb` entry and a .deb install never updates:
+  prefer the AppImage.
 
 ## Installing (teammates)
 
@@ -176,7 +189,7 @@ narrow the filesystem grant.
   Tauri adds `'sha256-…'` sources to `script-src` for the inline pre-paint
   theme script and every bundled JS file, computed at compile time, and (as of
   2.11) sends the policy as a real `Content-Security-Policy` response header.
-- **Hosted web app:** `apps/web/public/_headers` (Cloudflare Pages) — the same
+- **Hosted web app:** `apps/web/public/_headers`, which the team host's Caddy turns into response headers ([deploy-tailnet.md](deploy-tailnet.md)) — the same
   policy without Tauri's IPC sources, plus the theme script's hash, which we
   pin ourselves. It also sends `nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, COOP `same-origin` and a `Permissions-Policy`

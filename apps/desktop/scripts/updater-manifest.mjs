@@ -6,7 +6,10 @@
 //   node updater-manifest.mjs --dir assets --version 0.1.42 \
 //     --base-url https://ohhi.example.ts.net/updates/v0.1.42 [--notes "…"] [--out assets/latest.json]
 //
-// Platforms: linux-x86_64 → the one *.AppImage; darwin-aarch64 and
+// Platforms: linux-x86_64 and linux-x86_64-appimage → the one *.AppImage;
+// linux-x86_64-deb → the one *.deb, only when its .sig exists (the updater
+// looks up `{os}-{arch}-{bundle}` before `{os}-{arch}`, so without this key a
+// .deb install would be handed the AppImage); darwin-aarch64 and
 // darwin-x86_64 → the one universal *.app.tar.gz. Each needs its .sig next to
 // it (the minisign signature tauri build writes when createUpdaterArtifacts is
 // on); the manifest carries the .sig file's contents, not a URL. Exactly one
@@ -50,12 +53,16 @@ function artifact(suffix, label) {
 
 const linux = artifact('.AppImage', 'Linux')
 const mac = artifact('.app.tar.gz', 'macOS universal')
+const debs = files.filter((f) => f.endsWith('.deb'))
+const deb = debs.length === 1 && files.includes(`${debs[0]}.sig`) ? artifact('.deb', 'Linux .deb') : null
 const manifest = {
   version: opt.version,
   notes: opt.notes,
   pub_date: opt['pub-date'] ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
   platforms: {
     'linux-x86_64': linux,
+    'linux-x86_64-appimage': linux,
+    ...(deb ? { 'linux-x86_64-deb': deb } : {}),
     'darwin-aarch64': mac,
     'darwin-x86_64': mac,
   },

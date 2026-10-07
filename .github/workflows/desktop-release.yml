@@ -246,7 +246,7 @@ jobs:
           out="$RUNNER_TEMP/assets"; mkdir -p "$out"
           shopt -s nullglob
           if [ "$RUNNER_OS" = Linux ]; then
-            cp "$BUNDLE_DIR"/appimage/*.AppImage "$BUNDLE_DIR"/appimage/*.AppImage.sig "$BUNDLE_DIR"/deb/*.deb "$out"/
+            cp "$BUNDLE_DIR"/appimage/*.AppImage "$BUNDLE_DIR"/appimage/*.AppImage.sig "$BUNDLE_DIR"/deb/*.deb "$BUNDLE_DIR"/deb/*.deb.sig "$out"/
             cp "$RUNNER_TEMP/web.tar.gz" "$out"/
           else
             cp "$BUNDLE_DIR"/dmg/*.dmg "$out"/
