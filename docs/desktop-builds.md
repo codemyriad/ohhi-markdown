@@ -1,45 +1,89 @@
 # Desktop builds
 
-How the Tauri 2 desktop app is released for dogfooding, how teammates install
-it, and the webview's Content Security Policy. Workflow:
+How the Tauri 2 desktop app (and the web app the team host serves) is built
+and released, how teammates install and update it, and the webview's Content
+Security Policy. Workflow:
 [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
 — its comments cover the job layout, token permissions and signing placeholders.
+The team host it publishes to (the team host, over the company tailnet) is described in
+[`deploy-tailnet.md`](deploy-tailnet.md).
 
-## Cutting a release
+## How releases happen
 
-1. Bump `version` in `apps/desktop/src-tauri/tauri.conf.json` (the build fails if
-   the tag and this version disagree).
-2. Tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
-3. Actions → **Desktop release** builds Linux and macOS in parallel, then a
-   final job creates a **draft** release named `Oh hi markdown v0.1.0`.
-4. Check the assets, then publish — or leave it a draft, visible to repo
-   members only.
+**Every push to `main` is a release.** Actions → **Desktop release** builds
+Linux and macOS in parallel, then publishes a **prerelease** `v<major>.<minor>.<run>`,
+for example `v0.1.42`: major and minor come from `version` in
+`apps/desktop/src-tauri/tauri.conf.json`, and the patch is the workflow's run
+number, so every build counts up, which the updater needs. The version is
+injected at build time (`tauri build --config`), and `tauri.conf.json` keeps
+its base. About five minutes later the team host's pull picks the release up: the web
+app switches over and installed desktop apps offer the update.
 
-Without a tag: Actions → Desktop release → **Run workflow** creates a draft
-pre-release tagged `v<version>-dogfood.<run number>` (the tag only exists once
-someone publishes it). Re-running when that draft exists fails at the release
-step: delete the draft first.
+- **Bursts collapse.** A newer push to `main` cancels the build in progress
+  (`cancel-in-progress`), so ten merges in a row produce one release, not ten.
+- **Docs-only pushes don't build** (`docs/**`, root `*.md`, `.claude/**`).
+  Other markdown does build: the web app bundles `templates/*.md`.
+- **The release is atomic.** It is created as a draft, every asset is
+  attached, and only then is it published. A run cancelled in that window
+  leaves an orphan draft: delete it in the Releases page.
+- **Run workflow** on `main` behaves like a push. On any other branch it makes
+  a **draft** prerelease that the team host never sees, for trying a build by hand.
 
-The bundled web app gets `VITE_DEFAULT_RELAY` from the repository variable
-**`DEFAULT_RELAY`** (Settings → Secrets and variables → Actions → Variables);
-set it to the team relay, `wss://relay.ohhi.md`.
+**Tagged releases** are still possible: bump `version` in `tauri.conf.json`,
+then `git tag v0.2.0 && git push origin v0.2.0`. The build fails if the tag and
+the version disagree, and the result is a **draft** release to check and publish
+by hand. Mind the ordering: `v0.2.0` sorts *below* the `v0.2.<run>` builds
+that follow it on `main`, so a tag marks a milestone; it is not the update
+channel.
+
+### Build settings
+
+| Setting | Kind | Effect |
+| --- | --- | --- |
+| `TEAM_HOST` | repository variable | Bare hostname of the team host, e.g. `ohhi.<tailnet>.ts.net`. Sets the default relay to `wss://<host>/relay`, pins the CSP to that host (below) and points the updater at `https://<host>/updates/latest.json`. Unset → none of that, and no `latest.json`. |
+| `DEFAULT_RELAY` | repository variable | Fallback default relay when `TEAM_HOST` is unset. |
+| `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
+
+A relay saved in Settings › Sync always wins over the build's default.
 
 ### What lands where
 
-| Asset | Platform |
-| --- | --- |
-| `ohhi_<version>_amd64.AppImage` | Linux x86_64, any distro with glibc ≥ 2.35 (Ubuntu 22.04+) |
-| `ohhi_<version>_amd64.deb` | Debian / Ubuntu 22.04+ |
-| `ohhi_<version>_universal.dmg` | macOS, Apple Silicon and Intel in one file |
-| `SHA256SUMS.txt` | checksums of the above |
+Each release carries, flat:
 
-The same files stay as workflow artifacts for 14 days. There are no Windows or
-Linux arm64 builds. macOS is one universal build so nobody downloads the wrong
-one; it costs about the same runner minutes, since each arch compiles once
-either way.
+| Asset | What |
+| --- | --- |
+| `ohhi_<version>_amd64.AppImage` | Linux x86_64, any distro with glibc ≥ 2.35 (Ubuntu 22.04+). **Updates itself.** |
+| `ohhi_<version>_amd64.AppImage.sig` | its updater signature |
+| `ohhi_<version>_amd64.deb` | Debian / Ubuntu 22.04+. Install-only: does not auto-update. |
+| `ohhi_<version>_universal.dmg` | macOS installer, Apple Silicon and Intel in one file |
+| `ohhi_<version>_universal.app.tar.gz` | macOS updater bundle (the bundler's `ohhi.app.tar.gz`, renamed) |
+| `ohhi_<version>_universal.app.tar.gz.sig` | its updater signature |
+| `web.tar.gz` | the web app's `dist/`, with `index.html` and `_headers` at the archive root (as `./…`) |
+| `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set; its URLs point at `https://<host>/updates/<tag>/<file>` |
+| `SHA256SUMS.txt` | checksums of all the above |
+
+The build artifacts also stay in the workflow run for 14 days. There are no
+Windows or Linux arm64 builds. macOS is one universal build so nobody downloads
+the wrong one; it costs about the same runner minutes, since each arch compiles
+once either way. macOS minutes on a private repo are billed at a multiple of
+Linux's. If the budget bites, move desktop builds to a path filter or a nightly
+schedule and keep the web app per push.
 
 **Signing:** macOS builds are ad-hoc signed (`bundle.macOS.signingIdentity: "-"`)
-and not notarized; Linux packages are unsigned; there is no auto-updater yet.
+and not notarized; Linux packages are unsigned. Updates are signed separately
+with the updater key, and the app refuses an update whose signature doesn't
+match the public key it was built with.
+
+### Updates
+
+<!-- updater: extended by the desktop-updater change -->
+Installed apps check `https://<team host>/updates/latest.json` and offer to
+restart into a newer version. That works only on the tailnet: off it, the check
+fails quietly. The macOS app updates through the `.app.tar.gz`, and the Linux
+AppImage replaces itself in place. A `.deb` install never updates: reinstall
+from the newest release, or switch to the AppImage. On macOS only the first
+install needs the Gatekeeper step below, because an update the app downloads
+itself is not quarantined.
 
 ## Installing (teammates)
 
@@ -177,17 +221,32 @@ origin: script injection is blocked, but script that did run could send data
 anywhere over TLS. The policy narrows the side channels, not the main one. Any
 of these would close it:
 
-1. **Pin at build time** — release builds bake the team relay
-   (`vars.DEFAULT_RELAY`) into `connect-src`. Cheap and right for a
-   single-relay team, but gives up "any relay".
-2. **Pin the hosted web app per deployment** — a Pages deployment serves one
-   relay anyway, so `_headers` can name just that one.
+1. **Pin at build time** — release builds bake the team host into
+   `connect-src`. Cheap and right for a single-relay team, but gives up "any
+   relay". **Applied to team builds** (below).
+2. **Pin the hosted web app per deployment** — a deployment serves one relay
+   anyway, so `_headers` can name just that one. The same pin covers it: the
+   team host serves the `_headers` of the build it runs.
 3. **Move the network into Rust** (the real fix for desktop) — a Tauri command
    owns the relay WebSocket and admin calls against an allowlist the user
    approved in a native dialog, the tokens leave the webview, and
    `connect-src` shrinks to `'self' ipc: http://ipc.localhost`. With a scoped
    filesystem grant, an injected script could then neither read much nor send
    it anywhere.
+
+**Team builds are pinned (option 1).** When the repository variable
+`TEAM_HOST` is set, the release workflow runs
+`node apps/desktop/scripts/pin-csp.mjs <host>` before the web build. It
+replaces `wss: https:` in both policies' `connect-src` with
+`wss://<host> https://<host>`, so the desktop app and the web app the team host
+serves can reach the team host (relay, admin API) and loopback, and nothing
+else. The script edits only those bytes, a second run is a no-op, and it fails
+if a policy has neither the unpinned sources nor this host's, so a team build
+can't ship unpinned without anyone noticing. `check-csp.mjs` still compares the
+pinned policies. The committed policies and local builds stay unpinned, and so
+does a relay saved in Settings that points elsewhere. On a pinned build that
+relay is refused: switching relays means a build without `TEAM_HOST`. The
+updater's own requests come from Rust, outside the webview's CSP.
 
 ### Verifying
 

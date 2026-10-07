@@ -1,17 +1,40 @@
 # Desktop release: builds the Tauri 2 app for Linux (AppImage + .deb) and macOS
-# (one universal .dmg), then publishes them as a DRAFT GitHub Release.
-# How to cut one, where artifacts land, install notes: docs/desktop-builds.md.
+# (one universal .dmg + updater bundle), plus the web app as web.tar.gz, and
+# publishes them as one GitHub Release. How it flows, where artifacts land,
+# install notes: docs/desktop-builds.md.
+#
+# Three channels:
+# - push to main (or Run workflow on main): the CONTINUOUS channel. Version
+#   <major>.<minor>.<run number> from tauri.conf.json, tag v<version>, a
+#   PUBLISHED prerelease. the team host's pull script picks it up (latest.json, the web
+#   app) and installed desktop apps update from it. Bursts collapse:
+#   cancel-in-progress keeps only the newest main build running.
+# - tag v*: the version in tauri.conf.json (must match the tag), a DRAFT
+#   release to check and publish by hand. Never cancelled.
+# - Run workflow on any other branch: a DRAFT prerelease, never seen by the team host.
 #
 # Security shape:
 # - Build jobs run third-party code (npm deps, cargo build scripts, the Tauri
 #   bundler) with a READ-ONLY token and no persisted git credentials. Only the
-#   small `release` job, which checks nothing out and builds nothing, can write.
+#   small `release` job, which checks nothing out and builds nothing, can write;
+#   it runs one script of ours (updater-manifest.mjs, handed over as an
+#   artifact by `meta`) with the runner's preinstalled node.
+# - The updater signing key (secret TAURI_SIGNING_PRIVATE_KEY) has to be in the
+#   build jobs, because the bundler signs as it bundles. Without the secret the
+#   build still succeeds, just without updater bundles or latest.json.
 # - Every third-party action is pinned to a full commit SHA (tag in the comment).
 name: Desktop release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    # Path filters apply to the branch push only; tag pushes always build.
+    # Not '**/*.md': apps/web bundles templates/*.md.
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
   workflow_dispatch:
 
 permissions:
@@ -19,56 +42,105 @@ permissions:
 
 concurrency:
   group: desktop-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  build:
-    name: build (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
+  meta:
+    name: version + release config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.version.outputs.version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # 22.04 = glibc 2.35 baseline: the AppImage/.deb run on 22.04 and newer.
-          - name: linux-x86_64
-            runner: ubuntu-22.04
-            rust-targets: ''
-            args: --bundles appimage,deb
-            artifacts: |
-              apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
-              apps/desktop/src-tauri/target/release/bundle/deb/*.deb
-          # One universal .dmg (arm64 + x86_64 lipo'd) instead of two per-arch
-          # jobs: teammates cannot download the wrong one, and total macOS
-          # minutes are about the same (each arch compiles once either way).
-          - name: macos-universal
-            runner: macos-15
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
-            args: --target universal-apple-darwin --bundles app,dmg
-            artifacts: |
-              apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      channel: ${{ steps.meta.outputs.channel }}
+      team_host: ${{ steps.meta.outputs.team_host }}
+      relay: ${{ steps.meta.outputs.relay }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Read app version
-        id: version
+      - name: Work out version, channel and team host
+        id: meta
+        env:
+          TEAM_HOST: ${{ vars.TEAM_HOST }}
+          DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
         run: |
-          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match apps/desktop/src-tauri/tauri.conf.json version $version"
+          base=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="$base"; channel=tagged
+            if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match apps/desktop/src-tauri/tauri.conf.json version $version"
+              exit 1
+            fi
+          else
+            # The updater compares semver, so every build must count up: the run
+            # number does, for this workflow's whole life.
+            version="$(echo "$base" | cut -d. -f1,2).${GITHUB_RUN_NUMBER}"
+            if [ "$GITHUB_REF" = refs/heads/main ]; then channel=continuous; else channel=draft; fi
+          fi
+          if [ -n "$TEAM_HOST" ] && ! [[ "$TEAM_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Repository variable TEAM_HOST must be a bare hostname, got '$TEAM_HOST'"
             exit 1
           fi
+          relay="${TEAM_HOST:+wss://$TEAM_HOST/relay}"
+          relay="${relay:-$DEFAULT_RELAY}"
+          {
+            echo "version=$version"
+            echo "tag=v$version"
+            echo "channel=$channel"
+            echo "team_host=$TEAM_HOST"
+            echo "relay=$relay"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::$channel build v$version (team host: ${TEAM_HOST:-none}, relay: ${relay:-none})"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-tools
+          path: apps/desktop/scripts/updater-manifest.mjs
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: build (${{ matrix.name }})
+    needs: meta
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04 = glibc 2.35 baseline: the AppImage/.deb run on 22.04 and newer.
+          # This job also packs the web app (web.tar.gz) the team host serves.
+          - name: linux-x86_64
+            runner: ubuntu-22.04
+            rust-targets: ''
+            args: --bundles appimage,deb
+            bundle-dir: apps/desktop/src-tauri/target/release/bundle
+          # One universal build (arm64 + x86_64 lipo'd) instead of two per-arch
+          # jobs: teammates cannot download the wrong one, and total macOS
+          # minutes are about the same (each arch compiles once either way).
+          # `app` makes the updater bundle (.app.tar.gz), `dmg` the installer.
+          - name: macos-universal
+            runner: macos-15
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles app,dmg
+            bundle-dir: apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      TEAM_HOST: ${{ needs.meta.outputs.team_host }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Tauri system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -84,18 +156,49 @@ jobs:
       - name: Rush install
         run: node common/scripts/install-run-rush.js install
 
+      # Team builds talk to one host, so both policies name only it
+      # (docs/desktop-builds.md, "The connect-src trade-off", option 1). Edits
+      # the working tree before anything reads the policies.
+      - name: Pin the CSP to the team host
+        if: env.TEAM_HOST != ''
+        run: node apps/desktop/scripts/pin-csp.mjs "$TEAM_HOST"
+
       # tauri.conf.json's beforeBuildCommand is intentionally empty (Rush drives
       # the web app; see apps/desktop/README.md), so the frontend is built here,
       # where the release-time env is visible in the workflow, before Tauri
-      # embeds apps/web/dist.
+      # embeds apps/web/dist. Every job builds it with the same env.
       - name: Build web app
         working-directory: apps/web
         env:
-          VITE_DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
+          VITE_DEFAULT_RELAY: ${{ needs.meta.outputs.relay }}
         run: node ../../common/scripts/install-run-rushx.js build
 
       - name: CSP guard
         run: node apps/desktop/scripts/check-csp.mjs
+
+      # Archive root = dist/, so index.html and _headers are top-level.
+      - name: Pack the web app
+        if: runner.os == 'Linux'
+        run: tar -czf "$RUNNER_TEMP/web.tar.gz" -C apps/web/dist .
+
+      # Merged over tauri.conf.json by `tauri build --config`: the build's
+      # version, updater bundles (only when the signing key is present, so the
+      # base config and local builds never need it) and the update feed.
+      - name: Release config
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          signed=false
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && signed=true
+          [ "$signed" = true ] || echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: no updater bundles in this build"
+          SIGNED="$signed" node -e '
+            const c = { version: process.env.VERSION }
+            if (process.env.SIGNED === "true") c.bundle = { createUpdaterArtifacts: true }
+            if (process.env.TEAM_HOST)
+              c.plugins = { updater: { endpoints: [`https://${process.env.TEAM_HOST}/updates/latest.json`] } }
+            require("fs").writeFileSync(process.argv[1], JSON.stringify(c, null, 2))
+            console.log(JSON.stringify(c, null, 2))
+          ' "$RUNNER_TEMP/tauri.release.json"
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
@@ -116,70 +219,127 @@ jobs:
       # Application .p12; APPLE_PASSWORD = app-specific password), uncomment,
       # and drop signingIdentity "-" from tauri.conf.json.
       - name: Build desktop app
-        id: tauri
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
-        # env:
-        #   APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        #   APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        #   APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        #   APPLE_ID: ${{ secrets.APPLE_ID }}
-        #   APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        #   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # The key has no password; set explicitly so the CLI never prompts.
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: apps/desktop
           tauriScript: ${{ github.workspace }}/apps/desktop/node_modules/.bin/tauri
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config ${{ runner.temp }}/tauri.release.json
           uploadUpdaterJson: false
+
+      # One flat folder per platform with release-ready names: the bundler calls
+      # the macOS updater bundle plain `ohhi.app.tar.gz`, so it gains the
+      # version and arch like every other asset; whitespace never reaches a URL.
+      - name: Collect assets
+        env:
+          BUNDLE_DIR: ${{ matrix.bundle-dir }}
+        run: |
+          out="$RUNNER_TEMP/assets"; mkdir -p "$out"
+          shopt -s nullglob
+          if [ "$RUNNER_OS" = Linux ]; then
+            cp "$BUNDLE_DIR"/appimage/*.AppImage "$BUNDLE_DIR"/appimage/*.AppImage.sig "$BUNDLE_DIR"/deb/*.deb "$out"/
+            cp "$RUNNER_TEMP/web.tar.gz" "$out"/
+          else
+            cp "$BUNDLE_DIR"/dmg/*.dmg "$out"/
+            for f in "$BUNDLE_DIR"/macos/*.app.tar.gz "$BUNDLE_DIR"/macos/*.app.tar.gz.sig; do
+              name=$(basename "$f")              # ohhi.app.tar.gz[.sig]
+              cp "$f" "$out/${name%%.app.tar.gz*}_${VERSION}_universal.app.tar.gz${name#*.app.tar.gz}"
+            done
+          fi
+          for f in "$out"/*; do
+            name=$(basename "$f"); clean="${name//[[:space:]]/_}"
+            [ "$clean" = "$name" ] || mv "$f" "$out/$clean"
+          done
+          ls -l "$out"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ohhi-${{ matrix.name }}
-          path: ${{ matrix.artifacts }}
+          path: ${{ runner.temp }}/assets/*
           if-no-files-found: error
           retention-days: 14
 
   release:
-    name: draft release
-    needs: build
+    name: release
+    needs: [meta, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      TAG: ${{ needs.meta.outputs.tag }}
+      CHANNEL: ${{ needs.meta.outputs.channel }}
+      TEAM_HOST: ${{ needs.meta.outputs.team_host }}
+      RELAY: ${{ needs.meta.outputs.relay }}
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          pattern: ohhi-*
           path: assets
           merge-multiple: true
 
-      # A multi-path upload is rooted at the paths' common ancestor, so the Linux
-      # artifact arrives as appimage/ and deb/ subfolders: flatten first.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-tools
+          path: tools
+
+      # the team host fetches every asset from https://<team host>/updates/<tag>/, so
+      # latest.json's URLs point there, not at GitHub (a private repo's assets
+      # need credentials the updater doesn't have).
+      - name: Updater manifest
+        if: env.TEAM_HOST != ''
+        run: |
+          if ! ls assets/*.sig >/dev/null 2>&1; then
+            echo "::warning::No updater signatures in this build (TAURI_SIGNING_PRIVATE_KEY unset?): no latest.json"
+            exit 0
+          fi
+          node tools/updater-manifest.mjs --dir assets --version "$VERSION" \
+            --base-url "https://$TEAM_HOST/updates/$TAG" \
+            --notes "Build ${GITHUB_SHA::12} of $GITHUB_REF_NAME"
+          cat assets/latest.json
+
       - name: Checksums
         working-directory: assets
         run: |
-          find . -mindepth 2 -type f -exec mv -t . {} +
-          find . -mindepth 1 -type d -empty -delete
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Create draft release
+      # Created as a draft and published only once every asset is attached, so
+      # nothing (the team host's pull, a teammate) ever sees a half-uploaded release.
+      # A run cancelled in between leaves an orphan draft: delete it by hand.
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
-          DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
         run: |
-          if [ "$GITHUB_REF_TYPE" = tag ]; then
-            tag="$GITHUB_REF_NAME"; pre=()
-          else
-            tag="v${VERSION}-dogfood.${GITHUB_RUN_NUMBER}"; pre=(--prerelease)
-          fi
+          case "$CHANNEL" in
+            continuous) pre=(--prerelease --latest=false); publish=true ;;
+            draft)      pre=(--prerelease --latest=false); publish=false ;;
+            tagged)     pre=();                            publish=false ;;
+          esac
           docs="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/docs/desktop-builds.md"
-          notes="Dogfood build of ${GITHUB_SHA::12} (default relay: ${DEFAULT_RELAY:-none}).
+          notes="Build of ${GITHUB_SHA::12} from $GITHUB_REF_NAME ($CHANNEL; relay: ${RELAY:-none}; update feed: ${TEAM_HOST:+https://$TEAM_HOST/updates/latest.json}).
 
           Unsigned builds: macOS is ad-hoc signed and not notarized. Install notes: $docs
           Verify downloads against SHA256SUMS.txt (\`sha256sum -c SHA256SUMS.txt --ignore-missing\`)."
-          gh release create "$tag" assets/* \
+          gh release create "$TAG" assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --draft "${pre[@]}" \
             --target "$GITHUB_SHA" \
-            --title "Oh hi markdown $tag" \
+            --title "Oh hi markdown $TAG" \
             --notes "$notes"
+          if [ "$publish" = true ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+            echo "::notice::Published $TAG"
+          else
+            echo "::notice::Draft $TAG created: check the assets and publish it by hand"
+          fi
