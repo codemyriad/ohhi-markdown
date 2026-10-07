@@ -17,5 +17,40 @@ export {
   type MarkdownEditorHandle,
   type MarkdownEditorOptions,
 } from './markdown-editor.js'
+export {
+  cycleHeading,
+  cmKey,
+  editorKeymap,
+  FORMAT_COMMANDS,
+  formatKeymap,
+  insertImage,
+  insertLink,
+  insertTable,
+  insertWikilink,
+  runFormat,
+  setHeading,
+  toggleBold,
+  toggleBulletList,
+  toggleHeading,
+  toggleInlineCode,
+  toggleItalic,
+  toggleOrderedList,
+  toggleQuote,
+  toggleStrike,
+  toggleTaskList,
+  type EditorKey,
+  type EditorKeyId,
+  type FormatBindings,
+  type FormatCommand,
+  type FormatCommandId,
+} from './format.js'
 export { editorHighlightStyle, editorTheme, themeModeCompartment } from './theme.js'
+export { selectedTextIn } from './selection.js'
+export {
+  centreTarget,
+  typewriterCompartment,
+  typewriterExtension,
+  typewriterScrolling,
+  type TypewriterInput,
+} from './typewriter.js'
 export type { ViewMode } from '@ohhi/editor-lang'

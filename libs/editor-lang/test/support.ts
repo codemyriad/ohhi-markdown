@@ -5,7 +5,7 @@
  */
 import { ensureSyntaxTree } from '@codemirror/language'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { buildPreview } from '../src/preview/build.js'
 import {
   Frontmatter,
@@ -78,6 +78,8 @@ export interface StateOptions {
   host?: ReadHost
   /** Only the tests that care about resolved-vs-unresolved links pass one. */
   linkHost?: WikiLinkHost
+  /** Anything else libs/editor installs that a test needs (e.g. `indentUnit`). */
+  extensions?: Extension[]
 }
 
 export function makeState(doc: string, opts: StateOptions = {}): EditorState {
@@ -98,6 +100,7 @@ export function makeState(doc: string, opts: StateOptions = {}): EditorState {
       modeCompartment.of(previewMode.of(opts.mode ?? 'live')),
       readHost.of(opts.host ?? testHost()),
       opts.linkHost ? wikiLinkHost.of(opts.linkHost) : [],
+      opts.extensions ?? [],
     ],
   })
   // Node has no idle time, so make the parse complete before anything reads the

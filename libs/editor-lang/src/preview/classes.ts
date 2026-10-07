@@ -15,3 +15,5 @@ export const WIKILINK = 'cm-wikilink cm-live-link'
 export const WIKILINK_UNRESOLVED = 'cm-wikilink-unresolved cm-live-link'
 export const RAW_WIKILINK = 'cm-wikilink'
 export const RAW_WIKILINK_UNRESOLVED = 'cm-wikilink-unresolved'
+/** A list item's line; carries `--cm-list-depth` for the indent and the guides. */
+export const LIST_LINE = 'cm-list-line'

@@ -141,7 +141,53 @@ const editorBaseTheme = EditorView.theme({
     padding: '0.1em 0.3em',
   },
 
-  '.cm-bullet': { color: 'var(--ed-bullet)' },
+  // Lists (Chris, 2026-10-06 — Obsidian's list, measured off its screenshot).
+  // Every list line carries `--cm-list-depth` from the syntax tree; nothing is
+  // measured. A tab IS one level (the vault's indent unit), so a tab stop of
+  // `--ed-list-indent` makes each level that wide; the bullet's box is the same
+  // width, so a child's dot sits under its parent's text. The guides are one
+  // repeating gradient, `depth` columns wide, a hairline every level, centred
+  // on the dot of each ancestor (line padding 1rem + the dot's centre 0.4em).
+  // Source has no list-line class, so it keeps the four-column tabs.
+  '.cm-list-line': {
+    tabSize: 'var(--ed-list-indent)',
+    backgroundImage:
+      'repeating-linear-gradient(to right, var(--ed-list-guide) 0 1px, transparent 1px var(--ed-list-indent))',
+    backgroundSize: 'calc(var(--cm-list-depth, 0) * var(--ed-list-indent)) 100%',
+    backgroundPosition: 'calc(1rem + 0.4em - 0.5px) 0',
+    backgroundRepeat: 'no-repeat',
+  },
+  // The bullet's box is a plain INLINE span on the text baseline — never an
+  // inline-block. CM6 draws a caret beside a widget from the widget's client
+  // rect, and an inline-block's rect is its whole line box (line-height tall),
+  // while a text run's is the font's content area: the caret after the dot
+  // came out taller and higher than on a paragraph line. An inline span's rect
+  // is the same content area as the text beside it; the width is padding.
+  '.cm-bullet': {
+    display: 'inline',
+    verticalAlign: 'baseline',
+    lineHeight: 'inherit',
+    paddingRight: 'calc(var(--ed-list-indent) - 0.6em)',
+  },
+  // An empty item keeps its space as text after the dot (preview/build.ts
+  // says why); the box gives that space back so the line does not move when
+  // the first character replaces it. 0.243em is a space in Public Sans, the
+  // app's prose face — a theme with another face is off by the difference,
+  // on empty items only.
+  '.cm-bullet-open': { marginRight: '-0.243em' },
+  // A filled circle a little under half an em, centred on the x-height
+  // (`vertical-align: middle` is the baseline plus half the x-height). It is
+  // 0.4em tall inside a line far taller, so it never grows the line box.
+  '.cm-bullet::before': {
+    content: '""',
+    display: 'inline-block',
+    width: '0.4em',
+    height: '0.4em',
+    marginLeft: '0.2em',
+    borderRadius: '50%',
+    backgroundColor: 'var(--ed-bullet)',
+    verticalAlign: 'middle',
+  },
   '.cm-list-num': { color: 'var(--ed-bullet)' },
   '.cm-task': {
     accentColor: 'var(--ed-checkbox)',
@@ -240,6 +286,8 @@ const editorBaseTheme = EditorView.theme({
     borderLeftWidth: 'var(--ed-peer-caret-width)',
     borderRightWidth: 'var(--ed-peer-caret-width)',
   },
+  // The ink is per label (`peer-label.ts` picks it by the fill's luminance);
+  // this is the default for a fill it cannot parse.
   '.cm-ySelectionInfo': {
     color: 'var(--ed-peer-label-fg)',
     fontFamily: 'var(--ed-font-ui)',
