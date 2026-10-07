@@ -21,8 +21,12 @@
     vaults: VaultEntry[]
     shares: StoredShare[]
     prefillLink: string
-    /** Boot failure to surface — attached to its vault row when room matches. */
-    failure: { room: string | null; message: string } | null
+    /**
+     * Boot failure to surface — attached to its vault row when room matches.
+     * `access`: the desktop fs scope refused the folder (DEL-89); the row
+     * offers to allow access again.
+     */
+    failure: { room: string | null; message: string; access?: true } | null
     busy: boolean
     /** Shown when a workspace is open behind the manager (switcher route). */
     canGoBack: boolean
@@ -30,6 +34,8 @@
     currentRoom: string | null
     onOpenVault: (entry: VaultEntry) => void
     onRemoveVault: (room: string) => void
+    /** Reopen the picker on a refused vault's folder (DEL-89). */
+    onAllowAccess: (room: string) => void
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
     onJoin: (name: string, link: string) => void
@@ -62,6 +68,7 @@
     currentRoom,
     onOpenVault,
     onRemoveVault,
+    onAllowAccess,
     onOpenFolder,
     onCreateBrowserVault,
     onJoin,
@@ -221,8 +228,18 @@
                     data-testid="vault-error:{entry.room}"
                     class="mt-1 mb-2 px-2 text-xs text-error"
                   >
-                    {t.vault_error({ message: failure.message })}
+                    {failure.access ? failure.message : t.vault_error({ message: failure.message })}
                   </p>
+                  {#if failure.access}
+                    <button
+                      data-testid="allow-access:{entry.room}"
+                      disabled={busy}
+                      onclick={() => onAllowAccess(entry.room)}
+                      class="mb-2 ml-2 {OUTLINE_BUTTON} px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
+                    >
+                      {t.allow_access()}
+                    </button>
+                  {/if}
                 {/if}
               </li>
             {/each}

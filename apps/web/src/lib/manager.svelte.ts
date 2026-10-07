@@ -1,7 +1,8 @@
 /**
  * The vault manager's controller: the registry as the manager shows it, and
  * the four ways a vault gets into it — open a folder, create a browser vault,
- * join a share, link this device — plus the one way out.
+ * join a share, link this device — plus the one way out, and the way back in
+ * for a desktop vault whose folder access was lost (DEL-89).
  *
  * Every path ends in `session.boot(entry)`; what this module adds is the
  * registry write, the URL clean-up and the manager's own error rendering
@@ -31,14 +32,18 @@ import {
   type VaultSourceDesc,
 } from './config.js'
 import { newFolderGuid } from './boot.js'
+import { samePath } from './fs-access.js'
 import type { Session } from './session.svelte.js'
 import { decodeShareLink, shareLinkErrorText } from './share-link.js'
 
 /** What the manager needs from the platform. */
 export interface ManagerHost {
   isTauri(): boolean
-  /** The native folder picker; null when cancelled. */
-  pickFolder(): Promise<string | null>
+  /**
+   * The native folder picker; null when cancelled. On desktop the folder the
+   * user picks is what the webview may read and write (DEL-89).
+   */
+  pickFolder(defaultPath?: string): Promise<string | null>
   /** Empty AS THE VAULT ADAPTER SEES IT — `.git` and `.obsidian` do not count. */
   folderIsEmpty(path: string): Promise<boolean>
   /** Wipe a vault's durable stores; answers with the rooms whose config residue to purge. */
@@ -75,6 +80,12 @@ export interface Manager {
   /** Rejects with the reason — the dialog keeps the paste and shows it. */
   linkThisDevice(link: string): Promise<void>
   removeVault(room: string): Promise<void>
+  /**
+   * A desktop vault refused by the fs scope (`failure.access`): reopen the
+   * picker on its folder. Only that same folder is accepted; anything else is
+   * said and leaves the vault as it was. A cancel changes nothing.
+   */
+  allowAccessAgain(room: string): Promise<void>
   /** What the progress panel calls the place a vault is being written. */
   destinationOf(vault: VaultSourceDesc): string
 }
@@ -286,6 +297,35 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     }
   }
 
+  async function allowAccessAgain(room: string): Promise<void> {
+    const entry = getVault(room)
+    if (!entry || entry.vault.kind !== 'tauri') return
+    const saved = entry.vault.path
+    session.busy = true
+    let picked: string | null
+    try {
+      picked = await host.pickFolder(saved)
+    } catch (err) {
+      session.failure = { room, message: message(err), access: true }
+      session.busy = false
+      return
+    }
+    if (!picked) {
+      session.busy = false
+      return
+    }
+    if (!samePath(picked, saved)) {
+      session.failure = {
+        room,
+        message: getLL().web.manager.access_wrong_folder({ picked, path: saved }),
+        access: true,
+      }
+      session.busy = false
+      return
+    }
+    await session.boot(entry)
+  }
+
   return {
     get vaults() {
       return vaults
@@ -306,6 +346,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     joinShare,
     linkThisDevice,
     removeVault,
+    allowAccessAgain,
     destinationOf,
   }
 }

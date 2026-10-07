@@ -877,6 +877,16 @@ const manager = {
   remove_note_disk:
     'Files on disk are never touched. Sync state, shares, and links for this vault are deleted — reopening the folder starts fresh with new share links.',
   vault_error: '{message:string} — fix the folder, or remove this entry (files are untouched).',
+  /**
+   * Desktop: the app may open only folders picked in this dialog (DEL-89).
+   * A vault picked before that rule, or whose grant was lost, is refused once.
+   */
+  access_lost: 'Oh hi markdown needs your permission to open this folder again. Your files are untouched.',
+  allow_access: 'Allow access to this folder again',
+  access_wrong_folder:
+    "You picked {picked:string}, which isn't this vault's folder ({path:string}). Nothing changed — pick the vault's own folder to allow access.",
+  /** The native folder dialog's title. */
+  pick_title: 'Choose a vault folder',
   add_vault: 'Add a vault',
   pick_folder: "Pick a folder on disk (use the dialog's New Folder to create a fresh vault).",
   open_folder: 'Open folder as vault…',

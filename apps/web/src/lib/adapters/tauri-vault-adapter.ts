@@ -12,6 +12,7 @@
  * `node:path` is unavailable in the webview, so small POSIX path helpers are
  * implemented inline below (all internal paths use '/').
  */
+import { getLL } from '@ohhi/i18n'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
   exists,
@@ -249,12 +250,20 @@ export class TauriVaultAdapter implements VaultAdapter {
 /**
  * Prompt the user to pick a vault folder. Returns the selected absolute path,
  * or null if the dialog was cancelled.
+ *
+ * The pick is also the grant (DEL-89): `recursive: true` makes the dialog
+ * plugin add the folder and everything under it to the fs scope, and the
+ * desktop shell persists that grant. Nothing else widens what the webview may
+ * read or write. `defaultPath` opens the dialog on a folder — the vault whose
+ * access is being allowed again.
  */
-export async function pickVaultFolder(): Promise<string | null> {
+export async function pickVaultFolder(defaultPath?: string): Promise<string | null> {
   const selected = await open({
     directory: true,
     multiple: false,
-    title: 'Choose a vault folder',
+    recursive: true,
+    title: getLL().web.manager.pick_title(),
+    ...(defaultPath ? { defaultPath } : {}),
   })
   // `open` can return string | string[] | null; narrow to a single path.
   if (Array.isArray(selected)) return selected[0] ?? null

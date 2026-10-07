@@ -56,13 +56,28 @@ packages are already installed there).
 
 ## Vault access & permissions
 
-The user picks a vault folder at runtime via the dialog plugin. For V1 dev,
-`src-tauri/capabilities/default.json` grants the fs plugin a blanket
-`$HOME/**` scope so any picked folder works.
+The webview can reach only the app's own data and the folders the user
+picked (DEL-89; `docs/desktop-builds.md` § Installing and § Threat model):
 
-**TODO (tighten before real dogfooding):** replace the blanket scope with
-`tauri-plugin-persisted-scope` or runtime-scoped grants keyed to the picked
-folder. See `plans/shaping.md` D6.
+- **Static scope** (`src-tauri/capabilities/default.json`): `$APPDATA/stores`
+  read-write; `$CONFIG/ohhi` (the user resource root) read-only, through
+  command scopes on `exists`, `read-dir` and `read-text-file`. Nothing under
+  `$HOME`.
+- **Picked folders**: `pickVaultFolder()` opens the dialog with
+  `recursive: true`, so the dialog plugin adds the folder to the fs plugin's
+  runtime scope. `tauri-plugin-persisted-scope` saves that scope to
+  `$APPDATA/.persisted-scope` and restores it on launch; the capability denies
+  that file to the webview, so it cannot grant itself more.
+- **Dot-entries**: the fs plugin matches its runtime scope with Tauri's
+  default, which on Unix never lets `**` match `.ohhi/` or `.obsidian/` and
+  ignores `plugins.fs.requireLiteralLeadingDot`. `granted_folders` in
+  `src-tauri/src/lib.rs` copies each runtime grant into a runtime capability,
+  which is matched with that flag (set to `false` in `tauri.conf.json`).
+- **Lost access**: a vault whose folder is refused ("forbidden path") shows
+  "Allow access to this folder again" in the vault manager, which reopens the
+  picker on that folder and accepts only that folder.
+- **Not revoked on remove**: Tauri's scope has no way to drop an allowed path,
+  only to forbid one, and a forbid would block picking the folder again later.
 
 ## Icons
 

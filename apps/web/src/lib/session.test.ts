@@ -105,6 +105,26 @@ describe('createSession', () => {
     expect(session.workspace).toBeNull()
   })
 
+  it('a desktop vault refused by the fs scope offers to allow access again (DEL-89)', async () => {
+    const T: VaultEntry = { name: 'T', room: 'room-t', vault: { kind: 'tauri', path: '/home/chris/vault' } }
+    const done = session.boot(T)
+    await tick()
+    // The fs plugin rejects with a plain string, not an Error.
+    pending[0]!.reject('forbidden path: /home/chris/vault' as unknown as Error)
+    await done
+    expect(session.view).toBe('manager')
+    expect(session.failure).toMatchObject({ room: 'room-t', access: true })
+    expect(session.failure?.message).not.toContain('forbidden')
+  })
+
+  it('a forbidden path on a browser vault is an ordinary failure', async () => {
+    const done = session.boot(A)
+    await tick()
+    pending[0]!.reject(new Error('forbidden path: x'))
+    await done
+    expect(session.failure).toEqual({ room: 'room-a', message: 'forbidden path: x' })
+  })
+
   it('a failure while a whole vault is arriving stays on the progress panel', async () => {
     session.joining = { entry: A, destination: 'browser' }
     const done = session.boot(A)

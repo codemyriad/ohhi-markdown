@@ -14,6 +14,8 @@
 import type { IndexSink, PullProgress, Workspace, WorkspaceConfig } from './workspace.svelte.js'
 import type { VaultEntry } from './config.js'
 import { touchVault } from './config.js'
+import { getLL } from '@ohhi/i18n'
+import { isAccessRefused } from './fs-access.js'
 import type { AppConfig, MemoryModeConfig } from './params.js'
 import { themePath, installUserTheme, themeState } from './theme.svelte.js'
 
@@ -23,6 +25,11 @@ export type SessionView = 'manager' | 'connecting' | 'workspace'
 export interface BootFailure {
   room: string | null
   message: string
+  /**
+   * The desktop fs scope refused the vault's folder (DEL-89): the manager
+   * offers "Allow access to this folder again" instead of a broken vault.
+   */
+  access?: true
 }
 
 /** A whole vault arriving (device-link N2): the two-phase panel's subject. */
@@ -137,7 +144,10 @@ export function createSession(host: SessionHost): Session {
       host.onOpened(ws, entry)
     } catch (err) {
       if (gen !== bootGen) return
-      failure = { room: entry.room, message: err instanceof Error ? err.message : String(err) }
+      failure =
+        entry.vault.kind === 'tauri' && isAccessRefused(err)
+          ? { room: entry.room, message: getLL().web.manager.access_lost(), access: true }
+          : { room: entry.room, message: err instanceof Error ? err.message : String(err) }
       if (!joining) view = 'manager'
     } finally {
       if (gen === bootGen) busy = false
