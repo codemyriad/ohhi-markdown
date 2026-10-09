@@ -10,7 +10,15 @@ The team host it publishes to (the team host, over the company tailnet) is descr
 
 ## How releases happen
 
-**Every push to `main` is a release.** Actions → **Desktop release** builds
+**Every push to the `release` branch is a release.** Pushing to `main` runs CI
+only; to ship, move `release` to the commit you want:
+
+```sh
+git push origin main:release          # ship what's on main
+git push -f origin <sha>:release      # ship (or go back to) a specific commit
+```
+
+Actions → **Desktop release** then builds
 Linux and macOS in parallel, then publishes a **prerelease** `v<major>.<minor>.<run>`,
 for example `v0.1.42`: major and minor come from `version` in
 `apps/desktop/src-tauri/tauri.conf.json`, and the patch is the workflow's run
@@ -19,21 +27,25 @@ injected at build time (`tauri build --config`), and `tauri.conf.json` keeps
 its base. About five minutes later the team host's pull picks the release up: the web
 app switches over and installed desktop apps offer the update.
 
-- **Bursts collapse.** A newer push to `main` cancels the build in progress
-  (`cancel-in-progress`), so ten merges in a row produce one release, not ten.
+- **Shipping is a deliberate step.** Each build costs about 20 Linux minutes
+  plus about 3 macOS minutes (billed at a multiple) of the org's Actions
+  budget, so builds are not tied to merges.
+- **Bursts collapse.** A newer push to `release` cancels the build in
+  progress (`cancel-in-progress`). The run number still counts up, so even a
+  push of an older commit gets a higher version and installed apps take it.
 - **Docs-only pushes don't build** (`docs/**`, root `*.md`, `.claude/**`).
   Other markdown does build: the web app bundles `templates/*.md`.
 - **The release is atomic.** It is created as a draft, every asset is
   attached, and only then is it published. A run cancelled in that window
   leaves an orphan draft: delete it in the Releases page.
-- **Run workflow** on `main` behaves like a push. On any other branch it makes
+- **Run workflow** on `release` behaves like a push. On any other branch it makes
   a **draft** prerelease that the team host never sees, for trying a build by hand.
 
 **Tagged releases** are still possible: bump `version` in `tauri.conf.json`,
 then `git tag v0.2.0 && git push origin v0.2.0`. The build fails if the tag and
 the version disagree, and the result is a **draft** release to check and publish
 by hand. Mind the ordering: `v0.2.0` sorts *below* the `v0.2.<run>` builds
-that follow it on `main`, so a tag marks a milestone; it is not the update
+that follow it on `release`, so a tag marks a milestone; it is not the update
 channel.
 
 ### Build settings

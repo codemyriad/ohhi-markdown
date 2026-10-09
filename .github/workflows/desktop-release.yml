@@ -4,11 +4,14 @@
 # install notes: docs/desktop-builds.md.
 #
 # Three channels:
-# - push to main (or Run workflow on main): the CONTINUOUS channel. Version
+# - push to the `release` branch (or Run workflow on it): the CONTINUOUS
+#   channel. Pushing to main builds nothing here (CI still runs), so Actions
+#   minutes are spent only when someone ships: `git push origin main:release`.
+#   Version
 #   <major>.<minor>.<run number> from tauri.conf.json, tag v<version>, a
 #   PUBLISHED prerelease. the team host's pull script picks it up (latest.json, the web
 #   app) and installed desktop apps update from it. Bursts collapse:
-#   cancel-in-progress keeps only the newest main build running.
+#   cancel-in-progress keeps only the newest release build running.
 # - tag v*: the version in tauri.conf.json (must match the tag), a DRAFT
 #   release to check and publish by hand. Never cancelled.
 # - Run workflow on any other branch: a DRAFT prerelease, never seen by the team host.
@@ -27,7 +30,7 @@ name: Desktop release
 
 on:
   push:
-    branches: [main]
+    branches: [release]
     tags: ['v*']
     # Path filters apply to the branch push only; tag pushes always build.
     # Not '**/*.md': apps/web bundles templates/*.md.
@@ -42,7 +45,7 @@ permissions:
 
 concurrency:
   group: desktop-release-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/release' }}
 
 defaults:
   run:
@@ -83,7 +86,7 @@ jobs:
             # The updater compares semver, so every build must count up: the run
             # number does, for this workflow's whole life.
             version="$(echo "$base" | cut -d. -f1,2).${GITHUB_RUN_NUMBER}"
-            if [ "$GITHUB_REF" = refs/heads/main ]; then channel=continuous; else channel=draft; fi
+            if [ "$GITHUB_REF" = refs/heads/release ]; then channel=continuous; else channel=draft; fi
           fi
           if [ -n "$TEAM_HOST" ] && ! [[ "$TEAM_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
             echo "::error::Repository variable TEAM_HOST must be a bare hostname, got '$TEAM_HOST'"
