@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { getLL } from '@ohhi/i18n'
 import type { AppEvent } from '@ohhi/workspace'
-import { cleanup, render, screen, within } from '@testing-library/svelte'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Tab } from '../panes.js'
@@ -13,6 +13,7 @@ import SharedView from './SharedView.svelte'
 afterEach(cleanup)
 
 const t = getLL().web.shared
+const card = getLL().web.relay_card
 const NOW = new Date(2026, 9, 3, 15, 0).getTime()
 const MIN = 60_000
 
@@ -31,6 +32,10 @@ function setup(over: {
   events?: AppEvent[]
   secret?: string
   relayKnown?: boolean
+  pinnedHost?: string
+  teamRelay?: string
+  networkNote?: string
+  probe?: (url: string) => Promise<{ ok: true } | { ok: false; reason: 'unreachable' | 'unhealthy' | 'timeout' }>
 } = {}) {
   const ui = {
     mounts: over.mounts ?? [CS, MY],
@@ -49,7 +54,17 @@ function setup(over: {
   }
   const workspace = { room: 'root', user: { name: 'Chris', color: '#000' }, ui, startedAt: 0, rootRelayUrl: () => 'wss://relay.ohhi.md' }
   const shell: ViewShell = {
-    clock: { now: () => NOW, schedule: () => () => {} },
+    // Short waits (the card's probe debounce) run on the next microtask; the tick never.
+    clock: {
+      now: () => NOW,
+      schedule: (fn: () => void, ms: number) => {
+        let live = true
+        if (ms <= 500) queueMicrotask(() => live && fn())
+        return () => {
+          live = false
+        }
+      },
+    },
     openPath: vi.fn(),
     openView: vi.fn(),
     createFromLink: vi.fn(),
@@ -67,14 +82,19 @@ function setup(over: {
     inSyncByRoom: () => ({ cs: { since: NOW - 2 * MIN } }),
   }
   const list = vi.fn(async () => [])
+  const probe = vi.fn(over.probe ?? (async () => ({ ok: true as const })))
   render(SharedView, {
     workspace: workspace as unknown as Workspace,
     tab: { id: 't', path: null, view: 'shared' } as Tab,
     shell,
     clock: shell.clock,
     list,
+    probe,
+    pinnedHost: over.pinnedHost ?? '',
+    teamRelay: over.teamRelay ?? '',
+    networkNote: over.networkNote ?? '',
   })
-  return { shell, user: userEvent.setup() }
+  return { shell, probe, user: userEvent.setup() }
 }
 
 describe('SharedView (sharing E2)', () => {
@@ -82,8 +102,11 @@ describe('SharedView (sharing E2)', () => {
     const { shell, user } = setup({ mounts: [] })
     const empty = screen.getByTestId('shared-empty')
     expect(empty).toHaveTextContent(t.empty.title())
-    expect(screen.getByTestId('shared-empty-relay')).toHaveTextContent(t.empty.no_relay())
-    expect(screen.queryByTestId('relay-card')).toBeNull()
+    // No relay known: the card's none state, never a probe.
+    const relay = within(screen.getByTestId('shared-empty-relay')).getByTestId('relay-card')
+    expect(relay).toHaveAttribute('data-state', 'none')
+    expect(relay).toHaveTextContent(card.none_host())
+    expect(relay).toHaveTextContent(card.none_body())
     await user.click(within(empty).getByTestId('shared-add'))
     expect(shell.addSharedFolder).toHaveBeenCalled()
     await user.click(within(empty).getByTestId('shared-link-device'))
@@ -97,22 +120,44 @@ describe('SharedView (sharing E2)', () => {
     expect(shell.shareFolder).toHaveBeenCalledWith('notes')
   })
 
-  it('the empty state’s footer reads the relay, not the secret (first-run D3)', () => {
-    // A team build with the relay baked in and no secret yet: where shares go, and what is still needed.
-    setup({ mounts: [], relayKnown: true })
-    const footer = screen.getByTestId('shared-empty-relay')
-    expect(footer).toHaveTextContent(t.empty.relay_is({ host: 'relay.ohhi.md' }))
-    expect(footer).toHaveTextContent(t.empty.secret_once())
-    expect(footer).not.toHaveTextContent(t.empty.no_relay())
+  it('the empty state’s relay card reads the relay, not the secret (first-run D1/D3)', async () => {
+    // A team build with the relay baked in and no secret yet: where shares go, probed, and what is still needed.
+    const { probe } = setup({ mounts: [], relayKnown: true, teamRelay: 'wss://relay.ohhi.md', networkNote: 'Tailnet only.' })
+    const block = screen.getByTestId('shared-empty-relay')
+    expect(block).toHaveTextContent(t.empty.relay_label())
+    const relay = within(block).getByTestId('relay-card')
+    await waitFor(() => expect(relay).toHaveAttribute('data-state', 'reachable'))
+    expect(probe).toHaveBeenCalledWith('wss://relay.ohhi.md')
+    expect(relay).toHaveTextContent('relay.ohhi.md')
+    expect(relay).toHaveTextContent(card.team())
+    expect(relay).toHaveTextContent('Tailnet only.')
+    expect(block).toHaveTextContent(t.empty.secret_once())
+    // The host is said once: the card carries it, nothing repeats it.
+    expect(block.textContent!.match(/relay\.ohhi\.md/g)).toHaveLength(1)
     cleanup()
     // With the secret saved, only where shares go.
     setup({ mounts: [], relayKnown: true, secret: 's3cret' })
-    expect(screen.getByTestId('shared-empty-relay')).toHaveTextContent(t.empty.relay_is({ host: 'relay.ohhi.md' }))
     expect(screen.getByTestId('shared-empty-relay')).not.toHaveTextContent(t.empty.secret_once())
     cleanup()
-    // A secret but no relay known (the dev fallback only) still says none is configured.
+    // A secret but no relay known (the dev fallback only): none.
     setup({ mounts: [], relayKnown: false, secret: 's3cret' })
-    expect(screen.getByTestId('shared-empty-relay')).toHaveTextContent(t.empty.no_relay())
+    expect(screen.getByTestId('relay-card')).toHaveAttribute('data-state', 'none')
+  })
+
+  it('the empty state in a pinned build: one host only, nothing to change', async () => {
+    setup({ mounts: [], relayKnown: true, pinnedHost: 'relay.ohhi.md' })
+    const relay = screen.getByTestId('relay-card')
+    expect(relay).toHaveTextContent(card.pinned({ host: 'relay.ohhi.md' }))
+    expect(within(relay).queryByRole('button', { name: card.change() })).toBeNull()
+    cleanup()
+    const generic = setup({ mounts: [], relayKnown: true })
+    await generic.user.click(within(screen.getByTestId('relay-card')).getByRole('button', { name: card.change() }))
+    expect(generic.shell.openSettings).toHaveBeenCalledWith('sync')
+  })
+
+  it('can’t reach the relay from here: said on the card, before anything is shared', async () => {
+    setup({ mounts: [], relayKnown: true, probe: async () => ({ ok: false, reason: 'unreachable' }) })
+    await waitFor(() => expect(screen.getByTestId('relay-card')).toHaveTextContent(card.unreachable()))
   })
 
   it('the relay card says connected, rooms, people and since when it is in sync with the relay — never "durable"', () => {

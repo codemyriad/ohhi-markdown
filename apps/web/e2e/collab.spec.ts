@@ -63,7 +63,6 @@ test('link a device into OPFS: the panel, then materialize, co-edit and reopen',
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   await page.goto(MANAGER_URL)
-  await page.getByTestId('manager-name').fill('Bob')
   await page.getByTestId('open-link-device').click()
   await expect(page.getByTestId('link-device-dialog')).toBeVisible()
   await page.getByTestId('link-device-input').fill(link)

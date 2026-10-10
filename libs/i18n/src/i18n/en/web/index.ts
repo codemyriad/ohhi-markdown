@@ -484,6 +484,7 @@ const commands = {
     developer: 'Developer',
     format: 'Format',
     templates: 'Templates',
+    help: 'Help',
   },
   /**
    * The `format.*` rows (quiet-shell F4): one per entry of `FORMAT_COMMANDS`
@@ -823,9 +824,9 @@ const shared = {
     add_body: 'Paste the link they sent. It lands inside this vault, beside your notes.',
     link_title: 'Use this vault on another device',
     link_body: 'Syncs the whole vault to a laptop or a second desk. Only yours: never share this link.',
-    no_relay: 'No relay configured. You will choose one the first time you share.',
-    relay_is: 'Shares go through {host:string}.',
-    /** After `relay_is` when no operator secret is saved yet (first-run D3). */
+    /** Above the relay card (first-run D1/D3): where shares go, read from the RELAY, not the secret. */
+    relay_label: 'Shares go through',
+    /** Under the card when a relay is known and no operator secret is saved yet (first-run D3). */
     secret_once: 'To create links you will need the team’s secret once.',
   },
   /** The tree's change tick (sharing E3). */
@@ -837,6 +838,48 @@ const shared = {
     help: 'Everything inside it will sync to anyone holding its link.',
     none: 'No folder can be shared yet: make a folder first, outside any shared folder.',
     next: 'Continue',
+  },
+}
+
+/**
+ * The relay as one thing with a state (first-run-shaping D1, R3, R10): the
+ * card the share sheet's first run, Settings › Sync and the Shared view draw.
+ * A relay this vault is CONNECTED to reads `shared.relay.*` (the snapshot's
+ * words: "in sync with the relay", never "durable"); one it is not connected
+ * to yet is PROBED — "reachable" means a health check answered, never that a
+ * token or secret is good (R5). The secret field (D2) lives here too: it is
+ * the same relay's other question.
+ */
+const relay_card = {
+  label: 'Relay',
+  none_host: 'No relay yet',
+  none_body:
+    'Shares need one relay per group. Run your own, or ask the person who shared with you which one they use.',
+  guide: 'How to run a relay',
+  checking: 'checking…',
+  reachable: 'reachable · checked {when:string}',
+  unreachable: 'can’t reach it from here',
+  unhealthy: 'it answers, but says it is not healthy',
+  team: 'The team’s relay',
+  pinned: 'This build syncs through {host:string} only.',
+  test: 'Test',
+  change: 'Change…',
+  use_another: 'Use another…',
+  secret: {
+    title: 'Permission to create links',
+    description: 'Lets this app create, list and remove links on this relay.',
+    checking: 'checking…',
+    /** "works" = a listing call answered 200, just now — nothing more. */
+    ok: 'works',
+    bad_secret: 'doesn’t match this relay',
+    no_admin: 'this relay has no admin API',
+    unreachable: 'can’t reach the relay',
+    where: 'Where do I get this?',
+    /** `hint` is the build's `VITE_TEAM_SECRET_HINT`, e.g. "the team password manager, under ohhi relay". */
+    where_team:
+      'It is the relay’s operator secret, one for the whole team: {hint:string}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.',
+    where_generic:
+      'It is the relay’s operator secret. Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.',
   },
 }
 
@@ -855,14 +898,73 @@ const note = {
 }
 
 const manager = {
-  back: '← Back',
+  back: '← Back to notes',
   settings: 'Settings',
+  help: 'Help and guides',
+  version: 'Version {version:string}',
   tagline: 'Collaborative markdown over a plain-text vault. Files on disk stay the source of truth.',
   your_name: 'Your name',
   name_placeholder: 'Anonymous',
   name_hint: 'Shown to people you share with.',
   your_vaults: 'Your vaults',
   no_vaults: 'No vaults yet. Add a folder, link a device, or add a shared folder to get started.',
+  // ---- the welcome: the manager with no vault registered (first-run A1) ----
+  welcome: {
+    title: 'Oh hi.',
+    lede: 'Your notes stay plain markdown files, and the app never holds the only copy. Pick how you want to start.',
+    doors: 'Ways to start',
+    folder: 'Open a folder of notes',
+    folder_hint:
+      'Your own notes, on this computer. An Obsidian vault opens as it is; nothing inside it is changed.',
+    browser: 'Start a vault in this browser',
+    browser_hint:
+      "Kept in this browser's private storage, which it may clear. Good for trying things out and for team folders; keep your own notes in the desktop app.",
+    shared: 'Add a folder someone shared with you',
+    shared_hint: 'Paste the link they sent. The folder syncs through their relay, live, and the rest of your notes stay yours.',
+    device: 'Bring your vault from another device',
+    device_hint:
+      'Paste the device link you made on your other computer. The whole vault arrives here and the two stay in step.',
+    import_lead: 'Coming from another app?',
+    import_link: 'How to bring notes in',
+    guide: 'Two-minute guide',
+  },
+  // ---- the list: the manager with vaults in it (first-run B1) ----
+  list: {
+    title: 'Vaults',
+    add: 'Add',
+    add_folder: 'Open a folder of notes…',
+    add_browser: 'New vault in this browser…',
+    add_shared: 'Add a folder someone shared…',
+    add_device: 'Bring a vault from another device…',
+    add_import: 'Import from another app…',
+    new_browser_title: 'New vault in this browser',
+    open_now: 'open now',
+    opened_today: 'opened today',
+    opened_yesterday: 'opened yesterday',
+    opened_on: 'opened {date:string}',
+    in_browser: 'in this browser',
+    site_usage: 'this site uses {used:string}',
+    storage_kept: 'the browser has promised to keep it',
+    storage_may_clear: 'the browser may clear it',
+    /** Counts are what the vault's mount table says — never people, never "online". */
+    shared_by_you: '{count:number} folder{{s}} shared by you',
+    shared_with_you: '{count:number} shared with you',
+    nothing_shared: 'nothing shared',
+    /** The "—" chip's name: the mount table could not be read. */
+    facts_unknown: 'Sharing facts unknown for this vault',
+    open: 'Open',
+    rename: 'Rename…',
+    rename_title: 'Rename {name:string}',
+    rename_label: 'Name in this list',
+    rename_hint: 'Changes the name shown here only. The folder on disk keeps its name.',
+    rename_save: 'Rename',
+    try_again: 'Try again',
+    identity: 'People you share with see you as {name:string}',
+    identity_change: 'Change',
+    remembered: 'Links you were sent: {count:number} remembered',
+    remembered_title: 'Links you were sent',
+    remembered_hint: 'Open one again as a vault of its own.',
+  },
   /**
    * A vault entry with a relay: since N2 that means LINKED to your own
    * devices (the legacy whole-vault join reads the same way, and it is).
@@ -872,7 +974,7 @@ const manager = {
   memory_vault: 'memory',
   remove: 'Remove {name:string} from this list',
   row_menu: 'More actions for {name:string}',
-  remove_item: 'Remove from this list',
+  remove_item: 'Remove from this list…',
   remove_confirm: 'Remove?',
   remove_note_opfs:
     "This browser vault's notes live only in this browser — removing it deletes the notes AND all sync state, shares, and links.",
@@ -903,6 +1005,29 @@ const manager = {
     forget_partial:
       'Vault forgotten, but some of its sync state could not be deleted ({message:string}). The leftovers are inert — reopening the folder still starts fresh.',
   },
+}
+
+/**
+ * The Import door (first-run F1): how notes from another app come in. Each
+ * route's sentence must stay true — the Notion row gains a verb when the
+ * importer (bases A10) ships, and nothing else changes shape.
+ */
+const import_app = {
+  title: 'Bring notes from another app',
+  obsidian: 'Obsidian',
+  obsidian_body:
+    'Open your vault folder. It opens as it is: your .obsidian settings, daily notes and themes are left alone and nothing is rewritten.',
+  open_folder: 'Open a folder…',
+  obsidian_browser:
+    "A browser can't open a folder on your computer. To work on an Obsidian vault, use the desktop app.",
+  notion: 'Notion',
+  notion_body:
+    'Export your workspace as Markdown & CSV, unzip it into a folder, open that folder. Databases arrive as folders of notes; a proper importer with typed properties is on the way.',
+  other: 'Apple Notes, Bear, Logseq, anything else',
+  other_body:
+    'Export to Markdown, put the files in a folder, open the folder. Images come along as files; they are not synced to shared folders yet.',
+  guide: 'Read the import guide',
+  foot: 'Everything you open stays where it is on disk. Oh hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.',
 }
 
 const vault_switcher = {
@@ -1065,9 +1190,16 @@ const settings = {
     relay_hint: 'Used when creating new shares. Each share remembers its own relay in its link.',
     relay_required: 'The relay new shares are created on.',
     relay_invalid: 'A relay URL starts with ws:// or wss://.',
-    secret: 'Relay operator secret',
     secret_placeholder: 'unset',
-    secret_hint: 'Lets this app create, list and remove share links on your relay.',
+    /** Pinned build (first-run R10): the field is read-only and says why. */
+    relay_pinned_hint: 'Set by this build: its security policy allows no other relay.',
+    devices: 'Your devices',
+    running_title: 'Running your own relay',
+    running_body:
+      'One relay per group: every link names the relay it was made on. The relay is one Docker container; the guide has the two commands and the secret to set. Tell the app about it with Change… above.',
+    running_pinned:
+      'This build syncs through {host:string} only: its security policy allows no other relay. A group that runs its own relay uses a build without that pin.',
+    running_guide: 'The relay guide',
   },
   vaults: {
     vaults: 'Vaults',
@@ -1120,9 +1252,27 @@ const share = {
     title: 'Add a shared folder',
     description: 'Paste the link someone sent you, then choose where the folder goes.',
     link: 'Link',
-    link_placeholder: 'editor1:…',
-    link_invalid: 'That doesn’t look like a share link — they start with "editor1:".',
+    link_placeholder: 'editor1:… or https://…/join#editor1:…',
+    link_invalid: 'That doesn’t look like a share link — they start with editor1: or are a …/join link.',
     from_host: 'A shared folder on {host:string}. Its name and contents arrive once you add it.',
+    /**
+     * Under a valid paste (first-run C3): what the link says about itself.
+     * `from` is self-reported — "the name they typed", never a verified
+     * account (R5). The probe's answer follows after " · ".
+     */
+    from_label_sender: '{label:string}, shared by “{from:string}” (the name they typed) · syncs through {host:string}',
+    from_label: '{label:string} · syncs through {host:string}',
+    from_sender: 'A shared folder, shared by “{from:string}” (the name they typed) · syncs through {host:string}',
+    from_device: 'A device link: a full-access key to a whole vault, for your own devices only · syncs through {host:string}',
+    /** The relay probe's answer: "reachable" means the health check answered — never that the link is valid. */
+    probe_checking: 'checking the relay…',
+    probe_ok: 'relay reachable',
+    probe_down: 'can’t reach the relay from here',
+    /** The team's relay, with the build's network sentence (`VITE_TEAM_NETWORK_NOTE`). */
+    probe_down_note: 'can’t reach the relay from here. {note:string}',
+    /** Fork 5-A: asked at the first join, prefilled from the saved name. */
+    name: 'Your name, shown to the people in this folder',
+    name_placeholder: 'e.g. Sam',
     where: 'Where it goes',
     into_vault: 'Inside {vault:string}',
     into_a_vault: 'Inside a vault',
@@ -1141,8 +1291,7 @@ const share = {
     dest_placeholder: 'e.g. shared/team',
     dest_hint: 'A new folder, or an existing empty one. A top-level name keeps it beside your notes.',
     dest_required: 'Pick a folder for the shared content to live in.',
-    trust:
-      'Whoever sent this link can see everything you put in the folder. The link does not say who they are, so check it came from the person you think.',
+    trust: 'Whoever holds a link can see everything you put in the folder.',
     joining: 'Adding…',
     join: 'Add folder',
   },
@@ -1159,13 +1308,16 @@ const share = {
       'Everything in {path:string} syncs through {host:string} to anyone holding one of these links. The rest of your vault stays on your devices.',
     intro_joined:
       'Everything in {path:string} syncs through {host:string} with whoever shared it with you. Its links are theirs to manage.',
-    where_title: 'Where should it sync?',
-    relay: 'Relay',
-    secret: 'Operator secret',
-    secret_required: 'The relay’s operator secret is needed to create links on it.',
-    where_hint:
-      'The secret lets this app create links on your team’s relay; ask whoever runs it. Both are remembered in Settings › Sync.',
+    /** The first run (first-run D1/D2): the relay as a card, the secret verified, the first link named. */
+    syncs_through: 'Syncs through',
+    relay: 'Relay address',
     save_where: 'Save',
+    first_link: 'First link: who is it for?',
+    first_link_hint: 'One link per person, named for them, so you can remove one later.',
+    your_name: 'Your name, shown to them',
+    your_name_hint: 'Remembered on this device. They see it as the name you typed, not a verified account.',
+    /** Why *Share* is disabled while the secret has not answered "works". */
+    share_waits: 'Share waits until the permission to create links says it works.',
     share: 'Share and copy link',
     sharing: 'Sharing…',
     shared_copied: 'Shared. The link is on your clipboard — send it to whoever should have it.',
@@ -1180,6 +1332,12 @@ const share = {
     created: 'created {date:string}',
     copy_link: 'Copy link',
     copy_link_for: 'Copy link for {name:string}',
+    /** C4: the link wrapped in a sentence, ready to paste into a chat. */
+    copy_message: 'Copy message',
+    copy_message_for: 'Copy message for {name:string}',
+    message: 'I shared {folder:string} with you in Oh hi markdown. Open this link: {link:string}',
+    message_guide: 'New to the app? {url:string}',
+    just_made: 'Link for {name:string}',
     copied: 'Copied',
     remove: 'Remove',
     remove_for: 'Remove link for {name:string}',
@@ -1223,6 +1381,62 @@ const share = {
  * (spike S10 Q2): not connected because this device has no key is a different
  * fact from not connected, and the pill would be lying either way.
  */
+/**
+ * The join page (first-run C2): `/join#editor1:…` in a browser. Honesty
+ * (R5): the sender is "the name they typed", never a verified account;
+ * "reachable" means the relay's health check answered, never that the link
+ * is valid.
+ */
+const join_page = {
+  brand: 'Oh hi markdown · a folder shared with you',
+  heading_from: '{from:string} shared {label:string} with you',
+  heading_anon: 'Someone shared {label:string} with you',
+  a_folder: 'a folder',
+  from_note: '“{from:string}” is the name they typed, not a verified account. Check this came from the person you think.',
+  anon_note: 'The link does not say who sent it. Check it came from someone you expect.',
+  facts: 'About this folder',
+  what_you_get: 'What you get',
+  what_you_get_body: 'Everything inside the folder, live. Anything you put in it is visible to everyone holding a link.',
+  syncs_through: 'Syncs through',
+  syncs_team: '{host:string}, the team’s relay.',
+  syncs_other: '{host:string}, a relay run by whoever shared this.',
+  offline: 'Editing offline always works.',
+  relay_checking: 'Checking the relay…',
+  relay_ok: 'Relay reachable · checked just now',
+  relay_down: 'Can’t reach the relay from here.',
+  relay_down_other: 'Ask whoever shared this how to reach their relay.',
+  reload: 'Then reload this page.',
+  where: 'Where do you want it?',
+  desktop: 'In the desktop app',
+  desktop_hint: 'Beside your own notes, as real files on disk. Best for anything you will keep.',
+  copy: 'Copy link',
+  copied: 'Copied. Open Oh hi markdown on this computer and choose Add a folder someone shared.',
+  copy_failed:
+    'This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Add a folder someone shared.',
+  link_label: 'The link',
+  browser: 'In this browser',
+  browser_hint: 'Fine for a team folder: its notes also live with your teammates and on the relay.',
+  add_here: 'Add here',
+  no_app: 'Don’t have the app?',
+  download: 'Download for macOS · Linux',
+  new_to_app: 'New to the app?',
+  guide: 'The two-minute guide',
+  /** A link this page cannot read: the codec's reason, then the fallback. */
+  error_heading: 'This link can’t be opened here',
+  error_fallback: 'Ask for the link again, or paste it in the app: open Oh hi markdown and choose Add a folder someone shared.',
+  /** A device link is never a folder share (device-link R5). */
+  device_heading: 'This is a device link, not a shared folder',
+  device_body:
+    'It is a full-access key to a whole vault ({label:string}), meant only for its owner’s own devices. If it is yours, open it on the device you want the vault on with Link this device. If someone else sent it to you, do not use it.',
+  device_vault: 'unnamed',
+  device_desktop_hint: 'Copy it, then in Oh hi markdown on that computer choose Link this device.',
+  device_copied: 'Copied. Open Oh hi markdown on this computer and choose Link this device.',
+  device_copy_failed:
+    'This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Link this device.',
+  device_browser_hint: 'Pulls the whole vault into this browser and keeps it in sync.',
+  link_here: 'Link this device',
+}
+
 const mounts = {
   link_needed: 'Link needed',
   link_needed_title:
@@ -1288,7 +1502,11 @@ const device_link = {
     'Sync this whole vault to another device of your own. The other device pulls a copy and the two stay in step — including the folders you share with other people.',
   open: 'Link a device…',
   needs_vault: 'Open a vault first — a device link is a key to one vault.',
-  needs_secret: 'Set the relay operator secret above to create device links.',
+  /** Settings › Sync, under the secret field (first-run D2). */
+  needs_secret: 'Creating a device link needs permission to create links on this relay: paste it above.',
+  /** The owner's dialog, opened without a secret saved. */
+  needs_secret_dialog:
+    'Creating a device link needs permission to create links on this relay. Add it in Settings › Sync, then come back here.',
   // ---- the owner's dialog ----
   title: 'Link a device',
   description:
@@ -1443,6 +1661,93 @@ const ui = {
   update_ready: 'Update installed',
   update_ready_body: 'Version {version:string} is ready. Restart to start using it.',
   restart: 'Restart',
+  /** first-run E2: beside Restart on the update toast; opens the "What's new" guide page. */
+  what_changed: 'What changed',
+}
+
+/**
+ * Help (first-run E1–E3): the toolbar's Help menu, its `help.*` commands, the
+ * version line at its foot and the Report a problem dialog. Honesty (R5):
+ * "up to date" only when the last check found nothing newer, and the report
+ * is copied — the app never sends it, so nothing here says "sent".
+ */
+const help = {
+  label: 'Help',
+  menu: {
+    start: 'Getting started',
+    /** Right-aligned beside "Getting started": how long the page takes to read. */
+    start_time: '2 min',
+    shortcuts: 'Keyboard shortcuts',
+    recovery: 'When something goes wrong',
+    sharing: 'Sharing and the relay',
+    changes: 'What’s new in {version:string}',
+    changes_plain: 'What’s new',
+    report: 'Report a problem…',
+  },
+  /** The menu's foot: the running build and the updater's last outcome. */
+  version: {
+    plain: 'Version {version:string}',
+    unknown: 'Version not known',
+    current: 'Version {version:string} · up to date · checked {when:string}',
+    failed: 'Version {version:string} · could not check · last checked {when:string}',
+    failed_never: 'Version {version:string} · could not check',
+    found: 'Version {version:string} · downloading {next:string}',
+    ready: 'Version {version:string} · update ready, restart to use it',
+  },
+  /** The palette rows, one per menu item. */
+  commands: {
+    menu: 'Help menu',
+    start: 'Help: Getting started',
+    shortcuts: 'Help: Keyboard shortcuts',
+    recovery: 'Help: When something goes wrong',
+    sharing: 'Help: Sharing and the relay',
+    changes: 'Help: What’s new',
+    report: 'Report a problem…',
+  },
+  /** The desktop's guide window title. */
+  window_title: 'Oh hi markdown guide',
+  report: {
+    title: 'Report a problem',
+    description: 'Say what happened in a sentence. The facts below are copied with it; paste the whole thing in the team chat.',
+    what_label: 'What happened',
+    what_placeholder: 'I clicked … and then …',
+    attached: 'Attached automatically',
+    never_content: 'Note contents are never included.',
+    copy: 'Copy report',
+    copied: 'Report copied. Paste it in the team chat.',
+    copy_failed: 'The clipboard is blocked. The report is selected below: copy it by hand.',
+    fallback_label: 'The report as text',
+    /** The copied text, line by line. */
+    header: 'Oh hi markdown — problem report ({time:string})',
+    what: 'What happened: {text:string}',
+    what_empty: 'What happened: (not filled in)',
+    app: 'App: Oh hi markdown {version:string} · {platform:string}',
+    version_unknown: 'version not known',
+    platform: {
+      desktop: 'desktop app',
+      browser: 'browser',
+    },
+    platform_os: '{platform:string} on {os:string}',
+    vault: 'Vault: {name:string} ({kind:string})',
+    vault_none: 'Vault: none open',
+    vault_kind: {
+      tauri: 'a folder on disk',
+      opfs: 'in this browser',
+      memory: 'in memory, for tests',
+    },
+    relay: 'Relay: {host:string} · {state:string}',
+    relay_since: 'Relay: {host:string} · {state:string} · {since:string}',
+    relay_none: 'Relay: none (nothing in this vault is shared or linked)',
+    note: 'Open note: {path:string} · {status:string} · {people:string}',
+    note_unshared: 'not shared, so no sync state',
+    note_none: 'Open note: none',
+    people: '{count:number} {{person|people}} online',
+    counts: 'This session: {errors:string}, {warnings:string}',
+    errors: '{count:number} error{{s}}',
+    warnings: '{count:number} warning{{s}}',
+    events: 'The last {count:number} event{{s}} from the Log:',
+    events_none: 'The Log is empty this session.',
+  },
 }
 
 /** Errors the workspace shim raises; they land in a toast, a dialog, or the Activity log. */
@@ -1554,17 +1859,21 @@ const web = {
   links,
   note,
   shared,
+  relay_card,
   manager,
+  import_app,
   vault_switcher,
   storage,
   settings,
   share,
+  join_page,
   mounts,
   device_link,
   breaker,
   review,
   devtools,
   ui,
+  help,
   workspace,
   relay,
   theme,

@@ -56,13 +56,14 @@ channel.
 | `DEFAULT_RELAY` | repository variable | Fallback default relay when `TEAM_HOST` is unset. |
 | `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
 | `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the company tailnet.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
+| `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, Settings › Sync's relay field read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
 | `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
 
 A relay saved in Settings › Sync always wins over the build's default. The
 `meta` job flattens the two sentences to one line each and passes them, with
 the relay, to every build job's web build; `apps/web/.env.example` lists the
-same `VITE_*` names for a local build. The variables are wired now; the app
-does not render them yet (first-run-shaping D2, F4).
+same `VITE_*` names for a local build. The app renders them in the relay card
+and the secret field's *Where do I get this?* (first-run-shaping D1/D2, F4).
 
 ### What lands where
 
@@ -97,8 +98,15 @@ match the public key it was built with.
 On launch and every 6 hours, installed apps check
 `https://<team host>/updates/latest.json` (Settings › General shows the version
 you're running). A newer build downloads and installs in the background, then a
-toast offers **Restart**. If you ignore it, the new build runs next time you
-open the app. The check only reaches the feed from the tailnet; off it, or in
+toast offers **Restart** and **What changed**. *What changed* opens the
+`changes` guide page in a guide window: on a team build it is read from
+`https://<team host>/guide/changes.html`, which serves the release the update
+came from (`ohhi-pull` swaps the web app before it writes `latest.json`); off
+the tailnet that window shows the webview's own error page. The Help menu's
+last line shows the running version and the last check's outcome — "up to
+date · checked 2 h ago" only when that check completed and found nothing,
+"could not check · last checked …" when it failed. If you ignore the toast,
+the new build runs next time you open the app. The check only reaches the feed from the tailnet; off it, or in
 a local build with no feed configured, the check fails quietly (one console line)
 and is retried later.
 
@@ -156,6 +164,20 @@ kept its state elsewhere, so it starts with fresh sync state; files are untouche
 `$HOME/**` grant (`apps/desktop/src-tauri/capabilities/default.json`); tightening
 it to the picked vault folders is tracked separately. Until then the CSP below
 is the main barrier.
+
+### Guide windows
+
+The Help menu's guide pages (`docs/guide/*.md`, rendered into `dist/guide/`
+by `apps/web/scripts/build-guide.mjs`) are bundled with the app and open in a
+**second webview window** (`WebviewWindow`, labels `guide-<page>`, one per
+page; asking again focuses it). There is no opener plugin, and `frame-src` is
+`'none'` in both policies, so neither the system browser nor an iframe. The
+main window's capability gains two permissions for it,
+`core:webview:allow-create-webview-window` (open one) and
+`core:window:allow-set-focus` (bring an open one forward)
+(`apps/desktop/src-tauri/capabilities/default.json`); the guide windows are
+not listed in any capability, so they get no IPC at all — the pages carry no
+script anyway, and the renderer escapes raw HTML in the markdown.
 
 ## Linux: the WebKitGTK renderer workaround
 

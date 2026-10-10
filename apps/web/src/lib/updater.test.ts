@@ -1,6 +1,15 @@
 import { SimClock } from '@ohhi/testkit'
-import { describe, expect, it, vi } from 'vitest'
-import { startUpdateChecks, UPDATE_INTERVAL_MS, type PendingUpdate, type UpdaterHost } from './updater.js'
+import { get } from 'svelte/store'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toaster } from './ui/toaster.js'
+import {
+  offerRestart,
+  startUpdateChecks,
+  UPDATE_INTERVAL_MS,
+  type PendingUpdate,
+  type UpdaterHost,
+  type UpdateStatus,
+} from './updater.js'
 
 /** Let the tick's awaited promises settle. */
 const settle = () => new Promise((r) => setTimeout(r, 0))
@@ -13,6 +22,7 @@ function harness(check: UpdaterHost['check']) {
     ready: vi.fn<UpdaterHost['ready']>(),
     relaunch: vi.fn(async () => {}),
     log: vi.fn<UpdaterHost['log']>(),
+    status: vi.fn<(s: UpdateStatus) => void>(),
   }
   return { clock, host }
 }
@@ -95,5 +105,67 @@ describe('startUpdateChecks', () => {
     clock.advance(UPDATE_INTERVAL_MS * 2)
     await settle()
     expect(host.check).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('the last check’s outcome (the Help menu’s version line)', () => {
+  it('"current" only after a completed check that found nothing, on the injected clock', async () => {
+    const { clock, host } = harness(async () => null)
+    clock.advance(5_000)
+    startUpdateChecks(host)
+    await settle()
+    expect(host.status).toHaveBeenLastCalledWith({ kind: 'current', checkedAt: 5_000 })
+  })
+
+  it('a failed check is "failed", keeping the last good check’s time', async () => {
+    let fail = false
+    const { clock, host } = harness(async () => {
+      if (fail) throw new Error('offline')
+      return null
+    })
+    startUpdateChecks(host)
+    await settle()
+    fail = true
+    clock.advance(UPDATE_INTERVAL_MS)
+    await settle()
+    expect(host.status).toHaveBeenLastCalledWith({ kind: 'failed', failedAt: UPDATE_INTERVAL_MS, lastCheckedAt: 0 })
+  })
+
+  it('a first check that fails has no last good time', async () => {
+    const { host } = harness(async () => {
+      throw new Error('EmptyEndpoints')
+    })
+    startUpdateChecks(host)
+    await settle()
+    expect(host.status).toHaveBeenLastCalledWith({ kind: 'failed', failedAt: 0, lastCheckedAt: null })
+  })
+
+  it('a newer build is "found", then "ready" once installed — never "current"', async () => {
+    const { host } = harness(async () => pending('0.2.0'))
+    startUpdateChecks(host)
+    await settle()
+    const kinds = host.status.mock.calls.map((c) => c[0].kind)
+    expect(kinds).toEqual(['found', 'ready'])
+  })
+})
+
+describe('offerRestart', () => {
+  beforeEach(() => {
+    for (const t of get(toaster.states.toasts)) toaster.helpers.removeToast(t.id)
+  })
+
+  it('offers Restart and What changed, which opens the changes page', () => {
+    const restart = vi.fn()
+    const showChanges = vi.fn()
+    offerRestart('0.2.0', restart, showChanges)
+    const [t] = get(toaster.states.toasts)
+    expect(t!.data.title).toBe('Update installed')
+    expect(t!.data.action!.label).toBe('Restart')
+    expect(t!.data.secondary!.label).toBe('What changed')
+    t!.data.secondary!.run()
+    expect(showChanges).toHaveBeenCalledTimes(1)
+    expect(restart).not.toHaveBeenCalled()
+    t!.data.action!.run()
+    expect(restart).toHaveBeenCalledTimes(1)
   })
 })

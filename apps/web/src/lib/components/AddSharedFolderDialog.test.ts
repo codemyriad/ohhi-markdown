@@ -9,12 +9,16 @@ import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
-import { encodeDeviceLink, encodeShareLink } from '../share-link.js'
+import { loadUser, saveUser } from '../config.js'
+import type { Probe } from '../relay-check.js'
+import type { ProbeResult } from '../relay-probe.js'
+import { encodeDeviceLink, encodeShareLink, encodeShareUrl } from '../share-link.js'
 import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
 
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  localStorage.clear()
 })
 
 // Expectations come from the dictionary, not pasted English (testing skill).
@@ -24,6 +28,19 @@ const t = LL.web.share.add
 const TOKEN = 'a'.repeat(64)
 const folderLink = encodeShareLink({ relay: 'wss://relay.example', room: 'team-room', token: TOKEN })
 const deviceLink = encodeDeviceLink({ relay: 'wss://relay.example', room: 'vault-room', token: TOKEN })
+
+/** A probe whose answer the test gives, when it chooses (never the network). */
+function deferredProbe(): { probe: Probe; answer: (r: ProbeResult) => void; calls: string[]; signals: AbortSignal[] } {
+  let answer: (r: ProbeResult) => void = () => {}
+  const calls: string[] = []
+  const signals: AbortSignal[] = []
+  const probe: Probe = (relay, signal) => {
+    calls.push(relay)
+    signals.push(signal)
+    return new Promise((resolve) => (answer = resolve))
+  }
+  return { probe, answer: (r) => answer(r), calls, signals }
+}
 
 function open(over: Partial<ComponentProps<typeof AddSharedFolderDialog>> = {}) {
   const props = {
@@ -35,6 +52,9 @@ function open(over: Partial<ComponentProps<typeof AddSharedFolderDialog>> = {}) 
     onJoinAsVault: vi.fn(),
     onClose: vi.fn(),
     isTauri: false,
+    probe: deferredProbe().probe,
+    teamHost: null as string | null,
+    networkNote: '',
     ...over,
   }
   render(AddSharedFolderDialog, props)
@@ -59,11 +79,124 @@ describe('AddSharedFolderDialog', () => {
     expect(screen.getByTestId('add-share-trust')).toHaveTextContent(t.trust())
   })
 
-  it('names the relay once the link decodes', async () => {
+  it('names the relay once the link decodes, and asks it whether it answers', async () => {
+    const user = userEvent.setup()
+    const p = deferredProbe()
+    open({ probe: p.probe })
+    await user.type(linkField(), folderLink)
+    expect(screen.getByTestId('add-share-about')).toHaveTextContent(t.from_host({ host: 'relay.example' }))
+    expect(linkField()).toHaveAccessibleDescription(expect.stringContaining(t.probe_checking()))
+    expect(p.calls.at(-1)).toBe('wss://relay.example')
+    p.answer({ ok: true })
+    await waitFor(() => expect(screen.getByTestId('add-share-probe')).toHaveTextContent(t.probe_ok()))
+  })
+
+  it('accepts the URL spelling (…/join#editor1:…) and shows the label and the name they typed', async () => {
+    const user = userEvent.setup()
+    const props = open()
+    const link = encodeShareUrl(
+      { relay: 'wss://relay.example/relay', room: 'team-room', token: TOKEN, label: 'team/notes', from: 'Sam' },
+      'https://relay.example'
+    )
+    await user.click(linkField())
+    await user.paste(link)
+    expect(screen.getByTestId('add-share-about')).toHaveTextContent(
+      t.from_label_sender({ label: 'team/notes', from: 'Sam', host: 'relay.example' })
+    )
+
+    await user.click(ownVault())
+    await user.click(screen.getByRole('button', { name: t.join() }))
+    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(link, expect.any(String)))
+  })
+
+  it('a label without a sender, and a sender without a label, each say only what the link carries', async () => {
     const user = userEvent.setup()
     open()
-    await user.type(linkField(), folderLink)
-    expect(linkField()).toHaveAccessibleDescription(t.from_host({ host: 'relay.example' }))
+    await user.click(linkField())
+    await user.paste(encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: TOKEN, label: 'team' }))
+    expect(screen.getByTestId('add-share-about')).toHaveTextContent(t.from_label({ label: 'team', host: 'relay.example' }))
+    await user.clear(linkField())
+    await user.paste(encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: TOKEN, from: 'Sam' }))
+    expect(screen.getByTestId('add-share-about')).toHaveTextContent(t.from_sender({ from: 'Sam', host: 'relay.example' }))
+  })
+
+  it('a relay that does not answer: "can’t reach", with the network sentence only on the team’s host', async () => {
+    const user = userEvent.setup()
+    const p = deferredProbe()
+    open({ probe: p.probe, teamHost: 'relay.example', networkNote: 'Shares work only on the tailnet.' })
+    await user.click(linkField())
+    await user.paste(folderLink)
+    p.answer({ ok: false, reason: 'unreachable' })
+    await waitFor(() =>
+      expect(screen.getByTestId('add-share-probe')).toHaveTextContent(
+        t.probe_down_note({ note: 'Shares work only on the tailnet.' })
+      )
+    )
+    cleanup()
+
+    const q = deferredProbe()
+    open({ probe: q.probe, teamHost: 'ohhi.team', networkNote: 'Shares work only on the tailnet.' })
+    await user.click(linkField())
+    await user.paste(folderLink)
+    q.answer({ ok: false, reason: 'timeout' })
+    await waitFor(() => expect(screen.getByTestId('add-share-probe')).toHaveTextContent(t.probe_down()))
+    expect(screen.getByTestId('add-share-probe')).not.toHaveTextContent('tailnet')
+  })
+
+  it('closing the dialog cancels the probe in flight', async () => {
+    const user = userEvent.setup()
+    const p = deferredProbe()
+    open({ probe: p.probe })
+    await user.click(linkField())
+    await user.paste(folderLink)
+    expect(p.signals.at(-1)?.aborted).toBe(false)
+    cleanup()
+    expect(p.signals.at(-1)?.aborted).toBe(true)
+  })
+
+  it('a device link says what it is under the field', async () => {
+    const user = userEvent.setup()
+    open()
+    await user.click(linkField())
+    await user.paste(deviceLink)
+    expect(screen.getByTestId('add-share-about')).toHaveTextContent(t.from_device({ host: 'relay.example' }))
+  })
+
+  it('"Your name" is prefilled from the saved name and saved, as typed, when the join starts (Fork 5-A)', async () => {
+    const user = userEvent.setup()
+    saveUser('Chris')
+    const props = open({
+      vaultName: null,
+      onJoinIntoVault: null,
+      // The manager's join saves the name it was handed; the dialog's must win.
+      onJoinAsVault: vi.fn((_link: string, _name: string) => saveUser('Manager name')),
+    })
+    const name = screen.getByRole('textbox', { name: t.name() })
+    expect(name).toHaveValue('Chris')
+    await user.clear(name)
+    await user.type(name, 'Sam')
+    await user.click(linkField())
+    await user.paste(folderLink)
+    await user.click(screen.getByRole('button', { name: t.join() }))
+
+    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(folderLink, 'Sam'))
+    expect(loadUser()).toBe('Sam')
+  })
+
+  it('inside the vault, the name is saved before the workspace joins', async () => {
+    const user = userEvent.setup()
+    let savedAtJoin: string | null = null
+    open({
+      initialName: 'Ana',
+      onJoinIntoVault: vi.fn(async () => {
+        savedAtJoin = loadUser()
+      }),
+    })
+    await user.click(linkField())
+    await user.paste(folderLink)
+    await user.type(destField(), 'team')
+    await user.click(screen.getByRole('button', { name: t.join() }))
+    await waitFor(() => expect(savedAtJoin).toBe('Ana'))
   })
 
   it('refuses text that is not a share link, at the field', async () => {
@@ -134,7 +267,7 @@ describe('AddSharedFolderDialog', () => {
     expect(screen.queryByRole('combobox', { name: t.dest() })).toBeNull()
     await user.click(screen.getByRole('button', { name: t.join() }))
 
-    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(folderLink))
+    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(folderLink, expect.any(String)))
     expect(props.onJoinIntoVault).not.toHaveBeenCalled()
     await waitFor(() => expect(props.onClose).toHaveBeenCalled())
   })
@@ -166,7 +299,7 @@ describe('AddSharedFolderDialog', () => {
 
     // A device link as its own vault is the manager's to route (to Link this device).
     await user.click(screen.getByRole('button', { name: t.join() }))
-    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(deviceLink))
+    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(deviceLink, expect.any(String)))
   })
 
   it('keeps the paste and shows the reason when the workspace refuses', async () => {

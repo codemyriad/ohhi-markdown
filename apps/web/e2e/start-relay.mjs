@@ -24,8 +24,10 @@ const child = spawn('node', ['--experimental-strip-types', 'src/main.ts'], {
     // that A adds as a shared folder (the Shared view's cards, sharing E2).
     // fonts-build / fonts-dev: fonts.spec, which asserts ZERO console errors
     // on load — an unauthorised room logs the relay's refusal as one.
+    // join-page: join.spec — a room seeded by one context and joined from
+    // the /join page by another (first-run C2).
     SEED_SHARE:
-      'e2eroom:e2e-token,chrome-tree:chrome-token,panes-sync:panes-token,quiet-sync:quiet-token,shared-a:shared-a-token,shared-cs:shared-cs-token,fonts-build:fonts-build-token,fonts-dev:fonts-dev-token',
+      'e2eroom:e2e-token,chrome-tree:chrome-token,panes-sync:panes-token,quiet-sync:quiet-token,shared-a:shared-a-token,shared-cs:shared-cs-token,fonts-build:fonts-build-token,fonts-dev:fonts-dev-token,join-page:join-token',
   },
   stdio: 'inherit',
 })

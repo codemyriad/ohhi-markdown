@@ -31,6 +31,7 @@ import Chars from './components/readouts/Chars.svelte'
 import DailyNav from './components/readouts/DailyNav.svelte'
 import Drawer from './components/readouts/Drawer.svelte'
 import Inspector from './components/readouts/Inspector.svelte'
+import Help from './components/readouts/Help.svelte'
 import GroupChip from './components/readouts/GroupChipReadout.svelte'
 import Mode from './components/readouts/ModeReadout.svelte'
 import Nav from './components/readouts/Nav.svelte'
@@ -151,5 +152,7 @@ export const READOUTS: Record<ReadoutId, Readout> = {
   drawer: Drawer,
   // Chris, 2026-10-06: the inspector view's door, right of the bell; nothing while devtools are off.
   inspector: Inspector,
+  // first-run E1: the Help menu, at the toolbar's right end after the inspector.
+  help: Help,
   people: Sync,
 }

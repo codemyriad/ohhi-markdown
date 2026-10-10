@@ -13,6 +13,7 @@ import type { Command, CommandRegistry } from './commands.js'
 import type { DailyShell } from './daily.svelte.js'
 import type { FileActions } from './file-actions.svelte.js'
 import type { GroupShell } from './group-ui.svelte.js'
+import { HELP_COMMAND_IDS, type HelpCommandId } from './help.svelte.js'
 import { defaultCommands, type LayoutFileSource, type PaletteMode } from './navigation.svelte.js'
 import { choiceOf } from './resource-kind.js'
 import type { Resources } from './resources.svelte.js'
@@ -65,6 +66,13 @@ export interface ShellCommandDeps {
    * from a provider; `template.insert` opens the picker.
    */
   templates?: { commands(): Command[] }
+  /**
+   * Help (first-run E1): one row per `help.*` id, each running `run(id)` —
+   * `runHelp` in help.svelte.ts, the function the Help menu's rows call.
+   * `menuMounted` gates `help.menu`: with no Help menu on screen (a layout
+   * without the `help` readout) there is nothing for it to open.
+   */
+  help?: { run(id: HelpCommandId): void; menuMounted(): boolean }
 }
 
 /**
@@ -210,6 +218,32 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       group: t.groups.view(),
       run: () => deps.openPalette('layouts'),
     })
+  }
+  // Help (first-run E1): the menu's rows, one command each, so the palette
+  // lists them and a keymap can bind them. App-level: they work with no vault.
+  const help = deps.help
+  if (help) {
+    const t = getLL().web.help.commands
+    const title: Record<HelpCommandId, () => string> = {
+      'help.menu': t.menu,
+      'help.start': t.start,
+      'help.shortcuts': t.shortcuts,
+      'help.recovery': t.recovery,
+      'help.sharing': t.sharing,
+      'help.changes': t.changes,
+      'help.report': t.report,
+    }
+    registry.register(
+      ...HELP_COMMAND_IDS.map(
+        (id): Command => ({
+          id,
+          title: title[id](),
+          group: getLL().web.commands.groups.help(),
+          ...(id === 'help.menu' ? { when: () => help.menuMounted() } : {}),
+          run: () => help.run(id),
+        })
+      )
+    )
   }
   // Templates (quiet-shell F11): `template.insert` opens the picker; each file
   // is its own palette row, from a provider because the set is the folder's.

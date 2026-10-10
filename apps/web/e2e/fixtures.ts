@@ -165,6 +165,15 @@ export async function newNote(page: Page, n: number): Promise<string> {
  * already on screen.
  */
 export async function createBrowserVault(page: Page, name: string): Promise<void> {
+  // The welcome's browser door asks for the name in its row; the list's Add
+  // menu asks in a small dialog (first-run A1/B1).
+  const welcomeDoor = page.getByTestId('start-browser-vault')
+  if (await welcomeDoor.isVisible()) {
+    if ((await welcomeDoor.getAttribute('aria-expanded')) !== 'true') await welcomeDoor.click()
+  } else {
+    await page.getByTestId('manager-add').click()
+    await page.getByTestId('add-browser-vault').click()
+  }
   await page.getByTestId('new-vault-name').fill(name)
   await page.getByTestId('create-vault').click()
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })

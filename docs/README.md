@@ -1,6 +1,6 @@
 ---
 status: current
-date: 2026-10-04
+date: 2026-10-10
 ---
 
 # Editor docs
@@ -16,7 +16,7 @@ Learning and reference documentation for the Editor project — a collaborative,
 | [customising.md](customising.md) | **Changing the app's own shape** (for people and agents). The `.ohhi/` resource root — layouts, keymaps, templates (themes: theming.md) — its folders and precedence, the `extends` + delta grammar, and every command, readout, region and view id (those lists are generated: `cd apps/web && rushx gen-schemas`). |
 | [deploy-tailnet.md](deploy-tailnet.md) | **The team host.** The relay, web app and desktop update feed in one LXC on the team host, reachable only over the company tailnet: how a push to the `release` branch reaches everyone, one-time setup, teammate onboarding, operations and backups. |
 | [desktop-builds.md](desktop-builds.md) | **Desktop releases.** continuous builds from the `release` branch, release assets, the auto-updater, installing on macOS and Linux, and the webview's Content Security Policy. |
-| [recovery.md](recovery.md) | **When something goes wrong** (for dogfooders). Set up snapshots first; undo changes from snapshots; a failure-mode table (bad write, a teammate's delete, broken sync state, relay lost, browser storage cleared, machine lost); what to capture when reporting a problem. |
+| [guide/](guide/) | **The guide pages, for teammates** (first-run E4): [getting started](guide/start.md), [sharing and the relay](guide/sharing.md), [when something goes wrong](guide/recovery.md) (snapshots, undo, the failure-mode table, reporting a problem — formerly `recovery.md`), [bringing notes from another app](guide/import.md), [running your own relay](guide/relay.md) and [what's new](guide/changes.md). Plain sentences, no repo knowledge assumed; rendered into the web build at `/guide/<page>.html` by `apps/web/scripts/build-guide.mjs` and opened from the app's Help menu. Neutral about the deployment: team-specific sentences come from build variables, never from these pages. |
 | [theming.md](theming.md) | **The design system.** Three token bands driven by one `data-theme` attribute, why the sync-honesty tokens are unlayered, how CodeMirror is themed from the same tokens, the four built-in themes, and the Obsidian→Editor porting table for custom themes. |
 | [glossary.md](glossary.md) | Every term a newcomer hits in this repo, alphabetical, cross-linked to the primers. |
 | [primers/01-crdts-and-yjs.md](primers/01-crdts-and-yjs.md) | What a CRDT is and why; Yjs concretely — Y.Doc, Y.Text, updates, state vectors, delete sets (why heads = SV + DS), transactions/origins, awareness. |

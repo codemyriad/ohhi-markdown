@@ -45,6 +45,7 @@ function registeredIds(): string[] {
     reloadResources: vi.fn(),
     focusMode: { active: () => false, toggle: vi.fn(), leave: vi.fn() },
     templates: { commands: () => [] },
+    help: { run: vi.fn(), menuMounted: () => true },
   })
   return registry.bindings().map((b) => b.id)
 }

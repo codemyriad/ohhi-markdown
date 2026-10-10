@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
+import { cleanup, render, screen, within, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
@@ -40,7 +40,7 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function open(opts: { secret?: string; onCreate?: (label: string) => Promise<string> } = {}) {
+function open(opts: { secret?: string; secretHint?: string; onCreate?: (label: string) => Promise<string> } = {}) {
   const onCreate = opts.onCreate ?? vi.fn(async () => LINK)
   const onClose = vi.fn()
   render(DeviceLinkDialog, {
@@ -48,6 +48,7 @@ function open(opts: { secret?: string; onCreate?: (label: string) => Promise<str
     room: ROOM,
     relayUrl: 'wss://relay.example',
     secret: opts.secret ?? 'op-secret',
+    secretHint: opts.secretHint ?? '',
     onCreate,
     onClose,
   })
@@ -55,14 +56,25 @@ function open(opts: { secret?: string; onCreate?: (label: string) => Promise<str
 }
 
 describe('DeviceLinkDialog', () => {
-  it('refuses to mint without the operator secret, and says which one', async () => {
+  it('refuses to mint without the operator secret, and says what it is and where it lives', async () => {
     open({ secret: '' })
 
     await screen.findByRole('dialog', { name: t.title() })
-    expect(screen.getByTestId('device-link-needs-secret')).toHaveTextContent(t.needs_secret())
+    const needs = screen.getByTestId('device-link-needs-secret')
+    expect(needs).toHaveTextContent(t.needs_secret_dialog())
+    // First-run D2: the disclosure, not a bare "set it above".
+    expect(within(needs).getByText(LL.web.relay_card.secret.where())).toBeVisible()
+    expect(screen.getByTestId('device-link-where-body')).toHaveTextContent(LL.web.relay_card.secret.where_generic())
     expect(screen.queryByRole('button', { name: t.create() })).toBeNull()
     // Nothing is read from the relay either — there is no credential to read with.
     expect(listShares).not.toHaveBeenCalled()
+  })
+
+  it('the “where” is the build’s sentence when it has one', async () => {
+    open({ secret: '', secretHint: 'the team password manager, under ohhi relay' })
+    expect(await screen.findByTestId('device-link-where-body')).toHaveTextContent(
+      LL.web.relay_card.secret.where_team({ hint: 'the team password manager, under ohhi relay' })
+    )
   })
 
   it('creates a link and shows the R5 sentence beside the copy button', async () => {

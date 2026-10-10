@@ -48,6 +48,8 @@ export const READOUT_IDS = [
   'drawer',
   /** Chris, 2026-10-06: the inspector's door, beside the bell — drawn only while developer tools are on. */
   'inspector',
+  /** first-run E1: the Help menu (guides, shortcuts, what's new, Report a problem, the version). */
+  'help',
   'note.pill',
   'people',
 ] as const

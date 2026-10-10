@@ -73,16 +73,31 @@
             {t.data.description}
           </p>
         {/if}
-        {#if t.data.action}
-          {@const action = t.data.action}
-          <button
-            type="button"
-            data-testid="toast-action"
-            onclick={() => action.run()}
-            class="mt-2 rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-content hover:bg-primary/90"
-          >
-            {action.label}
-          </button>
+        {#if t.data.action || t.data.secondary}
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            {#if t.data.action}
+              {@const action = t.data.action}
+              <button
+                type="button"
+                data-testid="toast-action"
+                onclick={() => action.run()}
+                class="rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-content hover:bg-primary/90"
+              >
+                {action.label}
+              </button>
+            {/if}
+            {#if t.data.secondary}
+              {@const secondary = t.data.secondary}
+              <button
+                type="button"
+                data-testid="toast-secondary"
+                onclick={() => secondary.run()}
+                class="rounded border border-base-300 px-2.5 py-1 text-xs font-medium text-base-content hover:bg-base-200"
+              >
+                {secondary.label}
+              </button>
+            {/if}
+          </div>
         {/if}
       </div>
       <button

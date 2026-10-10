@@ -1445,6 +1445,10 @@ export type NamespaceWebTranslation = {
 			 * T​e​m​p​l​a​t​e​s
 			 */
 			templates: string
+			/**
+			 * H​e​l​p
+			 */
+			help: string
 		}
 		format: {
 			/**
@@ -2446,14 +2450,9 @@ export type NamespaceWebTranslation = {
 			 */
 			link_body: string
 			/**
-			 * N​o​ ​r​e​l​a​y​ ​c​o​n​f​i​g​u​r​e​d​.​ ​Y​o​u​ ​w​i​l​l​ ​c​h​o​o​s​e​ ​o​n​e​ ​t​h​e​ ​f​i​r​s​t​ ​t​i​m​e​ ​y​o​u​ ​s​h​a​r​e​.
+			 * S​h​a​r​e​s​ ​g​o​ ​t​h​r​o​u​g​h
 			 */
-			no_relay: string
-			/**
-			 * S​h​a​r​e​s​ ​g​o​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​.
-			 * @param {string} host
-			 */
-			relay_is: RequiredParams<'host'>
+			relay_label: string
 			/**
 			 * T​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​y​o​u​ ​w​i​l​l​ ​n​e​e​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​o​n​c​e​.
 			 */
@@ -2486,15 +2485,123 @@ export type NamespaceWebTranslation = {
 			next: string
 		}
 	}
+	relay_card: {
+		/**
+		 * R​e​l​a​y
+		 */
+		label: string
+		/**
+		 * N​o​ ​r​e​l​a​y​ ​y​e​t
+		 */
+		none_host: string
+		/**
+		 * S​h​a​r​e​s​ ​n​e​e​d​ ​o​n​e​ ​r​e​l​a​y​ ​p​e​r​ ​g​r​o​u​p​.​ ​R​u​n​ ​y​o​u​r​ ​o​w​n​,​ ​o​r​ ​a​s​k​ ​t​h​e​ ​p​e​r​s​o​n​ ​w​h​o​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​ ​w​h​i​c​h​ ​o​n​e​ ​t​h​e​y​ ​u​s​e​.
+		 */
+		none_body: string
+		/**
+		 * H​o​w​ ​t​o​ ​r​u​n​ ​a​ ​r​e​l​a​y
+		 */
+		guide: string
+		/**
+		 * c​h​e​c​k​i​n​g​…
+		 */
+		checking: string
+		/**
+		 * r​e​a​c​h​a​b​l​e​ ​·​ ​c​h​e​c​k​e​d​ ​{​w​h​e​n​}
+		 * @param {string} when
+		 */
+		reachable: RequiredParams<'when'>
+		/**
+		 * c​a​n​’​t​ ​r​e​a​c​h​ ​i​t​ ​f​r​o​m​ ​h​e​r​e
+		 */
+		unreachable: string
+		/**
+		 * i​t​ ​a​n​s​w​e​r​s​,​ ​b​u​t​ ​s​a​y​s​ ​i​t​ ​i​s​ ​n​o​t​ ​h​e​a​l​t​h​y
+		 */
+		unhealthy: string
+		/**
+		 * T​h​e​ ​t​e​a​m​’​s​ ​r​e​l​a​y
+		 */
+		team: string
+		/**
+		 * T​h​i​s​ ​b​u​i​l​d​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​ ​o​n​l​y​.
+		 * @param {string} host
+		 */
+		pinned: RequiredParams<'host'>
+		/**
+		 * T​e​s​t
+		 */
+		test: string
+		/**
+		 * C​h​a​n​g​e​…
+		 */
+		change: string
+		/**
+		 * U​s​e​ ​a​n​o​t​h​e​r​…
+		 */
+		use_another: string
+		secret: {
+			/**
+			 * P​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s
+			 */
+			title: string
+			/**
+			 * L​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​,​ ​l​i​s​t​ ​a​n​d​ ​r​e​m​o​v​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.
+			 */
+			description: string
+			/**
+			 * c​h​e​c​k​i​n​g​…
+			 */
+			checking: string
+			/**
+			 * w​o​r​k​s
+			 */
+			ok: string
+			/**
+			 * d​o​e​s​n​’​t​ ​m​a​t​c​h​ ​t​h​i​s​ ​r​e​l​a​y
+			 */
+			bad_secret: string
+			/**
+			 * t​h​i​s​ ​r​e​l​a​y​ ​h​a​s​ ​n​o​ ​a​d​m​i​n​ ​A​P​I
+			 */
+			no_admin: string
+			/**
+			 * c​a​n​’​t​ ​r​e​a​c​h​ ​t​h​e​ ​r​e​l​a​y
+			 */
+			unreachable: string
+			/**
+			 * W​h​e​r​e​ ​d​o​ ​I​ ​g​e​t​ ​t​h​i​s​?
+			 */
+			where: string
+			/**
+			 * I​t​ ​i​s​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​,​ ​o​n​e​ ​f​o​r​ ​t​h​e​ ​w​h​o​l​e​ ​t​e​a​m​:​ ​{​h​i​n​t​}​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​t​h​e​r​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
+			 * @param {string} hint
+			 */
+			where_team: RequiredParams<'hint'>
+			/**
+			 * I​t​ ​i​s​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​.​ ​W​h​o​e​v​e​r​ ​r​u​n​s​ ​t​h​e​ ​r​e​l​a​y​ ​f​o​r​ ​y​o​u​r​ ​g​r​o​u​p​ ​h​a​s​ ​i​t​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​s​o​m​e​w​h​e​r​e​ ​s​a​f​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
+			 */
+			where_generic: string
+		}
+	}
 	manager: {
 		/**
-		 * ←​ ​B​a​c​k
+		 * ←​ ​B​a​c​k​ ​t​o​ ​n​o​t​e​s
 		 */
 		back: string
 		/**
 		 * S​e​t​t​i​n​g​s
 		 */
 		settings: string
+		/**
+		 * H​e​l​p​ ​a​n​d​ ​g​u​i​d​e​s
+		 */
+		help: string
+		/**
+		 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
+		 * @param {string} version
+		 */
+		version: RequiredParams<'version'>
 		/**
 		 * C​o​l​l​a​b​o​r​a​t​i​v​e​ ​m​a​r​k​d​o​w​n​ ​o​v​e​r​ ​a​ ​p​l​a​i​n​-​t​e​x​t​ ​v​a​u​l​t​.​ ​F​i​l​e​s​ ​o​n​ ​d​i​s​k​ ​s​t​a​y​ ​t​h​e​ ​s​o​u​r​c​e​ ​o​f​ ​t​r​u​t​h​.
 		 */
@@ -2519,6 +2626,201 @@ export type NamespaceWebTranslation = {
 		 * N​o​ ​v​a​u​l​t​s​ ​y​e​t​.​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​,​ ​l​i​n​k​ ​a​ ​d​e​v​i​c​e​,​ ​o​r​ ​a​d​d​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​t​o​ ​g​e​t​ ​s​t​a​r​t​e​d​.
 		 */
 		no_vaults: string
+		welcome: {
+			/**
+			 * O​h​ ​h​i​.
+			 */
+			title: string
+			/**
+			 * Y​o​u​r​ ​n​o​t​e​s​ ​s​t​a​y​ ​p​l​a​i​n​ ​m​a​r​k​d​o​w​n​ ​f​i​l​e​s​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​n​e​v​e​r​ ​h​o​l​d​s​ ​t​h​e​ ​o​n​l​y​ ​c​o​p​y​.​ ​P​i​c​k​ ​h​o​w​ ​y​o​u​ ​w​a​n​t​ ​t​o​ ​s​t​a​r​t​.
+			 */
+			lede: string
+			/**
+			 * W​a​y​s​ ​t​o​ ​s​t​a​r​t
+			 */
+			doors: string
+			/**
+			 * O​p​e​n​ ​a​ ​f​o​l​d​e​r​ ​o​f​ ​n​o​t​e​s
+			 */
+			folder: string
+			/**
+			 * Y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​.​ ​A​n​ ​O​b​s​i​d​i​a​n​ ​v​a​u​l​t​ ​o​p​e​n​s​ ​a​s​ ​i​t​ ​i​s​;​ ​n​o​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​t​ ​i​s​ ​c​h​a​n​g​e​d​.
+			 */
+			folder_hint: string
+			/**
+			 * S​t​a​r​t​ ​a​ ​v​a​u​l​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+			 */
+			browser: string
+			/**
+			 * K​e​p​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​'​s​ ​p​r​i​v​a​t​e​ ​s​t​o​r​a​g​e​,​ ​w​h​i​c​h​ ​i​t​ ​m​a​y​ ​c​l​e​a​r​.​ ​G​o​o​d​ ​f​o​r​ ​t​r​y​i​n​g​ ​t​h​i​n​g​s​ ​o​u​t​ ​a​n​d​ ​f​o​r​ ​t​e​a​m​ ​f​o​l​d​e​r​s​;​ ​k​e​e​p​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​ ​i​n​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.
+			 */
+			browser_hint: string
+			/**
+			 * A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+			 */
+			shared: string
+			/**
+			 * P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​t​h​e​y​ ​s​e​n​t​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​t​h​e​i​r​ ​r​e​l​a​y​,​ ​l​i​v​e​,​ ​a​n​d​ ​t​h​e​ ​r​e​s​t​ ​o​f​ ​y​o​u​r​ ​n​o​t​e​s​ ​s​t​a​y​ ​y​o​u​r​s​.
+			 */
+			shared_hint: string
+			/**
+			 * B​r​i​n​g​ ​y​o​u​r​ ​v​a​u​l​t​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e
+			 */
+			device: string
+			/**
+			 * P​a​s​t​e​ ​t​h​e​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​y​o​u​ ​m​a​d​e​ ​o​n​ ​y​o​u​r​ ​o​t​h​e​r​ ​c​o​m​p​u​t​e​r​.​ ​T​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​a​r​r​i​v​e​s​ ​h​e​r​e​ ​a​n​d​ ​t​h​e​ ​t​w​o​ ​s​t​a​y​ ​i​n​ ​s​t​e​p​.
+			 */
+			device_hint: string
+			/**
+			 * C​o​m​i​n​g​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​a​p​p​?
+			 */
+			import_lead: string
+			/**
+			 * H​o​w​ ​t​o​ ​b​r​i​n​g​ ​n​o​t​e​s​ ​i​n
+			 */
+			import_link: string
+			/**
+			 * T​w​o​-​m​i​n​u​t​e​ ​g​u​i​d​e
+			 */
+			guide: string
+		}
+		list: {
+			/**
+			 * V​a​u​l​t​s
+			 */
+			title: string
+			/**
+			 * A​d​d
+			 */
+			add: string
+			/**
+			 * O​p​e​n​ ​a​ ​f​o​l​d​e​r​ ​o​f​ ​n​o​t​e​s​…
+			 */
+			add_folder: string
+			/**
+			 * N​e​w​ ​v​a​u​l​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​…
+			 */
+			add_browser: string
+			/**
+			 * A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​…
+			 */
+			add_shared: string
+			/**
+			 * B​r​i​n​g​ ​a​ ​v​a​u​l​t​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​d​e​v​i​c​e​…
+			 */
+			add_device: string
+			/**
+			 * I​m​p​o​r​t​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​a​p​p​…
+			 */
+			add_import: string
+			/**
+			 * N​e​w​ ​v​a​u​l​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+			 */
+			new_browser_title: string
+			/**
+			 * o​p​e​n​ ​n​o​w
+			 */
+			open_now: string
+			/**
+			 * o​p​e​n​e​d​ ​t​o​d​a​y
+			 */
+			opened_today: string
+			/**
+			 * o​p​e​n​e​d​ ​y​e​s​t​e​r​d​a​y
+			 */
+			opened_yesterday: string
+			/**
+			 * o​p​e​n​e​d​ ​{​d​a​t​e​}
+			 * @param {string} date
+			 */
+			opened_on: RequiredParams<'date'>
+			/**
+			 * i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+			 */
+			in_browser: string
+			/**
+			 * t​h​i​s​ ​s​i​t​e​ ​u​s​e​s​ ​{​u​s​e​d​}
+			 * @param {string} used
+			 */
+			site_usage: RequiredParams<'used'>
+			/**
+			 * t​h​e​ ​b​r​o​w​s​e​r​ ​h​a​s​ ​p​r​o​m​i​s​e​d​ ​t​o​ ​k​e​e​p​ ​i​t
+			 */
+			storage_kept: string
+			/**
+			 * t​h​e​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​i​t
+			 */
+			storage_may_clear: string
+			/**
+			 * {​c​o​u​n​t​}​ ​f​o​l​d​e​r​{​{​s​}​}​ ​s​h​a​r​e​d​ ​b​y​ ​y​o​u
+			 * @param {number} count
+			 */
+			shared_by_you: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+			 * @param {number} count
+			 */
+			shared_with_you: RequiredParams<'count'>
+			/**
+			 * n​o​t​h​i​n​g​ ​s​h​a​r​e​d
+			 */
+			nothing_shared: string
+			/**
+			 * S​h​a​r​i​n​g​ ​f​a​c​t​s​ ​u​n​k​n​o​w​n​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			facts_unknown: string
+			/**
+			 * O​p​e​n
+			 */
+			open: string
+			/**
+			 * R​e​n​a​m​e​…
+			 */
+			rename: string
+			/**
+			 * R​e​n​a​m​e​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			rename_title: RequiredParams<'name'>
+			/**
+			 * N​a​m​e​ ​i​n​ ​t​h​i​s​ ​l​i​s​t
+			 */
+			rename_label: string
+			/**
+			 * C​h​a​n​g​e​s​ ​t​h​e​ ​n​a​m​e​ ​s​h​o​w​n​ ​h​e​r​e​ ​o​n​l​y​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​o​n​ ​d​i​s​k​ ​k​e​e​p​s​ ​i​t​s​ ​n​a​m​e​.
+			 */
+			rename_hint: string
+			/**
+			 * R​e​n​a​m​e
+			 */
+			rename_save: string
+			/**
+			 * T​r​y​ ​a​g​a​i​n
+			 */
+			try_again: string
+			/**
+			 * P​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​ ​s​e​e​ ​y​o​u​ ​a​s​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			identity: RequiredParams<'name'>
+			/**
+			 * C​h​a​n​g​e
+			 */
+			identity_change: string
+			/**
+			 * L​i​n​k​s​ ​y​o​u​ ​w​e​r​e​ ​s​e​n​t​:​ ​{​c​o​u​n​t​}​ ​r​e​m​e​m​b​e​r​e​d
+			 * @param {number} count
+			 */
+			remembered: RequiredParams<'count'>
+			/**
+			 * L​i​n​k​s​ ​y​o​u​ ​w​e​r​e​ ​s​e​n​t
+			 */
+			remembered_title: string
+			/**
+			 * O​p​e​n​ ​o​n​e​ ​a​g​a​i​n​ ​a​s​ ​a​ ​v​a​u​l​t​ ​o​f​ ​i​t​s​ ​o​w​n​.
+			 */
+			remembered_hint: string
+		}
 		/**
 		 * l​i​n​k​e​d
 		 */
@@ -2542,7 +2844,7 @@ export type NamespaceWebTranslation = {
 		 */
 		row_menu: RequiredParams<'name'>
 		/**
-		 * R​e​m​o​v​e​ ​f​r​o​m​ ​t​h​i​s​ ​l​i​s​t
+		 * R​e​m​o​v​e​ ​f​r​o​m​ ​t​h​i​s​ ​l​i​s​t​…
 		 */
 		remove_item: string
 		/**
@@ -2630,6 +2932,52 @@ export type NamespaceWebTranslation = {
 			 */
 			forget_partial: RequiredParams<'message'>
 		}
+	}
+	import_app: {
+		/**
+		 * B​r​i​n​g​ ​n​o​t​e​s​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​a​p​p
+		 */
+		title: string
+		/**
+		 * O​b​s​i​d​i​a​n
+		 */
+		obsidian: string
+		/**
+		 * O​p​e​n​ ​y​o​u​r​ ​v​a​u​l​t​ ​f​o​l​d​e​r​.​ ​I​t​ ​o​p​e​n​s​ ​a​s​ ​i​t​ ​i​s​:​ ​y​o​u​r​ ​.​o​b​s​i​d​i​a​n​ ​s​e​t​t​i​n​g​s​,​ ​d​a​i​l​y​ ​n​o​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​l​e​f​t​ ​a​l​o​n​e​ ​a​n​d​ ​n​o​t​h​i​n​g​ ​i​s​ ​r​e​w​r​i​t​t​e​n​.
+		 */
+		obsidian_body: string
+		/**
+		 * O​p​e​n​ ​a​ ​f​o​l​d​e​r​…
+		 */
+		open_folder: string
+		/**
+		 * A​ ​b​r​o​w​s​e​r​ ​c​a​n​'​t​ ​o​p​e​n​ ​a​ ​f​o​l​d​e​r​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​.​ ​T​o​ ​w​o​r​k​ ​o​n​ ​a​n​ ​O​b​s​i​d​i​a​n​ ​v​a​u​l​t​,​ ​u​s​e​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.
+		 */
+		obsidian_browser: string
+		/**
+		 * N​o​t​i​o​n
+		 */
+		notion: string
+		/**
+		 * E​x​p​o​r​t​ ​y​o​u​r​ ​w​o​r​k​s​p​a​c​e​ ​a​s​ ​M​a​r​k​d​o​w​n​ ​&​ ​C​S​V​,​ ​u​n​z​i​p​ ​i​t​ ​i​n​t​o​ ​a​ ​f​o​l​d​e​r​,​ ​o​p​e​n​ ​t​h​a​t​ ​f​o​l​d​e​r​.​ ​D​a​t​a​b​a​s​e​s​ ​a​r​r​i​v​e​ ​a​s​ ​f​o​l​d​e​r​s​ ​o​f​ ​n​o​t​e​s​;​ ​a​ ​p​r​o​p​e​r​ ​i​m​p​o​r​t​e​r​ ​w​i​t​h​ ​t​y​p​e​d​ ​p​r​o​p​e​r​t​i​e​s​ ​i​s​ ​o​n​ ​t​h​e​ ​w​a​y​.
+		 */
+		notion_body: string
+		/**
+		 * A​p​p​l​e​ ​N​o​t​e​s​,​ ​B​e​a​r​,​ ​L​o​g​s​e​q​,​ ​a​n​y​t​h​i​n​g​ ​e​l​s​e
+		 */
+		other: string
+		/**
+		 * E​x​p​o​r​t​ ​t​o​ ​M​a​r​k​d​o​w​n​,​ ​p​u​t​ ​t​h​e​ ​f​i​l​e​s​ ​i​n​ ​a​ ​f​o​l​d​e​r​,​ ​o​p​e​n​ ​t​h​e​ ​f​o​l​d​e​r​.​ ​I​m​a​g​e​s​ ​c​o​m​e​ ​a​l​o​n​g​ ​a​s​ ​f​i​l​e​s​;​ ​t​h​e​y​ ​a​r​e​ ​n​o​t​ ​s​y​n​c​e​d​ ​t​o​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​y​e​t​.
+		 */
+		other_body: string
+		/**
+		 * R​e​a​d​ ​t​h​e​ ​i​m​p​o​r​t​ ​g​u​i​d​e
+		 */
+		guide: string
+		/**
+		 * E​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​o​p​e​n​ ​s​t​a​y​s​ ​w​h​e​r​e​ ​i​t​ ​i​s​ ​o​n​ ​d​i​s​k​.​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​a​d​d​s​ ​a​ ​.​o​h​h​i​/​ ​f​o​l​d​e​r​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​ ​f​o​r​ ​i​t​s​ ​o​w​n​ ​s​e​t​t​i​n​g​s​ ​a​n​d​ ​n​o​t​h​i​n​g​ ​e​l​s​e​.
+		 */
+		foot: string
 	}
 	vault_switcher: {
 		/**
@@ -3131,17 +3479,34 @@ export type NamespaceWebTranslation = {
 			 */
 			relay_invalid: string
 			/**
-			 * R​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t
-			 */
-			secret: string
-			/**
 			 * u​n​s​e​t
 			 */
 			secret_placeholder: string
 			/**
-			 * L​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​,​ ​l​i​s​t​ ​a​n​d​ ​r​e​m​o​v​e​ ​s​h​a​r​e​ ​l​i​n​k​s​ ​o​n​ ​y​o​u​r​ ​r​e​l​a​y​.
+			 * S​e​t​ ​b​y​ ​t​h​i​s​ ​b​u​i​l​d​:​ ​i​t​s​ ​s​e​c​u​r​i​t​y​ ​p​o​l​i​c​y​ ​a​l​l​o​w​s​ ​n​o​ ​o​t​h​e​r​ ​r​e​l​a​y​.
 			 */
-			secret_hint: string
+			relay_pinned_hint: string
+			/**
+			 * Y​o​u​r​ ​d​e​v​i​c​e​s
+			 */
+			devices: string
+			/**
+			 * R​u​n​n​i​n​g​ ​y​o​u​r​ ​o​w​n​ ​r​e​l​a​y
+			 */
+			running_title: string
+			/**
+			 * O​n​e​ ​r​e​l​a​y​ ​p​e​r​ ​g​r​o​u​p​:​ ​e​v​e​r​y​ ​l​i​n​k​ ​n​a​m​e​s​ ​t​h​e​ ​r​e​l​a​y​ ​i​t​ ​w​a​s​ ​m​a​d​e​ ​o​n​.​ ​T​h​e​ ​r​e​l​a​y​ ​i​s​ ​o​n​e​ ​D​o​c​k​e​r​ ​c​o​n​t​a​i​n​e​r​;​ ​t​h​e​ ​g​u​i​d​e​ ​h​a​s​ ​t​h​e​ ​t​w​o​ ​c​o​m​m​a​n​d​s​ ​a​n​d​ ​t​h​e​ ​s​e​c​r​e​t​ ​t​o​ ​s​e​t​.​ ​T​e​l​l​ ​t​h​e​ ​a​p​p​ ​a​b​o​u​t​ ​i​t​ ​w​i​t​h​ ​C​h​a​n​g​e​…​ ​a​b​o​v​e​.
+			 */
+			running_body: string
+			/**
+			 * T​h​i​s​ ​b​u​i​l​d​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​ ​o​n​l​y​:​ ​i​t​s​ ​s​e​c​u​r​i​t​y​ ​p​o​l​i​c​y​ ​a​l​l​o​w​s​ ​n​o​ ​o​t​h​e​r​ ​r​e​l​a​y​.​ ​A​ ​g​r​o​u​p​ ​t​h​a​t​ ​r​u​n​s​ ​i​t​s​ ​o​w​n​ ​r​e​l​a​y​ ​u​s​e​s​ ​a​ ​b​u​i​l​d​ ​w​i​t​h​o​u​t​ ​t​h​a​t​ ​p​i​n​.
+			 * @param {string} host
+			 */
+			running_pinned: RequiredParams<'host'>
+			/**
+			 * T​h​e​ ​r​e​l​a​y​ ​g​u​i​d​e
+			 */
+			running_guide: string
 		}
 		vaults: {
 			/**
@@ -3244,11 +3609,11 @@ export type NamespaceWebTranslation = {
 			 */
 			link: string
 			/**
-			 * e​d​i​t​o​r​1​:​…
+			 * e​d​i​t​o​r​1​:​…​ ​o​r​ ​h​t​t​p​s​:​/​/​…​/​j​o​i​n​#​e​d​i​t​o​r​1​:​…
 			 */
 			link_placeholder: string
 			/**
-			 * T​h​a​t​ ​d​o​e​s​n​’​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​s​h​a​r​e​ ​l​i​n​k​ ​—​ ​t​h​e​y​ ​s​t​a​r​t​ ​w​i​t​h​ ​"​e​d​i​t​o​r​1​:​"​.
+			 * T​h​a​t​ ​d​o​e​s​n​’​t​ ​l​o​o​k​ ​l​i​k​e​ ​a​ ​s​h​a​r​e​ ​l​i​n​k​ ​—​ ​t​h​e​y​ ​s​t​a​r​t​ ​w​i​t​h​ ​e​d​i​t​o​r​1​:​ ​o​r​ ​a​r​e​ ​a​ ​…​/​j​o​i​n​ ​l​i​n​k​.
 			 */
 			link_invalid: string
 			/**
@@ -3256,6 +3621,55 @@ export type NamespaceWebTranslation = {
 			 * @param {string} host
 			 */
 			from_host: RequiredParams<'host'>
+			/**
+			 * {​l​a​b​e​l​}​,​ ​s​h​a​r​e​d​ ​b​y​ ​“​{​f​r​o​m​}​”​ ​(​t​h​e​ ​n​a​m​e​ ​t​h​e​y​ ​t​y​p​e​d​)​ ​·​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}
+			 * @param {string} from
+			 * @param {string} host
+			 * @param {string} label
+			 */
+			from_label_sender: RequiredParams<'from' | 'host' | 'label'>
+			/**
+			 * {​l​a​b​e​l​}​ ​·​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}
+			 * @param {string} host
+			 * @param {string} label
+			 */
+			from_label: RequiredParams<'host' | 'label'>
+			/**
+			 * A​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​,​ ​s​h​a​r​e​d​ ​b​y​ ​“​{​f​r​o​m​}​”​ ​(​t​h​e​ ​n​a​m​e​ ​t​h​e​y​ ​t​y​p​e​d​)​ ​·​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}
+			 * @param {string} from
+			 * @param {string} host
+			 */
+			from_sender: RequiredParams<'from' | 'host'>
+			/**
+			 * A​ ​d​e​v​i​c​e​ ​l​i​n​k​:​ ​a​ ​f​u​l​l​-​a​c​c​e​s​s​ ​k​e​y​ ​t​o​ ​a​ ​w​h​o​l​e​ ​v​a​u​l​t​,​ ​f​o​r​ ​y​o​u​r​ ​o​w​n​ ​d​e​v​i​c​e​s​ ​o​n​l​y​ ​·​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}
+			 * @param {string} host
+			 */
+			from_device: RequiredParams<'host'>
+			/**
+			 * c​h​e​c​k​i​n​g​ ​t​h​e​ ​r​e​l​a​y​…
+			 */
+			probe_checking: string
+			/**
+			 * r​e​l​a​y​ ​r​e​a​c​h​a​b​l​e
+			 */
+			probe_ok: string
+			/**
+			 * c​a​n​’​t​ ​r​e​a​c​h​ ​t​h​e​ ​r​e​l​a​y​ ​f​r​o​m​ ​h​e​r​e
+			 */
+			probe_down: string
+			/**
+			 * c​a​n​’​t​ ​r​e​a​c​h​ ​t​h​e​ ​r​e​l​a​y​ ​f​r​o​m​ ​h​e​r​e​.​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			probe_down_note: RequiredParams<'note'>
+			/**
+			 * Y​o​u​r​ ​n​a​m​e​,​ ​s​h​o​w​n​ ​t​o​ ​t​h​e​ ​p​e​o​p​l​e​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r
+			 */
+			name: string
+			/**
+			 * e​.​g​.​ ​S​a​m
+			 */
+			name_placeholder: string
 			/**
 			 * W​h​e​r​e​ ​i​t​ ​g​o​e​s
 			 */
@@ -3323,7 +3737,7 @@ export type NamespaceWebTranslation = {
 			 */
 			dest_required: string
 			/**
-			 * W​h​o​e​v​e​r​ ​s​e​n​t​ ​t​h​i​s​ ​l​i​n​k​ ​c​a​n​ ​s​e​e​ ​e​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​t​h​e​ ​f​o​l​d​e​r​.​ ​T​h​e​ ​l​i​n​k​ ​d​o​e​s​ ​n​o​t​ ​s​a​y​ ​w​h​o​ ​t​h​e​y​ ​a​r​e​,​ ​s​o​ ​c​h​e​c​k​ ​i​t​ ​c​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​p​e​r​s​o​n​ ​y​o​u​ ​t​h​i​n​k​.
+			 * W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​ ​c​a​n​ ​s​e​e​ ​e​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​t​h​e​ ​f​o​l​d​e​r​.
 			 */
 			trust: string
 			/**
@@ -3358,29 +3772,37 @@ export type NamespaceWebTranslation = {
 			 */
 			intro_joined: RequiredParams<'host' | 'path'>
 			/**
-			 * W​h​e​r​e​ ​s​h​o​u​l​d​ ​i​t​ ​s​y​n​c​?
+			 * S​y​n​c​s​ ​t​h​r​o​u​g​h
 			 */
-			where_title: string
+			syncs_through: string
 			/**
-			 * R​e​l​a​y
+			 * R​e​l​a​y​ ​a​d​d​r​e​s​s
 			 */
 			relay: string
-			/**
-			 * O​p​e​r​a​t​o​r​ ​s​e​c​r​e​t
-			 */
-			secret: string
-			/**
-			 * T​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​s​ ​n​e​e​d​e​d​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​i​t​.
-			 */
-			secret_required: string
-			/**
-			 * T​h​e​ ​s​e​c​r​e​t​ ​l​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​y​o​u​r​ ​t​e​a​m​’​s​ ​r​e​l​a​y​;​ ​a​s​k​ ​w​h​o​e​v​e​r​ ​r​u​n​s​ ​i​t​.​ ​B​o​t​h​ ​a​r​e​ ​r​e​m​e​m​b​e​r​e​d​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​.
-			 */
-			where_hint: string
 			/**
 			 * S​a​v​e
 			 */
 			save_where: string
+			/**
+			 * F​i​r​s​t​ ​l​i​n​k​:​ ​w​h​o​ ​i​s​ ​i​t​ ​f​o​r​?
+			 */
+			first_link: string
+			/**
+			 * O​n​e​ ​l​i​n​k​ ​p​e​r​ ​p​e​r​s​o​n​,​ ​n​a​m​e​d​ ​f​o​r​ ​t​h​e​m​,​ ​s​o​ ​y​o​u​ ​c​a​n​ ​r​e​m​o​v​e​ ​o​n​e​ ​l​a​t​e​r​.
+			 */
+			first_link_hint: string
+			/**
+			 * Y​o​u​r​ ​n​a​m​e​,​ ​s​h​o​w​n​ ​t​o​ ​t​h​e​m
+			 */
+			your_name: string
+			/**
+			 * R​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​T​h​e​y​ ​s​e​e​ ​i​t​ ​a​s​ ​t​h​e​ ​n​a​m​e​ ​y​o​u​ ​t​y​p​e​d​,​ ​n​o​t​ ​a​ ​v​e​r​i​f​i​e​d​ ​a​c​c​o​u​n​t​.
+			 */
+			your_name_hint: string
+			/**
+			 * S​h​a​r​e​ ​w​a​i​t​s​ ​u​n​t​i​l​ ​t​h​e​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​s​a​y​s​ ​i​t​ ​w​o​r​k​s​.
+			 */
+			share_waits: string
 			/**
 			 * S​h​a​r​e​ ​a​n​d​ ​c​o​p​y​ ​l​i​n​k
 			 */
@@ -3440,6 +3862,31 @@ export type NamespaceWebTranslation = {
 			 * @param {string} name
 			 */
 			copy_link_for: RequiredParams<'name'>
+			/**
+			 * C​o​p​y​ ​m​e​s​s​a​g​e
+			 */
+			copy_message: string
+			/**
+			 * C​o​p​y​ ​m​e​s​s​a​g​e​ ​f​o​r​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			copy_message_for: RequiredParams<'name'>
+			/**
+			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
+			 * @param {string} folder
+			 * @param {string} link
+			 */
+			message: RequiredParams<'folder' | 'link'>
+			/**
+			 * N​e​w​ ​t​o​ ​t​h​e​ ​a​p​p​?​ ​{​u​r​l​}
+			 * @param {string} url
+			 */
+			message_guide: RequiredParams<'url'>
+			/**
+			 * L​i​n​k​ ​f​o​r​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			just_made: RequiredParams<'name'>
 			/**
 			 * C​o​p​i​e​d
 			 */
@@ -3544,6 +3991,183 @@ export type NamespaceWebTranslation = {
 			 */
 			confirm: string
 		}
+	}
+	join_page: {
+		/**
+		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​·​ ​a​ ​f​o​l​d​e​r​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+		 */
+		brand: string
+		/**
+		 * {​f​r​o​m​}​ ​s​h​a​r​e​d​ ​{​l​a​b​e​l​}​ ​w​i​t​h​ ​y​o​u
+		 * @param {string} from
+		 * @param {string} label
+		 */
+		heading_from: RequiredParams<'from' | 'label'>
+		/**
+		 * S​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​{​l​a​b​e​l​}​ ​w​i​t​h​ ​y​o​u
+		 * @param {string} label
+		 */
+		heading_anon: RequiredParams<'label'>
+		/**
+		 * a​ ​f​o​l​d​e​r
+		 */
+		a_folder: string
+		/**
+		 * “​{​f​r​o​m​}​”​ ​i​s​ ​t​h​e​ ​n​a​m​e​ ​t​h​e​y​ ​t​y​p​e​d​,​ ​n​o​t​ ​a​ ​v​e​r​i​f​i​e​d​ ​a​c​c​o​u​n​t​.​ ​C​h​e​c​k​ ​t​h​i​s​ ​c​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​p​e​r​s​o​n​ ​y​o​u​ ​t​h​i​n​k​.
+		 * @param {string} from
+		 */
+		from_note: RequiredParams<'from'>
+		/**
+		 * T​h​e​ ​l​i​n​k​ ​d​o​e​s​ ​n​o​t​ ​s​a​y​ ​w​h​o​ ​s​e​n​t​ ​i​t​.​ ​C​h​e​c​k​ ​i​t​ ​c​a​m​e​ ​f​r​o​m​ ​s​o​m​e​o​n​e​ ​y​o​u​ ​e​x​p​e​c​t​.
+		 */
+		anon_note: string
+		/**
+		 * A​b​o​u​t​ ​t​h​i​s​ ​f​o​l​d​e​r
+		 */
+		facts: string
+		/**
+		 * W​h​a​t​ ​y​o​u​ ​g​e​t
+		 */
+		what_you_get: string
+		/**
+		 * E​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​t​h​e​ ​f​o​l​d​e​r​,​ ​l​i​v​e​.​ ​A​n​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​i​t​ ​i​s​ ​v​i​s​i​b​l​e​ ​t​o​ ​e​v​e​r​y​o​n​e​ ​h​o​l​d​i​n​g​ ​a​ ​l​i​n​k​.
+		 */
+		what_you_get_body: string
+		/**
+		 * S​y​n​c​s​ ​t​h​r​o​u​g​h
+		 */
+		syncs_through: string
+		/**
+		 * {​h​o​s​t​}​,​ ​t​h​e​ ​t​e​a​m​’​s​ ​r​e​l​a​y​.
+		 * @param {string} host
+		 */
+		syncs_team: RequiredParams<'host'>
+		/**
+		 * {​h​o​s​t​}​,​ ​a​ ​r​e​l​a​y​ ​r​u​n​ ​b​y​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​t​h​i​s​.
+		 * @param {string} host
+		 */
+		syncs_other: RequiredParams<'host'>
+		/**
+		 * E​d​i​t​i​n​g​ ​o​f​f​l​i​n​e​ ​a​l​w​a​y​s​ ​w​o​r​k​s​.
+		 */
+		offline: string
+		/**
+		 * C​h​e​c​k​i​n​g​ ​t​h​e​ ​r​e​l​a​y​…
+		 */
+		relay_checking: string
+		/**
+		 * R​e​l​a​y​ ​r​e​a​c​h​a​b​l​e​ ​·​ ​c​h​e​c​k​e​d​ ​j​u​s​t​ ​n​o​w
+		 */
+		relay_ok: string
+		/**
+		 * C​a​n​’​t​ ​r​e​a​c​h​ ​t​h​e​ ​r​e​l​a​y​ ​f​r​o​m​ ​h​e​r​e​.
+		 */
+		relay_down: string
+		/**
+		 * A​s​k​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​t​h​i​s​ ​h​o​w​ ​t​o​ ​r​e​a​c​h​ ​t​h​e​i​r​ ​r​e​l​a​y​.
+		 */
+		relay_down_other: string
+		/**
+		 * T​h​e​n​ ​r​e​l​o​a​d​ ​t​h​i​s​ ​p​a​g​e​.
+		 */
+		reload: string
+		/**
+		 * W​h​e​r​e​ ​d​o​ ​y​o​u​ ​w​a​n​t​ ​i​t​?
+		 */
+		where: string
+		/**
+		 * I​n​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p
+		 */
+		desktop: string
+		/**
+		 * B​e​s​i​d​e​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​a​s​ ​r​e​a​l​ ​f​i​l​e​s​ ​o​n​ ​d​i​s​k​.​ ​B​e​s​t​ ​f​o​r​ ​a​n​y​t​h​i​n​g​ ​y​o​u​ ​w​i​l​l​ ​k​e​e​p​.
+		 */
+		desktop_hint: string
+		/**
+		 * C​o​p​y​ ​l​i​n​k
+		 */
+		copy: string
+		/**
+		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 */
+		copied: string
+		/**
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 */
+		copy_failed: string
+		/**
+		 * T​h​e​ ​l​i​n​k
+		 */
+		link_label: string
+		/**
+		 * I​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+		 */
+		browser: string
+		/**
+		 * F​i​n​e​ ​f​o​r​ ​a​ ​t​e​a​m​ ​f​o​l​d​e​r​:​ ​i​t​s​ ​n​o​t​e​s​ ​a​l​s​o​ ​l​i​v​e​ ​w​i​t​h​ ​y​o​u​r​ ​t​e​a​m​m​a​t​e​s​ ​a​n​d​ ​o​n​ ​t​h​e​ ​r​e​l​a​y​.
+		 */
+		browser_hint: string
+		/**
+		 * A​d​d​ ​h​e​r​e
+		 */
+		add_here: string
+		/**
+		 * D​o​n​’​t​ ​h​a​v​e​ ​t​h​e​ ​a​p​p​?
+		 */
+		no_app: string
+		/**
+		 * D​o​w​n​l​o​a​d​ ​f​o​r​ ​m​a​c​O​S​ ​·​ ​L​i​n​u​x
+		 */
+		download: string
+		/**
+		 * N​e​w​ ​t​o​ ​t​h​e​ ​a​p​p​?
+		 */
+		new_to_app: string
+		/**
+		 * T​h​e​ ​t​w​o​-​m​i​n​u​t​e​ ​g​u​i​d​e
+		 */
+		guide: string
+		/**
+		 * T​h​i​s​ ​l​i​n​k​ ​c​a​n​’​t​ ​b​e​ ​o​p​e​n​e​d​ ​h​e​r​e
+		 */
+		error_heading: string
+		/**
+		 * A​s​k​ ​f​o​r​ ​t​h​e​ ​l​i​n​k​ ​a​g​a​i​n​,​ ​o​r​ ​p​a​s​t​e​ ​i​t​ ​i​n​ ​t​h​e​ ​a​p​p​:​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 */
+		error_fallback: string
+		/**
+		 * T​h​i​s​ ​i​s​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​,​ ​n​o​t​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r
+		 */
+		device_heading: string
+		/**
+		 * I​t​ ​i​s​ ​a​ ​f​u​l​l​-​a​c​c​e​s​s​ ​k​e​y​ ​t​o​ ​a​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​(​{​l​a​b​e​l​}​)​,​ ​m​e​a​n​t​ ​o​n​l​y​ ​f​o​r​ ​i​t​s​ ​o​w​n​e​r​’​s​ ​o​w​n​ ​d​e​v​i​c​e​s​.​ ​I​f​ ​i​t​ ​i​s​ ​y​o​u​r​s​,​ ​o​p​e​n​ ​i​t​ ​o​n​ ​t​h​e​ ​d​e​v​i​c​e​ ​y​o​u​ ​w​a​n​t​ ​t​h​e​ ​v​a​u​l​t​ ​o​n​ ​w​i​t​h​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​I​f​ ​s​o​m​e​o​n​e​ ​e​l​s​e​ ​s​e​n​t​ ​i​t​ ​t​o​ ​y​o​u​,​ ​d​o​ ​n​o​t​ ​u​s​e​ ​i​t​.
+		 * @param {string} label
+		 */
+		device_body: RequiredParams<'label'>
+		/**
+		 * u​n​n​a​m​e​d
+		 */
+		device_vault: string
+		/**
+		 * C​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​a​t​ ​c​o​m​p​u​t​e​r​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 */
+		device_desktop_hint: string
+		/**
+		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 */
+		device_copied: string
+		/**
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 */
+		device_copy_failed: string
+		/**
+		 * P​u​l​l​s​ ​t​h​e​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​i​n​t​o​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​a​n​d​ ​k​e​e​p​s​ ​i​t​ ​i​n​ ​s​y​n​c​.
+		 */
+		device_browser_hint: string
+		/**
+		 * L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e
+		 */
+		link_here: string
 	}
 	mounts: {
 		/**
@@ -3689,9 +4313,13 @@ export type NamespaceWebTranslation = {
 		 */
 		needs_vault: string
 		/**
-		 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​a​b​o​v​e​ ​t​o​ ​c​r​e​a​t​e​ ​d​e​v​i​c​e​ ​l​i​n​k​s​.
+		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​:​ ​p​a​s​t​e​ ​i​t​ ​a​b​o​v​e​.
 		 */
 		needs_secret: string
+		/**
+		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.​ ​A​d​d​ ​i​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​.
+		 */
+		needs_secret_dialog: string
 		/**
 		 * L​i​n​k​ ​a​ ​d​e​v​i​c​e
 		 */
@@ -4205,6 +4833,292 @@ export type NamespaceWebTranslation = {
 		 * R​e​s​t​a​r​t
 		 */
 		restart: string
+		/**
+		 * W​h​a​t​ ​c​h​a​n​g​e​d
+		 */
+		what_changed: string
+	}
+	help: {
+		/**
+		 * H​e​l​p
+		 */
+		label: string
+		menu: {
+			/**
+			 * G​e​t​t​i​n​g​ ​s​t​a​r​t​e​d
+			 */
+			start: string
+			/**
+			 * 2​ ​m​i​n
+			 */
+			start_time: string
+			/**
+			 * K​e​y​b​o​a​r​d​ ​s​h​o​r​t​c​u​t​s
+			 */
+			shortcuts: string
+			/**
+			 * W​h​e​n​ ​s​o​m​e​t​h​i​n​g​ ​g​o​e​s​ ​w​r​o​n​g
+			 */
+			recovery: string
+			/**
+			 * S​h​a​r​i​n​g​ ​a​n​d​ ​t​h​e​ ​r​e​l​a​y
+			 */
+			sharing: string
+			/**
+			 * W​h​a​t​’​s​ ​n​e​w​ ​i​n​ ​{​v​e​r​s​i​o​n​}
+			 * @param {string} version
+			 */
+			changes: RequiredParams<'version'>
+			/**
+			 * W​h​a​t​’​s​ ​n​e​w
+			 */
+			changes_plain: string
+			/**
+			 * R​e​p​o​r​t​ ​a​ ​p​r​o​b​l​e​m​…
+			 */
+			report: string
+		}
+		version: {
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
+			 * @param {string} version
+			 */
+			plain: RequiredParams<'version'>
+			/**
+			 * V​e​r​s​i​o​n​ ​n​o​t​ ​k​n​o​w​n
+			 */
+			unknown: string
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​u​p​ ​t​o​ ​d​a​t​e​ ​·​ ​c​h​e​c​k​e​d​ ​{​w​h​e​n​}
+			 * @param {string} version
+			 * @param {string} when
+			 */
+			current: RequiredParams<'version' | 'when'>
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​c​o​u​l​d​ ​n​o​t​ ​c​h​e​c​k​ ​·​ ​l​a​s​t​ ​c​h​e​c​k​e​d​ ​{​w​h​e​n​}
+			 * @param {string} version
+			 * @param {string} when
+			 */
+			failed: RequiredParams<'version' | 'when'>
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​c​o​u​l​d​ ​n​o​t​ ​c​h​e​c​k
+			 * @param {string} version
+			 */
+			failed_never: RequiredParams<'version'>
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​d​o​w​n​l​o​a​d​i​n​g​ ​{​n​e​x​t​}
+			 * @param {string} next
+			 * @param {string} version
+			 */
+			found: RequiredParams<'next' | 'version'>
+			/**
+			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​u​p​d​a​t​e​ ​r​e​a​d​y​,​ ​r​e​s​t​a​r​t​ ​t​o​ ​u​s​e​ ​i​t
+			 * @param {string} version
+			 */
+			ready: RequiredParams<'version'>
+		}
+		commands: {
+			/**
+			 * H​e​l​p​ ​m​e​n​u
+			 */
+			menu: string
+			/**
+			 * H​e​l​p​:​ ​G​e​t​t​i​n​g​ ​s​t​a​r​t​e​d
+			 */
+			start: string
+			/**
+			 * H​e​l​p​:​ ​K​e​y​b​o​a​r​d​ ​s​h​o​r​t​c​u​t​s
+			 */
+			shortcuts: string
+			/**
+			 * H​e​l​p​:​ ​W​h​e​n​ ​s​o​m​e​t​h​i​n​g​ ​g​o​e​s​ ​w​r​o​n​g
+			 */
+			recovery: string
+			/**
+			 * H​e​l​p​:​ ​S​h​a​r​i​n​g​ ​a​n​d​ ​t​h​e​ ​r​e​l​a​y
+			 */
+			sharing: string
+			/**
+			 * H​e​l​p​:​ ​W​h​a​t​’​s​ ​n​e​w
+			 */
+			changes: string
+			/**
+			 * R​e​p​o​r​t​ ​a​ ​p​r​o​b​l​e​m​…
+			 */
+			report: string
+		}
+		/**
+		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​g​u​i​d​e
+		 */
+		window_title: string
+		report: {
+			/**
+			 * R​e​p​o​r​t​ ​a​ ​p​r​o​b​l​e​m
+			 */
+			title: string
+			/**
+			 * S​a​y​ ​w​h​a​t​ ​h​a​p​p​e​n​e​d​ ​i​n​ ​a​ ​s​e​n​t​e​n​c​e​.​ ​T​h​e​ ​f​a​c​t​s​ ​b​e​l​o​w​ ​a​r​e​ ​c​o​p​i​e​d​ ​w​i​t​h​ ​i​t​;​ ​p​a​s​t​e​ ​t​h​e​ ​w​h​o​l​e​ ​t​h​i​n​g​ ​i​n​ ​t​h​e​ ​t​e​a​m​ ​c​h​a​t​.
+			 */
+			description: string
+			/**
+			 * W​h​a​t​ ​h​a​p​p​e​n​e​d
+			 */
+			what_label: string
+			/**
+			 * I​ ​c​l​i​c​k​e​d​ ​…​ ​a​n​d​ ​t​h​e​n​ ​…
+			 */
+			what_placeholder: string
+			/**
+			 * A​t​t​a​c​h​e​d​ ​a​u​t​o​m​a​t​i​c​a​l​l​y
+			 */
+			attached: string
+			/**
+			 * N​o​t​e​ ​c​o​n​t​e​n​t​s​ ​a​r​e​ ​n​e​v​e​r​ ​i​n​c​l​u​d​e​d​.
+			 */
+			never_content: string
+			/**
+			 * C​o​p​y​ ​r​e​p​o​r​t
+			 */
+			copy: string
+			/**
+			 * R​e​p​o​r​t​ ​c​o​p​i​e​d​.​ ​P​a​s​t​e​ ​i​t​ ​i​n​ ​t​h​e​ ​t​e​a​m​ ​c​h​a​t​.
+			 */
+			copied: string
+			/**
+			 * T​h​e​ ​c​l​i​p​b​o​a​r​d​ ​i​s​ ​b​l​o​c​k​e​d​.​ ​T​h​e​ ​r​e​p​o​r​t​ ​i​s​ ​s​e​l​e​c​t​e​d​ ​b​e​l​o​w​:​ ​c​o​p​y​ ​i​t​ ​b​y​ ​h​a​n​d​.
+			 */
+			copy_failed: string
+			/**
+			 * T​h​e​ ​r​e​p​o​r​t​ ​a​s​ ​t​e​x​t
+			 */
+			fallback_label: string
+			/**
+			 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​p​r​o​b​l​e​m​ ​r​e​p​o​r​t​ ​(​{​t​i​m​e​}​)
+			 * @param {string} time
+			 */
+			header: RequiredParams<'time'>
+			/**
+			 * W​h​a​t​ ​h​a​p​p​e​n​e​d​:​ ​{​t​e​x​t​}
+			 * @param {string} text
+			 */
+			what: RequiredParams<'text'>
+			/**
+			 * W​h​a​t​ ​h​a​p​p​e​n​e​d​:​ ​(​n​o​t​ ​f​i​l​l​e​d​ ​i​n​)
+			 */
+			what_empty: string
+			/**
+			 * A​p​p​:​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​{​p​l​a​t​f​o​r​m​}
+			 * @param {string} platform
+			 * @param {string} version
+			 */
+			app: RequiredParams<'platform' | 'version'>
+			/**
+			 * v​e​r​s​i​o​n​ ​n​o​t​ ​k​n​o​w​n
+			 */
+			version_unknown: string
+			platform: {
+				/**
+				 * d​e​s​k​t​o​p​ ​a​p​p
+				 */
+				desktop: string
+				/**
+				 * b​r​o​w​s​e​r
+				 */
+				browser: string
+			}
+			/**
+			 * {​p​l​a​t​f​o​r​m​}​ ​o​n​ ​{​o​s​}
+			 * @param {string} os
+			 * @param {string} platform
+			 */
+			platform_os: RequiredParams<'os' | 'platform'>
+			/**
+			 * V​a​u​l​t​:​ ​{​n​a​m​e​}​ ​(​{​k​i​n​d​}​)
+			 * @param {string} kind
+			 * @param {string} name
+			 */
+			vault: RequiredParams<'kind' | 'name'>
+			/**
+			 * V​a​u​l​t​:​ ​n​o​n​e​ ​o​p​e​n
+			 */
+			vault_none: string
+			vault_kind: {
+				/**
+				 * a​ ​f​o​l​d​e​r​ ​o​n​ ​d​i​s​k
+				 */
+				tauri: string
+				/**
+				 * i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+				 */
+				opfs: string
+				/**
+				 * i​n​ ​m​e​m​o​r​y​,​ ​f​o​r​ ​t​e​s​t​s
+				 */
+				memory: string
+			}
+			/**
+			 * R​e​l​a​y​:​ ​{​h​o​s​t​}​ ​·​ ​{​s​t​a​t​e​}
+			 * @param {string} host
+			 * @param {string} state
+			 */
+			relay: RequiredParams<'host' | 'state'>
+			/**
+			 * R​e​l​a​y​:​ ​{​h​o​s​t​}​ ​·​ ​{​s​t​a​t​e​}​ ​·​ ​{​s​i​n​c​e​}
+			 * @param {string} host
+			 * @param {string} since
+			 * @param {string} state
+			 */
+			relay_since: RequiredParams<'host' | 'since' | 'state'>
+			/**
+			 * R​e​l​a​y​:​ ​n​o​n​e​ ​(​n​o​t​h​i​n​g​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​i​s​ ​s​h​a​r​e​d​ ​o​r​ ​l​i​n​k​e​d​)
+			 */
+			relay_none: string
+			/**
+			 * O​p​e​n​ ​n​o​t​e​:​ ​{​p​a​t​h​}​ ​·​ ​{​s​t​a​t​u​s​}​ ​·​ ​{​p​e​o​p​l​e​}
+			 * @param {string} path
+			 * @param {string} people
+			 * @param {string} status
+			 */
+			note: RequiredParams<'path' | 'people' | 'status'>
+			/**
+			 * n​o​t​ ​s​h​a​r​e​d​,​ ​s​o​ ​n​o​ ​s​y​n​c​ ​s​t​a​t​e
+			 */
+			note_unshared: string
+			/**
+			 * O​p​e​n​ ​n​o​t​e​:​ ​n​o​n​e
+			 */
+			note_none: string
+			/**
+			 * {​c​o​u​n​t​}​ ​{​{​p​e​r​s​o​n​|​p​e​o​p​l​e​}​}​ ​o​n​l​i​n​e
+			 * @param {number} count
+			 */
+			people: RequiredParams<'count'>
+			/**
+			 * T​h​i​s​ ​s​e​s​s​i​o​n​:​ ​{​e​r​r​o​r​s​}​,​ ​{​w​a​r​n​i​n​g​s​}
+			 * @param {string} errors
+			 * @param {string} warnings
+			 */
+			counts: RequiredParams<'errors' | 'warnings'>
+			/**
+			 * {​c​o​u​n​t​}​ ​e​r​r​o​r​{​{​s​}​}
+			 * @param {number} count
+			 */
+			errors: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​w​a​r​n​i​n​g​{​{​s​}​}
+			 * @param {number} count
+			 */
+			warnings: RequiredParams<'count'>
+			/**
+			 * T​h​e​ ​l​a​s​t​ ​{​c​o​u​n​t​}​ ​e​v​e​n​t​{​{​s​}​}​ ​f​r​o​m​ ​t​h​e​ ​L​o​g​:
+			 * @param {number} count
+			 */
+			events: RequiredParams<'count'>
+			/**
+			 * T​h​e​ ​L​o​g​ ​i​s​ ​e​m​p​t​y​ ​t​h​i​s​ ​s​e​s​s​i​o​n​.
+			 */
+			events_none: string
+		}
 	}
 	workspace: {
 		/**
@@ -5772,6 +6686,10 @@ export type TranslationFunctions = {
 				 * Templates
 				 */
 				templates: () => LocalizedString
+				/**
+				 * Help
+				 */
+				help: () => LocalizedString
 			}
 			format: {
 				/**
@@ -6703,13 +7621,9 @@ export type TranslationFunctions = {
 				 */
 				link_body: () => LocalizedString
 				/**
-				 * No relay configured. You will choose one the first time you share.
+				 * Shares go through
 				 */
-				no_relay: () => LocalizedString
-				/**
-				 * Shares go through {host}.
-				 */
-				relay_is: (arg: { host: string }) => LocalizedString
+				relay_label: () => LocalizedString
 				/**
 				 * To create links you will need the team’s secret once.
 				 */
@@ -6742,15 +7656,119 @@ export type TranslationFunctions = {
 				next: () => LocalizedString
 			}
 		}
+		relay_card: {
+			/**
+			 * Relay
+			 */
+			label: () => LocalizedString
+			/**
+			 * No relay yet
+			 */
+			none_host: () => LocalizedString
+			/**
+			 * Shares need one relay per group. Run your own, or ask the person who shared with you which one they use.
+			 */
+			none_body: () => LocalizedString
+			/**
+			 * How to run a relay
+			 */
+			guide: () => LocalizedString
+			/**
+			 * checking…
+			 */
+			checking: () => LocalizedString
+			/**
+			 * reachable · checked {when}
+			 */
+			reachable: (arg: { when: string }) => LocalizedString
+			/**
+			 * can’t reach it from here
+			 */
+			unreachable: () => LocalizedString
+			/**
+			 * it answers, but says it is not healthy
+			 */
+			unhealthy: () => LocalizedString
+			/**
+			 * The team’s relay
+			 */
+			team: () => LocalizedString
+			/**
+			 * This build syncs through {host} only.
+			 */
+			pinned: (arg: { host: string }) => LocalizedString
+			/**
+			 * Test
+			 */
+			test: () => LocalizedString
+			/**
+			 * Change…
+			 */
+			change: () => LocalizedString
+			/**
+			 * Use another…
+			 */
+			use_another: () => LocalizedString
+			secret: {
+				/**
+				 * Permission to create links
+				 */
+				title: () => LocalizedString
+				/**
+				 * Lets this app create, list and remove links on this relay.
+				 */
+				description: () => LocalizedString
+				/**
+				 * checking…
+				 */
+				checking: () => LocalizedString
+				/**
+				 * works
+				 */
+				ok: () => LocalizedString
+				/**
+				 * doesn’t match this relay
+				 */
+				bad_secret: () => LocalizedString
+				/**
+				 * this relay has no admin API
+				 */
+				no_admin: () => LocalizedString
+				/**
+				 * can’t reach the relay
+				 */
+				unreachable: () => LocalizedString
+				/**
+				 * Where do I get this?
+				 */
+				where: () => LocalizedString
+				/**
+				 * It is the relay’s operator secret, one for the whole team: {hint}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.
+				 */
+				where_team: (arg: { hint: string }) => LocalizedString
+				/**
+				 * It is the relay’s operator secret. Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.
+				 */
+				where_generic: () => LocalizedString
+			}
+		}
 		manager: {
 			/**
-			 * ← Back
+			 * ← Back to notes
 			 */
 			back: () => LocalizedString
 			/**
 			 * Settings
 			 */
 			settings: () => LocalizedString
+			/**
+			 * Help and guides
+			 */
+			help: () => LocalizedString
+			/**
+			 * Version {version}
+			 */
+			version: (arg: { version: string }) => LocalizedString
 			/**
 			 * Collaborative markdown over a plain-text vault. Files on disk stay the source of truth.
 			 */
@@ -6775,6 +7793,194 @@ export type TranslationFunctions = {
 			 * No vaults yet. Add a folder, link a device, or add a shared folder to get started.
 			 */
 			no_vaults: () => LocalizedString
+			welcome: {
+				/**
+				 * Oh hi.
+				 */
+				title: () => LocalizedString
+				/**
+				 * Your notes stay plain markdown files, and the app never holds the only copy. Pick how you want to start.
+				 */
+				lede: () => LocalizedString
+				/**
+				 * Ways to start
+				 */
+				doors: () => LocalizedString
+				/**
+				 * Open a folder of notes
+				 */
+				folder: () => LocalizedString
+				/**
+				 * Your own notes, on this computer. An Obsidian vault opens as it is; nothing inside it is changed.
+				 */
+				folder_hint: () => LocalizedString
+				/**
+				 * Start a vault in this browser
+				 */
+				browser: () => LocalizedString
+				/**
+				 * Kept in this browser's private storage, which it may clear. Good for trying things out and for team folders; keep your own notes in the desktop app.
+				 */
+				browser_hint: () => LocalizedString
+				/**
+				 * Add a folder someone shared with you
+				 */
+				shared: () => LocalizedString
+				/**
+				 * Paste the link they sent. The folder syncs through their relay, live, and the rest of your notes stay yours.
+				 */
+				shared_hint: () => LocalizedString
+				/**
+				 * Bring your vault from another device
+				 */
+				device: () => LocalizedString
+				/**
+				 * Paste the device link you made on your other computer. The whole vault arrives here and the two stay in step.
+				 */
+				device_hint: () => LocalizedString
+				/**
+				 * Coming from another app?
+				 */
+				import_lead: () => LocalizedString
+				/**
+				 * How to bring notes in
+				 */
+				import_link: () => LocalizedString
+				/**
+				 * Two-minute guide
+				 */
+				guide: () => LocalizedString
+			}
+			list: {
+				/**
+				 * Vaults
+				 */
+				title: () => LocalizedString
+				/**
+				 * Add
+				 */
+				add: () => LocalizedString
+				/**
+				 * Open a folder of notes…
+				 */
+				add_folder: () => LocalizedString
+				/**
+				 * New vault in this browser…
+				 */
+				add_browser: () => LocalizedString
+				/**
+				 * Add a folder someone shared…
+				 */
+				add_shared: () => LocalizedString
+				/**
+				 * Bring a vault from another device…
+				 */
+				add_device: () => LocalizedString
+				/**
+				 * Import from another app…
+				 */
+				add_import: () => LocalizedString
+				/**
+				 * New vault in this browser
+				 */
+				new_browser_title: () => LocalizedString
+				/**
+				 * open now
+				 */
+				open_now: () => LocalizedString
+				/**
+				 * opened today
+				 */
+				opened_today: () => LocalizedString
+				/**
+				 * opened yesterday
+				 */
+				opened_yesterday: () => LocalizedString
+				/**
+				 * opened {date}
+				 */
+				opened_on: (arg: { date: string }) => LocalizedString
+				/**
+				 * in this browser
+				 */
+				in_browser: () => LocalizedString
+				/**
+				 * this site uses {used}
+				 */
+				site_usage: (arg: { used: string }) => LocalizedString
+				/**
+				 * the browser has promised to keep it
+				 */
+				storage_kept: () => LocalizedString
+				/**
+				 * the browser may clear it
+				 */
+				storage_may_clear: () => LocalizedString
+				/**
+				 * {count} folder{{s}} shared by you
+				 */
+				shared_by_you: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} shared with you
+				 */
+				shared_with_you: (arg: { count: number }) => LocalizedString
+				/**
+				 * nothing shared
+				 */
+				nothing_shared: () => LocalizedString
+				/**
+				 * Sharing facts unknown for this vault
+				 */
+				facts_unknown: () => LocalizedString
+				/**
+				 * Open
+				 */
+				open: () => LocalizedString
+				/**
+				 * Rename…
+				 */
+				rename: () => LocalizedString
+				/**
+				 * Rename {name}
+				 */
+				rename_title: (arg: { name: string }) => LocalizedString
+				/**
+				 * Name in this list
+				 */
+				rename_label: () => LocalizedString
+				/**
+				 * Changes the name shown here only. The folder on disk keeps its name.
+				 */
+				rename_hint: () => LocalizedString
+				/**
+				 * Rename
+				 */
+				rename_save: () => LocalizedString
+				/**
+				 * Try again
+				 */
+				try_again: () => LocalizedString
+				/**
+				 * People you share with see you as {name}
+				 */
+				identity: (arg: { name: string }) => LocalizedString
+				/**
+				 * Change
+				 */
+				identity_change: () => LocalizedString
+				/**
+				 * Links you were sent: {count} remembered
+				 */
+				remembered: (arg: { count: number }) => LocalizedString
+				/**
+				 * Links you were sent
+				 */
+				remembered_title: () => LocalizedString
+				/**
+				 * Open one again as a vault of its own.
+				 */
+				remembered_hint: () => LocalizedString
+			}
 			/**
 			 * linked
 			 */
@@ -6796,7 +8002,7 @@ export type TranslationFunctions = {
 			 */
 			row_menu: (arg: { name: string }) => LocalizedString
 			/**
-			 * Remove from this list
+			 * Remove from this list…
 			 */
 			remove_item: () => LocalizedString
 			/**
@@ -6881,6 +8087,52 @@ export type TranslationFunctions = {
 				 */
 				forget_partial: (arg: { message: string }) => LocalizedString
 			}
+		}
+		import_app: {
+			/**
+			 * Bring notes from another app
+			 */
+			title: () => LocalizedString
+			/**
+			 * Obsidian
+			 */
+			obsidian: () => LocalizedString
+			/**
+			 * Open your vault folder. It opens as it is: your .obsidian settings, daily notes and themes are left alone and nothing is rewritten.
+			 */
+			obsidian_body: () => LocalizedString
+			/**
+			 * Open a folder…
+			 */
+			open_folder: () => LocalizedString
+			/**
+			 * A browser can't open a folder on your computer. To work on an Obsidian vault, use the desktop app.
+			 */
+			obsidian_browser: () => LocalizedString
+			/**
+			 * Notion
+			 */
+			notion: () => LocalizedString
+			/**
+			 * Export your workspace as Markdown & CSV, unzip it into a folder, open that folder. Databases arrive as folders of notes; a proper importer with typed properties is on the way.
+			 */
+			notion_body: () => LocalizedString
+			/**
+			 * Apple Notes, Bear, Logseq, anything else
+			 */
+			other: () => LocalizedString
+			/**
+			 * Export to Markdown, put the files in a folder, open the folder. Images come along as files; they are not synced to shared folders yet.
+			 */
+			other_body: () => LocalizedString
+			/**
+			 * Read the import guide
+			 */
+			guide: () => LocalizedString
+			/**
+			 * Everything you open stays where it is on disk. Oh hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.
+			 */
+			foot: () => LocalizedString
 		}
 		vault_switcher: {
 			/**
@@ -7357,17 +8609,33 @@ export type TranslationFunctions = {
 				 */
 				relay_invalid: () => LocalizedString
 				/**
-				 * Relay operator secret
-				 */
-				secret: () => LocalizedString
-				/**
 				 * unset
 				 */
 				secret_placeholder: () => LocalizedString
 				/**
-				 * Lets this app create, list and remove share links on your relay.
+				 * Set by this build: its security policy allows no other relay.
 				 */
-				secret_hint: () => LocalizedString
+				relay_pinned_hint: () => LocalizedString
+				/**
+				 * Your devices
+				 */
+				devices: () => LocalizedString
+				/**
+				 * Running your own relay
+				 */
+				running_title: () => LocalizedString
+				/**
+				 * One relay per group: every link names the relay it was made on. The relay is one Docker container; the guide has the two commands and the secret to set. Tell the app about it with Change… above.
+				 */
+				running_body: () => LocalizedString
+				/**
+				 * This build syncs through {host} only: its security policy allows no other relay. A group that runs its own relay uses a build without that pin.
+				 */
+				running_pinned: (arg: { host: string }) => LocalizedString
+				/**
+				 * The relay guide
+				 */
+				running_guide: () => LocalizedString
 			}
 			vaults: {
 				/**
@@ -7467,17 +8735,57 @@ export type TranslationFunctions = {
 				 */
 				link: () => LocalizedString
 				/**
-				 * editor1:…
+				 * editor1:… or https://…/join#editor1:…
 				 */
 				link_placeholder: () => LocalizedString
 				/**
-				 * That doesn’t look like a share link — they start with "editor1:".
+				 * That doesn’t look like a share link — they start with editor1: or are a …/join link.
 				 */
 				link_invalid: () => LocalizedString
 				/**
 				 * A shared folder on {host}. Its name and contents arrive once you add it.
 				 */
 				from_host: (arg: { host: string }) => LocalizedString
+				/**
+				 * {label}, shared by “{from}” (the name they typed) · syncs through {host}
+				 */
+				from_label_sender: (arg: { from: string, host: string, label: string }) => LocalizedString
+				/**
+				 * {label} · syncs through {host}
+				 */
+				from_label: (arg: { host: string, label: string }) => LocalizedString
+				/**
+				 * A shared folder, shared by “{from}” (the name they typed) · syncs through {host}
+				 */
+				from_sender: (arg: { from: string, host: string }) => LocalizedString
+				/**
+				 * A device link: a full-access key to a whole vault, for your own devices only · syncs through {host}
+				 */
+				from_device: (arg: { host: string }) => LocalizedString
+				/**
+				 * checking the relay…
+				 */
+				probe_checking: () => LocalizedString
+				/**
+				 * relay reachable
+				 */
+				probe_ok: () => LocalizedString
+				/**
+				 * can’t reach the relay from here
+				 */
+				probe_down: () => LocalizedString
+				/**
+				 * can’t reach the relay from here. {note}
+				 */
+				probe_down_note: (arg: { note: string }) => LocalizedString
+				/**
+				 * Your name, shown to the people in this folder
+				 */
+				name: () => LocalizedString
+				/**
+				 * e.g. Sam
+				 */
+				name_placeholder: () => LocalizedString
 				/**
 				 * Where it goes
 				 */
@@ -7543,7 +8851,7 @@ export type TranslationFunctions = {
 				 */
 				dest_required: () => LocalizedString
 				/**
-				 * Whoever sent this link can see everything you put in the folder. The link does not say who they are, so check it came from the person you think.
+				 * Whoever holds a link can see everything you put in the folder.
 				 */
 				trust: () => LocalizedString
 				/**
@@ -7573,29 +8881,37 @@ export type TranslationFunctions = {
 				 */
 				intro_joined: (arg: { host: string, path: string }) => LocalizedString
 				/**
-				 * Where should it sync?
+				 * Syncs through
 				 */
-				where_title: () => LocalizedString
+				syncs_through: () => LocalizedString
 				/**
-				 * Relay
+				 * Relay address
 				 */
 				relay: () => LocalizedString
-				/**
-				 * Operator secret
-				 */
-				secret: () => LocalizedString
-				/**
-				 * The relay’s operator secret is needed to create links on it.
-				 */
-				secret_required: () => LocalizedString
-				/**
-				 * The secret lets this app create links on your team’s relay; ask whoever runs it. Both are remembered in Settings › Sync.
-				 */
-				where_hint: () => LocalizedString
 				/**
 				 * Save
 				 */
 				save_where: () => LocalizedString
+				/**
+				 * First link: who is it for?
+				 */
+				first_link: () => LocalizedString
+				/**
+				 * One link per person, named for them, so you can remove one later.
+				 */
+				first_link_hint: () => LocalizedString
+				/**
+				 * Your name, shown to them
+				 */
+				your_name: () => LocalizedString
+				/**
+				 * Remembered on this device. They see it as the name you typed, not a verified account.
+				 */
+				your_name_hint: () => LocalizedString
+				/**
+				 * Share waits until the permission to create links says it works.
+				 */
+				share_waits: () => LocalizedString
 				/**
 				 * Share and copy link
 				 */
@@ -7652,6 +8968,26 @@ export type TranslationFunctions = {
 				 * Copy link for {name}
 				 */
 				copy_link_for: (arg: { name: string }) => LocalizedString
+				/**
+				 * Copy message
+				 */
+				copy_message: () => LocalizedString
+				/**
+				 * Copy message for {name}
+				 */
+				copy_message_for: (arg: { name: string }) => LocalizedString
+				/**
+				 * I shared {folder} with you in Oh hi markdown. Open this link: {link}
+				 */
+				message: (arg: { folder: string, link: string }) => LocalizedString
+				/**
+				 * New to the app? {url}
+				 */
+				message_guide: (arg: { url: string }) => LocalizedString
+				/**
+				 * Link for {name}
+				 */
+				just_made: (arg: { name: string }) => LocalizedString
 				/**
 				 * Copied
 				 */
@@ -7751,6 +9087,176 @@ export type TranslationFunctions = {
 				 */
 				confirm: () => LocalizedString
 			}
+		}
+		join_page: {
+			/**
+			 * Oh hi markdown · a folder shared with you
+			 */
+			brand: () => LocalizedString
+			/**
+			 * {from} shared {label} with you
+			 */
+			heading_from: (arg: { from: string, label: string }) => LocalizedString
+			/**
+			 * Someone shared {label} with you
+			 */
+			heading_anon: (arg: { label: string }) => LocalizedString
+			/**
+			 * a folder
+			 */
+			a_folder: () => LocalizedString
+			/**
+			 * “{from}” is the name they typed, not a verified account. Check this came from the person you think.
+			 */
+			from_note: (arg: { from: string }) => LocalizedString
+			/**
+			 * The link does not say who sent it. Check it came from someone you expect.
+			 */
+			anon_note: () => LocalizedString
+			/**
+			 * About this folder
+			 */
+			facts: () => LocalizedString
+			/**
+			 * What you get
+			 */
+			what_you_get: () => LocalizedString
+			/**
+			 * Everything inside the folder, live. Anything you put in it is visible to everyone holding a link.
+			 */
+			what_you_get_body: () => LocalizedString
+			/**
+			 * Syncs through
+			 */
+			syncs_through: () => LocalizedString
+			/**
+			 * {host}, the team’s relay.
+			 */
+			syncs_team: (arg: { host: string }) => LocalizedString
+			/**
+			 * {host}, a relay run by whoever shared this.
+			 */
+			syncs_other: (arg: { host: string }) => LocalizedString
+			/**
+			 * Editing offline always works.
+			 */
+			offline: () => LocalizedString
+			/**
+			 * Checking the relay…
+			 */
+			relay_checking: () => LocalizedString
+			/**
+			 * Relay reachable · checked just now
+			 */
+			relay_ok: () => LocalizedString
+			/**
+			 * Can’t reach the relay from here.
+			 */
+			relay_down: () => LocalizedString
+			/**
+			 * Ask whoever shared this how to reach their relay.
+			 */
+			relay_down_other: () => LocalizedString
+			/**
+			 * Then reload this page.
+			 */
+			reload: () => LocalizedString
+			/**
+			 * Where do you want it?
+			 */
+			where: () => LocalizedString
+			/**
+			 * In the desktop app
+			 */
+			desktop: () => LocalizedString
+			/**
+			 * Beside your own notes, as real files on disk. Best for anything you will keep.
+			 */
+			desktop_hint: () => LocalizedString
+			/**
+			 * Copy link
+			 */
+			copy: () => LocalizedString
+			/**
+			 * Copied. Open Oh hi markdown on this computer and choose Add a folder someone shared.
+			 */
+			copied: () => LocalizedString
+			/**
+			 * This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Add a folder someone shared.
+			 */
+			copy_failed: () => LocalizedString
+			/**
+			 * The link
+			 */
+			link_label: () => LocalizedString
+			/**
+			 * In this browser
+			 */
+			browser: () => LocalizedString
+			/**
+			 * Fine for a team folder: its notes also live with your teammates and on the relay.
+			 */
+			browser_hint: () => LocalizedString
+			/**
+			 * Add here
+			 */
+			add_here: () => LocalizedString
+			/**
+			 * Don’t have the app?
+			 */
+			no_app: () => LocalizedString
+			/**
+			 * Download for macOS · Linux
+			 */
+			download: () => LocalizedString
+			/**
+			 * New to the app?
+			 */
+			new_to_app: () => LocalizedString
+			/**
+			 * The two-minute guide
+			 */
+			guide: () => LocalizedString
+			/**
+			 * This link can’t be opened here
+			 */
+			error_heading: () => LocalizedString
+			/**
+			 * Ask for the link again, or paste it in the app: open Oh hi markdown and choose Add a folder someone shared.
+			 */
+			error_fallback: () => LocalizedString
+			/**
+			 * This is a device link, not a shared folder
+			 */
+			device_heading: () => LocalizedString
+			/**
+			 * It is a full-access key to a whole vault ({label}), meant only for its owner’s own devices. If it is yours, open it on the device you want the vault on with Link this device. If someone else sent it to you, do not use it.
+			 */
+			device_body: (arg: { label: string }) => LocalizedString
+			/**
+			 * unnamed
+			 */
+			device_vault: () => LocalizedString
+			/**
+			 * Copy it, then in Oh hi markdown on that computer choose Link this device.
+			 */
+			device_desktop_hint: () => LocalizedString
+			/**
+			 * Copied. Open Oh hi markdown on this computer and choose Link this device.
+			 */
+			device_copied: () => LocalizedString
+			/**
+			 * This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Link this device.
+			 */
+			device_copy_failed: () => LocalizedString
+			/**
+			 * Pulls the whole vault into this browser and keeps it in sync.
+			 */
+			device_browser_hint: () => LocalizedString
+			/**
+			 * Link this device
+			 */
+			link_here: () => LocalizedString
 		}
 		mounts: {
 			/**
@@ -7888,9 +9394,13 @@ export type TranslationFunctions = {
 			 */
 			needs_vault: () => LocalizedString
 			/**
-			 * Set the relay operator secret above to create device links.
+			 * Creating a device link needs permission to create links on this relay: paste it above.
 			 */
 			needs_secret: () => LocalizedString
+			/**
+			 * Creating a device link needs permission to create links on this relay. Add it in Settings › Sync, then come back here.
+			 */
+			needs_secret_dialog: () => LocalizedString
 			/**
 			 * Link a device
 			 */
@@ -8387,6 +9897,260 @@ export type TranslationFunctions = {
 			 * Restart
 			 */
 			restart: () => LocalizedString
+			/**
+			 * What changed
+			 */
+			what_changed: () => LocalizedString
+		}
+		help: {
+			/**
+			 * Help
+			 */
+			label: () => LocalizedString
+			menu: {
+				/**
+				 * Getting started
+				 */
+				start: () => LocalizedString
+				/**
+				 * 2 min
+				 */
+				start_time: () => LocalizedString
+				/**
+				 * Keyboard shortcuts
+				 */
+				shortcuts: () => LocalizedString
+				/**
+				 * When something goes wrong
+				 */
+				recovery: () => LocalizedString
+				/**
+				 * Sharing and the relay
+				 */
+				sharing: () => LocalizedString
+				/**
+				 * What’s new in {version}
+				 */
+				changes: (arg: { version: string }) => LocalizedString
+				/**
+				 * What’s new
+				 */
+				changes_plain: () => LocalizedString
+				/**
+				 * Report a problem…
+				 */
+				report: () => LocalizedString
+			}
+			version: {
+				/**
+				 * Version {version}
+				 */
+				plain: (arg: { version: string }) => LocalizedString
+				/**
+				 * Version not known
+				 */
+				unknown: () => LocalizedString
+				/**
+				 * Version {version} · up to date · checked {when}
+				 */
+				current: (arg: { version: string, when: string }) => LocalizedString
+				/**
+				 * Version {version} · could not check · last checked {when}
+				 */
+				failed: (arg: { version: string, when: string }) => LocalizedString
+				/**
+				 * Version {version} · could not check
+				 */
+				failed_never: (arg: { version: string }) => LocalizedString
+				/**
+				 * Version {version} · downloading {next}
+				 */
+				found: (arg: { next: string, version: string }) => LocalizedString
+				/**
+				 * Version {version} · update ready, restart to use it
+				 */
+				ready: (arg: { version: string }) => LocalizedString
+			}
+			commands: {
+				/**
+				 * Help menu
+				 */
+				menu: () => LocalizedString
+				/**
+				 * Help: Getting started
+				 */
+				start: () => LocalizedString
+				/**
+				 * Help: Keyboard shortcuts
+				 */
+				shortcuts: () => LocalizedString
+				/**
+				 * Help: When something goes wrong
+				 */
+				recovery: () => LocalizedString
+				/**
+				 * Help: Sharing and the relay
+				 */
+				sharing: () => LocalizedString
+				/**
+				 * Help: What’s new
+				 */
+				changes: () => LocalizedString
+				/**
+				 * Report a problem…
+				 */
+				report: () => LocalizedString
+			}
+			/**
+			 * Oh hi markdown guide
+			 */
+			window_title: () => LocalizedString
+			report: {
+				/**
+				 * Report a problem
+				 */
+				title: () => LocalizedString
+				/**
+				 * Say what happened in a sentence. The facts below are copied with it; paste the whole thing in the team chat.
+				 */
+				description: () => LocalizedString
+				/**
+				 * What happened
+				 */
+				what_label: () => LocalizedString
+				/**
+				 * I clicked … and then …
+				 */
+				what_placeholder: () => LocalizedString
+				/**
+				 * Attached automatically
+				 */
+				attached: () => LocalizedString
+				/**
+				 * Note contents are never included.
+				 */
+				never_content: () => LocalizedString
+				/**
+				 * Copy report
+				 */
+				copy: () => LocalizedString
+				/**
+				 * Report copied. Paste it in the team chat.
+				 */
+				copied: () => LocalizedString
+				/**
+				 * The clipboard is blocked. The report is selected below: copy it by hand.
+				 */
+				copy_failed: () => LocalizedString
+				/**
+				 * The report as text
+				 */
+				fallback_label: () => LocalizedString
+				/**
+				 * Oh hi markdown — problem report ({time})
+				 */
+				header: (arg: { time: string }) => LocalizedString
+				/**
+				 * What happened: {text}
+				 */
+				what: (arg: { text: string }) => LocalizedString
+				/**
+				 * What happened: (not filled in)
+				 */
+				what_empty: () => LocalizedString
+				/**
+				 * App: Oh hi markdown {version} · {platform}
+				 */
+				app: (arg: { platform: string, version: string }) => LocalizedString
+				/**
+				 * version not known
+				 */
+				version_unknown: () => LocalizedString
+				platform: {
+					/**
+					 * desktop app
+					 */
+					desktop: () => LocalizedString
+					/**
+					 * browser
+					 */
+					browser: () => LocalizedString
+				}
+				/**
+				 * {platform} on {os}
+				 */
+				platform_os: (arg: { os: string, platform: string }) => LocalizedString
+				/**
+				 * Vault: {name} ({kind})
+				 */
+				vault: (arg: { kind: string, name: string }) => LocalizedString
+				/**
+				 * Vault: none open
+				 */
+				vault_none: () => LocalizedString
+				vault_kind: {
+					/**
+					 * a folder on disk
+					 */
+					tauri: () => LocalizedString
+					/**
+					 * in this browser
+					 */
+					opfs: () => LocalizedString
+					/**
+					 * in memory, for tests
+					 */
+					memory: () => LocalizedString
+				}
+				/**
+				 * Relay: {host} · {state}
+				 */
+				relay: (arg: { host: string, state: string }) => LocalizedString
+				/**
+				 * Relay: {host} · {state} · {since}
+				 */
+				relay_since: (arg: { host: string, since: string, state: string }) => LocalizedString
+				/**
+				 * Relay: none (nothing in this vault is shared or linked)
+				 */
+				relay_none: () => LocalizedString
+				/**
+				 * Open note: {path} · {status} · {people}
+				 */
+				note: (arg: { path: string, people: string, status: string }) => LocalizedString
+				/**
+				 * not shared, so no sync state
+				 */
+				note_unshared: () => LocalizedString
+				/**
+				 * Open note: none
+				 */
+				note_none: () => LocalizedString
+				/**
+				 * {count} {{person|people}} online
+				 */
+				people: (arg: { count: number }) => LocalizedString
+				/**
+				 * This session: {errors}, {warnings}
+				 */
+				counts: (arg: { errors: string, warnings: string }) => LocalizedString
+				/**
+				 * {count} error{{s}}
+				 */
+				errors: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} warning{{s}}
+				 */
+				warnings: (arg: { count: number }) => LocalizedString
+				/**
+				 * The last {count} event{{s}} from the Log:
+				 */
+				events: (arg: { count: number }) => LocalizedString
+				/**
+				 * The Log is empty this session.
+				 */
+				events_none: () => LocalizedString
+			}
 		}
 		workspace: {
 			/**

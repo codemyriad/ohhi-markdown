@@ -100,6 +100,23 @@ export const TEAM_SECRET_HINT = buildText(import.meta.env.VITE_TEAM_SECRET_HINT)
  */
 export const TEAM_NETWORK_NOTE = buildText(import.meta.env.VITE_TEAM_NETWORK_NOTE)
 
+/**
+ * The host this build's content security policy is pinned to
+ * (`VITE_TEAM_HOST`, the release workflow's `TEAM_HOST`: a bare host, no
+ * scheme or path) — '' for a generic build. When set, `connect-src` allows no
+ * other relay (apps/desktop/scripts/pin-csp.mjs), so the app must never offer
+ * one: no *Use another…* / *Change…*, and the relay card says the build syncs
+ * through this host only (first-run-shaping R10). Lower-cased; anything that
+ * is not a bare host reads as unset.
+ */
+export function resolveTeamHost(buildValue: unknown): string {
+  const host = buildText(buildValue).toLowerCase()
+  return /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/.test(host) ? host : ''
+}
+
+/** This build's pinned host ('' = not pinned; see `resolveTeamHost`). */
+export const TEAM_HOST = resolveTeamHost(import.meta.env.VITE_TEAM_HOST)
+
 /** One room's stored credential. */
 export interface RoomToken {
   token: string

@@ -1,22 +1,58 @@
 <script lang="ts">
   /**
-   * The vault manager (shell-polish P4): two columns under one header — the
-   * vaults you already have on the left (with the identity sent to peers at
-   * its foot), the three ways to get another one on the right. One accent on
-   * the page: the primary button that adds a vault.
+   * The vault manager (first-run A1/B1, superseding shell-polish P4's two
+   * columns). Two states of one screen:
+   *
+   *  - **the welcome** — no vault registered: "Oh hi.", one sentence and the
+   *    doors worded as the thing you have (a folder of notes / a vault in
+   *    this browser, a folder someone shared, your vault on another device);
+   *  - **the list** — one row per vault with what it is (kind, where, when
+   *    last opened, what its mount table says is shared), one *Add* menu
+   *    holding the same doors plus Import, and the identity and the
+   *    remembered links demoted to the foot.
+   *
+   * The name sent to peers is not asked here any more (Fork 5-A): Settings ›
+   * General keeps it, and `defaultUser` is passed through to every flow as
+   * before. One accent on the page: the first door, or the Add button.
    */
-  import { HardDrive, MoreHorizontal } from '@lucide/svelte'
+  import {
+    ChevronDown,
+    ChevronRight,
+    CircleQuestionMark,
+    Folder,
+    Globe,
+    HardDrive,
+    Laptop,
+    MoreHorizontal,
+    Settings,
+    Users,
+  } from '@lucide/svelte'
+  import { untrack } from 'svelte'
   import { melt } from '@melt-ui/svelte'
-  import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { LL, locale } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
+  import { guideHref } from '../guide.js'
+  import { realClock } from '../real-clock.js'
+  import { formatBytes } from '../storage-persistence.js'
+  import { storageState } from '../storage.svelte.js'
+  import { openedWhen, type VaultFacts } from '../vault-facts.js'
+  import Description from '../ui/Description.svelte'
+  import Dialog from '../ui/Dialog.svelte'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
-  import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
+  import Field from '../ui/Field.svelte'
+  import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSeparator from '../ui/MenuSeparator.svelte'
+  import Popover from '../ui/Popover.svelte'
+  import TextControl from '../ui/TextControl.svelte'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
+  import ImportDialog from './ImportDialog.svelte'
 
   interface Props {
     isTauri: boolean
     hasOpfs: boolean
+    /** The saved name ('' = none): passed through to every flow, never asked here (Fork 5-A). */
     defaultUser: string
     vaults: VaultEntry[]
     shares: StoredShare[]
@@ -28,8 +64,16 @@
     canGoBack: boolean
     /** The room open behind the manager, marked `aria-current` in the list. */
     currentRoom: string | null
+    /** Row facts per room from each vault's mount table (`null` = unreadable). */
+    facts?: Readonly<Record<string, VaultFacts | null>>
+    /** The open vault's facts, live from the workspace; preferred for `currentRoom`. */
+    openFacts?: VaultFacts | null
+    /** Asked once when the list shows: (re)read the rows' facts. */
+    onLoadFacts?: () => void
     onOpenVault: (entry: VaultEntry) => void
     onRemoveVault: (room: string) => void
+    /** Rename the registry entry (this list's name), never the folder. */
+    onRenameVault?: (room: string, name: string) => void
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
     onJoin: (name: string, link: string) => void
@@ -47,6 +91,8 @@
     /** Must call `persist()` synchronously: Firefox wants the click's gesture. */
     onKeepStorage: () => void
     onDismissStorage: () => void
+    /** The wall clock, for "opened today". */
+    now?: () => number
   }
 
   let {
@@ -60,8 +106,12 @@
     busy,
     canGoBack,
     currentRoom,
+    facts = {},
+    openFacts = null,
+    onLoadFacts,
     onOpenVault,
     onRemoveVault,
+    onRenameVault,
     onOpenFolder,
     onCreateBrowserVault,
     onJoin,
@@ -72,189 +122,356 @@
     storageNote,
     onKeepStorage,
     onDismissStorage,
+    now = () => realClock.now(),
   }: Props = $props()
 
   const t = $derived($LL.web.manager)
+  const w = $derived($LL.web.manager.welcome)
+  const l = $derived($LL.web.manager.list)
   const st = $derived($LL.web.storage)
 
-  // Seeded once from the initial prop values; these fields are then user-owned.
-  // svelte-ignore state_referenced_locally
-  let name = $state(defaultUser || '')
-  // A `?share=` link arrives with the dialog already open on it.
+  /** The saved name, handed to every flow exactly as the name field used to. */
+  const name = $derived(defaultUser.trim())
+  const browserBlocked = $derived(!isTauri && !hasOpfs)
+  const welcome = $derived(vaults.length === 0)
+
+  // A `?share=` link arrives with the dialog already open on it, from either state.
   // svelte-ignore state_referenced_locally
   let joinOpen = $state(prefillLink !== '')
+  let importOpen = $state(false)
+  /** The browser door is asking for the new vault's name (welcome), or the Add menu's dialog is (list). */
+  let naming = $state(false)
+  let newVaultOpen = $state(false)
   let newVaultName = $state('')
   /** Room whose inline confirm row is showing (Remove is never one click). */
   let confirmRemove = $state<string | null>(null)
+  let renaming = $state<VaultEntry | null>(null)
+  let renameValue = $state('')
+  let rememberedAnchor = $state<HTMLElement | null>(null)
 
-  // The identity sent to peers when the field is left blank: data, not copy.
-  const displayName = $derived(name.trim() || 'Anonymous')
-  const browserBlocked = $derived(!isTauri && !hasOpfs)
+  /** The desktop build's version, from the same source Settings › General reads. */
+  let appVersion = $state<string | null>(null)
+  // svelte-ignore state_referenced_locally -- the platform is fixed for the page's life
+  if (isTauri) {
+    void import('@tauri-apps/api/app')
+      .then(({ getVersion }) => getVersion())
+      .then((v) => (appVersion = v))
+      .catch(() => {})
+  }
 
-  const card = `${CARD} p-4`
+  // The list's facts are read when it shows, and again when the rows change.
+  $effect(() => {
+    if (welcome) return
+    void vaults.length
+    untrack(() => onLoadFacts?.())
+  })
+
   const chrome =
     'rounded px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
-  /** The page's one accent, on the button that adds a vault. */
+  /**
+   * The page's one accent: the Add button, or the button that creates a
+   * browser vault. No lighter hover tint: `primary/90` under white text drops
+   * below 4.5:1, and the pointer is still on the trigger while its menu is open.
+   */
   const primary =
-    'rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+    'rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
   const outline = `${OUTLINE_BUTTON} px-4 py-2 text-sm font-medium text-base-content/80 disabled:opacity-50`
+  const textLink =
+    'font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
+  const chip = 'shrink-0 rounded bg-base-200 px-1.5 py-px text-[11px] font-medium text-base-content/80'
+
+  function createInBrowser(): void {
+    const vaultName = newVaultName.trim()
+    if (!vaultName) return
+    onCreateBrowserVault(name, vaultName)
+    newVaultName = ''
+    naming = false
+    newVaultOpen = false
+  }
+
+  function openGuide(): void {
+    window.open(guideHref('start'), '_blank', 'noreferrer')
+  }
+
+  /** Focus a control the moment it appears (the browser door's name field). */
+  function focusOnMount(node: HTMLElement): void {
+    node.querySelector<HTMLElement>('input')?.focus()
+  }
+
+  // ---- a row's facts ----
+  const factsOf = (entry: VaultEntry): VaultFacts | null | undefined =>
+    entry.room === currentRoom && openFacts ? openFacts : facts[entry.room]
+
+  function opened(entry: VaultEntry): string | null {
+    if (!entry.lastOpenedAt) return null
+    const when = openedWhen(entry.lastOpenedAt, now(), $locale)
+    if (when.kind === 'today') return l.opened_today()
+    if (when.kind === 'yesterday') return l.opened_yesterday()
+    return l.opened_on({ date: when.date })
+  }
 
   function sub(entry: VaultEntry): string {
-    if (entry.vault.kind === 'tauri') return entry.vault.path
-    if (entry.vault.kind === 'opfs') return t.browser_vault()
-    return t.memory_vault()
+    const parts: string[] = []
+    if (entry.vault.kind === 'tauri') {
+      parts.push(entry.vault.path)
+      const o = opened(entry)
+      if (o) parts.push(o)
+    } else if (entry.vault.kind === 'opfs') {
+      parts.push(l.in_browser())
+      // The browser reports usage for the whole site, so the line says so.
+      if (storageState.usage) parts.push(l.site_usage({ used: formatBytes(storageState.usage.usage, $locale) }))
+      if (storageState.state === 'persisted') parts.push(l.storage_kept())
+      else if (storageState.state !== 'unknown') parts.push(l.storage_may_clear())
+    } else {
+      parts.push(t.memory_vault())
+    }
+    return parts.join(' · ')
   }
+
+  /** The row's kind glyph: a folder on disk, a browser vault, or one that cannot open. */
+  const glyphOf = (entry: VaultEntry): typeof Folder =>
+    failure?.room === entry.room ? HardDrive : entry.vault.kind === 'tauri' ? Folder : Globe
 </script>
 
-<main class="min-h-screen text-base-content">
-  <div class="mx-auto grid max-w-4xl grid-cols-1 gap-8 px-8 py-12 md:grid-cols-[18rem_1fr]">
-    <header class="flex items-start justify-between gap-4 md:col-span-2">
-      <div class="min-w-0">
-        <h1 class="text-xl font-semibold">{$LL.common.app_name()}</h1>
-        <p class="mt-1 text-sm text-base-content/70">{t.tagline()}</p>
-      </div>
-      <div class="flex shrink-0 items-center gap-2">
+{#snippet door(opts: {
+  icon: typeof Folder
+  title: string
+  hint: string
+  testid: string
+  accent?: boolean
+  expanded?: boolean
+  onclick: () => void
+})}
+  <button
+    type="button"
+    data-testid={opts.testid}
+    disabled={busy}
+    aria-expanded={opts.expanded}
+    onclick={opts.onclick}
+    class="flex w-full items-center gap-4 rounded-lg px-4 py-3.5 text-left hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+  >
+    <span
+      class="flex size-9 shrink-0 items-center justify-center rounded-md {opts.accent
+        ? 'bg-primary text-primary-content'
+        : 'bg-base-200 text-base-content/80'}"
+    >
+      <opts.icon size={18} strokeWidth={1.75} aria-hidden="true" />
+    </span>
+    <span class="min-w-0 flex-1">
+      <span class="block text-sm font-semibold">{opts.title}</span>
+      <span class="mt-0.5 block text-xs text-base-content/70">{opts.hint}</span>
+    </span>
+    <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" class="shrink-0 text-base-content/70" />
+  </button>
+{/snippet}
+
+{#snippet storageLine()}
+  {#if storageNote}
+    <!-- A note, not an alert: the browser's refusal is nobody's fault. The
+         outcome line is a live region, rendered before it changes. -->
+    <div data-testid="storage-note" class="px-4 pb-3 pl-[4.25rem] text-xs text-base-content/70">
+      {#if storageNote.canAsk}
+        <button type="button" data-testid="storage-keep" onclick={onKeepStorage} class={textLink}>
+          {st.ask()}
+        </button>
+      {/if}
+      <p role="status" data-testid="storage-note-outcome" class={storageNote.outcome ? 'mt-1' : ''}>
+        {storageNote.outcome === 'granted'
+          ? st.granted()
+          : storageNote.outcome === 'refused'
+            ? st.refused()
+            : ''}
+      </p>
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet settingsButton()}
+  <IconButton
+    label={t.settings()}
+    icon={Settings}
+    size="md"
+    testid="manager-settings"
+    onclick={onSettings}
+  />
+{/snippet}
+
+{#snippet topError()}
+  {#if failure && !failure.room}
+    <p role="alert" data-testid="manager-error" class="rounded bg-error/10 px-3 py-2 text-sm text-error">
+      {failure.message}
+    </p>
+  {/if}
+{/snippet}
+
+{#if welcome}
+  <!-- ======================= the welcome (A1) ======================= -->
+  <div class="flex min-h-screen flex-col text-base-content">
+    <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
+      <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
+      <div class="flex items-center gap-1">
+        {#if appVersion}
+          <span data-testid="manager-version" class="mr-2 text-xs text-base-content/70">
+            {t.version({ version: appVersion })}
+          </span>
+        {/if}
         {#if canGoBack}
           <button data-testid="manager-back" onclick={onBack} class={chrome}>{t.back()}</button>
         {/if}
-        <button data-testid="manager-settings" onclick={onSettings} class={chrome}>
-          {t.settings()}
-        </button>
+        <IconButton
+          label={t.help()}
+          icon={CircleQuestionMark}
+          size="md"
+          testid="manager-help"
+          onclick={openGuide}
+        />
+        {@render settingsButton()}
       </div>
     </header>
 
-    <section class="flex flex-col {CARD}">
-      <div class="flex-1 p-4">
-        <h2 class={HEADING}>{t.your_vaults()}</h2>
-        {#if vaults.length === 0}
-          <p class="mt-1.5 text-sm text-base-content/70">{t.no_vaults()}</p>
-        {:else}
-          <ul class="mt-1.5">
-            {#each vaults as entry (entry.room)}
-              <li>
-                <div
-                  class="flex items-center gap-1 rounded px-2 {failure?.room === entry.room
-                    ? 'bg-error/10'
-                    : 'hover:bg-base-200'}"
-                >
-                  <button
-                    data-testid="open-vault:{entry.room}"
-                    disabled={busy}
-                    aria-current={canGoBack && entry.room === currentRoom ? 'true' : undefined}
-                    onclick={() => onOpenVault(entry)}
-                    class="min-w-0 flex-1 py-1.5 text-left leading-5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-                  >
-                    <span class="flex items-center gap-1.5">
-                      <span class="truncate text-sm font-medium">{entry.name}</span>
-                      {#if entry.relay}
-                        <span
-                          class="shrink-0 rounded bg-primary px-1.5 py-px text-[10px] font-medium text-primary-content"
-                        >
-                          {t.linked_badge()}
-                        </span>
-                      {/if}
-                    </span>
-                    <span class="block truncate font-ed-mono text-xs text-base-content/70">
-                      {sub(entry)}
-                    </span>
-                  </button>
-                  <DropdownMenu placement="bottom-end" testid="vault-menu:{entry.room}">
-                    {#snippet trigger(attrs)}
-                      <button
-                        use:melt={attrs}
-                        type="button"
-                        aria-label={t.row_menu({ name: entry.name })}
-                        data-testid="vault-more:{entry.room}"
-                        class="shrink-0 rounded p-1 text-base-content/70 hover:bg-base-300 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
-                      >
-                        <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
-                      </button>
-                    {/snippet}
-                    {#snippet children({ item })}
-                      <MenuItem
-                        {item}
-                        testid="remove-vault:{entry.room}"
-                        danger
-                        onSelect={() => (confirmRemove = entry.room)}
-                      >
-                        {t.remove_item()}
-                      </MenuItem>
-                    {/snippet}
-                  </DropdownMenu>
-                </div>
-                {#if confirmRemove === entry.room}
-                  <!-- Named as a group so the two verbs below carry the vault
-                       they act on without repeating it in their own labels. -->
-                  <div
-                    role="group"
-                    aria-label={t.remove({ name: entry.name })}
-                    class="mt-1 mb-2 rounded border border-base-300 px-2 py-2"
-                  >
-                    <p data-testid="remove-note:{entry.room}" class="text-xs text-base-content/70">
-                      {entry.vault.kind === 'opfs' ? t.remove_note_opfs() : t.remove_note_disk()}
-                    </p>
-                    <div class="mt-2 flex gap-2">
-                      <button
-                        data-testid="remove-confirm:{entry.room}"
-                        disabled={busy}
-                        onclick={() => {
-                          confirmRemove = null
-                          onRemoveVault(entry.room)
-                        }}
-                        class="rounded bg-error px-2.5 py-1 text-xs font-medium text-error-content hover:bg-error/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-                      >
-                        {t.remove_confirm()}
-                      </button>
-                      <button
-                        data-testid="remove-cancel:{entry.room}"
-                        onclick={() => (confirmRemove = null)}
-                        class="rounded px-2.5 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
-                      >
-                        {$LL.common.cancel()}
-                      </button>
-                    </div>
-                  </div>
-                {/if}
-                {#if failure?.room === entry.room}
-                  <p
-                    role="alert"
-                    data-testid="vault-error:{entry.room}"
-                    class="mt-1 mb-2 px-2 text-xs text-error"
-                  >
-                    {t.vault_error({ message: failure.message })}
-                  </p>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-      <div class="border-t border-base-300 p-4">
-        <label class="block">
-          <span class={HEADING}>{t.your_name()}</span>
-          <input
-            data-testid="manager-name"
-            bind:value={name}
-            placeholder={t.name_placeholder()}
-            aria-describedby="manager-name-hint"
-            class="mt-1.5 w-full rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-        </label>
-        <p id="manager-name-hint" class="mt-1.5 text-xs text-base-content/70">{t.name_hint()}</p>
-      </div>
-    </section>
+    <main class="mx-auto w-full max-w-[560px] flex-1 px-4 py-12 sm:py-16" data-testid="manager-welcome">
+      {@render topError()}
+      <h1 class="mt-4 text-3xl font-semibold">{w.title()}</h1>
+      <p class="mt-2 text-sm text-base-content/80">{w.lede()}</p>
 
-    <div class="flex flex-col gap-4">
-      {#if failure && !failure.room}
-        <p role="alert" data-testid="manager-error" class="rounded bg-error/10 px-3 py-2 text-sm text-error">
-          {failure.message}
+      <ul aria-label={w.doors()} class="mt-8 flex flex-col divide-y divide-base-300 {CARD}">
+        {#if isTauri}
+          <li>
+            {@render door({
+              icon: Folder,
+              title: w.folder(),
+              hint: w.folder_hint(),
+              testid: 'open-folder',
+              accent: true,
+              onclick: () => onOpenFolder(name),
+            })}
+          </li>
+        {:else if browserBlocked}
+          <li class="px-4 py-3.5">
+            <p role="alert" class="text-xs text-warning">{t.no_opfs()}</p>
+          </li>
+        {:else}
+          <li>
+            {@render door({
+              icon: Globe,
+              title: w.browser(),
+              hint: w.browser_hint(),
+              testid: 'start-browser-vault',
+              accent: true,
+              expanded: naming,
+              onclick: () => (naming = !naming),
+            })}
+            {@render storageLine()}
+            {#if naming}
+              <form
+                use:focusOnMount
+                class="flex flex-wrap items-end gap-2 px-4 pb-4 pl-[4.25rem]"
+                onsubmit={(e) => {
+                  e.preventDefault()
+                  createInBrowser()
+                }}
+              >
+                <Field name="vault-name" class="min-w-40 flex-1">
+                  <TextControl
+                    label={t.vault_name_placeholder()}
+                    bind:value={newVaultName}
+                    placeholder={t.vault_name_placeholder()}
+                    testid="new-vault-name"
+                  />
+                </Field>
+                <button type="submit" data-testid="create-vault" disabled={busy || !newVaultName.trim()} class={primary}>
+                  {t.create_vault()}
+                </button>
+              </form>
+            {/if}
+          </li>
+        {/if}
+        {#if !browserBlocked}
+          <li>
+            {@render door({
+              icon: Users,
+              title: w.shared(),
+              hint: w.shared_hint(),
+              testid: 'join-share',
+              onclick: () => (joinOpen = true),
+            })}
+          </li>
+          <li>
+            {@render door({
+              icon: Laptop,
+              title: w.device(),
+              hint: w.device_hint(),
+              testid: 'open-link-device',
+              onclick: () => onLinkDevice(name),
+            })}
+          </li>
+        {/if}
+      </ul>
+
+      <footer class="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-base-content/70">
+        <p>
+          {w.import_lead()}
+          <button type="button" data-testid="open-import" onclick={() => (importOpen = true)} class={textLink}>
+            {w.import_link()}
+          </button>
         </p>
+        <a href={guideHref('start')} target="_blank" rel="noreferrer" data-testid="manager-guide" class={textLink}>
+          {w.guide()}
+        </a>
+      </footer>
+    </main>
+  </div>
+{:else}
+  <!-- ======================= the list (B1) ======================= -->
+  <main class="mx-auto min-h-screen w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-semibold">{l.title()}</h1>
+      <div class="flex items-center gap-2">
+        {#if canGoBack}
+          <button data-testid="manager-back" onclick={onBack} class={chrome}>{t.back()}</button>
+        {/if}
+        <DropdownMenu placement="bottom-end" testid="manager-add-menu">
+          {#snippet trigger(attrs)}
+            <button
+              use:melt={attrs}
+              type="button"
+              data-testid="manager-add"
+              disabled={busy}
+              class="inline-flex items-center gap-1.5 {primary}"
+            >
+              <span aria-hidden="true">+</span>
+              {l.add()}
+              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+          {/snippet}
+          {#snippet children({ item, separator })}
+            {#if isTauri}
+              <MenuItem {item} testid="open-folder" onSelect={() => onOpenFolder(name)}>{l.add_folder()}</MenuItem>
+            {:else if !browserBlocked}
+              <MenuItem {item} testid="add-browser-vault" onSelect={() => (newVaultOpen = true)}>
+                {l.add_browser()}
+              </MenuItem>
+            {/if}
+            {#if !browserBlocked}
+              <MenuItem {item} testid="join-share" onSelect={() => (joinOpen = true)}>{l.add_shared()}</MenuItem>
+              <MenuItem {item} testid="open-link-device" onSelect={() => onLinkDevice(name)}>{l.add_device()}</MenuItem>
+            {/if}
+            <MenuSeparator {separator} />
+            <MenuItem {item} testid="open-import" onSelect={() => (importOpen = true)}>{l.add_import()}</MenuItem>
+          {/snippet}
+        </DropdownMenu>
+        {@render settingsButton()}
+      </div>
+    </header>
+
+    <div class="mt-4 flex flex-col gap-3">
+      {@render topError()}
+      {#if browserBlocked}
+        <p role="alert" class="text-xs text-warning">{t.no_opfs()}</p>
       {/if}
 
       {#if storageNote}
-        <!-- A note, not an alert: the browser's refusal is nobody's fault. The
-             outcome line is a live region, rendered before it changes. -->
-        <section aria-labelledby="storage-note-title" data-testid="storage-note" class={card}>
+        <section aria-labelledby="storage-note-title" data-testid="storage-note" class="{CARD} p-4">
           <h2 id="storage-note-title" class="flex items-center gap-2 {HEADING}">
             <HardDrive size={16} strokeWidth={1.75} aria-hidden="true" />
             {st.title()}
@@ -272,7 +489,7 @@
           </p>
           <div class="mt-3 flex flex-wrap gap-2">
             {#if storageNote.canAsk}
-              <button type="button" data-testid="storage-keep" onclick={onKeepStorage} class={outline}>
+              <button type="button" data-testid="storage-keep" onclick={onKeepStorage} class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs font-medium text-base-content/80">
                 {st.ask()}
               </button>
             {/if}
@@ -288,93 +505,208 @@
         </section>
       {/if}
 
-      <section class={card}>
-        <h2 class={HEADING}>{t.add_vault()}</h2>
-        {#if isTauri}
-          <p class="mt-1.5 text-xs text-base-content/70">{t.pick_folder()}</p>
-          <button
-            data-testid="open-folder"
-            disabled={busy}
-            onclick={() => onOpenFolder(displayName)}
-            class="mt-3 {primary}"
-          >
-            {t.open_folder()}
-          </button>
-        {:else if browserBlocked}
-          <p role="alert" class="mt-1.5 text-xs text-warning">{t.no_opfs()}</p>
-        {:else}
-          <p class="mt-1.5 text-xs text-base-content/70">{t.browser_vault_hint()}</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <input
-              data-testid="new-vault-name"
-              bind:value={newVaultName}
-              placeholder={t.vault_name_placeholder()}
-              class="w-48 rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            />
-            <button
-              data-testid="create-vault"
-              disabled={busy || !newVaultName.trim()}
-              onclick={() => {
-                onCreateBrowserVault(displayName, newVaultName.trim())
-                newVaultName = ''
-              }}
-              class={primary}
-            >
-              {t.create_vault()}
-            </button>
-          </div>
-        {/if}
-      </section>
-
-      {#if !browserBlocked}
-        <!-- Device linking, before joining a folder share: this is the one that
-             brings a WHOLE vault onto this device (device-link N2, A1). -->
-        <section class={card}>
-          <h2 class={HEADING}>{t.link_device()}</h2>
-          <p class="mt-1.5 text-xs text-base-content/70">{t.link_device_hint()}</p>
-          <button
-            data-testid="open-link-device"
-            disabled={busy}
-            onclick={() => onLinkDevice(displayName)}
-            class="mt-3 {outline}"
-          >
-            {t.link_device_open()}
-          </button>
-        </section>
-
-        <section class={card}>
-          <h2 class={HEADING}>{t.join_share()}</h2>
-          <p class="mt-1.5 text-xs text-base-content/70">{t.join_hint()}</p>
-          <button
-            data-testid="join-share"
-            disabled={busy}
-            onclick={() => (joinOpen = true)}
-            class="mt-3 {outline}"
-          >
-            {t.join()}
-          </button>
-
-          {#if shares.length > 0}
-            <h3 class="mt-4 {HEADING}">{t.recent_shares()}</h3>
-            <ul class="mt-1.5">
-              {#each shares as share (share.room)}
-                <li>
+      <ul class="divide-y divide-base-300 {CARD}" aria-label={l.title()}>
+        {#each vaults as entry (entry.room)}
+          {@const Glyph = glyphOf(entry)}
+          {@const f = factsOf(entry)}
+          {@const failed = failure?.room === entry.room}
+          <li data-testid="vault-row:{entry.room}" class={failed ? 'bg-error/10' : ''}>
+            <div class="flex items-center gap-2 py-1 pr-2 pl-1">
+              <button
+                data-testid="open-vault:{entry.room}"
+                disabled={busy}
+                aria-current={canGoBack && entry.room === currentRoom ? 'true' : undefined}
+                onclick={() => onOpenVault(entry)}
+                class="flex min-w-0 flex-1 items-center gap-3 rounded px-2 py-1.5 text-left leading-5 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+              >
+                <Glyph
+                  size={18}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                  class="shrink-0 {failed ? 'text-error' : 'text-base-content/70'}"
+                />
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-1.5">
+                    <span class="truncate text-sm font-medium">{entry.name}</span>
+                    {#if canGoBack && entry.room === currentRoom}
+                      <span data-testid="open-now:{entry.room}" class={chip}>{l.open_now()}</span>
+                    {/if}
+                  </span>
+                  <span class="block truncate font-ed-mono text-xs text-base-content/70">{sub(entry)}</span>
+                </span>
+              </button>
+              <span class="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex" data-testid="vault-facts:{entry.room}">
+                {#if entry.relay}
+                  <span class={chip}>{t.linked_badge()}</span>
+                {/if}
+                {#if f === null}
+                  <span class={chip} role="img" aria-label={l.facts_unknown()}>—</span>
+                {:else if f}
+                  {#if f.sharedByYou > 0}
+                    <span class={chip}>{l.shared_by_you({ count: f.sharedByYou })}</span>
+                  {/if}
+                  {#if f.sharedWithYou > 0}
+                    <span class={chip}>{l.shared_with_you({ count: f.sharedWithYou })}</span>
+                  {/if}
+                  {#if f.sharedByYou === 0 && f.sharedWithYou === 0 && !entry.relay}
+                    <span class={chip}>{l.nothing_shared()}</span>
+                  {/if}
+                {/if}
+              </span>
+              <DropdownMenu placement="bottom-end" testid="vault-menu:{entry.room}">
+                {#snippet trigger(attrs)}
                   <button
-                    onclick={() => onJoin(displayName, share.link)}
-                    disabled={busy}
-                    class="w-full truncate rounded px-2 py-1.5 text-left text-sm leading-5 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                    use:melt={attrs}
+                    type="button"
+                    aria-label={t.row_menu({ name: entry.name })}
+                    data-testid="vault-more:{entry.room}"
+                    class="shrink-0 rounded p-1.5 text-base-content/70 hover:bg-base-300 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
                   >
-                    {share.label || share.room}
+                    <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden="true" />
                   </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
-      {/if}
+                {/snippet}
+                {#snippet children({ item, separator })}
+                  <MenuItem {item} testid="vault-open:{entry.room}" onSelect={() => onOpenVault(entry)}>
+                    {l.open()}
+                  </MenuItem>
+                  {#if onRenameVault}
+                    <MenuItem
+                      {item}
+                      testid="rename-vault:{entry.room}"
+                      onSelect={() => {
+                        renameValue = entry.name
+                        renaming = entry
+                      }}
+                    >
+                      {l.rename()}
+                    </MenuItem>
+                  {/if}
+                  <MenuSeparator {separator} />
+                  <MenuItem {item} testid="remove-vault:{entry.room}" danger onSelect={() => (confirmRemove = entry.room)}>
+                    {t.remove_item()}
+                  </MenuItem>
+                {/snippet}
+              </DropdownMenu>
+            </div>
+            {#if failed && failure}
+              <div class="px-3 pb-2 pl-11">
+                <p role="alert" data-testid="vault-error:{entry.room}" class="text-xs text-error">
+                  {t.vault_error({ message: failure.message })}
+                </p>
+                <div class="mt-1.5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    data-testid="retry-vault:{entry.room}"
+                    disabled={busy}
+                    onclick={() => onOpenVault(entry)}
+                    class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
+                  >
+                    {l.try_again()}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="remove-failed:{entry.room}"
+                    onclick={() => (confirmRemove = entry.room)}
+                    class="rounded px-2.5 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    {t.remove_item()}
+                  </button>
+                </div>
+              </div>
+            {/if}
+            {#if confirmRemove === entry.room}
+              <!-- Named as a group so the two verbs below carry the vault
+                   they act on without repeating it in their own labels. -->
+              <div
+                role="group"
+                aria-label={t.remove({ name: entry.name })}
+                class="mx-3 mb-3 rounded border border-base-300 bg-base-100 px-3 py-2"
+              >
+                <p data-testid="remove-note:{entry.room}" class="text-xs text-base-content/70">
+                  {entry.vault.kind === 'opfs' ? t.remove_note_opfs() : t.remove_note_disk()}
+                </p>
+                <div class="mt-2 flex gap-2">
+                  <button
+                    data-testid="remove-confirm:{entry.room}"
+                    disabled={busy}
+                    onclick={() => {
+                      confirmRemove = null
+                      onRemoveVault(entry.room)
+                    }}
+                    class="rounded bg-error px-2.5 py-1 text-xs font-medium text-error-content hover:bg-error/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                  >
+                    {t.remove_confirm()}
+                  </button>
+                  <button
+                    data-testid="remove-cancel:{entry.room}"
+                    onclick={() => (confirmRemove = null)}
+                    class="rounded px-2.5 py-1 text-xs text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    {$LL.common.cancel()}
+                  </button>
+                </div>
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+
+      <footer class="mt-1 flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-base-content/70">
+        <p data-testid="manager-identity">
+          {l.identity({ name: name || 'Anonymous' })}
+          ·
+          <button type="button" data-testid="manager-identity-change" onclick={onSettings} class={textLink}>
+            {l.identity_change()}
+          </button>
+        </p>
+        {#if shares.length > 0}
+          <button
+            type="button"
+            data-testid="manager-remembered"
+            aria-haspopup="dialog"
+            aria-expanded={rememberedAnchor !== null}
+            onclick={(e) => (rememberedAnchor = e.currentTarget)}
+            class={textLink}
+          >
+            {l.remembered({ count: shares.length })}
+          </button>
+        {/if}
+      </footer>
     </div>
-  </div>
-</main>
+  </main>
+{/if}
+
+{#if rememberedAnchor}
+  <Popover
+    anchor={rememberedAnchor}
+    placement="top-end"
+    title={l.remembered_title()}
+    testid="manager-remembered-list"
+    onClose={() => (rememberedAnchor = null)}
+  >
+    <div class="w-72 p-3">
+      <h2 class={HEADING}>{l.remembered_title()}</h2>
+      <p class="mt-1 text-xs text-base-content/70">{l.remembered_hint()}</p>
+      <ul class="mt-2">
+        {#each shares as share (share.room)}
+          <li>
+            <button
+              data-testid="remembered-share:{share.room}"
+              onclick={() => {
+                rememberedAnchor = null
+                onJoin(name, share.link)
+              }}
+              disabled={busy}
+              class="w-full truncate rounded px-2 py-1.5 text-left text-sm leading-5 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+            >
+              {share.label || share.room}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </div>
+  </Popover>
+{/if}
 
 {#if joinOpen}
   <AddSharedFolderDialog
@@ -384,7 +716,63 @@
     initialWhere="own"
     {isTauri}
     onJoinIntoVault={joinInto?.join ?? null}
-    onJoinAsVault={(l) => onJoin(displayName, l)}
+    onJoinAsVault={(link) => onJoin(name, link)}
     onClose={() => (joinOpen = false)}
   />
+{/if}
+
+{#if importOpen}
+  <ImportDialog {isTauri} {busy} onOpenFolder={() => onOpenFolder(name)} onClose={() => (importOpen = false)} />
+{/if}
+
+{#if newVaultOpen}
+  <Dialog title={l.new_browser_title()} width="sm" testid="new-vault-dialog" onClose={() => (newVaultOpen = false)}>
+    <form
+      onsubmit={(e) => {
+        e.preventDefault()
+        createInBrowser()
+      }}
+    >
+      <p class="text-xs text-base-content/70">{w.browser_hint()}</p>
+      <Field name="vault-name" class="mt-3">
+        <TextControl
+          label={t.vault_name_placeholder()}
+          bind:value={newVaultName}
+          placeholder={t.vault_name_placeholder()}
+          testid="new-vault-name"
+        />
+      </Field>
+      <div class="mt-4 flex justify-end gap-2">
+        <button type="button" onclick={() => (newVaultOpen = false)} class={outline}>{$LL.common.cancel()}</button>
+        <button type="submit" data-testid="create-vault" disabled={busy || !newVaultName.trim()} class={primary}>
+          {t.create_vault()}
+        </button>
+      </div>
+    </form>
+  </Dialog>
+{/if}
+
+{#if renaming}
+  {@const target = renaming}
+  <Dialog title={l.rename_title({ name: target.name })} width="sm" testid="rename-vault-dialog" onClose={() => (renaming = null)}>
+    <form
+      onsubmit={(e) => {
+        e.preventDefault()
+        if (!renameValue.trim()) return
+        onRenameVault?.(target.room, renameValue)
+        renaming = null
+      }}
+    >
+      <Field name="vault-rename">
+        <TextControl label={l.rename_label()} bind:value={renameValue} testid="rename-vault-input" />
+        <Description>{l.rename_hint()}</Description>
+      </Field>
+      <div class="mt-4 flex justify-end gap-2">
+        <button type="button" onclick={() => (renaming = null)} class={outline}>{$LL.common.cancel()}</button>
+        <button type="submit" data-testid="rename-vault-save" disabled={!renameValue.trim()} class={primary}>
+          {l.rename_save()}
+        </button>
+      </div>
+    </form>
+  </Dialog>
 {/if}

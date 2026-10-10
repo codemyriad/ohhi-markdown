@@ -16,10 +16,22 @@
    * "As its own vault" says what happens next on this platform (first-run
    * F1): on the desktop an OS folder picker opens with no sentence of its
    * own, so the dialog explains it before it does.
+   *
+   * Under a valid paste (first-run C3) the link says what it is — its label,
+   * its sender as "the name they typed" (never a verified account, R5), its
+   * relay's host — and the relay's health check answers whether it is
+   * reachable from here ("reachable" = the check answered, never "the link is
+   * valid"). The field takes every spelling the codec reads: the bare
+   * `editor1:…`, the `…/join#editor1:…` URL and the old `?share=` URL.
+   *
+   * "Your name" (Fork 5-A) is asked here, prefilled from the saved name, and
+   * saved when the join starts.
    */
   import { z } from 'zod'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { relayHost } from '@ohhi/workspace'
+  import { loadUser, saveUser, TEAM_NETWORK_NOTE } from '../config.js'
+  import { checkRelay, defaultProbe, teamRelayHost, type Probe, type RelayCheck } from '../relay-check.js'
   import { decodeShareLink, looksLikeShareLink, shareLinkErrorText } from '../share-link.js'
   import { createForm } from '../ui/form.svelte.js'
   import Description from '../ui/Description.svelte'
@@ -47,11 +59,20 @@
     /**
      * Open the share as its own vault (the manager's join). A rejection's
      * message is shown in the dialog, which stays open with the paste.
+     * `name` is the "Your name" field's value, already saved (`saveUser`).
      */
-    onJoinAsVault: (link: string) => void | Promise<void>
+    onJoinAsVault: (link: string, name: string) => void | Promise<void>
     onClose: () => void
     /** The desktop app (an OS folder picker follows "as its own vault") or the browser. */
     isTauri: boolean
+    /** "Your name" at open; defaults to the saved display name. */
+    initialName?: string
+    /** The relay health check; tests hand in a fake. */
+    probe?: Probe
+    /** The build's relay host (the team's), or null in a build without one. */
+    teamHost?: string | null
+    /** The build's sentence about reaching that relay ('' = none). */
+    networkNote?: string
   }
 
   let {
@@ -64,6 +85,10 @@
     onJoinAsVault,
     onClose,
     isTauri,
+    initialName = loadUser() ?? '',
+    probe = defaultProbe,
+    teamHost = teamRelayHost(),
+    networkNote = TEAM_NETWORK_NOTE,
   }: Props = $props()
 
   const t = $derived($LL.web.share.add)
@@ -83,6 +108,7 @@
       link: z.string().trim().refine(looksLikeShareLink, $LL.web.share.add.link_invalid()),
       where: z.enum(['vault', 'own']),
       dest: z.string().trim(),
+      name: z.string().trim(),
     })
     .superRefine((v, ctx) => {
       if (v.where !== 'vault') return
@@ -97,21 +123,57 @@
   // svelte-ignore state_referenced_locally -- seed only; the form owns it after
   const seedWhere: Where = initialWhere ?? (vaultName !== null && onJoinIntoVault !== null ? 'vault' : 'own')
   // svelte-ignore state_referenced_locally -- seed only; the form owns it after
-  const form = createForm(schema, { link: initialLink, where: seedWhere, dest: initialDest })
+  const form = createForm(schema, { link: initialLink, where: seedWhere, dest: initialDest, name: initialName })
 
-  /** What the link says about itself, once it decodes: its relay's host. */
-  const fromHost = $derived.by(() => {
+  /** The pasted link, once it decodes. */
+  const decoded = $derived.by(() => {
     try {
-      return relayHost(decodeShareLink(form.data.link.trim()).relay) ?? null
+      return decodeShareLink(form.data.link.trim())
     } catch {
       return null
     }
   })
+  const fromHost = $derived(decoded ? (relayHost(decoded.relay) ?? decoded.relay) : null)
+
+  // The relay's health check, run whenever a link that decodes names a relay;
+  // a new paste or closing the dialog cancels the one in flight.
+  let check = $state<RelayCheck>('pending')
+  $effect(() => {
+    const relay = decoded?.relay
+    if (!relay) return
+    check = 'pending'
+    return checkRelay(relay, probe, (c) => (check = c))
+  })
+
+  /** What the link says about itself: label, sender ("the name they typed"), host. */
+  const linkLine = $derived.by(() => {
+    if (!decoded || fromHost === null) return null
+    const host = fromHost
+    if (decoded.kind === 'device') return t.from_device({ host })
+    const { label, from } = decoded
+    if (label && from) return t.from_label_sender({ label, from, host })
+    if (label) return t.from_label({ label, host })
+    if (from) return t.from_sender({ from, host })
+    return t.from_host({ host })
+  })
+  const probeLine = $derived.by(() => {
+    if (check === 'pending') return t.probe_checking()
+    if (check === 'ok') return t.probe_ok()
+    const note = teamHost !== null && fromHost === teamHost ? networkNote : ''
+    return note ? t.probe_down_note({ note }) : t.probe_down()
+  })
 
   async function join(): Promise<void> {
-    const ok = await form.submit(async ({ link, where, dest }) => {
+    const ok = await form.submit(async ({ link, where, dest, name }) => {
+      // Saved when the join starts (Fork 5-A); a blank name keeps the saved one.
+      saveUser(name)
       if (where === 'own') {
-        await onJoinAsVault(link)
+        const joined = onJoinAsVault(link, name)
+        // The manager's join saves the name IT was handed, synchronously, as
+        // it starts; this field is the one the person just answered, so it
+        // is saved again, last.
+        saveUser(name)
+        await joined
         return
       }
       // The rendering site is where a codec error code becomes a sentence.
@@ -150,8 +212,11 @@
         testid="add-share-link"
         class="text-[11px]"
       />
-      {#if fromHost}
-        <Description>{t.from_host({ host: fromHost })}</Description>
+      {#if linkLine}
+        <Description>
+          <span data-testid="add-share-about">{linkLine}</span>
+          · <span data-testid="add-share-probe" data-check={check}>{probeLine}</span>
+        </Description>
       {/if}
       <FieldErrors />
     </Field>
@@ -215,6 +280,17 @@
         <FieldErrors />
       </Field>
     {/if}
+
+    <Field name="name">
+      <TextControl
+        label={t.name()}
+        bind:value={form.data.name}
+        autocomplete="nickname"
+        placeholder={t.name_placeholder()}
+        testid="add-share-name"
+        class="text-xs"
+      />
+    </Field>
 
     <p class="text-xs text-base-content/80" data-testid="add-share-trust">{t.trust()}</p>
 

@@ -11,7 +11,7 @@ you can look at any earlier version and put it back.
 - Snapshots never write into the vault. If the vault is already a git repo,
   that repo is left alone: no commits, no index changes.
 
-What to do when something goes wrong is in [docs/recovery.md](../../docs/recovery.md).
+What to do when something goes wrong is in [docs/guide/recovery.md](../../docs/guide/recovery.md).
 
 ## Set it up (once per vault)
 
@@ -49,7 +49,7 @@ Restoring in place is safe to try:
 - It never deletes anything.
 
 If Oh hi markdown has the vault open, quit and reopen it afterwards so it picks up
-every restored file ([why](../../docs/recovery.md#undo-a-change-with-your-snapshots)).
+every restored file ([why](../../docs/guide/recovery.md#undo-a-change-with-your-snapshots)).
 
 ## What is and isn't captured
 

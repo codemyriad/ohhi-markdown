@@ -454,16 +454,37 @@ tab, and a sync pill that goes **green** when synced with the relay.
 ## 4b. The vault manager flows (open / create / share / join)
 
 These are the real, URL-param-free flows (onboarding-shaping.md, extended by
-dogfood-shaping M2). With no URL params the app shows the **vault manager**: a
-list of your known vaults on the left (open on click; the row's **…** menu
-forgets one, after an inline confirm — files are never touched), and on the
-right *Open folder as vault…* (desktop), *Create vault* (browser:
-a named, OPFS-backed private vault — offered only when the browser supports
-OPFS), and *Join a share*. On relaunch the app reopens your last vault
-automatically — and if that boot fails (moved folder, dead relay), you land
-back on the manager with the error shown against the failing entry instead of
-a dead-end screen. Your name, vault registry, and settings persist in
-`localStorage` (`editor:config`, migrated automatically from the pre-M2 keys).
+dogfood-shaping M2 and first-run-shaping A1/B1/F1). With no URL params the app
+shows the **vault manager**, in one of two states:
+
+- **The welcome** (no vault registered yet): "Oh hi.", one sentence, and three
+  doors worded as the thing you have — *Open a folder of notes* (desktop; an
+  Obsidian vault opens as it is) or *Start a vault in this browser* (browser:
+  a named, OPFS-backed private vault, offered only when the browser supports
+  OPFS; the name is asked in the row), *Add a folder someone shared with you*,
+  and *Bring your vault from another device*. The top bar carries the version
+  (desktop), help and Settings; the foot opens the **Import** dialog ("Coming
+  from another app?") and links the two-minute guide. No name is asked here:
+  the name peers see lives in Settings › General.
+- **The list** (one or more vaults; also where *Manage vaults…* and a failed
+  auto-reopen land): one row per vault — a kind glyph, the name ("open now"
+  on the vault open behind the manager), the path and when it was last opened
+  (or "in this browser", the site's storage use and whether the browser has
+  promised to keep it), and chips for what the vault's mount table says:
+  *N folders shared by you*, *N shared with you* or *nothing shared* ("—"
+  when the table cannot be read). One **+ Add** menu holds the welcome's
+  doors plus *Import from another app…*; a row's **…** menu offers Open,
+  Rename… (this list's name only, never the folder) and Remove from this
+  list… (an inline confirm — files are never touched). The foot says who
+  people you share with see you as (*Change* opens Settings) and how many
+  links you were sent (a popover that re-joins one).
+
+On relaunch the app reopens your last vault automatically — and if that boot
+fails (moved folder, dead relay), you land back on the manager with the error
+shown in the failing row, with *Try again* and *Remove from this list…*,
+instead of a dead-end screen. Your name, vault registry, and settings persist
+in `localStorage` (`editor:config`, migrated automatically from the pre-M2
+keys).
 
 Inside a workspace, the header's **vault name ▾** switches between vaults or
 returns to the manager, and **⚙** opens Settings (display name, default relay,
@@ -475,14 +496,55 @@ build` (or a git-ignored `apps/web/.env.local`, see `apps/web/.env.example`)
 sets the relay a fresh install proposes for new shares; unset or malformed →
 `ws://localhost:8787`. A relay saved in Settings › Sync always wins; an install
 that never saved one follows each new build's default.
-The Shared view's empty state reads the relay, not the secret: with a relay
-saved or baked in it says "Shares go through <host>." (plus "To create links
-you will need the team's secret once." until a secret is saved); with only the
-local-dev fallback it says no relay is configured (`config.ts relayKnown`).
+**The relay is one card** (`RelayCard.svelte`, first-run D1), drawn in the
+Shared view, Settings › Sync and the share sheet's first run: icon, host in
+mono, a status line, actions. For a relay this vault holds rooms on it reads
+the Shared view's snapshot ("Connected · N rooms · in sync with the relay
+since …" / "Reconnecting…" / "Offline · last in sync …" / "Refused by the
+relay: …" — receipt, never "durable"); for one it is not connected to yet it
+probes `GET /healthz` ("reachable · checked just now" / "can't reach it from
+here" — a health check, never a valid token); with no relay saved and none in
+the build (`config.ts relayKnown`) it says "No relay yet", one relay per
+group, and links the relay guide. The team's relay (same host as the build's
+default) is marked so, with `VITE_TEAM_NETWORK_NOTE` under it. The Shared
+view's empty state shows the card above its three doors, reading the relay,
+not the secret (plus "To create links you will need the team's secret once."
+until a secret is saved).
 Two more build-time sentences sit beside it, `VITE_TEAM_SECRET_HINT` (where
 the operator secret lives) and `VITE_TEAM_NETWORK_NOTE` (reachability), read
 by `config.ts` as `TEAM_SECRET_HINT` / `TEAM_NETWORK_NOTE` ('' when unset);
 the release workflow fills them from repo variables (`docs/desktop-builds.md`).
+**A pinned build** (`VITE_TEAM_HOST`, the workflow's `TEAM_HOST`; `config.ts
+TEAM_HOST`) has a CSP that allows no other relay, so the card offers no
+*Use another…* / *Change…*, Settings › Sync shows the relay address
+read-only, and both say "This build syncs through <host> only."
+
+**The secret is verified and placed** (D2): titled "Permission to create
+links", it is checked against the relay's admin API after a paste (debounced)
+and on blur — "works" (a listing call answered 200), "doesn't match this
+relay", "this relay has no admin API", "can't reach the relay" — with a
+*Where do I get this?* disclosure (the build's hint, else the generic
+sentence). The same disclosure sits in Settings › Sync's *Your devices* and
+in the device-link dialog when no secret is saved.
+
+**The share sheet's first run** (no operator secret yet): "Syncs through" +
+the relay card (*Use another…* opens the address field, which is open from
+the start when no relay is known), the verified secret, then — for any folder
+not shared yet — "First link: who is it for?" (+ read-only) and "Your name,
+shown to them" (prefilled from the saved name, saved on Share; Fork 5-A), then
+*Share and copy link*, disabled with the reason until the secret says
+"works". Share remembers relay + secret in Settings › Sync, carves (the
+carve's token is this device's own credential, never read-only), and — when
+the first link is named — mints that person's link beside it and copies it.
+Links leave the sheet in the URL form when an origin is known
+(`share-message.ts`: the browser's `location.origin`; the desktop's
+`originForRelay(<room relay>)`; else the bare `editor1:` link), carrying
+`label` (the folder) and `from` (the name typed). After Share and on every
+link row there are *Copy link* and *Copy message*; the message is "I shared
+<folder> with you in Oh hi markdown. Open this link: <link>", then the network
+sentence for the team's relay, then "New to the app? <origin>/guide/start.html"
+when there is an origin. The e2e relay runs without an operator secret, so
+specs see the secret answer "this relay has no admin API".
 
 **Adding a shared folder as its own vault** says what happens next under the
 choice (desktop: you will pick an empty folder; browser: kept in this
@@ -494,8 +556,9 @@ on <host>".
 **Browser storage.** A browser vault lives in storage the browser may clear
 unless it has promised to keep it. At launch the web app checks
 `navigator.storage.persisted()` and, if false, asks once with `persist()`.
-While the answer is no, the manager shows a dismissible note with *Ask the
-browser to keep it*, a workspace reopened straight into a browser vault gets
+While the answer is no, the welcome's browser door carries *Ask the browser
+to keep it* under its description (the list shows a dismissible note with the
+same button), a workspace reopened straight into a browser vault gets
 one notice per session, and Settings › Vaults & shares shows the status,
 usage and the reminder switch. None of this runs in the desktop app. To see
 the note in Chromium, use a fresh profile (a well-used site may already hold
@@ -538,7 +601,8 @@ is refused — all decided by `planDrop()` in `apps/web/src/lib/tree-model.ts`
 confirm dialog as **Move…** (below). Keyboard users use **Move…**, which is
 equivalent.
 
-**Open a folder (desktop, O1).** Manager → **Open folder as vault…** → pick a
+**Open a folder (desktop, O1).** Manager → **Open a folder of notes** (the
+welcome's first door, or *+ Add* in the list) → pick a
 folder via the native dialog (its *New Folder* button covers the create case).
 Your `.md` files on disk are the source of truth; edits save back atomically.
 This needs no relay — it works fully offline. Reopening the same folder later
@@ -578,7 +642,8 @@ secret. From there:
   only path when `OPERATOR_SECRET` is unset — the admin HTTP API answers 404
   without it (see `apps/relay/README.md`).
 
-**Join a share (desktop O2 / browser O3).** Manager → **Join a share** → paste
+**Join a share (desktop O2 / browser O3).** Manager → **Add a folder someone
+shared with you** (a welcome door, or *+ Add* in the list) → paste
 the link — the bare `editor1:…` string or its URL form
 `https://<host>/join#editor1:…` (the payload rides in the fragment, so no
 server sees it). Besides relay, room and token, a link may carry a `label`
@@ -589,6 +654,37 @@ vault is stored privately in **OPFS**; on desktop you pick a local folder to
 materialize into. The relay's content is pulled and you're co-editing live. The
 `?share=` deep-link (`/?share=editor1:…`) works too and is cleared from the URL
 once you join.
+
+**The join page (first-run C2/C3).** In a browser, the URL form
+`https://<host>/join#editor1:…` opens a page of its own instead of the
+manager (`params.ts` `joinPageLink`; any path `/join`, the app's index.html
+served there by Vite's SPA fallback in dev and preview and by Caddy's
+`try_files` on the team host). It says "<from> shared <label> with you" —
+the sender as "the name they typed, not a verified account", or "Someone
+shared a folder" when the link carries neither — what you get, which relay
+it syncs through (the team's when its host is the build's
+`VITE_DEFAULT_RELAY` host, with `VITE_TEAM_NETWORK_NOTE`; else "a relay run by
+whoever shared this"), and the relay's health check (`relay-probe.ts`
+`GET /healthz`, run on load: "Relay reachable · checked just now" means the
+check answered, never that the link is valid; "Can't reach the relay from
+here." says what to do, then "reload this page"). Then *In the desktop app* →
+**Copy link** (paste it into the app's *Add a folder someone shared*; no deep
+link yet, Fork 3-B) or *In this browser* → **Add here**, which replaces the
+address with `/` (the token leaves the address bar and Back's history) and
+opens the manager with the Add dialog on the link. A device link is
+explained as one and offered *Link this device* instead; a damaged link
+shows the codec's reason and "paste it in the app". The desktop never shows
+the page: there the URL is pasted into the dialogs, which read every
+spelling. To try it locally: `rushx dev` in `apps/relay` with a seeded share,
+then open `http://localhost:5173/join#<editor1:… link>`.
+
+**The Add dialog** takes the bare link, the `…/join#…` URL or a `?share=` URL.
+Under a valid paste it shows "<label>, shared by “<from>” (the name they
+typed) · syncs through <host> · " and the relay check's answer ("relay
+reachable" / "can't reach the relay from here", plus the network note on the
+team's host); the check runs per paste and is cancelled when the dialog
+closes. "Your name, shown to the people in this folder" is prefilled from the
+saved name and saved when the join starts.
 
 **Join a share INTO an existing vault (M5).** In a workspace: header →
 **Add share** → paste the link and pick a destination folder (new or empty —
@@ -626,7 +722,7 @@ every peer; a recovery copy lands in the journal first).
 
 **Resetting a test vault.** To restart a vault with completely fresh shared
 state while keeping every `.md` on disk: manager → the vault row's **…** → *Remove from
-this list* → confirm ("Remove?") → reopen the same folder via *Open folder as vault…*.
+this list…* → confirm ("Remove?") → reopen the same folder via *Open a folder of notes*.
 Forgetting a vault deletes its entire durable store namespace (mounts,
 CRDT blobs, LCA records, journal) plus its tokens and remembered share
 links; the reopened folder enrolls fresh under a **new room**, so old share

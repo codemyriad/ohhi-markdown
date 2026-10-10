@@ -44,6 +44,14 @@ export const COMMAND_IDS = [
   'view.focus',
   'template.insert',
   'layout.use-file',
+  // shell-commands.ts › help (first-run E1; help.svelte.ts HELP_COMMAND_IDS)
+  'help.menu',
+  'help.start',
+  'help.shortcuts',
+  'help.recovery',
+  'help.sharing',
+  'help.changes',
+  'help.report',
   // pane-commands.ts › paneCommands
   'workspace.split-auto',
   'workspace.split-down',

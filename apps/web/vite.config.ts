@@ -6,6 +6,10 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [svelte(), tailwindcss()],
+  // The build's version for the Help menu in a browser (help.svelte.ts
+  // BUILD_VERSION): the release workflow's VERSION; '' in a local build. The
+  // desktop asks Tauri for its own instead.
+  define: { __OHHI_VERSION__: JSON.stringify(process.env.VERSION ?? '') },
   server: {
     port: 5173,
     // The bundled faces live in libs/ui/fonts/ and fonts.css names them with
@@ -24,7 +28,8 @@ export default defineConfig({
   test: {
     // Unit tests only. The Playwright L2 specs in e2e/ are driven by `rushx e2e`
     // (playwright test) — vitest must not try to collect them.
-    include: ['src/**/*.test.ts'],
+    // …plus the build scripts' own tests (scripts/build-guide.test.mjs).
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
     // Pure modules run on node (their localStorage tests carry their own
     // stubs); a component test opts into jsdom with a
     // `// @vitest-environment jsdom` docblock on its first line.

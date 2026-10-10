@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/build-guide.mjs && vite",
+    "build": "node scripts/build-guide.mjs && vite build",
     "test": "vitest run",
     "e2e": "playwright test",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "gen-schemas": "node scripts/gen-schemas.mjs"
+    "gen-schemas": "node scripts/gen-schemas.mjs",
+    "build-guide": "node scripts/build-guide.mjs"
   },
   "dependencies": {
     "@ohhi/editor": "workspace:*",

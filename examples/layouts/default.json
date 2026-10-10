@@ -17,7 +17,8 @@
     "toolbar.right": [
       "sync",
       "drawer",
-      "inspector"
+      "inspector",
+      "help"
     ],
     "format": [
       "format.paragraph-style",

@@ -33,11 +33,29 @@
     vaultName: string
     /** The share sheet's first run: remember the relay and secret in Settings › Sync. */
     onRemember: (relay: string, secret: string) => void
+    /** A relay is known (`relayKnown()`); false → the share sheet's relay card says none. */
+    relayKnown?: boolean
+    /** The saved display name, prefilling the share sheet's "Your name, shown to them" (Fork 5-A). */
+    userName?: string
+    /** Remember the name typed in the share sheet. */
+    onSaveName?: (name: string) => void
     /** *Add a shared folder* → as its own vault: the manager's join. Rejects with the reason. */
     onJoinAsVault: (link: string) => Promise<void>
   }
 
-  let { workspace, sharing, fileOps, relayUrl, secret, vaultName, onRemember, onJoinAsVault }: Props = $props()
+  let {
+    workspace,
+    sharing,
+    fileOps,
+    relayUrl,
+    secret,
+    vaultName,
+    onRemember,
+    relayKnown = true,
+    userName = '',
+    onSaveName,
+    onJoinAsVault,
+  }: Props = $props()
 
   const activeReview = $derived(workspace.ui.reviews[0] ?? null)
 </script>
@@ -134,7 +152,10 @@
     path={sharing.folderSharePath}
     mount={sharing.folderShareMount}
     {relayUrl}
+    {relayKnown}
     {secret}
+    {userName}
+    {onSaveName}
     onShare={() => sharing.carveFolderShare()}
     {onRemember}
     onStopSharing={() => {

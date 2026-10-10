@@ -17,6 +17,7 @@ import {
   operatorSecret,
   roomToken,
   roomTokenKind,
+  saveUser,
   upsertVault,
   type VaultEntry,
 } from './config.js'
@@ -241,5 +242,57 @@ describe('createManager', () => {
     await manager.removeVault('room-a')
     expect(getVault('room-a')).toBeNull()
     expect(session.failure?.message).toContain('opfs locked')
+  })
+
+  it('openFolder with no saved name saves none: the welcome no longer asks for one (Fork 5-A)', async () => {
+    await manager.openFolder('')
+    expect(loadUser()).toBeNull()
+    expect(manager.user).toBe('')
+    expect(session.booted).toHaveLength(1)
+  })
+
+  it('user mirrors the saved name, re-read on refresh (Settings › General writes it)', () => {
+    expect(manager.user).toBe('')
+    saveUser('Cynthia')
+    manager.refresh()
+    expect(manager.user).toBe('Cynthia')
+  })
+
+  it('renameVault renames the registry entry only — the folder path stays', () => {
+    upsertVault({ name: 'vault', room: 'room-a', vault: { kind: 'tauri', path: '/home/chris/vault' } })
+    manager.refresh()
+    manager.renameVault('room-a', '  Work notes ')
+    expect(getVault('room-a')).toMatchObject({ name: 'Work notes', vault: { kind: 'tauri', path: '/home/chris/vault' } })
+    expect(manager.vaults[0]!.name).toBe('Work notes')
+
+    manager.renameVault('room-a', '   ')
+    expect(getVault('room-a')!.name).toBe('Work notes')
+    manager.renameVault('no-such-room', 'x')
+    expect(listVaults()).toHaveLength(1)
+  })
+
+  it('loadFacts counts each vault\'s mount table, skips the open vault, and says null for an unreadable one', async () => {
+    upsertVault({ name: 'A', room: 'room-a', vault: { kind: 'tauri', path: '/a' } })
+    upsertVault({ name: 'B', room: 'room-b', vault: { kind: 'opfs', id: 'b' } })
+    upsertVault({ name: 'Open', room: 'room-open', vault: { kind: 'opfs', id: 'o' } })
+    const read = vi.fn(async (entry: VaultEntry) => {
+      if (entry.room === 'room-b') throw new Error('unreadable')
+      return [
+        { room: 'room-a', path: '', provenance: 'local' as const, status: 'active' as const },
+        { room: 'm1', path: 'clients', provenance: 'carved' as const, status: 'active' as const },
+        { room: 'm2', path: 'team', provenance: 'joined' as const, status: 'active' as const, relay: { url: RELAY } },
+        { room: 'm3', path: 'more', provenance: 'joined' as const, status: 'needs-token' as const },
+      ]
+    })
+    host.readMounts = read
+    await manager.loadFacts('room-open')
+    expect(read.mock.calls.map(([e]) => e.room).sort()).toEqual(['room-a', 'room-b'])
+    expect(manager.facts).toEqual({ 'room-a': { sharedByYou: 1, sharedWithYou: 2 }, 'room-b': null })
+  })
+
+  it('loadFacts without a mount reader leaves every row without facts', async () => {
+    upsertVault({ name: 'A', room: 'room-a', vault: { kind: 'tauri', path: '/a' } })
+    await manager.loadFacts()
+    expect(manager.facts).toEqual({})
   })
 })

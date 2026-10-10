@@ -7,6 +7,7 @@ import {
   buildText,
   DEFAULT_RELAY_CONFIGURED,
   isDefaultRelayConfigured,
+  resolveTeamHost,
   relayKnown,
   resolveDefaultRelay,
   TEAM_NETWORK_NOTE,
@@ -532,5 +533,17 @@ describe('deriveVaultName', () => {
     expect(deriveVaultName({ kind: 'tauri', path: '/a/b/Notes/' })).toBe('Notes')
     expect(deriveVaultName({ kind: 'tauri', path: '/' })).toBe('My vault')
     expect(deriveVaultName({ kind: 'opfs', id: 'x' })).toBe('Browser vault')
+  })
+})
+
+describe('resolveTeamHost (VITE_TEAM_HOST, first-run R10)', () => {
+  it('is the bare host the CSP is pinned to, lower-cased; anything else reads as unset', () => {
+    expect(resolveTeamHost(undefined)).toBe('')
+    expect(resolveTeamHost('')).toBe('')
+    expect(resolveTeamHost('  Ohhi.Example.ts.net ')).toBe('ohhi.example.ts.net')
+    expect(resolveTeamHost('relay.example.com:8443')).toBe('relay.example.com:8443')
+    // A scheme or a path is not what the workflow's TEAM_HOST is.
+    expect(resolveTeamHost('wss://ohhi.example.ts.net/relay')).toBe('')
+    expect(resolveTeamHost('ohhi.example.ts.net/relay')).toBe('')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAppParams } from './params.js'
+import { joinPageLink, parseAppParams } from './params.js'
 
 function memStore(): Storage {
   const m = new Map<string, string>()
@@ -33,5 +33,25 @@ describe('parseAppParams — ?layout=', () => {
     expect(parseAppParams(new URLSearchParams('layout=../x'), store).layout.get()).toBeNull()
     expect(parseAppParams(new URLSearchParams('layout=custom:writing'), store).layout.get()).toBe('custom:writing')
     expect(parseAppParams(new URLSearchParams('mode=memory'), null).layout.get()).toBeNull()
+  })
+})
+
+describe('joinPageLink — the /join page (first-run C2)', () => {
+  const href = 'https://ohhi.example.ts.net/join#editor1:abc'
+
+  it('is the whole address on /join in a browser, with or without a trailing slash', () => {
+    expect(joinPageLink({ pathname: '/join', href }, false)).toBe(href)
+    expect(joinPageLink({ pathname: '/join/', href }, false)).toBe(href)
+  })
+
+  it('still answers with an empty fragment, so the page can show its error state', () => {
+    const bare = 'https://ohhi.example.ts.net/join'
+    expect(joinPageLink({ pathname: '/join', href: bare }, false)).toBe(bare)
+  })
+
+  it('is null anywhere else, and always on the desktop', () => {
+    expect(joinPageLink({ pathname: '/', href: 'https://h/#editor1:abc' }, false)).toBeNull()
+    expect(joinPageLink({ pathname: '/joinery', href: 'https://h/joinery' }, false)).toBeNull()
+    expect(joinPageLink({ pathname: '/join', href }, true)).toBeNull()
   })
 })

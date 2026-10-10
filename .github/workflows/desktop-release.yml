@@ -186,6 +186,9 @@ jobs:
           VITE_DEFAULT_RELAY: ${{ needs.meta.outputs.relay }}
           VITE_TEAM_SECRET_HINT: ${{ needs.meta.outputs.secret_hint }}
           VITE_TEAM_NETWORK_NOTE: ${{ needs.meta.outputs.network_note }}
+          # The pinned host (the CSP above allows no other relay): the app
+          # hides "Use another…" and says it syncs through this host only.
+          VITE_TEAM_HOST: ${{ needs.meta.outputs.team_host }}
         run: node ../../common/scripts/install-run-rushx.js build
 
       - name: CSP guard

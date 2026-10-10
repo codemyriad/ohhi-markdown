@@ -21,6 +21,7 @@
   import Field from '../ui/Field.svelte'
   import FieldErrors from '../ui/FieldErrors.svelte'
   import TextControl from '../ui/TextControl.svelte'
+  import SecretHelp from './SecretHelp.svelte'
 
   interface Props {
     vaultName: string
@@ -32,9 +33,11 @@
     /** Mints the token, attaches the root, resolves to the copyable link. */
     onCreate: (label: string) => Promise<string>
     onClose: () => void
+    /** The build's "where" sentence for the secret; injectable for tests (first-run D2). */
+    secretHint?: string
   }
 
-  let { vaultName, room, relayUrl, secret, onCreate, onClose }: Props = $props()
+  let { vaultName, room, relayUrl, secret, onCreate, onClose, secretHint }: Props = $props()
 
   const t = $derived($LL.web.device_link)
 
@@ -98,9 +101,11 @@
     <p class="text-xs text-base-content/70">{vaultName}</p>
 
     {#if !secret}
-      <p role="alert" data-testid="device-link-needs-secret" class="text-xs text-warning">
-        {t.needs_secret()}
-      </p>
+      <!-- What is missing, and where it lives (first-run D2) — not a bare "set it above". -->
+      <div data-testid="device-link-needs-secret">
+        <p role="alert" class="text-xs text-base-content">{t.needs_secret_dialog()}</p>
+        <SecretHelp hint={secretHint} testid="device-link-where" />
+      </div>
     {:else}
       <form
         class="space-y-3"

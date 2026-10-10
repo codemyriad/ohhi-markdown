@@ -417,6 +417,10 @@ test('settings are tabs: keyboard between them, validated forms with their own S
   await expect(dialog).toHaveCount(0)
   await page.keyboard.press('ControlOrMeta+,')
   await page.getByTestId('settings-tab:sync').click()
+  // A relay is known now: the card shows it, and Change… opens its address (first-run D1).
+  const sync = page.getByTestId('settings-relay-card')
+  await expect(sync.getByTestId('relay-card')).toContainText('relay.example.test')
+  await sync.getByTestId('relay-change').click()
   await expect(page.getByTestId('settings-relay')).toHaveValue('wss://relay.example.test')
   await page.getByTestId('settings-close').click()
 })
@@ -427,7 +431,6 @@ test('link a device: the manager refuses a folder link, and the panel reports a 
   // The manager, with no vault remembered — where a NEW device starts.
   await page.goto('/')
   await expect(page.getByTestId('open-link-device')).toBeVisible()
-  await page.getByTestId('manager-name').fill('Chris')
   await page.getByTestId('open-link-device').click()
   await expect(page.getByTestId('link-device-dialog')).toBeVisible()
 
@@ -450,8 +453,10 @@ test('link a device: the manager refuses a folder link, and the panel reports a 
   await expect(page.getByTestId('join-error')).toContainText('rejected', { timeout: 20_000 })
   await expect(page.getByTestId('join-retry')).toBeVisible()
 
+  // Back on the manager, which now lists the half-linked vault: its Add menu
+  // still offers the device link (first-run B1).
   await page.getByTestId('join-cancel').click()
-  await expect(page.getByTestId('open-link-device')).toBeVisible()
+  await expect(page.getByTestId('manager-add')).toBeVisible()
 })
 
 test('settings › sync offers device linking, and asks for the operator secret first', async ({
@@ -461,7 +466,7 @@ test('settings › sync offers device linking, and asks for the operator secret 
   await page.keyboard.press('ControlOrMeta+,')
   await page.getByTestId('settings-tab:sync').click()
   const section = page.getByTestId('settings-device-link')
-  await expect(section).toContainText('Link a device')
+  await expect(section).toContainText('Your devices')
 
   // No operator secret: the refusal names the thing to set, and there is no
   // button that would fail on being pressed.
@@ -509,20 +514,25 @@ test('the manager reaches Link a device from inside itself, without a trip throu
   await expect(page.getByTestId('device-link-dialog')).toHaveCount(0)
 })
 
-test('the vault manager lists its vaults beside the ways to add one, and removes one in two clicks', async ({
+test('the vault manager welcomes, then lists its vaults with their facts, and removes one in two clicks', async ({
   page,
 }) => {
+  // A fresh install: the welcome, which asks for no name (first-run A1, Fork 5-A).
   await page.goto(MANAGER_URL)
-  await page.getByTestId('manager-name').fill('Chris')
+  await expect(page.getByRole('heading', { name: 'Oh hi.' })).toBeVisible()
+  await expect(page.getByTestId('manager-name')).toHaveCount(0)
   await createBrowserVault(page, 'Polish')
   await openManager(page)
   const row = page.locator('[data-testid^="open-vault:"]')
   await expect(row).toHaveCount(1)
   await expect(row).toContainText('Polish')
-  await expect(row).toContainText('browser vault')
-  // The vault open behind the manager is the current one (P4).
+  await expect(row).toContainText('in this browser')
+  // The vault open behind the manager is the current one, marked "open now",
+  // with what its mount table says (first-run B1).
   await expect(row).toHaveAttribute('aria-current', 'true')
-  await expect(page.getByTestId('manager-name')).toHaveValue('Chris')
+  await expect(row).toContainText('open now')
+  await expect(page.locator('[data-testid^="vault-facts:"]')).toContainText('nothing shared')
+  await expect(page.getByTestId('manager-identity')).toContainText('see you as Anonymous')
 
   // Remove is never one click: the row menu arms an inline confirm that says
   // what removal costs, and Cancel leaves the list alone.
@@ -537,7 +547,8 @@ test('the vault manager lists its vaults beside the ways to add one, and removes
   await page.locator('[data-testid^="remove-vault:"]').click()
   await page.locator('[data-testid^="remove-confirm:"]').click()
   await expect(row).toHaveCount(0)
-  await expect(page.getByTestId('create-vault')).toBeVisible()
+  // The last vault gone: the welcome again.
+  await expect(page.getByTestId('start-browser-vault')).toBeVisible()
 })
 
 test('every chrome surface renders in the interface token: the file tree is Public Sans, code is JetBrains Mono (P9, Q7)', async ({

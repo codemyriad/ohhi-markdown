@@ -120,3 +120,20 @@ export function colorSlot(name: string): number {
 export function colorFor(name: string): string {
   return presenceColor(colorSlot(name))
 }
+
+/**
+ * The join page (first-run C2, Fork 1-A): a link in its URL form,
+ * `https://<host>/join#editor1:…`, opened in a BROWSER. Returns the whole
+ * address for the page to decode (the payload rides in the fragment, which
+ * no server sees), or null when this is not the join page.
+ *
+ * Never on the desktop: a Tauri window is not navigated to `/join` — there,
+ * the URL form is pasted into *Add a shared folder*, whose codec reads it.
+ * An empty or damaged fragment still returns the address: the page shows
+ * its error state rather than falling through to the manager.
+ */
+export function joinPageLink(loc: { pathname: string; href: string }, desktop: boolean): string | null {
+  if (desktop) return null
+  if (loc.pathname !== '/join' && loc.pathname !== '/join/') return null
+  return loc.href
+}

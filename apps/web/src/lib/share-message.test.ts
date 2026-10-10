@@ -1,0 +1,90 @@
+/**
+ * The link as it leaves the app, and the sentence it travels in
+ * (first-run C1/C4): the URL form when an origin is known — the browser's
+ * own, or the team host on the desktop — else the bare `editor1:` link; the
+ * message with the network sentence only for the team's relay and the guide
+ * only when there is an origin to put it on.
+ */
+import { describe, expect, it } from 'vitest'
+import { getLL } from '@ohhi/i18n'
+import { decodeShareLink, encodeShareLink } from './share-link.js'
+import { guideUrl, isTeamRelay, linkOrigin, presentLink, shareMessage } from './share-message.js'
+
+const LL = getLL()
+const t = LL.web.share.sheet
+const TEAM = 'wss://ohhi.example.ts.net/relay'
+const target = { relay: TEAM, room: 'room-1', token: 'tok', label: 'Projects/Q4', from: 'Chris' }
+
+describe('linkOrigin', () => {
+  it('a browser uses its own origin', () => {
+    expect(linkOrigin({ desktop: false, locationOrigin: 'https://ohhi.example.ts.net', relayUrl: TEAM })).toBe(
+      'https://ohhi.example.ts.net'
+    )
+    expect(linkOrigin({ desktop: false, locationOrigin: 'http://localhost:5173', relayUrl: 'ws://localhost:8787' })).toBe(
+      'http://localhost:5173'
+    )
+  })
+
+  it('the desktop derives the team host from the room’s relay, never the webview’s origin', () => {
+    expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM })).toBe(
+      'https://ohhi.example.ts.net'
+    )
+  })
+
+  it('no origin anyone can open → null (the bare link)', () => {
+    expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: 'ws://localhost:8787' })).toBeNull()
+    expect(linkOrigin({ desktop: false, locationOrigin: 'null', relayUrl: 'ws://localhost:8787' })).toBeNull()
+  })
+})
+
+describe('presentLink', () => {
+  it('is the URL form with the payload in the fragment, carrying label and from', () => {
+    const link = presentLink(target, 'https://ohhi.example.ts.net')
+    expect(link.startsWith('https://ohhi.example.ts.net/join#editor1:')).toBe(true)
+    const decoded = decodeShareLink(link)
+    expect(decoded).toMatchObject({ relay: TEAM, room: 'room-1', token: 'tok', label: 'Projects/Q4', from: 'Chris' })
+  })
+
+  it('without an origin it is the bare editor1: link', () => {
+    expect(presentLink(target, null)).toBe(encodeShareLink(target))
+  })
+})
+
+describe('isTeamRelay', () => {
+  it('matches the build’s default relay by host, only when the build was given one', () => {
+    expect(isTeamRelay('wss://ohhi.example.ts.net/relay/', { defaultRelay: TEAM, configured: true })).toBe(true)
+    expect(isTeamRelay('wss://other.example/relay', { defaultRelay: TEAM, configured: true })).toBe(false)
+    expect(isTeamRelay('ws://localhost:8787', { defaultRelay: 'ws://localhost:8787', configured: false })).toBe(false)
+  })
+})
+
+describe('shareMessage', () => {
+  const link = 'https://ohhi.example.ts.net/join#editor1:abc'
+
+  it('names the folder and the link, then the network sentence, then the guide', () => {
+    const msg = shareMessage({
+      folder: 'Projects/Q4',
+      link,
+      networkNote: 'Shares work only while you are on the company tailnet.',
+      origin: 'https://ohhi.example.ts.net',
+    })
+    expect(msg).toBe(
+      [
+        t.message({ folder: 'Projects/Q4', link }),
+        'Shares work only while you are on the company tailnet.',
+        t.message_guide({ url: 'https://ohhi.example.ts.net/guide/start.html' }),
+      ].join(' ')
+    )
+  })
+
+  it('omits the network sentence when none is given and the guide when there is no origin', () => {
+    expect(shareMessage({ folder: 'notes', link: 'editor1:abc', networkNote: '', origin: null })).toBe(
+      t.message({ folder: 'notes', link: 'editor1:abc' })
+    )
+  })
+
+  it('guideUrl joins the origin and the getting-started page', () => {
+    expect(guideUrl('https://h.example/')).toBe('https://h.example/guide/start.html')
+    expect(guideUrl(null)).toBeNull()
+  })
+})

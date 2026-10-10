@@ -15,7 +15,9 @@
    *  - changes: the room logs folded one line per note per window (E3).
    *
    * With nothing shared it is the onboarding into collaboration instead:
-   * three sentences, three doors, the relay introduced where first needed.
+   * the relay first, as the same card in its probed / none / pinned state
+   * (first-run D1/D3: it reads the RELAY, not the secret), then three
+   * sentences and three doors.
    * The cards stack when the PANE is narrow (a container query), so it reads
    * in a split beside the note too.
    */
@@ -30,6 +32,9 @@
   import { listShares } from '../relay-admin.js'
   import { clockTick, dayWord, relativeTime } from '../relative-time.js'
   import { roomRollup, snapshotInput } from '../shared.svelte.js'
+  import { DEFAULT_RELAY, DEFAULT_RELAY_CONFIGURED, TEAM_HOST, TEAM_NETWORK_NOTE } from '../config.js'
+  import type { ProbeResult } from '../relay-probe.js'
+  import RelayCard from './RelayCard.svelte'
   import { shareableDirs } from '../tree-model.js'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import { getViewShell, type ViewProps, type ViewShell } from '../views.js'
@@ -45,10 +50,29 @@
     clock?: Clock
     /** Injected for the tests: the relay admin list call. */
     list?: (relay: string, secret: string, room: string) => Promise<RelayTokenInput[]>
+    /** Injected for the tests: the relay health check (the empty state's card). */
+    probe?: (relayUrl: string) => Promise<ProbeResult>
+    /** The build's pinned host, team relay and network sentence (config.ts); injectable for tests. */
+    pinnedHost?: string
+    teamRelay?: string
+    networkNote?: string
   }
 
   const ctxShell = getViewShell()
-  let { workspace, shell = ctxShell, clock = ctxShell?.clock ?? realClock, list = listShares }: Props = $props()
+  let {
+    workspace,
+    shell = ctxShell,
+    clock = ctxShell?.clock ?? realClock,
+    list = listShares,
+    probe,
+    pinnedHost = TEAM_HOST,
+    teamRelay = DEFAULT_RELAY_CONFIGURED ? DEFAULT_RELAY : '',
+    networkNote = TEAM_NETWORK_NOTE,
+  }: Props = $props()
+  const teamHost = $derived(teamRelay ? (relayHost(teamRelay) ?? '') : '')
+  const relayIsKnown = $derived(!!shell?.relayKnown() || !!pinnedHost)
+  /** Settings › Sync, where the relay is changed — never offered in a pinned build (the card hides it). */
+  const changeRelay = (): void => shell?.openSettings('sync')
 
   // svelte-ignore state_referenced_locally -- the clock is fixed at mount
   const tick = clockTick(clock)
@@ -193,6 +217,25 @@
           <h3 class="m-0 text-lg font-semibold">{t.empty.title()}</h3>
           <p class="text-base-content/80">{t.empty.body()}</p>
         </div>
+        <!-- The relay first (first-run D1/D3): it reads the RELAY, not the
+             secret — a team build knows where shares go before anyone has
+             the secret; what is still needed sits under the card. -->
+        <div data-testid="shared-empty-relay" class="grid gap-1.5">
+          <h4 class="m-0 {HEADING}">{t.empty.relay_label()}</h4>
+          <RelayCard
+            relayUrl={shell?.relayUrl() ?? ''}
+            known={relayIsKnown}
+            {pinnedHost}
+            {teamHost}
+            {networkNote}
+            {clock}
+            {probe}
+            onChange={changeRelay}
+          />
+          {#if relayIsKnown && !secret}
+            <p data-testid="shared-empty-secret" class="m-0 text-xs text-base-content/80">{t.empty.secret_once()}</p>
+          {/if}
+        </div>
         <div class="grid grid-cols-1 gap-3 @2xl:grid-cols-3">
           <div class="{CARD} grid content-start gap-2 p-4">
             <Share2 size={20} aria-hidden="true" class="text-primary" />
@@ -223,40 +266,19 @@
             >
           </div>
         </div>
-        <p data-testid="shared-empty-relay" class="text-xs text-base-content/80">
-          <!-- It reads the RELAY, not the secret (first-run D3): a team build
-               knows where shares go before anyone has the secret. -->
-          {#if shell?.relayKnown()}{t.empty.relay_is({ host: relayHost(shell.relayUrl()) ?? '' })}{#if !secret}
-              {t.empty.secret_once()}{/if}{:else}{t.empty.no_relay()}{/if}
-        </p>
       </div>
     {:else}
       <!-- The relay, first: a place with a state (R4). -->
       {#each snap.relays as relay (relay.host)}
-        <div data-testid="relay-card" data-state={relay.state} class="{CARD} flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
-          <h3 class="m-0 font-ed-mono text-sm font-medium">{relay.host || t.relay.unknown_host()}</h3>
-          <p data-testid="relay-state" class="m-0 text-xs text-base-content/80">
-            {#if relay.state === 'refused'}
-              {relay.reason ? t.relay.refused_reason({ reason: relay.reason }) : t.relay.state.refused()}
-            {:else}
-              {t.relay.state[relay.state]()}
-              {#if relay.state === 'connected'}
-                · {t.relay.rooms({ count: relay.rooms })}
-                · {relay.people ? t.relay.people({ count: relay.people }) : t.relay.only_you()}
-                {#if relay.inSyncSince !== undefined}· {t.relay.in_sync({ when: ago(relay.inSyncSince) })}{/if}
-              {:else}
-                {#if relay.lastInSyncAt !== undefined}· {t.relay.last_in_sync({ when: ago(relay.lastInSyncAt) })}{/if}
-                · {t.relay.safe()}
-              {/if}
-            {/if}
-          </p>
-          <button
-            type="button"
-            data-testid="relay-change"
-            onclick={() => shell?.openSettings('sync')}
-            class="{OUTLINE_BUTTON} ml-auto px-2 py-0.5 text-xs text-base-content/80">{t.relay.change()}</button
-          >
-        </div>
+        <RelayCard
+          relayUrl={relay.host}
+          connection={relay}
+          showPeople
+          {pinnedHost}
+          {teamHost}
+          {clock}
+          onChange={changeRelay}
+        />
       {/each}
 
       <div class="grid grid-cols-1 gap-3 @3xl:grid-cols-[1.3fr_1fr_1fr]">

@@ -4,6 +4,7 @@
   import { configForMemory, configForSession } from './lib/boot.js'
   import DeviceLinkDialog from './lib/components/DeviceLinkDialog.svelte'
   import JoinProgress from './lib/components/JoinProgress.svelte'
+  import JoinPage from './lib/components/JoinPage.svelte'
   import LinkDeviceDialog from './lib/components/LinkDeviceDialog.svelte'
   import {
     devtoolsEnabled,
@@ -15,11 +16,13 @@
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
-  import { parseAppConfig, parseAppParams } from './lib/params.js'
+  import { joinPageLink, parseAppConfig, parseAppParams } from './lib/params.js'
   import { hasOpfs, isTauri, userResourceRoot } from './lib/platform.js'
   import { createCustomise } from './lib/customise.svelte.js'
   import { createStorageNote } from './lib/storage-note.svelte.js'
   import { startDesktopUpdates } from './lib/updater.js'
+  import { collectReportFacts, help, loadVersion, runHelp, setHelpHost } from './lib/help.svelte.js'
+  import ReportDialog from './lib/components/ReportDialog.svelte'
   import { setupWorkspace, textPaths, type Workspace } from './lib/workspace.svelte.js'
   import Palette from './lib/components/Palette.svelte'
   import { createNavigation } from './lib/navigation.svelte.js'
@@ -41,12 +44,14 @@
   import { createDaily } from './lib/daily.svelte.js'
   import { createSession } from './lib/session.svelte.js'
   import { createManager } from './lib/manager.svelte.js'
+  import { factsFromUi, readMountTable } from './lib/vault-facts.js'
   import { createShareActions } from './lib/share-actions.svelte.js'
   import { createFileActions } from './lib/file-actions.svelte.js'
   import { createShellLayout } from './lib/shell-layout.svelte.js'
   import { installShellCommands, layoutFileSource } from './lib/shell-commands.js'
   import { realClock } from './lib/real-clock.js'
-  import { createSharedFeed } from './lib/shared.svelte.js'
+  import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
+  import { sharedSnapshot } from '@ohhi/workspace'
   import { setViewShell } from './lib/views.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -56,9 +61,30 @@
   const appParams = parseAppParams(url)
 
   let settingsOpen = $state(false)
-  /** The tab Settings opens on (the Shared view's *Change relay…* asks for Sync). */
-  let settingsTab = $state<'sync' | undefined>(undefined)
-  const prefillLink = url.get('share') ?? ''
+  /** The tab Settings opens on (the Shared view's *Change relay…* asks for Sync; Help's *Keyboard shortcuts*, Hotkeys). */
+  let settingsTab = $state<'sync' | 'hotkeys' | undefined>(undefined)
+  /**
+   * A link arriving at the manager: `?share=` today, or handed over by the
+   * join page's *Add here* (the manager mounts after it, so its Add dialog
+   * opens on the link).
+   */
+  let prefillLink = $state(url.get('share') ?? '')
+  /**
+   * The join page (first-run C2): `/join#editor1:…` in a BROWSER renders it
+   * instead of the manager. Null on the desktop and on every other path.
+   */
+  let joinLink = $state(joinPageLink(location, isTauri()))
+  /** A device link handed over by the join page, for *Link this device*. */
+  let deviceLinkPrefill = $state('')
+  /**
+   * Leave the join page for the manager. The address becomes `/`, replacing
+   * the entry, so the link's token is no longer in the address bar or in
+   * Back's history (R2/R5).
+   */
+  function leaveJoinPage(): void {
+    history.replaceState({}, '', '/')
+    joinLink = null
+  }
   /**
    * Device linking (N2). `deviceLinkOpen` is the OWNER's dialog (Settings ›
    * Sync and the command palette both open it — never nested inside the
@@ -75,7 +101,20 @@
   const storage = createStorageNote({ onManager: () => view === 'manager', hasOpfs })
 
   // ---- desktop self-update (lib/updater.ts): check on launch and every 6 h ----
-  if (isTauri()) startDesktopUpdates(realClock).catch((err) => console.info('[ohhi] updater unavailable', err))
+  // The last check's outcome feeds the Help menu's version line (first-run E1).
+  help.clock = realClock
+  if (isTauri())
+    startDesktopUpdates(realClock, (status) => (help.update = status)).catch((err) =>
+      console.info('[ohhi] updater unavailable', err)
+    )
+  void loadVersion()
+  // ---- Help (first-run E1–E3): the menu's one shell-side action ----
+  setHelpHost({
+    openShortcuts: () => {
+      settingsTab = 'hotkeys'
+      settingsOpen = true
+    },
+  })
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
   const nav = createNavigation()
@@ -142,6 +181,7 @@
     forgetVaultState,
     cleanUrl,
     onDeviceLinked: () => (linkDeviceOpen = false),
+    readMounts: readMountTable,
   })
   /** The two things the whole shell reads, aliased so the reads stay short. */
   const workspace = $derived(session.workspace)
@@ -245,6 +285,12 @@
   })
   // ---- the Shared view (sharing E2): its ack tracker and the verbs every view tab may use ----
   const sharedFeed = createSharedFeed({ workspace: () => workspace, clock: realClock })
+  /** The open vault's relays, as the Shared view rolls them up — Settings › Sync's relay card (first-run D1). */
+  const settingsRelays = $derived(
+    settingsOpen && workspace
+      ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays
+      : []
+  )
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
@@ -312,6 +358,7 @@
     devtools: () => devtools,
     reloadResources: () => customise.reloadAll(),
     templates,
+    help: { run: runHelp, menuMounted: () => help.menus > 0 },
     focusMode: {
       active: () => layout.focus,
       toggle: () => layout.toggleFocus(),
@@ -321,7 +368,9 @@
 
   // ---- workspace-derived view state ----
   const currentVaultName = $derived(
-    (workspace ? getVault(workspace.room)?.name : undefined) ?? $LL.web.shell.unnamed_vault()
+    // Through the manager's mirror, so a Rename in the manager reaches the header.
+    (workspace ? (manager.vaults.find((v) => v.room === workspace!.room) ?? getVault(workspace.room))?.name : undefined) ??
+      $LL.web.shell.unnamed_vault()
   )
   /**
    * *Add a shared folder* from the manager, into the vault open behind it
@@ -349,16 +398,32 @@
   })
 
   // ---- initial routing: everything above is wired, now pick a vault ----
-  session.start(memConfig, prefillLink !== '')
+  // The join page counts as a deep link: the manager waits behind it rather
+  // than the last vault reopening under a page about another folder.
+  // svelte-ignore state_referenced_locally -- the initial values are the point: this routes the launch once
+  session.start(memConfig, prefillLink !== '' || joinLink !== null)
 </script>
 
 <svelte:window onkeydowncapture={commands.onKeydown} />
 
-{#if view === 'manager'}
+{#if joinLink !== null}
+  <JoinPage
+    link={joinLink}
+    onAddHere={(link) => {
+      prefillLink = link
+      leaveJoinPage()
+    }}
+    onLinkHere={(link) => {
+      deviceLinkPrefill = link
+      leaveJoinPage()
+      linkDeviceOpen = true
+    }}
+  />
+{:else if view === 'manager'}
   <VaultManager
     isTauri={isTauri()}
     hasOpfs={hasOpfs()}
-    defaultUser={loadUser() ?? ''}
+    defaultUser={manager.user}
     vaults={manager.vaults}
     shares={manager.shares}
     {prefillLink}
@@ -366,8 +431,12 @@
     busy={session.busy}
     canGoBack={workspace !== null}
     currentRoom={workspace?.room ?? null}
+    facts={manager.facts}
+    openFacts={workspace ? factsFromUi(workspace.ui.mounts) : null}
+    onLoadFacts={() => void manager.loadFacts(workspace?.room ?? null)}
     onOpenVault={(entry) => void session.boot(entry)}
     onRemoveVault={(room) => void manager.removeVault(room)}
+    onRenameVault={(room, name) => manager.renameVault(room, name)}
     onOpenFolder={(name) => void manager.openFolder(name)}
     onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
     onJoin={(name, link) => void manager.joinShare(name, link)}
@@ -465,6 +534,13 @@
     secret={manager.opSecret}
     vaultName={currentVaultName}
     onRemember={(relay, secret) => manager.rememberRelay(relay, secret)}
+    relayKnown={manager.relayKnown}
+    userName={manager.user}
+    onSaveName={(name) => {
+      // Fork 5-A: the name typed at the first share is the saved name.
+      saveUser(name)
+      manager.refresh()
+    }}
     onJoinAsVault={async (link) => {
       // From inside a workspace the manager is not on screen: the dialog says why.
       const failed = await manager.joinShare(loadUser() ?? 'Anonymous', link)
@@ -493,6 +569,20 @@
 
 <Toaster />
 
+<!-- Report a problem (first-run E3): from Help, in the workspace or the manager. -->
+{#if help.reportOpen}
+  <ReportDialog
+    facts={collectReportFacts(workspace, {
+      vault: workspace
+        ? { name: currentVaultName, kind: getVault(workspace.room)?.vault.kind ?? 'memory' }
+        : null,
+      inSyncByRoom: sharedFeed.inSyncByRoom,
+    })}
+    now={() => realClock.now()}
+    onClose={() => (help.reportOpen = false)}
+  />
+{/if}
+
 <!-- Outside the workspace branch (shell-polish P4): Settings can be opened
      from the vault manager, and its "Link a device" must not wait for a Back. -->
 {#if deviceLinkOpen && workspace}
@@ -513,7 +603,7 @@
 {#if linkDeviceOpen}
   <LinkDeviceDialog
     isTauri={isTauri()}
-    initialLink={prefillLink}
+    initialLink={deviceLinkPrefill || prefillLink}
     onLink={(link) => manager.linkThisDevice(link)}
     onClose={() => (linkDeviceOpen = false)}
   />
@@ -527,6 +617,7 @@
     {resources}
     {keymap}
     readAppFile={workspace ? (p) => workspace!.readAppFile(p) : undefined}
+    relays={settingsRelays}
     onLinkDevice={workspace
       ? () => {
           // Settings saved its forms before calling this (see the panel), so

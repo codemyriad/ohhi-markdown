@@ -18,6 +18,7 @@ import {
   getVault,
   listVaults,
   loadShares,
+  loadUser,
   mergeGrants,
   operatorSecret,
   purgeRooms,
@@ -35,6 +36,8 @@ import {
 import { newFolderGuid } from './boot.js'
 import type { Session } from './session.svelte.js'
 import { decodeShareLink, shareLinkErrorText } from './share-link.js'
+import type { MountDesc } from '@ohhi/vault'
+import { readVaultFacts, type VaultFacts } from './vault-facts.js'
 
 /** What the manager needs from the platform. */
 export interface ManagerHost {
@@ -49,6 +52,11 @@ export interface ManagerHost {
   cleanUrl(): void
   /** A device link was accepted: the paste dialog can close. */
   onDeviceLinked(): void
+  /**
+   * Read a vault's mount table (`vault-facts.readMountTable`) for the row
+   * facts (first-run B1). Absent → no facts: every row says "—".
+   */
+  readMounts?(entry: VaultEntry): Promise<MountDesc[]>
 }
 
 export interface Manager {
@@ -58,8 +66,20 @@ export interface Manager {
   /** A relay saved in Settings or given by the build — not the dev fallback (`config.relayKnown`). */
   readonly relayKnown: boolean
   readonly opSecret: string
+  /** The name shown to people you share with ('' = never set; peers see "Anonymous"). */
+  readonly user: string
+  /**
+   * Row facts per room, as far as each vault's mount table could be read
+   * (`null` = unreadable, absent = not read yet). The open vault's are the
+   * workspace's live ones — the manager screen prefers those.
+   */
+  readonly facts: Readonly<Record<string, VaultFacts | null>>
+  /** Re-read every registered vault's mount table except `skipRoom`'s (the open one). */
+  loadFacts(skipRoom?: string | null): Promise<void>
   /** Re-read the registry after anything wrote to it. */
   refresh(): void
+  /** Rename a vault IN THIS LIST: the registry entry's name, never the folder. */
+  renameVault(room: string, name: string): void
   /**
    * The share sheet's first run (sharing E4, R4): remember the relay and the
    * operator secret in Settings › Sync. The relay is stored only when it
@@ -89,6 +109,8 @@ export function createManager(session: Session, host: ManagerHost): Manager {
   let relayDefault = $state(defaultRelay())
   let isRelayKnown = $state(relayKnown())
   let opSecret = $state(operatorSecret())
+  let user = $state(loadUser() ?? '')
+  let facts = $state<Record<string, VaultFacts | null>>({})
 
   function refresh(): void {
     vaults = listVaults()
@@ -96,6 +118,25 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     relayDefault = defaultRelay()
     isRelayKnown = relayKnown()
     opSecret = operatorSecret()
+    user = loadUser() ?? ''
+  }
+
+  async function loadFacts(skipRoom: string | null = null): Promise<void> {
+    const read = host.readMounts
+    if (!read) return
+    const entries = listVaults().filter((v) => v.room !== skipRoom)
+    const pairs = await Promise.all(entries.map(async (e) => [e.room, await readVaultFacts(e, read)] as const))
+    // Rows removed while the reads were in flight are not brought back.
+    const known = new Set(listVaults().map((v) => v.room))
+    facts = Object.fromEntries(pairs.filter(([room]) => known.has(room)))
+  }
+
+  function renameVault(room: string, name: string): void {
+    const entry = getVault(room)
+    const trimmed = name.trim()
+    if (!entry || !trimmed) return
+    upsertVault({ ...entry, name: trimmed })
+    refresh()
   }
 
   function rememberRelay(relay: string, secret: string): void {
@@ -320,7 +361,15 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     get opSecret() {
       return opSecret
     },
+    get user() {
+      return user
+    },
+    get facts() {
+      return facts
+    },
+    loadFacts,
     refresh,
+    renameVault,
     rememberRelay,
     openFolder,
     createBrowserVault,

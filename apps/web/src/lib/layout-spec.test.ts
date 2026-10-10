@@ -96,8 +96,9 @@ describe('the built-in and the example', () => {
     // Chris, 2026-10-06: nothing in the middle — the tab strip names the note now.
     expect(d.bars['toolbar.center']).toEqual([])
     // Round 3: no mode menu and no word count in the toolbar (Q4, Q5)…
-    // …and the inspector's door right of the bell (drawn only with devtools on).
-    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector'])
+    // …and the inspector's door right of the bell (drawn only with devtools on),
+    // then Help at the far end (first-run E1).
+    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector', 'help'])
     // …the words and characters ride the corner.
     expect(d.bars.status).toEqual(['words', 'chars'])
     expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(13)
@@ -115,7 +116,8 @@ describe('the built-in and the example', () => {
     expect(READOUT_IDS).not.toContain('note.menu')
     expect(READOUT_IDS).toContain('chars')
     expect(READOUT_IDS).toContain('inspector')
-    expect(READOUT_IDS).toHaveLength(16)
+    expect(READOUT_IDS).toContain('help')
+    expect(READOUT_IDS).toHaveLength(17)
     expect(REGION_IDS).toContain('format')
     expect(REGION_IDS).toContain('status')
   })
@@ -260,7 +262,7 @@ describe('resolveSpec — extends and precedence', () => {
     }
     const spec = resolveSpec(file({ extends: 'later', editor: { measure: 'narrow' } }), presets)
     expect(spec.editor).toEqual({ measure: 'narrow', typewriter: true, inlineTitle: true })
-    expect(spec.bars['toolbar.right']).toEqual(['sync', 'inspector'])
+    expect(spec.bars['toolbar.right']).toEqual(['sync', 'inspector', 'help'])
   })
 
   it('refuses a cycle, a self-extend and an unknown parent instead of looping', () => {
@@ -402,7 +404,7 @@ describe('diffSpec', () => {
   it('a list becomes a delta when that is shorter, a replacement when not', () => {
     const fewer: ShellSpec = {
       ...DEFAULT,
-      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'inspector', 'words', 'reading-time'] },
+      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'inspector', 'help', 'words', 'reading-time'] },
     }
     expect(roundTrip(DEFAULT, fewer, 'default').bars).toEqual({
       'toolbar.right': ['+words', '+reading-time'],

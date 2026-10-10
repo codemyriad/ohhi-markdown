@@ -328,7 +328,7 @@ cmd_restore() {
   rm -f "$list"
   note "restored $restored file(s) from snapshot $(g rev-parse --short "$commit") into $dest ($same already identical)"
   if [ -z "$to" ]; then
-    note "If Oh hi markdown has this vault open, quit and reopen it so it picks up every restored file (docs/recovery.md)."
+    note "If Oh hi markdown has this vault open, quit and reopen it so it picks up every restored file (docs/guide/recovery.md)."
   fi
 }
 

@@ -263,6 +263,13 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `view.focus`
 - `template.insert`
 - `layout.use-file`
+- `help.menu`
+- `help.start`
+- `help.shortcuts`
+- `help.recovery`
+- `help.sharing`
+- `help.changes`
+- `help.report`
 - `workspace.split-auto`
 - `workspace.split-down`
 - `workspace.split-right`
@@ -348,7 +355,12 @@ commands (and so cannot be bound):
 
 Entries of `bars.toolbar.left`, `bars.toolbar.center`, `bars.toolbar.right`
 and `bars.statusbar`. The last two below, `note.pill` and `people`, are old
-names read as `sync`; `vault.pill` draws the same icon.
+names read as `sync`; `vault.pill` draws the same icon. `help` is the Help
+menu (the default layout's last `toolbar.right` item): its rows are the
+`help.*` commands — `help.start`, `help.shortcuts`, `help.recovery`,
+`help.sharing`, `help.changes`, `help.report` — which the palette lists and a
+keymap can bind; `help.menu` opens the menu itself, and is offered only while
+a layout draws the `help` readout.
 
 <!-- generated:readout-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav`
@@ -365,6 +377,7 @@ names read as `sync`; `vault.pill` draws the same icon.
 - `group.chip`
 - `drawer`
 - `inspector`
+- `help`
 - `note.pill`
 - `people`
 <!-- /generated -->

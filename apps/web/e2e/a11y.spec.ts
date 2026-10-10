@@ -19,7 +19,7 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 import { MANAGER_URL, RELAY, appUrl, createBrowserVault, expectAccessible, openApp, openManager, seedReadNote, tabNamed } from './fixtures.js'
-import { encodeDeviceLink } from '../src/lib/share-link.js'
+import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
 
 test('the default layout (no columns) is accessible', async ({ page }) => {
   // Every other scan boots `dense` (fixtures.ts); this is the shell a new
@@ -35,16 +35,43 @@ test('the default layout (no columns) is accessible', async ({ page }) => {
 
 test('the vault manager is accessible', async ({ page }) => {
   await page.goto(MANAGER_URL)
-  await expect(page.getByTestId('open-folder').or(page.getByTestId('create-vault'))).toBeVisible()
-  await expectAccessible(page, 'vault manager (empty)')
+  // The welcome (first-run A1), with the browser door asking for its name.
+  await expect(page.getByTestId('open-folder').or(page.getByTestId('start-browser-vault'))).toBeVisible()
+  await expectAccessible(page, 'vault manager (welcome)')
+  await page.getByTestId('start-browser-vault').click()
+  await expect(page.getByTestId('new-vault-name')).toBeVisible()
+  await expectAccessible(page, 'vault manager (welcome, naming a browser vault)')
 
-  // The two columns with a vault in them (shell-polish P4).
+  // The Import door (first-run F1), from the welcome's foot.
+  await page.getByTestId('open-import').click()
+  await expect(page.getByTestId('import-dialog')).toBeVisible()
+  await expectAccessible(page, 'import dialog')
+  await page.getByTestId('import-close').click()
+  await expect(page.getByTestId('import-dialog')).toHaveCount(0)
+
+  // The list with a vault in it (first-run B1).
   await createBrowserVault(page, 'A11y')
   await openManager(page)
   await expect(page.locator('[data-testid^="open-vault:"]')).toHaveCount(1)
-  await expectAccessible(page, 'vault manager (two columns)')
+  await expectAccessible(page, 'vault manager (list)')
 
-  // The row's menu, and the inline confirm it arms.
+  // The Add menu, and the dialog its browser entry opens.
+  await page.getByTestId('manager-add').click()
+  await expect(page.getByTestId('manager-add-menu')).toBeVisible()
+  await expectAccessible(page, 'vault manager add menu')
+  await page.getByTestId('add-browser-vault').click()
+  await expect(page.getByTestId('new-vault-dialog')).toBeVisible()
+  await expectAccessible(page, 'new browser vault dialog')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('new-vault-dialog')).toHaveCount(0)
+
+  // The row's menu, its Rename dialog, and the inline confirm it arms.
+  await page.locator('[data-testid^="vault-more:"]').click()
+  await page.locator('[data-testid^="rename-vault:"]').click()
+  await expect(page.getByTestId('rename-vault-dialog')).toBeVisible()
+  await expectAccessible(page, 'rename vault dialog')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('rename-vault-dialog')).toHaveCount(0)
   await page.locator('[data-testid^="vault-more:"]').click()
   await expect(page.locator('[data-testid^="vault-menu:"]')).toBeVisible()
   await expectAccessible(page, 'vault row menu')
@@ -322,6 +349,28 @@ test('the join-a-share dialog is accessible', async ({ page }) => {
 })
 
 /**
+ * The join page (first-run C2): a full-screen surface, not a dialog, reached
+ * from a `/join#editor1:…` link in a browser — scanned with the relay line
+ * answered, after a copy, and in its error state.
+ */
+test('the join page is accessible', async ({ page }) => {
+  const payload = encodeShareLink({ relay: RELAY, room: 'a11y-join', token: 'nope', label: 'team/notes', from: 'Sam' })
+  await page.goto(`/join#${payload}`)
+  await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
+  await expectAccessible(page, 'join page')
+
+  await page.getByTestId('join-copy').click()
+  await expect(page.getByTestId('join-copied').or(page.getByTestId('join-copy-failed'))).toBeVisible()
+  await expectAccessible(page, 'join page (copied)')
+
+  // about:blank first: /join#a → /join#b alone is a fragment change, not a load.
+  await page.goto('about:blank')
+  await page.goto('/join#editor1:damaged')
+  await expect(page.getByTestId('join-error')).toBeVisible()
+  await expectAccessible(page, 'join page (damaged link)')
+})
+
+/**
  * The share sheet's first run (sharing E4): with no operator secret yet, the
  * relay is met inline — two more fields and a refusal, in a dialog that also
  * carries the honesty paragraph.
@@ -339,12 +388,20 @@ test('the share sheet, first run, is accessible', async ({ page }) => {
   await expect(page.getByTestId('share-honesty')).toContainText('Links, not people')
   await expectAccessible(page, 'share sheet (first run)')
 
-  // A relay that is not ws(s):// and no secret: both refused at their fields.
-  await page.getByTestId('share-relay').fill('http://relay.example')
-  await page.getByTestId('confirm-share-folder').click()
-  await expect(page.getByTestId('field-errors:relay')).toBeVisible()
-  await expect(page.getByTestId('field-errors:secret')).toBeVisible()
-  await expectAccessible(page, 'share sheet (refused)')
+  // First-run D1/D2: this build knows no relay, so the card says none and the
+  // address field is open; typed, the card probes it. The e2e relay runs with
+  // no operator secret, so any secret is checked and answered "no admin API" —
+  // and Share stays disabled, with the reason, until a secret works.
+  await expect(page.getByTestId('relay-card')).toHaveAttribute('data-state', 'none')
+  await page.getByTestId('share-relay').fill(RELAY)
+  await expect(page.getByTestId('relay-card')).toHaveAttribute('data-state', 'reachable', { timeout: 10_000 })
+  await page.getByTestId('share-secret').fill('not-the-secret')
+  await expect(page.getByTestId('share-secret-check')).toContainText('this relay has no admin API', { timeout: 10_000 })
+  await expect(page.getByTestId('confirm-share-folder')).toBeDisabled()
+  await expect(page.getByTestId('share-waits')).toBeVisible()
+  await page.getByText('Where do I get this?').click()
+  await expect(page.getByTestId('share-secret-where-body')).toBeVisible()
+  await expectAccessible(page, 'share sheet (secret checked)')
 })
 
 test('the owner device-link dialog is accessible', async ({ page }) => {
@@ -386,7 +443,6 @@ test('the browser-storage note and its Settings section are accessible', async (
 test('the link-this-device dialog and the join progress panel are accessible', async ({ page }) => {
   // The manager with no vault open — where a NEW device starts.
   await page.goto('/')
-  await page.getByTestId('manager-name').fill('Chris')
   await page.getByTestId('open-link-device').click()
   await expect(page.getByTestId('link-device-dialog')).toBeVisible()
   await expectAccessible(page, 'link this device')
@@ -402,4 +458,22 @@ test('the link-this-device dialog and the join progress panel are accessible', a
   await expectAccessible(page, 'join progress')
   await expect(page.getByTestId('join-error')).toBeVisible({ timeout: 20_000 })
   await expectAccessible(page, 'join progress (failed)')
+})
+
+test('the Help menu and the Report a problem dialog are accessible', async ({ page }) => {
+  // First-run E1/E3: the default layout's toolbar ends with Help.
+  await page.goto(appUrl({ room: 'a11y-help', layout: null }))
+  await expect(page.getByTestId('help-menu')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('help-menu').click()
+  await expect(page.getByTestId('help-menu-list')).toBeVisible()
+  await expect(page.getByTestId('help-version')).toContainText('Version')
+  await expectAccessible(page, 'help menu')
+
+  await page.getByTestId('help:report').click()
+  await expect(page.getByTestId('report-dialog')).toBeVisible()
+  await expect(page.getByTestId('report-never')).toHaveText('Note contents are never included.')
+  await page.getByTestId('report-what').fill('The pill stayed yellow')
+  await expectAccessible(page, 'report a problem')
+  await page.getByTestId('report-cancel').click()
+  await expect(page.getByTestId('report-dialog')).toHaveCount(0)
 })

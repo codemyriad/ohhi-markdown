@@ -18,6 +18,9 @@
   } from '../storage.svelte.js'
   import {
     DEFAULT_RELAY,
+    DEFAULT_RELAY_CONFIGURED,
+    TEAM_HOST,
+    TEAM_NETWORK_NOTE,
     defaultRelay,
     devtoolsEnabled,
     hotkeys,
@@ -27,6 +30,7 @@
     loadUser,
     operatorSecret,
     removeShare,
+    relayKnown,
     removeVault,
     saveUser,
     setDefaultRelay,
@@ -55,6 +59,15 @@
   import type { Resources } from '../resources.svelte.js'
   import type { ShellLayout } from '../shell-layout.svelte.js'
   import TextControl from '../ui/TextControl.svelte'
+  import type { Clock } from '@ohhi/vault'
+  import { relayHost, type SharedSnapshot } from '@ohhi/workspace'
+  import { guideHref } from '../guide.js'
+  import { realClock } from '../real-clock.js'
+  import type { ProbeResult, SecretCheck } from '../relay-probe.js'
+  import { HEADING } from '../ui/styles.js'
+  import RelayCard from './RelayCard.svelte'
+  import RelaySecretField from './RelaySecretField.svelte'
+  import SecretHelp from './SecretHelp.svelte'
 
   interface Props {
     onClose: () => void
@@ -85,10 +98,42 @@
     resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps'>>
     /** The active keymap (quiet-shell F10): Settings › Hotkeys edits its file. Absent → legacy rows only. */
     keymap?: Pick<Keymap, 'active' | 'resolved' | 'legacy' | 'setActive' | 'save'>
+    /**
+     * The open vault's relays, from the Shared view's snapshot (first-run
+     * D1): the Sync tab's relay card reads "Connected · …" from the one new
+     * shares go on, and probes it when the vault holds no room there.
+     */
+    relays?: SharedSnapshot['relays']
+    // ---- environment, injectable for tests ----
+    clock?: Clock
+    probe?: (relayUrl: string) => Promise<ProbeResult>
+    verify?: (relayUrl: string, secret: string) => Promise<SecretCheck>
+    /** The pinned host (`TEAM_HOST`); '' = a generic build. */
+    pinnedHost?: string
+    /** The build's default relay, when it was given one: the team's ('' = none). */
+    teamRelay?: string
+    networkNote?: string
+    secretHint?: string
   }
 
-  let { onClose, readAppFile, initialTab = 'general', onLinkDevice, registry, layout, resources, keymap }: Props =
-    $props()
+  let {
+    onClose,
+    readAppFile,
+    initialTab = 'general',
+    onLinkDevice,
+    registry,
+    layout,
+    resources,
+    keymap,
+    relays = [],
+    clock = realClock,
+    probe,
+    verify,
+    pinnedHost = TEAM_HOST,
+    teamRelay = DEFAULT_RELAY_CONFIGURED ? DEFAULT_RELAY : '',
+    networkNote = TEAM_NETWORK_NOTE,
+    secretHint,
+  }: Props = $props()
 
   const t = $derived($LL.web.settings)
 
@@ -123,14 +168,28 @@
   // The relay as the form showed it: saving stores the relay only when the
   // user changed it, so saving just the secret never pins this build's
   // default (config.ts, `AppConfigV2.defaultRelay`).
-  let shownRelay = defaultRelay()
+  let shownRelay = $state(defaultRelay())
   function persistSync({ relay, secret }: { relay: string; secret: string }): void {
     if (relay.trim() !== shownRelay) {
       setDefaultRelay(relay)
       shownRelay = defaultRelay()
     }
     setOperatorSecret(secret)
+    syncRelayKnown = relayKnown() || !!pinnedHost
   }
+
+  // ---- the relay card (first-run D1, R10) ----
+  /** Whether a relay is known at all; a pinned build always knows its one. */
+  // svelte-ignore state_referenced_locally -- seed only; the pin is fixed at build time
+  let syncRelayKnown = $state(relayKnown() || !!pinnedHost)
+  /**
+   * The address field: open with nothing known (the card says none), after
+   * *Change…*, and — read-only — always in a pinned build, which offers no
+   * other relay.
+   */
+  // svelte-ignore state_referenced_locally -- seed only
+  let relayOpen = $state(!syncRelayKnown || !!pinnedHost)
+  const teamHost = $derived(teamRelay ? (relayHost(teamRelay) ?? '') : '')
 
   const sync = createForm(
     z.object({
@@ -141,6 +200,7 @@
         .refine(isRelayUrl, $LL.web.settings.sync.relay_invalid()),
       secret: z.string(),
     }),
+    // svelte-ignore state_referenced_locally -- seed only; the form owns it after
     { relay: shownRelay, secret: operatorSecret() }
   )
 
@@ -157,6 +217,12 @@
   async function saveSync(): Promise<void> {
     await sync.submit(persistSync)
   }
+  /** The relay the card is about: what the field holds when it is a relay URL, else the saved one. */
+  const cardRelay = $derived(isRelayUrl(sync.data.relay.trim()) ? sync.data.relay.trim() : shownRelay)
+  /** The snapshot's roll-up for that relay, when the vault holds rooms there. */
+  const cardConnection = $derived(
+    relays.find((r) => r.host && r.host.toLowerCase() === (relayHost(cardRelay) ?? '').toLowerCase()) ?? null
+  )
 
   // ---- Appearance ----
   let customName = $state(
@@ -462,6 +528,10 @@
             bind:recording
           />
         {:else if id === 'sync'}
+          <!-- The relay as one thing with a state (first-run D1): connected
+               from the snapshot when this vault holds rooms there, probed
+               otherwise, none when nothing is known; pinned builds offer no
+               other relay (R10). -->
           <form
             novalidate
             class="space-y-3"
@@ -470,32 +540,47 @@
               void saveSync()
             }}
           >
-            <Field name="relay" errors={sync.errorsFor('relay')} required>
-              <TextControl
-                label={t.sync.relay()}
-                mono
-                bind:value={sync.data.relay}
-                onblur={() => sync.touch('relay')}
-                placeholder={DEFAULT_RELAY}
-                testid="settings-relay"
+            <div class="space-y-1.5" data-testid="settings-relay-card">
+              <h3 class={HEADING}>{$LL.web.relay_card.label()}</h3>
+              <RelayCard
+                relayUrl={cardRelay}
+                known={syncRelayKnown || (relayOpen && sync.data.relay.trim() !== shownRelay && isRelayUrl(sync.data.relay.trim()))}
+                connection={cardConnection}
+                {pinnedHost}
+                {teamHost}
+                {networkNote}
+                {clock}
+                {probe}
+                showTest
+                onChange={relayOpen ? undefined : () => (relayOpen = true)}
               />
-              <Description>{t.sync.relay_hint()}</Description>
-              <FieldErrors />
-            </Field>
-            <Field name="secret" errors={sync.errorsFor('secret')}>
-              <TextControl
-                label={t.sync.secret()}
-                mono
-                type="password"
-                autocomplete="off"
-                bind:value={sync.data.secret}
-                onblur={() => sync.touch('secret')}
-                placeholder={t.sync.secret_placeholder()}
-                testid="settings-secret"
-              />
-              <Description>{t.sync.secret_hint()}</Description>
-              <FieldErrors />
-            </Field>
+            </div>
+            {#if relayOpen}
+              <Field name="relay" errors={sync.errorsFor('relay')} required={!pinnedHost}>
+                <TextControl
+                  label={t.sync.relay()}
+                  mono
+                  bind:value={sync.data.relay}
+                  onblur={() => sync.touch('relay')}
+                  placeholder={DEFAULT_RELAY}
+                  readonly={!!pinnedHost}
+                  testid="settings-relay"
+                />
+                <Description>{pinnedHost ? t.sync.relay_pinned_hint() : t.sync.relay_hint()}</Description>
+                <FieldErrors />
+              </Field>
+            {/if}
+            <RelaySecretField
+              relayUrl={cardRelay}
+              bind:value={sync.data.secret}
+              errors={sync.errorsFor('secret')}
+              onblur={() => sync.touch('secret')}
+              placeholder={t.sync.secret_placeholder()}
+              {clock}
+              {verify}
+              hint={secretHint}
+              testid="settings-secret"
+            />
             <div class="flex items-center gap-2">
               <button
                 type="submit"
@@ -508,20 +593,19 @@
               {#if !sync.dirty}<span class="text-xs text-base-content/70">{$LL.common.saved()}</span>{/if}
             </div>
           </form>
-          <!-- Device linking (N2, A1). Its own section, below the relay
-               settings it depends on — and outside the form, because it is an
-               action against the relay, not a preference to save. -->
+          <!-- Your devices (N2, A1). Its own section, below the relay settings
+               it depends on — and outside the form, because it is an action
+               against the relay, not a preference to save. -->
           <section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-device-link">
-            <h3 class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">
-              {dl.section()}
-            </h3>
+            <h3 class={HEADING}>{t.sync.devices()}</h3>
             <p class="mt-1 text-xs text-base-content/70">{dl.section_help()}</p>
             {#if !onLinkDevice}
               <p class="mt-2 text-xs text-base-content/70">{dl.needs_vault()}</p>
             {:else if !sync.data.secret.trim()}
-              <p class="mt-2 text-xs text-warning" data-testid="settings-link-device-needs-secret">
+              <p class="mt-2 text-xs text-base-content/80" data-testid="settings-link-device-needs-secret">
                 {dl.needs_secret()}
               </p>
+              <SecretHelp hint={secretHint} testid="settings-link-device-where" />
             {:else}
               <button
                 type="button"
@@ -531,6 +615,23 @@
               >
                 {dl.open()}
               </button>
+            {/if}
+          </section>
+          <!-- One relay per group (first-run R10): said where it is felt. -->
+          <section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-own-relay">
+            <h3 class={HEADING}>{t.sync.running_title()}</h3>
+            <p class="mt-1 text-xs text-base-content/80">
+              {pinnedHost ? t.sync.running_pinned({ host: pinnedHost }) : t.sync.running_body()}
+            </p>
+            {#if !pinnedHost}
+              <a
+                href={guideHref('relay')}
+                target="_blank"
+                rel="noreferrer"
+                data-testid="settings-relay-guide"
+                class="mt-1 inline-block text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                >{t.sync.running_guide()}</a
+              >
             {/if}
           </section>
         {:else if id === 'vaults'}

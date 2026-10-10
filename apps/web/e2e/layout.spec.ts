@@ -119,6 +119,7 @@ test('Customise cannot hide the note pill: the word count off and the toolbar at
 test('the palette’s Use layout file… lists a vault file beside Default and applies it (Q6)', async ({ page }) => {
   // A browser vault in the default layout (the fixture's helper waits for dense's column).
   await page.goto('/')
+  await page.getByTestId('start-browser-vault').click()
   await page.getByTestId('new-vault-name').fill('Layouts')
   await page.getByTestId('create-vault').click()
   await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })

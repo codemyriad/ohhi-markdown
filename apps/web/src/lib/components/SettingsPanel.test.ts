@@ -288,3 +288,110 @@ describe('Settings > Layout is live, and the close guard (round 3, Q6)', () => {
     expect(world.registry.effectiveKeys('nav.back')).toBe('Mod+[')
   })
 })
+
+describe('Settings > Sync (first-run D1/D2, R10)', () => {
+  const sync = LL.web.settings.sync
+  const card = LL.web.relay_card
+  const RELAY = 'wss://ohhi.example.ts.net/relay'
+
+  /** Short waits (debounces) on the next microtask; long ones (the tick) never. */
+  const clock = {
+    now: () => 1_000_000,
+    schedule: (fn: () => void, ms: number) => {
+      let live = true
+      if (ms <= 500) queueMicrotask(() => live && fn())
+      return () => {
+        live = false
+      }
+    },
+  }
+
+  async function openSync(over: Record<string, unknown> = {}) {
+    const props = {
+      onClose: vi.fn(),
+      registry: registryWith(),
+      initialTab: 'sync' as const,
+      onLinkDevice: vi.fn(),
+      clock,
+      probe: vi.fn(async () => ({ ok: true as const })),
+      verify: vi.fn(async () => 'ok' as const),
+      pinnedHost: '',
+      teamRelay: '',
+      networkNote: '',
+      secretHint: '',
+      ...over,
+    }
+    render(SettingsPanel, props)
+    await screen.findByTestId('settings-relay-card')
+    return { props, user: userEvent.setup() }
+  }
+
+  const secretField = (): HTMLElement => screen.getByLabelText(card.secret.title(), { exact: false })
+
+  it('nothing known: the card says none and the address field is open', async () => {
+    await openSync()
+    expect(screen.getByTestId('relay-card')).toHaveAttribute('data-state', 'none')
+    expect(screen.getByTestId('settings-relay')).toBeVisible()
+    expect(screen.getByTestId('settings-own-relay')).toHaveTextContent(sync.running_body())
+  })
+
+  it('a saved relay: probed, with Test; Change… reveals the address field', async () => {
+    const { setDefaultRelay } = await import('../config.js')
+    setDefaultRelay(RELAY)
+    const { props, user } = await openSync()
+    const relay = screen.getByTestId('relay-card')
+    await waitFor(() => expect(relay).toHaveAttribute('data-state', 'reachable'))
+    expect(props.probe).toHaveBeenCalledWith(RELAY)
+    expect(screen.queryByTestId('settings-relay')).toBeNull()
+    await user.click(screen.getByRole('button', { name: card.test() }))
+    await waitFor(() => expect(props.probe).toHaveBeenCalledTimes(2))
+    await user.click(screen.getByRole('button', { name: card.change() }))
+    expect(screen.getByTestId('settings-relay')).toHaveValue(RELAY)
+  })
+
+  it('connected when the vault holds rooms on it: the snapshot’s words', async () => {
+    const { setDefaultRelay } = await import('../config.js')
+    setDefaultRelay(RELAY)
+    const { props } = await openSync({
+      relays: [{ host: 'ohhi.example.ts.net', state: 'connected', rooms: 3, people: 0, inSyncSince: 1_000_000 }],
+    })
+    const relay = screen.getByTestId('relay-card')
+    expect(relay).toHaveAttribute('data-state', 'connected')
+    expect(relay).toHaveTextContent(LL.web.shared.relay.rooms({ count: 3 }))
+    expect(relay.textContent).not.toMatch(/durable/i)
+    expect(props.probe).not.toHaveBeenCalled()
+  })
+
+  it('the secret answers: works, doesn’t match, no admin API, can’t reach', async () => {
+    const answers = { right: 'ok', wrong: 'bad_secret', plain: 'no_admin', far: 'unreachable' } as const
+    const verify = vi.fn(async (_relay: string, s: string) => answers[s as keyof typeof answers])
+    const { user } = await openSync({ verify })
+    expect(secretField()).toHaveAccessibleDescription(expect.stringContaining(card.secret.description()))
+    const check = (): HTMLElement => screen.getByTestId('settings-secret-check')
+    for (const [secret, key] of Object.entries(answers)) {
+      await user.clear(secretField())
+      await user.type(secretField(), secret)
+      await waitFor(() => expect(check()).toHaveTextContent(card.secret[key]()))
+    }
+    expect(screen.getByText(card.secret.where())).toBeVisible()
+  })
+
+  it('a pinned build: the address read-only, no Change…, one host only — the guide section says so too', async () => {
+    await openSync({ pinnedHost: 'ohhi.example.ts.net' })
+    const relay = screen.getByTestId('relay-card')
+    expect(relay).toHaveTextContent(card.pinned({ host: 'ohhi.example.ts.net' }))
+    expect(screen.queryByRole('button', { name: card.change() })).toBeNull()
+    expect(screen.getByTestId('settings-relay')).toHaveAttribute('readonly')
+    expect(screen.getByTestId('settings-relay')).toHaveAccessibleDescription(sync.relay_pinned_hint())
+    const own = screen.getByTestId('settings-own-relay')
+    expect(own).toHaveTextContent(sync.running_pinned({ host: 'ohhi.example.ts.net' }))
+    expect(own).not.toHaveTextContent(card.change())
+  })
+
+  it('Your devices: without a secret, what is missing and where it lives', async () => {
+    await openSync()
+    expect(screen.getByTestId('settings-device-link')).toHaveTextContent(sync.devices())
+    expect(screen.getByTestId('settings-link-device-needs-secret')).toHaveTextContent(LL.web.device_link.needs_secret())
+    expect(screen.getByTestId('settings-link-device-where-body')).toHaveTextContent(card.secret.where_generic())
+  })
+})
