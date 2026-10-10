@@ -5,6 +5,7 @@
 import type { OpName, OpOutput } from '@ohhi/agent'
 import type { Sink } from '../io.js'
 import { renderChanges, renderFm, renderLs, renderRead, renderStats } from './read.js'
+import { renderCollections, renderRows } from './collections.js'
 import { renderBacklinks, renderLinks, renderResolve, renderTags, renderUnresolved } from './graph.js'
 import { renderSearch } from './search.js'
 import { renderSkill } from './skill.js'
@@ -26,6 +27,8 @@ export const RENDERERS: { [N in OpName]: Renderer<N> } = {
   changes: renderChanges,
   skills: renderSkills,
   skill: renderSkill,
+  collections: renderCollections,
+  rows: renderRows,
   write: renderWrite,
   patch: renderPatch,
   append: renderAppend,

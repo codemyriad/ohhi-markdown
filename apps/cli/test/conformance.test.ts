@@ -31,6 +31,8 @@ const INVOCATIONS: Record<OpName, string[]> = {
   changes: ['changes', '--since', '1970-01-01T00:00:00.000Z'],
   skills: ['skills'],
   skill: ['skill', 'line-edit'],
+  collections: ['collections'],
+  rows: ['rows', 'Competitors.base', '--view', 'Direct', '--where', 'depth == "Deep"'],
   write: ['write', 'Inbox/New Note.md', '--text', 'hello\n'],
   patch: ['patch', 'Areas/CS/JSON.md', '--old', 'JSON is a data format.', '--new', 'JSON is a data format!'],
   append: ['append', 'TODO/Writing.md', '--text', 'appended line\n'],

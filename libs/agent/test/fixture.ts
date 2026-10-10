@@ -121,6 +121,60 @@ Frontmatter the flat subset refuses.
 Pointing at [[Nothing Here]] and ![[missing-diagram.png]].
 `,
   'Inbox/CRLF Note.md': 'CRLF lines\r\nsecond line\r\nthird line\r\n',
+  // A collection (bases-shaping A2): the `.base` file and the folder of rows it reads.
+  'Competitors.base': `filters:
+  and:
+    - file.inFolder("Competitors")
+properties:
+  threat:
+    displayName: Threat
+views:
+  - type: table
+    name: All
+    order:
+      - file.name
+      - threat
+      - depth
+      - verified
+    sort:
+      - property: verified
+        direction: DESC
+  - type: table
+    name: Direct
+    filters:
+      and:
+        - 'threat == "direct"'
+    order:
+      - file.name
+      - verified
+`,
+  'Competitors/Ingredifind.md': `---
+threat: direct
+depth: Deep
+verified: 2026-06-02
+score: 8
+---
+
+# Ingredifind
+
+A direct competitor.
+`,
+  'Competitors/Quiteful.md': `---
+threat: adjacent
+depth: Moderate
+verified: 2026-03-14
+score: 5
+---
+
+# Quiteful
+`,
+  'Competitors/Stale.md': `---
+threat: direct
+verified: 2026-01-10
+---
+
+# Stale
+`,
   'TODO/Writing.md': `# Writing
 
 Short.

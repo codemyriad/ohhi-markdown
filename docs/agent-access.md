@@ -532,6 +532,60 @@ stays. Turning the app's farm off removes the app's copies, never a CLI link.
 command like `ohhi mcp`: no MCP tool, no `spec/` schema). `.claude` is in the
 ignored set, so the farm is never synced or indexed twice.
 
+### `collections [dir]`
+
+Every collection in the vault — a `.base` file in Obsidian's format, read as
+a documented subset (`libs/collections`) — with its views and how many notes
+each shows right now:
+
+```text
+$ ohhi collections
+Competitors.base
+    All                      table       3 rows
+    Threat Watch             table       1 rows
+    Needs formulas           table       3 rows  (partly: `formula.age` is not computed here)
+returned=1 total=1
+coverage: searched 14 notes; 1 binaries skipped; …
+```
+
+A view is `supported: false` with `reasons` when a part of the file is outside
+the subset this tool reads — a formula column, a `map` view, a function the
+grammar does not know. The rows it *can* compute are still returned. `issues`
+names top-level blocks read past (`formulas are not computed here`). `error`
+is set, and `views` empty, when the file is not readable YAML.
+
+`--limit` · `--cursor`
+
+### `rows [collection]`
+
+The rows of a collection view: each note as a **reference** (`path`, `name`)
+plus the columns asked for — never bodies. Values are what the note says
+(the index types them by their written form): a number is a number, `true`
+is a boolean, `2026-06-02` is a date string, `[[Clusters]]` is the link's
+text, a list is an array, an empty or absent property is `null`.
+
+```bash
+ohhi rows Competitors.base                                   # the first view, its columns and sort
+ohhi rows Competitors.base --view "Threat Watch"             # a view by name (case-insensitive)
+ohhi rows Competitors.base --where 'verified < today() - "30d"'   # narrow further, same grammar as the file
+ohhi rows Competitors.base --columns threat,verified --sort verified:desc
+ohhi rows --where 'file.hasTag("meeting") && status != "done"'    # no collection: every note in the vault
+```
+
+`--where` takes one statement in the file's own filter grammar, ANDed with
+the view's filters: comparisons (`==` `!=` `<` `<=` `>` `>=`), `&&` `||` `!`,
+`file.hasTag(…)`, `file.hasLink(…)`, `file.inFolder(…)`,
+`file.hasProperty(…)`, `.contains(…)`, `.containsAny(…)`, `.containsAll(…)`,
+`.isEmpty()`, `.startsWith(…)`, `.endsWith(…)`, `now()`, `today()`,
+`date("…")` and a date ± a duration (`"7d"`, `"2 weeks"`). A statement outside
+that is a `usage` error naming the statement — formulas are not evaluated
+here. `--columns` are property ids as the file writes them (`file.name`,
+`status`, `note.status`); with neither a view nor `--columns`, the columns are
+the name plus every property the rows carry. A view's `limit` caps the rows
+returned. `--limit` · `--cursor`
+
+Rows are references on purpose: `read` the ones that matter.
+
 ---
 
 ## 7. Write operations
@@ -879,6 +933,7 @@ and it asserts three things:
 | `libs/agent/src/backend.ts` | `VaultBackend` — root, adapter, lazy index, docs, journal, clock, coverage. |
 | `libs/agent/src/select-vault.ts` | Vault selection and the data directory. |
 | `libs/agent/src/ops/` | One file per op, registered in `ops/index.ts`. |
+| `libs/collections/src/` | The `.base` reader, the filter grammar and the view patcher behind `collections` and `rows`. |
 | `apps/cli/src/run.ts` | `run(argv, io) => exit code` — no framework, `node:util` `parseArgs`. |
 | `apps/cli/src/render/` | The text renderers (humans only). |
 | `apps/cli/src/mcp.ts` | The stdio MCP server. |

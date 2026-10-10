@@ -30,7 +30,7 @@
  */
 
 /** Bump when the derived shape changes; a mismatch means rebuild, not migrate. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /** A document as the index sees it. Text comes from the CRDT, not from disk. */
 export interface IndexDoc {
@@ -39,6 +39,12 @@ export interface IndexDoc {
   /** Workspace-absolute path, e.g. `Areas/CS/Systems Programming.md`. */
   path: string
   text: string
+  /**
+   * Last-modified time, epoch ms, when the feeder knows it (the CLI's walk
+   * does; the app's live docs do not). Absent → `Row.mtime` is null and a
+   * sort on it falls through to the path.
+   */
+  mtime?: number
 }
 
 /** A character range in the source text. */
@@ -163,6 +169,12 @@ export interface LinkRef {
   line: number
   /** The whole line the link sits on, trimmed — the panel's context. */
   context: string
+  /**
+   * Set when the link is written INSIDE a frontmatter value (`pillar:
+   * "[[Clusters]]"`): the property's key. A relation (collections A5) is a
+   * link with a property; its reverse side is `backlinks(target, {property})`.
+   */
+  property?: string
 }
 
 export interface TagCount {
@@ -187,6 +199,118 @@ export interface IndexStats {
   tags: number
   /** Milliseconds spent in the last full rebuild. */
   lastBuildMs: number
+}
+
+
+// ---- rows: notes as records (collections DB1, A1) ------------------------
+
+/**
+ * A frontmatter scalar, typed by what it says (bases-shaping S17-Q1):
+ * `true`/`false` → boolean; a plain decimal (no leading zero) → number; an
+ * ISO date or date-time → date; `[[x]]` → link; empty → null; else string.
+ * The typing is inferred from the written value, never from a side table,
+ * so what the index says a cell is and what the note says are one thing.
+ */
+export type PropScalar =
+  | { kind: 'string'; value: string }
+  | { kind: 'number'; value: number }
+  | { kind: 'boolean'; value: boolean }
+  /** `value` as written; `ms` its epoch for comparison and sorting. */
+  | { kind: 'date'; value: string; ms: number }
+  /** A `[[wikilink]]` written as the value. `resolved` is filled per query. */
+  | { kind: 'link'; target: string; alias: string | null; resolved: string | null }
+  | { kind: 'null' }
+
+export type PropValue = PropScalar | { kind: 'list'; items: PropScalar[] }
+
+/** One note as a record: its file fields and its typed properties. */
+export interface Row {
+  guid: string
+  path: string
+  /** Basename without `.md`. */
+  name: string
+  /** Parent folder, `''` at the root. */
+  folder: string
+  /** Extension without the dot (`md`). */
+  ext: string
+  /** Tags without `#`, first spelling seen, inline and frontmatter merged. */
+  tags: string[]
+  /** Resolved paths of every link the note writes (body and properties), deduped. */
+  links: string[]
+  /** Epoch ms, or null when the feeder did not know. */
+  mtime: number | null
+  /** Character count of the note's text — `file.size` in a filter. */
+  size: number
+  props: Record<string, PropValue>
+}
+
+/** What a filter or a sort addresses: a file field or a property. */
+export type RowKey =
+  | { file: 'name' | 'path' | 'folder' | 'ext' | 'mtime' | 'tags' | 'links' | 'size' }
+  | { prop: string }
+
+/** A literal in a filter. Dates are literals too — compared by epoch. */
+export type RowLiteral = string | number | boolean | null
+
+/** The operands of a comparison. */
+export type RowExpr =
+  | { key: RowKey }
+  | { lit: RowLiteral }
+  /** `now()` / `today()` at evaluation time (the index's injected clock, see `rows`). */
+  | { now: 'now' | 'today' }
+  /** A date plus or minus a duration, e.g. `today() - "7d"`. Units: y M w d h m s. */
+  | { dateAdd: RowExpr; duration: string; sign: 1 | -1 }
+
+/**
+ * THE ROW FILTER — a closed, structured vocabulary (contract rule 2: no
+ * query language in the index). `@ohhi/collections` compiles the `.base`
+ * statement grammar into this; a SQLite backend would compile this into
+ * SQL. Anything a caller cannot express here is a caller-side refusal,
+ * never an eval.
+ */
+export type RowFilter =
+  | { op: 'and'; args: RowFilter[] }
+  | { op: 'or'; args: RowFilter[] }
+  | { op: 'not'; arg: RowFilter }
+  | { op: 'cmp'; cmp: '==' | '!=' | '<' | '<=' | '>' | '>='; left: RowExpr; right: RowExpr }
+  /** Truthy: non-empty, non-zero, non-false, non-null. */
+  | { op: 'truthy'; arg: RowExpr }
+  /** Obsidian's nesting rule: `a` matches `a/b`. Tags without `#`. Any of. */
+  | { op: 'hasTag'; tags: string[] }
+  /** The note links to `target` (a path or a bare name) anywhere, properties included. */
+  | { op: 'hasLink'; target: string }
+  /** In the folder or any folder beneath it. `''` is the whole vault. */
+  | { op: 'inFolder'; folder: string }
+  | { op: 'hasProperty'; key: string }
+  /** A list holding the value, or a string containing it (case-sensitive). */
+  | { op: 'contains'; target: RowExpr; value: RowExpr }
+  | { op: 'containsAny'; target: RowExpr; values: RowExpr[] }
+  | { op: 'containsAll'; target: RowExpr; values: RowExpr[] }
+  | { op: 'isEmpty'; target: RowExpr }
+  | { op: 'startsWith'; target: RowExpr; value: RowExpr }
+  | { op: 'endsWith'; target: RowExpr; value: RowExpr }
+
+export interface RowSort {
+  key: RowKey
+  direction: 'asc' | 'desc'
+}
+
+export interface RowQuery {
+  filter?: RowFilter
+  /** Applied in order; ties fall through to the path. Nulls sort last. */
+  sort?: RowSort[]
+  /**
+   * Evaluation instant for `now()`/`today()`, epoch ms. The index has no
+   * clock of its own (golden rule 5): a caller that uses a relative date
+   * passes the time it means.
+   */
+  now?: number
+}
+
+/** A distinct value seen under a property key, with the notes carrying it. */
+export interface ValueCount {
+  value: string
+  count: number
 }
 
 /** Read side. Everything is a Promise; everything list-shaped is paged. */
@@ -223,8 +347,12 @@ export interface VaultIndex {
   /** Fuzzy path match for the quick-open switcher. Empty query → MRU order. */
   quickOpen(query: string, opts?: PageOptions & { recent?: string[] }): Promise<Page<PathHit>>
 
-  /** Every link pointing at `target` (a path or a bare note name). */
-  backlinks(target: string, opts?: PageOptions): Promise<Page<LinkRef>>
+  /**
+   * Every link pointing at `target` (a path or a bare note name). With
+   * `property`, only links written in that frontmatter key — a relation's
+   * reverse side (collections A5), derived, never written twice.
+   */
+  backlinks(target: string, opts?: PageOptions & { property?: string }): Promise<Page<LinkRef>>
 
   /** Every link written in the note `guid`. */
   outgoing(guid: string, opts?: PageOptions): Promise<Page<LinkRef>>
@@ -242,6 +370,20 @@ export interface VaultIndex {
 
   /** Distinct frontmatter keys across the vault, most-used first. */
   frontmatterKeys(opts?: PageOptions): Promise<Page<TagCount>>
+
+  /**
+   * Notes as records (collections DB1): filtered and sorted by the structured
+   * `RowQuery`, paged. The backing for every collection view and for
+   * `ohhi rows`. Ordered by `sort`, then path, so pages are stable.
+   */
+  rows(query: RowQuery, opts?: PageOptions): Promise<Page<Row>>
+
+  /**
+   * Distinct scalar values written under `key` across the vault (list items
+   * counted singly), most-used first — the option list a select editor
+   * offers when the collection declares none.
+   */
+  propertyValues(key: string, opts?: PageOptions): Promise<Page<ValueCount>>
 
   /**
    * Resolve a wikilink target to a workspace path.

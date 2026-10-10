@@ -8,6 +8,7 @@
   "exports": { ".": "./src/index.ts", "./core": "./src/core.ts", "./skills": "./src/skills.ts" },
   "scripts": { "test": "vitest run", "check": "tsc --noEmit" },
   "dependencies": {
+    "@ohhi/collections": "workspace:*",
     "@ohhi/index": "workspace:*",
     "@ohhi/testkit": "workspace:*",
     "@ohhi/vault": "workspace:*",

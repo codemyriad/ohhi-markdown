@@ -131,6 +131,29 @@ ohhi ls "Areas/CS" --depth 1 --kind text
 ohhi stats
 ```
 
+### Query a collection
+
+A collection is a `.base` file (Obsidian's format): saved views over the notes
+in a folder, whose properties are the columns. Rows come back as references
+plus the columns you ask for — never bodies.
+
+```bash
+ohhi collections                                             # every .base, its views, live row counts
+ohhi rows Competitors.base                                   # the first view: its columns and sort
+ohhi rows Competitors.base --view "Threat Watch" --json      # a view by name
+ohhi rows Competitors.base --where 'verified < today() - "30d"' --columns verified,threat
+ohhi rows --where 'file.hasTag("meeting") && status != "done"'   # the whole vault, no collection
+```
+
+`--where` is one statement in the file's own grammar (comparisons, `&&` `||`
+`!`, `file.hasTag/hasLink/inFolder/hasProperty`, `.contains/.isEmpty/
+.startsWith`, `today()`, `now()`, `date("…")`, a date ± `"7d"`). Values are
+typed by what the note wrote: `8` is a number, `2026-06-02` a date string,
+`[[X]]` a link, a list an array. A view marked `supported: false` names in
+`reasons` the part this tool does not compute (formulas, map views); the rows
+it can compute are still there. Change a cell with the note's frontmatter —
+there is no `rows set`.
+
 ### Resume instead of restarting
 
 ```bash

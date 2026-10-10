@@ -22,6 +22,8 @@ type FlagKind =
   | 'boolean'
   /** A boolean that sets a fixed value on another key, e.g. `--exact` → `mode: 'exact'`. */
   | 'const'
+  /** `--columns a,b,c` → `['a', 'b', 'c']`. */
+  | 'list'
 
 interface FlagSpec {
   /** Key in the op's input object. */
@@ -110,6 +112,20 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
   },
   skills: { positionals: [], flags: { ...limit('1000') } },
   skill: { positionals: [{ key: 'name', label: 'name', required: true }], flags: {} },
+  collections: {
+    positionals: [{ key: 'dir', label: 'dir', required: false }],
+    flags: { ...limit('1000') },
+  },
+  rows: {
+    positionals: [{ key: 'collection', label: 'collection', required: false }],
+    flags: {
+      view: { key: 'view', kind: 'string', arg: 'NAME', help: 'a view by name (default: the first)' },
+      where: { key: 'where', kind: 'string', arg: 'STATEMENT', help: 'an extra filter in the file’s own grammar, e.g. \'depth == "Deep"\'' },
+      columns: { key: 'columns', kind: 'list', arg: 'A,B', help: 'properties to return (default: the view’s columns)' },
+      sort: { key: 'sort', kind: 'string', arg: 'PROP[:desc]', help: "replace the view's sort" },
+      ...limit('1000'),
+    },
+  },
   write: {
     positionals: [{ key: 'path', label: 'path', required: true }],
     flags: {
@@ -372,6 +388,12 @@ export function parseCommand(argv: string[]): Command {
         break
       case 'range':
         input[spec.key] = toRange(flag, raw as string)
+        break
+      case 'list':
+        input[spec.key] = (raw as string)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
         break
       default:
         input[spec.key] = raw as string

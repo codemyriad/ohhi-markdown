@@ -71,18 +71,23 @@ import {
   type Page,
   type PageOptions,
   type PathHit,
+  type PropValue,
+  type Row,
+  type RowQuery,
   type SearchHit,
   type SearchTier,
   type Snippet,
   type Span,
   type TagCount,
+  type ValueCount,
   type WritableIndex,
 } from './types.js'
 import { fuzzyScore, toSpans } from './fuzzy.js'
 import { lineAt, lineStartsOf } from './lines.js'
 import { paginate } from './paginate.js'
 import { parseMarkdown, type ParsedDoc } from './parse.js'
-import { normalizeTarget, PathResolver } from './resolve.js'
+import { compareRows, matchesFilter, scalarText, typeProperty, type FilterContext } from './properties.js'
+import { basename, normalizeTarget, PathResolver } from './resolve.js'
 import { tagKey } from './tag-syntax.js'
 import { queryTerms, tokenize } from './tokenize.js'
 
@@ -142,6 +147,9 @@ interface DocEntry {
    */
   tags: Map<string, string>
   frontmatterKeys: string[]
+  /** Typed property values (collections A1); link targets unresolved until asked. */
+  props: Record<string, PropValue>
+  mtime: number | null
 }
 
 /** One document's accumulating score while a query is being answered. */
@@ -219,7 +227,7 @@ export class MemoryIndex implements WritableIndex {
     // The PATH is an indexed field (a filename hit outranks a body hit), so a
     // rename must re-derive it — mutating entry.path alone would leave the
     // note findable by its OLD name and invisible under its new one.
-    this.upsert({ guid, path, text: entry.text })
+    this.upsert({ guid, path, text: entry.text, ...(entry.mtime === null ? {} : { mtime: entry.mtime }) })
   }
 
   rebuild(docs: Iterable<IndexDoc>): void {
@@ -495,10 +503,12 @@ export class MemoryIndex implements WritableIndex {
     return Promise.resolve(paginate(hits, opts))
   }
 
-  backlinks(target: string, opts?: PageOptions): Promise<Page<LinkRef>> {
+  backlinks(target: string, opts?: PageOptions & { property?: string }): Promise<Page<LinkRef>> {
     this.refreshLinks()
     const path = this.resolver.resolve(target) ?? normalizeTarget(target)
-    return Promise.resolve(paginate(this.backlinkMap.get(path) ?? [], opts))
+    const refs = this.backlinkMap.get(path) ?? []
+    const want = opts?.property
+    return Promise.resolve(paginate(want === undefined ? refs : refs.filter((r) => r.property === want), opts))
   }
 
   outgoing(guid: string, opts?: PageOptions): Promise<Page<LinkRef>> {
@@ -554,8 +564,83 @@ export class MemoryIndex implements WritableIndex {
     return Promise.resolve(paginate(items, opts))
   }
 
+  rows(query: RowQuery, opts?: PageOptions): Promise<Page<Row>> {
+    this.refreshLinks()
+    const ctx: FilterContext = {
+      now: query.now ?? 0,
+      resolve: (target) => this.resolver.resolve(target),
+    }
+    const rows: Row[] = []
+    for (const entry of this.docs.values()) {
+      const row = this.rowOf(entry)
+      if (query.filter && !matchesFilter(row, query.filter, ctx)) continue
+      rows.push(row)
+    }
+    const sort = query.sort ?? []
+    rows.sort((a, b) => compareRows(a, b, sort))
+    return Promise.resolve(paginate(rows, opts))
+  }
+
+  propertyValues(key: string, opts?: PageOptions): Promise<Page<ValueCount>> {
+    const counts = new Map<string, number>()
+    for (const entry of this.docs.values()) {
+      const v = entry.props[key]
+      if (!v) continue
+      const items = v.kind === 'list' ? v.items : [v]
+      // Each note counts a value ONCE, as `tags()` does — an option list
+      // reading "Deep 3" that filters to two notes is wrong about the data.
+      const seen = new Set<string>()
+      for (const item of items) {
+        const text = scalarText(item)
+        if (text === '' || seen.has(text)) continue
+        seen.add(text)
+        counts.set(text, (counts.get(text) ?? 0) + 1)
+      }
+    }
+    const items = [...counts.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+    return Promise.resolve(paginate(items, opts))
+  }
+
   resolve(target: string, fromPath?: string): Promise<string | null> {
     return Promise.resolve(this.resolver.resolve(target, fromPath))
+  }
+
+  /** One note as a record. Links in values resolve NOW, against the current path set. */
+  private rowOf(entry: DocEntry): Row {
+    const props: Record<string, PropValue> = {}
+    for (const [key, value] of Object.entries(entry.props)) props[key] = this.resolveLinks(value, entry.path)
+    const links = new Set<string>()
+    for (const ref of this.outgoingMap.get(entry.guid) ?? []) if (ref.resolved) links.add(ref.resolved)
+    const slash = entry.path.lastIndexOf('/')
+    const file = entry.path.slice(slash + 1)
+    const dot = file.lastIndexOf('.')
+    return {
+      guid: entry.guid,
+      path: entry.path,
+      name: basename(entry.path),
+      folder: slash === -1 ? '' : entry.path.slice(0, slash),
+      ext: dot === -1 ? '' : file.slice(dot + 1),
+      tags: [...entry.tags.values()].map((t) => t.slice(1)),
+      links: [...links],
+      mtime: entry.mtime,
+      size: entry.text.length,
+      props,
+    }
+  }
+
+  private resolveLinks(value: PropValue, fromPath: string): PropValue {
+    if (value.kind === 'link') return { ...value, resolved: this.resolver.resolve(value.target, fromPath) }
+    if (value.kind === 'list' && value.items.some((i) => i.kind === 'link')) {
+      return {
+        kind: 'list',
+        items: value.items.map((i) =>
+          i.kind === 'link' ? { ...i, resolved: this.resolver.resolve(i.target, fromPath) } : i
+        ),
+      }
+    }
+    return value
   }
 
   stats(): Promise<IndexStats> {
@@ -663,6 +748,8 @@ export class MemoryIndex implements WritableIndex {
       })),
       tags: mergeTags(parsed),
       frontmatterKeys: parsed.frontmatterKeys,
+      props: Object.fromEntries(parsed.properties.map((p) => [p.key, typeProperty(p.value)])),
+      mtime: doc.mtime ?? null,
     }
   }
 
@@ -710,7 +797,9 @@ export class MemoryIndex implements WritableIndex {
 
   private insertLinks(entry: DocEntry): void {
     const refs: LinkRef[] = []
-    for (const raw of entry.parsed.links) {
+    // Body links first, then the ones written inside property values: a
+    // relation is a backlink like any other, tagged with its key (A5).
+    for (const raw of [...entry.parsed.links, ...entry.parsed.propertyLinks]) {
       // `[[#heading]]` is a same-note anchor with no target to resolve.
       const resolved = raw.target ? this.resolver.resolve(raw.target, entry.path) : entry.path
       const ref: LinkRef = {
@@ -724,6 +813,7 @@ export class MemoryIndex implements WritableIndex {
         offset: raw.offset,
         line: lineAt(entry.lineStarts, raw.offset),
         context: lineTextAt(entry.text, raw.offset),
+        ...(raw.property === undefined ? {} : { property: raw.property }),
       }
       refs.push(ref)
       if (resolved) {

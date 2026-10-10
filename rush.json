@@ -344,6 +344,7 @@
     { "packageName": "@ohhi/ui", "projectFolder": "libs/ui" },
     { "packageName": "@ohhi/index", "projectFolder": "libs/index" },
     { "packageName": "@ohhi/frontmatter", "projectFolder": "libs/frontmatter" },
+    { "packageName": "@ohhi/collections", "projectFolder": "libs/collections" },
     { "packageName": "@ohhi/editor-lang", "projectFolder": "libs/editor-lang" },
     { "packageName": "@ohhi/i18n", "projectFolder": "libs/i18n" },
     { "packageName": "@ohhi/agent", "projectFolder": "libs/agent" },

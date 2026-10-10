@@ -379,6 +379,82 @@ export const SkillOut = z.object({
   body: z.string(),
 })
 
+// ---- collections (bases-shaping A9, DB1) -----------------------------------
+
+/**
+ * A cell as an agent reads it: scalars as JSON, a date as the text written,
+ * a link as `[[target]]`, a list as an array of those, a property the file
+ * asked for but this reader cannot compute (`formula.x`) as null.
+ */
+const CellScalar = z.union([z.string(), z.number(), z.boolean(), z.null()])
+export const CellValue = z.union([CellScalar, z.array(CellScalar)])
+
+export const CollectionsIn = z.object({
+  dir: z.string().optional().describe('Only collections under this folder; omit for the whole vault'),
+  ...PageIn,
+})
+export const CollectionView = z.object({
+  name: z.string(),
+  /** `table`, `list`, `kanban`, `cards`, or whatever the file wrote. */
+  type: z.string(),
+  /** Notes the view shows, counted now. */
+  rows: z.number().int().nonnegative(),
+  /** False when a part of the view is outside the subset this tool reads; `reasons` says which. */
+  supported: z.boolean(),
+  reasons: z.array(z.string()),
+})
+export const CollectionsOut = z.object({
+  schema: z.literal(schemaName('collections')),
+  collections: z.array(
+    z.object({
+      /** The `.base` file. */
+      path: VaultPath,
+      /** Its name without the extension. */
+      name: z.string(),
+      views: z.array(CollectionView),
+      /** Blocks the file has that are read past (`formulas are not computed here`). */
+      issues: z.array(z.string()),
+      /** The file could not be read as YAML; `views` is then empty. */
+      error: z.string().nullable(),
+    })
+  ),
+  ...PageOut,
+  coverage: Coverage,
+})
+
+export const RowsIn = z.object({
+  /** The `.base` file. Omit to query every note with `--where`. */
+  collection: VaultPath.optional(),
+  /** A view by name (case-insensitive); default the first view. */
+  view: z.string().optional(),
+  /** An extra filter statement in the file’s own grammar, ANDed with the view’s: `depth == "Deep"`, `file.hasTag("x")`, `verified < today() - "30d"`. */
+  where: z.string().optional(),
+  /** Properties to return (`file.name`, `status`, `note.status`); default the view’s `order`, else every property the rows carry. */
+  columns: z.array(z.string()).optional(),
+  /** `<property>` or `<property>:desc`; replaces the view’s sort. */
+  sort: z.string().optional(),
+  ...PageIn,
+})
+export const RowsOut = z.object({
+  schema: z.literal(schemaName('rows')),
+  collection: VaultPath.nullable(),
+  view: z.string().nullable(),
+  /** The properties each row’s `values` carries, in order. */
+  columns: z.array(z.string()),
+  rows: z.array(
+    z.object({
+      /** The note — a reference; read it with `read`. */
+      path: VaultPath,
+      name: z.string(),
+      values: z.record(z.string(), CellValue),
+    })
+  ),
+  supported: z.boolean(),
+  reasons: z.array(z.string()),
+  ...PageOut,
+  coverage: Coverage,
+})
+
 // ---- write side -----------------------------------------------------------
 
 const WriteCommon = {
@@ -572,6 +648,8 @@ export const OP_NAMES = [
   'changes',
   'skills',
   'skill',
+  'collections',
+  'rows',
   'write',
   'patch',
   'append',
@@ -595,6 +673,8 @@ export const OP_SCHEMAS = {
   changes: { input: ChangesIn, output: ChangesOut, mutates: false, description: 'Paths changed since an instant or since a journal sequence.' },
   skills: { input: SkillsIn, output: SkillsOut, mutates: false, description: 'Skills in the vault (`.agents/skills/`): name, description, kind, input, output and validation problems.' },
   skill: { input: SkillIn, output: SkillOut, mutates: false, description: 'One skill: its parsed SKILL.md frontmatter, validation problems and instructions.' },
+  collections: { input: CollectionsIn, output: CollectionsOut, mutates: false, description: 'Collections in the vault (`.base` files): their views and row counts.' },
+  rows: { input: RowsIn, output: RowsOut, mutates: false, description: 'The rows of a collection view — notes as references plus the columns asked for; filter further with --where.' },
   write: { input: WriteIn, output: WriteOut, mutates: true, description: 'Create or replace a note (journaled, atomic).' },
   patch: { input: PatchIn, output: PatchOut, mutates: true, description: 'Replace one exact string in a note (journaled, atomic). Refused when the string is not unique.' },
   append: { input: AppendIn, output: AppendOut, mutates: true, description: 'Append text to a note or to one of its sections (journaled, atomic).' },
