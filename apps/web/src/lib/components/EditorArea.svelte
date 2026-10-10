@@ -24,6 +24,7 @@
    * split with a note focused the layer still spans the whole area.
    */
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
+  import { tick, untrack } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { GroupShell } from '../group-ui.svelte.js'
   import type { Navigation } from '../navigation.svelte.js'
@@ -173,6 +174,21 @@
     target?.focus()
   }
 
+  /** The two floating stacks, for the focus handoff below. */
+  let floatTop = $state<HTMLElement>()
+  let floatBottom = $state<HTMLElement>()
+  // The gate turning the layer off while focus is inside it (a key switched
+  // the focused tab to a view): read before the DOM drops it, then hand focus
+  // to the focused pane's tab — what the dock's strip does (`refocus`).
+  $effect.pre(() => {
+    if (onNote) return
+    const held = untrack(() => {
+      const el = document.activeElement
+      return !!el && (!!floatTop?.contains(el) || !!floatBottom?.contains(el))
+    })
+    if (held) void tick().then(focusPane)
+  })
+
   // A stack that is not drawn pads nothing: `bind:clientHeight` keeps its
   // last value when the element goes, so the gate is read here too.
   const padBottom = $derived((formatAt === 'bottom' || corner) && bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
@@ -256,6 +272,7 @@
       <PaneTree node={treeRoot} {ctx} />
       {#if formatAt === 'top' && topCtx}
         <div
+          bind:this={floatTop}
           data-testid="float-top"
           class="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-2 @container"
           style:top="{clearTop + GAP_PX}px"
@@ -272,6 +289,7 @@
              left rather than the two meeting. Too narrow for both
              (measured): the corner stacks above the bar, right-aligned. -->
         <div
+          bind:this={floatBottom}
           data-testid="float-bottom"
           data-stacked={stacked}
           class="pointer-events-none absolute inset-x-0 z-10 px-2 @container"

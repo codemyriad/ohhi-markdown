@@ -99,6 +99,9 @@
   function inspect(path: string): void {
     stopClosing()
     open = false
+    // A pane's own status bar speaks for THAT pane's note: focus it first, so
+    // the tab opens beside the note it describes, not in the focused pane.
+    if (ctx.pane && !ctx.pane.focused) ctx.panes.focusPane(ctx.pane.id)
     shell?.openView('inspector', path)
   }
 

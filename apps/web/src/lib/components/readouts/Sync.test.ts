@@ -2,7 +2,7 @@
 import { getLL } from '@ohhi/i18n'
 import { cleanup, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Navigation } from '../../navigation.svelte.js'
 import { strip } from '../../panes.fixture.js'
 import { slotFor, type PresenceByPath } from '../../presence.js'
@@ -20,7 +20,7 @@ afterEach(() => cleanup())
 const GREEN = { connected: true, synced: true, pendingLocal: false, diskMatchesCrdt: true, diverged: false }
 const peer = (name: string, clientId: number) => ({ name, color: slotFor(name), clientId })
 
-function setup(opts: { byRoom?: Record<string, string[]>; presence?: PresenceByPath; open?: string | null; pane?: boolean; devtools?: boolean } = {}) {
+function setup(opts: { byRoom?: Record<string, string[]>; presence?: PresenceByPath; open?: string | null; pane?: boolean; paneFocused?: boolean; devtools?: boolean } = {}) {
   const shell = fakeViewShell()
   const open = opts.open === undefined ? 'CS/Raft.md' : opts.open
   const ctx = {
@@ -38,14 +38,14 @@ function setup(opts: { byRoom?: Record<string, string[]>; presence?: PresenceByP
       docForPath: () => null,
       awarenessForPath: () => null,
     } as unknown as Workspace,
-    panes: { layout: (open ? strip(open) : strip()).l } as unknown as PaneShell,
+    panes: { layout: (open ? strip(open) : strip()).l, focusPane: vi.fn() } as unknown as PaneShell,
     nav: { pending: { reveal: null } } as unknown as Navigation,
     merged: false,
-    ...(opts.pane ? { pane: { id: 'p', focused: true, lead: false } } : {}),
+    ...(opts.pane ? { pane: { id: 'p', focused: opts.paneFocused ?? true, lead: false } } : {}),
     ...(opts.devtools !== undefined ? { devtools: () => opts.devtools! } : {}),
   }
   render(Sync, { props: { ctx }, context: viewShellContext(shell) })
-  return { shell, user: userEvent.setup() }
+  return { shell, panes: ctx.panes, user: userEvent.setup() }
 }
 
 describe('the sync readout (foundations-plan P5)', () => {
@@ -122,6 +122,25 @@ describe('the sync readout (foundations-plan P5)', () => {
       await user.click(door)
       expect(shell.openView).toHaveBeenCalledWith('inspector', 'CS/Raft.md')
       expect(screen.queryByTestId('sync-people-card')).toBeNull()
+    })
+
+    it('in an unfocused pane\'s status bar: focuses that pane first, so the tab opens beside its note', async () => {
+      const { shell, panes, user } = setup({ devtools: true, pane: true, paneFocused: false })
+      await user.hover(screen.getByTestId('sync-pill-pane:p'))
+      const card = await screen.findByTestId('sync-people-card')
+      await user.click(within(card).getByTestId('sync-inspect-note'))
+      expect(panes.focusPane).toHaveBeenCalledWith('p')
+      expect(shell.openView).toHaveBeenCalledWith('inspector', 'CS/Raft.md')
+      const focusOrder = (panes.focusPane as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
+      expect(focusOrder).toBeLessThan((shell.openView as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0])
+    })
+
+    it('in the focused pane\'s status bar: no extra focus move', async () => {
+      const { shell, panes, user } = setup({ devtools: true, pane: true })
+      await user.hover(screen.getByTestId('sync-pill-note'))
+      await user.click(within(await screen.findByTestId('sync-people-card')).getByTestId('sync-inspect-note'))
+      expect(panes.focusPane).not.toHaveBeenCalled()
+      expect(shell.openView).toHaveBeenCalledWith('inspector', 'CS/Raft.md')
     })
 
     it('developer tools on, with people: the door sits below the list', async () => {
