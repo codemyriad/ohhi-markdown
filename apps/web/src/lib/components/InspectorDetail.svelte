@@ -9,8 +9,12 @@
    * so a column, a drawer and a tab can never disagree about when to re-read.
    * The tab form gets its data from its own `Inspector` instance, which
    * renders only this.
+   *
+   * It never shows another file's facts: `detail` and `peek` count only when
+   * `readPath` (the path they were read for) is its own `path`; otherwise it
+   * shows its loading state (or the absence), never the last file's text.
    */
-  import { FileText, FolderSearch, ScanSearch, SquareArrowOutUpRight, X } from '@lucide/svelte'
+  import { FileText, FolderSearch, RefreshCw, ScanSearch, SquareArrowOutUpRight, X } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { PathPeek, SyncRecordFields } from '@ohhi/workspace'
   import { formatSize, formatStamp } from '../history.js'
@@ -22,7 +26,8 @@
     peekChain,
     RELAY_GLYPH,
     RELAY_TONE,
-    STATE_TONE,
+    rowTone,
+    sayKey,
     TONE_DOT,
     TONE_TEXT,
     TONE_TINT,
@@ -31,7 +36,7 @@
     type RowState,
   } from '../inspector.js'
   import IconButton from '../ui/IconButton.svelte'
-  import { FACT } from '../ui/styles.js'
+  import { FACT, OUTLINE_BUTTON } from '../ui/styles.js'
   import { getViewShell } from '../views.js'
   import type { WorkspaceInspection } from '../workspace.svelte.js'
 
@@ -43,6 +48,12 @@
     record: SyncRecordFields | undefined
     detail: WorkspaceInspection | null
     peek: PathPeek | null
+    /** The path `detail` and `peek` were read for; anything else is ignored. */
+    readPath?: string | null
+    /** The snapshot or this file's read is still on its way: say so rather than "absent" or "not found". */
+    loading?: boolean
+    /** Re-read the snapshot (the not-in-snapshot message's *Refresh*). */
+    onrefresh?: () => void
     /** Which width it is drawn at: decides the title row's verbs. */
     form: 'column' | 'drawer' | 'tab' | 'auto'
     now: () => number
@@ -52,7 +63,26 @@
     closeClass?: string
   }
 
-  let { path, row, record, detail, peek, form, now, onclose, closeClass = '' }: Props = $props()
+  let {
+    path,
+    row,
+    record,
+    detail: detailIn,
+    peek: peekIn,
+    readPath = null,
+    loading = false,
+    onrefresh,
+    form,
+    now,
+    onclose,
+    closeClass = '',
+  }: Props = $props()
+
+  /** Only facts read for THIS path; a row is this path's or nothing. */
+  const own = $derived(path !== null && readPath === path)
+  const detail = $derived(own && detailIn?.path === path ? detailIn : null)
+  const peek = $derived(own ? peekIn : null)
+  const rowHere = $derived(row && row.row.path === path ? row : null)
 
   const shell = getViewShell()
   const t = $derived($LL.web.devtools)
@@ -67,7 +97,7 @@
   })
 
   /** The chain, with disk vs base measured off the peek's hashes. */
-  const chain = $derived(row ? peekChain(row.chain, peek) : null)
+  const chain = $derived(rowHere ? peekChain(rowHere.chain, peek) : null)
   const view = $derived<PeekView | null>(chain ? (peekView ?? defaultPeekView(chain)) : null)
   const DIFFS: readonly PeekView[] = ['doc-lca', 'disk-lca', 'disk-doc']
   const TEXTS: readonly PeekView[] = ['disk', 'lca', 'doc']
@@ -92,7 +122,7 @@
 
   const key = (s: string): string => s.replace('-', '_')
   const stateLabel = (s: RowState): string => t.states[key(s) as keyof typeof t.states]()
-  const stateSay = (s: RowState): string => t.say[key(s) as keyof typeof t.say]()
+  const stateSay = (s: RowState, relay: Parameters<typeof sayKey>[1]): string => t.say[sayKey(s, relay)]()
   const peekLabel = (v: PeekView): string => t.peek[key(v) as keyof typeof t.peek]()
   const short = (s: string): string => `${s.slice(0, 8)}…`
   const parent = (p: string): string => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '')
@@ -102,6 +132,9 @@
     const s = Math.max(0, Math.round((now() - at) / 1000))
     return s < 1 ? t.just_now() : t.seconds_ago({ count: s })
   }
+
+  /** The raw facts' headings sit one level under the title. */
+  const factTag = $derived(form === 'tab' ? 'h3' : 'h4')
 
   const segment =
     'px-2 py-0.5 text-[11px] text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary aria-pressed:bg-base-200 aria-pressed:font-semibold aria-pressed:text-base-content'
@@ -115,9 +148,15 @@
 >
   <!-- title row: the path and its verbs -->
   <div class="flex shrink-0 items-center gap-1 border-b border-base-200 px-3 py-2">
-    <h3 id="{uid}-title" class="min-w-0 flex-1 truncate font-ed-mono text-xs font-semibold" title={path ?? undefined}>
+    <!-- Alone in a tab there is no "Inspector" h2 above it, so the title is the h2 (axe heading-order). -->
+    <svelte:element
+      this={form === 'tab' ? 'h2' : 'h3'}
+      id="{uid}-title"
+      class="min-w-0 flex-1 truncate font-ed-mono text-xs font-semibold"
+      title={path ?? undefined}
+    >
       {#if path}{path}{:else}<span class="font-ed-ui font-normal text-base-content/70">{t.detail()}</span>{/if}
-    </h3>
+    </svelte:element>
     {#if path && shell}
       <IconButton label={t.verbs.open_note()} icon={FileText} testid="inspector-open-note" onclick={() => shell.openPath(path)} />
       <IconButton
@@ -149,11 +188,39 @@
 
   {#if !path}
     <p class="px-3 py-2 text-base-content/70">{t.select_row()}</p>
-  {:else if !row}
-    <p class="px-3 py-2 text-base-content/70">{t.not_found()}</p>
+  {:else if !rowHere && loading}
+    <p data-testid="inspector-loading" role="status" class="px-3 py-2 text-base-content/70">{t.loading()}</p>
+  {:else if !rowHere}
+    <div data-testid="inspector-not-found" class="space-y-2 px-3 py-2">
+      <p class="text-base-content/70">{t.not_found()}</p>
+      <div class="flex flex-wrap gap-2">
+        {#if shell}
+          <button
+            type="button"
+            data-testid="inspector-not-found-open"
+            onclick={() => shell.openView('inspector')}
+            class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-base-content/80 {OUTLINE_BUTTON}"
+          >
+            <ScanSearch size={12} aria-hidden="true" />
+            {t.verbs.open_inspector()}
+          </button>
+        {/if}
+        {#if onrefresh}
+          <button
+            type="button"
+            data-testid="inspector-not-found-refresh"
+            onclick={onrefresh}
+            class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-base-content/80 {OUTLINE_BUTTON}"
+          >
+            <RefreshCw size={12} aria-hidden="true" />
+            {t.refresh()}
+          </button>
+        {/if}
+      </div>
+    </div>
   {:else if chain}
-    {@const tone = STATE_TONE[row.state]}
-    {@const diverged = row.state === 'diverged'}
+    {@const tone = rowTone(rowHere.state, chain.relay)}
+    {@const diverged = rowHere.state === 'diverged'}
     <div class="shrink-0 space-y-2 px-3 py-2">
       <!-- the chain, large, with the state badge -->
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -181,15 +248,16 @@
         </p>
         <span
           data-testid="inspector-file-state"
-          data-state={row.state}
+          data-state={rowHere.state}
+          data-tone={tone}
           class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] text-base-content {TONE_TINT[tone]} {diverged ? 'font-semibold' : ''}"
         >
           <span aria-hidden="true" class="size-1.5 rounded-full {TONE_DOT[tone]}"></span>
-          {stateLabel(row.state)}
+          {stateLabel(rowHere.state)}
         </span>
       </div>
       <!-- one sentence for the state -->
-      <p data-testid="inspector-say" class="text-xs text-base-content/80">{stateSay(row.state)}</p>
+      <p data-testid="inspector-say" class="text-xs text-base-content/80">{stateSay(rowHere.state, chain.relay)}</p>
       <p class="text-xs text-base-content/80">
         {t.relay_say[chain.relay]()}
         {#if detail}<span class="text-base-content/70"> · {t.versions({ count: detail.journal.count })}</span>{/if}
@@ -220,7 +288,9 @@
       data-view={view}
       class="mx-3 min-h-24 flex-1 overflow-auto rounded border border-base-300 bg-base-200 font-ed-mono text-[11px]"
     >
-      {#if !body || body.kind === 'absent'}
+      {#if !peek && loading}
+        <p data-testid="inspector-loading" role="status" class="px-2 py-1 font-ed-ui text-base-content/70">{t.loading()}</p>
+      {:else if !body || body.kind === 'absent'}
         <p class="px-2 py-1 font-ed-ui text-base-content/70">{t.peek.absent()}</p>
       {:else if body.kind === 'identical'}
         <p class="px-2 py-1 font-ed-ui text-base-content/70">{t.peek.identical()}</p>
@@ -229,11 +299,12 @@
       {:else if body.kind === 'text'}
         <pre class="px-2 py-1 whitespace-pre-wrap">{body.text}</pre>
       {:else}
+        <!-- A diff is not a sync claim: the chrome's success / error tints, never the pill's tokens. -->
         <pre class="px-2 py-1 whitespace-pre-wrap">{#each body.lines as line, i (i)}<span
             class={line.kind === 'add'
-              ? 'block bg-ed-sync-ok/15'
+              ? 'block bg-success/10'
               : line.kind === 'del'
-                ? 'block bg-ed-sync-pending/15'
+                ? 'block bg-error/10'
                 : 'block text-base-content/70'}
           >{line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' '} {line.text}</span>{/each}</pre>
       {/if}
@@ -245,7 +316,7 @@
         <summary class="cursor-pointer text-xs text-base-content/70">{t.peek.raw()}</summary>
         <div class="mt-1 grid grid-cols-1 gap-x-6 gap-y-2 font-ed-mono text-[11px] @md:grid-cols-2">
           <div>
-            <h4 class={FACT}>record</h4>
+            <svelte:element this={factTag} class={FACT}>record</svelte:element>
             <div data-testid="inspector-record">
               {#if record}
                 connected {record.connected} · synced {record.synced}<br />
@@ -255,20 +326,20 @@
                 —
               {/if}
             </div>
-            <h4 class="mt-2 {FACT}">mount</h4>
+            <svelte:element this={factTag} class="mt-2 {FACT}">mount</svelte:element>
             <div>
               room <span class="select-all">{short(detail.mount.room)}</span> at '{detail.mount.path || '/'}' · guid
               <span class="select-all">{short(detail.guid)}</span>
             </div>
           </div>
           <div>
-            <h4 class={FACT}>hashes and heads</h4>
+            <svelte:element this={factTag} class={FACT}>hashes and heads</svelte:element>
             <div data-testid="inspector-heads">
               disk hash {peek?.disk ? peek.disk.hash.slice(0, 12) : '—'} · base hash {detail.lca ? detail.lca.contentHash.slice(0, 12) : '—'}<br />
               base heads {detail.lca?.headsDigest ?? '—'} · doc heads {detail.doc?.headsDigest ?? '—'}<br />
               base {detail.lca?.baseTextLength ?? '—'}ch · doc {detail.doc?.textLength ?? '—'}ch · eol {detail.lca?.eol ?? '—'} · bom {detail.lca?.bom ?? '—'}
             </div>
-            <h4 class="mt-2 {FACT}">doc blob</h4>
+            <svelte:element this={factTag} class="mt-2 {FACT}">doc blob</svelte:element>
             <div data-testid="inspector-blob">
               {detail.blob
                 ? `${detail.blob.present ? formatSize(detail.blob.bytes ?? 0) : 'absent'} · flushed ${age(detail.blob.lastFlushAt)}`
@@ -276,7 +347,7 @@
             </div>
           </div>
           <div>
-            <h4 class={FACT}>journal ({detail.journal.count})</h4>
+            <svelte:element this={factTag} class={FACT}>journal ({detail.journal.count})</svelte:element>
             <ul data-testid="inspector-journal">
               {#each detail.journal.recent as e, i (i)}
                 <li>{formatStamp(e.at, now())} · {formatSize(e.bytes)}</li>

@@ -12,9 +12,13 @@ import {
   peekChain,
   relayHost,
   reportText,
+  rowTone,
+  sayKey,
+  sessionStatus,
   sortRows,
   rowState,
   ROW_STATES,
+  STATE_TONE,
   type ClassifiedRow,
 } from './inspector.js'
 
@@ -206,7 +210,7 @@ describe('sortRows (worst first, fork 4)', () => {
 })
 
 describe('mountHealth (the scope chip\'s dot)', () => {
-  const r = (state: Parameters<typeof isWrong>[0], relay: 'synced' | 'pending' = 'synced') => ({
+  const r = (state: Parameters<typeof isWrong>[0], relay: 'synced' | 'pending' | 'offline' | 'none' = 'synced') => ({
     row: row(),
     state,
     chain: { diskLca: 'equal' as const, lcaDoc: 'equal' as const, relay },
@@ -219,6 +223,35 @@ describe('mountHealth (the scope chip\'s dot)', () => {
     expect(mountHealth([r('disk-changed')], 'active').tone).toBe('pending')
     expect(mountHealth([r('in-sync', 'pending')], 'active')).toMatchObject({ tone: 'pending', atRelay: 1 })
     expect(mountHealth([r('in-sync'), r('no-doc')], null).tone).toBe('ok')
+  })
+  it('an unreachable relay is offline, as the pill says: above pending, below diverged', () => {
+    expect(mountHealth([r('in-sync', 'offline'), r('in-sync')], 'active')).toMatchObject({ tone: 'offline', relayOffline: 1 })
+    expect(mountHealth([r('doc-ahead', 'offline'), r('in-sync', 'pending')], 'active').tone).toBe('offline')
+    expect(mountHealth([r('diverged', 'offline')], 'active').tone).toBe('diverged')
+    // No relay at all is not "offline": a local mount is simply local.
+    expect(mountHealth([r('in-sync', 'none')], null)).toMatchObject({ tone: 'ok', relayOffline: 0 })
+  })
+})
+
+describe('rowTone / sayKey (an in-sync row follows its relay)', () => {
+  it('paints an in-sync row by its relay link, every other state by its own tone', () => {
+    expect(rowTone('in-sync', 'synced')).toBe('ok')
+    expect(rowTone('in-sync', 'none')).toBe('ok')
+    expect(rowTone('in-sync', 'unknown')).toBe('ok')
+    expect(rowTone('in-sync', 'pending')).toBe('pending')
+    expect(rowTone('in-sync', 'offline')).toBe('offline')
+    for (const s of ROW_STATES.filter((x) => x !== 'in-sync')) {
+      expect(rowTone(s, 'offline')).toBe(STATE_TONE[s])
+      expect(rowTone(s, 'pending')).toBe(STATE_TONE[s])
+    }
+  })
+  it('gives an in-sync row a relay clause when the relay is behind or away', () => {
+    expect(sayKey('in-sync', 'synced')).toBe('in_sync')
+    expect(sayKey('in-sync', 'none')).toBe('in_sync')
+    expect(sayKey('in-sync', 'pending')).toBe('in_sync_relay_pending')
+    expect(sayKey('in-sync', 'offline')).toBe('in_sync_offline')
+    expect(sayKey('doc-ahead', 'offline')).toBe('doc_ahead')
+    expect(sayKey('not-text', 'none')).toBe('not_text')
   })
 })
 
@@ -249,6 +282,10 @@ describe('mountAgreement (line 2 of the card)', () => {
       session: 'wss://r',
     })
   })
+  it('sessionStatus: the row\'s status, or active for a live session with no row (the root)', () => {
+    expect(sessionStatus({ desc: null })).toBe('active')
+    expect(sessionStatus({ desc: { status: 'needs-token' } })).toBe('needs-token')
+  })
   it('relayHost shortens a URL and tolerates junk', () => {
     expect(relayHost('wss://relay.example:8080/x')).toBe('relay.example:8080')
     expect(relayHost('not a url')).toBe('not a url')
@@ -257,7 +294,7 @@ describe('mountAgreement (line 2 of the card)', () => {
 })
 
 describe('reportText (Copy report)', () => {
-  const words = { title: 'Report', state: (s: string) => s.toUpperCase() }
+  const words = { title: 'Report', state: (s: string) => s.toUpperCase(), sort: (s: string) => `sort:${s}` }
   const chain = { diskLca: 'equal' as const, lcaDoc: 'differs' as const, relay: 'none' as const }
   it('lists every row in scope, one per line, with the chain as glyphs', () => {
     const text = reportText(
@@ -270,6 +307,8 @@ describe('reportText (Copy report)', () => {
           { row: row({ path: 'a.md' }), state: 'doc-ahead', chain },
           { row: row({ path: 'p.png', kind: 'binary' }), state: 'not-text', chain },
         ],
+        total: 2,
+        filters: { state: null, prefix: '', sort: 'worst' },
       },
       0,
       words
@@ -280,10 +319,30 @@ describe('reportText (Copy report)', () => {
       'invariants: 1 violated',
       '  ! x is wrong',
       'mount root: local · active',
-      'rows: 2',
+      'filters: state any · path any · order sort:worst',
+      'rows: 2 of 2',
       'DOC-AHEAD  disk ═══ base ≠≠≠ doc – relay  a.md',
       'NOT-TEXT   binary  p.png',
     ])
+  })
+  it('states the filters and counts N of M, so a filtered list never passes for the whole scope', () => {
+    const text = reportText(
+      {
+        kind: 'scope',
+        scope: 'shared',
+        invariants: [],
+        mounts: [{ name: 'shared', line: 'carved · active' }],
+        rows: [{ row: row({ path: 'shared/a.md' }), state: 'doc-ahead', chain }],
+        total: 7,
+        filters: { state: 'doc-ahead', prefix: ' shared/ ', sort: 'path' },
+      },
+      0,
+      words
+    )
+    const lines = text.split('\n')
+    expect(lines).toContain('scope: shared')
+    expect(lines).toContain('filters: state DOC-AHEAD · path shared/ · order sort:path')
+    expect(lines).toContain('rows: 1 of 7')
   })
   it('reports one file with its record, measured chain and raw facts', () => {
     const text = reportText(

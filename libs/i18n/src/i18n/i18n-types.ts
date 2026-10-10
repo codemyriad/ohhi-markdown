@@ -4039,6 +4039,10 @@ export type NamespaceWebTranslation = {
 			 */
 			not_syncing: string
 			/**
+			 * r​e​l​a​y​ ​u​n​r​e​a​c​h​a​b​l​e
+			 */
+			relay_unreachable: string
+			/**
 			 * {​c​o​u​n​t​}​ ​a​t​ ​t​h​e​ ​r​e​l​a​y
 			 * @param {number} count
 			 */
@@ -4064,6 +4068,48 @@ export type NamespaceWebTranslation = {
 			 * n​o​ ​r​e​l​a​y
 			 */
 			no_relay: string
+			statuses: {
+				/**
+				 * a​c​t​i​v​e
+				 */
+				active: string
+				/**
+				 * n​e​e​d​s​ ​a​ ​l​i​n​k
+				 */
+				needs_token: string
+				/**
+				 * j​o​i​n​i​n​g
+				 */
+				joining: string
+				/**
+				 * c​a​r​v​i​n​g​ ​(​s​e​e​d​i​n​g​)
+				 */
+				carving_seeding: string
+				/**
+				 * c​a​r​v​i​n​g​ ​(​d​e​t​a​c​h​i​n​g​)
+				 */
+				carving_detaching: string
+				/**
+				 * u​n​s​h​a​r​i​n​g​ ​(​a​b​s​o​r​b​i​n​g​)
+				 */
+				unsharing_absorbing: string
+				/**
+				 * u​n​s​h​a​r​i​n​g​ ​(​d​i​s​c​o​n​n​e​c​t​i​n​g​)
+				 */
+				unsharing_disconnecting: string
+				/**
+				 * a​d​o​p​t​i​n​g​ ​(​s​e​e​d​i​n​g​)
+				 */
+				adopting_seeding: string
+				/**
+				 * a​d​o​p​t​i​n​g​ ​(​d​e​t​a​c​h​i​n​g​)
+				 */
+				adopting_detaching: string
+				/**
+				 * a​b​s​o​r​b​i​n​g
+				 */
+				absorbing: string
+			}
 			/**
 			 * r​o​o​m​ ​{​r​o​o​m​}
 			 * @param {string} room
@@ -4131,6 +4177,10 @@ export type NamespaceWebTranslation = {
 		 * P​a​t​h
 		 */
 		filter_prefix: string
+		/**
+		 * F​i​l​e​s
+		 */
+		list_label: string
 		/**
 		 * S​t​a​t​e​s
 		 */
@@ -4204,6 +4254,14 @@ export type NamespaceWebTranslation = {
 			 * D​i​s​k​,​ ​t​h​e​ ​b​a​s​e​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​a​r​e​ ​t​h​e​ ​s​a​m​e​ ​t​e​x​t​.
 			 */
 			in_sync: string
+			/**
+			 * D​i​s​k​,​ ​t​h​e​ ​b​a​s​e​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​a​r​e​ ​t​h​e​ ​s​a​m​e​ ​t​e​x​t​.​ ​E​d​i​t​s​ ​a​r​e​ ​s​t​i​l​l​ ​o​n​ ​t​h​e​i​r​ ​w​a​y​ ​t​o​ ​t​h​e​ ​r​e​l​a​y​.
+			 */
+			in_sync_relay_pending: string
+			/**
+			 * D​i​s​k​,​ ​t​h​e​ ​b​a​s​e​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​a​r​e​ ​t​h​e​ ​s​a​m​e​ ​t​e​x​t​.​ ​T​h​e​ ​r​e​l​a​y​ ​i​s​ ​u​n​r​e​a​c​h​a​b​l​e​,​ ​s​o​ ​e​d​i​t​s​ ​s​t​a​y​ ​h​e​r​e​ ​u​n​t​i​l​ ​i​t​ ​i​s​ ​b​a​c​k​.
+			 */
+			in_sync_offline: string
 			/**
 			 * A​ ​b​i​n​a​r​y​ ​f​i​l​e​ ​o​r​ ​a​ ​f​o​l​d​e​r​.​ ​I​t​ ​i​s​ ​n​e​v​e​r​ ​s​y​n​c​e​d​ ​t​h​r​o​u​g​h​ ​a​ ​d​o​c​u​m​e​n​t​,​ ​a​n​d​ ​n​o​ ​p​i​l​l​ ​e​v​e​r​ ​c​l​a​i​m​s​ ​i​t​.
 			 */
@@ -4426,7 +4484,11 @@ export type NamespaceWebTranslation = {
 		 */
 		select_row: string
 		/**
-		 * N​o​ ​s​u​c​h​ ​f​i​l​e​ ​i​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r​’​s​ ​s​n​a​p​s​h​o​t​.
+		 * R​e​a​d​i​n​g​…
+		 */
+		loading: string
+		/**
+		 * T​h​i​s​ ​f​i​l​e​ ​i​s​ ​n​o​t​ ​i​n​ ​t​h​e​ ​c​u​r​r​e​n​t​ ​s​n​a​p​s​h​o​t​:​ ​i​t​ ​w​a​s​ ​r​e​n​a​m​e​d​ ​o​r​ ​d​e​l​e​t​e​d​.
 		 */
 		not_found: string
 		/**
@@ -8496,6 +8558,10 @@ export type TranslationFunctions = {
 				 */
 				not_syncing: () => LocalizedString
 				/**
+				 * relay unreachable
+				 */
+				relay_unreachable: () => LocalizedString
+				/**
 				 * {count} at the relay
 				 */
 				at_relay: (arg: { count: number }) => LocalizedString
@@ -8517,6 +8583,48 @@ export type TranslationFunctions = {
 				 * no relay
 				 */
 				no_relay: () => LocalizedString
+				statuses: {
+					/**
+					 * active
+					 */
+					active: () => LocalizedString
+					/**
+					 * needs a link
+					 */
+					needs_token: () => LocalizedString
+					/**
+					 * joining
+					 */
+					joining: () => LocalizedString
+					/**
+					 * carving (seeding)
+					 */
+					carving_seeding: () => LocalizedString
+					/**
+					 * carving (detaching)
+					 */
+					carving_detaching: () => LocalizedString
+					/**
+					 * unsharing (absorbing)
+					 */
+					unsharing_absorbing: () => LocalizedString
+					/**
+					 * unsharing (disconnecting)
+					 */
+					unsharing_disconnecting: () => LocalizedString
+					/**
+					 * adopting (seeding)
+					 */
+					adopting_seeding: () => LocalizedString
+					/**
+					 * adopting (detaching)
+					 */
+					adopting_detaching: () => LocalizedString
+					/**
+					 * absorbing
+					 */
+					absorbing: () => LocalizedString
+				}
 				/**
 				 * room {room}
 				 */
@@ -8574,6 +8682,10 @@ export type TranslationFunctions = {
 			 * Path
 			 */
 			filter_prefix: () => LocalizedString
+			/**
+			 * Files
+			 */
+			list_label: () => LocalizedString
 			/**
 			 * States
 			 */
@@ -8647,6 +8759,14 @@ export type TranslationFunctions = {
 				 * Disk, the base and the document are the same text.
 				 */
 				in_sync: () => LocalizedString
+				/**
+				 * Disk, the base and the document are the same text. Edits are still on their way to the relay.
+				 */
+				in_sync_relay_pending: () => LocalizedString
+				/**
+				 * Disk, the base and the document are the same text. The relay is unreachable, so edits stay here until it is back.
+				 */
+				in_sync_offline: () => LocalizedString
 				/**
 				 * A binary file or a folder. It is never synced through a document, and no pill ever claims it.
 				 */
@@ -8861,7 +8981,11 @@ export type TranslationFunctions = {
 			 */
 			select_row: () => LocalizedString
 			/**
-			 * No such file in the inspector’s snapshot.
+			 * Reading…
+			 */
+			loading: () => LocalizedString
+			/**
+			 * This file is not in the current snapshot: it was renamed or deleted.
 			 */
 			not_found: () => LocalizedString
 			/**

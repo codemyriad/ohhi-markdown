@@ -2,14 +2,16 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { PathInspection } from '@ohhi/workspace'
+import { SimClock } from '@ohhi/testkit'
+import type { PathInspection, PathPeek } from '@ohhi/workspace'
 import type {
   Workspace,
   WorkspaceInspection,
   WorkspaceMountInspection,
 } from '../workspace.svelte.js'
 import { fakeViewShell } from '../readouts.fixture.js'
-import { viewShellContext } from '../views.js'
+import { getLL } from '@ohhi/i18n'
+import { VIEWS, viewShellContext } from '../views.js'
 import type { Tab } from '../panes.js'
 import Inspector from './Inspector.svelte'
 
@@ -84,7 +86,7 @@ function fakeWorkspace(
   const inspectMounts = vi.fn(async () => mounts)
   const mountInvariants = vi.fn(() => opts.invariants ?? [])
   const inspect = vi.fn(async (path: string) => detail(path))
-  const peek = vi.fn(async (path: string) => ({
+  const peek = vi.fn(async (path: string): Promise<PathPeek | null> => ({
     disk: { text: 'one\ntwo\n', hash: 'hash' },
     lca: { text: 'one\ntwo\n', hash: 'hash' },
     doc: { text: path.endsWith('bad.md') ? 'one\n2\n' : 'one\ntwo\n' },
@@ -277,6 +279,21 @@ describe('Inspector', () => {
     within(again).getByRole('button', { name: 'Close' }).focus()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('region', { name: 'notes/a.md' })).toBeNull()
+    // Focus goes back to the selected row's button, never to body.
+    const rowButton = within(screen.getByTestId('inspector-row:notes/a.md')).getByRole('button', { name: 'notes/a.md' })
+    await waitFor(() => expect(rowButton).toHaveFocus())
+  })
+
+  it('as a drawer: Close with no row in the list lands focus on the list region', async () => {
+    const user = userEvent.setup()
+    const { ws } = fakeWorkspace(VAULT, { selected: 'notes/a.md' })
+    render(Inspector, { workspace: ws, form: 'drawer' })
+    await screen.findByTestId('inspector-row:notes/a.md')
+    // Filter the selected row out of the list, then close the drawer.
+    await user.type(screen.getByTestId('inspector-prefix'), 'img')
+    const region = await screen.findByRole('region', { name: 'notes/a.md' })
+    await user.click(within(region).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Files' })).toHaveFocus())
   })
 
   it('as a column: always present, no Close', async () => {
@@ -360,14 +377,169 @@ describe('Inspector', () => {
 
   it('refreshes on the button, never on a timer, and dates the snapshot from now', async () => {
     const user = userEvent.setup()
-    let t = 1_000_000
+    const clock = new SimClock()
+    clock.advance(1_000_000)
     const { ws, inspectMounts } = fakeWorkspace(VAULT)
-    render(Inspector, { workspace: ws, form: 'column', now: () => t })
+    render(Inspector, { props: { workspace: ws, form: 'column' }, context: viewShellContext(fakeViewShell(0, { clock })) })
     await screen.findByTestId('inspector-row:notes/a.md')
     expect(screen.getByTestId('inspector-age')).toHaveTextContent('snapshot just now')
     expect(inspectMounts).toHaveBeenCalledTimes(1)
-    t += 5_000
+    // Past the 5 s age tick on the injected clock: the age re-words, nothing is re-read.
+    clock.advance(12_000)
+    await waitFor(() => expect(screen.getByTestId('inspector-age')).toHaveTextContent('snapshot 12s ago'))
+    expect(inspectMounts).toHaveBeenCalledTimes(1)
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     await waitFor(() => expect(inspectMounts).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByTestId('inspector-age')).toHaveTextContent('snapshot just now'))
+  })
+
+  it('a new selection drops the last file\'s facts at once, and only the latest read lands', async () => {
+    const user = userEvent.setup()
+    const { ws, inspect, peek } = fakeWorkspace(VAULT, { selected: 'notes/bad.md' })
+    render(Inspector, { workspace: ws, form: 'column' })
+    const file = screen.getByTestId('inspector-file')
+    await waitFor(() => expect(within(file).getByTestId('inspector-record')).toHaveTextContent('diverged true'))
+
+    // Hold every read from here on; resolve them by hand.
+    const held: { path: string; resolve: () => void }[] = []
+    const hold = <T,>(path: string, value: T) =>
+      new Promise<T>((resolve) => held.push({ path, resolve: () => resolve(value) }))
+    inspect.mockImplementation((path: string) => hold(path, detail(path)))
+    peek.mockImplementation((path: string) =>
+      hold<PathPeek | null>(path, { disk: { text: `${path}\n`, hash: 'h' }, lca: { text: `${path}\n`, hash: 'h' }, doc: { text: `${path}\n` } })
+    )
+
+    // B (bad) → A (a) while A's reads are pending: nothing of B under A's name.
+    await user.click(within(screen.getByTestId('inspector-row:notes/a.md')).getByRole('button', { name: 'notes/a.md' }))
+    expect(within(file).getByRole('heading', { level: 3 })).toHaveTextContent('notes/a.md')
+    expect(within(file).queryByTestId('inspector-record')).toBeNull()
+    expect(file).not.toHaveTextContent('notes/bad.md')
+    expect(within(file).getByTestId('inspector-loading')).toBeInTheDocument()
+    for (const h of held.splice(0)) h.resolve()
+    await waitFor(() => expect(within(file).getByTestId('inspector-peek')).toHaveTextContent('notes/a.md'))
+    expect(within(file).getByTestId('inspector-record')).toHaveTextContent('diverged false')
+
+    // Out of order: select bad, then a; bad's reads resolve LAST — a stays.
+    await user.click(within(screen.getByTestId('inspector-row:notes/bad.md')).getByRole('button', { name: 'notes/bad.md' }))
+    await user.click(within(screen.getByTestId('inspector-row:notes/a.md')).getByRole('button', { name: 'notes/a.md' }))
+    const late = held.filter((h) => h.path === 'notes/bad.md')
+    const fresh = held.filter((h) => h.path === 'notes/a.md')
+    expect(late.length).toBeGreaterThan(0)
+    expect(fresh.length).toBeGreaterThan(0)
+    for (const h of fresh) h.resolve()
+    await waitFor(() => expect(within(file).getByTestId('inspector-peek')).toHaveTextContent('notes/a.md'))
+    for (const h of late) h.resolve()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(within(file).getByTestId('inspector-peek')).toHaveTextContent('notes/a.md')
+    expect(within(file).getByTestId('inspector-record')).toHaveTextContent('diverged false')
+  })
+
+  it('a refused read leaves the detail without facts and raises nothing', async () => {
+    const { ws, inspect } = fakeWorkspace(VAULT, { selected: 'notes/a.md' })
+    inspect.mockRejectedValue(new Error('gone'))
+    render(Inspector, { workspace: ws, form: 'column' })
+    await screen.findByTestId('inspector-row:notes/a.md')
+    const file = screen.getByTestId('inspector-file')
+    await waitFor(() => expect(within(file).queryByTestId('inspector-loading')).toBeNull())
+    expect(within(file).queryByTestId('inspector-record')).toBeNull()
+    expect(within(file).getByTestId('inspector-peek')).toHaveTextContent('(absent)')
+  })
+
+  it('an older snapshot resolving late never replaces a newer one', async () => {
+    const user = userEvent.setup()
+    const { ws, inspectMounts } = fakeWorkspace(VAULT)
+    render(Inspector, { workspace: ws, form: 'column' })
+    await screen.findByTestId('inspector-row:notes/a.md')
+    let releaseOld: () => void = () => {}
+    const older = [mount('', [row('notes/old.md')])]
+    inspectMounts.mockImplementationOnce(() => new Promise((r) => (releaseOld = () => r(older))))
+    inspectMounts.mockImplementationOnce(async () => [mount('', [row('notes/new.md')])])
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    await screen.findByTestId('inspector-row:notes/new.md')
+    releaseOld()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.getByTestId('inspector-row:notes/new.md')).toBeInTheDocument()
+    expect(screen.queryByTestId('inspector-row:notes/old.md')).toBeNull()
+  })
+
+  it('an in-sync row whose relay is behind is amber and says so; unreachable is grey; the tally keeps counting it in sync', async () => {
+    const { ws } = fakeWorkspace(
+      [mount('shared', [row('shared/p.md', { providerAttached: true }), row('shared/o.md', { providerAttached: true })])],
+      { selected: 'shared/p.md' }
+    )
+    ws.ui.records['g:shared/p.md'] = record({ synced: false })
+    ws.ui.records['g:shared/o.md'] = record({ connected: false })
+    render(Inspector, { workspace: ws, form: 'column' })
+    await screen.findByTestId('inspector-row:shared/p.md')
+    expect(screen.getByTestId('inspector-row:shared/p.md')).toHaveAttribute('data-state', 'in-sync')
+    expect(screen.getByTestId('inspector-row-state:shared/p.md')).toHaveAttribute('data-tone', 'pending')
+    expect(screen.getByTestId('inspector-row-state:shared/o.md')).toHaveAttribute('data-tone', 'offline')
+    expect(screen.getByTestId('inspector-state:in-sync')).toHaveTextContent('In sync 2')
+    // The mount follows the pill: an unreachable relay (nothing worse) is offline.
+    expect(screen.getByTestId('inspector-scope:shared')).toHaveAttribute('data-tone', 'offline')
+    expect(screen.getByTestId('inspector-mount-line:shared')).toHaveTextContent('relay unreachable')
+    const file = screen.getByTestId('inspector-file')
+    await waitFor(() => expect(within(file).getByTestId('inspector-file-state')).toHaveAttribute('data-tone', 'pending'))
+    expect(within(file).getByTestId('inspector-say')).toHaveTextContent('Edits are still on their way to the relay.')
+  })
+
+  it('the root mount reads local · active from the session, in the card, the strip and the report', async () => {
+    const user = userEvent.setup()
+    const writeClipboard = vi.fn(async (_text: string) => {})
+    const root: WorkspaceMountInspection = { ...mount('', [row('notes/a.md')]), desc: null }
+    const { ws } = fakeWorkspace([root, VAULT[1]])
+    render(Inspector, { workspace: ws, form: 'column', writeClipboard })
+    const line = await screen.findByTestId('inspector-mount-line:/')
+    expect(line).toHaveTextContent('local · active')
+    expect(line).not.toHaveTextContent('no mounts.json row')
+
+    await user.click(screen.getByRole('button', { name: 'Copy report' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Every row in scope' }))
+    expect(writeClipboard.mock.calls[0][0]).toContain('mount root: local · active')
+
+    await user.click(line)
+    expect(screen.getByTestId('inspector-identity')).toHaveTextContent('local · active')
+    expect(screen.getByTestId('inspector-agreement')).toHaveTextContent('the vault root; mounts.json lists only shared folders')
+  })
+
+  it('the scope report states the filters and counts N of M', async () => {
+    const user = userEvent.setup()
+    const writeClipboard = vi.fn(async (_text: string) => {})
+    const { ws } = fakeWorkspace(VAULT)
+    render(Inspector, { workspace: ws, form: 'column', writeClipboard })
+    await screen.findByTestId('inspector-row:notes/a.md')
+    await user.click(screen.getByTestId('inspector-state:diverged'))
+    await user.click(screen.getByRole('button', { name: 'Copy report' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Every row in scope' }))
+    const text = writeClipboard.mock.calls[0][0]
+    expect(text).toContain('filters: state Diverged · path any · order Worst first')
+    expect(text).toContain('rows: 1 of 4')
+  })
+
+  it('an own tab shows its loading state until the first snapshot, then says the file is not in it', async () => {
+    const user = userEvent.setup()
+    const shell = fakeViewShell(0)
+    const { ws, inspectMounts } = fakeWorkspace(VAULT)
+    let release: () => void = () => {}
+    inspectMounts.mockImplementationOnce(() => new Promise((r) => (release = () => r(VAULT))))
+    render(Inspector, { props: { workspace: ws, tab: fileTab('notes/gone.md') }, context: viewShellContext(shell) })
+    const file = screen.getByTestId('inspector-file')
+    expect(within(file).getByTestId('inspector-loading')).toBeInTheDocument()
+    expect(within(file).queryByTestId('inspector-not-found')).toBeNull()
+
+    release()
+    const missing = await within(file).findByTestId('inspector-not-found')
+    expect(missing).toHaveTextContent('not in the current snapshot')
+    await user.click(within(missing).getByRole('button', { name: 'Open the inspector' }))
+    expect(shell.openView).toHaveBeenCalledWith('inspector')
+    await user.click(within(missing).getByRole('button', { name: 'Refresh' }))
+    await waitFor(() => expect(inspectMounts).toHaveBeenCalledTimes(2))
+  })
+
+  it('titles a tab by its argument: Inspector, or Inspector · <path>', () => {
+    const LL = getLL()
+    expect(VIEWS.inspector.title(LL, undefined)).toBe('Inspector')
+    expect(VIEWS.inspector.title(LL, 'notes/welcome.md')).toBe('Inspector · notes/welcome.md')
   })
 })

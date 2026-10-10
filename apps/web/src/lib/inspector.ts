@@ -9,6 +9,7 @@
  * the live sync record the pill reads. The record wins on `diverged`, since
  * that is the one state the reconciler has already refused to write over.
  */
+import type { MountStatus } from '@ohhi/vault'
 import type { PathInspection, PathPeek, SyncRecordFields } from '@ohhi/workspace'
 
 export type RowState =
@@ -229,6 +230,39 @@ export const RELAY_TONE: Record<RelayLink, Tone> = {
   unknown: 'muted',
 }
 
+/**
+ * A ROW's badge tone: its state's, except that an in-sync row (the three
+ * texts agree) follows its relay link — still on its way is pending amber,
+ * an unreachable relay offline grey — so a row is never green where the
+ * pill is not. The classification (`rowState`) and the tally's key are
+ * unchanged: the tally counts the three-text agreement.
+ */
+export function rowTone(state: RowState, relay: RelayLink): Tone {
+  if (state !== 'in-sync') return STATE_TONE[state]
+  if (relay === 'pending') return 'pending'
+  if (relay === 'offline') return 'offline'
+  return 'ok'
+}
+
+/** The dictionary key (`web.devtools.say.*`) of the detail's one sentence for a row. */
+export type SayKey =
+  | 'diverged'
+  | 'disk_changed'
+  | 'doc_ahead'
+  | 'no_lca'
+  | 'no_doc'
+  | 'in_sync'
+  | 'in_sync_relay_pending'
+  | 'in_sync_offline'
+  | 'not_text'
+
+/** The sentence for a row: its state's, with a relay clause on an in-sync row whose relay is behind or away. */
+export function sayKey(state: RowState, relay: RelayLink): SayKey {
+  if (state === 'in-sync' && relay === 'pending') return 'in_sync_relay_pending'
+  if (state === 'in-sync' && relay === 'offline') return 'in_sync_offline'
+  return state.replace('-', '_') as SayKey
+}
+
 export const LINK_GLYPH: Record<Link, string> = { equal: '═══', differs: '≠≠≠', unknown: '···' }
 export const RELAY_GLYPH: Record<RelayLink, string> = { synced: '✓', pending: '…', offline: '✗', none: '–', unknown: '?' }
 
@@ -253,12 +287,18 @@ export function sortRows<T extends ClassifiedRow>(rows: readonly T[], sort: RowS
 
 /** What a mount's header and its scope chip say at a glance. */
 export interface MountHealth {
-  /** The dot: needs a link → offline; any diverged → diverged; anything pending → pending; else ok. */
+  /**
+   * The dot, by the pill's own severity (`worstStatus`: diverged > offline >
+   * pending > ok): needs a link → offline; any diverged → diverged; any row
+   * whose relay is unreachable → offline; anything pending → pending; else ok.
+   */
   tone: 'ok' | 'pending' | 'diverged' | 'offline'
   /** Rows per state. */
   counts: Record<RowState, number>
   /** Text rows the relay has not received everything for. */
   atRelay: number
+  /** Text rows whose relay is unreachable. */
+  relayOffline: number
 }
 
 /** A mount's worst state, from its classified rows (with chains) and its `mounts.json` status. */
@@ -268,15 +308,18 @@ export function mountHealth(
 ): MountHealth {
   const counts = countByState(rows)
   const atRelay = rows.filter((r) => r.chain.relay === 'pending').length
+  const relayOffline = rows.filter((r) => r.chain.relay === 'offline').length
   const tone: MountHealth['tone'] =
     status === 'needs-token'
       ? 'offline'
       : counts.diverged > 0
         ? 'diverged'
-        : counts['disk-changed'] + counts['doc-ahead'] + atRelay > 0
-          ? 'pending'
-          : 'ok'
-  return { tone, counts, atRelay }
+        : relayOffline > 0
+          ? 'offline'
+          : counts['disk-changed'] + counts['doc-ahead'] + atRelay > 0
+            ? 'pending'
+            : 'ok'
+  return { tone, counts, atRelay, relayOffline }
 }
 
 /** Which wrong counts a mount line names, in `ROW_STATES` order (zeros left out). */
@@ -310,6 +353,15 @@ export function mountAgreement(m: {
   return { kind: 'agrees' }
 }
 
+/**
+ * The live session's own status for a mount: its `mounts.json` row's, or —
+ * with no row, as at the vault root, whose session is running — `active`
+ * (the session writes `needs-token` only over a row that already said so).
+ */
+export function sessionStatus(m: { desc: { status: MountStatus } | null }): MountStatus {
+  return m.desc?.status ?? 'active'
+}
+
 /** The host of a relay URL (`wss://relay.example/x` → `relay.example`), or the string when it is not a URL. */
 export function relayHost(url: string | null): string | null {
   if (!url) return null
@@ -326,6 +378,8 @@ export function relayHost(url: string | null): string | null {
 export interface ReportWords {
   title: string
   state(state: RowState): string
+  /** The order's name (`web.devtools.sort.*`). */
+  sort?(sort: RowSort): string
 }
 
 export interface ReportRow extends ClassifiedRow {
@@ -339,7 +393,12 @@ export type Report =
       scope: string
       invariants: readonly string[]
       mounts: readonly { name: string; line: string }[]
+      /** The rows shown: the scope's, after the filters below. */
       rows: readonly ReportRow[]
+      /** How many rows the scope holds before the filters. */
+      total: number
+      /** The filters and order the rows were taken through, so a filtered list never reads as the whole scope. */
+      filters: { state: RowState | null; prefix: string; sort: RowSort }
     }
   | {
       kind: 'file'
@@ -358,8 +417,10 @@ export type Report =
 
 /**
  * The two shapes *Copy report* offers (devtools-shaping open question 2):
- * the selected file, or every row in scope. Plain text, one fact per line,
- * paths left-aligned last so a long one never pushes the columns.
+ * the selected file, or every row in scope — the rows as filtered, with the
+ * scope, the filters and the order stated and counted `N of M`, so a
+ * filtered list never passes for the whole scope. Plain text, one fact per
+ * line, paths left-aligned last so a long one never pushes the columns.
  */
 export function reportText(report: Report, at: number, words: ReportWords): string {
   const out = [`${words.title} · ${new Date(at).toISOString()}`]
@@ -368,7 +429,11 @@ export function reportText(report: Report, at: number, words: ReportWords): stri
     out.push(report.invariants.length ? `invariants: ${report.invariants.length} violated` : 'invariants: hold')
     for (const v of report.invariants) out.push(`  ! ${v}`)
     for (const m of report.mounts) out.push(`mount ${m.name}: ${m.line}`)
-    out.push(`rows: ${report.rows.length}`)
+    const { state, prefix, sort } = report.filters
+    out.push(
+      `filters: state ${state ? words.state(state) : 'any'} · path ${prefix.trim() || 'any'} · order ${words.sort ? words.sort(sort) : sort}`
+    )
+    out.push(`rows: ${report.rows.length} of ${report.total}`)
     const width = Math.max(0, ...report.rows.map((r) => words.state(r.state).length))
     for (const r of report.rows) {
       const chain = r.row.kind === 'text' ? chainText(r.chain) : r.row.kind

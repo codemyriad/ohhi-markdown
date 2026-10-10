@@ -16,9 +16,15 @@
    * one selected file re-reads on its own record's flips, because that read
    * is small. The snapshot's age re-words on the clock's tick; nothing is
    * re-read by it.
+   *
+   * Every read is sequence-guarded: only the latest snapshot and the latest
+   * read of the selected file land, so an older answer resolving late never
+   * replaces a newer one, and the detail is only ever handed the facts read
+   * for ITS path.
    */
   import { ChevronDown, FileText, RefreshCw, SquareArrowOutUpRight } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
+  import { tick as settled, untrack } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { PathPeek } from '@ohhi/workspace'
   import {
@@ -34,6 +40,8 @@
     reportText,
     ROW_STATES,
     rowState,
+    rowTone,
+    sessionStatus,
     sortRows,
     STATE_TONE,
     TONE_DOT,
@@ -100,8 +108,16 @@
   let selected = $state<string | null>(null)
   /** The drawer was closed on the current selection (a new selection reopens it). */
   let closed = $state(false)
-  let detail = $state.raw<WorkspaceInspection | null>(null)
-  let peek = $state.raw<PathPeek | null>(null)
+  /** The selected file's last read, tagged with the path it was read for. */
+  let read = $state.raw<{ path: string; detail: WorkspaceInspection | null; peek: PathPeek | null } | null>(null)
+  /** The selected file's read is in flight. */
+  let reading = $state(false)
+  /** Only the latest read of each kind lands (fixes out-of-order resolution). */
+  let readSeq = 0
+  let mountSeq = 0
+  /** The detail and the peek, only when they were read for the file selected now. */
+  const detail = $derived(read && read.path === selected ? read.detail : null)
+  const peek = $derived(read && read.path === selected ? read.peek : null)
 
   /**
    * What changes the SHAPE of the vault: a create, a delete, a rename, a
@@ -120,10 +136,13 @@
   })
 
   async function refreshMounts(): Promise<void> {
+    const seq = ++mountSeq
     const [next, problems] = await Promise.all([
       workspace.inspectMounts(),
       Promise.resolve(workspace.mountInvariants()),
     ])
+    // A newer refresh started while this one was out: its snapshot (and age) wins.
+    if (seq !== mountSeq) return
     mounts = next
     invariants = problems
     snapshotAt = now()
@@ -166,17 +185,32 @@
     void recordSig
     void tick
     const path = selected
+    const seq = ++readSeq
     if (path === null) {
-      detail = null
-      peek = null
+      read = null
+      reading = false
       return
     }
-    void Promise.all([workspace.inspect(path), workspace.peek(path)]).then(([d, p]) => {
-      if (selected !== path) return
-      detail = d
-      peek = p
-    })
+    // A different file: drop the last one's facts at once (the detail shows
+    // its loading state), never keep them under the new name.
+    if (untrack(() => read?.path) !== path) read = null
+    reading = true
+    Promise.all([workspace.inspect(path), workspace.peek(path)]).then(
+      ([d, p]) => {
+        if (seq !== readSeq) return
+        read = { path, detail: d, peek: p }
+        reading = false
+      },
+      () => {
+        // A refused read leaves the detail without facts, never with an unhandled rejection.
+        if (seq !== readSeq) return
+        reading = false
+      }
+    )
   })
+  /** The snapshot has not answered yet, or the selected file's facts are still on their way. */
+  const loaded = $derived(snapshotAt !== null)
+  const detailLoading = $derived(!loaded || (reading && read === null))
 
   function select(path: string): void {
     selected = path
@@ -187,6 +221,11 @@
   const key = (s: string): string => s.replace('-', '_')
   const stateLabel = (s: RowState): string => t.states[key(s) as keyof typeof t.states]()
   const mountName = (path: string): string => path || t.root_mount()
+  /** A mount's status in words: the live session's (`sessionStatus`), through the dictionary. */
+  const statusWord = (m: WorkspaceMountInspection): string => {
+    const s = sessionStatus(m)
+    return t.mount.statuses[s.replace(/[:-]/g, '_') as keyof typeof t.mount.statuses]?.() ?? s
+  }
   const short = (s: string): string => (s.length > 8 ? `${s.slice(0, 8)}…` : s)
 
   function age(at: number | null, _tick: number): string {
@@ -219,13 +258,14 @@
       t.mount.counted[key(s) as keyof typeof t.mount.counted]({ count: h.counts[s] })
     )
     if (h.atRelay > 0) parts.push(t.mount.at_relay({ count: h.atRelay }))
+    if (h.relayOffline > 0) parts.push(t.mount.relay_unreachable())
     if (parts.length) return parts.join(' · ')
     return h.tone === 'offline' ? t.mount.not_syncing() : t.mount.all_in_sync()
   }
 
   /** A strip line's middle, as words (also the report's mount line). */
   function mountLine(x: (typeof perMount)[number]): string {
-    const status = agreementOk(x.agreement) ? (x.m.desc?.status ?? 'active') : agreementText(x.agreement)
+    const status = agreementOk(x.agreement) ? statusWord(x.m) : agreementText(x.agreement)
     return [
       `${x.m.stats.provenance} · ${status}`,
       relayHost(x.m.relay) ?? t.mount.no_relay(),
@@ -238,7 +278,7 @@
   /** The report, when the clipboard refused it: shown to copy by hand. */
   let fallback = $state<string | null>(null)
   async function copy(kind: 'file' | 'scope'): Promise<void> {
-    const words = { title: t.copy.report_title(), state: stateLabel }
+    const words = { title: t.copy.report_title(), state: stateLabel, sort: (s: RowSort) => t.sort[s]() }
     const text =
       kind === 'file' && selectedRow
         ? reportText({ kind: 'file', row: selectedRow, record, peek, detail }, now(), words)
@@ -249,6 +289,8 @@
               invariants,
               mounts: inScope.map((x) => ({ name: mountName(x.m.mountPath), line: mountLine(x) })),
               rows: shown,
+              total: classified.length,
+              filters: { state: stateFilter, prefix, sort },
             },
             now(),
             words
@@ -279,9 +321,24 @@
   )
   const closeable = $derived(form !== 'column')
 
+  /** The list's scroll region: where focus goes when the drawer closes with no row to land on. */
+  let listRegion = $state<HTMLElement>()
+  /**
+   * Close the drawer and hand focus back to the list (the selected row's
+   * button, else the list region), so it never falls to `body` with the
+   * drawer that held it.
+   */
+  function closeDetail(): void {
+    closed = true
+    void settled().then(() => {
+      const row = listRegion?.querySelector<HTMLElement>('tr[data-selected="true"] button')
+      ;(row ?? listRegion)?.focus()
+    })
+  }
+
   function onkeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape' && closeable && detailOpen && !fileArg) {
-      closed = true
+      closeDetail()
       e.stopPropagation()
     }
   }
@@ -305,7 +362,18 @@
   class="@container flex h-full min-h-0 w-full flex-col bg-base-100 text-xs text-base-content"
 >
   {#if fileArg}
-    <InspectorDetail path={fileArg} row={selectedRow} {record} {detail} {peek} form="tab" {now} />
+    <InspectorDetail
+      path={fileArg}
+      row={selectedRow}
+      {record}
+      {detail}
+      {peek}
+      readPath={read?.path ?? null}
+      loading={detailLoading}
+      form="tab"
+      {now}
+      onrefresh={() => tick++}
+    />
   {:else}
     <header class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-base-200 px-3 py-2">
       <h2 class="m-0 {HEADING}">{t.title()}</h2>
@@ -402,7 +470,7 @@
             <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               {@render dot(scoped.health.tone, t.health[scoped.health.tone]())}
               <span class="font-semibold">{mountName(m.mountPath)}</span>
-              <span class="text-base-content/80">{m.stats.provenance} · {m.desc?.status ?? t.mount.no_desc()}</span>
+              <span data-testid="inspector-identity" class="text-base-content/80">{m.stats.provenance} · {statusWord(m)}</span>
               <span class="text-base-content/80">{relayHost(m.relay) ?? t.mount.no_relay()}</span>
               <span class="font-ed-mono text-[11px] text-base-content/70" title={m.stats.room}
                 >{t.mount.room({ room: short(m.stats.room) })}</span
@@ -454,7 +522,7 @@
                   {@render dot(x.health.tone, t.health[x.health.tone]())}
                   <span class="font-semibold">{mountName(x.m.mountPath)}</span>
                   <span class="truncate text-base-content/80">
-                    {x.m.stats.provenance} · {ok ? (x.m.desc?.status ?? 'active') : agreementText(x.agreement)}
+                    {x.m.stats.provenance} · {ok ? statusWord(x.m) : agreementText(x.agreement)}
                     · {relayHost(x.m.relay) ?? t.mount.no_relay()} · {t.mount.rows({ count: x.rows.length })}
                   </span>
                   <span class="ml-auto shrink-0 text-base-content/80">{wrongText(x.health)}</span>
@@ -508,7 +576,7 @@
           </span>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-auto">
+        <div bind:this={listRegion} tabindex="-1" aria-label={t.list_label()} role="region" class="min-h-0 flex-1 overflow-auto focus-visible:outline-none">
           {#if shown.length}
             <table data-testid="inspector-rows" class="w-full border-collapse">
               <thead class="sticky top-0 z-[1] bg-base-100 text-left">
@@ -526,6 +594,7 @@
               <tbody>
                 {#each shown as { row, state, chain: c } (row.guid)}
                   {@const diverged = state === 'diverged'}
+                  {@const tone = rowTone(state, c.relay)}
                   {@const isSel = selected === row.path}
                   {@const cut = row.path.lastIndexOf('/') + 1}
                   <tr
@@ -573,9 +642,11 @@
                     </td>
                     <td class="px-2 py-0.5 whitespace-nowrap">
                       <span
-                        class="inline-flex items-center gap-1.5 rounded-full px-2 py-px text-[11px] text-base-content {TONE_TINT[STATE_TONE[state]]} {diverged ? 'font-semibold' : ''}"
+                        data-testid="inspector-row-state:{row.path}"
+                        data-tone={tone}
+                        class="inline-flex items-center gap-1.5 rounded-full px-2 py-px text-[11px] text-base-content {TONE_TINT[tone]} {diverged ? 'font-semibold' : ''}"
                       >
-                        {@render dot(STATE_TONE[state])}
+                        {@render dot(tone)}
                         {stateLabel(state)}
                       </span>
                     </td>
@@ -618,9 +689,11 @@
           {record}
           {detail}
           {peek}
+          readPath={read?.path ?? null}
+          loading={detailLoading}
           {form}
           {now}
-          onclose={closeable && detailOpen ? () => (closed = true) : undefined}
+          onclose={closeable && detailOpen ? closeDetail : undefined}
           closeClass={form === 'auto' ? '@4xl:hidden' : ''}
         />
       </div>

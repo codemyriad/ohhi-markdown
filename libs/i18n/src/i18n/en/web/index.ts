@@ -1398,6 +1398,8 @@ const devtools = {
     rows: '{count:number} row{{s}}',
     all_in_sync: 'all in sync',
     not_syncing: 'not syncing',
+    /** A mount line's right end when rows' relay is offline (the pill is grey). */
+    relay_unreachable: 'relay unreachable',
     at_relay: '{count:number} at the relay',
     counted: {
       diverged: '{count:number} diverged',
@@ -1405,6 +1407,19 @@ const devtools = {
       doc_ahead: '{count:number} base pending',
     },
     no_relay: 'no relay',
+    /** A mount's status (`MountStatus`, `:` and `-` as `_`), in the identity line, the strip and the report. */
+    statuses: {
+      active: 'active',
+      needs_token: 'needs a link',
+      joining: 'joining',
+      carving_seeding: 'carving (seeding)',
+      carving_detaching: 'carving (detaching)',
+      unsharing_absorbing: 'unsharing (absorbing)',
+      unsharing_disconnecting: 'unsharing (disconnecting)',
+      adopting_seeding: 'adopting (seeding)',
+      adopting_detaching: 'adopting (detaching)',
+      absorbing: 'absorbing',
+    },
     room: 'room {room:string}',
     stores: '{entries:number} entries · {docs:number} docs · {base:number} base · {journal:number} journal',
     agrees: 'mounts.json agrees',
@@ -1420,6 +1435,8 @@ const devtools = {
     open_here: '{count:number} open here',
   },
   filter_prefix: 'Path',
+  /** The list's scroll region (focus lands on it when the drawer closes with no row selected). */
+  list_label: 'Files',
   tally: 'States',
   sort_label: 'Order',
   sort: {
@@ -1448,6 +1465,11 @@ const devtools = {
     no_doc:
       'Nothing is in memory for this file right now; it lives on disk and in the base store. Opening it loads one.',
     in_sync: 'Disk, the base and the document are the same text.',
+    /** An in-sync row whose relay has not received every edit (its badge is pending amber). */
+    in_sync_relay_pending: 'Disk, the base and the document are the same text. Edits are still on their way to the relay.',
+    /** An in-sync row whose relay is unreachable (its badge is offline grey). */
+    in_sync_offline:
+      'Disk, the base and the document are the same text. The relay is unreachable, so edits stay here until it is back.',
     not_text: 'A binary file or a folder. It is never synced through a document, and no pill ever claims it.',
   },
   rows: '{shown:number} of {total:number} row{{s}}',
@@ -1515,7 +1537,10 @@ const devtools = {
     raw: 'Raw facts',
   },
   select_row: 'Select a text row to inspect its disk ↔ CRDT state.',
-  not_found: 'No such file in the inspector’s snapshot.',
+  /** The detail before the first snapshot, or while the selected file is being read. */
+  loading: 'Reading…',
+  /** A tab's path the current snapshot does not name (rename-following is deferred). */
+  not_found: 'This file is not in the current snapshot: it was renamed or deleted.',
   no_preimages: 'no pre-images yet',
   no_doc_store: 'no doc store',
   never: 'never',
