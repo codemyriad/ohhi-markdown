@@ -621,20 +621,22 @@ cleanable with `share-rm`/the admin API, or just point the dev relay at a
 fresh `DATA_DIR`. If the vault is open when you remove it, the workspace is
 shut down first; you stay on the manager.
 
-**Sync devtools (M6).** A read-only inspector of any file's disk ↔ CRDT
-state. Enable it with **⚙ Settings → Developer tools** (persisted per
-device) or force it for one session with `?debug=1`. A bottom drawer shows,
-for the selected file: the raw sync-record fields plus the pill status they
-compute to (so you can see *why* a pill is that color); the LCA vs live doc
-heads with an explicit **DOC AHEAD of LCA** marker while a flush is pending;
-LCA facts (content hash — "(never on disk)" for remote-created files — EOL
-flavor, BOM, base-text length); the durable doc blob's size and time since
-last flush (session-local — a blob restored from a previous launch reads
-"never" until its first flush); the pre-image **journal timeline** (every
-guarded disk write, newest first); and the file's mount (room, provenance).
-A footer lists every mount's room, provenance, and entry/doc/LCA/journal
-counts. It refreshes on selection, on record changes, and via its refresh
-button — no polling, and nothing in it can mutate state.
+**Sync devtools (M6).** A read-only inspector of every file's disk ↔ CRDT
+state, opened as a pane tab. Enable it with **⚙ Settings → Developer tools**
+(persisted per device) or force it for one session with `?debug=1`; then
+*Open inspector* in the palette, the bug icon at the toolbar's right, or
+*Inspect this note* in the sync icon's hover card opens it. The list: scope
+chips per mount (each with a health dot), the mount's identity and whether
+`mounts.json` agrees with the live session, then the files as pipeline rows
+(`disk ═══ base ≠≠≠ doc … relay`) in the pill's colours, worst first, with tally
+chips per state that are both the key and the filter. Selecting a row shows
+its detail — the chain, its state in a plain sentence, the three texts and
+their pairwise diffs, the raw facts — as a right column when the
+pane is wide and a drawer over the list when it is narrow; *Open in its own
+tab* moves one file's detail to a tab titled `Inspector · <path>`. **Copy
+report** puts the selected file or every row in scope on the clipboard as
+text for a bug report. It refreshes on record changes, scope changes and its
+refresh button — no polling, and nothing in it can mutate state.
 
 ---
 

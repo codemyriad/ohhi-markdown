@@ -170,10 +170,15 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
    as text* puts the whole list on the clipboard; paste it, or take a
    screenshot.
 4. **The sync inspector for the affected note.** Turn developer tools on in
-   *Settings › Developer*, then run *Open inspector* from the command palette. In
-   the browser, adding `?debug=1` to the URL opens it for one session. Select
-   the note and screenshot it. It shows the sync record, disk ↔ CRDT state and
-   journal entries.
+   *Settings › Developer*, then open the inspector: *Open inspector* in the
+   command palette, or the bug icon at the toolbar's right. In the browser,
+   adding `?debug=1` to the URL turns developer tools on for one session. The
+   note you were looking at is selected: its chain (disk, base — the text
+   disk and doc last agreed on — doc, relay), its state in words, and the
+   diff that explains it. (*Inspect this note* in the sync icon's hover card
+   opens that note in its own inspector tab.) Then **Copy report** → *The
+   selected file*, and paste the text into your report instead of a
+   screenshot.
 5. **The sync pill's colour**, and whether a teammate sees the same thing.
 6. **Desktop app or browser** (and which browser), plus which vault and folder.
 
