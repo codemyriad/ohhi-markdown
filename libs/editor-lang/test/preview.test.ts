@@ -183,10 +183,21 @@ describe('blocks: quotes, rules, fences (1,016 / 314 / 527)', () => {
     expect(decos.filter((d) => d.kind === 'line' && d.value === 'cm-live-code')).toHaveLength(1)
   })
 
-  it('shows a fence’s own lines when the caret is inside it', () => {
+  it('keeps both fences drawn when the caret is in the code (E3)', () => {
     const decos = decorations(makeState('```rust\nfn main() {}\n```\n', { at: 10 }))
-    expect(decos.some((d) => d.value === 'FenceWidget')).toBe(false)
-    expect(decos.filter((d) => d.kind === 'line' && d.value === 'cm-live-code')).toHaveLength(3)
+    expect(decos.filter((d) => d.value === 'FenceWidget')).toHaveLength(2)
+    expect(decos.filter((d) => d.kind === 'line' && d.value === 'cm-live-code')).toHaveLength(1)
+  })
+
+  it('shows only the fence line the caret is on as text (E3)', () => {
+    // On the opening line: it is text (with the card's top edge), the cap stays.
+    const open = decorations(makeState('```rust\nfn main() {}\n```\n', { at: 3 }))
+    expect(open.filter((d) => d.value === 'FenceWidget').map((d) => d.text)).toEqual(['```'])
+    expect(classes(open, '')).toEqual(expect.arrayContaining(['cm-live-code', 'cm-code-first']))
+    // On the closing line: the header stays, the cap is text with the bottom edge.
+    const close = decorations(makeState('```rust\nfn main() {}\n```\n', { at: 22 }))
+    expect(close.filter((d) => d.value === 'FenceWidget').map((d) => d.text)).toEqual(['```rust'])
+    expect(close.filter((d) => d.kind === 'line' && d.value === 'cm-code-last')).toHaveLength(1)
   })
 })
 

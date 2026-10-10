@@ -6,7 +6,7 @@
  */
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { ensureSyntaxTree } from '@codemirror/language'
-import { EditorSelection, EditorState, type Transaction } from '@codemirror/state'
+import { EditorSelection, EditorState, type Transaction, type TransactionSpec } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
 import { Frontmatter, Highlight, Tag, WikiLink } from '@ohhi/editor-lang'
 import { describe, expect, it } from 'vitest'
@@ -16,14 +16,20 @@ import {
   cycleHeading,
   FORMAT_COMMANDS,
   formatKeymap,
+  indentFormat,
+  insertCallout,
+  insertCodeBlock,
   insertImage,
   insertLink,
+  insertRule,
   insertTable,
   insertWikilink,
+  outdentFormat,
   setHeading,
   toggleBold,
   toggleBulletList,
   toggleHeading,
+  toggleHighlight,
   toggleInlineCode,
   toggleItalic,
   toggleOrderedList,
@@ -81,7 +87,9 @@ function fakeView(state: EditorState): EditorView & { transactions: Transaction[
   const view = {
     state,
     transactions: [] as Transaction[],
-    dispatch(tr: Transaction) {
+    // A command may dispatch a Transaction or a spec (the list indent pair does).
+    dispatch(arg: Transaction | TransactionSpec) {
+      const tr = 'startState' in arg ? (arg as Transaction) : view.state.update(arg)
       view.transactions.push(tr)
       view.state = tr.state
     },
@@ -109,6 +117,7 @@ describe('inline toggles', () => {
     ['italic', toggleItalic, '*'],
     ['strike', toggleStrike, '~~'],
     ['code', toggleInlineCode, '`'],
+    ['highlight', toggleHighlight, '=='],
   ]
   for (const [name, cmd, m] of cases) {
     describe(name, () => {
@@ -329,6 +338,51 @@ describe('inserts', () => {
   })
 })
 
+describe('block commands (E6)', () => {
+  it('indent: a list line nests under its sibling, as Tab does', () => {
+    expect(run(indentFormat, '- a\n- b‸')).toBe('- a\n  - b‸')
+  })
+  it('indent: off a list line it indents the line', () => {
+    expect(apply(indentFormat, 'pla‸in').ran).toBe(true)
+    expect(run(indentFormat, 'pla‸in')).not.toBe('pla‸in')
+  })
+  it('outdent: takes one indent unit off a nested list line', () => {
+    expect(run(outdentFormat, '- a\n\t- b‸')).toBe('- a\n- b‸')
+  })
+  it('callout: the first line takes `> [!note] `, the rest `> `, a gap `>`', () => {
+    expect(run(insertCallout, '‸')).toBe('> [!note] ‸')
+    expect(run(insertCallout, 'Ti‸tle')).toBe('> [!note] Ti‸tle')
+    expect(run(insertCallout, '‹one\n\ntwo›')).toBe('‹> [!note] one\n>\n> two›')
+  })
+  it('callout: toggles off on a callout', () => {
+    expect(run(insertCallout, '> [!note] ‹one\n>\n> two›')).toBe('‹one\n\ntwo›')
+    expect(twice(insertCallout, 'Ti‸tle')).toBe('Ti‸tle')
+  })
+  it('code block: an empty block, caret on the info string', () => {
+    expect(run(insertCodeBlock, '‸')).toBe('```‸\n\n```')
+    expect(run(insertCodeBlock, 'text‸')).toBe('text\n```‸\n\n```')
+  })
+  it('code block: wraps the selected lines, with a fence longer than any inside', () => {
+    expect(run(insertCodeBlock, 'a‹b\nc›d')).toBe('```‸\nab\ncd\n```')
+    expect(run(insertCodeBlock, '‹a ``` b›')).toBe('````‸\na ``` b\n````')
+  })
+  it('code block: a no-op inside a fence', () => {
+    expect(apply(insertCodeBlock, FENCE).ran).toBe(false)
+  })
+  it('rule: `---` on its own line, never a setext underline', () => {
+    expect(run(insertRule, '‸')).toBe('---\n‸')
+    expect(run(insertRule, 'para‸')).toBe('para\n\n---\n‸')
+    expect(run(insertRule, 'para\n‸')).toBe('para\n\n---\n‸')
+    expect(run(insertRule, 'para‸\nnext')).toBe('para\n\n---\n‸\nnext')
+  })
+  it('every new command is one transaction and answers false read-only', () => {
+    for (const cmd of [insertCallout, insertCodeBlock, insertRule, toggleHighlight]) {
+      expect(apply(cmd, 'x‸').dispatches).toBe(1)
+      expect(apply(cmd, 'x‸', true).ran).toBe(false)
+    }
+  })
+})
+
 describe('frontmatter', () => {
   it('is literal: no command edits inside it', () => {
     const doc = '---\ntitle: x‸\n---\nbody'
@@ -338,11 +392,12 @@ describe('frontmatter', () => {
 })
 
 describe('FORMAT_COMMANDS', () => {
-  it('is the ordered table with Obsidian’s three default keys', () => {
+  it('is the ordered table, with its default keys', () => {
     expect(FORMAT_COMMANDS.map((c) => c.id)).toEqual([
       'format.bold',
       'format.italic',
       'format.strike',
+      'format.highlight',
       'format.code',
       'format.heading-1',
       'format.heading-2',
@@ -351,20 +406,39 @@ describe('FORMAT_COMMANDS', () => {
       'format.list',
       'format.ordered-list',
       'format.task',
+      'format.indent',
+      'format.outdent',
       'format.quote',
+      'format.callout',
+      'format.code-block',
       'format.link',
       'format.wikilink',
       'format.table',
       'format.image',
+      'format.rule',
     ])
     expect(FORMAT_COMMANDS.filter((c) => c.keys).map((c) => [c.id, c.keys])).toEqual([
       ['format.bold', 'Mod+b'],
       ['format.italic', 'Mod+i'],
+      ['format.strike', 'Mod+Shift+x'],
+      ['format.highlight', 'Mod+Shift+h'],
+      ['format.code', 'Mod+Shift+c'],
+      ['format.list', 'Mod+Shift+8'],
+      ['format.ordered-list', 'Mod+Shift+7'],
       ['format.link', 'Mod+k'],
     ])
   })
-  it('the CM6 keymap is the same three keys in CM6 spelling', () => {
-    expect(formatKeymap().map((k) => k.key)).toEqual(['Mod-b', 'Mod-i', 'Mod-k'])
+  it('the CM6 keymap is the same keys in CM6 spelling', () => {
+    expect(formatKeymap().map((k) => k.key)).toEqual([
+      'Mod-b',
+      'Mod-i',
+      'Mod-Shift-x',
+      'Mod-Shift-h',
+      'Mod-Shift-c',
+      'Mod-Shift-8',
+      'Mod-Shift-7',
+      'Mod-k',
+    ])
   })
 })
 
@@ -372,17 +446,22 @@ describe('formatKeymap(bindings) — the host’s resolved keymap (quiet-shell F
   const runOf = (id: string) => FORMAT_COMMANDS.find((c) => c.id === id)!.run
   it('a cleared format.bold ([]) takes Mod-b out of the editor', () => {
     const table = formatKeymap({ 'format.bold': [] })
-    expect(table.map((k) => k.key)).toEqual(['Mod-i', 'Mod-k'])
+    expect(table.map((k) => k.key)).not.toContain('Mod-b')
+    expect(table.map((k) => k.key)).toContain('Mod-i')
     expect(table.some((k) => k.run === toggleBold)).toBe(false)
   })
   it('a rebind replaces the default; several chords bind several keys', () => {
-    const table = formatKeymap({ 'format.bold': ['Alt+B'], 'format.strike': ['Mod+Shift+x', 'Alt+s'] })
-    expect(table.map((k) => k.key)).toEqual(['Alt-b', 'Mod-i', 'Mod-Shift-x', 'Alt-s', 'Mod-k'])
+    const table = formatKeymap({ 'format.bold': ['Alt+B'], 'format.strike': ['Mod+Shift+s', 'Alt+s'] })
+    expect(table.map((k) => k.key).slice(0, 4)).toEqual(['Alt-b', 'Mod-i', 'Mod-Shift-s', 'Alt-s'])
+    expect(table.map((k) => k.key)).not.toContain('Mod-Shift-x')
     expect(table.find((k) => k.key === 'Alt-b')?.run).toBe(toggleBold)
     expect(table.find((k) => k.key === 'Alt-s')?.run).toBe(runOf('format.strike'))
   })
   it('an absent id keeps its default', () => {
-    expect(formatKeymap({ 'format.code': ['Mod+e'] }).map((k) => k.key)).toEqual(['Mod-b', 'Mod-i', 'Mod-e', 'Mod-k'])
+    const keys = formatKeymap({ 'format.code': ['Mod+e'] }).map((k) => k.key)
+    expect(keys).toContain('Mod-e')
+    expect(keys).not.toContain('Mod-Shift-c')
+    expect(keys).toContain('Mod-Shift-x')
   })
   it('cmKey spells registry chords the CM6 way', () => {
     expect(cmKey('Mod+Shift+K')).toBe('Mod-Shift-k')
@@ -402,7 +481,7 @@ describe('formatKeymap(bindings) — the host’s resolved keymap (quiet-shell F
   it('editorKeymap rebinds or unbinds any editor key by id — edit.toggle-checkbox too', () => {
     const run = () => true
     const keys = [{ id: 'edit.toggle-checkbox' as const, run, keys: 'Mod+l' }, ...FORMAT_COMMANDS]
-    expect(editorKeymap(keys).map((k) => k.key)).toEqual(['Mod-l', 'Mod-b', 'Mod-i', 'Mod-k'])
+    expect(editorKeymap(keys).map((k) => k.key).slice(0, 3)).toEqual(['Mod-l', 'Mod-b', 'Mod-i'])
     expect(editorKeymap(keys, { 'edit.toggle-checkbox': [] }).some((k) => k.run === run)).toBe(false)
     expect(editorKeymap(keys, { 'edit.toggle-checkbox': ['Alt+l'] }).find((k) => k.run === run)?.key).toBe('Alt-l')
   })

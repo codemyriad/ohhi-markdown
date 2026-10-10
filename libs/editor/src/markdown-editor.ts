@@ -8,7 +8,7 @@
  * reconfigured rather than recreated — recreating it would tear down the
  * Y.Text binding and lose cursor, scroll and undo history.
  */
-import { defaultKeymap } from '@codemirror/commands'
+import { defaultKeymap, indentLess } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { indentUnit } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
@@ -17,18 +17,22 @@ import { EditorView, keymap } from '@codemirror/view'
 import type { Awareness } from 'y-protocols/awareness'
 import type { EngineDoc } from '@ohhi/sync'
 import {
+  fenceLanguages,
   Frontmatter,
   Highlight,
   indentListItem,
+  insertIndent,
   livePreview,
   outdentListItem,
   previewMode,
+  proseEditing,
   Tag,
   toggleTask,
   type ViewMode,
   WikiLink,
   wikiLinkExtensions,
 } from '@ohhi/editor-lang'
+import { attachmentDrop } from './attachments.js'
 import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
 import { editorKeymap, FORMAT_COMMANDS, type EditorKey, type FormatBindings } from './format.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
@@ -165,6 +169,12 @@ export function createMarkdownEditor(
     // chord the registry let through). The shell hands its resolved keymap
     // over, so a cleared binding is cleared here too.
     keysCompartment.of(editorKeys(opts.formatBindings)),
+    // Tab off a list line (E2): a tab at the caret, Shift+Tab outdents —
+    // below the list keys (Prec.high, which take a list line) and below the
+    // completion's own Tab while its list is open. Not in Reading (both
+    // decline when read-only). Escape-then-Tab still leaves the editor: that
+    // is CM6's tab-focus mode, which a Tab binding does not disable.
+    keymap.of([{ key: 'Tab', run: insertIndent, shift: indentLess }]),
     keymap.of(defaultKeymap),
     // GFM is the base because the vault is GFM: tables, task lists,
     // strikethrough and bare URLs (3,005 of them) do not parse without it.
@@ -179,6 +189,9 @@ export function createMarkdownEditor(
       // 369 of the vault's 527 fences.
       codeLanguages: languages,
     }),
+    // The same list names a fence's language in completion and on the code
+    // card's chip (E3): name + aliases, the two fields completion reads.
+    fenceLanguages.of(languages.map((l) => ({ name: l.name, alias: l.alias }))),
     // The vault indents lists with tabs and reads them at four columns, and a
     // rendered bullet has to sit where the tab put it (read-shaping.md B1).
     EditorState.tabSize.of(4),
@@ -187,6 +200,13 @@ export function createMarkdownEditor(
     // After the wikilink extensions: live preview's plain-click rule only
     // applies where a link is RENDERED, and V2c's Mod-click keeps the rest.
     ...livePreview(),
+    // Pasting and dropping pictures (E5): inert until the host provides
+    // `attachmentHost`, and then before CM6's own paste/drop (which would read
+    // the file as text) because domEventHandlers run in precedence order.
+    attachmentDrop(),
+    // Bracket pairs ( [ { ` — never quotes — and `*` `_` `=` `~` wrapping a
+    // selection (E2).
+    proseEditing(),
     EditorView.lineWrapping,
     // CM6 renders the content as role="textbox"; without a name it is an
     // unlabelled input to assistive tech (and to the axe gate).

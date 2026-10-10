@@ -29,7 +29,8 @@ import type { PaneShell } from './workspace-panes.svelte.js'
 export interface ShellCommandDeps {
   registry: CommandRegistry
   openPalette(mode: PaletteMode): void
-  panes: Pick<PaneShell, 'commands' | 'readCommands' | 'formatCommands' | 'travel' | 'handleKey'>
+  panes: Pick<PaneShell, 'commands' | 'readCommands' | 'formatCommands' | 'travel' | 'handleKey'> &
+    Partial<Pick<PaneShell, 'tableCommands'>>
   groups: Pick<GroupShell, 'commands' | 'savedCommands'>
   daily: Pick<DailyShell, 'openToday' | 'step' | 'steps'>
   fileOps: Pick<FileActions, 'createNote' | 'op'>
@@ -273,6 +274,9 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
   // the editor's matching CM6 keymap never double-fires, because this handler
   // runs in the capture phase and stops the event before CM6 sees it.
   registry.register(...panes.formatCommands())
+  // The `table.*` table (E4): palette-only, no key, shown while the caret is
+  // in a table. Optional so a host without tables (and the tests) need not care.
+  registry.register(...(panes.tableCommands?.() ?? []))
   // One palette row per SAVED group (Fork 2-A). A provider rather than
   // registrations, because the ids come and go every time a group is closed
   // or reopened — and a row nobody can predict is a row nobody can bind.

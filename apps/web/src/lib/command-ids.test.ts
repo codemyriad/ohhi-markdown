@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { COMMAND_IDS } from './command-ids.js'
 import { CommandRegistry } from './commands.js'
-import { formatCommands, groupCommands, paneCommands } from './pane-commands.js'
+import { formatCommands, groupCommands, paneCommands, tableCommands } from './pane-commands.js'
 import { readCommands } from './read.svelte.js'
 import { PRESETS } from './layout-spec.js'
 import { installShellCommands } from './shell-commands.js'
@@ -17,7 +17,11 @@ import { installShellCommands } from './shell-commands.js'
 const noop = new Proxy({}, { get: () => () => false }) as never
 
 function registeredIds(): string[] {
-  const registry = new CommandRegistry(false)
+  return shellRegistry().bindings().map((b) => b.id)
+}
+
+function shellRegistry(mac = false): CommandRegistry {
+  const registry = new CommandRegistry(mac)
   installShellCommands({
     registry,
     openPalette: vi.fn(),
@@ -25,6 +29,7 @@ function registeredIds(): string[] {
       commands: () => paneCommands(noop),
       readCommands: () => readCommands(noop),
       formatCommands: () => formatCommands(noop),
+      tableCommands: () => tableCommands(noop),
       travel: vi.fn(),
       handleKey: () => false,
     },
@@ -46,7 +51,7 @@ function registeredIds(): string[] {
     templates: { commands: () => [] },
     help: { run: vi.fn(), menuMounted: () => true },
   })
-  return registry.bindings().map((b) => b.id)
+  return registry
 }
 
 describe('COMMAND_IDS', () => {
@@ -56,5 +61,17 @@ describe('COMMAND_IDS', () => {
   })
   it('has no duplicates', () => {
     expect(new Set(COMMAND_IDS).size).toBe(COMMAND_IDS.length)
+  })
+})
+
+describe('the default keys', () => {
+  it('no two commands share a default chord, on a Mac or off one (E6 picked free ones)', () => {
+    for (const mac of [false, true]) {
+      const clashes = shellRegistry(mac)
+        .bindings()
+        .filter((b) => b.conflicts.length > 0)
+        .map((b) => `${b.id} (${b.display}) ↔ ${b.conflicts.join(', ')}`)
+      expect(clashes).toEqual([])
+    }
   })
 })

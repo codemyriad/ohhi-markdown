@@ -15,6 +15,7 @@
  *   left alone, and a command that changed nothing answers false;
  * - each selection range is handled on its own (multi-cursor).
  */
+import { indentLess, indentMore } from '@codemirror/commands'
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import {
   EditorSelection,
@@ -24,6 +25,7 @@ import {
   type Text,
 } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
+import { indentListItem, outdentListItem } from '@ohhi/editor-lang'
 
 type Tree = ReturnType<typeof syntaxTree>
 type Node = ReturnType<Tree['resolveInner']>
@@ -99,6 +101,8 @@ const STRONG: InlineSpec = { mark: '**', node: 'StrongEmphasis', markNode: 'Emph
 const EMPHASIS: InlineSpec = { mark: '*', node: 'Emphasis', markNode: 'EmphasisMark' }
 const STRIKE: InlineSpec = { mark: '~~', node: 'Strikethrough', markNode: 'StrikethroughMark' }
 const CODE: InlineSpec = { mark: '`', node: 'InlineCode', markNode: 'CodeMark' }
+/** Obsidian's `==highlight==` (`@ohhi/editor-lang`'s `Highlight` grammar). */
+const HIGHLIGHT: InlineSpec = { mark: '==', node: 'Highlight', markNode: 'HighlightMark' }
 
 /**
  * Where the content of a line starts: past any quote markers, indent, list
@@ -293,6 +297,7 @@ export const toggleBold: Command = toggleInline(STRONG)
 export const toggleItalic: Command = toggleInline(EMPHASIS)
 export const toggleStrike: Command = toggleInline(STRIKE)
 export const toggleInlineCode: Command = toggleInline(CODE)
+export const toggleHighlight: Command = toggleInline(HIGHLIGHT)
 
 // ---------------------------------------------------------------------------
 // Line commands
@@ -486,6 +491,98 @@ export const cycleHeading: Command = lineCommand((lines) => {
   return (p, _i, text) => headingTo(p, text, next)
 })
 
+/**
+ * Indent: on a list line, the list's own indent (`indentListItem` — the
+ * outliner rule, one indent unit before the marker); anywhere else CM6's
+ * `indentMore`. The format bar's button and `Tab` on a list line are one
+ * behaviour; `Tab` itself stays `edit.indent-list`.
+ */
+export const indentFormat: Command = (view) => indentListItem(view) || indentMore(view)
+
+/** Outdent: `outdentListItem` on a list line, CM6's `indentLess` elsewhere. */
+export const outdentFormat: Command = (view) => outdentListItem(view) || indentLess(view)
+
+/** A callout's first line: quote marker, `[!type]`, an optional fold sign. */
+const CALLOUT_HEAD = /^[ \t]{0,3}>[ \t]?\[![\w-]+\][+-]?[ \t]?/
+
+/**
+ * Wrap the selected lines in a callout (Obsidian's `> [!note]`): the first
+ * line takes `> [!note] ` (its text is the callout's title), the rest `> `,
+ * an empty line in the middle a bare `>`. Toggle: on a callout already
+ * (first line `> [!type]`, every line quoted) the markers come off.
+ */
+export const insertCallout: Command = lineCommand(
+  (lines) => {
+    const off = CALLOUT_HEAD.test(lines[0].text) && lines.every((l) => l.parts.quote !== '')
+    return (_p, i, text) => {
+      if (off) return i === 0 ? text.replace(CALLOUT_HEAD, '') : text.replace(/^[ \t]{0,3}>[ \t]?/, '')
+      if (i === 0) return `> [!note] ${text}`
+      return text.trim() === '' ? '>' : `> ${text}`
+    }
+  },
+  { blanks: true }
+)
+
+/**
+ * A fenced code block. A selection: its whole lines between fences (a fence
+ * longer than any backtick run inside, so it cannot close early). A caret:
+ * an empty block — in place on a blank line, after the line otherwise.
+ * Either way the caret lands on the info string, to type the language.
+ */
+export const insertCodeBlock: Command = (view) =>
+  perRange(view, (range, state, tree) => {
+    if (inLiteral(tree, range.from, range.to)) return null
+    const { doc } = state
+    if (range.empty) {
+      const line = doc.lineAt(range.head)
+      const blank = line.text.trim() === ''
+      const at = blank ? line.from : line.to
+      const lead = blank ? '' : '\n'
+      return {
+        changes: [{ from: at, to: blank ? line.to : at, insert: `${lead}\`\`\`\n\n\`\`\`` }],
+        range: EditorSelection.cursor(at + lead.length + 3),
+      }
+    }
+    const first = doc.lineAt(range.from)
+    let last = doc.lineAt(range.to)
+    // A selection that ends at the very start of a line does not take it.
+    if (last.number > first.number && last.from === range.to) last = doc.line(last.number - 1)
+    const body = doc.sliceString(first.from, last.to)
+    let longest = 2
+    for (const run of body.match(/`{3,}/g) ?? []) longest = Math.max(longest, run.length)
+    const fence = '`'.repeat(longest + 1)
+    return {
+      changes: [
+        { from: first.from, insert: `${fence}\n` },
+        { from: last.to, insert: `\n${fence}` },
+      ],
+      range: EditorSelection.cursor(first.from + fence.length),
+    }
+  })
+
+/**
+ * A horizontal rule, `---`, on its own line with the caret on a fresh line
+ * below it. A blank line always separates it from a paragraph above: `---`
+ * right under text is a setext heading, not a rule.
+ */
+export const insertRule: Command = (view) =>
+  perRange(view, (range, state, tree) => {
+    if (inLiteral(tree, range.from, range.to)) return null
+    const { doc } = state
+    const line = doc.lineAt(range.to)
+    const blank = line.text.trim() === ''
+    const above = blank ? (line.number > 1 ? doc.line(line.number - 1).text : '') : line.text
+    const at = blank ? line.from : line.to
+    const lead = above.trim() === '' ? (blank ? '' : '\n') : blank ? '\n' : '\n\n'
+    // The line's own newline (if any) follows: the caret's fresh line sits
+    // between the rule and whatever came next.
+    const insert = `${lead}---\n`
+    return {
+      changes: [{ from: at, to: blank ? line.to : at, insert }],
+      range: EditorSelection.cursor(at + lead.length + 4),
+    }
+  })
+
 // ---------------------------------------------------------------------------
 // Inserts
 // ---------------------------------------------------------------------------
@@ -581,6 +678,7 @@ export type FormatCommandId =
   | 'format.bold'
   | 'format.italic'
   | 'format.strike'
+  | 'format.highlight'
   | 'format.code'
   | 'format.heading-1'
   | 'format.heading-2'
@@ -589,11 +687,16 @@ export type FormatCommandId =
   | 'format.list'
   | 'format.ordered-list'
   | 'format.task'
+  | 'format.indent'
+  | 'format.outdent'
   | 'format.quote'
+  | 'format.callout'
+  | 'format.code-block'
   | 'format.link'
   | 'format.wikilink'
   | 'format.table'
   | 'format.image'
+  | 'format.rule'
 
 export interface FormatCommand {
   id: FormatCommandId
@@ -605,24 +708,37 @@ export interface FormatCommand {
   keys?: string
 }
 
-/** Ordered as a toolbar reads them: inline, block, insert. */
+/**
+ * Ordered as a toolbar reads them: inline, block, insert. Default keys are
+ * Obsidian's where it has one (`Mod+B`, `Mod+I`, `Mod+K`), else chords no
+ * other command, CM6 keymap or the browser's Mod+1–9 tab keys claim
+ * (decision 6 leaves the headings unbound for that reason); every one is
+ * rebindable from a keymap file.
+ */
 export const FORMAT_COMMANDS: readonly FormatCommand[] = [
   { id: 'format.bold', run: toggleBold, keys: 'Mod+b' },
   { id: 'format.italic', run: toggleItalic, keys: 'Mod+i' },
-  { id: 'format.strike', run: toggleStrike },
-  { id: 'format.code', run: toggleInlineCode },
+  { id: 'format.strike', run: toggleStrike, keys: 'Mod+Shift+x' },
+  { id: 'format.highlight', run: toggleHighlight, keys: 'Mod+Shift+h' },
+  // Not Mod+E: that is Obsidian's editing ↔ Reading (`view.toggle-reading`).
+  { id: 'format.code', run: toggleInlineCode, keys: 'Mod+Shift+c' },
   { id: 'format.heading-1', run: toggleHeading(1) },
   { id: 'format.heading-2', run: toggleHeading(2) },
   { id: 'format.heading-3', run: toggleHeading(3) },
   { id: 'format.paragraph', run: setHeading(0) },
-  { id: 'format.list', run: toggleBulletList },
-  { id: 'format.ordered-list', run: toggleOrderedList },
+  { id: 'format.list', run: toggleBulletList, keys: 'Mod+Shift+8' },
+  { id: 'format.ordered-list', run: toggleOrderedList, keys: 'Mod+Shift+7' },
   { id: 'format.task', run: toggleTaskList },
+  { id: 'format.indent', run: indentFormat },
+  { id: 'format.outdent', run: outdentFormat },
   { id: 'format.quote', run: toggleQuote },
+  { id: 'format.callout', run: insertCallout },
+  { id: 'format.code-block', run: insertCodeBlock },
   { id: 'format.link', run: insertLink, keys: 'Mod+k' },
   { id: 'format.wikilink', run: insertWikilink },
   { id: 'format.table', run: insertTable },
   { id: 'format.image', run: insertImage },
+  { id: 'format.rule', run: insertRule },
 ]
 
 /** Run a format command by id on a view; false when it did nothing. */

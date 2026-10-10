@@ -8,8 +8,12 @@
    * is what makes the bar and the palette one table rather than two: a
    * rebound key changes both, and a command W2 has not registered yet simply
    * has no row.
+   *
+   * Only with Settings › Layout › Pane keys at *Full* (E6): *Subtle* (the
+   * default) and *Off* show the keys in the corner instead (`ModeCue`).
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { paneHints } from '../pane-hints.svelte.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
   interface Props {
@@ -21,7 +25,7 @@
   const t = $derived($LL.web.mode)
 </script>
 
-{#if panes.mode}
+{#if panes.mode && paneHints.value === 'full'}
   <!-- role=status: entering a mode changes what every key does, which a
        screen-reader user must hear without being moved there. -->
   <div

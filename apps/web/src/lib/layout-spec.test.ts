@@ -101,7 +101,9 @@ describe('the built-in and the example', () => {
     expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector', 'help'])
     // …the words and characters ride the corner.
     expect(d.bars.status).toEqual(['words', 'chars'])
-    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(13)
+    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(18)
+    // E6: the tab strip's end carries the two split commands.
+    expect(d.bars.tabs).toEqual(['workspace.split-right', 'workspace.split-down'])
     expect(d.bars.format.filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
     expect(d.bars.statusbar).toEqual(['pane.lead', '|', 'sync'])
     expect(d.panes.open).toBe('replace')

@@ -91,7 +91,7 @@ import {
 } from './config.js'
 import { colorFor } from './params.js'
 import { byPath as presenceByPathOf, type PresenceByPath } from './presence.js'
-import { attachmentCandidates, attachmentType } from './read.svelte.js'
+import { attachmentCandidates, attachmentType, imageCandidates } from './read.svelte.js'
 import { mintShare } from './relay-admin.js'
 import { realClock } from './real-clock.js'
 import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
@@ -505,7 +505,22 @@ export interface Workspace {
    * Binaries live on disk and never in a Y.Text, so this reads the adapter
    * directly — there is no doc to ask.
    */
-  readAttachment(name: string, fromPath?: string | null): Promise<Blob | null>
+  readAttachment(
+    name: string,
+    fromPath?: string | null,
+    /** `markdown`: the `src` of `![alt](src)`, a path relative to the note (`imageCandidates`). */
+    form?: 'wikilink' | 'markdown'
+  ): Promise<Blob | null>
+  /**
+   * Write a pasted or dropped attachment (editor-usability E5) at `path`, a
+   * workspace path the caller placed (`placeAttachment`). Routed to the mount
+   * that owns the path, journaled and atomic there, enrolled as a binary —
+   * which is NOT synced (D2f), so the caller must not say it was. A taken name
+   * moves aside (`name 1.png`) rather than replacing bytes; a path outside the
+   * vault or in an app folder is refused. Answers the path actually written,
+   * or null (the reason is logged as the session's error).
+   */
+  writeAttachment(path: string, bytes: Uint8Array): Promise<string | null>
   dispose(): void
 }
 
@@ -1946,8 +1961,22 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       return r ? r.session.peekPath(r.rel) : null
     },
-    readAttachment: async (name, fromPath) => {
-      for (const candidate of attachmentCandidates(name, fromPath)) {
+    writeAttachment: async (path, bytes) => {
+      const r = registry.resolve(path)
+      if (!r) return null
+      const written = await r.session.writeAttachment(r.rel, bytes)
+      if (written) refreshTree()
+      return written ? (r.mountPath ? `${r.mountPath}/${written}` : written) : null
+    },
+    readAttachment: async (name, fromPath, form = 'wikilink') => {
+      // Vault-wide by name, like Obsidian (E5): the binary rows are the files
+      // an embed can name; the list is in workspace space, as `fromPath` is.
+      const known = ui.files.filter((f) => f.kind === 'binary').map((f) => f.path)
+      const candidates =
+        form === 'markdown'
+          ? imageCandidates(name, fromPath, known)
+          : attachmentCandidates(name, fromPath, known)
+      for (const candidate of candidates) {
         const bytes = await cfg.adapter.read(candidate).catch(() => null)
         if (bytes) return new Blob([bytes as BlobPart], { type: attachmentType(candidate) })
       }

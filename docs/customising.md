@@ -64,10 +64,15 @@ layout file, then this device's **overrides**, then its **pins**:
 - **overrides** (`config.layout.overrides`) are what Settings › Layout and
   Settings › Editor edit: Layout has the shell's options (files drawer or
   column, sidebar dock or column and its corner, tabs, toolbar position,
-  format bar, word count), Editor the note's (how notes open, line width,
-  typewriter, inline title). Each change applies at once — split Settings
-  beside a note to watch it — and is kept on this device as the difference
-  from the file; each section's reset drops its own;
+  format bar and **which buttons it shows** — a picker that writes
+  `bars.format` as a plain list, with *Reset to layout file* — word count),
+  Editor the note's (how notes open, line width, typewriter, inline title).
+  Each change applies at once — split Settings beside a note to watch it —
+  and is kept on this device as the difference from the file; each
+  section's reset drops its own. (Settings › Layout's *Pane keys* — how the
+  pane mode, Mod+P, shows its keys: *Subtle* in the corner above the word
+  count, *Full* as a bar along the bottom, *Off* the mode's name only — is
+  device config, not a layout override);
 - **pins**: *Pin as a column* on the navigator or the dock
   (`config.layout.pins`) wins over both.
 
@@ -138,7 +143,7 @@ say only what differs. Resolving it yields the complete shell spec.
 | `$schema` | always `"ohhi.layout.v1"` |
 | `extends` | a layout by name (`default` or a file's name); a file that extends its own name (`.ohhi/layouts/default.json` with `"extends": "default"`) extends the one it shadows |
 | `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right) |
-| `bars` | six lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`. `format` holds **command ids**; the others hold **readout ids** |
+| `bars` | seven lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`, `tabs`. `format` and `tabs` hold **command ids** (`tabs`: faint buttons at the end of every pane's tab strip — by default `workspace.split-right` and `workspace.split-down`); the others hold **readout ids** |
 | `toolbar` | `position`: `top`/`bottom` |
 | `dock` | `position`: `top-right`/`bottom-right` — where the dock's icon strip floats |
 | `panes` | `borders` (`hairline`/`none`), `focusMark`, `lead` (booleans), `open` (`tab`/`replace`) |
@@ -274,7 +279,7 @@ they drift, and another fails if this page names an id the app does not have.
 ### Command ids
 
 Every key in a keymap's `bindings`, and every entry of a layout's
-`bars.format`, is one of these.
+`bars.format` and `bars.tabs`, is one of these.
 
 <!-- generated:command-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav.quick-open`
@@ -370,6 +375,7 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `format.bold`
 - `format.italic`
 - `format.strike`
+- `format.highlight`
 - `format.code`
 - `format.heading-1`
 - `format.heading-2`
@@ -378,11 +384,25 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `format.list`
 - `format.ordered-list`
 - `format.task`
+- `format.indent`
+- `format.outdent`
 - `format.quote`
+- `format.callout`
+- `format.code-block`
 - `format.link`
 - `format.wikilink`
 - `format.table`
 - `format.image`
+- `format.rule`
+- `table.insert-row-below`
+- `table.insert-column-right`
+- `table.delete-row`
+- `table.delete-column`
+- `table.align`
+- `table.move-row-up`
+- `table.move-row-down`
+- `table.move-column-left`
+- `table.move-column-right`
 <!-- /generated -->
 
 `bars.format` also takes the format bar's grouped items, which are not
@@ -435,6 +455,7 @@ The keys of `bars`.
 - `format`
 - `statusbar`
 - `status`
+- `tabs`
 <!-- /generated -->
 
 ### Region ids

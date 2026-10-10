@@ -14,6 +14,7 @@
  * a key if one is ever missed.
  */
 import { FORMAT_COMMANDS, type FormatCommandId } from '@ohhi/editor'
+import { TABLE_COMMANDS, type TableCommandId } from '@ohhi/editor-lang'
 import { getLL } from '@ohhi/i18n'
 import type { Command } from './commands.js'
 import type { Dir, Side } from './panes.js'
@@ -202,6 +203,44 @@ type FormatKey = keyof ReturnType<typeof getLL>['web']['commands']['format']
 /** `format.ordered-list` → `ordered_list`, the dictionary's spelling. */
 function formatKey(id: FormatCommandId): FormatKey {
   return id.slice('format.'.length).replace(/-/g, '_') as FormatKey
+}
+
+/**
+ * Everything the shell must be able to do for a `table.*` command to exist
+ * (editor-usability E4): the format gate, plus a caret inside a table.
+ */
+export interface TableActions {
+  /** A note tab holds the focus, its view is live, and it is not in Reading. */
+  canFormat(): boolean
+  /** The focused view's caret is inside a GFM table. */
+  inTable(): boolean
+  /** Run `TABLE_COMMANDS[id]` in the focused pane's view. */
+  table(id: TableCommandId): void
+}
+
+/**
+ * The `table.*` table, in `TABLE_COMMANDS`' order. Palette-only: no default
+ * key (Tab, Shift+Tab and Enter inside a table are the editor's own), no bar
+ * entry, and offered only while the caret is in a table.
+ */
+export function tableCommands(a: TableActions): Command[] {
+  const t = getLL().web.commands
+  const group = t.groups.table()
+  const when = (): boolean => a.canFormat() && a.inTable()
+  return TABLE_COMMANDS.map((c) => ({
+    id: c.id,
+    title: t.table[tableKey(c.id)](),
+    group,
+    when,
+    run: () => a.table(c.id),
+  }))
+}
+
+type TableKey = keyof ReturnType<typeof getLL>['web']['commands']['table']
+
+/** `table.insert-row-below` → `insert_row_below`, the dictionary's spelling. */
+function tableKey(id: TableCommandId): TableKey {
+  return id.slice('table.'.length).replace(/-/g, '_') as TableKey
 }
 
 /**

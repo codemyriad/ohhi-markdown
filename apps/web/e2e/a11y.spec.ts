@@ -109,8 +109,12 @@ test('the workspace with a note open is accessible', async ({ page }) => {
 
   // The mode bar, docked while a mode is live.
   await page.keyboard.press('ControlOrMeta+p')
-  await expect(page.getByTestId('mode-bar')).toBeVisible()
-  await expectAccessible(page, 'pane mode bar')
+  await expect(page.getByTestId('mode-cue')).toBeVisible()
+  await expectAccessible(page, 'pane mode cue')
+  // `?`: every key of the mode, in the corner (E6).
+  await page.keyboard.press('?')
+  await expect(page.getByTestId('mode-cue-all')).toBeVisible()
+  await expectAccessible(page, 'pane mode cue, every key')
   await page.keyboard.press('Escape')
 
   // A tab's context menu — the keyboard equivalent of every drag gesture —

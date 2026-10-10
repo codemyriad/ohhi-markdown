@@ -14,6 +14,7 @@
    * makes the live-editor count drop to one while every other tab stays put.
    */
   import type { Snippet } from 'svelte'
+  import type { LinkHeading, LinkMount } from '@ohhi/editor-lang'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import {
     MIN_SIZE,
@@ -55,6 +56,10 @@
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]
+    /** The link popover's scope (E1, fork A2): the vault's shares and the recent notes. */
+    linkContext?: () => { mounts: LinkMount[]; recents: string[] }
+    /** `[[Note#` headings, from the index. */
+    linkHeadings?: (path: string) => Promise<LinkHeading[]>
     /** Read X4: a tag chip's click, and the `#` completion source. */
     searchTag: (tag: string) => void
     tags: () => string[]

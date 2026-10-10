@@ -22,11 +22,12 @@
 import { untrack } from 'svelte'
 import { getLL } from '@ohhi/i18n'
 import type { FormatBindings, FormatCommandId } from '@ohhi/editor'
+import type { TableCommandId } from '@ohhi/editor-lang'
 import type { Clock } from '@ohhi/vault'
 import type { Command, CommandRegistry } from './commands.js'
 import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
-import { familyTitle, formatCommands, paneCommands } from './pane-commands.js'
+import { familyTitle, formatCommands, paneCommands, tableCommands } from './pane-commands.js'
 import { slotsFrom, stripDrop, zoneBox, type Box } from './pane-drag.js'
 import * as tree from './panes.js'
 import {
@@ -133,6 +134,10 @@ export interface PaneEditor {
   toggleTask(): boolean
   /** One of `FORMAT_COMMANDS` by id (quiet-shell F4); false when it did nothing. */
   format(id: FormatCommandId): boolean
+  /** One of `TABLE_COMMANDS` by id (E4); false when it did nothing. */
+  table?(id: TableCommandId): boolean
+  /** The caret is inside a GFM table — the `table.*` rows' gate (E4). */
+  inTable?(): boolean
   /** Replace the selection with `text` at the caret (a template, F11); false when read-only. */
   insertText?(text: string): boolean
   /** Re-key the view's own format keymap to the resolved keymap (F10). */
@@ -169,6 +174,11 @@ export interface PaneShell {
   readonly layout: Layout
   readonly savedGroups: readonly SavedGroup[]
   readonly mode: Mode | null
+  /**
+   * E6: `?` in a live mode asked for every key (the corner cue expands to
+   * the mode's full list). Closed again whenever a mode is entered.
+   */
+  readonly modeKeysOpen: boolean
   readonly drag: DragState | null
   /** 1-based, in strip (DFS) order — what the status bar and menus call it. */
   paneIndex(paneId: string): number
@@ -250,6 +260,8 @@ export interface PaneShell {
   readCommands(): Command[]
   /** The `format.*` rows (quiet-shell F4), run in the focused pane's view. */
   formatCommands(): Command[]
+  /** The `table.*` rows (E4), offered while the focused view's caret is in a table. */
+  tableCommands(): Command[]
   /** A tab's mode — its own, or the Settings default when it has none. */
   modeOf(tab: Tab | null): ViewMode
   setMode(tabId: string, mode: ViewMode): void
@@ -332,6 +344,7 @@ export function createPanes(
   let rendered = $state.raw<Layout>(current)
   let savedGroups = $state.raw<SavedGroup[]>([])
   let mode = $state.raw<Mode | null>(null)
+  let modeKeysOpen = $state(false)
   let drag = $state.raw<DragState | null>(null)
   /** Closed-tab stack for `tab.reopen`, newest last; session-only. */
   const closed: ClosedTab[] = []
@@ -604,6 +617,7 @@ export function createPanes(
       // field or a dialog owns the keyboard (M4).
       if (keyboardClaimed()) return
       mode = 'pane'
+      modeKeysOpen = false
     },
     newTab: (): void => newTabIn(current.focus),
     closeTab: (): void => {
@@ -895,6 +909,9 @@ export function createPanes(
     get mode() {
       return mode
     },
+    get modeKeysOpen() {
+      return modeKeysOpen
+    },
     get drag() {
       return drag
     },
@@ -931,6 +948,16 @@ export function createPanes(
           return t?.path != null && modeOf(t) !== 'reading' && editors.has(current.focus)
         },
         format: (id) => void editors.get(current.focus)?.format(id),
+      }),
+
+    tableCommands: () =>
+      tableCommands({
+        canFormat: () => {
+          const t = active()
+          return t?.path != null && modeOf(t) !== 'reading' && editors.has(current.focus)
+        },
+        inTable: () => editors.get(current.focus)?.inTable?.() ?? false,
+        table: (id) => void editors.get(current.focus)?.table?.(id),
       }),
 
     modeOf,
@@ -992,6 +1019,12 @@ export function createPanes(
       // Capture phase + preventDefault: a mode letter is never editor input.
       e.preventDefault()
       e.stopPropagation()
+      // `?` (E6): every key of the mode, or back to the short line. Not a
+      // mode letter, so the mode stays.
+      if (e.key === '?') {
+        modeKeysOpen = !modeKeysOpen
+        return true
+      }
       const next = modeStep(mode, e.key)
       mode = next.mode
       if (next.command) {

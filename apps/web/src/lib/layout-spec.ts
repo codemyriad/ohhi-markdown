@@ -67,8 +67,14 @@ const ALIAS_TARGETS = new Set<string>(Object.values(READOUT_ALIASES))
 export const REGION_IDS = ['toolbar', 'header', 'navigator', 'rail', 'tabs', 'statusbar', 'format', 'status'] as const
 export type RegionId = (typeof REGION_IDS)[number]
 
-export const BAR_IDS = ['toolbar.left', 'toolbar.center', 'toolbar.right', 'format', 'statusbar', 'status'] as const
+export const BAR_IDS = ['toolbar.left', 'toolbar.center', 'toolbar.right', 'format', 'statusbar', 'status', 'tabs'] as const
 export type BarId = (typeof BAR_IDS)[number]
+
+/**
+ * The bars that hold COMMAND ids, drawn as buttons (`format`, and the tab
+ * strip's end, `tabs` — E6's split buttons); every other bar holds readout ids.
+ */
+export const COMMAND_BARS: readonly BarId[] = ['format', 'tabs']
 
 /** The toolbar's three readout groups: merged readouts may ride any of them. */
 export const TOOLBAR_BARS = ['toolbar.left', 'toolbar.center', 'toolbar.right'] as const
@@ -225,7 +231,7 @@ export function upgradeLayout(raw: unknown): unknown {
       if (!('format' in bars)) bars.format = bars['toolbar.format']
       delete bars['toolbar.format']
     }
-    for (const bar of Object.keys(bars)) if (bar !== 'format') bars[bar] = upgradeList(bars[bar])
+    for (const bar of Object.keys(bars)) if (!(COMMAND_BARS as readonly string[]).includes(bar)) bars[bar] = upgradeList(bars[bar])
     out.bars = bars
   }
   return out
@@ -244,6 +250,7 @@ export const ShellSpecSchema = z.preprocess(
         format: commandList,
         statusbar: readoutList,
         status: readoutList,
+        tabs: commandList,
       }),
       toolbar: z.strictObject(toolbar),
       dock: z.strictObject(dock),
@@ -341,6 +348,7 @@ export const LayoutFileSchema = z.preprocess(
         format: listOf(),
         statusbar: listOf(READOUT_IDS),
         status: listOf(READOUT_IDS),
+        tabs: listOf(),
       })
       .partial()
       .optional(),
@@ -441,7 +449,7 @@ const defaultsLayer = (): Loose => ({
   regions: { format: 'bottom', status: 'corner' },
   dock: { position: 'top-right' },
   editor: { inlineTitle: true },
-  bars: { 'toolbar.center': [], format: [], status: ['words', 'chars'] },
+  bars: { 'toolbar.center': [], format: [], status: ['words', 'chars'], tabs: [] },
 })
 
 /**

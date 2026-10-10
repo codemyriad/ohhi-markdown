@@ -213,7 +213,19 @@ interface AppConfigV2 {
    * does too. Device-level — reading is about this screen. Additive on read.
    */
   drawerSeen?: Record<string, number>
+  /**
+   * How the pane mode shows its keys (E6, Settings › Layout › Hints):
+   * `subtle` (the default) — one quiet line in the focused pane's corner,
+   * above the word count; `full` — the whole key bar along the bottom;
+   * `off` — the mode's badge alone. Device-level: it is about this screen.
+   */
+  paneHints?: PaneHints
 }
+
+/** The pane mode's key hints (E6). */
+export const PANE_HINTS = ['subtle', 'full', 'off'] as const
+export type PaneHints = (typeof PANE_HINTS)[number]
+export const PANE_HINTS_DEFAULT: PaneHints = 'subtle'
 
 /** Device-level reading preferences. One field today; the shape is the seam. */
 export interface ReadPrefs {
@@ -493,6 +505,18 @@ export function storageNoticeDismissed(): boolean {
 export function setStorageNoticeDismissed(dismissed: boolean): void {
   const cfg = loadConfig()
   cfg.storageNoticeDismissed = dismissed
+  save(cfg)
+}
+
+/** The pane-mode hints (E6); anything unknown reads as the default. */
+export function paneHints(): PaneHints {
+  const v = loadConfig().paneHints
+  return (PANE_HINTS as readonly unknown[]).includes(v) ? (v as PaneHints) : PANE_HINTS_DEFAULT
+}
+
+export function setPaneHints(value: PaneHints): void {
+  const cfg = loadConfig()
+  cfg.paneHints = value
   save(cfg)
 }
 

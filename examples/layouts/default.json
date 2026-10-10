@@ -26,15 +26,21 @@
       "format.bold",
       "format.italic",
       "format.strike",
+      "format.highlight",
       "format.code",
       "|",
       "format.list",
       "format.ordered-list",
       "format.task",
-      "format.quote",
+      "format.outdent",
+      "format.indent",
       "|",
-      "format.link",
+      "format.quote",
+      "format.callout",
+      "format.code-block",
+      "|",
       "format.wikilink",
+      "format.link",
       "format.table",
       "format.image"
     ],
@@ -46,6 +52,10 @@
     "status": [
       "words",
       "chars"
+    ],
+    "tabs": [
+      "workspace.split-right",
+      "workspace.split-down"
     ]
   },
   "toolbar": {

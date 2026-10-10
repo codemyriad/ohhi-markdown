@@ -116,11 +116,31 @@ export function readCommands(a: ReadActions): Command[] {
  */
 export function readLabels(): ReadLabels {
   const t = getLL().web.read
+  const a = getLL().web.attachments
   return {
     missingAttachment: t.missing_attachment(),
     task: t.task(),
     properties: (count) => t.properties({ count }),
     frontmatterUnsupported: t.frontmatter_unsupported(),
+    remoteImage: {
+      from: (host) => a.remote_from({ host }),
+      load: a.remote_load(),
+      failed: (host) => a.remote_failed({ host }),
+      notLoaded: a.remote_not_loaded(),
+    },
+    copyCode: t.code_block.copy(),
+    codeCopied: t.code_block.copied(),
+    codeLanguage: (lang) => t.code_block.language({ lang }),
+    codePlain: t.code_block.plain(),
+    toggleCallout: (title) => t.callout.toggle({ title }),
+    table: {
+      toolbar: t.table_hint.toolbar(),
+      nextCell: t.table_hint.next_cell(),
+      nextRow: t.table_hint.next_row(),
+      addRow: t.table_hint.add_row(),
+      addColumn: t.table_hint.add_column(),
+      align: t.table_hint.align(),
+    },
   }
 }
 
@@ -159,8 +179,20 @@ export function openExternal(url: string): void {
 }
 
 /**
- * Where `![[name]]`'s bytes might be: beside the note first, then at the vault
- * root — Obsidian's own order for a link with no folder in it.
+ * Where `![[name]]`'s bytes might be, in the order to try them — Obsidian's
+ * own resolution, vault-wide by name (editor-usability E5):
+ *
+ * 1. the name as a vault path (`Attachments/shot.png`);
+ * 2. beside the note;
+ * 3. any file whose path ends with the name, the SHORTEST path first (the
+ *    vault root before a folder, a shallow folder before a deep one) — what
+ *    makes `![[shot.png]]` find `Attachments/shot.png` with no folder in it;
+ * 4. beside the note and the vault root again, unconditionally, for bytes the
+ *    file list does not know (a file written by another app while we ran).
+ *
+ * `known` is the workspace's attachment paths (`kind: 'binary'` rows); names
+ * match case-insensitively, as Obsidian's do, and come back spelled as the
+ * file is. Without `known` only step 4 runs.
  *
  * Returns an EMPTY list for anything that is not a plain relative path inside
  * the vault. `../` out of the vault, an absolute path and a backslash path are
@@ -168,7 +200,11 @@ export function openExternal(url: string): void {
  * read a path, not to decide whose path it is: the name comes out of a file
  * that a peer or an agent may have written.
  */
-export function attachmentCandidates(name: string, fromPath?: string | null): string[] {
+export function attachmentCandidates(
+  name: string,
+  fromPath?: string | null,
+  known: readonly string[] = []
+): string[] {
   // Obsidian writes size and alias after a pipe (`![[img.png|300]]`); a `|`
   // can never be part of a name we hold, so cutting there is always right.
   const rel = name.split('|')[0].split('#')[0].trim().replace(/^\.\//, '')
@@ -177,7 +213,83 @@ export function attachmentCandidates(name: string, fromPath?: string | null): st
   const cut = fromPath ? fromPath.lastIndexOf('/') : -1
   const dir = cut > 0 ? fromPath!.slice(0, cut) : ''
   const beside = dir ? `${dir}/${rel}` : rel
-  return beside === rel ? [rel] : [beside, rel]
+  const lower = rel.toLowerCase()
+  const byLower = new Map<string, string>()
+  for (const path of known) byLower.set(path.toLowerCase(), path)
+  const exact = byLower.get(lower)
+  const besideKnown = byLower.get(beside.toLowerCase())
+  const suffix = known
+    .filter((p) => p.toLowerCase().endsWith(`/${lower}`))
+    .sort((a, b) => a.split('/').length - b.split('/').length || a.length - b.length || a.localeCompare(b))
+  const out: string[] = []
+  for (const path of [exact, besideKnown, ...suffix, beside, rel]) {
+    if (path && !out.includes(path)) out.push(path)
+  }
+  return out
+}
+
+/**
+ * Where `![alt](src)`'s bytes might be. A markdown image's path is relative to
+ * the NOTE (`../img/x.png` is ordinary), percent-encoded or in angle brackets
+ * when it holds a space — so it is decoded and resolved against the note's
+ * folder, and still refused when it climbs out of the vault. A path without a
+ * folder walk resolves as a wikilink name does (Obsidian's "shortest path"
+ * links are written both ways).
+ *
+ * Only local paths come here: a URL with a scheme is never read from disk.
+ */
+export function imageCandidates(
+  src: string,
+  fromPath?: string | null,
+  known: readonly string[] = []
+): string[] {
+  let path = src.trim().replace(/^<(.*)>$/, '$1')
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('//')) return []
+  try {
+    path = decodeURI(path)
+  } catch {
+    // A stray `%` is a literal in a hand-written path; keep it as written.
+  }
+  path = path.split('?')[0]!.split('#')[0]!
+  const segs = path.split('/')
+  if (!segs.includes('..')) return attachmentCandidates(path, fromPath, known)
+  if (path.startsWith('/') || path.includes('\\')) return []
+  const cut = fromPath ? fromPath.lastIndexOf('/') : -1
+  const out = cut > 0 ? fromPath!.slice(0, cut).split('/') : []
+  for (const seg of segs) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') {
+      if (out.length === 0) return []
+      out.pop()
+    } else out.push(seg)
+  }
+  return out.length ? [out.join('/')] : []
+}
+
+/**
+ * A remote image's bytes, fetched only because a person pressed *Load image*
+ * (E5). No cookies and no referrer go with it, the scheme is http(s) only, and
+ * the answer must say it is an image — anything else is null, which the
+ * placeholder words as "didn't let this image load here". The fetch is the
+ * app's `connect-src`, so the picture is drawn from a `blob:` and the content
+ * policy needs no remote `img-src`. A host without CORS headers refuses it.
+ */
+export async function loadRemoteImage(url: string): Promise<Blob | null> {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
+  try {
+    const res = await fetch(parsed.href, { credentials: 'omit', referrerPolicy: 'no-referrer', mode: 'cors' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return blob.type.startsWith('image/') ? blob : null
+  } catch {
+    return null
+  }
 }
 
 /**

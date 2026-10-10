@@ -60,6 +60,8 @@
   import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
   import TabContextMenu from './TabContextMenu.svelte'
+  import StripCommands from './StripCommands.svelte'
+  import { getReadoutContext } from '../readouts.js'
 
   interface Props {
     pane: Pane
@@ -118,6 +120,12 @@
    */
   const MENU_ICON: Record<ViewMode, LucideIcon> = { live: PenLine, source: CodeXml, reading: Eye }
   const current = $derived(activeTab(pane))
+  /**
+   * The strip's command buttons (E6): the layout's `bars.tabs`, read from the
+   * shell's readout context — absent (a component test), there are none.
+   */
+  const shell = getReadoutContext()
+  const stripIds = $derived(shell?.layout.spec.bars.tabs ?? [])
   const currentMode = $derived(panes.modeOf(current))
   const items = $derived(stripItems(pane))
   /** Consecutive tabs of the same group (or of none) share one tablist. */
@@ -336,7 +344,7 @@
 
 <div
   data-strip
-  class="flex h-8 shrink-0 items-stretch border-b border-base-300 bg-ed-strip-bg"
+  class="@container/strip flex h-8 shrink-0 items-stretch border-b border-base-300 bg-ed-strip-bg"
   style={focused && insetMark
     ? 'box-shadow: inset 0 calc(-1 * var(--ed-pane-focus-width)) 0 var(--ed-pane-focus)'
     : undefined}
@@ -381,6 +389,20 @@
   </div>
 
   <div class="flex shrink-0 items-center gap-0.5 border-l border-base-300 px-1">
+    <!-- The strip's command buttons (`bars.tabs`) lead the end controls, so a
+         docked `+` stays right beside the mode control. -->
+    <!-- Only in a strip with room to spare (36rem, the strip's own width, so
+         it never depends on the tabs): in a narrow pane the tabs need it. -->
+    {#if shell && stripIds.length > 0}
+      <span class="hidden items-center gap-0.5 @[36rem]/strip:flex" data-testid="tab-cmds:{pane.id}">
+      <StripCommands
+        ids={stripIds}
+        registry={shell.nav.registry}
+        paneId={pane.id}
+        focusPane={() => panes.focusPane(pane.id)}
+      />
+      </span>
+    {/if}
     {#if docked}{@render newTab()}{/if}
     {#if current?.path}
       {@const tabId = current.id}

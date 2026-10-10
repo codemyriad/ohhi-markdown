@@ -13,16 +13,32 @@ export { Tag, tagTag } from './tag.js'
 export { splitWikiLink, WikiLink, wikiLinkMarkTag, wikiLinkTag, type WikiLinkParts } from './wikilink.js'
 export { wikiLinkExtensions, wikiLinkHost, type WikiLinkHost } from './wikilink-view.js'
 export {
+  FALLBACK_LINK_LABELS,
+  type LinkContext,
+  type LinkPopoverLabels,
+} from './link-completion-view.js'
+export type { LinkHeading, LinkMount } from './link-completion.js'
+export {
+  FALLBACK_REMOTE_IMAGE_LABELS,
+  type RemoteImageLabels,
+} from './read-host.js'
+export { imageSource, type ImageSource } from './preview/image.js'
+export { fenceLanguageCompletions, fenceLanguages } from './preview/fence-edit.js'
+export type { FenceLanguage } from './preview/fence.js'
+export { PROSE_BRACKETS, proseEditing, WRAP_CHARS, wrapSelection } from './editing.js'
+export {
   previewMode,
   readHost,
   type FrontmatterView,
   type ReadHost,
   type ReadLabels,
+  type TableLabels,
   type ViewMode,
 } from './read-host.js'
 export {
   activeLines,
   indentListItem,
+  insertIndent,
   listLinesIn,
   listMarkerBefore,
   outdentListItem,
@@ -30,4 +46,9 @@ export {
   selectListMarker,
   tagCompletions,
   toggleTask,
+  inTable,
+  runTableCommand,
+  TABLE_COMMANDS,
+  type TableCommand,
+  type TableCommandId,
 } from './preview/index.js'

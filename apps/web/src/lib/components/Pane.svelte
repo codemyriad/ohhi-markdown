@@ -15,21 +15,33 @@
    * (the facade owns it), not to the view.
    */
   import MarkdownEditor from '@ohhi/editor/src/MarkdownEditor.svelte'
-  import { runFormat, type MarkdownEditorHandle } from '@ohhi/editor'
-  import { readHost, toggleTask, wikiLinkHost, type WikiLinkHost } from '@ohhi/editor-lang'
+  import { attachmentHost, runFormat, type MarkdownEditorHandle } from '@ohhi/editor'
+  import {
+    inTable,
+    readHost,
+    runTableCommand,
+    toggleTask,
+    wikiLinkHost,
+    type LinkHeading,
+    type LinkMount,
+    type LinkPopoverLabels,
+    type WikiLinkHost,
+  } from '@ohhi/editor-lang'
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { getLL } from '@ohhi/i18n'
   import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
   import { activeTab, panes as panesOf, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
-  import { openExternal, readLabels } from '../read.svelte.js'
+  import { loadRemoteImage, openExternal, readLabels } from '../read.svelte.js'
+  import { createAttachmentHost } from '../attachment-host.js'
   import { noteStatus } from '../readout-state.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
-  import { getViewShell, viewDef } from '../views.js'
+  import { getViewShell, shellClock, viewDef } from '../views.js'
   import { isTauri } from '../platform.js'
   import InlineTitle from './InlineTitle.svelte'
   import StatusBar from './StatusBar.svelte'
@@ -55,6 +67,10 @@
     resolveLink: (target: string, from: string | undefined) => string | null
     createFromLink: (target: string) => void
     linkCandidates: () => string[]
+    /** The link popover's scope (E1, fork A2): the vault's shares and the recent notes. */
+    linkContext?: () => { mounts: LinkMount[]; recents: string[] }
+    /** `[[Note#` headings, from the index. */
+    linkHeadings?: (path: string) => Promise<LinkHeading[]>
     /** Read X4: a tag chip's click opens vault search on `tag:#x`. */
     searchTag: (tag: string) => void
     /** Read X4: the `#` completion source, from the index (sync snapshot). */
@@ -82,6 +98,8 @@
     resolveLink,
     createFromLink,
     linkCandidates,
+    linkContext,
+    linkHeadings,
     searchTag,
     tags,
     reveal,
@@ -116,6 +134,23 @@
    * change, which is an infinite loop. The facet keeps host behaviour out of
    * the props for the same reason; this keeps it out of the dependencies.
    */
+  /** The link popover's copy (E1): CM6 has no `$LL`, so the host hands it down. */
+  function linkPopoverLabels(): LinkPopoverLabels {
+    const t = getLL().web.read.link_popover
+    return {
+      scope: (mount) => t.scope({ mount }),
+      others: t.others(),
+      othersTitle: t.others_title(),
+      create: (query) => t.create({ query }),
+      vaultRoot: t.vault_root(),
+      hintLink: t.hint_link(),
+      hintHeading: t.hint_heading(),
+      hintAlias: t.hint_alias(),
+      keyEnter: t.key_enter(),
+      keyTab: t.key_tab(),
+      keyEscape: t.key_escape(),
+    }
+  }
   const linkHost: WikiLinkHost = {
     resolve: (target) => untrack(() => resolveLink(target, path ?? undefined)),
     // Following a link is the ONE in-place navigation (B5): it stays in this
@@ -123,6 +158,15 @@
     open: (target) => untrack(() => panes.navigate(target, tab?.id)),
     create: (target) => createFromLink(target),
     candidates: () => untrack(() => linkCandidates()),
+    // The popover's scope is THIS pane's note: a link written in a shared
+    // note is offered the share's notes first (E1, fork A2).
+    context: () =>
+      untrack(() => ({ path: path ?? null, ...(linkContext?.() ?? { mounts: [], recents: [] }) })),
+    headings: (target) => untrack(() => linkHeadings?.(target) ?? Promise.resolve([])),
+    // A getter, as `readLabels` is: a locale switch reaches the popover.
+    get labels() {
+      return untrack(linkPopoverLabels)
+    },
   }
   /**
    * What a RENDERED note can ask the shell for (read-shaping B2.2/B2.3/B5).
@@ -131,7 +175,10 @@
    * read here would put the view's lifecycle on the pane tree.
    */
   const noteHost = {
-    readAttachment: (name: string) => untrack(() => workspace.readAttachment(name, path)),
+    readAttachment: (name: string, form?: 'wikilink' | 'markdown') =>
+      untrack(() => workspace.readAttachment(name, path, form)),
+    // `![alt](https://…)` loads on a click, never on open (E5).
+    loadRemoteImage,
     openExternal,
     searchTag: (tag: string) => untrack(() => searchTag(tag)),
     tags: () => untrack(() => tags()),
@@ -146,7 +193,18 @@
   }
   // ONE stable array, built once: both facets are reconfigured through the
   // host compartment, never re-created, so the Y.Text binding survives.
-  const extensions = [wikiLinkHost.of(linkHost), readHost.of(noteHost)]
+  /**
+   * Pasting and dropping pictures (E5): written beside the note by Obsidian's
+   * rules, through the workspace's journaled write. Untracked like the hosts
+   * above; the clock is the shell's (golden rule 5).
+   */
+  const pasteClock = shellClock()
+  const fileHost = createAttachmentHost({
+    workspace: () => workspace,
+    notePath: () => untrack(() => path),
+    now: () => pasteClock.now(),
+  })
+  const extensions = [wikiLinkHost.of(linkHost), readHost.of(noteHost), attachmentHost.of(fileHost)]
 
   const status = $derived(noteStatus(workspace.ui.files, workspace.ui.records, path))
 
@@ -201,6 +259,13 @@
               view.view.focus()
               return done
             },
+            // The `table.*` rows (E4): the same path as a format command.
+            table: (tid) => {
+              const done = runTableCommand(view.view, tid)
+              view.view.focus()
+              return done
+            },
+            inTable: () => inTable(view.view.state),
             // A template (quiet-shell F11): one dispatch at the caret, the
             // path typing takes, so undo and the peers see one edit.
             insertText: (text) => {

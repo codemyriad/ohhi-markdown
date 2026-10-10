@@ -209,6 +209,8 @@ test.describe('toolbar and focus', () => {
     await openSettings(page, 'layout')
     // Q6: the form edits the device's layout live; closing keeps it.
     await page.getByTestId('layout-field:toolbar').selectOption('bottom')
+    // E6: the full mode bar is the *Full* pane-keys setting (Subtle, the default, is the corner).
+    await page.getByTestId('layout-field:hints').selectOption('full')
     await closeSettings(page)
 
     await expect(toolbar(page)).toHaveAttribute('data-position', 'bottom')

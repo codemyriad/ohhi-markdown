@@ -174,7 +174,7 @@
           {#if !vaultOpen}
             <p class="mb-3 text-xs text-base-content/70" data-testid="settings-layout-no-vault">{t.layout.no_vault()}</p>
           {/if}
-          {#if layout}<LayoutSettings {layout} />{/if}
+          {#if layout}<LayoutSettings {layout} {registry} />{/if}
         {:else if sid === 'appearance'}
           <AppearanceSettings {readAppFile} />
         {:else if sid === 'keys'}

@@ -312,6 +312,17 @@ const mode = {
   escape: 'Esc',
   leave: 'leave',
   done: 'done',
+  /**
+   * E6: the corner cue (Settings › Layout › Pane keys: Subtle / Off) — the
+   * badge and two verbs above the word count; `?` opens every key.
+   */
+  cue: {
+    label: 'Pane mode keys',
+    more_key: '?',
+    more: 'keys',
+    less: 'fewer',
+    all: 'Every key in this mode',
+  },
 }
 
 /**
@@ -338,6 +349,49 @@ const read = {
   properties: '{count:number} propert{{y|ies}}',
   /** Shown instead of chips when the YAML is outside the patchable subset. */
   frontmatter_unsupported: 'Unsupported frontmatter',
+  /** The hint bar over a table the caret is in (editor-usability E4). */
+  table_hint: {
+    toolbar: 'Table',
+    next_cell: 'Tab next cell',
+    next_row: '↵ next row',
+    add_row: '+ row',
+    add_column: '+ column',
+    align: 'Align',
+  },
+  /** The code card's header (editor-usability E3): the language chip and the copy button. */
+  code_block: {
+    copy: 'Copy code',
+    copied: 'Copied',
+    /** The chip's accessible name; a click opens the language list. */
+    language: 'Language: {lang:string}. Change language',
+    /** The chip's text when the fence names no language. */
+    plain: 'plain text',
+  },
+  /** A foldable callout's chevron; `aria-expanded` says which way it is. */
+  callout: {
+    toggle: 'Fold {title:string}',
+  },
+  /**
+   * The `[[` link popover (editor-usability E1). CM6 draws it, so these travel
+   * to the editor through the wikilink host, as the widget copy does.
+   */
+  link_popover: {
+    /** The first group in a note inside a shared folder: that share's notes. */
+    scope: 'In {mount:string}',
+    /** The group below the divider — ONE line in the popover. */
+    others: 'Only you · not in this share',
+    /** That header's tooltip. */
+    others_title: "Collaborators can't open these",
+    create: 'Create “{query:string}”',
+    /** The create row's folder when the note would land at the vault root. */
+    vault_root: 'Vault root',
+    hint_link: 'link',
+    hint_heading: 'heading',
+    hint_alias: 'alias',
+    key_enter: '↵',
+    key_tab: 'Tab',
+    key_escape: 'Esc',
+  },
   commands: {
     toggle_reading: 'Toggle reading view',
     toggle_source: 'Toggle Live Preview / Source',
@@ -498,6 +552,8 @@ const commands = {
     group: 'Group',
     developer: 'Developer',
     format: 'Format',
+    /** The `table.*` rows (editor-usability E4), offered while the caret is in a table. */
+    table: 'Table',
     templates: 'Templates',
     help: 'Help',
   },
@@ -509,6 +565,7 @@ const commands = {
     bold: 'Bold',
     italic: 'Italic',
     strike: 'Strikethrough',
+    highlight: 'Highlight',
     code: 'Inline code',
     heading_1: 'Heading 1',
     heading_2: 'Heading 2',
@@ -517,11 +574,31 @@ const commands = {
     list: 'Bulleted list',
     ordered_list: 'Numbered list',
     task: 'Task list',
+    indent: 'Indent',
+    outdent: 'Outdent',
     quote: 'Quote',
+    callout: 'Callout',
+    code_block: 'Code block',
     link: 'Insert link',
     wikilink: 'Insert wikilink',
     table: 'Insert table',
     image: 'Insert image',
+    rule: 'Horizontal rule',
+  },
+  /**
+   * The `table.*` rows (editor-usability E4): one per entry of `TABLE_COMMANDS`
+   * in @ohhi/editor-lang, keyed by the id after `table.` with `-` as `_`.
+   */
+  table: {
+    insert_row_below: 'Table: insert row below',
+    insert_column_right: 'Table: insert column right',
+    delete_row: 'Table: delete row',
+    delete_column: 'Table: delete column',
+    align: 'Table: align columns',
+    move_row_up: 'Table: move row up',
+    move_row_down: 'Table: move row down',
+    move_column_left: 'Table: move column left',
+    move_column_right: 'Table: move column right',
   },
   quick_open: 'Open note…',
   command_palette: 'Command palette',
@@ -1184,6 +1261,35 @@ const settings = {
     unpin_label: 'Unpin {what:string}',
     reset: 'Reset to default',
     reset_editor: 'Reset editor options',
+    /** E6: how the pane mode (Mod+P) shows its keys — device config. */
+    hints: 'Pane keys',
+    hints_subtle: 'Subtle — in the corner',
+    hints_full: 'Full — a bar along the bottom',
+    hints_off: 'Off — the mode’s name only',
+    /** E6: the formatting bar's buttons, a plain list kept on this device. */
+    bar: {
+      title: 'Formatting bar buttons',
+      intro:
+        'Drag to reorder, or drag a button to the other row to show or hide it. Each button’s menu does the same from the keyboard. Your changes stay on this device.',
+      shown: 'On the bar',
+      hidden: 'Not on the bar',
+      empty_shown: 'Nothing on the bar: it is hidden.',
+      empty_hidden: 'Every button is on the bar.',
+      separator: 'Separator',
+      /** A pill's menu trigger: what it is and where. */
+      pill_shown: '{name:string}, {n:number} of {total:number} on the bar',
+      pill_hidden: '{name:string}, not on the bar',
+      move_left: 'Move left',
+      move_right: 'Move right',
+      hide: 'Hide',
+      remove: 'Remove',
+      show: 'Add to the bar',
+      reset: 'Reset to layout file',
+      /** Announced after a change made from a pill's menu. */
+      moved: '{name:string} is now {n:number} of {total:number}',
+      shown_now: '{name:string} is on the bar',
+      hidden_now: '{name:string} is off the bar',
+    },
   },
   /** Settings › Keys (settings-shaping ST3, K1): the chips are the control, changes write through. */
   keys: {
@@ -2070,6 +2176,32 @@ const theme = {
   missing: 'No theme at {path:string}',
 }
 
+/**
+ * Pasting and dropping pictures, and pictures a note links to (editor-usability
+ * E5). Sync honesty (golden rule 4): an attachment is written to THIS device's
+ * disk and is not synced (D2f), and no string here may say otherwise.
+ */
+const attachments = {
+  /** The drop overlay's first line, while image files are dragged over a note. */
+  drop_title: 'Drop to add to this note',
+  /** Its second line: where the file goes (names are private until the drop). */
+  saved_in: 'Saved in {folder:string}',
+  /** The same, for several files at once. */
+  saved_in_many: '{count:number} files, saved in {folder:string}',
+  /** The folder name for the top of the vault. */
+  vault_root: 'the vault root',
+  /** Toasted after a picture goes into a note inside a shared folder. */
+  shared_notice:
+    "This note is in {share:string}. Images don't sync yet, so collaborators will see a placeholder until they do.",
+  /** `![alt](https://…)`'s placeholder: nothing is fetched until the button is pressed. */
+  remote_from: 'Image from {host:string}',
+  remote_load: 'Load image',
+  /** After a load the host refused (CORS, the app's content policy, offline). */
+  remote_failed: "{host:string} didn't let this image load here",
+  /** Tooltip of a remote image left as a link where remote images cannot load at all. */
+  remote_not_loaded: 'Remote image, not loaded',
+}
+
 const web = {
   shell,
   notices,
@@ -2119,6 +2251,7 @@ const web = {
   templates,
   resources,
   toolbar,
+  attachments,
 } satisfies BaseTranslation
 
 export default web

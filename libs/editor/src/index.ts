@@ -23,15 +23,21 @@ export {
   editorKeymap,
   FORMAT_COMMANDS,
   formatKeymap,
+  indentFormat,
+  insertCallout,
+  insertCodeBlock,
   insertImage,
   insertLink,
   insertTable,
+  insertRule,
   insertWikilink,
+  outdentFormat,
   runFormat,
   setHeading,
   toggleBold,
   toggleBulletList,
   toggleHeading,
+  toggleHighlight,
   toggleInlineCode,
   toggleItalic,
   toggleOrderedList,
@@ -45,6 +51,19 @@ export {
   type FormatCommandId,
 } from './format.js'
 export { editorHighlightStyle, editorTheme, themeModeCompartment } from './theme.js'
+export {
+  attachmentDrop,
+  attachmentFiles,
+  attachmentHost,
+  attachmentMarkup,
+  insertAttachments,
+  isAttachment,
+  isAttachmentType,
+  pastedAttachments,
+  type AttachmentGesture,
+  type AttachmentHost,
+  type SavedAttachment,
+} from './attachments.js'
 export { selectedTextIn } from './selection.js'
 export {
   centreTarget,

@@ -116,10 +116,18 @@
      * children. The guide IS the rule's colour unless a theme says otherwise
      * — a structural hairline, like `---`, asserted equal in every built-in
      * theme by theme-contract.test.ts. */
-    --ed-list-indent: 1.6em;
+    --ed-list-indent: 1.1em;
     --ed-list-guide: var(--ed-hr);
-    --ed-checkbox: #1d7f9c; /* (V2e) */
-    --ed-checkbox-done: #1f242b66; /* (V2e) */
+    /* Tasks (E2): the box's border, and its fill + border once checked
+     * (the tick is drawn in --ed-surface). Checked is the same colour as
+     * the border unless a theme says otherwise. */
+    --ed-checkbox: #1d7f9c;
+    --ed-checkbox-done: var(--ed-checkbox);
+    /* --- tasks, done (E2, fork C1) -------------------------------------
+     * A checked task's text: the faint ink, with a light strike in a muted
+     * mix of it. The decoration is a whole `text-decoration` value. */
+    --ed-task-done-fg: var(--ed-ink-faint);
+    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
     --ed-table-header-bg: #f5f7f9; /* (V2e) */
     --ed-table-row-alt-bg: #fafbfc; /* (V2e) */
     --ed-table-border: #e3e8ee; /* (V2e) */
@@ -214,5 +222,55 @@
     --ed-strip-bg: var(--color-base-200);
     --ed-tab-active-bg: var(--ed-surface);
     --ed-tab-live: var(--color-primary);
+
+    /* --- link popover (editor-usability E1) ------------------------------
+     * The `[[` completion tooltip, drawn by CM6 but dressed as the shell's
+     * Popover (ui/Popover.svelte: rounded-lg, a base-300 hairline, base-100,
+     * shadow-xl) so the editor's one overlay matches the chrome's. Every
+     * value derives from the DaisyUI colours each theme already sets, so the
+     * four themes need not restate the group (the panes & tabs precedent);
+     * a theme that wants its own popover overrides these. */
+    --ed-popover-bg: var(--color-base-100);
+    --ed-popover-ink: var(--color-base-content);
+    --ed-popover-border: var(--color-base-300);
+    --ed-popover-muted: color-mix(in oklab, var(--color-base-content) 75%, var(--color-base-100));
+    --ed-popover-faint: color-mix(in oklab, var(--color-base-content) 62%, var(--color-base-100));
+    --ed-popover-match: var(--color-primary);
+    --ed-popover-selected: color-mix(in oklab, var(--color-primary) 13%, transparent);
+    --ed-popover-footer-bg: var(--color-base-200);
+    --ed-popover-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    /* --- images: the drop overlay and the remote placeholder (editor-usability E5)
+     * The dashed target drawn over the editor while image files are dragged
+     * onto it (primary 60% border, primary 7% tint, 8px radius), and the
+     * quiet box a remote `![alt](https://…)` waits in until it is loaded.
+     * Derived from the DaisyUI colours every theme sets, so the four themes
+     * need not restate the group (the popover precedent). */
+    --ed-drop-border: color-mix(in oklab, var(--color-primary) 60%, transparent);
+    --ed-drop-bg: color-mix(in oklab, var(--color-primary) 7%, transparent);
+    --ed-drop-ink: var(--color-base-content);
+    --ed-drop-muted: color-mix(in oklab, var(--color-base-content) 75%, var(--color-base-100));
+    --ed-drop-radius: 8px;
+
+    /* --- callouts (editor-usability E3) ----------------------------------
+     * `> [!type]` boxes: each type's colour tints the box (9%), draws its
+     * hairline (26%) and paints the title row and its icon. Nine colours for
+     * Obsidian's thirteen types — info and todo read as note, abstract as
+     * tip, failure as danger — and a user theme can repaint any of them.
+     * Taste, so band B; the defaults are the DaisyUI semantics each theme
+     * sets, plus a teal, a purple and the faint ink where it has none. */
+    --ed-callout-note: var(--color-primary);
+    --ed-callout-tip: var(--ed-syn-function);
+    --ed-callout-success: var(--color-success);
+    --ed-callout-warning: var(--color-warning);
+    --ed-callout-danger: var(--color-error);
+    --ed-callout-question: var(--color-accent);
+    --ed-callout-bug: var(--color-error);
+    --ed-callout-example: var(--ed-syn-keyword);
+    --ed-callout-quote: var(--ed-ink-faint);
+    --ed-callout-info: var(--ed-callout-note);
+    --ed-callout-abstract: var(--ed-callout-tip);
+    --ed-callout-todo: var(--ed-callout-note);
+    --ed-callout-failure: var(--ed-callout-danger);
   }
 }

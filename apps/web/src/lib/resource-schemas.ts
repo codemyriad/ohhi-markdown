@@ -77,6 +77,9 @@ export const LayoutDocSchema = z.strictObject({
       status: entries(READOUT_IDS).describe(
         'Readout ids: the corner at the editor\'s bottom right (regions.status "corner"), by default the word and character counts.'
       ),
+      tabs: entries(COMMAND_IDS).describe(
+        'Command ids, shown as faint buttons at the end of every pane\'s tab strip (by default split right and split down).'
+      ),
     })
     .partial()
     .optional()

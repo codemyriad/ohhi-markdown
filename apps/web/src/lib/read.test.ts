@@ -12,6 +12,7 @@ import {
   afterToggleSource,
   attachmentCandidates,
   attachmentType,
+  imageCandidates,
   openExternal,
   readCommands,
   readLabels,
@@ -201,6 +202,64 @@ describe('attachmentCandidates (B2.3)', () => {
     ]) {
       expect(attachmentCandidates(name, 'Areas/Marks.md')).toEqual([])
     }
+  })
+})
+
+describe('attachmentCandidates — vault-wide by name, like Obsidian (E5)', () => {
+  const known = ['Attachments/shot.png', 'Areas/Data Vis/other.png', 'deep/a/b/shot.png', 'x/shot.png']
+
+  it('finds a bare name anywhere in the vault, the shortest path first', () => {
+    expect(attachmentCandidates('other.png', 'Notes/n.md', known)).toEqual([
+      'Areas/Data Vis/other.png',
+      'Notes/other.png',
+      'other.png',
+    ])
+    expect(attachmentCandidates('shot.png', 'Notes/n.md', known).slice(0, 3)).toEqual([
+      'x/shot.png',
+      'Attachments/shot.png',
+      'deep/a/b/shot.png',
+    ])
+  })
+
+  it('tries the exact vault path first, then beside the note', () => {
+    const files = ['Notes/shot.png', 'shot.png', 'Attachments/shot.png']
+    expect(attachmentCandidates('shot.png', 'Notes/n.md', files)).toEqual([
+      'shot.png',
+      'Notes/shot.png',
+      'Attachments/shot.png',
+    ])
+    expect(attachmentCandidates('shot.png', 'Notes/n.md', ['Notes/shot.png', 'A/shot.png'])[0]).toBe('Notes/shot.png')
+  })
+
+  it('matches a partial path by its tail, and a name case-insensitively, spelled as the file is', () => {
+    expect(attachmentCandidates('b/SHOT.png', null, known)[0]).toBe('deep/a/b/shot.png')
+  })
+
+  it('still refuses to leave the vault with a file list in hand', () => {
+    expect(attachmentCandidates('../shot.png', 'Notes/n.md', known)).toEqual([])
+  })
+})
+
+describe('imageCandidates — `![alt](src)` (E5)', () => {
+  it('decodes a percent-encoded or bracketed path', () => {
+    expect(imageCandidates('My%20shot.png', null)).toEqual(['My shot.png'])
+    expect(imageCandidates('<My shot.png>', null)).toEqual(['My shot.png'])
+  })
+
+  it('resolves a folder walk against the note, and refuses one out of the vault', () => {
+    expect(imageCandidates('../img/x.png', 'Areas/Notes/n.md')).toEqual(['Areas/img/x.png'])
+    expect(imageCandidates('./../x.png', 'Areas/n.md')).toEqual(['x.png'])
+    expect(imageCandidates('../../x.png', 'Areas/n.md')).toEqual([])
+  })
+
+  it('never reads a URL from disk', () => {
+    for (const src of ['https://example.com/x.png', 'file:///etc/x.png', 'data:image/png;base64,AA', '//x/y.png']) {
+      expect(imageCandidates(src, 'n.md')).toEqual([])
+    }
+  })
+
+  it('looks a bare name up vault-wide, as a wikilink does', () => {
+    expect(imageCandidates('shot.png', 'n.md', ['Attachments/shot.png'])[0]).toBe('Attachments/shot.png')
   })
 })
 

@@ -10,7 +10,7 @@ import { hashBytes } from './hash.js'
 import type { LcaStore, VaultAdapter } from './types.js'
 
 const BINARY_EXTENSIONS = new Set([
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'pdf', 'zip', 'gz',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'svg', 'ico', 'pdf', 'zip', 'gz',
   'mp3', 'mp4', 'mov', 'webm', 'woff', 'woff2', 'ttf', 'xlsx', 'docx', 'pptx',
 ])
 

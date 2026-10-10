@@ -191,14 +191,15 @@ what buys it).
 
 | Token | What reads it |
 |---|---|
-| `--ed-bullet` | the bullet widget — a filled dot about 0.4em across, centred on the x-height — that replaces `- ` the moment the space is typed, on the caret's line too; the marker is text only while the selection is on it (X1, amended 2026-10-06) |
-| `--ed-list-indent` | *(not `(V2e)` — read since 2026-10-06)* the width of one list nesting level in Live and Reading: the tab stop on list lines and the bullet's own box, so a child's dot sits under its parent's text. Default `1.6em`. Source keeps the four-column tabs |
+| `--ed-bullet` | the bullet widget — a filled dot 0.36em across after a 0.25em lead, centred on the x-height, about half an em from the text (E2, 2026-10-10) — that replaces `- ` the moment the space is typed, on the caret's line too; the marker is text only while the selection is on it (X1, amended 2026-10-06) |
+| `--ed-list-indent` | *(not `(V2e)` — read since 2026-10-06)* the width of one list nesting level in Live and Reading: the tab stop on list lines and the bullet's own box, so a child's dot sits under its parent's text. Default `1.1em` (tightened from `1.6em` in E2). A task's box takes the same column, so a task's text lines up with a sibling bullet's. Source keeps the four-column tabs |
 | `--ed-list-guide` | *(not `(V2e)` — read since 2026-10-06)* the 1px depth guide down each nesting level's children, drawn from the syntax tree's depth (a line class, no DOM measurement). Default `var(--ed-hr)` — the rule's hairline; `theme-contract.test.ts` asserts it resolves to `--ed-hr` in every built-in theme |
-| `--ed-checkbox` / `--ed-checkbox-done` | the task checkbox widget, unchecked and checked — 1,941 of them in the real vault (X1) |
+| `--ed-checkbox` / `--ed-checkbox-done` | the task box (a real `<input type=checkbox>` drawn with `appearance: none`, so the same 0.9em square in every engine: Chris's WebKitGTK screenshot, measured): `--ed-checkbox` is its 1px border, `--ed-checkbox-done` its fill and border once checked — `var(--ed-checkbox)` in every built-in theme since E2 — with the tick in `--ed-surface`. 1,941 of them in the real vault (X1) |
+| `--ed-task-done-fg` / `--ed-task-done-decoration` | a checked task's text (E2, fork C1): `var(--ed-ink-faint)`, and a whole `text-decoration` value — a 1px line-through in a 60% mix of the done ink |
 | `--ed-mark-bg` / `--ed-mark-fg` | `==highlight==`, a new inline node (X1) |
 | `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
 | `--ed-code-block-fg` | a fence's body text under its slab, beside the nine `--ed-syn-*` slots (X1) |
-| `--ed-quote-border` | the blockquote's left border, once `> ` is hidden (X1) |
+| `--ed-quote-border` | the blockquote's left border, once `> ` is hidden (X1). On the caret's line the revealed `> ` hangs in the line's padding beside it, out of the flow, so the text does not move; quotes are upright (E2) |
 | `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates, so it must look clickable (X1) |
 | `--ed-table-header-bg` / `--ed-table-row-alt-bg` / `--ed-table-border` | the Reading table widget, and Live's column guides over the raw pipes (X2) |
 | `--ed-frontmatter-bg` / `--ed-frontmatter-border` | the YAML block's fencing while the caret is inside it (X3) |
@@ -302,7 +303,7 @@ anyway since it already sits in the highest-priority normal layer.
 | `--tag-color` / `--tag-background` / `--tag-radius` | `--ed-tag-fg` / `--ed-tag-bg` / `--ed-tag-radius` |
 | `--text-selection` | `--ed-selection` |
 | `--cursor-line-background` | `--ed-active-line` |
-| `--checkbox-color` / `--checklist-done-color` | `--ed-checkbox` / `--ed-checkbox-done` |
+| `--checkbox-color` / `--checklist-done-color` | `--ed-checkbox` / `--ed-task-done-fg` (the done text; the checked box is `--ed-checkbox-done`) |
 | `--table-header-background` / `--table-row-even-background` | `--ed-table-header-bg` / `--ed-table-row-alt-bg` |
 | `--background-modifier-cover` | `--ed-scrim` (the dialog scrim — a colour of its own because DaisyUI's `neutral` is the ink colour in dark themes) |
 

@@ -62,5 +62,23 @@
     --ed-title: #1d7f9c;
     --ed-bold: #0d1117;
     --ed-italic: #333c47;
+
+    /* --- tasks (editor-usability E2): the checked box fills with the box's
+     * own colour; a done task's text is the faint ink, lightly struck. */
+    --ed-task-done-fg: var(--ed-ink-faint);
+    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
+
+    /* --- callouts (editor-usability E3): this theme's nine type colours;
+     * info / todo / abstract / failure follow note / tip / danger through
+     * the contract. */
+    --ed-callout-note: #1d7f9c;
+    --ed-callout-tip: #0f6e63;
+    --ed-callout-success: #4a7a2e;
+    --ed-callout-warning: #8a6300;
+    --ed-callout-danger: #b3271e;
+    --ed-callout-question: #9a5b12;
+    --ed-callout-bug: #b3271e;
+    --ed-callout-example: #7d3fa8;
+    --ed-callout-quote: var(--ed-ink-faint);
   }
 }

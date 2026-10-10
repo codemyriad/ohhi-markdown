@@ -18,6 +18,7 @@ import { splitWikiLink } from '../wikilink.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { isRendered } from './active-lines.js'
 import { toggleTaskAt } from './commands.js'
+import { cellPosition } from './table-commands.js'
 
 /**
  * Only http(s) leaves the app: a note is agent-writable, and `file:`, `data:`
@@ -56,7 +57,9 @@ export const previewClicks = EditorView.domEventHandlers({
     const host = view.state.facet(readHost)
     for (let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(pos, 1); node; node = node.parent) {
       const { name, from, to } = node
-      if (name !== 'Tag' && name !== 'WikiLink' && name !== 'Link' && name !== 'URL') continue
+      if (name !== 'Tag' && name !== 'WikiLink' && name !== 'Link' && name !== 'URL' && name !== 'Image') continue
+      // A drawn picture is not a link; only a remote image left as one is (E5).
+      if (name === 'Image' && target.closest('.cm-embed')) return false
       if (!isRendered(view.state, from, to)) return false
       if (name === 'Tag') {
         const tag = view.state.doc.sliceString(from + 1, to)
@@ -107,6 +110,22 @@ function widgetClick(
 
   const url = target.closest<HTMLElement>('[data-url]')?.dataset.url
   if (url && isExternal(url)) return done(event, () => host.openExternal(url))
+
+  // The Live grid (E4): a click on a cell puts the caret at the end of that
+  // cell's text, which makes the table active and shows its source. The
+  // widget's own position is the table's first line; the cell says the rest.
+  if (widget.classList.contains('cm-table-grid')) {
+    const cell = target.closest<HTMLElement>('[data-row][data-col]')
+    const at = view.posAtDOM(widget)
+    const pos = cell
+      ? cellPosition(view.state, at, Number(cell.dataset.row), Number(cell.dataset.col))
+      : at
+    if (pos === null) return false
+    return done(event, () => {
+      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true, userEvent: 'select.pointer' })
+      view.focus()
+    })
+  }
 
   if (widget.classList.contains('cm-frontmatter-strip')) {
     // Reading has no caret to hand back.

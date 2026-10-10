@@ -24,31 +24,11 @@
    * Every `toolbar:format.*`, `toolbar-format*` and `toolbar-menu:*` testid
    * is the toolbar's, kept; the pill is `format-bar`, with `data-position`.
    */
-  import {
-    Bold,
-    Brackets,
-    ChevronDown,
-    Code,
-    Heading,
-    Heading1,
-    Heading2,
-    Heading3,
-    Image,
-    Italic,
-    Link,
-    List,
-    ListOrdered,
-    ListTodo,
-    Pilcrow,
-    Strikethrough,
-    Table,
-    TextQuote,
-    Type,
-    type LucideIcon,
-  } from '@lucide/svelte'
+  import { ChevronDown, Heading, Type, type LucideIcon } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { TOOLBAR_ITEM_IDS } from '../command-ids.js'
+  import { FORMAT_ICONS } from '../format-icons.js'
   import type { CommandRegistry } from '../commands.js'
   import { SEPARATOR } from '../layout-spec.js'
   import { focusedOf } from '../readout-state.js'
@@ -72,24 +52,7 @@
   let { ids, edge, ctx, registry }: Props = $props()
 
   /** The icon each format command is drawn with. A command id with none here is not a format button. */
-  const ICONS: Record<string, LucideIcon> = {
-    'format.bold': Bold,
-    'format.italic': Italic,
-    'format.strike': Strikethrough,
-    'format.code': Code,
-    'format.heading-1': Heading1,
-    'format.heading-2': Heading2,
-    'format.heading-3': Heading3,
-    'format.paragraph': Pilcrow,
-    'format.list': List,
-    'format.ordered-list': ListOrdered,
-    'format.task': ListTodo,
-    'format.quote': TextQuote,
-    'format.link': Link,
-    'format.wikilink': Brackets,
-    'format.table': Table,
-    'format.image': Image,
-  }
+  const ICONS = FORMAT_ICONS
 
   /** The one grouped entry (Fork 4's "paragraph style"): a menu of the block styles. */
   const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
@@ -152,6 +115,55 @@
     void registry.get(id)?.run()
   }
 
+  // ---- one row, scrolling sideways (E6) ----
+
+  let scroller = $state<HTMLElement | null>(null)
+  /** Whether there is more of the bar past each end. */
+  let more = $state({ start: false, end: false })
+
+  function measureScroll(): void {
+    const el = scroller
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    const next = { start: max > 1 && el.scrollLeft > 1, end: max > 1 && el.scrollLeft < max - 1 }
+    if (next.start !== more.start || next.end !== more.end) more = next
+  }
+
+  /** The fade: a mask (no colour of its own) over the last 24px at an end with more. */
+  const fade = $derived(
+    more.start || more.end
+      ? `linear-gradient(to right, ${more.start ? 'transparent, #000 24px' : '#000, #000'}, ${more.end ? '#000 calc(100% - 24px), transparent' : '#000'})`
+      : undefined
+  )
+
+  $effect(() => {
+    const el = scroller
+    // Re-observed when the entries change: a new button widens the content, not the box.
+    void entries.length
+    if (!el) return
+    const observer = new ResizeObserver(measureScroll)
+    observer.observe(el)
+    for (const child of el.children) observer.observe(child)
+    measureScroll()
+    // A vertical wheel scrolls the bar sideways — but only when it can move,
+    // so a wheel over a bar that fits still scrolls the note under it.
+    // Not Svelte's `onwheel`: that listener is passive and cannot take the event.
+    const wheel = (e: WheelEvent): void => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return
+      const max = el.scrollWidth - el.clientWidth
+      if (max <= 1) return
+      const to = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY))
+      if (to === el.scrollLeft) return
+      e.preventDefault()
+      el.scrollLeft = to
+    }
+    el.addEventListener('wheel', wheel, { passive: false })
+    return () => {
+      observer.disconnect()
+      el.removeEventListener('wheel', wheel)
+    }
+  })
+
   /** Keep the editor's focus and selection when a button is pressed with a pointer. */
   const keepEditorFocus = (e: MouseEvent): void => e.preventDefault()
 </script>
@@ -168,8 +180,19 @@
     class="pointer-events-auto flex h-9 max-w-full shrink-0 items-center justify-center rounded-lg border border-base-300 bg-base-100 px-1 text-xs text-base-content/70 shadow-sm"
   >
     <div data-testid="toolbar-format" class="flex min-w-0 items-center">
-      <!-- Wide: every command its own button. -->
-      <div class="flex items-center gap-0.5 @max-[30rem]:hidden">
+      <!-- Wide: every command its own button, on ONE row that never wraps
+           (E6): it grows to the pane's width, then scrolls sideways — no
+           scrollbar, a fade at whichever end has more, the wheel mapped
+           to horizontal. Focus moving to a button scrolls it into view. -->
+      <div
+        bind:this={scroller}
+        data-testid="format-bar-scroll"
+        data-more-start={more.start}
+        data-more-end={more.end}
+        onscroll={measureScroll}
+        style:mask-image={fade}
+        style:-webkit-mask-image={fade}
+        class="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] @max-[30rem]:hidden [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
         {#each entries as entry (entry.key)}
           {#if entry.kind === 'separator'}
             <span role="separator" aria-orientation="vertical" class="mx-1 h-4 w-px bg-base-300"></span>

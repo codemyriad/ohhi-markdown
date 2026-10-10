@@ -7,7 +7,7 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { appUrl, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, panes, runCommand, tabNamed, paneTabs } from './fixtures.js'
+import { appUrl, closeSettings, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, openSettings, panes, runCommand, tabNamed, paneTabs } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -200,12 +200,15 @@ test('the pane mode zooms and resizes from the keyboard, and says what it does',
   await page.keyboard.press('Alt+=')
   await expect(panes(page)).toHaveCount(2)
 
-  // Mod+P is the leader; the bar shows the live mode and what its keys do.
+  // Mod+P is the leader; the corner cue (E6, Subtle) shows the live mode,
+  // and `?` every key it has.
   await page.keyboard.press('ControlOrMeta+p')
-  const bar = page.getByTestId('mode-bar')
+  const bar = page.getByTestId('mode-cue')
   await expect(bar).toBeVisible()
   await expect(page.getByTestId('mode-badge')).toHaveText('PANE')
-  await expect(bar).toContainText('Split down')
+  await expect(bar).not.toContainText('Split down')
+  await page.keyboard.press('?')
+  await expect(page.getByTestId('mode-cue-all')).toContainText('Split down')
 
   // `f` zooms: one pane on screen, one live editor, and the status bar says so.
   await page.keyboard.press('f')
@@ -227,9 +230,9 @@ test('the pane mode zooms and resizes from the keyboard, and says what it does',
   await expect(page.getByTestId('mode-badge')).toHaveText('RESIZE')
   await page.keyboard.press('l')
   await page.keyboard.press('l')
-  await expect(page.getByTestId('mode-bar')).toBeVisible()
+  await expect(page.getByTestId('mode-cue')).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('mode-bar')).toHaveCount(0)
+  await expect(page.getByTestId('mode-cue')).toHaveCount(0)
   const after = (await panes(page).first().boundingBox())!.width
   expect(after).toBeGreaterThan(before)
 })
@@ -283,7 +286,7 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
   // until Escape — so entering one from a text field ate the rest of what was
   // being typed. `Mod+W` acted on a tab nobody could see.
   await page.keyboard.press('ControlOrMeta+p')
-  await expect(page.getByTestId('mode-bar')).toHaveCount(0)
+  await expect(page.getByTestId('mode-badge')).toHaveCount(0)
   await page.keyboard.press('ControlOrMeta+w')
   await expect(page.getByTestId('report-dialog')).toBeVisible()
 
@@ -539,4 +542,42 @@ test('Control+Shift+T reopens a closed tab in the default layout — from the ed
   await picker.focus()
   await page.keyboard.press('Control+Shift+t')
   await expect(tabs.filter({ hasText: 'welcome' })).toHaveCount(1)
+})
+
+test('pane keys (E6): Subtle sits in the corner above the word count, ? opens every key, Full is the bar', async ({
+  page,
+}) => {
+  // The default layout (not the fixtures' `dense`): the count floats in the corner.
+  await page.goto(appUrl({ room: 'panes-cue', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+  await editors(page).first().click()
+  await expect(page.getByTestId('corner-status')).toBeVisible()
+
+  await page.keyboard.press('ControlOrMeta+p')
+  const line = page.getByTestId('mode-cue-line')
+  await expect(line).toBeVisible()
+  await expect(line).toHaveAttribute('role', 'status')
+  await expect(page.getByTestId('mode-bar')).toHaveCount(0)
+  // Directly above the count, right-aligned with it.
+  const cue = (await line.boundingBox())!
+  const count = (await page.getByTestId('corner-status').boundingBox())!
+  expect(cue.y + cue.height).toBeLessThanOrEqual(count.y + 1)
+  expect(Math.abs(cue.x + cue.width - (count.x + count.width))).toBeLessThanOrEqual(2)
+  await page.keyboard.press('?')
+  await expect(page.getByTestId('mode-cue-all')).toBeVisible()
+  await page.keyboard.press('?')
+  await expect(page.getByTestId('mode-cue-all')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(line).toHaveCount(0)
+
+  // Full: today's bar along the bottom, and no corner cue.
+  await openSettings(page, 'layout')
+  await page.getByTestId('layout-field:hints').selectOption('full')
+  await closeSettings(page)
+  await editors(page).first().click()
+  await page.keyboard.press('ControlOrMeta+p')
+  await expect(page.getByTestId('mode-bar')).toBeVisible()
+  await expect(page.getByTestId('mode-cue')).toHaveCount(0)
+  await page.keyboard.press('Escape')
 })

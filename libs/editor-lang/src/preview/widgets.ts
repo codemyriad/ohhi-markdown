@@ -63,18 +63,25 @@ export class CheckboxWidget extends ReadWidget {
 export class BulletWidget extends ReadWidget {
   constructor(
     /** Only the `-` is replaced: the item is empty and its space is still text. */
-    readonly open = false
+    readonly open = false,
+    /**
+     * Drawn faint: a lone `-` under a paragraph, which parses as a setext
+     * underline until the item's text arrives (fork D1, setext.ts).
+     */
+    readonly provisional = false
   ) {
     super()
   }
 
   override eq(other: BulletWidget): boolean {
-    return other.open === this.open
+    return other.open === this.open && other.provisional === this.provisional
   }
 
   toDOM(): HTMLElement {
     const box = document.createElement('span')
-    box.className = this.open ? 'cm-bullet cm-bullet-open' : 'cm-bullet'
+    box.className = 'cm-bullet'
+    if (this.open) box.classList.add('cm-bullet-open')
+    if (this.provisional) box.classList.add('cm-bullet-provisional')
     box.setAttribute('aria-hidden', 'true')
     return box
   }
@@ -94,28 +101,8 @@ export class RuleWidget extends ReadWidget {
   }
 }
 
-/** A fence's opening line (language badge) or closing line (cap). */
-export class FenceWidget extends ReadWidget {
-  constructor(readonly lang: string | null) {
-    super()
-  }
-
-  override eq(other: FenceWidget): boolean {
-    return other.lang === this.lang
-  }
-
-  toDOM(): HTMLElement {
-    const wrap = document.createElement('div')
-    wrap.className = this.lang === null ? 'cm-fence-line cm-fence-cap' : 'cm-fence-line cm-fence-open'
-    if (this.lang !== null && this.lang !== '') {
-      const badge = document.createElement('span')
-      badge.className = 'cm-fence-lang'
-      badge.textContent = this.lang
-      wrap.appendChild(badge)
-    }
-    return wrap
-  }
-}
+/** A fence's opening line (header bar) or closing line (cap): code-widgets.ts (E3). */
+export { FenceWidget } from './code-widgets.js'
 
 /**
  * `![[picture.png]]`. The bytes come from the host's adapter — binaries live on
@@ -129,13 +116,22 @@ export class EmbedWidget extends ReadWidget {
   constructor(
     readonly name: string,
     readonly block: boolean,
-    private readonly host: ReadHost
+    private readonly host: ReadHost,
+    /** `![alt](src)`'s alt text (E5); a wikilink embed is named by its file. */
+    readonly alt: string | null = null,
+    /** Which syntax named the file: a markdown `src` is relative to the note. */
+    readonly form: 'wikilink' | 'markdown' = 'wikilink'
   ) {
     super()
   }
 
   override eq(other: EmbedWidget): boolean {
-    return other.name === this.name && other.block === this.block
+    return (
+      other.name === this.name &&
+      other.block === this.block &&
+      other.alt === this.alt &&
+      other.form === this.form
+    )
   }
 
   toDOM(): HTMLElement {
@@ -145,7 +141,7 @@ export class EmbedWidget extends ReadWidget {
       wrap.classList.add('cm-embed-missing')
       wrap.textContent = `${this.name} — ${this.host.labels.missingAttachment}`
     }
-    void this.host.readAttachment(this.name).then(
+    void this.host.readAttachment(this.name, this.form).then(
       (blob) => {
         // The view may have moved on while the adapter was reading.
         if (this.dead) return
@@ -153,7 +149,7 @@ export class EmbedWidget extends ReadWidget {
         this.url = URL.createObjectURL(blob)
         const img = document.createElement('img')
         img.src = this.url
-        img.alt = this.name
+        img.alt = this.alt ?? this.name
         wrap.appendChild(img)
       },
       // A host that rejects has not got the file either: same answer, and never
@@ -222,43 +218,59 @@ export class FrontmatterStripWidget extends ReadWidget {
 /** One row of a table, as the cells' inline content (already extracted). */
 export interface TableRowData {
   header: boolean
+  /** One entry per COLUMN — an empty cell is `[]`, so cell N is column N. */
   cells: InlinePiece[][]
 }
 
+/** A column's alignment, from the delimiter row's colons. */
+export type TableAlign = 'none' | 'left' | 'center' | 'right'
+
 /**
- * A GFM table, rendered in Reading only (Fork 3-A). The cells are extracted
- * from the syntax tree when the decoration is built, so this draws the same
- * inline constructs the editor does — there is no second markdown parser.
+ * A GFM table drawn as a grid: in Reading, and in Live while the selection is
+ * outside it (E4, fork B2 — the caret entering it shows the source). The
+ * cells are extracted from the syntax tree when the decoration is built, so
+ * this draws the same inline constructs the editor does — there is no second
+ * markdown parser.
+ *
+ * Every cell carries `data-row` (the header is 0, the delimiter row is not
+ * counted) and `data-col`, which is all clicks.ts needs to put the caret in
+ * that cell's text; `editable` says whether a click may (Reading has no caret).
  */
 export class TableWidget extends ReadWidget {
   constructor(
     readonly rows: TableRowData[],
     /** The block's source text: cheap, exact identity for `eq`. */
-    readonly source: string
+    readonly source: string,
+    readonly aligns: readonly TableAlign[] = [],
+    readonly editable = false
   ) {
     super()
   }
 
   override eq(other: TableWidget): boolean {
-    return other.source === this.source
+    return other.source === this.source && other.editable === this.editable
   }
 
   toDOM(): HTMLElement {
     const wrap = document.createElement('div')
-    wrap.className = 'cm-table-wrap'
+    wrap.className = this.editable ? 'cm-table-wrap cm-table-grid' : 'cm-table-wrap'
     const table = document.createElement('table')
     table.className = 'cm-table'
     const head = document.createElement('thead')
     const body = document.createElement('tbody')
-    for (const row of this.rows) {
+    this.rows.forEach((row, r) => {
       const tr = document.createElement('tr')
-      for (const cell of row.cells) {
+      row.cells.forEach((cell, c) => {
         const td = document.createElement(row.header ? 'th' : 'td')
+        td.dataset.row = String(r)
+        td.dataset.col = String(c)
+        const align = this.aligns[c]
+        if (align && align !== 'none') td.style.textAlign = align
         td.appendChild(renderInline(cell))
         tr.appendChild(td)
-      }
+      })
       ;(row.header ? head : body).appendChild(tr)
-    }
+    })
     if (head.childNodes.length) table.appendChild(head)
     if (body.childNodes.length) table.appendChild(body)
     wrap.appendChild(table)

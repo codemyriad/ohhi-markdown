@@ -120,7 +120,13 @@
     --ed-bullet: #81a1c1;
     --ed-marker: #4c566a;
     --ed-checkbox: #8fbcbb;              /* --checkbox-color */
-    --ed-checkbox-done: #eceff480;       /* --checklist-done-color */
+    --ed-checkbox-done: var(--ed-checkbox);
+
+    /* --- tasks (editor-usability E2): the checked box fills with the box's
+     * own colour; a done task's text is the faint ink, lightly struck. */
+    --ed-task-done-fg: var(--ed-ink-faint);
+    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
+
     --ed-table-header-bg: #22272f;       /* --table-header-background */
     --ed-table-row-alt-bg: #2b303b;      /* --table-row-even-background */
     --ed-table-border: #3b4252;
@@ -184,5 +190,18 @@
     --ed-group-6: #81a1c1;
     --ed-group-7: #d08770;
     --ed-group-8: #cbb69a;
+
+    /* --- callouts (editor-usability E3): this theme's nine type colours;
+     * info / todo / abstract / failure follow note / tip / danger through
+     * the contract. */
+    --ed-callout-note: #88c0d0;
+    --ed-callout-tip: #8fbcbb;
+    --ed-callout-success: #a3be8c;
+    --ed-callout-warning: #ebcb8b;
+    --ed-callout-danger: #bf616a;
+    --ed-callout-question: #d08770;
+    --ed-callout-bug: #bf616a;
+    --ed-callout-example: #b48ead;
+    --ed-callout-quote: var(--ed-ink-faint);
   }
 }

@@ -7,11 +7,14 @@
  * and rebuild the view — losing cursor, scroll and undo history — on every
  * parent render. A facet is read from state and reconfigured, not re-created.
  */
-import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
+import { autocompletion } from '@codemirror/autocomplete'
 import { syntaxTree } from '@codemirror/language'
 import { Facet, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { tagCompletions } from './preview/completion.js'
+import { fenceLanguageCompletions } from './preview/fence-edit.js'
+import { linkCompletions, linkPopover, type LinkContext, type LinkPopoverLabels } from './link-completion-view.js'
+import type { LinkHeading } from './link-completion.js'
 
 /** What the host lets the editor do with a link target. */
 export interface WikiLinkHost {
@@ -23,6 +26,17 @@ export interface WikiLinkHost {
   create(target: string): void
   /** Candidate paths for `[[` completion — the same list quick-open uses. */
   candidates(): string[]
+  /**
+   * Where the note being edited sits — its path, the vault's shared folders
+   * and the recently opened notes — so the popover can put the share's own
+   * notes first (fork A2). Optional: without it the list is one ungrouped,
+   * unboosted group.
+   */
+  context?(): LinkContext
+  /** One note's headings, in document order, for `[[Note#` (from the index). */
+  headings?(path: string): Promise<readonly LinkHeading[]>
+  /** The popover's copy; absent → the developer fallback. */
+  labels?: LinkPopoverLabels
 }
 
 const NOOP_HOST: WikiLinkHost = {
@@ -75,58 +89,12 @@ const wikiLinkClicks = EditorView.domEventHandlers({
 })
 
 /**
- * `[[` completion over the same in-memory path list quick-open uses.
- *
- * Synchronous by construction — no await, so the popup never flickers in
- * behind a keystroke. It fires inside an unterminated `[[…` regardless of
- * whether the parser has produced a node yet, which it often has not while
- * you are still typing the opening brackets.
+ * `[[` completion: the link popover (editor-usability E1). The source, its
+ * ranking and its rows live in link-completion*.ts; this file only owns the
+ * facet the host arrives through.
  */
-function wikiLinkCompletions(context: CompletionContext): CompletionResult | null {
-  const line = context.state.doc.lineAt(context.pos)
-  const before = line.text.slice(0, context.pos - line.from)
-  const open = before.lastIndexOf('[[')
-  if (open === -1) return null
-  const typed = before.slice(open + 2)
-  // Already closed, or spilling past the link: not a completion context.
-  if (typed.includes(']')) return null
-
-  // Complete only the TARGET segment: anything after a `#` or `|` the user has
-  // already typed is theirs to keep. Replacing the whole run would silently
-  // drop an anchor (`[[Design#Decisions` → `[[Design]]`).
-  const stop = typed.search(/[#|]/)
-  const target = (stop === -1 ? typed : typed.slice(0, stop)).trim()
-  const replaceTo = line.from + open + 2 + (stop === -1 ? typed.length : stop)
-
-  const host = context.state.facet(wikiLinkHost)
-  const query = target.toLowerCase()
-  const candidates = host.candidates()
-
-  // How many notes share each basename — an ambiguous one must be applied as
-  // its full path, or PathResolver picks by proximity and the user gets a
-  // different note than the one they chose from the list.
-  const byBase = new Map<string, number>()
-  for (const path of candidates) {
-    const name = path.replace(/\.md$/i, '')
-    const base = name.slice(name.lastIndexOf('/') + 1).toLowerCase()
-    byBase.set(base, (byBase.get(base) ?? 0) + 1)
-  }
-
-  const options = candidates
-    .filter((path) => !query || path.toLowerCase().includes(query))
-    .slice(0, 50)
-    .map((path) => {
-      const name = path.replace(/\.md$/i, '')
-      const base = name.slice(name.lastIndexOf('/') + 1)
-      // Apply the full path when the basename is ambiguous, or when the user
-      // is clearly typing a path (they asked for a specific folder).
-      const ambiguous = (byBase.get(base.toLowerCase()) ?? 0) > 1
-      const apply = ambiguous || target.includes('/') ? name : base
-      return { label: base, detail: name, apply, type: 'text' }
-    })
-  if (options.length === 0) return null
-  return { from: line.from + open + 2, to: replaceTo, options, filter: false }
-}
+const wikiLinkCompletions = linkCompletions((state) => state.facet(wikiLinkHost))
+const popover = linkPopover((state) => state.facet(wikiLinkHost))
 
 /** The whole wikilink extension set. Install once; reconfigure the facet. */
 export function wikiLinkExtensions(host?: WikiLinkHost): Extension[] {
@@ -136,7 +104,12 @@ export function wikiLinkExtensions(host?: WikiLinkHost): Extension[] {
     // ONE autocompletion() for the whole surface: two of them are a config
     // merge conflict on `override`, which CM6 throws on at startup. So the
     // Read slice's `#` source is listed here rather than in livePreview().
-    autocompletion({ override: [wikiLinkCompletions, tagCompletions], activateOnTyping: true }),
+    autocompletion({
+      override: [wikiLinkCompletions, tagCompletions, fenceLanguageCompletions],
+      activateOnTyping: true,
+      ...popover.config,
+    }),
+    ...popover.extensions,
     EditorView.theme({
       // No pointer cursor here: on a RAW link a plain click edits, and a hand
       // would promise navigation that only Mod-click delivers. A rendered one

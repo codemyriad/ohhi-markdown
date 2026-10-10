@@ -46,12 +46,79 @@ export interface ReadLabels {
   properties(count: number): string
   /** Badge in place of chips when the YAML is not in the patchable subset. */
   frontmatterUnsupported: string
+  // --- code cards and callouts (editor-usability E3) ---
+  /** The code card's copy button. */
+  copyCode: string
+  /** The copy button's name for a moment after it has copied. */
+  codeCopied: string
+  /** The language chip's accessible name: it names the language and opens the list. */
+  codeLanguage(lang: string): string
+  /** The chip's text for a fence with no language. */
+  codePlain: string
+  /** A foldable callout's chevron (with `aria-expanded` beside it). */
+  toggleCallout(title: string): string
+  // --- tables (editor-usability E4) ---
+  /** The hint toolbar over a table the caret is in; absent ⇒ the English fallback. */
+  table?: TableLabels
+  // --- images (editor-usability E5) ---
+  /** `![alt](https://…)`'s placeholder; absent ⇒ the English fallback. */
+  remoteImage?: RemoteImageLabels
+}
+
+/** The copy around a remote image that is not loaded until it is asked for (E5). */
+export interface RemoteImageLabels {
+  /** The placeholder's line: `Image from example.com`. */
+  from(host: string): string
+  /** Its button. */
+  load: string
+  /** After a refused load: why there is still no picture. */
+  failed(host: string): string
+  /** The link-styled form's tooltip, where the host cannot load remote images at all. */
+  notLoaded: string
+}
+
+/** The developer fallback for a host that passes no image labels. */
+export const FALLBACK_REMOTE_IMAGE_LABELS: RemoteImageLabels = {
+  from: (host) => `Image from ${host}`,
+  load: 'Load image',
+  failed: (host) => `${host} did not let the image load here`,
+  notLoaded: 'Remote image, not loaded',
+}
+
+/** The table hint toolbar's copy (E4): the key hints and its three buttons. */
+export interface TableLabels {
+  /** The toolbar's accessible name. */
+  toolbar: string
+  /** `Tab next cell` — a hint, not a button. */
+  nextCell: string
+  /** `↵ next row` — a hint, not a button. */
+  nextRow: string
+  /** `+ row` — inserts a row below the caret's. */
+  addRow: string
+  /** `+ column` — inserts a column right of the caret's. */
+  addColumn: string
+  /** `Align` — pads the columns. */
+  align: string
+}
+
+/** The developer fallback for a host that passes no table labels. */
+export const FALLBACK_TABLE_LABELS: TableLabels = {
+  toolbar: 'Table',
+  nextCell: 'Tab next cell',
+  nextRow: '↵ next row',
+  addRow: '+ row',
+  addColumn: '+ column',
+  align: 'Align',
 }
 
 /** What a rendered note can ask its host for. Every method is optional to call from a widget; none may throw. */
 export interface ReadHost {
-  /** Bytes of an attachment named in `![[name]]`, or null when this device does not hold it. */
-  readAttachment(name: string): Promise<Blob | null>
+  /**
+   * Bytes of an attachment named in `![[name]]` — or, with `form: 'markdown'`,
+   * the local `src` of `![alt](src)`, a path relative to the note — or null
+   * when this device does not hold it.
+   */
+  readAttachment(name: string, form?: 'wikilink' | 'markdown'): Promise<Blob | null>
   /** Open an http(s) URL outside the editor (Tauri shell / window.open). */
   openExternal(url: string): void
   /** Run a vault search for `tag:#tag` — what a click on a chip does. */
@@ -60,6 +127,13 @@ export interface ReadHost {
   tags(): string[]
   /** User-facing strings for the widgets. */
   labels: ReadLabels
+  /**
+   * Fetch a REMOTE image's bytes, on a click and never before (E5): a synced,
+   * agent-writable note is not a trusted page, so nothing it names is loaded
+   * by opening it. Null when the fetch is refused (CORS, the CSP, offline).
+   * Optional: a host without it leaves `![alt](https://…)` as a link.
+   */
+  loadRemoteImage?(url: string): Promise<Blob | null>
   /**
    * Read this note's frontmatter for the collapsed strip — the shell passes
    * @ohhi/frontmatter's `parseFrontmatter` straight in.
@@ -87,6 +161,11 @@ const NOOP_HOST: ReadHost = {
     task: 'Task',
     properties: (count) => `${count} properties`,
     frontmatterUnsupported: 'Frontmatter does not parse',
+    copyCode: 'Copy code',
+    codeCopied: 'Copied',
+    codeLanguage: (lang) => `Language: ${lang}`,
+    codePlain: 'plain text',
+    toggleCallout: (title) => `Fold ${title}`,
   },
 }
 

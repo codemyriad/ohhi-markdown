@@ -54,6 +54,7 @@ import {
   enrollFolder,
   FOLDER_DOC_KEY,
   hashBytes,
+  IGNORED_DIRS,
   joinFolder,
   JsonFileLcaStore,
   looksBinary,
@@ -638,6 +639,73 @@ export class MountSession {
       await this.restartSession()
       this.refreshFiles()
       return path
+    } catch (err) {
+      this.pushError(err)
+      return null
+    }
+  }
+
+  /**
+   * Write a pasted or dropped attachment (editor-usability E5) at `path`, or
+   * beside it as `name 1.ext`, `name 2.ext`… when that name is taken — on disk
+   * OR in the map. Returns the path written (mount-relative), or null with the
+   * reason pushed as an error.
+   *
+   * Never an overwrite: a name the map does not know can still be a file
+   * Obsidian or an agent wrote while we ran (the watcher ignores out-of-map
+   * files), so the disk is asked too, and a taken name moves aside rather than
+   * replacing bytes Editor did not write (golden rule 1). The create is
+   * journaled (a pre-image of null) and goes through the atomic write.
+   *
+   * The entry is `{kind:'binary'}`, exactly what enrolment would have made of
+   * the file: binaries are not synced (D2f), so peers see the name in the tree
+   * and a placeholder where the picture is — never the bytes, and nothing here
+   * claims otherwise.
+   */
+  async writeAttachment(path: string, bytes: Uint8Array): Promise<string | null> {
+    try {
+      const clean = path.replace(/^\/+/, '')
+      const segs = clean.split('/')
+      if (!clean || clean.includes('\\') || segs.some((s) => s === '' || s === '.' || s === '..')) {
+        throw new Error(`'${path}' is not a path inside this folder`)
+      }
+      if (segs.some((s) => IGNORED_DIRS.has(s))) {
+        throw new Error(`'${path}' is inside an app folder — attachments go in the vault`)
+      }
+      if (this.underMount(clean, this.mountRoots())) {
+        throw new Error(`'${path}' belongs to another shared folder`)
+      }
+      if (!looksBinary(clean, bytes)) {
+        // A text file would need a doc and an LCA; this path makes none.
+        throw new Error(`'${path}' is not an attachment type`)
+      }
+      const map = this.folderDoc.getMap()
+      const cut = clean.lastIndexOf('/')
+      const dir = cut === -1 ? '' : clean.slice(0, cut)
+      const name = clean.slice(cut + 1)
+      const dot = name.lastIndexOf('.')
+      const stem = dot > 0 ? name.slice(0, dot) : name
+      const ext = dot > 0 ? name.slice(dot) : ''
+      const taken = async (p: string): Promise<boolean> => {
+        const entry = map.get(p)
+        if (entry && !entry.deleted) return true
+        return (await this.adapter.read(p)) !== null
+      }
+      let target = clean
+      for (let n = 1; await taken(target); n++) {
+        target = `${dir ? `${dir}/` : ''}${stem} ${n}${ext}`
+      }
+      await this.journal.record(target, null)
+      await this.adapter.writeAtomic(target, bytes)
+      this.folderDoc.transactMap(
+        (m) => m.set(target, { guid: crypto.randomUUID(), kind: 'binary' }),
+        'local'
+      )
+      // A new folder (`Attachments/`) must be a map entry too, or the tree can
+      // draw it while rename and delete cannot find it (M3).
+      if (target.includes('/')) await this.syncDirs()
+      this.refreshFiles()
+      return target
     } catch (err) {
       this.pushError(err)
       return null

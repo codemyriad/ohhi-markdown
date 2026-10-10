@@ -108,3 +108,18 @@ export {
   type SharedSnapshot,
   type SharedSnapshotInput,
 } from './shared-snapshot.js'
+export {
+  ATTACHMENT_EXTENSIONS,
+  attachmentFolder,
+  attachmentLinkText,
+  cleanAttachmentName,
+  dedupeName,
+  extensionForType,
+  extensionOf,
+  isAttachmentFile,
+  isImageExtension,
+  pasteStamp,
+  placeAttachment,
+  type AttachmentPlacement,
+  type AttachmentPlacementInput,
+} from './attachments.js'

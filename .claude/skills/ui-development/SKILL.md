@@ -507,7 +507,15 @@ manager, the remote carets and `git diff` never see it
   rect is the whole line box, so the caret came out taller and higher). Tab / Shift+Tab indent / outdent list lines
   (`edit.indent-list` / `edit.outdent-list`, `libs/editor-lang`
   `preview/commands.ts`, bound in the editor's own keymap — not yet in
-  `COMMAND_IDS`, so not rebindable from a keymap file). Depth guides are a
+  `COMMAND_IDS`, so not rebindable from a keymap file). They SET the
+  selection (`selectionAfterListEdit`, `assoc: 1`), never map it, so the DOM
+  caret stays on the text side of the bullet. Off a list line Tab inserts a
+  tab and Shift+Tab outdents (`insertIndent` / `indentLess`, below the list
+  keys); Escape-then-Tab (CM6's tab-focus mode) is the keyboard way out.
+  `proseEditing()` (`libs/editor-lang/src/editing.ts`) pairs `(`, `[`, `{` and the backtick
+  — never quotes, they are apostrophes — and wraps a selection in `* _ = ~`.
+  A lone `-` under a paragraph, caret on it, is a faint provisional bullet
+  and the paragraph keeps its body style (fork D1, `preview/setext.ts`). Depth guides are a
   background over `--cm-list-depth`, sized by `--ed-list-indent` and
   painted `--ed-list-guide`. `libs/editor` and `libs/editor-lang` are read
   from source by `vite dev`: hard-reload after changing them (extensions are

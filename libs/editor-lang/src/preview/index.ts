@@ -26,12 +26,18 @@ import { previewMode, readHost } from '../read-host.js'
 import { buildBlockPreview, buildInlinePreview, type PreviewDecorations } from './build.js'
 import { previewClicks } from './clicks.js'
 import { selectListMarker } from './commands.js'
+import { calloutFolds } from './callout-fold.js'
+import { fenceKeymap } from './fence-edit.js'
+import { tableKeymap } from './table-commands.js'
+import { tableHint } from './table-hint.js'
 
 /** True when anything the decorations are a function of has moved. */
 function stale(startState: ViewUpdate['startState'], state: ViewUpdate['state']): boolean {
   return (
     startState.facet(previewMode) !== state.facet(previewMode) ||
     startState.facet(readHost) !== state.facet(readHost) ||
+    // A callout folded or opened from its chevron (E3): view state, no edit.
+    startState.field(calloutFolds, false) !== state.field(calloutFolds, false) ||
     // The parser runs in the background: when it catches up, constructs below
     // the fold become renderable and the set has to be rebuilt.
     syntaxTree(startState) !== syntaxTree(state)
@@ -91,12 +97,20 @@ export function livePreview(): Extension[] {
     // Above markdown's own Backspace (Prec.high, deleteMarkupBackward), which
     // would turn a drawn bullet into indentation in one invisible step.
     Prec.highest(keymap.of([{ key: 'Backspace', run: selectListMarker }])),
+    // Callouts and code fences (E3): the view-only fold state, and Enter on a
+    // fresh opening fence closing it.
+    calloutFolds,
+    fenceKeymap(),
+    // Tables (E4): Tab / Shift-Tab / Enter inside one, and the hint bar.
+    tableKeymap(),
+    tableHint,
   ]
 }
 
 export { activeLines } from './active-lines.js'
 export {
   indentListItem,
+  insertIndent,
   listLinesIn,
   listMarkerBefore,
   outdentListItem,
@@ -104,3 +118,10 @@ export {
   toggleTask,
 } from './commands.js'
 export { tagCompletions } from './completion.js'
+export {
+  inTable,
+  runTableCommand,
+  TABLE_COMMANDS,
+  type TableCommand,
+  type TableCommandId,
+} from './table-commands.js'

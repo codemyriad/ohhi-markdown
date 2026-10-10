@@ -255,7 +255,8 @@ test('the group mode and Mod+Shift+G reach the same verbs as the menus', async (
   await page.keyboard.press('ControlOrMeta+p')
   await page.keyboard.press('g')
   await expect(page.getByTestId('mode-badge')).toHaveText('GROUP')
-  await expect(page.getByTestId('mode-bar')).toContainText('Fold / unfold group')
+  // E6: Subtle (the default) shows the mode's two verbs in the corner; fold is one.
+  await expect(page.getByTestId('mode-cue')).toContainText('Fold / unfold group')
   await page.keyboard.press('f')
   await expect(chip).toHaveAttribute('aria-expanded', 'true')
 

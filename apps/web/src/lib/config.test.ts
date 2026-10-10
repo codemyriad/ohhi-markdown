@@ -33,6 +33,8 @@ import {
   setLayoutPrefs,
   mergeGrants,
   operatorSecret,
+  paneHints,
+  PANE_HINTS_DEFAULT,
   purgeRooms,
   readPrefs,
   removeShare,
@@ -43,6 +45,7 @@ import {
   saveUser,
   setDefaultRelay,
   setOperatorSecret,
+  setPaneHints,
   setReadPrefs,
   setRoomToken,
   touchVault,
@@ -480,6 +483,22 @@ describe('the drawer read state, per vault (quiet-shell F13)', () => {
     cfg.drawerSeen = { r1: 'yesterday' }
     seed('editor:config', cfg)
     expect(drawerSeenAt('r1')).toBeNull()
+  })
+})
+
+describe('the pane-mode hints (E6, Settings › Layout › Pane keys)', () => {
+  it('default to Subtle, persist per device, and read garbage as the default', () => {
+    expect(PANE_HINTS_DEFAULT).toBe('subtle')
+    expect(paneHints()).toBe('subtle')
+    setPaneHints('full')
+    expect(paneHints()).toBe('full')
+    expect((loadConfig() as unknown as Record<string, unknown>).paneHints).toBe('full')
+    setPaneHints('off')
+    expect(paneHints()).toBe('off')
+    const cfg = loadConfig() as unknown as Record<string, unknown>
+    cfg.paneHints = 'loud'
+    seed('editor:config', cfg)
+    expect(paneHints()).toBe('subtle')
   })
 })
 

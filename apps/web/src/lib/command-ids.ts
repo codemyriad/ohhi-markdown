@@ -117,6 +117,7 @@ export const COMMAND_IDS = [
   'format.bold',
   'format.italic',
   'format.strike',
+  'format.highlight',
   'format.code',
   'format.heading-1',
   'format.heading-2',
@@ -125,11 +126,27 @@ export const COMMAND_IDS = [
   'format.list',
   'format.ordered-list',
   'format.task',
+  'format.indent',
+  'format.outdent',
   'format.quote',
+  'format.callout',
+  'format.code-block',
   'format.link',
   'format.wikilink',
   'format.table',
   'format.image',
+  'format.rule',
+  // pane-commands.ts › tableCommands (@ohhi/editor-lang TABLE_COMMANDS) —
+  // palette-only, offered while the caret is in a table (editor-usability E4)
+  'table.insert-row-below',
+  'table.insert-column-right',
+  'table.delete-row',
+  'table.delete-column',
+  'table.align',
+  'table.move-row-up',
+  'table.move-row-down',
+  'table.move-column-left',
+  'table.move-column-right',
 ] as const
 
 export type CommandId = (typeof COMMAND_IDS)[number]

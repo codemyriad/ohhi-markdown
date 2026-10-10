@@ -28,6 +28,12 @@ import { wikiLinkHost } from '../wikilink-view.js'
 import { activeSpans, inActiveRegion, markerSelected, type Span } from './active-lines.js'
 import * as cls from './classes.js'
 import { extractInline } from './inline-dom.js'
+import { calloutCollapsed, parseCalloutHeader, type CalloutType } from './callout.js'
+import { calloutFolds } from './callout-fold.js'
+import { calloutClass, CalloutFoldedWidget, CalloutHeaderWidget } from './callout-widgets.js'
+import { imageParts, imageSource, notLoadedTitle, RemoteImageWidget } from './image.js'
+import { alignOf, splitRow } from './table-ops.js'
+import { provisionalBullet, SETEXT_PROVISIONAL } from './setext.js'
 import {
   BulletWidget,
   CheckboxWidget,
@@ -54,7 +60,24 @@ const mark = (cls: string): Decoration => Decoration.mark({ class: cls })
 
 const HEADING_LINE = [1, 2, 3, 4, 5, 6].map((n) => line(`cm-live-h${n}`))
 const QUOTE_LINE = line('cm-live-quote')
+/** A revealed `> ` run at a line's start, hung left so the text does not move (E2). */
+const QUOTE_HANG = mark('cm-quote-hang')
+/** A checked task's text: muted and struck (fork C1, `--ed-task-done-*`). */
+const TASK_DONE = mark('cm-task-done')
+const SETEXT_PLAIN = line(SETEXT_PROVISIONAL)
 const CODE_LINE = line('cm-live-code')
+/** The code card's top and bottom edges, on a fence line shown as text (E3). */
+const CODE_FIRST = line('cm-code-first')
+const CODE_LAST = line('cm-code-last')
+/** A callout's lines (E3): the box and its type's colour, plus its edges. */
+const CALLOUT_LINE = new Map<CalloutType, Decoration>()
+const calloutLine = (type: CalloutType): Decoration => {
+  let deco = CALLOUT_LINE.get(type)
+  if (!deco) CALLOUT_LINE.set(type, (deco = line(calloutClass(type))))
+  return deco
+}
+const CALLOUT_HEAD = line('cm-callout-head cm-callout-first')
+const CALLOUT_LAST = line('cm-callout-last')
 const FRONTMATTER_LINE = line('cm-live-frontmatter')
 const TABLE_HEAD_LINE = line('cm-table-head')
 const LIST_NUM = mark('cm-list-num')
@@ -209,9 +232,16 @@ class Builder {
         return this.table(node)
       case 'WikiLinkEmbed':
         return this.embed(node)
+      case 'Image':
+        return this.image(node)
       case 'Paragraph':
       case 'Task':
-        return this.doc.sliceString(node.from, node.to).includes('![[') ? undefined : false
+        // `![` covers both embeds: `![[x.png]]` and `![alt](x.png)` (E5).
+        return this.doc.sliceString(node.from, node.to).includes('![') ? undefined : false
+      case 'Blockquote':
+        // A callout's title row and fold are blocks (E3); its contents may hold more.
+        this.callout(node)
+        return undefined
       default:
         return CONTAINERS.has(node.name) ? undefined : false
     }
@@ -230,7 +260,10 @@ class Builder {
         return this.frontmatterRange(node.from, node.to)
       case 'HeaderMark':
         return this.headerMark(node)
+      case 'SetextHeading2':
+        return this.setext(node)
       case 'Blockquote':
+        if (this.callout(node)) return undefined
         return this.eachLine(node.from, node.to, (l) => this.line(l, QUOTE_LINE))
       case 'QuoteMark':
         return this.quoteMark(node)
@@ -254,6 +287,8 @@ class Builder {
         return this.wikiLink(node)
       case 'WikiLinkEmbed':
         return this.embed(node)
+      case 'Image':
+        return this.image(node)
       case 'Tag':
         return this.tag(node)
       case 'Table':
@@ -341,9 +376,48 @@ class Builder {
     this.replace(node.from, this.skipSpace(node.to, parent.to))
   }
 
+  /**
+   * Fork D1: a paragraph over a lone `-` the caret is on is a bullet being
+   * typed, not a heading (setext.ts). Its lines keep the body style — the
+   * line class resets the heading tokens the HighlightStyle reads — and in
+   * Live the `-` is drawn as a faint bullet where the real one will sit. With
+   * a space typed after the dash only the dash is drawn, as an empty item's
+   * is, so the next keystroke (which makes it a real list) does not move it.
+   */
+  private setext(node: SyntaxNodeRef): void {
+    if (this.mode === 'reading') return
+    const dash = node.node.getChild('HeaderMark')
+    if (!dash) return
+    const under = this.doc.lineAt(dash.from)
+    const head = this.state.selection.main.head
+    const mark = this.doc.sliceString(dash.from, dash.to)
+    const rest = this.doc.sliceString(dash.to, under.to)
+    if (!provisionalBullet(mark, rest, head >= under.from && head <= under.to)) return
+    this.eachLine(node.from, node.to, (l) => this.line(l, SETEXT_PLAIN))
+    if (this.mode === 'live') this.replace(dash.from, dash.to, new BulletWidget(under.to > dash.to, true))
+  }
+
+  /**
+   * Off the caret's line the `> ` is hidden; on it, it is text again — and
+   * text in the flow would push the line's words right by its width. So a
+   * revealed run of markers at the start of a line is marked to HANG: the
+   * theme takes it out of the flow and sets it left of where the text starts,
+   * so the words stay put and the caret mapping is the plain text's (it is
+   * still the document's own characters, not a widget). Only in Live, only at
+   * the line's start (a `>` after a list marker stays in the flow), and only
+   * with text after it: a line that is nothing but `>` keeps its height.
+   */
   private quoteMark(node: SyntaxNodeRef): void {
-    if (this.revealed(node.from, node.to)) return
-    this.replace(node.from, this.skipSpace(node.to, this.doc.lineAt(node.from).to, 1))
+    const l = this.doc.lineAt(node.from)
+    if (!this.revealed(node.from, node.to)) {
+      this.replace(node.from, this.skipSpace(node.to, l.to, 1))
+      return
+    }
+    if (this.mode !== 'live') return
+    if (this.doc.sliceString(l.from, node.from).trim() !== '') return
+    const run = /^(?:>[ \t]?)+/.exec(this.doc.sliceString(node.from, l.to))
+    if (!run || this.doc.sliceString(node.from + run[0].length, l.to).trim() === '') return
+    this.mark(node.from, node.from + run[0].length, QUOTE_HANG)
   }
 
   private rule(node: SyntaxNodeRef): void {
@@ -352,32 +426,101 @@ class Builder {
     this.replaceBlock(l, l, new RuleWidget())
   }
 
+  /**
+   * A fence is one card (E3): the opening line a header bar (language chip,
+   * copy), the closing line a thin cap, the lines between the card's body.
+   * Each fence line goes back to text only while the caret is on THAT line —
+   * a caret in the code leaves both edges drawn — and a raw edge keeps the
+   * card's border and radius through `cm-code-first` / `cm-code-last`.
+   */
   private fence(node: SyntaxNodeRef): boolean {
     const first = this.doc.lineAt(node.from)
     const last = this.doc.lineAt(node.to)
-    let openReplaced = false
-    let closeReplaced = false
-    if (!this.revealed(node.from, node.to)) {
+    // An unclosed fence has no closing line to cap.
+    const lastChild = node.node.lastChild
+    const closed =
+      last.number > first.number && lastChild?.name === 'CodeMark' && lastChild.from >= last.from
+    const openReplaced = !this.revealed(first.from, first.to)
+    const closeReplaced = closed && !this.revealed(last.from, last.to)
+    if (openReplaced) {
       const info = node.node.getChild('CodeInfo')
       this.replaceBlock(
         first,
         first,
-        new FenceWidget(info ? this.doc.sliceString(info.from, info.to) : '')
+        new FenceWidget(
+          info ? this.doc.sliceString(info.from, info.to) : '',
+          this.host.labels,
+          this.mode !== 'reading'
+        )
       )
-      openReplaced = true
-      // An unclosed fence has no closing line to cap.
-      const lastChild = node.node.lastChild
-      if (last.number > first.number && lastChild?.name === 'CodeMark' && lastChild.from >= last.from) {
-        this.replaceBlock(last, last, new FenceWidget(null))
-        closeReplaced = true
-      }
     }
+    if (closeReplaced) this.replaceBlock(last, last, new FenceWidget(null))
     this.eachLine(node.from, node.to, (l) => {
       if ((l.number === first.number && openReplaced) || (l.number === last.number && closeReplaced)) return
       this.line(l, CODE_LINE)
+      if (l.number === first.number) this.line(l, CODE_FIRST)
+      if (l.number === last.number) this.line(l, CODE_LAST)
     })
     // Contents are highlighted by the nested language parser, not by us.
     return false
+  }
+
+  /**
+   * `> [!type]± Title` (E3, callout.ts): a tinted box over the whole
+   * blockquote. Off the caret the header line is a title row (icon, title,
+   * chevron when it folds); on it, the line is text in the title's style.
+   * Body lines keep the box when the caret is on them — only their `> ` is
+   * the quote rule's to reveal. A collapsed body (the `-` marker, or the
+   * chevron — view state, never an edit) is one block replace, unless the
+   * selection is inside it, which it would otherwise hide.
+   *
+   * True when the blockquote is a callout: the caller then skips the quote's
+   * own line style, which a callout replaces.
+   */
+  private callout(node: SyntaxNodeRef): boolean {
+    // One box, never boxes in boxes: inside a quote, `> > [!x]` is quote text.
+    for (let up = node.node.parent; up; up = up.parent) if (up.name === 'Blockquote') return false
+    const head = this.doc.lineAt(node.from)
+    const header = parseCalloutHeader(this.doc.sliceString(node.from, head.to))
+    if (!header) return false
+    const last = this.doc.lineAt(node.to)
+    const hasBody = last.number > head.number
+    const bodyFrom = hasBody ? this.doc.line(head.number + 1).from : head.to
+    const choice = this.state.field(calloutFolds, false)?.get(head.from)
+    const folded =
+      hasBody &&
+      this.mode !== 'source' &&
+      calloutCollapsed(header, choice) &&
+      !inActiveRegion(this.spans, bodyFrom, last.to)
+    const closesAtHead = !hasBody || folded
+    const box = calloutLine(header.type)
+    if (this.revealed(head.from, head.to)) {
+      this.line(head, box)
+      this.line(head, CALLOUT_HEAD)
+      if (closesAtHead) this.line(head, CALLOUT_LAST)
+    } else {
+      this.replaceBlock(
+        head,
+        head,
+        new CalloutHeaderWidget(
+          header.type,
+          header.title,
+          header.fold === null ? null : folded,
+          closesAtHead,
+          this.host.labels
+        )
+      )
+    }
+    if (!hasBody) return true
+    if (folded) {
+      this.replaceBlock(this.doc.line(head.number + 1), last, new CalloutFoldedWidget())
+      return true
+    }
+    this.eachLine(bodyFrom, last.to, (l) => {
+      this.line(l, box)
+      if (l.number === last.number) this.line(l, CALLOUT_LAST)
+    })
+    return true
   }
 
   /**
@@ -446,12 +589,15 @@ class Builder {
 
   private task(node: SyntaxNodeRef): void {
     if (this.mode === 'source') return
+    const done = this.doc.sliceString(node.from + 1, node.to - 1).toLowerCase() === 'x'
+    const parent = node.node.parent
+    // Fork C1: a done task's text is muted and struck — whatever the caret
+    // is doing, since it is the task's state and not a marker.
+    if (done && parent) this.mark(this.skipSpace(node.to, parent.to), parent.to, TASK_DONE)
     // The widget stays on the active line — a checkbox is not a marker you
     // edit — unless the selection is actually inside the brackets.
     if (this.selectionInside(node.from, node.to)) return
-    const done = this.doc.sliceString(node.from + 1, node.to - 1).toLowerCase() === 'x'
     const lineEnd = this.doc.lineAt(node.from).to
-    const parent = node.node.parent
     const label = this.doc.sliceString(node.to, Math.min(parent ? parent.to : lineEnd, lineEnd)).trim()
     // A task you have just opened has no text, and a checkbox with no
     // accessible name is an axe violation as well as a screen-reader dead end.
@@ -538,6 +684,40 @@ class Builder {
     return this.state.facet(wikiLinkHost).resolve(name) !== null
   }
 
+  /**
+   * `![alt](src)` (E5). A local picture is the `![[ ]]` widget with the alt as
+   * its alt text; a remote one is a click-to-load placeholder, never a fetch on
+   * open — or, when the host cannot load remote images, a link whose tooltip
+   * says the picture was not loaded. Anything else (`data:`, a PDF, a
+   * reference image) is left as the text it is.
+   */
+  private image(node: SyntaxNodeRef): boolean | void {
+    if (this.revealed(node.from, node.to)) return undefined
+    const parts = imageParts(node.node, (from, to) => this.doc.sliceString(from, to))
+    if (!parts) return undefined
+    const kind = imageSource(parts.src)
+    if (kind === 'none') return undefined
+    if (kind === 'remote' && !this.host.loadRemoteImage) {
+      if (parts.altTo <= parts.altFrom) return undefined
+      const title = notLoadedTitle(this.host, parts.src)
+      this.replace(node.from, parts.altFrom)
+      this.mark(parts.altFrom, parts.altTo, Decoration.mark({ class: cls.MD_LINK, attributes: { title } }))
+      this.replace(parts.altTo, node.to)
+      return false
+    }
+    const widget =
+      kind === 'local'
+        ? (block: boolean) => new EmbedWidget(parts.src, block, this.host, parts.alt, 'markdown')
+        : (block: boolean) => new RemoteImageWidget(parts.src, parts.alt, block, this.host)
+    const l = this.doc.lineAt(node.from)
+    if (l.text.trim() === this.doc.sliceString(node.from, node.to).trim()) {
+      this.replaceBlock(l, l, widget(true))
+    } else {
+      this.replace(node.from, node.to, widget(false))
+    }
+    return false
+  }
+
   private embed(node: SyntaxNodeRef): boolean {
     if (this.revealed(node.from, node.to)) return this.rawWikiLink(node)
     const inner = this.doc.sliceString(node.from + 3, node.to - 2)
@@ -572,23 +752,56 @@ class Builder {
     )
   }
 
+  /**
+   * A table is a grid in Reading, and in Live while the selection is outside
+   * it (E4, fork B2); the caret entering it — a click on a cell, an arrow key
+   * — shows the source, aligned and with the pipes dimmed. Source mode is
+   * always the text.
+   *
+   * The Live grid is deliberately NOT an atomic range, unlike every other
+   * replacement: the moment the caret lands inside the table's range the
+   * table is active and its text is back, so the caret is never in text the
+   * reader cannot see — and an atomic table could never be reached from the
+   * keyboard at all (an arrow key would hop the whole block).
+   */
   private table(node: SyntaxNodeRef): boolean | void {
-    if (this.mode !== 'reading') return undefined
+    if (this.mode === 'source') return undefined
+    if (this.mode === 'live' && this.revealed(node.from, node.to)) return undefined
+    const delimiterRow = node.node.getChild('TableDelimiter')
+    const aligns = delimiterRow
+      ? splitRow(this.doc.sliceString(delimiterRow.from, delimiterRow.to)).map((c) => alignOf(c.text))
+      : []
     const rows: TableRowData[] = []
     for (let row = node.node.firstChild; row; row = row.nextSibling) {
       if (row.name !== 'TableHeader' && row.name !== 'TableRow') continue
-      const cells = []
+      // A cell's column is the number of pipes before it, less the row's own
+      // opening pipe — the tree has no node for an EMPTY cell, so counting
+      // the cells would slide everything after one to the left.
+      const opens = row.firstChild?.name === 'TableDelimiter' && row.firstChild.from === row.from
+      const cells: TableRowData['cells'] = []
+      let pipes = 0
       for (let cell = row.firstChild; cell; cell = cell.nextSibling) {
-        if (cell.name === 'TableCell') cells.push(extractInline(this.state, cell))
+        if (cell.name === 'TableDelimiter') pipes++
+        else if (cell.name === 'TableCell') cells[pipes - (opens ? 1 : 0)] = extractInline(this.state, cell)
       }
       rows.push({ header: row.name === 'TableHeader', cells })
     }
     if (!rows.length) return undefined
-    this.replaceBlock(
-      this.doc.lineAt(node.from),
-      this.doc.lineAt(node.to),
-      new TableWidget(rows, this.doc.sliceString(node.from, node.to))
-    )
+    // Every row as wide as the header (GFM): short rows end in empty cells,
+    // and cells past the header's last column are not part of the table.
+    const width = Math.max(aligns.length, rows[0].cells.length, 1)
+    for (const row of rows) {
+      row.cells.length = width
+      for (let c = 0; c < width; c++) row.cells[c] ??= []
+    }
+    const first = this.doc.lineAt(node.from)
+    const last = this.doc.lineAt(node.to)
+    const widget = new TableWidget(rows, this.doc.sliceString(node.from, node.to), aligns, this.mode === 'live')
+    if (this.mode === 'reading') {
+      this.replaceBlock(first, last, widget)
+    } else {
+      this.block.push(Decoration.replace({ widget, block: true }).range(first.from, last.to))
+    }
     return false
   }
 

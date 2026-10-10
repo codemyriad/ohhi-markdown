@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MODES } from './mode.js'
 import { FORMAT_COMMANDS } from '@ohhi/editor'
+import { TABLE_COMMANDS } from '@ohhi/editor-lang'
 import { CommandRegistry } from './commands.js'
 import {
   familyTitle,
   formatCommands,
   groupCommands,
   paneCommands,
+  tableCommands,
   type FormatActions,
   type GroupActions,
   type PaneActions,
@@ -180,13 +182,18 @@ describe('the format command table (quiet-shell F4)', () => {
     expect(new Set(rows.map((r) => r.title)).size).toBe(rows.length)
   })
 
-  it('binds Obsidian’s three keys and leaves the rest unbound', () => {
+  it('binds Obsidian’s three keys plus E6’s free chords, and leaves the rest unbound', () => {
     const bound = formatCommands(formatActions())
       .filter((r) => r.keys)
       .map((r) => [r.id, r.keys])
     expect(bound).toEqual([
       ['format.bold', 'Mod+b'],
       ['format.italic', 'Mod+i'],
+      ['format.strike', 'Mod+Shift+x'],
+      ['format.highlight', 'Mod+Shift+h'],
+      ['format.code', 'Mod+Shift+c'],
+      ['format.list', 'Mod+Shift+8'],
+      ['format.ordered-list', 'Mod+Shift+7'],
       ['format.link', 'Mod+k'],
     ])
   })
@@ -210,5 +217,33 @@ describe('the format command table (quiet-shell F4)', () => {
     expect(registry.available().some((c) => c.id.startsWith('format.'))).toBe(false)
     // …but still listed in the hotkeys tab, where it can be rebound.
     expect(registry.bindings().filter((b) => b.id.startsWith('format.'))).toHaveLength(FORMAT_COMMANDS.length)
+  })
+})
+
+describe('the table command table (editor-usability E4)', () => {
+  it('is TABLE_COMMANDS, in order, titled, in the Table group, with no key', () => {
+    const rows = tableCommands({ canFormat: () => true, inTable: () => true, table: () => {} })
+    expect(rows.map((r) => r.id)).toEqual(TABLE_COMMANDS.map((c) => c.id))
+    for (const row of rows) {
+      expect(row.title).not.toBe('')
+      expect(row.group).toBe('Table')
+      expect(row.keys).toBeUndefined()
+    }
+    expect(new Set(rows.map((r) => r.title)).size).toBe(rows.length)
+  })
+
+  it('is offered only while the caret is in a table of an editable note, and runs by id', () => {
+    const registry = new CommandRegistry(false)
+    let inTable = false
+    const ran: string[] = []
+    registry.register(
+      ...tableCommands({ canFormat: () => true, inTable: () => inTable, table: (id) => void ran.push(id) })
+    )
+    expect(registry.available().some((c) => c.id.startsWith('table.'))).toBe(false)
+    inTable = true
+    const row = registry.available().find((c) => c.id === 'table.align')
+    expect(row).toBeDefined()
+    void row!.run()
+    expect(ran).toEqual(['table.align'])
   })
 })

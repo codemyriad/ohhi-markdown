@@ -922,6 +922,28 @@ export type NamespaceWebTranslation = {
 		 * d​o​n​e
 		 */
 		done: string
+		cue: {
+			/**
+			 * P​a​n​e​ ​m​o​d​e​ ​k​e​y​s
+			 */
+			label: string
+			/**
+			 * ?
+			 */
+			more_key: string
+			/**
+			 * k​e​y​s
+			 */
+			more: string
+			/**
+			 * f​e​w​e​r
+			 */
+			less: string
+			/**
+			 * E​v​e​r​y​ ​k​e​y​ ​i​n​ ​t​h​i​s​ ​m​o​d​e
+			 */
+			all: string
+		}
 	}
 	read: {
 		modes: {
@@ -969,6 +991,106 @@ export type NamespaceWebTranslation = {
 		 * U​n​s​u​p​p​o​r​t​e​d​ ​f​r​o​n​t​m​a​t​t​e​r
 		 */
 		frontmatter_unsupported: string
+		table_hint: {
+			/**
+			 * T​a​b​l​e
+			 */
+			toolbar: string
+			/**
+			 * T​a​b​ ​n​e​x​t​ ​c​e​l​l
+			 */
+			next_cell: string
+			/**
+			 * ↵​ ​n​e​x​t​ ​r​o​w
+			 */
+			next_row: string
+			/**
+			 * +​ ​r​o​w
+			 */
+			add_row: string
+			/**
+			 * +​ ​c​o​l​u​m​n
+			 */
+			add_column: string
+			/**
+			 * A​l​i​g​n
+			 */
+			align: string
+		}
+		code_block: {
+			/**
+			 * C​o​p​y​ ​c​o​d​e
+			 */
+			copy: string
+			/**
+			 * C​o​p​i​e​d
+			 */
+			copied: string
+			/**
+			 * L​a​n​g​u​a​g​e​:​ ​{​l​a​n​g​}​.​ ​C​h​a​n​g​e​ ​l​a​n​g​u​a​g​e
+			 * @param {string} lang
+			 */
+			language: RequiredParams<'lang'>
+			/**
+			 * p​l​a​i​n​ ​t​e​x​t
+			 */
+			plain: string
+		}
+		callout: {
+			/**
+			 * F​o​l​d​ ​{​t​i​t​l​e​}
+			 * @param {string} title
+			 */
+			toggle: RequiredParams<'title'>
+		}
+		link_popover: {
+			/**
+			 * I​n​ ​{​m​o​u​n​t​}
+			 * @param {string} mount
+			 */
+			scope: RequiredParams<'mount'>
+			/**
+			 * O​n​l​y​ ​y​o​u​ ​·​ ​n​o​t​ ​i​n​ ​t​h​i​s​ ​s​h​a​r​e
+			 */
+			others: string
+			/**
+			 * C​o​l​l​a​b​o​r​a​t​o​r​s​ ​c​a​n​'​t​ ​o​p​e​n​ ​t​h​e​s​e
+			 */
+			others_title: string
+			/**
+			 * C​r​e​a​t​e​ ​“​{​q​u​e​r​y​}​”
+			 * @param {string} query
+			 */
+			create: RequiredParams<'query'>
+			/**
+			 * V​a​u​l​t​ ​r​o​o​t
+			 */
+			vault_root: string
+			/**
+			 * l​i​n​k
+			 */
+			hint_link: string
+			/**
+			 * h​e​a​d​i​n​g
+			 */
+			hint_heading: string
+			/**
+			 * a​l​i​a​s
+			 */
+			hint_alias: string
+			/**
+			 * ↵
+			 */
+			key_enter: string
+			/**
+			 * T​a​b
+			 */
+			key_tab: string
+			/**
+			 * E​s​c
+			 */
+			key_escape: string
+		}
 		commands: {
 			/**
 			 * T​o​g​g​l​e​ ​r​e​a​d​i​n​g​ ​v​i​e​w
@@ -1463,6 +1585,10 @@ export type NamespaceWebTranslation = {
 			 */
 			format: string
 			/**
+			 * T​a​b​l​e
+			 */
+			table: string
+			/**
 			 * T​e​m​p​l​a​t​e​s
 			 */
 			templates: string
@@ -1484,6 +1610,10 @@ export type NamespaceWebTranslation = {
 			 * S​t​r​i​k​e​t​h​r​o​u​g​h
 			 */
 			strike: string
+			/**
+			 * H​i​g​h​l​i​g​h​t
+			 */
+			highlight: string
 			/**
 			 * I​n​l​i​n​e​ ​c​o​d​e
 			 */
@@ -1517,9 +1647,25 @@ export type NamespaceWebTranslation = {
 			 */
 			task: string
 			/**
+			 * I​n​d​e​n​t
+			 */
+			indent: string
+			/**
+			 * O​u​t​d​e​n​t
+			 */
+			outdent: string
+			/**
 			 * Q​u​o​t​e
 			 */
 			quote: string
+			/**
+			 * C​a​l​l​o​u​t
+			 */
+			callout: string
+			/**
+			 * C​o​d​e​ ​b​l​o​c​k
+			 */
+			code_block: string
 			/**
 			 * I​n​s​e​r​t​ ​l​i​n​k
 			 */
@@ -1536,6 +1682,48 @@ export type NamespaceWebTranslation = {
 			 * I​n​s​e​r​t​ ​i​m​a​g​e
 			 */
 			image: string
+			/**
+			 * H​o​r​i​z​o​n​t​a​l​ ​r​u​l​e
+			 */
+			rule: string
+		}
+		table: {
+			/**
+			 * T​a​b​l​e​:​ ​i​n​s​e​r​t​ ​r​o​w​ ​b​e​l​o​w
+			 */
+			insert_row_below: string
+			/**
+			 * T​a​b​l​e​:​ ​i​n​s​e​r​t​ ​c​o​l​u​m​n​ ​r​i​g​h​t
+			 */
+			insert_column_right: string
+			/**
+			 * T​a​b​l​e​:​ ​d​e​l​e​t​e​ ​r​o​w
+			 */
+			delete_row: string
+			/**
+			 * T​a​b​l​e​:​ ​d​e​l​e​t​e​ ​c​o​l​u​m​n
+			 */
+			delete_column: string
+			/**
+			 * T​a​b​l​e​:​ ​a​l​i​g​n​ ​c​o​l​u​m​n​s
+			 */
+			align: string
+			/**
+			 * T​a​b​l​e​:​ ​m​o​v​e​ ​r​o​w​ ​u​p
+			 */
+			move_row_up: string
+			/**
+			 * T​a​b​l​e​:​ ​m​o​v​e​ ​r​o​w​ ​d​o​w​n
+			 */
+			move_row_down: string
+			/**
+			 * T​a​b​l​e​:​ ​m​o​v​e​ ​c​o​l​u​m​n​ ​l​e​f​t
+			 */
+			move_column_left: string
+			/**
+			 * T​a​b​l​e​:​ ​m​o​v​e​ ​c​o​l​u​m​n​ ​r​i​g​h​t
+			 */
+			move_column_right: string
 		}
 		/**
 		 * O​p​e​n​ ​n​o​t​e​…
@@ -3399,6 +3587,105 @@ export type NamespaceWebTranslation = {
 			 * R​e​s​e​t​ ​e​d​i​t​o​r​ ​o​p​t​i​o​n​s
 			 */
 			reset_editor: string
+			/**
+			 * P​a​n​e​ ​k​e​y​s
+			 */
+			hints: string
+			/**
+			 * S​u​b​t​l​e​ ​—​ ​i​n​ ​t​h​e​ ​c​o​r​n​e​r
+			 */
+			hints_subtle: string
+			/**
+			 * F​u​l​l​ ​—​ ​a​ ​b​a​r​ ​a​l​o​n​g​ ​t​h​e​ ​b​o​t​t​o​m
+			 */
+			hints_full: string
+			/**
+			 * O​f​f​ ​—​ ​t​h​e​ ​m​o​d​e​’​s​ ​n​a​m​e​ ​o​n​l​y
+			 */
+			hints_off: string
+			bar: {
+				/**
+				 * F​o​r​m​a​t​t​i​n​g​ ​b​a​r​ ​b​u​t​t​o​n​s
+				 */
+				title: string
+				/**
+				 * D​r​a​g​ ​t​o​ ​r​e​o​r​d​e​r​,​ ​o​r​ ​d​r​a​g​ ​a​ ​b​u​t​t​o​n​ ​t​o​ ​t​h​e​ ​o​t​h​e​r​ ​r​o​w​ ​t​o​ ​s​h​o​w​ ​o​r​ ​h​i​d​e​ ​i​t​.​ ​E​a​c​h​ ​b​u​t​t​o​n​’​s​ ​m​e​n​u​ ​d​o​e​s​ ​t​h​e​ ​s​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​k​e​y​b​o​a​r​d​.​ ​Y​o​u​r​ ​c​h​a​n​g​e​s​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+				 */
+				intro: string
+				/**
+				 * O​n​ ​t​h​e​ ​b​a​r
+				 */
+				shown: string
+				/**
+				 * N​o​t​ ​o​n​ ​t​h​e​ ​b​a​r
+				 */
+				hidden: string
+				/**
+				 * N​o​t​h​i​n​g​ ​o​n​ ​t​h​e​ ​b​a​r​:​ ​i​t​ ​i​s​ ​h​i​d​d​e​n​.
+				 */
+				empty_shown: string
+				/**
+				 * E​v​e​r​y​ ​b​u​t​t​o​n​ ​i​s​ ​o​n​ ​t​h​e​ ​b​a​r​.
+				 */
+				empty_hidden: string
+				/**
+				 * S​e​p​a​r​a​t​o​r
+				 */
+				separator: string
+				/**
+				 * {​n​a​m​e​}​,​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}​ ​o​n​ ​t​h​e​ ​b​a​r
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				pill_shown: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​,​ ​n​o​t​ ​o​n​ ​t​h​e​ ​b​a​r
+				 * @param {string} name
+				 */
+				pill_hidden: RequiredParams<'name'>
+				/**
+				 * M​o​v​e​ ​l​e​f​t
+				 */
+				move_left: string
+				/**
+				 * M​o​v​e​ ​r​i​g​h​t
+				 */
+				move_right: string
+				/**
+				 * H​i​d​e
+				 */
+				hide: string
+				/**
+				 * R​e​m​o​v​e
+				 */
+				remove: string
+				/**
+				 * A​d​d​ ​t​o​ ​t​h​e​ ​b​a​r
+				 */
+				show: string
+				/**
+				 * R​e​s​e​t​ ​t​o​ ​l​a​y​o​u​t​ ​f​i​l​e
+				 */
+				reset: string
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​n​o​w​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				moved: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​n​ ​t​h​e​ ​b​a​r
+				 * @param {string} name
+				 */
+				shown_now: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​f​f​ ​t​h​e​ ​b​a​r
+				 * @param {string} name
+				 */
+				hidden_now: RequiredParams<'name'>
+			}
 		}
 		keys: {
 			/**
@@ -6004,6 +6291,50 @@ export type NamespaceWebTranslation = {
 			label: string
 		}
 	}
+	attachments: {
+		/**
+		 * D​r​o​p​ ​t​o​ ​a​d​d​ ​t​o​ ​t​h​i​s​ ​n​o​t​e
+		 */
+		drop_title: string
+		/**
+		 * S​a​v​e​d​ ​i​n​ ​{​f​o​l​d​e​r​}
+		 * @param {string} folder
+		 */
+		saved_in: RequiredParams<'folder'>
+		/**
+		 * {​c​o​u​n​t​}​ ​f​i​l​e​s​,​ ​s​a​v​e​d​ ​i​n​ ​{​f​o​l​d​e​r​}
+		 * @param {number} count
+		 * @param {string} folder
+		 */
+		saved_in_many: RequiredParams<'count' | 'folder'>
+		/**
+		 * t​h​e​ ​v​a​u​l​t​ ​r​o​o​t
+		 */
+		vault_root: string
+		/**
+		 * T​h​i​s​ ​n​o​t​e​ ​i​s​ ​i​n​ ​{​s​h​a​r​e​}​.​ ​I​m​a​g​e​s​ ​d​o​n​'​t​ ​s​y​n​c​ ​y​e​t​,​ ​s​o​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​ ​a​ ​p​l​a​c​e​h​o​l​d​e​r​ ​u​n​t​i​l​ ​t​h​e​y​ ​d​o​.
+		 * @param {string} share
+		 */
+		shared_notice: RequiredParams<'share'>
+		/**
+		 * I​m​a​g​e​ ​f​r​o​m​ ​{​h​o​s​t​}
+		 * @param {string} host
+		 */
+		remote_from: RequiredParams<'host'>
+		/**
+		 * L​o​a​d​ ​i​m​a​g​e
+		 */
+		remote_load: string
+		/**
+		 * {​h​o​s​t​}​ ​d​i​d​n​'​t​ ​l​e​t​ ​t​h​i​s​ ​i​m​a​g​e​ ​l​o​a​d​ ​h​e​r​e
+		 * @param {string} host
+		 */
+		remote_failed: RequiredParams<'host'>
+		/**
+		 * R​e​m​o​t​e​ ​i​m​a​g​e​,​ ​n​o​t​ ​l​o​a​d​e​d
+		 */
+		remote_not_loaded: string
+	}
 }
 
 export type Namespaces =
@@ -6866,6 +7197,28 @@ export type TranslationFunctions = {
 			 * done
 			 */
 			done: () => LocalizedString
+			cue: {
+				/**
+				 * Pane mode keys
+				 */
+				label: () => LocalizedString
+				/**
+				 * ?
+				 */
+				more_key: () => LocalizedString
+				/**
+				 * keys
+				 */
+				more: () => LocalizedString
+				/**
+				 * fewer
+				 */
+				less: () => LocalizedString
+				/**
+				 * Every key in this mode
+				 */
+				all: () => LocalizedString
+			}
 		}
 		read: {
 			modes: {
@@ -6910,6 +7263,102 @@ export type TranslationFunctions = {
 			 * Unsupported frontmatter
 			 */
 			frontmatter_unsupported: () => LocalizedString
+			table_hint: {
+				/**
+				 * Table
+				 */
+				toolbar: () => LocalizedString
+				/**
+				 * Tab next cell
+				 */
+				next_cell: () => LocalizedString
+				/**
+				 * ↵ next row
+				 */
+				next_row: () => LocalizedString
+				/**
+				 * + row
+				 */
+				add_row: () => LocalizedString
+				/**
+				 * + column
+				 */
+				add_column: () => LocalizedString
+				/**
+				 * Align
+				 */
+				align: () => LocalizedString
+			}
+			code_block: {
+				/**
+				 * Copy code
+				 */
+				copy: () => LocalizedString
+				/**
+				 * Copied
+				 */
+				copied: () => LocalizedString
+				/**
+				 * Language: {lang}. Change language
+				 */
+				language: (arg: { lang: string }) => LocalizedString
+				/**
+				 * plain text
+				 */
+				plain: () => LocalizedString
+			}
+			callout: {
+				/**
+				 * Fold {title}
+				 */
+				toggle: (arg: { title: string }) => LocalizedString
+			}
+			link_popover: {
+				/**
+				 * In {mount}
+				 */
+				scope: (arg: { mount: string }) => LocalizedString
+				/**
+				 * Only you · not in this share
+				 */
+				others: () => LocalizedString
+				/**
+				 * Collaborators can't open these
+				 */
+				others_title: () => LocalizedString
+				/**
+				 * Create “{query}”
+				 */
+				create: (arg: { query: string }) => LocalizedString
+				/**
+				 * Vault root
+				 */
+				vault_root: () => LocalizedString
+				/**
+				 * link
+				 */
+				hint_link: () => LocalizedString
+				/**
+				 * heading
+				 */
+				hint_heading: () => LocalizedString
+				/**
+				 * alias
+				 */
+				hint_alias: () => LocalizedString
+				/**
+				 * ↵
+				 */
+				key_enter: () => LocalizedString
+				/**
+				 * Tab
+				 */
+				key_tab: () => LocalizedString
+				/**
+				 * Esc
+				 */
+				key_escape: () => LocalizedString
+			}
 			commands: {
 				/**
 				 * Toggle reading view
@@ -7384,6 +7833,10 @@ export type TranslationFunctions = {
 				 */
 				format: () => LocalizedString
 				/**
+				 * Table
+				 */
+				table: () => LocalizedString
+				/**
 				 * Templates
 				 */
 				templates: () => LocalizedString
@@ -7405,6 +7858,10 @@ export type TranslationFunctions = {
 				 * Strikethrough
 				 */
 				strike: () => LocalizedString
+				/**
+				 * Highlight
+				 */
+				highlight: () => LocalizedString
 				/**
 				 * Inline code
 				 */
@@ -7438,9 +7895,25 @@ export type TranslationFunctions = {
 				 */
 				task: () => LocalizedString
 				/**
+				 * Indent
+				 */
+				indent: () => LocalizedString
+				/**
+				 * Outdent
+				 */
+				outdent: () => LocalizedString
+				/**
 				 * Quote
 				 */
 				quote: () => LocalizedString
+				/**
+				 * Callout
+				 */
+				callout: () => LocalizedString
+				/**
+				 * Code block
+				 */
+				code_block: () => LocalizedString
 				/**
 				 * Insert link
 				 */
@@ -7457,6 +7930,48 @@ export type TranslationFunctions = {
 				 * Insert image
 				 */
 				image: () => LocalizedString
+				/**
+				 * Horizontal rule
+				 */
+				rule: () => LocalizedString
+			}
+			table: {
+				/**
+				 * Table: insert row below
+				 */
+				insert_row_below: () => LocalizedString
+				/**
+				 * Table: insert column right
+				 */
+				insert_column_right: () => LocalizedString
+				/**
+				 * Table: delete row
+				 */
+				delete_row: () => LocalizedString
+				/**
+				 * Table: delete column
+				 */
+				delete_column: () => LocalizedString
+				/**
+				 * Table: align columns
+				 */
+				align: () => LocalizedString
+				/**
+				 * Table: move row up
+				 */
+				move_row_up: () => LocalizedString
+				/**
+				 * Table: move row down
+				 */
+				move_row_down: () => LocalizedString
+				/**
+				 * Table: move column left
+				 */
+				move_column_left: () => LocalizedString
+				/**
+				 * Table: move column right
+				 */
+				move_column_right: () => LocalizedString
 			}
 			/**
 			 * Open note…
@@ -9223,6 +9738,96 @@ export type TranslationFunctions = {
 				 * Reset editor options
 				 */
 				reset_editor: () => LocalizedString
+				/**
+				 * Pane keys
+				 */
+				hints: () => LocalizedString
+				/**
+				 * Subtle — in the corner
+				 */
+				hints_subtle: () => LocalizedString
+				/**
+				 * Full — a bar along the bottom
+				 */
+				hints_full: () => LocalizedString
+				/**
+				 * Off — the mode’s name only
+				 */
+				hints_off: () => LocalizedString
+				bar: {
+					/**
+					 * Formatting bar buttons
+					 */
+					title: () => LocalizedString
+					/**
+					 * Drag to reorder, or drag a button to the other row to show or hide it. Each button’s menu does the same from the keyboard. Your changes stay on this device.
+					 */
+					intro: () => LocalizedString
+					/**
+					 * On the bar
+					 */
+					shown: () => LocalizedString
+					/**
+					 * Not on the bar
+					 */
+					hidden: () => LocalizedString
+					/**
+					 * Nothing on the bar: it is hidden.
+					 */
+					empty_shown: () => LocalizedString
+					/**
+					 * Every button is on the bar.
+					 */
+					empty_hidden: () => LocalizedString
+					/**
+					 * Separator
+					 */
+					separator: () => LocalizedString
+					/**
+					 * {name}, {n} of {total} on the bar
+					 */
+					pill_shown: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name}, not on the bar
+					 */
+					pill_hidden: (arg: { name: string }) => LocalizedString
+					/**
+					 * Move left
+					 */
+					move_left: () => LocalizedString
+					/**
+					 * Move right
+					 */
+					move_right: () => LocalizedString
+					/**
+					 * Hide
+					 */
+					hide: () => LocalizedString
+					/**
+					 * Remove
+					 */
+					remove: () => LocalizedString
+					/**
+					 * Add to the bar
+					 */
+					show: () => LocalizedString
+					/**
+					 * Reset to layout file
+					 */
+					reset: () => LocalizedString
+					/**
+					 * {name} is now {n} of {total}
+					 */
+					moved: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name} is on the bar
+					 */
+					shown_now: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} is off the bar
+					 */
+					hidden_now: (arg: { name: string }) => LocalizedString
+				}
 			}
 			keys: {
 				/**
@@ -11660,6 +12265,44 @@ export type TranslationFunctions = {
 				 */
 				label: () => LocalizedString
 			}
+		}
+		attachments: {
+			/**
+			 * Drop to add to this note
+			 */
+			drop_title: () => LocalizedString
+			/**
+			 * Saved in {folder}
+			 */
+			saved_in: (arg: { folder: string }) => LocalizedString
+			/**
+			 * {count} files, saved in {folder}
+			 */
+			saved_in_many: (arg: { count: number, folder: string }) => LocalizedString
+			/**
+			 * the vault root
+			 */
+			vault_root: () => LocalizedString
+			/**
+			 * This note is in {share}. Images don't sync yet, so collaborators will see a placeholder until they do.
+			 */
+			shared_notice: (arg: { share: string }) => LocalizedString
+			/**
+			 * Image from {host}
+			 */
+			remote_from: (arg: { host: string }) => LocalizedString
+			/**
+			 * Load image
+			 */
+			remote_load: () => LocalizedString
+			/**
+			 * {host} didn't let this image load here
+			 */
+			remote_failed: (arg: { host: string }) => LocalizedString
+			/**
+			 * Remote image, not loaded
+			 */
+			remote_not_loaded: () => LocalizedString
 		}
 	}
 }

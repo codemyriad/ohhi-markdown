@@ -35,6 +35,8 @@
   import FormatBar from './FormatBar.svelte'
   import GroupChip from './GroupChip.svelte'
   import ModeBar from './ModeBar.svelte'
+  import ModeCue from './ModeCue.svelte'
+  import { paneHints } from '../pane-hints.svelte.js'
   import PaneTree, { type PaneRender } from './PaneTree.svelte'
   import StripGroupsMenu from './StripGroupsMenu.svelte'
   import TabGroupMenuItems from './TabGroupMenuItems.svelte'
@@ -78,6 +80,8 @@
   const formatAt = $derived(
     layout && layout.spec.regions.format !== 'off' && layout.focusKeeps('format') ? layout.spec.regions.format : null
   )
+  /** E6: a live pane mode's keys in the corner, above the count (Pane keys: Subtle / Off). */
+  const cue = $derived(panes.mode !== null && paneHints.value !== 'full')
   const corner = $derived(
     layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
   )
@@ -203,6 +207,18 @@
     resolveLink: (target, from) => nav.resolveLink(target, from),
     createFromLink: onCreateFromLink,
     linkCandidates: () => textPaths(workspace.ui.files),
+    // The link popover's scope (E1, fork A2): every shared folder, by the
+    // name the Shared view gives it (its last segment), and the recents.
+    linkContext: () => ({
+      mounts: workspace.ui.mounts
+        .filter((m) => m.path !== '')
+        .map((m) => ({ path: m.path, name: m.path.slice(m.path.lastIndexOf('/') + 1) })),
+      recents: recentPaths(workspace.room),
+    }),
+    linkHeadings: async (path) => {
+      const guid = workspace.ui.files.find((f) => f.path === path)?.guid
+      return guid ? nav.index.headings(guid) : []
+    },
     searchTag: (tag) => nav.openSearch(tagQuery(tag)),
     tags: () => nav.tags(),
     reveal: nav.pending.reveal,
@@ -239,7 +255,7 @@
           </div>
         </div>
       {/if}
-      {#if (formatAt === 'bottom' || corner) && bottomCtx}
+      {#if (formatAt === 'bottom' || corner || cue) && bottomCtx}
         <!-- One row while both fit: the bar centred and the corner at the
              right; the right track never shrinks below the corner
              (`minmax(max-content, 1fr)`), so with less room the bar shifts
@@ -258,10 +274,11 @@
               ? 'flex flex-col items-center gap-2'
               : 'grid grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] items-end gap-2'}
           >
-            {#if corner}
+            {#if corner || cue}
               <div class="col-start-3 row-start-1 flex justify-end {stacked ? 'self-end' : ''}">
-                <div bind:clientWidth={cornerW} class="flex">
-                  <CornerStatus ids={layout!.spec.bars.status} ctx={bottomCtx} />
+                <div bind:clientWidth={cornerW} class="flex flex-col items-end gap-1">
+                  <ModeCue {panes} />
+                  {#if corner}<CornerStatus ids={layout!.spec.bars.status} ctx={bottomCtx} />{/if}
                 </div>
               </div>
             {/if}
