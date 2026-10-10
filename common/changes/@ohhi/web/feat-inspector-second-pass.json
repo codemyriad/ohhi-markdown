@@ -1,0 +1,30 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The Inspector (developer tools) is easier to read: the file you select opens in a column on the right, or slides in from the right when the pane is narrow, so it is never below the table; the table's key is now the row of state chips above it, which also filter; rows come worst first; and every state is named by what is pending, with a sentence explaining it.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The Inspector uses the same colours as the sync icon: amber for pending, grey for offline, red only when a note has diverged.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Each shared folder in the Inspector says in one line whether its saved settings agree with the live session, instead of listing both for you to compare.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "From the Inspector you can open a file's note, open its detail in its own tab, and copy a text report of one file or of every row for a bug report. With developer tools on, the sync icon's card offers “Inspect this note”.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The format bar, the Note menu's floating strip and the word count no longer float over the Inspector, Log and Shared views, or over an empty tab; they return when a note is focused.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}
