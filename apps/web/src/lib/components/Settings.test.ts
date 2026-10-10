@@ -69,14 +69,14 @@ function liveLayout() {
 }
 
 describe('Settings: the nav and its hosts (ST1/ST2)', () => {
-  it('lists the ten sections in three groups, in order; picking one asks the host to move', async () => {
+  it('lists the eleven sections in three groups, in order; picking one asks the host to move', async () => {
     const user = userEvent.setup()
     const onSection = vi.fn()
     render(Settings, { section: 'you', onSection, vault: VAULT, registry: registryWith() })
     const tabs = screen.getAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('data-testid'))).toEqual(SETTINGS_SECTIONS.map((s) => `settings-tab:${s}`))
     expect(tabs.map((tab) => tab.textContent!.trim())).toEqual([
-      'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'Developer', 'About',
+      'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'AI', 'Developer', 'About',
     ])
     // A rule starts the second and third groups (drawn by the tab itself: the list holds tabs only).
     const separated = tabs.filter((tab) => tab.className.includes('before:border-t')).map((tab) => tab.dataset.testid)

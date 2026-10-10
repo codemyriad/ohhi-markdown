@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  aiConfig,
+  aiEnabled,
+  providerView,
+  setAiConfig,
   addShare,
   DEFAULT_RELAY,
   defaultRelay,
@@ -219,6 +223,49 @@ describe('reading preferences (read-shaping B3)', () => {
   it('a stored mode that is not a mode reads as the default, never as a crash', () => {
     seed('editor:config', { ...loadConfig(), read: { defaultMode: 'preview' } })
     expect(readPrefs().defaultMode).toBe('live')
+  })
+})
+
+describe('AI providers (writing-harness-shaping B1)', () => {
+  const anthropic = {
+    id: 'p1',
+    name: 'Claude',
+    kind: 'anthropic' as const,
+    baseUrl: '',
+    apiKey: 'sk-secret',
+    model: 'claude-x',
+  }
+
+  it('is off with no provider — the quiet default (R1)', () => {
+    expect(aiConfig()).toEqual({ providers: [] })
+    expect(aiEnabled()).toBe(false)
+  })
+
+  it('round-trips through the blob, additively, and turns AI on', () => {
+    setDefaultRelay('ws://my-relay:9000')
+    setAiConfig({ providers: [anthropic], defaultProvider: 'p1' })
+    expect(aiConfig()).toEqual({ providers: [anthropic], defaultProvider: 'p1' })
+    expect(aiEnabled()).toBe(true)
+    expect(defaultRelay()).toBe('ws://my-relay:9000')
+    setAiConfig({ providers: [] })
+    expect(aiEnabled()).toBe(false)
+  })
+
+  it('a garbage entry is dropped without costing the others; a dangling default is dropped', () => {
+    seed('editor:config', {
+      ...loadConfig(),
+      ai: { providers: [anthropic, { id: 'x', name: 'X', kind: 'gemini' }, 'nope'], defaultProvider: 'gone' },
+    })
+    expect(aiConfig()).toEqual({ providers: [anthropic] })
+  })
+
+  it('providerView strips the key and says only whether one is set', () => {
+    const view = providerView(anthropic)
+    expect(view).not.toHaveProperty('apiKey')
+    expect(view.apiKeyConfigured).toBe(true)
+    expect(JSON.stringify(view)).not.toContain('sk-secret')
+    const { apiKey: _key, ...keyless } = anthropic
+    expect(providerView(keyless).apiKeyConfigured).toBe(false)
   })
 })
 

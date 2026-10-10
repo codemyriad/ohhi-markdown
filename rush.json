@@ -347,6 +347,7 @@
     { "packageName": "@ohhi/editor-lang", "projectFolder": "libs/editor-lang" },
     { "packageName": "@ohhi/i18n", "projectFolder": "libs/i18n" },
     { "packageName": "@ohhi/agent", "projectFolder": "libs/agent" },
+    { "packageName": "@ohhi/harness", "projectFolder": "libs/harness" },
     { "packageName": "@ohhi/relay", "projectFolder": "apps/relay" },
     { "packageName": "@ohhi/cli", "projectFolder": "apps/cli" },
     { "packageName": "@ohhi/web", "projectFolder": "apps/web" },

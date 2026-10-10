@@ -369,6 +369,7 @@
     openView: (id, arg) => openView(id, arg),
     devtools: () => devtools,
     reloadResources: () => customise.reloadAll(),
+    flash: (input) => workspace?.flash(input),
     templates,
     help: { run: runHelp, menuMounted: () => help.menus > 0 },
     focusMode: {

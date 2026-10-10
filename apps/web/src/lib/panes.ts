@@ -74,9 +74,9 @@ export interface Waypoint {
  * bridge to another JS context. The list is the pure half of the registry —
  * what the layout reader and `openView` know; `views.ts` gives each kind its
  * title, icon, component and command. Adding a view is a row here and a row
- * there (`log`, `shared` and the harness's `session` register the same way).
+ * there (`log`, `shared` and the harness's `session` registered the same way).
  */
-export const VIEW_KINDS = ['inspector', 'log', 'shared', 'settings'] as const
+export const VIEW_KINDS = ['inspector', 'log', 'shared', 'settings', 'session'] as const
 export type TabView = (typeof VIEW_KINDS)[number]
 
 /**

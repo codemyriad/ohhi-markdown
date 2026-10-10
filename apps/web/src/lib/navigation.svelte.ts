@@ -10,6 +10,7 @@ import { getLL } from '@ohhi/i18n'
 import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@ohhi/index'
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
+import { aiEnabled } from './config.js'
 import type { TabView } from './panes.js'
 import type { RootId } from './resources.svelte.js'
 import { recentPaths, touchPath } from './recent.js'
@@ -548,7 +549,7 @@ export function defaultCommands(actions: {
     { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), keys: 'Mod+-', run: actions.dailyPrev, when: actions.hasPrevDaily },
     { id: 'daily.next', title: t.daily_next(), group: g.daily(), keys: 'Mod+=', run: actions.dailyNext, when: actions.hasNextDaily },
     // `app.settings` (Mod+,) is the `settings` view's row, from viewCommands below.
-    ...viewCommands(actions.openView, { devtools: actions.devtools }),
+    ...viewCommands(actions.openView, { devtools: actions.devtools, ai: () => aiEnabled() }),
   ]
 }
 

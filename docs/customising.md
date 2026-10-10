@@ -420,6 +420,17 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `table.move-row-down`
 - `table.move-column-left`
 - `table.move-column-right`
+- `app.session`
+- `ai.new-session`
+- `ai.add-selection`
+- `ai.run-skill`
+- `ai.stop-run`
+- `ai.accept-suggestion`
+- `ai.reject-suggestion`
+- `ai.accept-all`
+- `ai.reject-all`
+- `ai.undo-agent`
+- `note.comment`
 <!-- /generated -->
 
 `bars.format` also takes the format bar's grouped items, which are not
@@ -499,6 +510,7 @@ Entries of `views` — the views whose palette commands a layout offers; an empt
 - `log`
 - `shared`
 - `settings`
+- `session`
 <!-- /generated -->
 
 ---

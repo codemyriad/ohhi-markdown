@@ -19,6 +19,7 @@ export const SETTINGS_SECTIONS = [
   'sync',
   'customise',
   'agents',
+  'ai',
   'developer',
   'about',
 ] as const
@@ -27,7 +28,7 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 /** The nav's three groups, drawn with a separator between them (Fork 3). */
 export const SETTINGS_GROUPS: readonly (readonly SettingsSection[])[] = [
   ['you', 'editor', 'layout', 'appearance', 'keys'],
-  ['sync', 'customise', 'agents'],
+  ['sync', 'customise', 'agents', 'ai'],
   ['developer', 'about'],
 ]
 

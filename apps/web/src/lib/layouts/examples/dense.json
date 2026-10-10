@@ -20,7 +20,7 @@
   "toolbar": { "position": "top" },
   "dock": { "position": "top-right" },
   "panes": { "borders": "hairline", "focusMark": false, "lead": true, "open": "tab" },
-  "views": ["inspector", "log", "shared"],
+  "views": ["inspector", "log", "shared", "session"],
   "editor": { "measure": "comfortable", "typewriter": false, "inlineTitle": true },
   "focus": { "keep": ["header", "statusbar"] }
 }

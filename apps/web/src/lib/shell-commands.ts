@@ -10,10 +10,12 @@
  */
 import { getLL } from '@ohhi/i18n'
 import type { Command, CommandRegistry } from './commands.js'
+import { aiEnabled } from './config.js'
 import type { DailyShell } from './daily.svelte.js'
 import type { FileActions } from './file-actions.svelte.js'
 import type { GroupShell } from './group-ui.svelte.js'
 import { HELP_COMMAND_IDS, type HelpCommandId } from './help.svelte.js'
+import type { FlashInput } from './notices.js'
 import { defaultCommands, type LayoutFileSource, type PaletteMode } from './navigation.svelte.js'
 import { choiceOf } from './resource-kind.js'
 import type { Resources } from './resources.svelte.js'
@@ -73,6 +75,8 @@ export interface ShellCommandDeps {
    * without the `help` readout) there is nothing for it to open.
    */
   help?: { run(id: HelpCommandId): void; menuMounted(): boolean }
+  /** Feedback to a gesture (`workspace.flash`): the harness stubs say they are not built. */
+  flash?(input: FlashInput): void
 }
 
 /**
@@ -261,6 +265,8 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
     })
     registry.addProvider(() => templates.commands())
   }
+  // The writing harness's commands (writing-harness-build W0 §6).
+  registry.register(...harnessCommands(deps))
   // Every `workspace.*` and `tab.*` row of the command table (B7). Registered
   // after the defaults so a later rebind of a shared key wins, as the registry
   // documents.
@@ -323,6 +329,31 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
   }
 
   return { onKeydown }
+}
+
+/**
+ * The writing harness's `ai.*` / `note.comment` rows (writing-harness-build
+ * W0 §6). STUBS: each is listed only while a provider exists (R1 — never
+ * `when: () => false`, so the table and `COMMAND_IDS` agree) and says it is
+ * not built. Builders B–E replace their rows here with the real ones.
+ */
+export function harnessCommands(deps: Pick<ShellCommandDeps, 'flash'>): Command[] {
+  const t = getLL().web.ai.commands
+  const group = getLL().web.commands.groups.ai()
+  const notBuilt = (): void => deps.flash?.({ level: 'info', text: getLL().web.ai.notice.not_built() })
+  const rows: [id: string, title: string][] = [
+    ['ai.new-session', t.new_session()],
+    ['ai.add-selection', t.add_selection()],
+    ['ai.run-skill', t.run_skill()],
+    ['ai.stop-run', t.stop_run()],
+    ['ai.accept-suggestion', t.accept_suggestion()],
+    ['ai.reject-suggestion', t.reject_suggestion()],
+    ['ai.accept-all', t.accept_all()],
+    ['ai.reject-all', t.reject_all()],
+    ['ai.undo-agent', t.undo_agent()],
+    ['note.comment', t.comment()],
+  ]
+  return rows.map(([id, title]) => ({ id, title, group, when: () => aiEnabled(), run: notBuilt }))
 }
 
 /**

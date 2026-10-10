@@ -147,6 +147,18 @@ export const COMMAND_IDS = [
   'table.move-row-down',
   'table.move-column-left',
   'table.move-column-right',
+  // writing-harness
+  'app.session',
+  'ai.new-session',
+  'ai.add-selection',
+  'ai.run-skill',
+  'ai.stop-run',
+  'ai.accept-suggestion',
+  'ai.reject-suggestion',
+  'ai.accept-all',
+  'ai.reject-all',
+  'ai.undo-agent',
+  'note.comment',
 ] as const
 
 export type CommandId = (typeof COMMAND_IDS)[number]

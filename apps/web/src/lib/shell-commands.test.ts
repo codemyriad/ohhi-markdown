@@ -10,6 +10,9 @@ import { PRESETS } from './layout-spec.js'
 import { installShellCommands, layoutFileSource, type ShellCommandDeps } from './shell-commands.js'
 import { VIEW_KINDS } from './panes.js'
 import { VIEWS } from './views.js'
+import { getLL } from '@ohhi/i18n'
+import { setAiConfig } from './config.js'
+import { dropStorage, useMemStorage } from './storage.fixture.js'
 
 function key(k: string, mods: Partial<KeyboardEvent> = {}): KeyboardEvent {
   return {
@@ -176,6 +179,26 @@ describe('installShellCommands', () => {
     // The Log view is for everyone (quiet-shell F12): listed with developer tools off too.
     devtools = false
     expect(registry.available().some((c) => c.id === 'app.log')).toBe(true)
+  })
+
+  it('the writing harness is quiet with no provider, and its stubs say they are not built (R1)', () => {
+    useMemStorage()
+    try {
+      const flash = vi.fn()
+      const { registry } = setup({ flash })
+      const harness = ['app.session', 'ai.new-session', 'ai.accept-suggestion', 'note.comment']
+      const offered = (id: string): boolean => registry.available().some((c) => c.id === id)
+      for (const id of harness) {
+        expect(registry.get(id), id).toBeDefined()
+        expect(offered(id), id).toBe(false)
+      }
+      setAiConfig({ providers: [{ id: 'p', name: 'P', kind: 'openai', baseUrl: '', model: 'm' }] })
+      for (const id of harness) expect(offered(id), id).toBe(true)
+      void registry.get('ai.new-session')!.run()
+      expect(flash).toHaveBeenCalledWith({ level: 'info', text: getLL().web.ai.notice.not_built() })
+    } finally {
+      dropStorage()
+    }
   })
 
   it('offers only the views the layout lists (an empty list offers them all)', () => {

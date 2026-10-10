@@ -41,6 +41,12 @@ describe('IGNORED_DIRS', () => {
     }
   })
 
+  it('ignores the skills farm copy (.claude/skills mirrors .agents/skills)', () => {
+    expect(IGNORED_DIRS.has('.claude')).toBe(true)
+    // The canonical skills folder is vault content, not an ignored app dir.
+    expect(IGNORED_DIRS.has('.agents')).toBe(false)
+  })
+
   it('excludes ignored paths from list() and listDirs()', async () => {
     const a = new MemVaultAdapter()
     await a.writeAtomic('note.md', enc.encode('hi'))

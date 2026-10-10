@@ -426,7 +426,7 @@ describe('diffSpec', () => {
 
 describe('offersView', () => {
   it('a listed view is offered; an empty list offers every view', () => {
-    expect(DEFAULT.views).toEqual(['inspector', 'log', 'shared'])
+    expect(DEFAULT.views).toEqual(['inspector', 'log', 'shared', 'session'])
     expect(offersView({ views: ['log'] }, 'log')).toBe(true)
     expect(offersView({ views: ['log'] }, 'shared')).toBe(false)
     expect(offersView({ views: [] }, 'shared')).toBe(true)

@@ -32,6 +32,8 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   // The pre-rename app folders: ignored so a vault made before the rename never enrols them as notes.
   '.editor',
   '.editor-cache',
+  // The skills farm: `.claude/skills/` mirrors `.agents/skills/`; never index or enrol the copy.
+  '.claude',
   '.trash',
   'node_modules',
 ])

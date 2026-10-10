@@ -551,6 +551,7 @@ const commands = {
     table: 'Table',
     templates: 'Templates',
     help: 'Help',
+    ai: 'AI',
   },
   /**
    * The `format.*` rows (quiet-shell F4): one per entry of `FORMAT_COMMANDS`
@@ -1185,6 +1186,7 @@ const settings = {
     agents: 'Agents',
     developer: 'Developer',
     about: 'About',
+    ai: 'AI',
   },
   /** The manager's page host (no vault open): its way back. */
   page: {
@@ -2346,6 +2348,58 @@ const attachments = {
   remote_not_loaded: 'Remote image, not loaded',
 }
 
+/**
+ * The writing harness (writing-harness-shaping). One sub-object per builder
+ * (writing-harness-build §Ground rules): each adds keys only inside its own.
+ * `settings` and `commands`/`notice` are wave 0's; `providers` is A's;
+ * `session`/`composer`/`refs` B's; `skills` C's; `suggest` D's; `comments`
+ * E's; `presence` F's.
+ */
+const ai = {
+  settings: {
+    title: 'AI',
+    egress:
+      'Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.',
+    sections: 'AI settings',
+    tabs: {
+      providers: 'Providers',
+      skills: 'Skills',
+    },
+  },
+  providers: {
+    title: 'Providers',
+  },
+  session: {
+    title: 'Session',
+    title_named: 'Session: {name:string}',
+    empty: 'No session yet. Start one from a selection, or ask about your notes.',
+  },
+  composer: {},
+  refs: {},
+  skills: {
+    title: 'Skills',
+  },
+  suggest: {},
+  comments: {},
+  presence: {},
+  commands: {
+    new_session: 'New AI session',
+    add_selection: 'Add selection to AI session',
+    run_skill: 'Run a skill…',
+    stop_run: 'Stop the AI run',
+    accept_suggestion: 'Accept suggestion',
+    reject_suggestion: 'Reject suggestion',
+    accept_all: 'Accept all suggestions',
+    reject_all: 'Reject all suggestions',
+    undo_agent: 'Undo the agent’s last edit',
+    comment: 'Comment on selection',
+    session: 'Open AI session',
+  },
+  notice: {
+    not_built: 'That is not built yet.',
+  },
+}
+
 const web = {
   shell,
   notices,
@@ -2396,6 +2450,7 @@ const web = {
   resources,
   toolbar,
   attachments,
+  ai,
 } satisfies BaseTranslation
 
 export default web

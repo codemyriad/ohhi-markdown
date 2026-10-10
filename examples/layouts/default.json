@@ -73,7 +73,8 @@
   "views": [
     "inspector",
     "log",
-    "shared"
+    "shared",
+    "session"
   ],
   "editor": {
     "measure": "comfortable",

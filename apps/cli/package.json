@@ -13,10 +13,11 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@ohhi/agent": "workspace:*",
+    "@ohhi/harness": "workspace:*",
     "@ohhi/index": "workspace:*",
     "@ohhi/vault": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "~4.1.13"
   },
   "devDependencies": {

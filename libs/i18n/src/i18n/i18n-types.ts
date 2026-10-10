@@ -1590,6 +1590,10 @@ export type NamespaceWebTranslation = {
 			 * H​e​l​p
 			 */
 			help: string
+			/**
+			 * A​I
+			 */
+			ai: string
 		}
 		format: {
 			/**
@@ -3348,6 +3352,10 @@ export type NamespaceWebTranslation = {
 			 * A​b​o​u​t
 			 */
 			about: string
+			/**
+			 * A​I
+			 */
+			ai: string
 		}
 		page: {
 			/**
@@ -6732,6 +6740,121 @@ export type NamespaceWebTranslation = {
 		 */
 		remote_not_loaded: string
 	}
+	ai: {
+		settings: {
+			/**
+			 * A​I
+			 */
+			title: string
+			/**
+			 * N​o​t​h​i​n​g​ ​l​e​a​v​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​u​n​t​i​l​ ​y​o​u​ ​a​d​d​ ​a​ ​p​r​o​v​i​d​e​r​.​ ​W​i​t​h​ ​o​n​e​,​ ​t​h​e​ ​t​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​t​h​a​t​ ​e​n​d​p​o​i​n​t​,​ ​a​n​d​ ​n​o​w​h​e​r​e​ ​e​l​s​e​.
+			 */
+			egress: string
+			/**
+			 * A​I​ ​s​e​t​t​i​n​g​s
+			 */
+			sections: string
+			tabs: {
+				/**
+				 * P​r​o​v​i​d​e​r​s
+				 */
+				providers: string
+				/**
+				 * S​k​i​l​l​s
+				 */
+				skills: string
+			}
+		}
+		providers: {
+			/**
+			 * P​r​o​v​i​d​e​r​s
+			 */
+			title: string
+		}
+		session: {
+			/**
+			 * S​e​s​s​i​o​n
+			 */
+			title: string
+			/**
+			 * S​e​s​s​i​o​n​:​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			title_named: RequiredParams<'name'>
+			/**
+			 * N​o​ ​s​e​s​s​i​o​n​ ​y​e​t​.​ ​S​t​a​r​t​ ​o​n​e​ ​f​r​o​m​ ​a​ ​s​e​l​e​c​t​i​o​n​,​ ​o​r​ ​a​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​.
+			 */
+			empty: string
+		}
+		composer: {
+		}
+		refs: {
+		}
+		skills: {
+			/**
+			 * S​k​i​l​l​s
+			 */
+			title: string
+		}
+		suggest: {
+		}
+		comments: {
+		}
+		presence: {
+		}
+		commands: {
+			/**
+			 * N​e​w​ ​A​I​ ​s​e​s​s​i​o​n
+			 */
+			new_session: string
+			/**
+			 * A​d​d​ ​s​e​l​e​c​t​i​o​n​ ​t​o​ ​A​I​ ​s​e​s​s​i​o​n
+			 */
+			add_selection: string
+			/**
+			 * R​u​n​ ​a​ ​s​k​i​l​l​…
+			 */
+			run_skill: string
+			/**
+			 * S​t​o​p​ ​t​h​e​ ​A​I​ ​r​u​n
+			 */
+			stop_run: string
+			/**
+			 * A​c​c​e​p​t​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			accept_suggestion: string
+			/**
+			 * R​e​j​e​c​t​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			reject_suggestion: string
+			/**
+			 * A​c​c​e​p​t​ ​a​l​l​ ​s​u​g​g​e​s​t​i​o​n​s
+			 */
+			accept_all: string
+			/**
+			 * R​e​j​e​c​t​ ​a​l​l​ ​s​u​g​g​e​s​t​i​o​n​s
+			 */
+			reject_all: string
+			/**
+			 * U​n​d​o​ ​t​h​e​ ​a​g​e​n​t​’​s​ ​l​a​s​t​ ​e​d​i​t
+			 */
+			undo_agent: string
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n
+			 */
+			comment: string
+			/**
+			 * O​p​e​n​ ​A​I​ ​s​e​s​s​i​o​n
+			 */
+			session: string
+		}
+		notice: {
+			/**
+			 * T​h​a​t​ ​i​s​ ​n​o​t​ ​b​u​i​l​t​ ​y​e​t​.
+			 */
+			not_built: string
+		}
+	}
 }
 
 export type Namespaces =
@@ -8235,6 +8358,10 @@ export type TranslationFunctions = {
 				 * Help
 				 */
 				help: () => LocalizedString
+				/**
+				 * AI
+				 */
+				ai: () => LocalizedString
 			}
 			format: {
 				/**
@@ -9901,6 +10028,10 @@ export type TranslationFunctions = {
 				 * About
 				 */
 				about: () => LocalizedString
+				/**
+				 * AI
+				 */
+				ai: () => LocalizedString
 			}
 			page: {
 				/**
@@ -13066,6 +13197,120 @@ export type TranslationFunctions = {
 			 * Remote image, not loaded
 			 */
 			remote_not_loaded: () => LocalizedString
+		}
+		ai: {
+			settings: {
+				/**
+				 * AI
+				 */
+				title: () => LocalizedString
+				/**
+				 * Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.
+				 */
+				egress: () => LocalizedString
+				/**
+				 * AI settings
+				 */
+				sections: () => LocalizedString
+				tabs: {
+					/**
+					 * Providers
+					 */
+					providers: () => LocalizedString
+					/**
+					 * Skills
+					 */
+					skills: () => LocalizedString
+				}
+			}
+			providers: {
+				/**
+				 * Providers
+				 */
+				title: () => LocalizedString
+			}
+			session: {
+				/**
+				 * Session
+				 */
+				title: () => LocalizedString
+				/**
+				 * Session: {name}
+				 */
+				title_named: (arg: { name: string }) => LocalizedString
+				/**
+				 * No session yet. Start one from a selection, or ask about your notes.
+				 */
+				empty: () => LocalizedString
+			}
+			composer: {
+			}
+			refs: {
+			}
+			skills: {
+				/**
+				 * Skills
+				 */
+				title: () => LocalizedString
+			}
+			suggest: {
+			}
+			comments: {
+			}
+			presence: {
+			}
+			commands: {
+				/**
+				 * New AI session
+				 */
+				new_session: () => LocalizedString
+				/**
+				 * Add selection to AI session
+				 */
+				add_selection: () => LocalizedString
+				/**
+				 * Run a skill…
+				 */
+				run_skill: () => LocalizedString
+				/**
+				 * Stop the AI run
+				 */
+				stop_run: () => LocalizedString
+				/**
+				 * Accept suggestion
+				 */
+				accept_suggestion: () => LocalizedString
+				/**
+				 * Reject suggestion
+				 */
+				reject_suggestion: () => LocalizedString
+				/**
+				 * Accept all suggestions
+				 */
+				accept_all: () => LocalizedString
+				/**
+				 * Reject all suggestions
+				 */
+				reject_all: () => LocalizedString
+				/**
+				 * Undo the agent’s last edit
+				 */
+				undo_agent: () => LocalizedString
+				/**
+				 * Comment on selection
+				 */
+				comment: () => LocalizedString
+				/**
+				 * Open AI session
+				 */
+				session: () => LocalizedString
+			}
+			notice: {
+				/**
+				 * That is not built yet.
+				 */
+				not_built: () => LocalizedString
+			}
 		}
 	}
 }

@@ -44,7 +44,7 @@
   "toolbar": { "position": "top" },
   "dock": { "position": "top-right" },
   "panes": { "borders": "hairline", "focusMark": true, "lead": false, "open": "replace" },
-  "views": ["inspector", "log", "shared"],
+  "views": ["inspector", "log", "shared", "session"],
   "editor": { "measure": "comfortable", "typewriter": false, "inlineTitle": true },
   "focus": { "keep": ["toolbar", "format"] }
 }

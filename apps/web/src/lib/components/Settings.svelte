@@ -36,6 +36,7 @@
   import Tabs from '../ui/Tabs.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import AgentSettings from './AgentSettings.svelte'
+  import AiSettings from './AiSettings.svelte'
   import AppearanceSettings from './AppearanceSettings.svelte'
   import CustomiseSettings from './CustomiseSettings.svelte'
   import DeveloperSettings from './DeveloperSettings.svelte'
@@ -205,6 +206,8 @@
           <CustomiseSettings {registry} {resources} {layout} {keymap} showLog={showLog} />
         {:else if sid === 'agents'}
           <AgentSettings />
+        {:else if sid === 'ai'}
+          <AiSettings />
         {:else if sid === 'developer'}
           <DeveloperSettings {onConfigChange} />
         {:else if sid === 'about'}

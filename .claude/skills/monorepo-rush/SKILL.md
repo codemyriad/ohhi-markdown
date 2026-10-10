@@ -55,6 +55,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | `libs/editor-lang` | `[[wikilink]]` grammar and decorations on `@codemirror/lang-markdown` | V2c |
 | `libs/i18n` | Dictionaries + typesafe-i18n wiring; `rushx generate` regenerates the typed accessors | V2 |
 | `libs/agent` | `@ohhi/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
+| `libs/harness` | `@ohhi/harness` — the writing harness's runtime core over the AI SDK: the seams every builder shares (`src/types.ts`: providers, references, sessions, suggestions, comments, skills, `AgentHost`) and the runtime API (`createModel`, `toolsFromContract`, `systemPrompt`, `createHarnessAgent`); clock- and `fetch`-injected | H1 |
 | `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates the op schemas in `spec/` | G1 |
 
 `apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `plans/slices.md`).
