@@ -267,6 +267,10 @@ export type NamespaceWebTranslation = {
 			 * H​i​s​t​o​r​y
 			 */
 			history: string
+			/**
+			 * C​o​m​m​e​n​t​s
+			 */
+			comments: string
 		}
 	}
 	actions: {
@@ -6770,6 +6774,215 @@ export type NamespaceWebTranslation = {
 			 * P​r​o​v​i​d​e​r​s
 			 */
 			title: string
+			/**
+			 * A​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​t​h​e​ ​m​o​d​e​l​ ​e​n​d​p​o​i​n​t​ ​t​h​e​ ​a​s​s​i​s​t​a​n​t​ ​t​a​l​k​s​ ​t​o​.​ ​A​I​ ​i​s​ ​o​n​ ​w​h​i​l​e​ ​a​t​ ​l​e​a​s​t​ ​o​n​e​ ​i​s​ ​l​i​s​t​e​d​.
+			 */
+			intro: string
+			/**
+			 * N​o​ ​p​r​o​v​i​d​e​r​ ​y​e​t​.​ ​A​d​d​ ​o​n​e​ ​t​o​ ​t​u​r​n​ ​o​n​ ​t​h​e​ ​a​s​s​i​s​t​a​n​t​.
+			 */
+			empty: string
+			/**
+			 * A​d​d​ ​p​r​o​v​i​d​e​r
+			 */
+			add: string
+			/**
+			 * N​e​w​ ​p​r​o​v​i​d​e​r
+			 */
+			add_title: string
+			/**
+			 * S​a​v​e
+			 */
+			save: string
+			/**
+			 * E​d​i​t​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			edit_title: RequiredParams<'name'>
+			/**
+			 * E​d​i​t
+			 */
+			edit: string
+			/**
+			 * E​d​i​t​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			edit_label: RequiredParams<'name'>
+			/**
+			 * D​e​l​e​t​e
+			 */
+			'delete': string
+			/**
+			 * D​e​l​e​t​e​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			delete_label: RequiredParams<'name'>
+			/**
+			 * D​e​l​e​t​e​ ​{​n​a​m​e​}​?​ ​I​t​s​ ​k​e​y​ ​i​s​ ​r​e​m​o​v​e​d​ ​f​r​o​m​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 * @param {string} name
+			 */
+			delete_confirm: RequiredParams<'name'>
+			/**
+			 * D​e​l​e​t​e​ ​p​r​o​v​i​d​e​r
+			 */
+			delete_yes: string
+			/**
+			 * D​e​f​a​u​l​t
+			 */
+			'default': string
+			/**
+			 * U​s​e​ ​{​n​a​m​e​}​ ​b​y​ ​d​e​f​a​u​l​t
+			 * @param {string} name
+			 */
+			default_label: RequiredParams<'name'>
+			/**
+			 * K​e​y​ ​c​o​n​f​i​g​u​r​e​d
+			 */
+			key_configured: string
+			/**
+			 * N​o​ ​k​e​y
+			 */
+			key_missing: string
+			/**
+			 * T​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​{​n​a​m​e​}​ ​a​t​ ​{​h​o​s​t​}
+			 * @param {string} host
+			 * @param {string} name
+			 */
+			egress: RequiredParams<'host' | 'name'>
+			kinds: {
+				/**
+				 * A​n​t​h​r​o​p​i​c
+				 */
+				anthropic: string
+				/**
+				 * O​p​e​n​A​I
+				 */
+				openai: string
+				/**
+				 * O​p​e​n​R​o​u​t​e​r
+				 */
+				openrouter: string
+				/**
+				 * O​p​e​n​A​I​-​c​o​m​p​a​t​i​b​l​e​ ​(​l​o​c​a​l​ ​o​r​ ​s​e​l​f​-​h​o​s​t​e​d​)
+				 */
+				openai_compatible: string
+			}
+			field: {
+				/**
+				 * N​a​m​e
+				 */
+				name: string
+				/**
+				 * e​.​g​.​ ​C​l​a​u​d​e​,​ ​o​r​ ​O​l​l​a​m​a​ ​o​n​ ​t​h​i​s​ ​m​a​c​h​i​n​e
+				 */
+				name_placeholder: string
+				/**
+				 * K​i​n​d
+				 */
+				kind: string
+				/**
+				 * B​a​s​e​ ​U​R​L
+				 */
+				base_url: string
+				/**
+				 * L​e​a​v​e​ ​a​s​ ​i​s​ ​u​n​l​e​s​s​ ​y​o​u​ ​r​o​u​t​e​ ​t​h​r​o​u​g​h​ ​a​ ​g​a​t​e​w​a​y​.
+				 */
+				base_url_hint: string
+				/**
+				 * e​.​g​.​ ​h​t​t​p​:​/​/​l​o​c​a​l​h​o​s​t​:​1​1​4​3​4​/​v​1​ ​(​O​l​l​a​m​a​)
+				 */
+				base_url_hint_compatible: string
+				/**
+				 * M​o​d​e​l
+				 */
+				model: string
+				/**
+				 * e​.​g​.​ ​c​l​a​u​d​e​-​s​o​n​n​e​t​-​4​-​5​,​ ​g​p​t​-​4​.​1​,​ ​l​l​a​m​a​3​.​1
+				 */
+				model_placeholder: string
+				/**
+				 * A​P​I​ ​k​e​y
+				 */
+				api_key: string
+				/**
+				 * A​ ​k​e​y​ ​i​s​ ​s​t​o​r​e​d​.​ ​L​e​a​v​e​ ​t​h​i​s​ ​e​m​p​t​y​ ​t​o​ ​k​e​e​p​ ​i​t​.
+				 */
+				api_key_keep: string
+				/**
+				 * K​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​,​ ​i​n​ ​t​h​e​ ​a​p​p​’​s​ ​s​t​o​r​a​g​e​ ​—​ ​n​e​v​e​r​ ​s​h​o​w​n​ ​a​g​a​i​n​,​ ​n​e​v​e​r​ ​s​y​n​c​e​d​.
+				 */
+				api_key_where: string
+				/**
+				 * O​p​t​i​o​n​a​l​ ​f​o​r​ ​a​ ​l​o​c​a​l​ ​s​e​r​v​e​r​.
+				 */
+				api_key_optional: string
+				/**
+				 * T​i​m​e​o​u​t​ ​(​s​e​c​o​n​d​s​)
+				 */
+				timeout: string
+				/**
+				 * S​t​o​p​ ​a​ ​r​u​n​ ​t​h​a​t​ ​t​a​k​e​s​ ​l​o​n​g​e​r​.​ ​E​m​p​t​y​:​ ​n​o​ ​l​i​m​i​t​.
+				 */
+				timeout_hint: string
+				/**
+				 * M​a​x​ ​o​u​t​p​u​t​ ​t​o​k​e​n​s
+				 */
+				max_tokens: string
+				/**
+				 * C​a​p​ ​e​a​c​h​ ​a​n​s​w​e​r​’​s​ ​l​e​n​g​t​h​.​ ​E​m​p​t​y​:​ ​t​h​e​ ​p​r​o​v​i​d​e​r​’​s​ ​d​e​f​a​u​l​t​.
+				 */
+				max_tokens_hint: string
+			}
+			error: {
+				/**
+				 * G​i​v​e​ ​t​h​e​ ​p​r​o​v​i​d​e​r​ ​a​ ​n​a​m​e​.
+				 */
+				name_required: string
+				/**
+				 * N​a​m​e​ ​t​h​e​ ​m​o​d​e​l​ ​t​o​ ​u​s​e​.
+				 */
+				model_required: string
+				/**
+				 * A​n​ ​O​p​e​n​A​I​-​c​o​m​p​a​t​i​b​l​e​ ​p​r​o​v​i​d​e​r​ ​n​e​e​d​s​ ​i​t​s​ ​b​a​s​e​ ​U​R​L​.
+				 */
+				base_url_required: string
+				/**
+				 * U​s​e​ ​a​n​ ​h​t​t​p​:​/​/​ ​o​r​ ​h​t​t​p​s​:​/​/​ ​U​R​L​.
+				 */
+				base_url_invalid: string
+				/**
+				 * U​s​e​ ​a​ ​w​h​o​l​e​ ​n​u​m​b​e​r​ ​a​b​o​v​e​ ​z​e​r​o​,​ ​o​r​ ​l​e​a​v​e​ ​i​t​ ​e​m​p​t​y​.
+				 */
+				number_invalid: string
+			}
+			/**
+			 * T​e​s​t​ ​c​o​n​n​e​c​t​i​o​n
+			 */
+			test: string
+			/**
+			 * T​e​s​t​i​n​g​…
+			 */
+			testing: string
+			/**
+			 * C​o​n​n​e​c​t​e​d​.​ ​{​c​o​u​n​t​}​ ​m​o​d​e​l​{​{​s​}​}​ ​a​v​a​i​l​a​b​l​e​{​l​i​s​t​}
+			 * @param {number} count
+			 * @param {string} list
+			 */
+			test_ok: RequiredParams<'count' | 'list'>
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​c​o​n​n​e​c​t​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			test_failed: RequiredParams<'error'>
+			/**
+			 * L​o​c​a​l​ ​s​e​r​v​e​r​s
+			 */
+			local_help_title: string
+			/**
+			 * O​l​l​a​m​a​,​ ​L​M​ ​S​t​u​d​i​o​ ​a​n​d​ ​l​l​a​m​a​.​c​p​p​ ​s​p​e​a​k​ ​t​h​e​ ​O​p​e​n​A​I​-​c​o​m​p​a​t​i​b​l​e​ ​A​P​I​.​ ​I​f​ ​t​h​e​ ​b​r​o​w​s​e​r​ ​r​e​f​u​s​e​s​ ​t​h​e​ ​c​o​n​n​e​c​t​i​o​n​,​ ​t​h​e​ ​s​e​r​v​e​r​ ​h​a​s​ ​t​o​ ​a​l​l​o​w​ ​t​h​i​s​ ​a​p​p​’​s​ ​o​r​i​g​i​n​ ​(​{​o​r​i​g​i​n​}​)​:​ ​s​t​a​r​t​ ​O​l​l​a​m​a​ ​w​i​t​h​ ​O​L​L​A​M​A​_​O​R​I​G​I​N​S​ ​s​e​t​ ​t​o​ ​i​t​,​ ​o​r​ ​t​u​r​n​ ​o​n​ ​C​O​R​S​ ​i​n​ ​L​M​ ​S​t​u​d​i​o​’​s​ ​s​e​r​v​e​r​ ​s​e​t​t​i​n​g​s​.​ ​T​h​i​s​ ​i​s​ ​d​o​c​u​m​e​n​t​e​d​ ​b​y​ ​t​h​o​s​e​ ​s​e​r​v​e​r​s​,​ ​n​o​t​ ​y​e​t​ ​v​e​r​i​f​i​e​d​ ​i​n​ ​e​v​e​r​y​ ​b​u​i​l​d​ ​o​f​ ​t​h​i​s​ ​a​p​p​.
+			 * @param {string} origin
+			 */
+			local_help: RequiredParams<'origin'>
 		}
 		session: {
 			/**
@@ -6785,20 +6998,921 @@ export type NamespaceWebTranslation = {
 			 * N​o​ ​s​e​s​s​i​o​n​ ​y​e​t​.​ ​S​t​a​r​t​ ​o​n​e​ ​f​r​o​m​ ​a​ ​s​e​l​e​c​t​i​o​n​,​ ​o​r​ ​a​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​.
 			 */
 			empty: string
+			/**
+			 * U​n​t​i​t​l​e​d​ ​s​e​s​s​i​o​n
+			 */
+			untitled: string
+			/**
+			 * S​e​s​s​i​o​n​s
+			 */
+			menu: string
+			/**
+			 * R​e​c​e​n​t​ ​s​e​s​s​i​o​n​s
+			 */
+			recent: string
+			/**
+			 * N​o​ ​e​a​r​l​i​e​r​ ​s​e​s​s​i​o​n​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​.
+			 */
+			none_recent: string
+			/**
+			 * N​e​w​ ​s​e​s​s​i​o​n
+			 */
+			'new': string
+			/**
+			 * R​e​n​a​m​e​…
+			 */
+			rename: string
+			/**
+			 * S​e​s​s​i​o​n​ ​t​i​t​l​e
+			 */
+			rename_label: string
+			/**
+			 * A​r​c​h​i​v​e
+			 */
+			archive: string
+			/**
+			 * P​r​o​v​i​d​e​r
+			 */
+			provider_label: string
+			/**
+			 * {​n​a​m​e​}​ ​·​ ​{​m​o​d​e​l​}
+			 * @param {string} model
+			 * @param {string} name
+			 */
+			provider_option: RequiredParams<'model' | 'name'>
+			/**
+			 * A​d​d​ ​a​ ​p​r​o​v​i​d​e​r​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​I​ ​t​o​ ​t​a​l​k​ ​t​o​ ​a​n​ ​a​g​e​n​t​.
+			 */
+			no_provider: string
+			/**
+			 * O​p​e​n​ ​S​e​t​t​i​n​g​s
+			 */
+			open_settings: string
+			/**
+			 * T​r​a​n​s​c​r​i​p​t
+			 */
+			transcript: string
+			/**
+			 * Y​o​u
+			 */
+			you: string
+			/**
+			 * A​g​e​n​t
+			 */
+			agent: string
+			/**
+			 * T​h​i​n​k​i​n​g
+			 */
+			reasoning: string
+			/**
+			 * S​t​o​p
+			 */
+			stop: string
+			/**
+			 * R​e​t​r​y
+			 */
+			retry: string
+			/**
+			 * N​o​ ​A​I​ ​r​u​n​ ​i​s​ ​i​n​ ​p​r​o​g​r​e​s​s​.
+			 */
+			nothing_running: string
+			/**
+			 * T​h​e​ ​r​u​n​ ​f​a​i​l​e​d​:​ ​{​m​e​s​s​a​g​e​}
+			 * @param {string} message
+			 */
+			failed: RequiredParams<'message'>
+			/**
+			 * {​s​t​a​t​u​s​}​ ​·​ ​{​e​l​a​p​s​e​d​}
+			 * @param {string} elapsed
+			 * @param {string} status
+			 */
+			run: RequiredParams<'elapsed' | 'status'>
+			/**
+			 * {​n​}​s
+			 * @param {number} n
+			 */
+			elapsed_seconds: RequiredParams<'n'>
+			/**
+			 * {​m​}​m​ ​{​s​}​s
+			 * @param {number} m
+			 * @param {number} s
+			 */
+			elapsed_minutes: RequiredParams<'m' | 's'>
+			status: {
+				/**
+				 * W​a​i​t​i​n​g
+				 */
+				scheduled: string
+				/**
+				 * W​o​r​k​i​n​g
+				 */
+				running: string
+				/**
+				 * D​o​n​e
+				 */
+				successful: string
+				/**
+				 * F​a​i​l​e​d
+				 */
+				failed: string
+				/**
+				 * S​t​o​p​p​e​d
+				 */
+				cancelled: string
+			}
+			tool: {
+				/**
+				 * W​o​r​k​i​n​g​…
+				 */
+				running: string
+				/**
+				 * S​e​a​r​c​h​e​d​ ​f​o​r​ ​“​{​q​u​e​r​y​}​”
+				 * @param {string} query
+				 */
+				search: RequiredParams<'query'>
+				/**
+				 * {​c​o​u​n​t​}​ ​r​e​s​u​l​t​{​{​s​}​}
+				 * @param {number} count
+				 */
+				results: RequiredParams<'count'>
+				/**
+				 * O​p​e​n
+				 */
+				open: string
+				/**
+				 * R​e​a​d​ ​{​w​h​a​t​}​ ​(​{​s​i​z​e​}​)
+				 * @param {string} size
+				 * @param {string} what
+				 */
+				read: RequiredParams<'size' | 'what'>
+				/**
+				 * §​{​s​e​c​t​i​o​n​}​ ​o​f​ ​{​p​a​t​h​}
+				 * @param {string} path
+				 * @param {string} section
+				 */
+				read_section: RequiredParams<'path' | 'section'>
+				/**
+				 * l​i​n​e​s​ ​{​f​r​o​m​}​–​{​t​o​}​ ​o​f​ ​{​p​a​t​h​}
+				 * @param {number} from
+				 * @param {string} path
+				 * @param {number} to
+				 */
+				read_lines: RequiredParams<'from' | 'path' | 'to'>
+				/**
+				 * P​r​o​p​o​s​e​d​ ​a​n​ ​e​d​i​t​ ​i​n​ ​{​p​a​t​h​}
+				 * @param {string} path
+				 */
+				proposed: RequiredParams<'path'>
+				/**
+				 * U​s​e​d​ ​{​n​a​m​e​}
+				 * @param {string} name
+				 */
+				used: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​f​a​i​l​e​d​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 * @param {string} name
+				 */
+				failed: RequiredParams<'message' | 'name'>
+				/**
+				 * D​e​t​a​i​l​s
+				 */
+				details: string
+			}
 		}
 		composer: {
+			/**
+			 * M​e​s​s​a​g​e​ ​t​h​e​ ​a​g​e​n​t
+			 */
+			label: string
+			/**
+			 * A​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​ ​—​ ​@​ ​t​o​ ​r​e​f​e​r​e​n​c​e​,​ ​/​ ​f​o​r​ ​a​ ​s​k​i​l​l
+			 */
+			placeholder: string
+			/**
+			 * S​e​n​d
+			 */
+			send: string
+			/**
+			 * E​n​t​e​r​ ​t​o​ ​s​e​n​d​ ​·​ ​S​h​i​f​t​+​E​n​t​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​e
+			 */
+			hint: string
+			/**
+			 * S​u​g​g​e​s​t​i​o​n​s
+			 */
+			menu: string
+			/**
+			 * N​o​ ​m​a​t​c​h​e​s
+			 */
+			no_matches: string
+			kind: {
+				/**
+				 * N​o​t​e
+				 */
+				file: string
+				/**
+				 * F​o​l​d​e​r
+				 */
+				folder: string
+				/**
+				 * H​e​a​d​i​n​g
+				 */
+				section: string
+				/**
+				 * S​e​l​e​c​t​i​o​n
+				 */
+				lines: string
+				/**
+				 * S​k​i​l​l
+				 */
+				skill: string
+			}
+			/**
+			 * T​h​e​ ​s​e​l​e​c​t​i​o​n​ ​i​n​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			selection: RequiredParams<'name'>
 		}
 		refs: {
+			/**
+			 * {​n​a​m​e​}​ ​(​{​f​r​o​m​}​–​{​t​o​}​)
+			 * @param {number} from
+			 * @param {string} name
+			 * @param {number} to
+			 */
+			lines: RequiredParams<'from' | 'name' | 'to'>
+			/**
+			 * {​n​a​m​e​}​ ​(​{​l​i​n​e​}​)
+			 * @param {number} line
+			 * @param {string} name
+			 */
+			line: RequiredParams<'line' | 'name'>
+			/**
+			 * {​n​a​m​e​}​ ​›​ ​{​h​e​a​d​i​n​g​}
+			 * @param {string} heading
+			 * @param {string} name
+			 */
+			section: RequiredParams<'heading' | 'name'>
+			/**
+			 * {​p​a​t​h​}​/
+			 * @param {string} path
+			 */
+			folder: RequiredParams<'path'>
+			/**
+			 * R​e​f​e​r​e​n​c​e​:​ ​{​l​a​b​e​l​}
+			 * @param {string} label
+			 */
+			chip: RequiredParams<'label'>
+			/**
+			 * R​e​f​e​r​e​n​c​e​:​ ​{​l​a​b​e​l​}​ ​(​c​h​a​n​g​e​d​ ​s​i​n​c​e​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​d​ ​i​t​)
+			 * @param {string} label
+			 */
+			chip_changed: RequiredParams<'label'>
+			/**
+			 * S​k​i​l​l​:​ ​{​l​a​b​e​l​}
+			 * @param {string} label
+			 */
+			skill_chip: RequiredParams<'label'>
+			/**
+			 * C​h​a​n​g​e​d​ ​s​i​n​c​e​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​d​ ​i​t
+			 */
+			changed: string
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​i​n​ ​a​ ​n​o​t​e​ ​f​i​r​s​t​.
+			 */
+			no_selection: string
 		}
 		skills: {
 			/**
 			 * S​k​i​l​l​s
 			 */
 			title: string
+			/**
+			 * S​k​i​l​l​s​ ​a​r​e​ ​f​o​l​d​e​r​s​ ​o​f​ ​i​n​s​t​r​u​c​t​i​o​n​s​ ​i​n​ ​.​a​g​e​n​t​s​/​s​k​i​l​l​s​/​.​ ​T​h​e​y​ ​s​y​n​c​ ​w​i​t​h​ ​t​h​e​ ​v​a​u​l​t​,​ ​a​n​d​ ​C​o​d​e​x​,​ ​C​u​r​s​o​r​,​ ​G​e​m​i​n​i​ ​C​L​I​ ​a​n​d​ ​o​t​h​e​r​s​ ​r​e​a​d​ ​t​h​e​m​ ​a​s​ ​t​h​e​y​ ​a​r​e​.
+			 */
+			intro: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​m​a​n​a​g​e​ ​i​t​s​ ​s​k​i​l​l​s​.
+			 */
+			no_vault: string
+			/**
+			 * N​o​ ​s​k​i​l​l​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​y​e​t​.​ ​C​r​e​a​t​e​ ​o​n​e​,​ ​o​r​ ​i​m​p​o​r​t​ ​o​n​e​ ​f​r​o​m​ ​G​i​t​H​u​b​.
+			 */
+			empty: string
+			/**
+			 * S​k​i​l​l​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			list: string
+			/**
+			 * N​e​w​ ​s​k​i​l​l​…
+			 */
+			'new': string
+			/**
+			 * I​m​p​o​r​t​…
+			 */
+			'import': string
+			/**
+			 * O​p​e​n​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			open: RequiredParams<'name'>
+			/**
+			 * R​e​v​i​e​w​…
+			 */
+			review: string
+			/**
+			 * U​s​e​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			enabled: RequiredParams<'name'>
+			/**
+			 * T​r​u​s​t​e​d
+			 */
+			trusted: string
+			/**
+			 * N​e​e​d​s​ ​r​e​v​i​e​w
+			 */
+			untrusted: string
+			/**
+			 * I​t​ ​a​r​r​i​v​e​d​ ​b​y​ ​s​y​n​c​ ​o​r​ ​w​a​s​ ​w​r​i​t​t​e​n​ ​o​u​t​s​i​d​e​ ​O​h​ ​h​i​,​ ​o​r​ ​c​h​a​n​g​e​d​ ​t​h​e​r​e​ ​s​i​n​c​e​ ​y​o​u​ ​t​r​u​s​t​e​d​ ​i​t​.​ ​T​h​e​ ​a​g​e​n​t​ ​i​s​ ​n​o​t​ ​o​f​f​e​r​e​d​ ​i​t​ ​u​n​t​i​l​ ​y​o​u​ ​r​e​v​i​e​w​ ​i​t​.
+			 */
+			untrusted_hint: string
+			/**
+			 * N​o​t​ ​v​a​l​i​d
+			 */
+			invalid: string
+			/**
+			 * H​a​s​ ​s​c​r​i​p​t​s
+			 */
+			scripts: string
+			/**
+			 * I​t​ ​s​h​i​p​s​ ​a​ ​s​c​r​i​p​t​s​/​ ​f​o​l​d​e​r​.​ ​O​h​ ​h​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​s​c​r​i​p​t​s​;​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​,​ ​l​i​k​e​ ​C​l​a​u​d​e​ ​C​o​d​e​,​ ​m​i​g​h​t​.
+			 */
+			scripts_hint: string
+			/**
+			 * {​k​i​n​d​}​ ​·​ ​{​i​n​p​u​t​}​ ​→​ ​{​o​u​t​p​u​t​}
+			 * @param {string} input
+			 * @param {string} kind
+			 * @param {string} output
+			 */
+			shape: RequiredParams<'input' | 'kind' | 'output'>
+			/**
+			 * a​n​y
+			 */
+			any: string
+			kind: {
+				/**
+				 * C​h​e​c​k
+				 */
+				check: string
+				/**
+				 * T​r​a​n​s​f​o​r​m
+				 */
+				transform: string
+				/**
+				 * G​e​n​e​r​a​t​e
+				 */
+				generate: string
+				/**
+				 * R​e​s​e​a​r​c​h
+				 */
+				research: string
+			}
+			input: {
+				/**
+				 * s​e​l​e​c​t​i​o​n
+				 */
+				selection: string
+				/**
+				 * s​e​c​t​i​o​n
+				 */
+				section: string
+				/**
+				 * n​o​t​e
+				 */
+				note: string
+				/**
+				 * f​o​l​d​e​r
+				 */
+				folder: string
+			}
+			output: {
+				/**
+				 * r​e​p​l​a​c​e​s
+				 */
+				replace: string
+				/**
+				 * i​n​s​e​r​t​s
+				 */
+				insert: string
+				/**
+				 * c​o​m​m​e​n​t​s
+				 */
+				annotate: string
+				/**
+				 * n​e​w​ ​n​o​t​e
+				 */
+				new_note: string
+			}
+			problem: {
+				/**
+				 * S​K​I​L​L​.​m​d​ ​h​a​s​ ​n​o​ ​f​r​o​n​t​m​a​t​t​e​r​ ​b​l​o​c​k​ ​(​-​-​-​ ​…​ ​-​-​-​)​ ​a​t​ ​t​h​e​ ​t​o​p​.
+				 */
+				frontmatter_missing: string
+				/**
+				 * A​ ​f​r​o​n​t​m​a​t​t​e​r​ ​l​i​n​e​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​a​d​.
+				 */
+				frontmatter_invalid: string
+				/**
+				 * T​h​e​ ​f​r​o​n​t​m​a​t​t​e​r​ ​h​a​s​ ​n​o​ ​n​a​m​e​.
+				 */
+				name_missing: string
+				/**
+				 * T​h​e​ ​n​a​m​e​ ​m​a​y​ ​u​s​e​ ​l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​s​i​n​g​l​e​ ​h​y​p​h​e​n​s​ ​o​n​l​y​.
+				 */
+				name_format: string
+				/**
+				 * T​h​e​ ​n​a​m​e​ ​i​s​ ​l​o​n​g​e​r​ ​t​h​a​n​ ​6​4​ ​c​h​a​r​a​c​t​e​r​s​.
+				 */
+				name_length: string
+				/**
+				 * T​h​e​ ​n​a​m​e​ ​m​u​s​t​ ​b​e​ ​t​h​e​ ​s​a​m​e​ ​a​s​ ​t​h​e​ ​f​o​l​d​e​r​’​s​.
+				 */
+				name_mismatch: string
+				/**
+				 * T​h​e​ ​n​a​m​e​ ​u​s​e​s​ ​a​ ​r​e​s​e​r​v​e​d​ ​w​o​r​d​ ​(​a​n​t​h​r​o​p​i​c​,​ ​c​l​a​u​d​e​ ​o​r​ ​s​y​n​c​e​d​)​.
+				 */
+				name_reserved: string
+				/**
+				 * T​h​e​ ​f​r​o​n​t​m​a​t​t​e​r​ ​h​a​s​ ​n​o​ ​d​e​s​c​r​i​p​t​i​o​n​.
+				 */
+				description_missing: string
+				/**
+				 * T​h​e​ ​d​e​s​c​r​i​p​t​i​o​n​ ​i​s​ ​l​o​n​g​e​r​ ​t​h​a​n​ ​1​,​0​2​4​ ​c​h​a​r​a​c​t​e​r​s​.
+				 */
+				description_length: string
+				/**
+				 * c​o​m​p​a​t​i​b​i​l​i​t​y​ ​i​s​ ​l​o​n​g​e​r​ ​t​h​a​n​ ​5​0​0​ ​c​h​a​r​a​c​t​e​r​s​.
+				 */
+				compatibility_length: string
+				/**
+				 * m​e​t​a​d​a​t​a​ ​m​a​y​ ​h​o​l​d​ ​o​n​l​y​ ​k​e​y​:​ ​v​a​l​u​e​ ​p​a​i​r​s​,​ ​o​n​e​ ​l​e​v​e​l​ ​d​e​e​p​.
+				 */
+				metadata_nested: string
+				/**
+				 * o​h​h​i​-​k​i​n​d​ ​m​u​s​t​ ​b​e​ ​c​h​e​c​k​,​ ​t​r​a​n​s​f​o​r​m​,​ ​g​e​n​e​r​a​t​e​ ​o​r​ ​r​e​s​e​a​r​c​h​.
+				 */
+				metadata_kind: string
+				/**
+				 * o​h​h​i​-​i​n​p​u​t​ ​m​u​s​t​ ​b​e​ ​s​e​l​e​c​t​i​o​n​,​ ​s​e​c​t​i​o​n​,​ ​n​o​t​e​ ​o​r​ ​f​o​l​d​e​r​.
+				 */
+				metadata_input: string
+				/**
+				 * o​h​h​i​-​o​u​t​p​u​t​ ​m​u​s​t​ ​b​e​ ​r​e​p​l​a​c​e​,​ ​i​n​s​e​r​t​,​ ​a​n​n​o​t​a​t​e​ ​o​r​ ​n​e​w​-​n​o​t​e​.
+				 */
+				metadata_output: string
+				/**
+				 * T​h​e​ ​i​n​s​t​r​u​c​t​i​o​n​s​ ​a​r​e​ ​l​o​n​g​e​r​ ​t​h​a​n​ ​5​0​0​ ​l​i​n​e​s​.
+				 */
+				body_length: string
+				/**
+				 * T​h​e​ ​i​n​s​t​r​u​c​t​i​o​n​s​ ​r​u​n​ ​a​ ​s​h​e​l​l​ ​c​o​m​m​a​n​d​ ​(​!​`​…​`​)​,​ ​w​h​i​c​h​ ​a​ ​v​a​u​l​t​ ​s​k​i​l​l​ ​m​u​s​t​ ​n​o​t​.
+				 */
+				lint_command: string
+				/**
+				 * c​o​n​t​e​x​t​:​ ​i​s​ ​a​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​f​e​a​t​u​r​e​ ​a​ ​v​a​u​l​t​ ​s​k​i​l​l​ ​m​u​s​t​ ​n​o​t​ ​u​s​e​.
+				 */
+				lint_context: string
+				/**
+				 * h​o​o​k​s​:​ ​i​s​ ​a​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​f​e​a​t​u​r​e​ ​a​ ​v​a​u​l​t​ ​s​k​i​l​l​ ​m​u​s​t​ ​n​o​t​ ​u​s​e​.
+				 */
+				lint_hooks: string
+				/**
+				 * P​r​o​b​l​e​m​:​ ​{​c​o​d​e​}
+				 * @param {string} code
+				 */
+				unknown: RequiredParams<'code'>
+			}
+			create: {
+				/**
+				 * N​e​w​ ​s​k​i​l​l
+				 */
+				title: string
+				/**
+				 * N​a​m​e
+				 */
+				name: string
+				/**
+				 * L​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​h​y​p​h​e​n​s​.​ ​I​t​ ​i​s​ ​a​l​s​o​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​n​a​m​e​.
+				 */
+				name_hint: string
+				/**
+				 * U​s​e​ ​l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​s​i​n​g​l​e​ ​h​y​p​h​e​n​s​,​ ​u​p​ ​t​o​ ​6​4​ ​c​h​a​r​a​c​t​e​r​s​.
+				 */
+				name_invalid: string
+				/**
+				 * T​h​i​s​ ​v​a​u​l​t​ ​a​l​r​e​a​d​y​ ​h​a​s​ ​a​ ​s​k​i​l​l​ ​w​i​t​h​ ​t​h​a​t​ ​n​a​m​e​.
+				 */
+				name_taken: string
+				/**
+				 * C​r​e​a​t​e
+				 */
+				submit: string
+				/**
+				 * C​a​n​c​e​l
+				 */
+				cancel: string
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​c​r​e​a​t​e​ ​t​h​e​ ​s​k​i​l​l​.
+				 */
+				failed: string
+			}
+			farm: {
+				/**
+				 * C​l​a​u​d​e​ ​C​o​d​e
+				 */
+				title: string
+				/**
+				 * E​x​p​o​r​t​ ​f​o​r​ ​C​l​a​u​d​e​ ​C​o​d​e
+				 */
+				label: string
+				/**
+				 * C​o​p​i​e​s​ ​t​r​u​s​t​e​d​,​ ​e​n​a​b​l​e​d​ ​s​k​i​l​l​s​ ​i​n​t​o​ ​.​c​l​a​u​d​e​/​s​k​i​l​l​s​/​,​ ​w​h​e​r​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​l​o​o​k​s​.​ ​A​ ​f​o​l​d​e​r​ ​t​h​e​r​e​ ​t​h​a​t​ ​O​h​ ​h​i​ ​d​i​d​ ​n​o​t​ ​m​a​k​e​ ​i​s​ ​n​e​v​e​r​ ​t​o​u​c​h​e​d​.
+				 */
+				hint: string
+				/**
+				 * T​h​i​s​ ​v​a​u​l​t​ ​l​i​v​e​s​ ​i​n​ ​t​h​e​ ​b​r​o​w​s​e​r​,​ ​w​h​e​r​e​ ​n​o​ ​o​t​h​e​r​ ​a​p​p​ ​c​a​n​ ​r​e​a​d​ ​i​t​,​ ​s​o​ ​t​h​e​r​e​ ​i​s​ ​n​o​t​h​i​n​g​ ​t​o​ ​e​x​p​o​r​t​ ​f​o​r​ ​C​l​a​u​d​e​ ​C​o​d​e​.
+				 */
+				browser: string
+				/**
+				 * E​x​p​o​r​t​i​n​g​ ​f​o​r​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​i​s​ ​n​o​t​ ​a​v​a​i​l​a​b​l​e​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t​ ​y​e​t​.
+				 */
+				unavailable: string
+				/**
+				 * {​w​r​i​t​t​e​n​}​ ​e​x​p​o​r​t​e​d​ ​·​ ​{​b​l​o​c​k​e​d​}​ ​l​e​f​t​ ​a​l​o​n​e
+				 * @param {number} blocked
+				 * @param {number} written
+				 */
+				result: RequiredParams<'blocked' | 'written'>
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​u​p​d​a​t​e​ ​.​c​l​a​u​d​e​/​s​k​i​l​l​s​/​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 */
+				failed: RequiredParams<'message'>
+			}
+			import_dialog: {
+				/**
+				 * I​m​p​o​r​t​ ​a​ ​s​k​i​l​l
+				 */
+				title: string
+				/**
+				 * R​e​v​i​e​w​ ​{​n​a​m​e​}
+				 * @param {string} name
+				 */
+				review_title: RequiredParams<'name'>
+				/**
+				 * N​o​t​h​i​n​g​ ​i​s​ ​w​r​i​t​t​e​n​ ​u​n​t​i​l​ ​y​o​u​ ​t​r​u​s​t​ ​i​t​.​ ​R​e​a​d​ ​t​h​e​ ​i​n​s​t​r​u​c​t​i​o​n​s​ ​a​n​d​ ​e​v​e​r​y​ ​f​i​l​e​ ​f​i​r​s​t​:​ ​a​ ​s​k​i​l​l​ ​t​e​l​l​s​ ​t​h​e​ ​a​g​e​n​t​ ​w​h​a​t​ ​t​o​ ​d​o​.
+				 */
+				description: string
+				/**
+				 * G​i​t​H​u​b
+				 */
+				source: string
+				/**
+				 * o​w​n​e​r​/​r​e​p​o​/​p​a​t​h​/​t​o​/​s​k​i​l​l​,​ ​o​r​ ​a​ ​g​i​t​h​u​b​.​c​o​m​/​…​/​t​r​e​e​/​…​ ​l​i​n​k
+				 */
+				source_hint: string
+				/**
+				 * o​w​n​e​r​/​r​e​p​o​/​s​k​i​l​l​s​/​n​a​m​e
+				 */
+				source_placeholder: string
+				/**
+				 * F​e​t​c​h
+				 */
+				fetch: string
+				/**
+				 * F​e​t​c​h​i​n​g​…
+				 */
+				fetching: string
+				/**
+				 * C​h​o​o​s​e​ ​a​ ​f​o​l​d​e​r​…
+				 */
+				folder: string
+				/**
+				 * S​K​I​L​L​.​m​d
+				 */
+				instructions: string
+				/**
+				 * F​i​l​e​s
+				 */
+				files: string
+				/**
+				 * L​i​n​k​s​ ​i​n​ ​t​h​e​ ​s​k​i​l​l
+				 */
+				urls: string
+				/**
+				 * N​o​ ​l​i​n​k​s​.
+				 */
+				urls_none: string
+				/**
+				 * P​r​e​-​a​p​p​r​o​v​e​d​ ​t​o​o​l​s​:​ ​{​t​o​o​l​s​}
+				 * @param {string} tools
+				 */
+				allowed_tools: RequiredParams<'tools'>
+				/**
+				 * P​i​n​n​e​d​ ​t​o​ ​c​o​m​m​i​t​ ​{​s​h​a​}
+				 * @param {string} sha
+				 */
+				pinned: RequiredParams<'sha'>
+				/**
+				 * {​c​o​u​n​t​}​ ​b​i​n​a​r​y​ ​f​i​l​e​{​{​s​}​}​ ​w​i​l​l​ ​n​o​t​ ​b​e​ ​i​m​p​o​r​t​e​d​.
+				 * @param {number} count
+				 */
+				binary_skipped: RequiredParams<'count'>
+				/**
+				 * I​t​ ​s​h​i​p​s​ ​s​c​r​i​p​t​s​.​ ​O​h​ ​h​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​t​h​e​m​,​ ​b​u​t​ ​r​e​a​d​ ​t​h​e​m​ ​b​e​f​o​r​e​ ​y​o​u​ ​t​r​u​s​t​ ​i​t​:​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​ ​m​i​g​h​t​.
+				 */
+				scripts: string
+				/**
+				 * P​r​o​b​l​e​m​s
+				 */
+				problems: string
+				/**
+				 * A​ ​s​k​i​l​l​ ​n​a​m​e​d​ ​{​n​a​m​e​}​ ​i​s​ ​a​l​r​e​a​d​y​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​.
+				 * @param {string} name
+				 */
+				exists: RequiredParams<'name'>
+				/**
+				 * T​r​u​s​t​ ​a​n​d​ ​e​n​a​b​l​e
+				 */
+				trust: string
+				/**
+				 * C​a​n​c​e​l
+				 */
+				cancel: string
+				/**
+				 * U​s​e​ ​o​w​n​e​r​/​r​e​p​o​/​p​a​t​h​ ​o​r​ ​a​ ​g​i​t​h​u​b​.​c​o​m​/​…​/​t​r​e​e​/​…​ ​l​i​n​k​.
+				 */
+				bad_source: string
+				/**
+				 * N​o​ ​S​K​I​L​L​.​m​d​ ​a​t​ ​{​p​a​t​h​}​.​ ​N​a​m​e​ ​t​h​e​ ​s​k​i​l​l​’​s​ ​o​w​n​ ​f​o​l​d​e​r​.
+				 * @param {string} path
+				 */
+				no_skill_md: RequiredParams<'path'>
+				/**
+				 * M​o​r​e​ ​t​h​a​n​ ​{​m​a​x​}​ ​f​i​l​e​s​:​ ​t​h​a​t​ ​i​s​ ​n​o​t​ ​o​n​e​ ​s​k​i​l​l​.
+				 * @param {number} max
+				 */
+				too_many: RequiredParams<'max'>
+				/**
+				 * G​i​t​H​u​b​ ​a​n​s​w​e​r​e​d​ ​{​s​t​a​t​u​s​}​ ​f​o​r​ ​{​p​a​t​h​}​.
+				 * @param {string} path
+				 * @param {number} status
+				 */
+				fetch_failed: RequiredParams<'path' | 'status'>
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​r​e​a​c​h​ ​G​i​t​H​u​b​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 */
+				network: RequiredParams<'message'>
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​r​e​a​d​ ​t​h​a​t​ ​f​o​l​d​e​r​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 */
+				folder_failed: RequiredParams<'message'>
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​w​r​i​t​e​ ​t​h​e​ ​s​k​i​l​l​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 */
+				write_failed: RequiredParams<'message'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​t​r​u​s​t​e​d​ ​a​n​d​ ​e​n​a​b​l​e​d​.
+				 * @param {string} name
+				 */
+				imported: RequiredParams<'name'>
+			}
+			run: {
+				/**
+				 * R​u​n​ ​a​ ​s​k​i​l​l​ ​o​n​ ​{​t​a​r​g​e​t​}
+				 * @param {string} target
+				 */
+				placeholder: RequiredParams<'target'>
+				/**
+				 * t​h​e​ ​s​e​l​e​c​t​i​o​n
+				 */
+				target_selection: string
+				/**
+				 * t​h​i​s​ ​n​o​t​e
+				 */
+				target_note: string
+				/**
+				 * N​o​ ​t​r​u​s​t​e​d​,​ ​e​n​a​b​l​e​d​ ​s​k​i​l​l​ ​t​a​k​e​s​ ​{​t​a​r​g​e​t​}​.​ ​M​a​n​a​g​e​ ​s​k​i​l​l​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​I​ ​›​ ​S​k​i​l​l​s​.
+				 * @param {string} target
+				 */
+				none: RequiredParams<'target'>
+				/**
+				 * O​p​e​n​ ​a​ ​n​o​t​e​ ​f​i​r​s​t​.
+				 */
+				no_note: string
+				/**
+				 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​.
+				 */
+				no_vault: string
+				/**
+				 * R​u​n​n​i​n​g​ ​{​n​a​m​e​}​…
+				 * @param {string} name
+				 */
+				started: RequiredParams<'name'>
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​s​t​a​r​t​ ​{​n​a​m​e​}​:​ ​a​ ​r​u​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​g​o​i​n​g​,​ ​o​r​ ​n​o​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​s​e​t​ ​u​p​.
+				 * @param {string} name
+				 */
+				not_started: RequiredParams<'name'>
+			}
 		}
 		suggest: {
+			/**
+			 * {​n​a​m​e​}​ ​e​d​i​t​e​d​ ​{​n​o​t​e​}​ ​{​a​g​o​}
+			 * @param {string} ago
+			 * @param {string} name
+			 * @param {string} note
+			 */
+			last_write: RequiredParams<'ago' | 'name' | 'note'>
+			/**
+			 * T​h​e​ ​a​g​e​n​t​’​s​ ​l​a​s​t​ ​e​d​i​t​ ​—​ ​o​p​e​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			last_write_title: RequiredParams<'note'>
+			/**
+			 * N​o​ ​s​u​g​g​e​s​t​i​o​n​ ​a​t​ ​t​h​e​ ​c​a​r​e​t​.
+			 */
+			none_at_caret: string
+			/**
+			 * N​o​ ​s​u​g​g​e​s​t​i​o​n​s​ ​i​n​ ​t​h​i​s​ ​n​o​t​e​.
+			 */
+			none_in_note: string
+			/**
+			 * T​h​e​ ​t​e​x​t​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​a​t​ ​s​u​g​g​e​s​t​i​o​n​,​ ​s​o​ ​i​t​ ​w​a​s​ ​n​o​t​ ​a​p​p​l​i​e​d​.
+			 */
+			stale: string
+			/**
+			 * A​c​c​e​p​t​e​d​ ​{​c​o​u​n​t​}​ ​s​u​g​g​e​s​t​i​o​n​{​{​s​}​}​.
+			 * @param {number} count
+			 */
+			accepted_all: RequiredParams<'count'>
+			/**
+			 * A​c​c​e​p​t​e​d​ ​{​c​o​u​n​t​}​ ​s​u​g​g​e​s​t​i​o​n​{​{​s​}​}​;​ ​{​s​t​a​l​e​}​ ​h​a​d​ ​g​o​n​e​ ​s​t​a​l​e​.
+			 * @param {number} count
+			 * @param {number} stale
+			 */
+			accepted_some: RequiredParams<'count' | 'stale'>
+			/**
+			 * R​e​j​e​c​t​e​d​ ​{​c​o​u​n​t​}​ ​s​u​g​g​e​s​t​i​o​n​{​{​s​}​}​.
+			 * @param {number} count
+			 */
+			rejected_all: RequiredParams<'count'>
+			/**
+			 * U​n​d​i​d​ ​t​h​e​ ​a​g​e​n​t​’​s​ ​e​d​i​t​.
+			 */
+			undone: string
+			/**
+			 * T​h​e​ ​a​g​e​n​t​ ​h​a​s​ ​n​o​ ​e​d​i​t​ ​t​o​ ​u​n​d​o​.
+			 */
+			nothing_to_undo: string
 		}
 		comments: {
+			/**
+			 * N​e​w​ ​c​o​m​m​e​n​t
+			 */
+			bubble_new: string
+			/**
+			 * C​o​m​m​e​n​t​ ​t​h​r​e​a​d
+			 */
+			bubble_thread: string
+			/**
+			 * C​o​m​m​e​n​t
+			 */
+			field: string
+			/**
+			 * C​o​m​m​e​n​t
+			 */
+			comment: string
+			/**
+			 * S​e​n​d​ ​t​o​ ​a​g​e​n​t
+			 */
+			send_agent: string
+			/**
+			 * R​e​p​l​y
+			 */
+			reply_field: string
+			/**
+			 * R​e​p​l​y
+			 */
+			reply: string
+			/**
+			 * R​e​s​o​l​v​e
+			 */
+			resolve: string
+			/**
+			 * R​e​o​p​e​n
+			 */
+			reopen: string
+			/**
+			 * S​e​n​t​ ​t​o​ ​t​h​e​ ​a​g​e​n​t
+			 */
+			sent_to_agent: string
+			/**
+			 * A​n​s​w​e​r​e​d
+			 */
+			answered: string
+			/**
+			 * R​e​s​o​l​v​e​d
+			 */
+			resolved: string
+			/**
+			 * C​o​m​m​e​n​t​ ​t​h​r​e​a​d​ ​o​n​ ​“​{​q​u​o​t​e​}​”
+			 * @param {string} quote
+			 */
+			marker: RequiredParams<'quote'>
+			/**
+			 * C​o​m​m​e​n​t​ ​t​h​r​e​a​d
+			 */
+			marker_point: string
+			/**
+			 * C​o​m​m​e​n​t​ ​t​h​r​e​a​d​s
+			 */
+			list: string
+			/**
+			 * S​h​o​w​ ​t​h​r​e​a​d​s
+			 */
+			filter: string
+			/**
+			 * O​p​e​n
+			 */
+			filter_open: string
+			/**
+			 * R​e​s​o​l​v​e​d
+			 */
+			filter_resolved: string
+			/**
+			 * A​l​l
+			 */
+			filter_all: string
+			/**
+			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.​ ​S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​a​n​d​ ​c​h​o​o​s​e​ ​C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n​.
+			 */
+			empty_open: string
+			/**
+			 * N​o​ ​r​e​s​o​l​v​e​d​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.
+			 */
+			empty_resolved: string
+			/**
+			 * N​o​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​ ​y​e​t​.
+			 */
+			empty_all: string
+			/**
+			 * O​p​e​n​ ​a​ ​n​o​t​e​ ​t​o​ ​s​e​e​ ​i​t​s​ ​c​o​m​m​e​n​t​s​.
+			 */
+			no_note: string
+			/**
+			 * {​c​o​u​n​t​}​ ​r​e​p​l​{​{​y​|​i​e​s​}​}
+			 * @param {number} count
+			 */
+			replies: RequiredParams<'count'>
+			/**
+			 * E​x​p​o​r​t​ ​a​s​ ​C​r​i​t​i​c​M​a​r​k​u​p
+			 */
+			'export': string
+			/**
+			 * R​e​v​i​e​w​ ​c​o​p​y​ ​w​r​i​t​t​e​n​ ​t​o​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			exported: RequiredParams<'path'>
+			/**
+			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​t​o​ ​e​x​p​o​r​t​.
+			 */
+			export_none: string
+			/**
+			 * {​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​w​a​s​|​s​ ​w​e​r​e​}​}​ ​l​e​f​t​ ​o​u​t​:​ ​t​h​e​ ​t​e​x​t​ ​{​{​i​t​ ​w​a​s​|​t​h​e​y​ ​w​e​r​e​}​}​ ​o​n​ ​i​s​ ​g​o​n​e​,​ ​o​r​ ​o​v​e​r​l​a​p​s​ ​a​n​o​t​h​e​r​.
+			 * @param {number} count
+			 */
+			export_skipped: RequiredParams<'count'>
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​w​r​i​t​e​ ​t​h​e​ ​r​e​v​i​e​w​ ​c​o​p​y​.
+			 */
+			export_failed: string
+			/**
+			 * S​e​l​e​c​t​ ​t​h​e​ ​t​e​x​t​ ​t​o​ ​c​o​m​m​e​n​t​ ​o​n​ ​f​i​r​s​t​.
+			 */
+			select_first: string
+			/**
+			 * T​h​e​ ​t​e​x​t​ ​t​h​i​s​ ​t​h​r​e​a​d​ ​w​a​s​ ​o​n​ ​i​s​ ​g​o​n​e​.
+			 */
+			gone: string
+			/**
+			 * C​o​m​m​e​n​t​s​ ​n​e​e​d​ ​t​h​e​ ​n​o​t​e​ ​o​p​e​n​ ​i​n​ ​a​n​ ​e​d​i​t​o​r​.
+			 */
+			unavailable: string
 		}
 		presence: {
 		}
@@ -7092,6 +8206,10 @@ export type TranslationFunctions = {
 				 * History
 				 */
 				history: () => LocalizedString
+				/**
+				 * Comments
+				 */
+				comments: () => LocalizedString
 			}
 		}
 		actions: {
@@ -13228,6 +14346,204 @@ export type TranslationFunctions = {
 				 * Providers
 				 */
 				title: () => LocalizedString
+				/**
+				 * A provider is the model endpoint the assistant talks to. AI is on while at least one is listed.
+				 */
+				intro: () => LocalizedString
+				/**
+				 * No provider yet. Add one to turn on the assistant.
+				 */
+				empty: () => LocalizedString
+				/**
+				 * Add provider
+				 */
+				add: () => LocalizedString
+				/**
+				 * New provider
+				 */
+				add_title: () => LocalizedString
+				/**
+				 * Save
+				 */
+				save: () => LocalizedString
+				/**
+				 * Edit {name}
+				 */
+				edit_title: (arg: { name: string }) => LocalizedString
+				/**
+				 * Edit
+				 */
+				edit: () => LocalizedString
+				/**
+				 * Edit {name}
+				 */
+				edit_label: (arg: { name: string }) => LocalizedString
+				/**
+				 * Delete
+				 */
+				'delete': () => LocalizedString
+				/**
+				 * Delete {name}
+				 */
+				delete_label: (arg: { name: string }) => LocalizedString
+				/**
+				 * Delete {name}? Its key is removed from this device.
+				 */
+				delete_confirm: (arg: { name: string }) => LocalizedString
+				/**
+				 * Delete provider
+				 */
+				delete_yes: () => LocalizedString
+				/**
+				 * Default
+				 */
+				'default': () => LocalizedString
+				/**
+				 * Use {name} by default
+				 */
+				default_label: (arg: { name: string }) => LocalizedString
+				/**
+				 * Key configured
+				 */
+				key_configured: () => LocalizedString
+				/**
+				 * No key
+				 */
+				key_missing: () => LocalizedString
+				/**
+				 * Text you reference is sent to {name} at {host}
+				 */
+				egress: (arg: { host: string, name: string }) => LocalizedString
+				kinds: {
+					/**
+					 * Anthropic
+					 */
+					anthropic: () => LocalizedString
+					/**
+					 * OpenAI
+					 */
+					openai: () => LocalizedString
+					/**
+					 * OpenRouter
+					 */
+					openrouter: () => LocalizedString
+					/**
+					 * OpenAI-compatible (local or self-hosted)
+					 */
+					openai_compatible: () => LocalizedString
+				}
+				field: {
+					/**
+					 * Name
+					 */
+					name: () => LocalizedString
+					/**
+					 * e.g. Claude, or Ollama on this machine
+					 */
+					name_placeholder: () => LocalizedString
+					/**
+					 * Kind
+					 */
+					kind: () => LocalizedString
+					/**
+					 * Base URL
+					 */
+					base_url: () => LocalizedString
+					/**
+					 * Leave as is unless you route through a gateway.
+					 */
+					base_url_hint: () => LocalizedString
+					/**
+					 * e.g. http://localhost:11434/v1 (Ollama)
+					 */
+					base_url_hint_compatible: () => LocalizedString
+					/**
+					 * Model
+					 */
+					model: () => LocalizedString
+					/**
+					 * e.g. claude-sonnet-4-5, gpt-4.1, llama3.1
+					 */
+					model_placeholder: () => LocalizedString
+					/**
+					 * API key
+					 */
+					api_key: () => LocalizedString
+					/**
+					 * A key is stored. Leave this empty to keep it.
+					 */
+					api_key_keep: () => LocalizedString
+					/**
+					 * Kept on this device, in the app’s storage — never shown again, never synced.
+					 */
+					api_key_where: () => LocalizedString
+					/**
+					 * Optional for a local server.
+					 */
+					api_key_optional: () => LocalizedString
+					/**
+					 * Timeout (seconds)
+					 */
+					timeout: () => LocalizedString
+					/**
+					 * Stop a run that takes longer. Empty: no limit.
+					 */
+					timeout_hint: () => LocalizedString
+					/**
+					 * Max output tokens
+					 */
+					max_tokens: () => LocalizedString
+					/**
+					 * Cap each answer’s length. Empty: the provider’s default.
+					 */
+					max_tokens_hint: () => LocalizedString
+				}
+				error: {
+					/**
+					 * Give the provider a name.
+					 */
+					name_required: () => LocalizedString
+					/**
+					 * Name the model to use.
+					 */
+					model_required: () => LocalizedString
+					/**
+					 * An OpenAI-compatible provider needs its base URL.
+					 */
+					base_url_required: () => LocalizedString
+					/**
+					 * Use an http:// or https:// URL.
+					 */
+					base_url_invalid: () => LocalizedString
+					/**
+					 * Use a whole number above zero, or leave it empty.
+					 */
+					number_invalid: () => LocalizedString
+				}
+				/**
+				 * Test connection
+				 */
+				test: () => LocalizedString
+				/**
+				 * Testing…
+				 */
+				testing: () => LocalizedString
+				/**
+				 * Connected. {count} model{{s}} available{list}
+				 */
+				test_ok: (arg: { count: number, list: string }) => LocalizedString
+				/**
+				 * Could not connect: {error}
+				 */
+				test_failed: (arg: { error: string }) => LocalizedString
+				/**
+				 * Local servers
+				 */
+				local_help_title: () => LocalizedString
+				/**
+				 * Ollama, LM Studio and llama.cpp speak the OpenAI-compatible API. If the browser refuses the connection, the server has to allow this app’s origin ({origin}): start Ollama with OLLAMA_ORIGINS set to it, or turn on CORS in LM Studio’s server settings. This is documented by those servers, not yet verified in every build of this app.
+				 */
+				local_help: (arg: { origin: string }) => LocalizedString
 			}
 			session: {
 				/**
@@ -13242,20 +14558,850 @@ export type TranslationFunctions = {
 				 * No session yet. Start one from a selection, or ask about your notes.
 				 */
 				empty: () => LocalizedString
+				/**
+				 * Untitled session
+				 */
+				untitled: () => LocalizedString
+				/**
+				 * Sessions
+				 */
+				menu: () => LocalizedString
+				/**
+				 * Recent sessions
+				 */
+				recent: () => LocalizedString
+				/**
+				 * No earlier sessions in this vault.
+				 */
+				none_recent: () => LocalizedString
+				/**
+				 * New session
+				 */
+				'new': () => LocalizedString
+				/**
+				 * Rename…
+				 */
+				rename: () => LocalizedString
+				/**
+				 * Session title
+				 */
+				rename_label: () => LocalizedString
+				/**
+				 * Archive
+				 */
+				archive: () => LocalizedString
+				/**
+				 * Provider
+				 */
+				provider_label: () => LocalizedString
+				/**
+				 * {name} · {model}
+				 */
+				provider_option: (arg: { model: string, name: string }) => LocalizedString
+				/**
+				 * Add a provider in Settings › AI to talk to an agent.
+				 */
+				no_provider: () => LocalizedString
+				/**
+				 * Open Settings
+				 */
+				open_settings: () => LocalizedString
+				/**
+				 * Transcript
+				 */
+				transcript: () => LocalizedString
+				/**
+				 * You
+				 */
+				you: () => LocalizedString
+				/**
+				 * Agent
+				 */
+				agent: () => LocalizedString
+				/**
+				 * Thinking
+				 */
+				reasoning: () => LocalizedString
+				/**
+				 * Stop
+				 */
+				stop: () => LocalizedString
+				/**
+				 * Retry
+				 */
+				retry: () => LocalizedString
+				/**
+				 * No AI run is in progress.
+				 */
+				nothing_running: () => LocalizedString
+				/**
+				 * The run failed: {message}
+				 */
+				failed: (arg: { message: string }) => LocalizedString
+				/**
+				 * {status} · {elapsed}
+				 */
+				run: (arg: { elapsed: string, status: string }) => LocalizedString
+				/**
+				 * {n}s
+				 */
+				elapsed_seconds: (arg: { n: number }) => LocalizedString
+				/**
+				 * {m}m {s}s
+				 */
+				elapsed_minutes: (arg: { m: number, s: number }) => LocalizedString
+				status: {
+					/**
+					 * Waiting
+					 */
+					scheduled: () => LocalizedString
+					/**
+					 * Working
+					 */
+					running: () => LocalizedString
+					/**
+					 * Done
+					 */
+					successful: () => LocalizedString
+					/**
+					 * Failed
+					 */
+					failed: () => LocalizedString
+					/**
+					 * Stopped
+					 */
+					cancelled: () => LocalizedString
+				}
+				tool: {
+					/**
+					 * Working…
+					 */
+					running: () => LocalizedString
+					/**
+					 * Searched for “{query}”
+					 */
+					search: (arg: { query: string }) => LocalizedString
+					/**
+					 * {count} result{{s}}
+					 */
+					results: (arg: { count: number }) => LocalizedString
+					/**
+					 * Open
+					 */
+					open: () => LocalizedString
+					/**
+					 * Read {what} ({size})
+					 */
+					read: (arg: { size: string, what: string }) => LocalizedString
+					/**
+					 * §{section} of {path}
+					 */
+					read_section: (arg: { path: string, section: string }) => LocalizedString
+					/**
+					 * lines {from}–{to} of {path}
+					 */
+					read_lines: (arg: { from: number, path: string, to: number }) => LocalizedString
+					/**
+					 * Proposed an edit in {path}
+					 */
+					proposed: (arg: { path: string }) => LocalizedString
+					/**
+					 * Used {name}
+					 */
+					used: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} failed: {message}
+					 */
+					failed: (arg: { message: string, name: string }) => LocalizedString
+					/**
+					 * Details
+					 */
+					details: () => LocalizedString
+				}
 			}
 			composer: {
+				/**
+				 * Message the agent
+				 */
+				label: () => LocalizedString
+				/**
+				 * Ask about your notes — @ to reference, / for a skill
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * Send
+				 */
+				send: () => LocalizedString
+				/**
+				 * Enter to send · Shift+Enter for a new line
+				 */
+				hint: () => LocalizedString
+				/**
+				 * Suggestions
+				 */
+				menu: () => LocalizedString
+				/**
+				 * No matches
+				 */
+				no_matches: () => LocalizedString
+				kind: {
+					/**
+					 * Note
+					 */
+					file: () => LocalizedString
+					/**
+					 * Folder
+					 */
+					folder: () => LocalizedString
+					/**
+					 * Heading
+					 */
+					section: () => LocalizedString
+					/**
+					 * Selection
+					 */
+					lines: () => LocalizedString
+					/**
+					 * Skill
+					 */
+					skill: () => LocalizedString
+				}
+				/**
+				 * The selection in {name}
+				 */
+				selection: (arg: { name: string }) => LocalizedString
 			}
 			refs: {
+				/**
+				 * {name} ({from}–{to})
+				 */
+				lines: (arg: { from: number, name: string, to: number }) => LocalizedString
+				/**
+				 * {name} ({line})
+				 */
+				line: (arg: { line: number, name: string }) => LocalizedString
+				/**
+				 * {name} › {heading}
+				 */
+				section: (arg: { heading: string, name: string }) => LocalizedString
+				/**
+				 * {path}/
+				 */
+				folder: (arg: { path: string }) => LocalizedString
+				/**
+				 * Reference: {label}
+				 */
+				chip: (arg: { label: string }) => LocalizedString
+				/**
+				 * Reference: {label} (changed since you referenced it)
+				 */
+				chip_changed: (arg: { label: string }) => LocalizedString
+				/**
+				 * Skill: {label}
+				 */
+				skill_chip: (arg: { label: string }) => LocalizedString
+				/**
+				 * Changed since you referenced it
+				 */
+				changed: () => LocalizedString
+				/**
+				 * Select some text in a note first.
+				 */
+				no_selection: () => LocalizedString
 			}
 			skills: {
 				/**
 				 * Skills
 				 */
 				title: () => LocalizedString
+				/**
+				 * Skills are folders of instructions in .agents/skills/. They sync with the vault, and Codex, Cursor, Gemini CLI and others read them as they are.
+				 */
+				intro: () => LocalizedString
+				/**
+				 * Open a vault to manage its skills.
+				 */
+				no_vault: () => LocalizedString
+				/**
+				 * No skills in this vault yet. Create one, or import one from GitHub.
+				 */
+				empty: () => LocalizedString
+				/**
+				 * Skills in this vault
+				 */
+				list: () => LocalizedString
+				/**
+				 * New skill…
+				 */
+				'new': () => LocalizedString
+				/**
+				 * Import…
+				 */
+				'import': () => LocalizedString
+				/**
+				 * Open {name}
+				 */
+				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Review…
+				 */
+				review: () => LocalizedString
+				/**
+				 * Use {name}
+				 */
+				enabled: (arg: { name: string }) => LocalizedString
+				/**
+				 * Trusted
+				 */
+				trusted: () => LocalizedString
+				/**
+				 * Needs review
+				 */
+				untrusted: () => LocalizedString
+				/**
+				 * It arrived by sync or was written outside Oh hi, or changed there since you trusted it. The agent is not offered it until you review it.
+				 */
+				untrusted_hint: () => LocalizedString
+				/**
+				 * Not valid
+				 */
+				invalid: () => LocalizedString
+				/**
+				 * Has scripts
+				 */
+				scripts: () => LocalizedString
+				/**
+				 * It ships a scripts/ folder. Oh hi never runs scripts; an agent on your computer, like Claude Code, might.
+				 */
+				scripts_hint: () => LocalizedString
+				/**
+				 * {kind} · {input} → {output}
+				 */
+				shape: (arg: { input: string, kind: string, output: string }) => LocalizedString
+				/**
+				 * any
+				 */
+				any: () => LocalizedString
+				kind: {
+					/**
+					 * Check
+					 */
+					check: () => LocalizedString
+					/**
+					 * Transform
+					 */
+					transform: () => LocalizedString
+					/**
+					 * Generate
+					 */
+					generate: () => LocalizedString
+					/**
+					 * Research
+					 */
+					research: () => LocalizedString
+				}
+				input: {
+					/**
+					 * selection
+					 */
+					selection: () => LocalizedString
+					/**
+					 * section
+					 */
+					section: () => LocalizedString
+					/**
+					 * note
+					 */
+					note: () => LocalizedString
+					/**
+					 * folder
+					 */
+					folder: () => LocalizedString
+				}
+				output: {
+					/**
+					 * replaces
+					 */
+					replace: () => LocalizedString
+					/**
+					 * inserts
+					 */
+					insert: () => LocalizedString
+					/**
+					 * comments
+					 */
+					annotate: () => LocalizedString
+					/**
+					 * new note
+					 */
+					new_note: () => LocalizedString
+				}
+				problem: {
+					/**
+					 * SKILL.md has no frontmatter block (--- … ---) at the top.
+					 */
+					frontmatter_missing: () => LocalizedString
+					/**
+					 * A frontmatter line could not be read.
+					 */
+					frontmatter_invalid: () => LocalizedString
+					/**
+					 * The frontmatter has no name.
+					 */
+					name_missing: () => LocalizedString
+					/**
+					 * The name may use lowercase letters, numbers and single hyphens only.
+					 */
+					name_format: () => LocalizedString
+					/**
+					 * The name is longer than 64 characters.
+					 */
+					name_length: () => LocalizedString
+					/**
+					 * The name must be the same as the folder’s.
+					 */
+					name_mismatch: () => LocalizedString
+					/**
+					 * The name uses a reserved word (anthropic, claude or synced).
+					 */
+					name_reserved: () => LocalizedString
+					/**
+					 * The frontmatter has no description.
+					 */
+					description_missing: () => LocalizedString
+					/**
+					 * The description is longer than 1,024 characters.
+					 */
+					description_length: () => LocalizedString
+					/**
+					 * compatibility is longer than 500 characters.
+					 */
+					compatibility_length: () => LocalizedString
+					/**
+					 * metadata may hold only key: value pairs, one level deep.
+					 */
+					metadata_nested: () => LocalizedString
+					/**
+					 * ohhi-kind must be check, transform, generate or research.
+					 */
+					metadata_kind: () => LocalizedString
+					/**
+					 * ohhi-input must be selection, section, note or folder.
+					 */
+					metadata_input: () => LocalizedString
+					/**
+					 * ohhi-output must be replace, insert, annotate or new-note.
+					 */
+					metadata_output: () => LocalizedString
+					/**
+					 * The instructions are longer than 500 lines.
+					 */
+					body_length: () => LocalizedString
+					/**
+					 * The instructions run a shell command (!`…`), which a vault skill must not.
+					 */
+					lint_command: () => LocalizedString
+					/**
+					 * context: is a Claude Code feature a vault skill must not use.
+					 */
+					lint_context: () => LocalizedString
+					/**
+					 * hooks: is a Claude Code feature a vault skill must not use.
+					 */
+					lint_hooks: () => LocalizedString
+					/**
+					 * Problem: {code}
+					 */
+					unknown: (arg: { code: string }) => LocalizedString
+				}
+				create: {
+					/**
+					 * New skill
+					 */
+					title: () => LocalizedString
+					/**
+					 * Name
+					 */
+					name: () => LocalizedString
+					/**
+					 * Lowercase letters, numbers and hyphens. It is also the folder’s name.
+					 */
+					name_hint: () => LocalizedString
+					/**
+					 * Use lowercase letters, numbers and single hyphens, up to 64 characters.
+					 */
+					name_invalid: () => LocalizedString
+					/**
+					 * This vault already has a skill with that name.
+					 */
+					name_taken: () => LocalizedString
+					/**
+					 * Create
+					 */
+					submit: () => LocalizedString
+					/**
+					 * Cancel
+					 */
+					cancel: () => LocalizedString
+					/**
+					 * Could not create the skill.
+					 */
+					failed: () => LocalizedString
+				}
+				farm: {
+					/**
+					 * Claude Code
+					 */
+					title: () => LocalizedString
+					/**
+					 * Export for Claude Code
+					 */
+					label: () => LocalizedString
+					/**
+					 * Copies trusted, enabled skills into .claude/skills/, where Claude Code looks. A folder there that Oh hi did not make is never touched.
+					 */
+					hint: () => LocalizedString
+					/**
+					 * This vault lives in the browser, where no other app can read it, so there is nothing to export for Claude Code.
+					 */
+					browser: () => LocalizedString
+					/**
+					 * Exporting for Claude Code is not available for this vault yet.
+					 */
+					unavailable: () => LocalizedString
+					/**
+					 * {written} exported · {blocked} left alone
+					 */
+					result: (arg: { blocked: number, written: number }) => LocalizedString
+					/**
+					 * Could not update .claude/skills/: {message}
+					 */
+					failed: (arg: { message: string }) => LocalizedString
+				}
+				import_dialog: {
+					/**
+					 * Import a skill
+					 */
+					title: () => LocalizedString
+					/**
+					 * Review {name}
+					 */
+					review_title: (arg: { name: string }) => LocalizedString
+					/**
+					 * Nothing is written until you trust it. Read the instructions and every file first: a skill tells the agent what to do.
+					 */
+					description: () => LocalizedString
+					/**
+					 * GitHub
+					 */
+					source: () => LocalizedString
+					/**
+					 * owner/repo/path/to/skill, or a github.com/…/tree/… link
+					 */
+					source_hint: () => LocalizedString
+					/**
+					 * owner/repo/skills/name
+					 */
+					source_placeholder: () => LocalizedString
+					/**
+					 * Fetch
+					 */
+					fetch: () => LocalizedString
+					/**
+					 * Fetching…
+					 */
+					fetching: () => LocalizedString
+					/**
+					 * Choose a folder…
+					 */
+					folder: () => LocalizedString
+					/**
+					 * SKILL.md
+					 */
+					instructions: () => LocalizedString
+					/**
+					 * Files
+					 */
+					files: () => LocalizedString
+					/**
+					 * Links in the skill
+					 */
+					urls: () => LocalizedString
+					/**
+					 * No links.
+					 */
+					urls_none: () => LocalizedString
+					/**
+					 * Pre-approved tools: {tools}
+					 */
+					allowed_tools: (arg: { tools: string }) => LocalizedString
+					/**
+					 * Pinned to commit {sha}
+					 */
+					pinned: (arg: { sha: string }) => LocalizedString
+					/**
+					 * {count} binary file{{s}} will not be imported.
+					 */
+					binary_skipped: (arg: { count: number }) => LocalizedString
+					/**
+					 * It ships scripts. Oh hi never runs them, but read them before you trust it: an agent on your computer might.
+					 */
+					scripts: () => LocalizedString
+					/**
+					 * Problems
+					 */
+					problems: () => LocalizedString
+					/**
+					 * A skill named {name} is already in this vault.
+					 */
+					exists: (arg: { name: string }) => LocalizedString
+					/**
+					 * Trust and enable
+					 */
+					trust: () => LocalizedString
+					/**
+					 * Cancel
+					 */
+					cancel: () => LocalizedString
+					/**
+					 * Use owner/repo/path or a github.com/…/tree/… link.
+					 */
+					bad_source: () => LocalizedString
+					/**
+					 * No SKILL.md at {path}. Name the skill’s own folder.
+					 */
+					no_skill_md: (arg: { path: string }) => LocalizedString
+					/**
+					 * More than {max} files: that is not one skill.
+					 */
+					too_many: (arg: { max: number }) => LocalizedString
+					/**
+					 * GitHub answered {status} for {path}.
+					 */
+					fetch_failed: (arg: { path: string, status: number }) => LocalizedString
+					/**
+					 * Could not reach GitHub: {message}
+					 */
+					network: (arg: { message: string }) => LocalizedString
+					/**
+					 * Could not read that folder: {message}
+					 */
+					folder_failed: (arg: { message: string }) => LocalizedString
+					/**
+					 * Could not write the skill: {message}
+					 */
+					write_failed: (arg: { message: string }) => LocalizedString
+					/**
+					 * {name} is trusted and enabled.
+					 */
+					imported: (arg: { name: string }) => LocalizedString
+				}
+				run: {
+					/**
+					 * Run a skill on {target}
+					 */
+					placeholder: (arg: { target: string }) => LocalizedString
+					/**
+					 * the selection
+					 */
+					target_selection: () => LocalizedString
+					/**
+					 * this note
+					 */
+					target_note: () => LocalizedString
+					/**
+					 * No trusted, enabled skill takes {target}. Manage skills in Settings › AI › Skills.
+					 */
+					none: (arg: { target: string }) => LocalizedString
+					/**
+					 * Open a note first.
+					 */
+					no_note: () => LocalizedString
+					/**
+					 * Open a vault first.
+					 */
+					no_vault: () => LocalizedString
+					/**
+					 * Running {name}…
+					 */
+					started: (arg: { name: string }) => LocalizedString
+					/**
+					 * Could not start {name}: a run is already going, or no provider is set up.
+					 */
+					not_started: (arg: { name: string }) => LocalizedString
+				}
 			}
 			suggest: {
+				/**
+				 * {name} edited {note} {ago}
+				 */
+				last_write: (arg: { ago: string, name: string, note: string }) => LocalizedString
+				/**
+				 * The agent’s last edit — open {note}
+				 */
+				last_write_title: (arg: { note: string }) => LocalizedString
+				/**
+				 * No suggestion at the caret.
+				 */
+				none_at_caret: () => LocalizedString
+				/**
+				 * No suggestions in this note.
+				 */
+				none_in_note: () => LocalizedString
+				/**
+				 * The text changed under that suggestion, so it was not applied.
+				 */
+				stale: () => LocalizedString
+				/**
+				 * Accepted {count} suggestion{{s}}.
+				 */
+				accepted_all: (arg: { count: number }) => LocalizedString
+				/**
+				 * Accepted {count} suggestion{{s}}; {stale} had gone stale.
+				 */
+				accepted_some: (arg: { count: number, stale: number }) => LocalizedString
+				/**
+				 * Rejected {count} suggestion{{s}}.
+				 */
+				rejected_all: (arg: { count: number }) => LocalizedString
+				/**
+				 * Undid the agent’s edit.
+				 */
+				undone: () => LocalizedString
+				/**
+				 * The agent has no edit to undo.
+				 */
+				nothing_to_undo: () => LocalizedString
 			}
 			comments: {
+				/**
+				 * New comment
+				 */
+				bubble_new: () => LocalizedString
+				/**
+				 * Comment thread
+				 */
+				bubble_thread: () => LocalizedString
+				/**
+				 * Comment
+				 */
+				field: () => LocalizedString
+				/**
+				 * Comment
+				 */
+				comment: () => LocalizedString
+				/**
+				 * Send to agent
+				 */
+				send_agent: () => LocalizedString
+				/**
+				 * Reply
+				 */
+				reply_field: () => LocalizedString
+				/**
+				 * Reply
+				 */
+				reply: () => LocalizedString
+				/**
+				 * Resolve
+				 */
+				resolve: () => LocalizedString
+				/**
+				 * Reopen
+				 */
+				reopen: () => LocalizedString
+				/**
+				 * Sent to the agent
+				 */
+				sent_to_agent: () => LocalizedString
+				/**
+				 * Answered
+				 */
+				answered: () => LocalizedString
+				/**
+				 * Resolved
+				 */
+				resolved: () => LocalizedString
+				/**
+				 * Comment thread on “{quote}”
+				 */
+				marker: (arg: { quote: string }) => LocalizedString
+				/**
+				 * Comment thread
+				 */
+				marker_point: () => LocalizedString
+				/**
+				 * Comment threads
+				 */
+				list: () => LocalizedString
+				/**
+				 * Show threads
+				 */
+				filter: () => LocalizedString
+				/**
+				 * Open
+				 */
+				filter_open: () => LocalizedString
+				/**
+				 * Resolved
+				 */
+				filter_resolved: () => LocalizedString
+				/**
+				 * All
+				 */
+				filter_all: () => LocalizedString
+				/**
+				 * No open comments on this note. Select some text and choose Comment on selection.
+				 */
+				empty_open: () => LocalizedString
+				/**
+				 * No resolved comments on this note.
+				 */
+				empty_resolved: () => LocalizedString
+				/**
+				 * No comments on this note yet.
+				 */
+				empty_all: () => LocalizedString
+				/**
+				 * Open a note to see its comments.
+				 */
+				no_note: () => LocalizedString
+				/**
+				 * {count} repl{{y|ies}}
+				 */
+				replies: (arg: { count: number }) => LocalizedString
+				/**
+				 * Export as CriticMarkup
+				 */
+				'export': () => LocalizedString
+				/**
+				 * Review copy written to {path}.
+				 */
+				exported: (arg: { path: string }) => LocalizedString
+				/**
+				 * No open comments to export.
+				 */
+				export_none: () => LocalizedString
+				/**
+				 * {count} comment{{was|s were}} left out: the text {{it was|they were}} on is gone, or overlaps another.
+				 */
+				export_skipped: (arg: { count: number }) => LocalizedString
+				/**
+				 * Could not write the review copy.
+				 */
+				export_failed: () => LocalizedString
+				/**
+				 * Select the text to comment on first.
+				 */
+				select_first: () => LocalizedString
+				/**
+				 * The text this thread was on is gone.
+				 */
+				gone: () => LocalizedString
+				/**
+				 * Comments need the note open in an editor.
+				 */
+				unavailable: () => LocalizedString
 			}
 			presence: {
 			}

@@ -4,7 +4,7 @@
  * hand-maintained list of commands anywhere in this package.
  */
 import { OP_NAMES, OP_SCHEMAS } from '@ohhi/agent'
-import { GLOBAL_FLAGS, usageLine } from './grammar.js'
+import { ASK_USAGE, GLOBAL_FLAGS, usageLine } from './grammar.js'
 
 const WRITE_MARK = '*'
 
@@ -48,12 +48,19 @@ export function usageText(): string {
   lines.push('  ohhi mcp [--vault PATH]   serve the same commands as MCP tools over stdio')
   lines.push('    claude mcp add ohhi -- ohhi mcp --vault <path>')
   lines.push('')
+  lines.push(`  ohhi ${ASK_USAGE}`)
+  lines.push('    ask a model about the vault: it searches and reads (never writes) through the')
+  lines.push('    commands above; the answer streams to stdout, each tool call to stderr.')
+  lines.push('    Providers: $XDG_CONFIG_HOME/ohhi/providers.json (else ~/.config/ohhi/); $OHHI_API_KEY')
+  lines.push("    overrides the chosen provider's key. --json prints one ohhi.ask.v1 document.")
+  lines.push('')
   lines.push('EXAMPLES')
   lines.push('  ohhi search "connection pooling" --limit 5')
   lines.push('  ohhi read Areas/CS/Postgres.md --outline')
   lines.push('  ohhi read Areas/CS/Postgres.md --section "Pooling/Decisions"')
   lines.push('  ohhi patch Areas/CS/Postgres.md --old "pgbouncer" --new "PgBouncer" --expect-hash <hash>')
   lines.push('  ohhi changes --since j17 --json')
+  lines.push('  ohhi ask "what did I decide about pooling?" --ref Areas/CS/Postgres.md#Decisions')
   return lines.join('\n') + '\n'
 }
 

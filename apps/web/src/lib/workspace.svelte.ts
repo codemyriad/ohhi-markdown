@@ -24,7 +24,7 @@
  * says so rather than appearing and disappearing.
  */
 import { getLL } from '@ohhi/i18n'
-import type { DivergenceReview, StoreDir, VaultAdapter } from '@ohhi/vault'
+import type { DivergenceReview, PreImageJournal, StoreDir, VaultAdapter } from '@ohhi/vault'
 import {
   BlobDocStore,
   FileJournal,
@@ -98,6 +98,10 @@ import { createSyncRecord, type SyncRecord } from './sync-record.svelte.js'
 import { appendFlash, type Flash, type FlashInput, type NoticeInput } from './notices.js'
 import { decodeShareLink, encodeDeviceLink, encodeShareLink, type ShareKind } from './share-link.js'
 import { isForeignMount } from './share-status.js'
+import { createThreadRegistry, writeReviewCopy, type NewComment } from './threads.svelte.js'
+import type { CommentRecord, ThreadRecord, ThreadStore } from '@ohhi/workspace'
+import type { SuggestionRecord, SuggestionSpan } from '@ohhi/workspace'
+import type { ProposeEditInput } from '@ohhi/harness'
 
 export { resolveRoomRelay }
 export { FOLDER_RECORD_KEY, type FileRow, type PullProgress, type RelayConfig }
@@ -368,6 +372,29 @@ export interface Workspace {
    * Null for a path with no doc (a folder, an unknown path).
    */
   undoManagerFor(path: string): CollabUndoManager | null
+  // ---- the agent's suggestions (writing-harness B7; `MountSession` does the work) ----
+  /**
+   * Pin an agent's proposed edit to a note as a pending suggestion. Rejects
+   * with `SuggestionConflictError` when the text at `[from, to)` is not
+   * `baseText` (the agent read a stale copy), and with an Error when the
+   * path has no live doc.
+   */
+  proposeEdit(input: ProposeEditInput): Promise<SuggestionRecord>
+  /** Apply a pending suggestion (`accepted`, or `stale` when its text moved); null when there is none. */
+  acceptSuggestion(path: string, id: string): SuggestionRecord | null
+  /** Drop a suggestion; the text is never touched. */
+  rejectSuggestion(path: string, id: string): boolean
+  /** Every suggestion record on a note, newest first. */
+  suggestionsFor(path: string): SuggestionRecord[]
+  /** The pending and stale suggestions on a note, resolved to offsets now (what the editor draws). */
+  suggestionSpans(path: string): SuggestionSpan[]
+  /** Called after any change to a note's text or suggestions. */
+  subscribeSuggestions(path: string, cb: () => void): () => void
+  /**
+   * Undo everything agent run `runId` wrote (the newest run accepted this
+   * session when absent). Only the agent's items go (spike S14 Q2).
+   */
+  undoAgent(runId?: string): boolean
   /**
    * Create a note inside `dir` ('' = vault root) and answer with its
    * workspace path. With no `name` the note is auto-named `untitled-N.md`;
@@ -521,6 +548,21 @@ export interface Workspace {
    * or null (the reason is logged as the session's error).
    */
   writeAttachment(path: string, bytes: Uint8Array): Promise<string | null>
+  /** A file's bytes from the mount that owns it, or null (writing-harness B3: the agent's reads). */
+  readFileBytes(path: string): Promise<Uint8Array | null>
+  /** The pre-image journal of the mount that owns `path` ('' = the root's), read-only use (B3). */
+  journalFor(path: string): PreImageJournal | null
+  /**
+   * Comment threads (writing-harness B8; `threads.svelte.ts`): the note's
+   * store, or null when it has no doc. Not AI-gated — comments work with no
+   * provider. `reply` is how F appends the agent's answer.
+   */
+  threadsFor(path: string): ThreadStore | null
+  addThread(path: string, input: NewComment): ThreadRecord | null
+  reply(path: string, threadId: string, comment: Omit<CommentRecord, 'id' | 'at' | 'author'> & { author?: string }): CommentRecord | null
+  resolveThread(path: string, threadId: string, resolved?: boolean): void
+  /** Write `<note> (review).md` beside the note with its open threads as CriticMarkup; never the note. */
+  exportCriticMarkup(path: string): Promise<{ path: string | null; written: number; skipped: number }>
   dispose(): void
 }
 
@@ -659,6 +701,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const registry = new MountRegistry()
+  /** Agent runs whose suggestions were accepted this session, newest last (`undoAgent()`'s default). */
+  let agentRuns: string[] = []
   const appFiles = createAppFiles(cfg.adapter, cfg.storeDir, cfg.room)
   /**
    * The root mount. Declared here, before anything derived from it: the ignore
@@ -899,6 +943,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     onShared?: (link: string) => void
   }
 
+  /** Each mount's pre-image journal, by room (`journalFor`, writing-harness B3). */
+  const journals = new Map<string, PreImageJournal>()
   const buildMount = async (opts: MountOpts): Promise<MountSession> => {
     mountsBooting++
     refreshSettling()
@@ -915,6 +961,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const docStore = new BlobDocStore(engine, mountDir, realClock)
     const lcaStore = lcaGuard(docStore, new JsonFileLcaStore(mountDir.io('lca.json')))
     const journal = new FileJournal(mountDir, { now: () => realClock.now() })
+    journals.set(opts.room, journal)
     const adapter =
       opts.path === ''
         ? ignoringAdapter(cfg.adapter, ignoreSet)
@@ -1817,7 +1864,17 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     refreshTree()
   }
 
-  return {
+  // Comment threads (writing-harness B8): one store per note, materialized
+  // through this facade's own app-file seam.
+  const threads = createThreadRegistry({
+    clock: realClock,
+    docForPath: resolveDoc,
+    guidFor: (p) => ui.files.find((f) => f.path === p)?.guid ?? null,
+    pathFor: (g) => ui.files.find((f) => f.guid === g)?.path ?? null,
+    files: { read: (p) => facade.readAppFile(p), write: (p, text) => facade.writeAppFile(p, text) },
+  })
+
+  const facade: Workspace = {
     ui,
     startedAt,
     rootRelayUrl,
@@ -1836,6 +1893,43 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     },
     setLiveViews,
     undoManagerFor,
+    proposeEdit: async (input) => {
+      const r = registry.resolve(input.path)
+      if (!r) throw new Error(getLL().web.workspace.cannot_read({ path: input.path }))
+      const record = r.session.proposeEdit({ ...input, path: r.rel })
+      return { ...record, path: input.path }
+    },
+    acceptSuggestion: (path, id) => {
+      const r = registry.resolve(path)
+      const record = r ? r.session.acceptSuggestion(r.rel, id) : null
+      if (record?.status === 'accepted') agentRuns = [...agentRuns.filter((run) => run !== record.origin.runId), record.origin.runId]
+      return record ? { ...record, path } : null
+    },
+    rejectSuggestion: (path, id) => {
+      const r = registry.resolve(path)
+      return r ? r.session.rejectSuggestion(r.rel, id) : false
+    },
+    suggestionsFor: (path) => {
+      const r = registry.resolve(path)
+      return r ? r.session.suggestionsFor(r.rel).map((record) => ({ ...record, path })) : []
+    },
+    suggestionSpans: (path) => {
+      const r = registry.resolve(path)
+      return r ? r.session.suggestionSpans(r.rel) : []
+    },
+    subscribeSuggestions: (path, cb) => {
+      const r = registry.resolve(path)
+      return r ? r.session.subscribeSuggestions(r.rel, cb) : () => {}
+    },
+    undoAgent: (runId) => {
+      // A run can write in several mounts; each session undoes its own part.
+      const id = runId ?? agentRuns.at(-1)
+      if (!id) return false
+      let any = false
+      for (const { session } of registry.all()) any = session.undoAgent(id) || any
+      agentRuns = agentRuns.filter((run) => run !== id)
+      return any
+    },
     createFile: async (dir = '', name, text) => {
       // Route on the FULL TARGET PATH, never on `dir` alone. A prefixed name
       // (`[[team/plan]]` → name='team/plan.md', dir='') targets a path that a
@@ -1961,6 +2055,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       return r ? r.session.peekPath(r.rel) : null
     },
+    readFileBytes: async (path) => {
+      const r = registry.resolve(path)
+      return r ? r.session.readFileBytes(r.rel) : null
+    },
+    journalFor: (path) => {
+      const r = registry.resolve(path)
+      return r ? (journals.get(r.session.room) ?? null) : null
+    },
     writeAttachment: async (path, bytes) => {
       const r = registry.resolve(path)
       if (!r) return null
@@ -2012,13 +2114,29 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       appFiles.broadcast([rel])
     },
     onAppFileChange: (prefix, cb) => appFiles.subscribe(prefix, cb),
+    threadsFor: (path) => threads.storeFor(path),
+    addThread: (path, { author, sendTo, ...rest }) =>
+      threads.storeFor(path)?.add({ ...rest, author: author ?? user.name, ...(sendTo ? { sendTo } : {}) }) ?? null,
+    reply: (path, threadId, comment) =>
+      threads.storeFor(path)?.reply(threadId, { ...comment, author: comment.author ?? user.name }) ?? null,
+    resolveThread: (path, threadId, resolved = true) => threads.storeFor(path)?.resolve(threadId, resolved),
+    exportCriticMarkup: async (path) => {
+      const store = threads.storeFor(path)
+      if (!store) return { path: null, written: 0, skipped: 0 }
+      return writeReviewCopy(store, path, {
+        exists: (p) => ui.files.some((f) => f.path === p),
+        createFile: (dir, name, text) => facade.createFile(dir, name, text),
+      })
+    },
     dispose: () => {
       for (const manager of undoManagers.values()) manager.destroy()
       undoManagers.clear()
+      void threads.dispose()
       registry.dispose()
       appFiles.dispose()
     },
   }
+  return facade
 }
 
 /**

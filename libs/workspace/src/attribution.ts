@@ -23,11 +23,14 @@
  *     several, none of them `recent`) in the note → `relay`, named by the
  *     relay host: "via <relay>" is ordinary copy, never an error.
  *
- * Never `agent`: an agent's write reaches the app as a disk ingest, and
- * telling it from Obsidian or git needs the CLI's own journal to correlate
- * (`plans/spike-one-log.md` › "Flagged for after" › Agent attribution).
- * TODO(spike S22, agent attribution): correlate `disk` ingests with the CLI
- * journal before ever emitting `agent`.
+ * Never `agent` HERE: this decides who sent a REMOTE update, and an outside
+ * agent's write reaches the app as a disk ingest — telling it from Obsidian
+ * or git needs the CLI's own journal to correlate (`plans/spike-one-log.md`
+ * › "Flagged for after" › Agent attribution; TODO(spike S22)). The one
+ * honest `agent` source is the in-app agent: its transactions carry an
+ * `AgentOrigin` the app set itself, and `MountSession.noteDocChange` names
+ * them without coming through here (writing-harness B7, spike S14). A peer's
+ * copy of that same edit arrives as theirs, by these rules.
  */
 import type { Actor } from './events.js'
 

@@ -135,6 +135,11 @@
     --ed-bracket-match-bg: #5e81ac33;
     --ed-search-match-bg: #ebcb8b80;
     --ed-search-match-active-bg: #ebcb8b;
+    --ed-suggest-del: #7b5aa6;
+    --ed-suggest-add: #2f6f7e;
+    --ed-suggest-stale: #6b7690;
+    --ed-comment-bg: #b48ead38;
+    --ed-comment-resolved-bg: #4c566a1f;
 
     --ed-presence-1: #2b7f8a;
     /* Slots 2 and 4 are not the ported green and amber: #4d7c2f is this

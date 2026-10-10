@@ -19,6 +19,8 @@ describe('ls', () => {
     // Arrange/Act above; assert the shape AND the order the CLI renders.
     expect(out.dir).toBe('')
     expect(out.items.map((i) => i.path)).toEqual([
+      // `.agents/` (skills) is not ignored: it syncs and lists like any folder.
+      '.agents',
       'Areas',
       'attachments',
       'Daily',

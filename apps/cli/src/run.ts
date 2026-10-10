@@ -36,6 +36,17 @@ export async function run(argv: string[], io: Io): Promise<number> {
       await serveMcp(command.globals, io)
       return 0
     }
+    if (command.kind === 'ask') {
+      // The harness (and the AI SDK under it) loads only when asked: a cold
+      // `ohhi search` must not pay for it (R6). Not a contract op (A7).
+      const { runAsk } = await import('./ask.js')
+      return await runAsk(command, io, sink)
+    }
+    if (command.kind === 'skills-export') {
+      // `.claude/skills/` symlinks — Node-only, not a contract op (writing-harness B9).
+      const { skillsExport } = await import('./skills-export.js')
+      return await skillsExport(command, io, sink)
+    }
 
     const { op, input, globals, needsStdin } = command
     if (needsStdin) input.text = await readStdin(op, io)

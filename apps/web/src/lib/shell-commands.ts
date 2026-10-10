@@ -21,6 +21,10 @@ import { choiceOf } from './resource-kind.js'
 import type { Resources } from './resources.svelte.js'
 import type { ShareActions } from './share-actions.svelte.js'
 import type { ShellLayout } from './shell-layout.svelte.js'
+import { canComment, commentOnSelection } from './threads.svelte.js'
+import { suggestionCommands } from './suggestions.svelte.js'
+import { runSkillCommand } from './skills.svelte.js'
+import { captureFocusedSelection, harness, newSessionId, queueMention, stopRun } from './sessions.svelte.js'
 import { containingDir } from './tree-model.js'
 import { railForm } from './layout.js'
 import { BUILTIN_LAYOUTS, offersView } from './layout-spec.js'
@@ -337,23 +341,78 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
  * `when: () => false`, so the table and `COMMAND_IDS` agree) and says it is
  * not built. Builders B–E replace their rows here with the real ones.
  */
-export function harnessCommands(deps: Pick<ShellCommandDeps, 'flash'>): Command[] {
+export function harnessCommands(
+  deps: Pick<ShellCommandDeps, 'flash'> & Partial<Pick<ShellCommandDeps, 'selectedPath' | 'openView'>>
+): Command[] {
   const t = getLL().web.ai.commands
   const group = getLL().web.commands.groups.ai()
-  const notBuilt = (): void => deps.flash?.({ level: 'info', text: getLL().web.ai.notice.not_built() })
-  const rows: [id: string, title: string][] = [
-    ['ai.new-session', t.new_session()],
-    ['ai.add-selection', t.add_selection()],
-    ['ai.run-skill', t.run_skill()],
-    ['ai.stop-run', t.stop_run()],
-    ['ai.accept-suggestion', t.accept_suggestion()],
-    ['ai.reject-suggestion', t.reject_suggestion()],
-    ['ai.accept-all', t.accept_all()],
-    ['ai.reject-all', t.reject_all()],
-    ['ai.undo-agent', t.undo_agent()],
-    ['note.comment', t.comment()],
+  // The Session view's commands (B): a session from the focused selection,
+  // the selection into the current session, stop. `ai.new-session` ships
+  // unbound — `Mod+L` is `edit.toggle-checkbox` (Obsidian's key), which is
+  // registered later and would win it; `Mod+Shift+L` starts a session too
+  // when none is open.
+  const capture = () => captureFocusedSelection(deps.selectedPath?.() ?? null)
+  const open = (id: string): void => {
+    harness.current = id
+    deps.openView?.('session', id)
+  }
+  const sessionRows: Command[] = [
+    {
+      id: 'ai.new-session',
+      title: t.new_session(),
+      group,
+      when: () => aiEnabled(),
+      run: async () => {
+        const id = newSessionId()
+        const mention = await capture()
+        if (mention) queueMention(id, mention)
+        open(id)
+      },
+    },
+    {
+      id: 'ai.add-selection',
+      title: t.add_selection(),
+      group,
+      keys: 'Mod+Shift+L',
+      when: () => aiEnabled(),
+      run: async () => {
+        const mention = await capture()
+        if (!mention) {
+          deps.flash?.({ level: 'info', text: getLL().web.ai.refs.no_selection() })
+          return
+        }
+        const id = harness.current ?? newSessionId()
+        queueMention(id, mention)
+        open(id)
+      },
+    },
+    {
+      id: 'ai.stop-run',
+      title: t.stop_run(),
+      group,
+      when: () => aiEnabled(),
+      run: () => {
+        if (!stopRun()) deps.flash?.({ level: 'info', text: getLL().web.ai.session.nothing_running() })
+      },
+    },
   ]
-  return rows.map(([id, title]) => ({ id, title, group, when: () => aiEnabled(), run: notBuilt }))
+  return [
+    ...sessionRows,
+    // Skills (C): a picker of the trusted skills that fit the selection or the note → B's `startRun`.
+    runSkillCommand({ flash: deps.flash, selectedPath: deps.selectedPath }),
+    // Suggestions in the document (D): accept/reject at the caret or in the note, undo the agent.
+    ...suggestionCommands(deps.flash),
+    // Comments are NOT an AI feature (B8): offered whenever a note is open in
+    // an editor, provider or not; only the bubble's *Send to agent* is gated.
+    {
+      id: 'note.comment',
+      title: t.comment(),
+      group: getLL().web.commands.groups.file(),
+      keys: 'Mod+Shift+M',
+      when: canComment,
+      run: () => void commentOnSelection(deps.flash),
+    },
+  ]
 }
 
 /**

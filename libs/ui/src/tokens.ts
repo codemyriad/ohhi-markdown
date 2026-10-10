@@ -38,6 +38,22 @@ export const PRESENCE_SLOTS = 8
 export const GROUP_SLOTS = 8
 
 /**
+ * The three suggestion tokens (writing-harness B7): an agent's proposed edit
+ * drawn in the note — the replaced text struck (`del`), the proposal
+ * inserted (`add`), and one a peer's edit overtook (`stale`). Band B, painted
+ * by `libs/editor/src/suggestions.ts` through the `ed-suggest-*` classes.
+ */
+export const SUGGEST_TOKENS = ['--ed-suggest-del', '--ed-suggest-add', '--ed-suggest-stale'] as const
+
+/**
+ * The two comment-thread tints (writing-harness B8): the passage a thread
+ * hangs off, open and resolved. Band B, painted by
+ * `libs/editor/src/comments.ts` through the `ed-comment` /
+ * `ed-comment-resolved` marks.
+ */
+export const COMMENT_TOKENS = ['--ed-comment-bg', '--ed-comment-resolved-bg'] as const
+
+/**
  * Read a custom property off an element (default: <html>), trimmed.
  * Returns '' when the property is unset or when there is no DOM.
  */

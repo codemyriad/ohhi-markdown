@@ -59,7 +59,7 @@ describe('layout prefs', () => {
   })
 
   it('names the dock tabs and refuses anything else', () => {
-    expect(RAIL_SECTIONS).toEqual(['links', 'history'])
+    expect(RAIL_SECTIONS).toEqual(['links', 'history', 'comments'])
     expect(railSection('history')).toBe('history')
     expect(railSection('note')).toBeNull()
     expect(railSection(7)).toBeNull()

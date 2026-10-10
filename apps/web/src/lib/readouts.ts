@@ -32,6 +32,7 @@ import DailyNav from './components/readouts/DailyNav.svelte'
 import Drawer from './components/readouts/Drawer.svelte'
 import Inspector from './components/readouts/Inspector.svelte'
 import Help from './components/readouts/Help.svelte'
+import LastAgentWrite from './components/readouts/LastAgentWrite.svelte'
 import GroupChip from './components/readouts/GroupChipReadout.svelte'
 import Mode from './components/readouts/ModeReadout.svelte'
 import Nav from './components/readouts/Nav.svelte'
@@ -154,5 +155,7 @@ export const READOUTS: Record<ReadoutId, Readout> = {
   inspector: Inspector,
   // first-run E1: the Help menu, at the toolbar's right end after the inspector.
   help: Help,
+  // Writing-harness B7: "Tighten edited Plan 3 min ago"; nothing until the in-app agent has written.
+  'last-agent-write': LastAgentWrite,
   people: Sync,
 }

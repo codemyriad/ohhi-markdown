@@ -14,7 +14,15 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { BUILTIN_THEMES, DARK_THEMES, GROUP_SLOTS, PRESENCE_SLOTS, THEME_LABELS } from './tokens.js'
+import {
+  BUILTIN_THEMES,
+  COMMENT_TOKENS,
+  DARK_THEMES,
+  GROUP_SLOTS,
+  PRESENCE_SLOTS,
+  SUGGEST_TOKENS,
+  THEME_LABELS,
+} from './tokens.js'
 
 const here = fileURLToPath(new URL('./styles/', import.meta.url))
 /** Source, comments stripped: these assertions are about DECLARATIONS, and a
@@ -551,6 +559,40 @@ describe('editor readability', () => {
 })
 
 /**
+ * Suggestions in the document (writing-harness B7). They are TEXT colours —
+ * the struck base and the inserted proposal are words a writer reads — so
+ * each clears 4.5:1 on the editing surface; and a proposal is not a
+ * conflict, so neither colour may read as the diverged red.
+ */
+describe('suggestion colours (band B)', () => {
+  const value = (theme: string, name: string): string =>
+    tokenValue(themeBlock(THEME_CSS[theme], theme), name) ?? tokenValue(CONTRACT, name)!
+
+  it('declares the three tokens in the contract', () => {
+    for (const name of SUGGEST_TOKENS) expect(declaredTokens(CONTRACT).has(name), name).toBe(true)
+  })
+
+  it('clears 4.5:1 on --ed-surface in every built-in theme, and keeps add and del apart', () => {
+    for (const theme of BUILTIN_THEMES) {
+      const surface = value(theme, '--ed-surface')
+      for (const name of SUGGEST_TOKENS) {
+        expect(contrastRatio(surface, value(theme, name)), `${theme} ${name}`).toBeGreaterThanOrEqual(4.5)
+      }
+      expect(colorDistance(value(theme, '--ed-suggest-add'), value(theme, '--ed-suggest-del')), `${theme} add/del`).toBeGreaterThan(60)
+    }
+  })
+
+  it('never paints a suggestion in the diverged colour', () => {
+    for (const theme of BUILTIN_THEMES) {
+      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      for (const name of SUGGEST_TOKENS) {
+        expect(colorDistance(value(theme, name), diverged), `${theme} ${name}`).toBeGreaterThan(60)
+      }
+    }
+  })
+})
+
+/**
  * List depth guides (Chris, 2026-10-06). The guide is a structural hairline,
  * so it takes the rule's treatment rather than a contrast floor of its own: in
  * every built-in theme `--ed-list-guide` resolves to exactly `--ed-hr` — a
@@ -596,3 +638,26 @@ function themeRoot(css: string): string {
   }
   return ''
 }
+
+/**
+ * Comment-thread tints (writing-harness B8). A tint over text, so the rule is
+ * not contrast but identity: a commented passage must never read as a search
+ * match (the yellow) — the two can sit on one screen at once.
+ */
+describe('comment tints (band B)', () => {
+  const value = (theme: string, name: string): string =>
+    tokenValue(themeBlock(THEME_CSS[theme], theme), name) ?? tokenValue(CONTRACT, name)!
+
+  it('declares both tokens in the contract', () => {
+    for (const name of COMMENT_TOKENS) expect(declaredTokens(CONTRACT).has(name), name).toBe(true)
+  })
+
+  it('keeps an open thread apart from a search match in every built-in theme', () => {
+    for (const theme of BUILTIN_THEMES) {
+      expect(
+        colorDistance(value(theme, '--ed-comment-bg'), value(theme, '--ed-search-match-bg')),
+        theme
+      ).toBeGreaterThan(60)
+    }
+  })
+})

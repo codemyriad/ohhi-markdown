@@ -1,5 +1,5 @@
 /**
- * THE REGISTRY. Seventeen ops, one per file, keyed by the contract's own op
+ * THE REGISTRY. Nineteen ops, one per file, keyed by the contract's own op
  * names — so "is every op implemented?" is a type error, not a review comment.
  *
  * `apps/cli` walks this to build its usage text and its MCP tool list; nothing
@@ -21,6 +21,8 @@ import { resolve } from './resolve.js'
 import { restore } from './restore.js'
 import { rm } from './rm.js'
 import { search } from './search.js'
+import { skill } from './skill.js'
+import { skills } from './skills.js'
 import { stats } from './stats.js'
 import { tags } from './tags.js'
 import { unresolved } from './unresolved.js'
@@ -37,6 +39,8 @@ export const OPS: { [N in OpName]: OpDef<N> } = {
   resolve,
   stats,
   changes,
+  skills,
+  skill,
   write,
   patch,
   append,

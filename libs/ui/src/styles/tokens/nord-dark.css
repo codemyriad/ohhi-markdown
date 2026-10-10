@@ -142,6 +142,11 @@
     --ed-bracket-match-bg: #5e81ac66;
     --ed-search-match-bg: #ebcb8b4d;
     --ed-search-match-active-bg: #ebcb8b;
+    --ed-suggest-del: #c39bbc;
+    --ed-suggest-add: #88c0d0;
+    --ed-suggest-stale: #a3abba;
+    --ed-comment-bg: #b48ead40;
+    --ed-comment-resolved-bg: #d8dee91f;
 
     --ed-presence-1: #88c0d0;
     /* Slots 2 and 4 are NOT Nord's green and yellow: those ARE this theme's

@@ -7,6 +7,8 @@ import type { Sink } from '../io.js'
 import { renderChanges, renderFm, renderLs, renderRead, renderStats } from './read.js'
 import { renderBacklinks, renderLinks, renderResolve, renderTags, renderUnresolved } from './graph.js'
 import { renderSearch } from './search.js'
+import { renderSkill } from './skill.js'
+import { renderSkills } from './skills.js'
 import { renderAppend, renderMv, renderPatch, renderRestore, renderRm, renderWrite } from './write.js'
 
 type Renderer<N extends OpName> = (out: OpOutput<N>, sink: Sink) => void
@@ -22,6 +24,8 @@ export const RENDERERS: { [N in OpName]: Renderer<N> } = {
   resolve: renderResolve,
   stats: renderStats,
   changes: renderChanges,
+  skills: renderSkills,
+  skill: renderSkill,
   write: renderWrite,
   patch: renderPatch,
   append: renderAppend,

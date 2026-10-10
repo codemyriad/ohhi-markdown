@@ -170,7 +170,8 @@ describe('installShellCommands', () => {
       const row = registry.get(VIEWS[id].command.id)
       expect(row, id).toBeDefined()
       void row!.run()
-      expect(deps.openView).toHaveBeenLastCalledWith(id, undefined)
+      // A session opens on one: the current session, else a fresh id (B).
+      expect(deps.openView).toHaveBeenLastCalledWith(id, id === 'session' ? expect.any(String) : undefined)
     }
     // The inspector keeps its id and is listed only while developer tools are on.
     expect(registry.available().some((c) => c.id === 'app.inspector')).toBe(false)
@@ -181,12 +182,12 @@ describe('installShellCommands', () => {
     expect(registry.available().some((c) => c.id === 'app.log')).toBe(true)
   })
 
-  it('the writing harness is quiet with no provider, and its stubs say they are not built (R1)', () => {
+  it('the writing harness is quiet with no provider, and a new session opens its tab (R1)', async () => {
     useMemStorage()
     try {
       const flash = vi.fn()
-      const { registry } = setup({ flash })
-      const harness = ['app.session', 'ai.new-session', 'ai.accept-suggestion', 'note.comment']
+      const { registry, deps } = setup({ flash })
+      const harness = ['app.session', 'ai.new-session', 'ai.accept-suggestion']
       const offered = (id: string): boolean => registry.available().some((c) => c.id === id)
       for (const id of harness) {
         expect(registry.get(id), id).toBeDefined()
@@ -194,8 +195,27 @@ describe('installShellCommands', () => {
       }
       setAiConfig({ providers: [{ id: 'p', name: 'P', kind: 'openai', baseUrl: '', model: 'm' }] })
       for (const id of harness) expect(offered(id), id).toBe(true)
-      void registry.get('ai.new-session')!.run()
-      expect(flash).toHaveBeenCalledWith({ level: 'info', text: getLL().web.ai.notice.not_built() })
+      // No selection to capture: a bare session, in its own tab.
+      await registry.get('ai.new-session')!.run()
+      expect(deps.openView).toHaveBeenLastCalledWith('session', expect.any(String))
+      // Nothing running: Stop says so rather than doing nothing.
+      await registry.get('ai.stop-run')!.run()
+      expect(flash).toHaveBeenCalledWith({ level: 'info', text: getLL().web.ai.session.nothing_running() })
+    } finally {
+      dropStorage()
+    }
+  })
+
+  it('comments are not AI-gated: note.comment exists with no provider, on Mod+Shift+M, offered once a note is in an editor', () => {
+    useMemStorage()
+    try {
+      const { registry } = setup({})
+      const row = registry.get('note.comment')
+      expect(row).toMatchObject({ keys: 'Mod+Shift+M' })
+      // No editor bound → nothing to comment on, provider or not.
+      expect(registry.available().some((c) => c.id === 'note.comment')).toBe(false)
+      setAiConfig({ providers: [{ id: 'p', name: 'P', kind: 'openai', baseUrl: '', model: 'm' }] })
+      expect(registry.available().some((c) => c.id === 'note.comment')).toBe(false)
     } finally {
       dropStorage()
     }

@@ -144,6 +144,18 @@ Not here, on purpose: the **off-focus sync dot** an unfocused pane shows when
 its note is not in sync (`regions.statusbar: "merged"`, golden rule 4). It is
 the band C `.ed-sync-dot`, unlayered, out of reach of every theme.
 
+## Suggestions (`--ed-suggest-del` / `-add` / `-stale`)
+
+An agent's proposed edit is drawn in the note as track changes
+(writing-harness B7): the text it would replace struck through in
+`--ed-suggest-del`, the proposal inserted beside it in `--ed-suggest-add`, and
+a proposal a peer's edit overtook — it will not be applied — dashed in
+`--ed-suggest-stale`. They paint the `ed-suggest-*` classes from
+`libs/editor/src/suggestions.ts`; nothing drawn is in the document. All three
+are text colours, so `theme-contract.test.ts` asserts each clears 4.5:1 on
+`--ed-surface`, that add and del stay apart, and that none sits near the
+diverged red: a proposal is not a conflict.
+
 ## Type (`--ed-font-prose` / `-ui` / `-mono`)
 
 Three roles: note text (CodeMirror and Reading), the chrome, and code. The
@@ -298,6 +310,19 @@ line that line shows as text and takes the edge itself (`cm-code-first` /
 `cm-code-last`), so there is never a seam. Body text is `--ed-code-block-fg`
 with the `--ed-syn-*` slots; *Copied* flashes in `--ed-code-copied` (default
 `var(--ed-callout-success)`), the one token the card adds.
+
+## Comment threads (`--ed-comment-bg`, `--ed-comment-resolved-bg`)
+
+The passage a comment thread hangs off (writing harness, B8) is tinted with
+`--ed-comment-bg`; once the thread is resolved, with the fainter
+`--ed-comment-resolved-bg`, so a settled discussion stays findable without
+competing with the open ones. Both are read by `libs/editor/src/comments.ts`
+(the `ed-comment` / `ed-comment-resolved` marks) and nothing else. The
+built-ins use a violet tint on purpose: never the search yellow
+(`--ed-search-match-*`) and never a sync colour — a comment is neither a
+match nor a state. The thread's gutter dot and the active thread's underline
+reuse `--ed-caret` (`--ed-gutter-fg` once resolved), so they need no token of
+their own.
 
 ## Theme switching
 

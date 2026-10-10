@@ -148,6 +148,19 @@
     --ed-bracket-match-bg: #1d7f9c33;
     --ed-search-match-bg: #ffe08a80;
     --ed-search-match-active-bg: #ffc94d;
+    /* An agent's proposed edit, drawn in the note (writing-harness B7):
+     * the text it would replace struck in -del, the proposal inserted in
+     * -add, and a proposal a peer's edit overtook in -stale. Text colours:
+     * each clears 4.5:1 on --ed-surface, and none is near the diverged
+     * red — a proposal is not a conflict (theme-contract.test.ts). */
+    --ed-suggest-del: #8a4f7d;
+    --ed-suggest-add: #1d6a85;
+    --ed-suggest-stale: #66707c;
+    /* Comment threads (writing-harness B8): the passage a thread hangs off,
+     * and the same once resolved — fainter, still findable. A tint, never
+     * the search yellow or a sync colour: a comment is not a match or a state. */
+    --ed-comment-bg: #7b6fd62e;
+    --ed-comment-resolved-bg: #b0bac52e;
 
     /* --- collaboration --------------------------------------------------- */
     --ed-peer-caret-width: 2px;

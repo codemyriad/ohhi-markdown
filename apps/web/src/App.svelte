@@ -56,6 +56,7 @@
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
+  import { attachHarness } from './lib/sessions.svelte.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
@@ -307,6 +308,8 @@
   const settingsRelays = $derived(
     workspace ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays : []
   )
+  // ---- the writing harness (B4): sessions and runs belong to the shell, not a view ----
+  attachHarness({ workspace: () => workspace, index: nav.index, clock: realClock, openView: (id, arg) => openView(id, arg) })
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),

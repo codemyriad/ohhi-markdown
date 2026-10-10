@@ -322,6 +322,63 @@ export const ChangesOut = z.object({
   ...PageOut,
 })
 
+// ---- skills (writing-harness B9) -------------------------------------------
+
+/**
+ * A skill's facts as the loader reads them from `.agents/skills/<name>/SKILL.md`
+ * (the Agent Skills spec's fields, plus Ohhi's `metadata.ohhi-kind/-input/-output`).
+ * `problems` are validation CODES (`name-mismatch`, `description-length`, …;
+ * `docs/agent-access.md` lists them): empty means valid. An invalid skill is
+ * listed so it can be fixed, and never offered to a model.
+ */
+export const SkillKind = z.enum(['check', 'transform', 'generate', 'research'])
+export const SkillInput = z.enum(['selection', 'section', 'note', 'folder'])
+export const SkillOutput = z.enum(['replace', 'insert', 'annotate', 'new-note'])
+export const SkillMeta = z.object({
+  name: z.string(),
+  description: z.string(),
+  /** Vault-relative folder, e.g. `.agents/skills/line-edit`. */
+  dir: z.string(),
+  license: z.string().optional(),
+  compatibility: z.string().optional(),
+  /** The spec's string → string map (a nested value is a problem, and dropped). */
+  metadata: z.record(z.string(), z.string()),
+  kind: SkillKind.optional(),
+  input: SkillInput.optional(),
+  output: SkillOutput.optional(),
+  /** A `scripts/` folder exists. Scripts never run in the app; a Node host may run them. */
+  hasScripts: z.boolean(),
+  problems: z.array(z.string()),
+})
+
+export const SkillsIn = z.object({ ...PageIn })
+export const SkillsOut = z.object({
+  schema: z.literal(schemaName('skills')),
+  /** Where skills live: `.agents/skills`. */
+  dir: z.string(),
+  skills: z.array(
+    SkillMeta.pick({
+      name: true,
+      description: true,
+      dir: true,
+      kind: true,
+      input: true,
+      output: true,
+      hasScripts: true,
+      problems: true,
+    })
+  ),
+  ...PageOut,
+})
+
+export const SkillIn = z.object({ name: z.string().min(1).describe('The skill\'s folder name under `.agents/skills/`') })
+export const SkillOut = z.object({
+  schema: z.literal(schemaName('skill')),
+  meta: SkillMeta,
+  /** SKILL.md below its frontmatter — the instructions a model is given on activation. */
+  body: z.string(),
+})
+
 // ---- write side -----------------------------------------------------------
 
 const WriteCommon = {
@@ -513,6 +570,8 @@ export const OP_NAMES = [
   'resolve',
   'stats',
   'changes',
+  'skills',
+  'skill',
   'write',
   'patch',
   'append',
@@ -534,6 +593,8 @@ export const OP_SCHEMAS = {
   resolve: { input: ResolveIn, output: ResolveOut, mutates: false, description: 'Resolve a wikilink target to a vault path the way the editor does.' },
   stats: { input: StatsIn, output: StatsOut, mutates: false, description: 'What the index covers: notes, links, tags, binaries skipped, folders ignored.' },
   changes: { input: ChangesIn, output: ChangesOut, mutates: false, description: 'Paths changed since an instant or since a journal sequence.' },
+  skills: { input: SkillsIn, output: SkillsOut, mutates: false, description: 'Skills in the vault (`.agents/skills/`): name, description, kind, input, output and validation problems.' },
+  skill: { input: SkillIn, output: SkillOut, mutates: false, description: 'One skill: its parsed SKILL.md frontmatter, validation problems and instructions.' },
   write: { input: WriteIn, output: WriteOut, mutates: true, description: 'Create or replace a note (journaled, atomic).' },
   patch: { input: PatchIn, output: PatchOut, mutates: true, description: 'Replace one exact string in a note (journaled, atomic). Refused when the string is not unique.' },
   append: { input: AppendIn, output: AppendOut, mutates: true, description: 'Append text to a note or to one of its sections (journaled, atomic).' },

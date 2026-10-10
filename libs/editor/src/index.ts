@@ -64,6 +64,20 @@ export {
 } from './attachments.js'
 export { selectedTextIn } from './selection.js'
 export {
+  acceptSuggestionAtCaret,
+  buildDecorations,
+  INTRA_DIFF_MIN,
+  rejectSuggestionAtCaret,
+  setSuggestions,
+  suggestionAt,
+  suggestionField,
+  suggestions,
+  suggestionsCompartment,
+  suggestionsIn,
+  type EditorSuggestion,
+  type SuggestionsHost,
+} from './suggestions.js'
+export {
   centreTarget,
   typewriterCompartment,
   typewriterExtension,
@@ -71,3 +85,14 @@ export {
   type TypewriterInput,
 } from './typewriter.js'
 export type { ViewMode } from '@ohhi/editor-lang'
+export {
+  activeThread,
+  commentRanges,
+  commentsExtension,
+  commentsField,
+  setActiveThread,
+  setThreads,
+  threadAt,
+  type CommentRange,
+  type CommentsHost,
+} from './comments.js'

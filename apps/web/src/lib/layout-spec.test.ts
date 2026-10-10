@@ -119,6 +119,7 @@ describe('the built-in and the example', () => {
     expect(READOUT_IDS).toContain('chars')
     expect(READOUT_IDS).toContain('inspector')
     expect(READOUT_IDS).toContain('help')
+    expect(READOUT_IDS).toContain('last-agent-write')
     expect(READOUT_IDS).toHaveLength(17)
     expect(REGION_IDS).toContain('format')
     expect(REGION_IDS).toContain('status')

@@ -50,6 +50,8 @@ export const READOUT_IDS = [
   'inspector',
   /** first-run E1: the Help menu (guides, shortcuts, what's new, Report a problem, the version). */
   'help',
+  /** Writing-harness B7: the in-app agent's last edit, "Tighten edited Plan 3 min ago"; drawn only once it has written. */
+  'last-agent-write',
   'note.pill',
   'people',
 ] as const

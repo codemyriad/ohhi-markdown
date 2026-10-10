@@ -48,6 +48,15 @@ import { DOC_CHANGE_WINDOW_MS, RelayRefusedError, type Actor, type AppEvent, typ
 import { RoomEventLog } from './event-store.js'
 import { numberedName, splitName } from './attachments.js'
 import { attributeUpdate, relayHost } from './attribution.js'
+import { AgentRuns, isAgentOrigin, type AgentOrigin } from './agent-origin.js'
+import {
+  memoryRecordMap,
+  SuggestionStore,
+  yRecordMap,
+  type StoredRecord,
+  type SuggestionRecord,
+  type SuggestionSpan,
+} from './suggestions.js'
 import {
   BlobDocStore,
   decodeFile,
@@ -405,6 +414,13 @@ export class MountSession {
   /** Peers present in the folder awareness (name → color), ourselves excluded. */
   private presentPeers = new Map<string, string | undefined>()
 
+  // ---- the in-app agent's writes (writing-harness B3/B7, spike S14) ----
+  /** Canonical origin + per-run undo managers for every agent run that wrote here. */
+  private readonly agentRuns = new AgentRuns()
+  /** One suggestion store per doc guid, rebuilt when the guid's doc instance is. */
+  private readonly suggestionStores = new Map<string, { doc: EngineDoc; store: SuggestionStore }>()
+  private suggestionSeq = 0
+
   static async create(cfg: MountSessionConfig): Promise<MountSession> {
     const session = new MountSession(cfg)
     // The stored history first, so a boot's own events land after it.
@@ -511,6 +527,82 @@ export class MountSession {
   awarenessForPath(path: string): Awareness | null {
     const guid = this.guidFor(path)
     return guid ? (this.conns.get(guid)?.awareness ?? null) : null
+  }
+
+  // ---- suggestions and agent writes (writing-harness B7, spike S14) ----
+
+  /**
+   * Pin an agent's proposed edit to `path` (mount-relative) as a pending
+   * suggestion (`suggestions.ts`). Throws `SuggestionConflictError` when the
+   * text at `[from, to)` is not `baseText` — the agent read a stale copy —
+   * and a plain Error when the path has no live doc.
+   */
+  proposeEdit(input: {
+    path: string
+    from: number
+    to: number
+    baseText: string
+    proposedText: string
+    origin: AgentOrigin
+  }): SuggestionRecord {
+    const store = this.suggestionStore(input.path)
+    if (!store) throw new Error(`no live doc for ${input.path}`)
+    const record = store.propose({
+      id: `${input.origin.runId}:${++this.suggestionSeq}`,
+      at: this.clock.now(),
+      from: input.from,
+      to: input.to,
+      baseText: input.baseText,
+      proposedText: input.proposedText,
+      origin: input.origin,
+    })
+    return withPath(record, input.path)
+  }
+
+  /**
+   * Apply a pending suggestion: one transaction with the run's agent origin,
+   * logged as the agent's `doc.changed` and undoable by `undoAgent`. The
+   * record as it now stands (`accepted`, or `stale` when the text moved),
+   * or null when there is none.
+   */
+  acceptSuggestion(path: string, id: string): SuggestionRecord | null {
+    const record = this.suggestionStore(path)?.accept(id) ?? null
+    return record ? withPath(record, path) : null
+  }
+
+  /** Drop a suggestion; the text is never touched. */
+  rejectSuggestion(path: string, id: string): boolean {
+    return this.suggestionStore(path)?.reject(id) ?? false
+  }
+
+  /** Every suggestion record on `path`, newest first. */
+  suggestionsFor(path: string): SuggestionRecord[] {
+    return (this.suggestionStore(path)?.list() ?? []).map((r) => withPath(r, path))
+  }
+
+  /** The pending and stale suggestions on `path`, resolved to offsets in the text now. */
+  suggestionSpans(path: string): SuggestionSpan[] {
+    return this.suggestionStore(path)?.spans() ?? []
+  }
+
+  /** Called after any change to `path`'s text or suggestions. */
+  subscribeSuggestions(path: string, cb: () => void): () => void {
+    return this.suggestionStore(path)?.subscribe(cb) ?? (() => {})
+  }
+
+  /**
+   * Undo everything agent run `runId` wrote in this mount (the newest run
+   * with something to undo when absent). Only the agent's items go — a
+   * human's typing inside them stays (spike S14 Q2). False when nothing did.
+   */
+  undoAgent(runId?: string): boolean {
+    const id = runId ?? this.agentRuns.lastRun()
+    return id ? this.agentRuns.undo(id) : false
+  }
+
+  /** The newest agent run in this mount with something left to undo, or null. */
+  lastAgentRun(): string | null {
+    return this.agentRuns.lastRun()
   }
 
   /**
@@ -1319,6 +1411,9 @@ export class MountSession {
     this.cancelOffline = null
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
+    for (const { store } of this.suggestionStores.values()) store.destroy()
+    this.suggestionStores.clear()
+    this.agentRuns.destroy()
     // Best-effort, like the blob tail below: the log is droppable (rule 8).
     void this.roomLog.flush().finally(() => this.roomLog.dispose())
     this.sessionRef?.dispose()
@@ -1443,10 +1538,12 @@ export class MountSession {
 
   /**
    * `doc.changed` for an edit that arrived: a peer's (attributed through the
-   * doc's awareness at arrival — `attribution.ts`), or a disk ingest
-   * (Obsidian, git, an agent: `disk`). Only those two: an update logs only
-   * when its origin is that doc's PROVIDER (or the seam's `'remote'`) or a
-   * disk ingest. Every other origin is a local transaction — `'local'`, the
+   * doc's awareness at arrival — `attribution.ts`), a disk ingest
+   * (Obsidian, git, an outside agent: `disk`), or the IN-APP agent's own
+   * transaction (an `AgentOrigin`, `agent-origin.ts` → `agent`, named). Only
+   * those three: an update logs only when its origin is that doc's PROVIDER
+   * (or the seam's `'remote'`), a disk ingest or an agent origin. Every
+   * other origin is a local transaction — `'local'`, the
    * editor binding's, the undo manager's — and is never logged: a local
    * delete-only edit carries no inserted client ids, so attribution would
    * fall through to "via the relay" and badge the drawer with our own
@@ -1455,12 +1552,17 @@ export class MountSession {
   private noteDocChange(guid: string, path: string, update: Uint8Array, origin: unknown): void {
     const provider = this.conns.get(guid)?.provider
     const remote = origin === 'remote' || (provider !== undefined && origin === provider)
-    if (origin !== 'disk' && !remote) return
+    const agent = isAgentOrigin(origin)
+    if (origin !== 'disk' && !remote && !agent) return
     // A first join's pull is the room arriving, not a thousand edits.
     if (this.pullPhase !== null) return
     try {
       let actor: Actor
-      if (origin === 'disk') {
+      if (agent) {
+        // The in-app agent (writing-harness B3/B7): the app made this
+        // transaction itself, so the name is known, not inferred.
+        actor = { kind: 'agent', name: origin.name }
+      } else if (origin === 'disk') {
         actor = { kind: 'disk' }
       } else {
         const doc = this.docs.get(guid)
@@ -1688,6 +1790,28 @@ export class MountSession {
 
   private recordFor(key: string): SyncRecordFields {
     return this.cfg.recordFor(key)
+  }
+
+  /**
+   * `path`'s suggestion store, minted on first ask and rebuilt when the
+   * guid's doc instance changes (a carve or an unshare rebuilds docs). On a
+   * relay-attached mount the records live in the doc (`yRecordMap`: peers
+   * see the proposal); otherwise in memory for this session.
+   */
+  private suggestionStore(path: string): SuggestionStore | null {
+    const guid = this.guidFor(path)
+    const doc = guid ? this.docs.get(guid) : undefined
+    if (!guid || !doc) return null
+    const held = this.suggestionStores.get(guid)
+    if (held && held.doc === doc) return held.store
+    held?.store.destroy()
+    const store = new SuggestionStore({
+      doc,
+      records: this.relay ? yRecordMap(doc) : memoryRecordMap(),
+      runs: this.agentRuns,
+    })
+    this.suggestionStores.set(guid, { doc, store })
+    return store
   }
 
   private guidFor(path: string): string | null {
@@ -3015,6 +3139,11 @@ function decodeSeed(seed: string): Uint8Array | null {
   } catch {
     return null
   }
+}
+
+/** A stored suggestion with the path it is read under (records are stored without one). */
+function withPath(record: StoredRecord, path: string): SuggestionRecord {
+  return { ...record, path }
 }
 
 /**

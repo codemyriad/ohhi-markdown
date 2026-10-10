@@ -24,7 +24,9 @@
  *  - one note with frontmatter (the real vault: 17 of 1,037) and one whose
  *    frontmatter is nested, so `supported: false` has a fixture;
  *  - a CRLF note, a binary, nested folders, an `.obsidian/` marker directory,
- *    an unpadded daily note, and unresolved links including an embed.
+ *    an unpadded daily note, and unresolved links including an embed;
+ *  - `.agents/skills/` with two valid skills (one shipping `scripts/`) and two
+ *    invalid ones, for the `skills` / `skill` ops and `ohhi skills export`.
  */
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -123,6 +125,54 @@ Pointing at [[Nothing Here]] and ![[missing-diagram.png]].
 
 Short.
 `,
+  // Skills (writing-harness B9): `.agents/skills/` is NOT ignored — skills sync
+  // and index like any folder. One valid skill per Ohhi field set, one with
+  // scripts, one with a name that breaks every rule, one with nested metadata.
+  '.agents/skills/line-edit/SKILL.md': `---
+name: line-edit
+description: >
+  Tighten prose for rhythm and word choice without changing meaning.
+  Use when asked to polish a paragraph or selection.
+license: MIT
+metadata:
+  ohhi-kind: transform
+  ohhi-input: selection
+  ohhi-output: replace
+---
+
+# Line edit
+
+Shorten long sentences. Prefer concrete verbs.
+`,
+  '.agents/skills/fact-check/SKILL.md': `---
+name: fact-check
+description: "Flag claims that need a source. Use when asked to verify a section."
+metadata:
+  ohhi-kind: check
+  ohhi-input: section
+  ohhi-output: annotate
+---
+
+Run scripts/verify.sh only on a Node host.
+`,
+  '.agents/skills/fact-check/scripts/verify.sh': 'echo verified\n',
+  '.agents/skills/Bad_Name/SKILL.md': `---
+name: Bad_Name
+description: A folder whose name breaks the rules.
+---
+
+Body.
+`,
+  '.agents/skills/deep-meta/SKILL.md': `---
+name: deep-meta
+description: Metadata nested past one level.
+metadata:
+  ohhi:
+    kind: check
+---
+
+Body.
+`,
 }
 
 /** PNG magic plus a NUL byte — `looksBinary` answers on both counts. */
@@ -161,6 +211,9 @@ export async function makeFixtureVault(prefix = 'ohhi-fixture-'): Promise<Fixtur
   }
 }
 
+/** The skill folders under `.agents/skills/`, and the ones that validate. */
+export const FIXTURE_SKILLS = ['Bad_Name', 'deep-meta', 'fact-check', 'line-edit'] as const
+export const FIXTURE_VALID_SKILLS = ['fact-check', 'line-edit'] as const
 /** Text notes in the fixture — what `coverage.docs` must report. */
 export const FIXTURE_TEXT_NOTES = Object.keys(NOTES).length
 /** Binaries in the fixture — what `coverage.skippedBinary` must report. */

@@ -22,8 +22,12 @@ export type EventLevel = 'error' | 'warn' | 'info'
 
 /**
  * Who caused it, as honestly as the app can say. `disk` is Obsidian, git or
- * an agent — indistinguishable at the reconciler; `agent` needs the CLI's
- * journal to correlate (later). Names are self-declared (awareness), never ids.
+ * an OUTSIDE agent (the `ohhi` CLI, Claude Code) — indistinguishable at the
+ * reconciler without the CLI's journal to correlate (later). `agent` is the
+ * one honest source of that kind today: the IN-APP agent, whose transactions
+ * the app makes itself under an `AgentOrigin` (`agent-origin.ts`), named by
+ * the run (the skill, or "Agent"). Names are self-declared (awareness, or
+ * the run), never ids.
  */
 export type ActorKind = 'me' | 'peer' | 'relay' | 'disk' | 'agent' | 'app'
 export interface Actor {

@@ -142,8 +142,8 @@ and the skill in the same change.
 - **Anything that walks the vault carries `coverage`:**
   `{ docs, skippedBinary, ignored }` — notes indexed, files seen and not
   indexed, and the directory names the adapter never lists (`.ohhi`,
-  `.ohhi-cache`, `.git`, `.obsidian`, `.trash`, `node_modules`, and the
-  pre-rename `.editor` and `.editor-cache` — shared with the app,
+  `.ohhi-cache`, `.git`, `.obsidian`, `.trash`, `node_modules`, `.claude` (the
+  skills farm), and the pre-rename `.editor` and `.editor-cache` — shared with the app,
   `libs/vault`'s `IGNORED_DIRS`). This is the honesty counter that keeps
   "nothing found" from being read as "nothing exists" (R7).
 - **Search returns references and snippets, never bodies** (R4). Reading is
@@ -235,7 +235,7 @@ text   Areas/CS/HTML.md        size=961B   mtime=2026-03-04T11:02:07.000Z     # 
 text   Areas/CS/JSON.md        size=154B   mtime=2025-11-22T09:12:41.000Z
 text   Areas/CS/Networking.md  size=4.1K   mtime=2026-01-18T17:44:00.000Z
 returned=3 total=398 dir=Areas/CS                                             # stderr
-coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
+coverage: searched 1037 notes; 41 binaries skipped; ignored .claude, .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
 ```
 
 ```jsonc
@@ -245,7 +245,7 @@ coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cac
   "dir": "Areas/CS",
   "items": [{ "path": "Areas/CS/JSON.md", "kind": "text", "size": 154, "mtime": "2025-11-22T09:12:41.000Z" }],
   "returned": 3, "total": 398, "nextCursor": "…",
-  "coverage": { "docs": 1037, "skippedBinary": 41, "ignored": [".editor", ".editor-cache", ".git", ".obsidian", ".ohhi", ".ohhi-cache", ".trash", "node_modules"] }
+  "coverage": { "docs": 1037, "skippedBinary": 41, "ignored": [".claude", ".editor", ".editor-cache", ".git", ".obsidian", ".ohhi", ".ohhi-cache", ".trash", "node_modules"] }
 }
 ```
 
@@ -325,7 +325,7 @@ tier=body path=Edible/Dev Notes/SnapMenu - Restaurant JSON Import.md line=14 sco
 tier=body path=Areas/CS/Postgres.md line=88 score=2.77
        88: `[json]b` columns index better than `[json]`
 returned=3 total=131 query="json" mode=ranked                       # stderr
-coverage: searched 1037 notes; 41 binaries skipped; ignored .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
+coverage: searched 1037 notes; 41 binaries skipped; ignored .claude, .editor, .editor-cache, .git, .obsidian, .ohhi, .ohhi-cache, .trash, node_modules
 hint=ohhi read --outline Areas/CS/JSON.md   (then --section or --lines; never read a long note whole)
 ```
 
@@ -401,7 +401,7 @@ What the index covers, and what it cost:
 $ ohhi stats
 vault=/home/chris/Documents/black book                     # stdout
 docs=1037 terms=48210 links=949 unresolved=114 tags=37
-skippedBinary=41 ignored=.editor,.editor-cache,.git,.obsidian,.ohhi,.ohhi-cache,.trash,node_modules
+skippedBinary=41 ignored=.claude,.editor,.editor-cache,.git,.obsidian,.ohhi,.ohhi-cache,.trash,node_modules
 buildMs=253 indexSchemaVersion=3                           # stderr
 ```
 
@@ -440,6 +440,62 @@ Sorted by `at`. The answer carries **`cursorSince`**, an ISO-8601 instant (not a
 `j<seq>`): pass it back as the next `--since` and you get exactly what moved in
 between. `changes` does not build the index — resuming has to be cheap or it
 will not be done.
+
+### `skills`
+
+The skills in the vault: every folder under `.agents/skills/` holding a
+`SKILL.md` ([Agent Skills](https://agentskills.io/specification) — the folder
+Codex, Gemini CLI, Cursor, OpenCode, pi and Copilot read natively). One row per
+skill: `name`, `description`, `dir`, Ohhi's `kind` / `input` / `output` (from
+`metadata.ohhi-kind` / `ohhi-input` / `ohhi-output`), `hasScripts` and
+`problems`. `--limit` · `--cursor`
+
+```text
+$ ohhi skills
+fact-check  check/section/annotate       Flag claims that need a source. …  scripts=true
+line-edit   transform/selection/replace  Tighten prose for rhythm and …
+returned=2 total=2 dir=.agents/skills                       # stderr
+```
+
+`problems` are validation codes — **empty means valid**, and a skill with
+problems is listed (so it can be fixed) but never offered to a model or
+exported:
+
+| Code | Rule |
+|---|---|
+| `frontmatter-missing` / `frontmatter-invalid` | SKILL.md opens with a `---` block the reader can take |
+| `name-missing` · `name-format` · `name-length` · `name-mismatch` | `name` is `a-z0-9-` (no leading, trailing or doubled `-`), ≤ 64, and equals the folder name |
+| `name-reserved` | `anthropic` / `claude` in a name, or `synced` (Claude Code's reserved words) |
+| `description-missing` · `description-length` | 1–1024 characters |
+| `compatibility-length` | ≤ 500 characters |
+| `metadata-nested` | `metadata` is a map of string → string, one level |
+| `metadata-kind` · `metadata-input` · `metadata-output` | `ohhi-kind` ∈ check, transform, generate, research · `ohhi-input` ∈ selection, section, note, folder · `ohhi-output` ∈ replace, insert, annotate, new-note |
+| `body-length` | the instructions are ≤ 500 lines |
+| `lint-command` · `lint-context` · `lint-hooks` | no `` !`cmd` `` injection, no `context:`, no `hooks:` — Claude-only features a vault skill must not carry |
+
+### `skill <name>`
+
+One skill: `meta` (every field above plus `license`, `compatibility` and the
+whole `metadata` map) and `body` — SKILL.md below its frontmatter, the
+instructions a model is given when the skill runs. The text view prints the
+body on stdout and the facts on stderr. `not_found` (exit 1) when there is no
+`.agents/skills/<name>/SKILL.md`.
+
+### `skills export` (not an op)
+
+Claude Code reads `.claude/skills/`, not `.agents/skills/`. `ohhi skills export`
+links each **usable** skill there — `.claude/skills/<name>` →
+`../../.agents/skills/<name>` — where usable is valid *and*, when the app has
+written `.ohhi/skills.json`, trusted and enabled in it (no file: every valid
+skill). Links it made before that are no longer wanted are removed (a disabled
+skill must not keep a link — every harness treats presence as enabled).
+`.claude/skills/.ohhi-farm.json` records what the farm wrote, shared with the
+desktop app's copy farm, so neither ever deletes a folder it did not make: a
+name already in `.claude/skills/` that the manifest does not record is
+reported `blocked` and left alone. `--dry-run` reports without writing;
+`--json` prints `ohhi.skills-export.v1` `{dir, linked, removed, blocked,
+dryRun}` (a host command like `ohhi mcp`: no MCP tool, no `spec/` schema).
+`.claude` is in the ignored set, so the links are never indexed twice.
 
 ---
 
@@ -689,7 +745,67 @@ transport it never uses (R6).
 
 ---
 
-## 10. `spec/` and the conformance test
+## 10. `ohhi ask` — the writing harness from a terminal
+
+```sh
+ohhi ask "what did I decide about pooling?" --ref Areas/CS/Postgres.md#Decisions
+ohhi ask "summarise this week" --provider local --model llama3.1 --json
+```
+
+`ohhi ask` runs the **writing harness** (`libs/harness`, the same loop the app's
+Session view runs) with this process as its host: a model, the vault's own
+commands as tools, and an answer. It is **not a contract op** — it is not a
+vault operation but an agent run over the vault — so it has no `OP_SCHEMAS`
+entry, no `spec/` schema and no MCP tool, like `ohhi mcp`.
+
+- **Read-only.** The model is offered the read ops only (`ohhi_search`,
+  `ohhi_read`, `ohhi_links`, …, `ohhi_skills`, `ohhi_skill`) — never `write`,
+  `patch`, `append`, `mv`, `rm` or `restore`. The system prompt restates the
+  skill's ladder for the tools: search, then outline, then a section or a line
+  range.
+- **Output.** The answer streams to **stdout**; each tool call is one line on
+  **stderr** (`tool=ohhi_search query="pooling" limit=5`), then a provenance
+  line (`provider=… model=… tokens=in/out`). With `--json`, stdout carries one
+  `ohhi.ask.v1` document and nothing else:
+  `{ schema, text, usage: { input, output } | null, tools: [{ name, input }] }`
+  (its zod schema is `AskOut` in `apps/cli/src/ask.ts`).
+- **Flags.** `--provider ID` (default: the file's `defaultProvider`, else the
+  first), `--model M` (overrides the provider's), `--skill NAME` (the vault
+  skill `.agents/skills/NAME`, its body in the prompt; a skill with problems is
+  refused), `--ref` (repeatable): `path` (the note, attached when it fits the
+  read budget), `path/` (a folder, named only), `path#Heading/Sub` (one
+  section), `path:12-20` (a line range). Attached text goes into the prompt
+  under *References*, headed `path (12–20) · hash …`.
+- **Providers** come from `$XDG_CONFIG_HOME/ohhi/providers.json` (else
+  `~/.config/ohhi/providers.json`), the app's `AiConfig` shape:
+
+  ```json
+  {
+    "providers": [
+      { "id": "claude", "name": "Claude", "kind": "anthropic", "baseUrl": "", "model": "claude-sonnet-4-5" },
+      { "id": "local", "name": "Ollama", "kind": "openai-compatible", "baseUrl": "http://localhost:11434/v1", "model": "llama3.1" }
+    ],
+    "defaultProvider": "claude"
+  }
+  ```
+
+  `kind` is `anthropic`, `openai`, `openrouter` or `openai-compatible` (the
+  last needs `baseUrl`; the others default to the vendor's endpoint). The key
+  is `apiKey` in the file or, overriding it, `$OHHI_API_KEY`; it is never read
+  from the vendors' own environment variables. `timeoutSec` and `maxTokens`
+  are honoured as in the app.
+- **Exit codes.** 0 · **1** a provider or run error, with the provider's
+  message (`ohhi: runtime: claude: invalid x-api-key`) · **2** usage: no
+  providers file (the message names the path to create), an unknown
+  `--provider`, a bad `--ref`, a flag that is not `ask`'s.
+
+The harness and the AI SDK under it are imported lazily, only for `ask`: a cold
+`ohhi search` does not pay for them (R6). The app's own providers live in its
+settings on the device, not in this file — the two are configured separately.
+
+---
+
+## 11. `spec/` and the conformance test
 
 `spec/` holds a JSON Schema per output document —
 `spec/ohhi.<op>.v1.schema.json` plus `spec/ohhi.error.v1.schema.json` — with
@@ -720,7 +836,7 @@ and it asserts three things:
 
 ---
 
-## 11. Where the code is
+## 12. Where the code is
 
 | Path | What |
 |---|---|
@@ -731,6 +847,7 @@ and it asserts three things:
 | `apps/cli/src/run.ts` | `run(argv, io) => exit code` — no framework, `node:util` `parseArgs`. |
 | `apps/cli/src/render/` | The text renderers (humans only). |
 | `apps/cli/src/mcp.ts` | The stdio MCP server. |
+| `apps/cli/src/ask.ts` | `ohhi ask` — the Node host of `libs/harness`, and `ohhi.ask.v1`. |
 | `apps/cli/src/gen-schemas.ts` | Writes `spec/`. |
 | `spec/` | The generated JSON Schemas. |
 | `.claude/skills/ohhi-vault/SKILL.md` | The agent-facing operating manual. |

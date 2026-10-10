@@ -45,6 +45,13 @@
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
+  // Comment threads (writing-harness B8) — not AI-gated; only *Send to agent* is.
+  import { commentsExtension } from '@ohhi/editor'
+  import { aiEnabled } from '../config.js'
+  import { bindThreads, commentBubble, commentsHostFor, showActiveThread } from '../threads.svelte.js'
+  import CommentBubble from './CommentBubble.svelte'
+  // The agent's suggestions in the note (writing-harness B7).
+  import { noteSuggestions } from '../suggestions.svelte.js'
 
   interface Props {
     pane: Pane
@@ -185,7 +192,17 @@
     notePath: () => untrack(() => path),
     now: () => pasteClock.now(),
   })
-  const extensions = [wikiLinkHost.of(linkHost), readHost.of(noteHost), attachmentHost.of(fileHost)]
+  const extensions = [
+    wikiLinkHost.of(linkHost),
+    readHost.of(noteHost),
+    attachmentHost.of(fileHost),
+    commentsExtension(commentsHostFor(() => pane.id, () => path)),
+    // Untracked like the hosts above: CM6 reads these inside the view's own effect.
+    noteSuggestions(
+      () => untrack(() => workspace),
+      () => untrack(() => path)
+    ),
+  ]
 
   const status = $derived(noteStatus(workspace.ui.files, workspace.ui.records, path))
 
@@ -263,6 +280,13 @@
     )
     return () => panes.registerEditor(id, null)
   })
+
+  // Comment threads (writing-harness B8): this view's marks follow its
+  // note's threads, and the open bubble's thread is drawn active.
+  $effect(() =>
+    bindThreads({ paneId: pane.id, path, view: handle?.view ?? null, focused, storeFor: (p) => workspace.threadsFor(p) })
+  )
+  $effect(() => showActiveThread(pane.id, handle?.view ?? null))
 
   /**
    * The same handle, offered to the shell on demand: a view reports its
@@ -469,6 +493,16 @@
             onhandle={(h) => onHandle(held, h)}
           />
         {/key}
+        {#if commentBubble.current?.paneId === pane.id && commentBubble.current.path === path}
+          {#key commentBubble.current}
+            <CommentBubble
+              request={commentBubble.current}
+              {workspace}
+              ai={aiEnabled()}
+              onClose={() => commentBubble.close()}
+            />
+          {/key}
+        {/if}
       {:else if tab.view}
         <!-- A view tab: whichever component the registry names (S22 Q5).
              Keyed on the tab, so two tabs of one kind in a pane (the full

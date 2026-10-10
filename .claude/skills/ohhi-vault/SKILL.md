@@ -150,6 +150,23 @@ writer: the user typing in the editor, git, Obsidian. **Do not report `created`
 as "a new note"** — it only means this tool holds no earlier version of it, so
 on a vault you have never written to, everything that moved says `created`.
 
+### The vault's own skills
+
+```bash
+ohhi skills                   # .agents/skills/<name>/SKILL.md: kind/input/output and problems
+ohhi skill line-edit          # its instructions on stdout, its facts on stderr
+ohhi skills export            # link the usable ones into .claude/skills/ for Claude Code
+```
+
+A vault can carry its own skills in `.agents/skills/` (the Agent Skills
+format). When a task matches one, read it with `ohhi skill <name>` and follow
+it. Use only skills whose `problems` is empty, and never run a skill's
+`scripts/` unless the user asks — a skill that synced in from someone else has
+not been reviewed. `skills export` makes the usable set visible to Claude Code
+through `.claude/skills/` symlinks (trusted and enabled in the app's
+`.ohhi/skills.json`, or every valid skill when the app never wrote one), and it
+never deletes a folder it did not make.
+
 ### Machine-readable everything
 
 ```bash

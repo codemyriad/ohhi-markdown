@@ -1,9 +1,9 @@
 <script lang="ts" module>
-  import { History, Link, type LucideIcon } from '@lucide/svelte'
+  import { History, Link, MessageSquare, type LucideIcon } from '@lucide/svelte'
   import type { RailSectionId } from '../layout.js'
 
   /** One icon per dock tab (`RAIL_SECTIONS`): the strip's and the tab row's. */
-  export const DOCK_ICONS: Record<RailSectionId, LucideIcon> = { links: Link, history: History }
+  export const DOCK_ICONS: Record<RailSectionId, LucideIcon> = { links: Link, history: History, comments: MessageSquare }
 </script>
 
 <script lang="ts">
@@ -35,6 +35,8 @@
   import type { Workspace } from '../workspace.svelte.js'
   import HistorySection from './HistorySection.svelte'
   import LinksPanel from './LinksPanel.svelte'
+  import ThreadList from './ThreadList.svelte'
+  import { openThread } from '../threads.svelte.js'
 
   interface Props {
     workspace: Workspace
@@ -158,6 +160,15 @@
                 restore={(p, seq) => workspace.restorePreImage(p, seq)}
                 written={noteRecord?.diskMatchesCrdt ?? true}
                 now={() => clock.now()}
+              />
+            {:else if id === 'comments'}
+              <!-- Comment threads (writing-harness B8): not AI-gated. -->
+              <ThreadList
+                path={selectedPath}
+                {workspace}
+                onOpen={(thread) => selectedPath && openThread(selectedPath, thread)}
+                onExported={(p) => shell?.openPath(p)}
+                flash={(input) => workspace.flash(input)}
               />
             {/if}
           </div>

@@ -27,6 +27,7 @@ import SessionView from './components/SessionView.svelte'
 import SharedView from './components/SharedView.svelte'
 import SettingsView from './components/SettingsView.svelte'
 import type { SettingsSection } from './settings.js'
+import { currentSessionArg, sessionTitle } from './sessions.svelte.js'
 
 /** What every view component is handed. */
 export interface ViewProps {
@@ -208,10 +209,13 @@ export const VIEWS = {
     },
   },
   // writing-harness B4: the Session view. Listed only while a provider exists
-  // (R1); its argument is the session id, and `arg` (the current session) is B's.
+  // (R1); its argument is the session id, named by the session's title.
   session: {
     id: 'session',
-    title: (LL, arg) => (arg ? LL.web.ai.session.title_named({ name: arg }) : LL.web.ai.session.title()),
+    title: (LL, arg) => {
+      const name = arg ? sessionTitle(arg) : undefined
+      return name ? LL.web.ai.session.title_named({ name }) : LL.web.ai.session.title()
+    },
     icon: MessageSquareText,
     component: SessionView,
     command: {
@@ -220,6 +224,8 @@ export const VIEWS = {
       group: (LL) => LL.web.commands.groups.ai(),
     },
     when: (ctx) => ctx.ai(),
+    // The session last focused, else a fresh one (its file is written on the first send).
+    arg: () => currentSessionArg(),
   },
 } satisfies Record<TabView, ViewDef>
 

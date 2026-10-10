@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ohhi.md/schema/ohhi.skill.v1.schema.json",
+  "title": "ohhi.skill.v1",
+  "description": "One skill: its parsed SKILL.md frontmatter, validation problems and instructions.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ohhi.skill.v1"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "dir": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "compatibility": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "check",
+            "transform",
+            "generate",
+            "research"
+          ]
+        },
+        "input": {
+          "type": "string",
+          "enum": [
+            "selection",
+            "section",
+            "note",
+            "folder"
+          ]
+        },
+        "output": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "insert",
+            "annotate",
+            "new-note"
+          ]
+        },
+        "hasScripts": {
+          "type": "boolean"
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "dir",
+        "metadata",
+        "hasScripts",
+        "problems"
+      ],
+      "additionalProperties": false
+    },
+    "body": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "meta",
+    "body"
+  ],
+  "additionalProperties": false
+}

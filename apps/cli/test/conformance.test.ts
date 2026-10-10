@@ -29,6 +29,8 @@ const INVOCATIONS: Record<OpName, string[]> = {
   resolve: ['resolve', 'JSON'],
   stats: ['stats'],
   changes: ['changes', '--since', '1970-01-01T00:00:00.000Z'],
+  skills: ['skills'],
+  skill: ['skill', 'line-edit'],
   write: ['write', 'Inbox/New Note.md', '--text', 'hello\n'],
   patch: ['patch', 'Areas/CS/JSON.md', '--old', 'JSON is a data format.', '--new', 'JSON is a data format!'],
   append: ['append', 'TODO/Writing.md', '--text', 'appended line\n'],
@@ -97,7 +99,7 @@ describe('--json output conforms to the contract', () => {
 
   it('every list carries returned/total/nextCursor', async () => {
     const v = await fixture()
-    for (const op of ['ls', 'search', 'links', 'backlinks', 'unresolved', 'tags', 'changes'] as const) {
+    for (const op of ['ls', 'search', 'links', 'backlinks', 'unresolved', 'tags', 'changes', 'skills'] as const) {
       const { out } = await ohhi(inVault(v, [...INVOCATIONS[op], '--json']))
       const doc = JSON.parse(out) as Record<string, unknown>
       expect(Object.keys(doc), op).toEqual(expect.arrayContaining(['returned', 'total', 'nextCursor']))

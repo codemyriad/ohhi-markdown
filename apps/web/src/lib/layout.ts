@@ -53,7 +53,7 @@ export const TREE_WIDTH = { min: 192, max: 640, default: 288, step: 16, collapse
  */
 // *This note* dissolved (sharing Fork 6-B): its facts live in the
 // breadcrumb's folder popover, the Shared view's People and the share sheet.
-export const RAIL_SECTIONS = ['links', 'history'] as const
+export const RAIL_SECTIONS = ['links', 'history', 'comments'] as const
 export type RailSectionId = (typeof RAIL_SECTIONS)[number]
 
 /**

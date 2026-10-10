@@ -468,6 +468,7 @@ a layout draws the `help` readout.
 - `drawer`
 - `inspector`
 - `help`
+- `last-agent-write`
 - `note.pill`
 - `people`
 <!-- /generated -->

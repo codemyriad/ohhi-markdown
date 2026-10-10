@@ -108,6 +108,8 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
       ...limit('1000'),
     },
   },
+  skills: { positionals: [], flags: { ...limit('1000') } },
+  skill: { positionals: [{ key: 'name', label: 'name', required: true }], flags: {} },
   write: {
     positionals: [{ key: 'path', label: 'path', required: true }],
     flags: {
@@ -205,7 +207,48 @@ export interface McpCommand {
   globals: Globals
 }
 
-export type Command = OpCommand | HelpCommand | McpCommand
+/**
+ * `ohhi skills export [--dry-run]` — the `.claude/skills/` symlink farm
+ * (writing-harness B9). Node-only and not a contract op: it writes links,
+ * not notes, so it has no MCP tool and no `spec/` schema.
+ */
+export interface SkillsExportCommand {
+  kind: 'skills-export'
+  globals: Globals
+  dryRun: boolean
+}
+
+/** The one-line grammar of `skills export`, for `ohhi help`. */
+export const SKILLS_EXPORT_USAGE = 'skills export [--dry-run]'
+
+/**
+ * `ohhi ask "<prompt>"` — the Node host of the writing harness
+ * (writing-harness-build A7). Not a contract op: an agent run over the
+ * vault's read ops, so it has no MCP tool and no `spec/` schema.
+ */
+export interface AskCommand {
+  kind: 'ask'
+  globals: Globals
+  prompt: string
+  provider?: string
+  model?: string
+  skill?: string
+  /** `path`, `path/`, `path#Section`, `path:12-20` — in the order given. */
+  refs: string[]
+}
+
+/** `ask`'s own flags; legal after `ask` and nowhere else. */
+export const ASK_FLAGS: Record<string, FlagSpec & { multiple?: boolean }> = {
+  provider: { key: 'provider', kind: 'string', arg: 'ID', help: 'a provider id from providers.json (default: its defaultProvider, else the first)' },
+  model: { key: 'model', kind: 'string', arg: 'M', help: "use this model instead of the provider's" },
+  skill: { key: 'skill', kind: 'string', arg: 'NAME', help: 'run with the vault skill .agents/skills/NAME' },
+  ref: { key: 'ref', kind: 'string', arg: 'PATH[#SECTION|:A-B]', multiple: true, help: 'attach a note, a section or a line range (repeatable)' },
+}
+
+/** The one-line grammar of `ask`, for `ohhi help`. */
+export const ASK_USAGE = 'ask "<prompt>" [--provider ID] [--model M] [--skill NAME] [--ref PATH[#SECTION|:A-B]]…'
+
+export type Command = OpCommand | HelpCommand | McpCommand | SkillsExportCommand | AskCommand
 
 const usageError = (message: string, details?: Record<string, unknown>): never => {
   throw new OpError('usage', message, details)
@@ -225,6 +268,7 @@ function parseArgsOptions(): Record<string, { type: 'string' | 'boolean'; multip
     opts[name] = spec.multiple === true ? { type, multiple: true } : { type }
   }
   for (const [name, spec] of Object.entries(GLOBAL_FLAGS)) add(name, spec)
+  for (const [name, spec] of Object.entries(ASK_FLAGS)) add(name, spec)
   for (const grammar of Object.values(GRAMMAR)) for (const [name, spec] of Object.entries(grammar.flags)) add(name, spec)
   opts.help.short = 'h'
   return opts
@@ -273,6 +317,17 @@ export function parseCommand(argv: string[]): Command {
     if (rest.length > 0) usageError('`ohhi mcp` takes no positional arguments', { command: 'mcp', extra: rest })
     return { kind: 'mcp', globals }
   }
+
+  if (name === 'skills' && rest[0] === 'export') {
+    if (rest.length > 1) usageError('`ohhi skills export` takes no positional arguments', { command: 'skills export', extra: rest.slice(1) })
+    const allowed = new Set([...Object.keys(GLOBAL_FLAGS), 'dry-run'])
+    for (const supplied of Object.keys(values)) {
+      if (!allowed.has(supplied)) return usageError(`--${supplied} is not a flag of \`ohhi skills export\``, { op: 'skills export', flag: supplied })
+    }
+    return { kind: 'skills-export', globals, dryRun: values['dry-run'] === true }
+  }
+
+  if (name === 'ask') return parseAsk(rest, values, globals)
 
   if (!isOpName(name)) return usageError(`unknown command ${JSON.stringify(name)}`, { command: name })
   const op: OpName = name
@@ -343,4 +398,27 @@ export function usageLine(op: OpName): string {
     parts.push(spec.required === true ? body : `[${body}]`)
   }
   return parts.join(' ')
+}
+
+/** `ask "<prompt>" [flags]` — every positional after `ask` is the prompt, joined by spaces. */
+function parseAsk(rest: string[], values: Record<string, unknown>, globals: Globals): AskCommand {
+  const allowed = new Set([...Object.keys(GLOBAL_FLAGS), ...Object.keys(ASK_FLAGS)])
+  for (const supplied of Object.keys(values)) {
+    if (!allowed.has(supplied)) usageError(`--${supplied} is not a flag of \`ohhi ask\``, { op: 'ask', flag: supplied })
+  }
+  const prompt = rest.join(' ').trim()
+  if (!prompt) usageError('`ohhi ask` needs a "<prompt>"', { op: 'ask', missing: 'prompt' })
+  const str = (flag: string): string | undefined => {
+    const v = values[flag]
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined
+  }
+  return {
+    kind: 'ask',
+    globals,
+    prompt,
+    provider: str('provider'),
+    model: str('model'),
+    skill: str('skill'),
+    refs: (values.ref as string[] | undefined) ?? [],
+  }
 }
