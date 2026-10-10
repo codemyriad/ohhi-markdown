@@ -1005,6 +1005,10 @@ export type NamespaceWebTranslation = {
 			 */
 			next_row: string
 			/**
+			 * ↵​ ​o​n​ ​a​n​ ​e​m​p​t​y​ ​r​o​w​:​ ​d​o​n​e
+			 */
+			leave: string
+			/**
 			 * +​ ​r​o​w
 			 */
 			add_row: string
@@ -6312,7 +6316,7 @@ export type NamespaceWebTranslation = {
 		 */
 		vault_root: string
 		/**
-		 * T​h​i​s​ ​n​o​t​e​ ​i​s​ ​i​n​ ​{​s​h​a​r​e​}​.​ ​I​m​a​g​e​s​ ​d​o​n​'​t​ ​s​y​n​c​ ​y​e​t​,​ ​s​o​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​ ​a​ ​p​l​a​c​e​h​o​l​d​e​r​ ​u​n​t​i​l​ ​t​h​e​y​ ​d​o​.
+		 * T​h​i​s​ ​n​o​t​e​ ​i​s​ ​i​n​ ​{​s​h​a​r​e​}​.​ ​I​m​a​g​e​s​ ​d​o​n​'​t​ ​s​y​n​c​,​ ​s​o​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​ ​a​ ​p​l​a​c​e​h​o​l​d​e​r​ ​i​n​s​t​e​a​d​ ​o​f​ ​t​h​i​s​ ​p​i​c​t​u​r​e​.
 		 * @param {string} share
 		 */
 		shared_notice: RequiredParams<'share'>
@@ -7276,6 +7280,10 @@ export type TranslationFunctions = {
 				 * ↵ next row
 				 */
 				next_row: () => LocalizedString
+				/**
+				 * ↵ on an empty row: done
+				 */
+				leave: () => LocalizedString
 				/**
 				 * + row
 				 */
@@ -12284,7 +12292,7 @@ export type TranslationFunctions = {
 			 */
 			vault_root: () => LocalizedString
 			/**
-			 * This note is in {share}. Images don't sync yet, so collaborators will see a placeholder until they do.
+			 * This note is in {share}. Images don't sync, so collaborators will see a placeholder instead of this picture.
 			 */
 			shared_notice: (arg: { share: string }) => LocalizedString
 			/**

@@ -6,15 +6,21 @@
    * the strip's three group seams. Built here, where `PaneTree` is rendered,
    * because a snippet has to live with the markup that renders it.
    *
-   * The FLOATING LAYER (round 3, Q2/Q4) hangs over the panes, as the dock
-   * does: the format bar as a pill at the bottom centre (`regions.format:
-   * "bottom"`) or under the header (`"top"`), and the corner status
-   * (`regions.status: "corner"`, `bars.status`) at the bottom right — on the
-   * format bar's row (the bar shifting off-centre when it must), or above it
-   * when the pane area is too narrow for both (measured). Neither ever covers a note's last (or
-   * first) line: the layer's height becomes `--ed-float-bottom` /
-   * `--ed-float-top` on this area, and every CM6 scroller under it pads by
-   * that much. The layer clears a top tab strip and a bottom status bar.
+   * The FLOATING LAYER (round 3, Q2/Q4) hangs over the FOCUSED PANE, as the
+   * dock does over the area: the format bar as a pill at the pane's bottom
+   * centre (`regions.format: "bottom"`) or under its strip (`"top"`), and the
+   * corner status (`regions.status: "corner"`, `bars.status`) and the pane
+   * mode's cue at its bottom right — on the format bar's row (the bar
+   * shifting off-centre when it must), or above it when the pane is too
+   * narrow for both (measured). The layer is positioned and sized on the
+   * focused pane's box (measured; one pane is the whole stage), so in a split
+   * the bar centres in the pane being edited, never over the divider, and
+   * its fold (a container query on the layer) follows that pane's width.
+   * Neither ever covers a note's last (or first) line: the layer's height
+   * becomes `--ed-float-bottom` / `--ed-float-top` on this area, and every
+   * CM6 scroller under it pads by that much (every pane alike, so focusing
+   * another pane never reflows its text). The layer clears the pane's top tab
+   * strip and bottom status bar.
    */
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -90,40 +96,64 @@
   let stage = $state<HTMLElement | null>(null)
   let clearTop = $state(0)
   let clearBottom = $state(0)
+  /** The focused pane's box within the stage: the layer's left, width and vertical insets. */
+  let frame = $state<{ left: number; width: number; top: number; bottom: number } | null>(null)
+  /** The pane the layer floats over: the zoomed one, else the focused one. */
+  const framePane = $derived(panes.layout.zoom ?? panes.layout.focus)
   /** The two stacks' heights, measured: what the scrollers pad by. */
   let bottomH = $state(0)
   let topH = $state(0)
   /** The layer's gap to the edge it floats at (Tailwind's 2). */
   const GAP_PX = 8
+  /** Between the bar and the corner column on one row (Tailwind's 4): the two read as apart. */
+  const SEP_PX = 16
 
   /**
    * A tab strip along the top edge (the bar goes under it) and a per-pane
    * status bar along the bottom (the bar goes above it): the panes' own
    * chrome stays reachable under the layer.
    */
+  function paneEl(): HTMLElement | null {
+    if (!stage) return null
+    return stage.querySelector<HTMLElement>(`[data-pane-id="${CSS.escape(framePane)}"]`)
+  }
+
   function measureEdges(): void {
     if (!stage) return
-    const box = stage.getBoundingClientRect()
+    const outer = stage.getBoundingClientRect()
+    const box = paneEl()?.getBoundingClientRect() ?? outer
+    frame = {
+      left: box.left - outer.left,
+      width: box.width,
+      top: box.top - outer.top,
+      bottom: outer.bottom - box.bottom,
+    }
+    // Only this pane's own chrome: a strip along its top, a bar along its bottom.
+    const across = (r: DOMRect): boolean => r.left < box.right - 1 && r.right > box.left + 1
     const strips = [...stage.querySelectorAll<HTMLElement>('[data-strip]')]
       .map((el) => el.getBoundingClientRect())
-      .filter((r) => r.top - box.top < 1)
+      .filter((r) => across(r) && Math.abs(r.top - box.top) < 1)
     const bars = [...stage.querySelectorAll<HTMLElement>('[data-testid="status-bar"], [data-testid^="pane-status:"]')]
       .map((el) => el.getBoundingClientRect())
-      .filter((r) => box.bottom - r.bottom < 1)
+      .filter((r) => across(r) && Math.abs(box.bottom - r.bottom) < 1)
     clearTop = strips.length ? Math.max(...strips.map((r) => r.bottom)) - box.top : 0
     clearBottom = bars.length ? box.bottom - Math.min(...bars.map((r) => r.top)) : 0
   }
 
   $effect(() => {
-    if (!stage || (!formatAt && !corner)) return
+    if (!stage || (!formatAt && !corner && !cue)) return
     const el = stage
-    let frame = 0
+    let raf = 0
     const schedule = (): void => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(measureEdges)
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(measureEdges)
     }
     const resize = new ResizeObserver(schedule)
     resize.observe(el)
+    // The focused pane resizes on its own when a divider is dragged; and a
+    // focus change moves the layer (`framePane` is read here, so it re-runs).
+    const pane = framePane ? paneEl() : null
+    if (pane) resize.observe(pane)
     // Strips come and go with a second tab, panes split; typing never moves them.
     const mutations = new MutationObserver((records) => {
       if (records.every((r) => (r.target as Element).closest?.('.cm-editor'))) return
@@ -132,7 +162,7 @@
     mutations.observe(el, { childList: true, subtree: true })
     schedule()
     return () => {
-      cancelAnimationFrame(frame)
+      cancelAnimationFrame(raf)
       resize.disconnect()
       mutations.disconnect()
     }
@@ -150,7 +180,7 @@
   let cornerW = $state(0)
   // Three tracks, two gaps (the first track is empty space, but its gap is there).
   const stacked = $derived(
-    formatAt === 'bottom' && corner && barW > 0 && cornerW > 0 && barW + cornerW + 2 * GAP_PX > rowW
+    formatAt === 'bottom' && (corner || cue) && barW > 0 && cornerW > 0 && barW + cornerW + 2 * SEP_PX > rowW
   )
 
   const padBottom = $derived(bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
@@ -247,8 +277,10 @@
       {#if formatAt === 'top' && topCtx}
         <div
           data-testid="float-top"
-          class="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-2 @container"
-          style:top="{clearTop + GAP_PX}px"
+          class="pointer-events-none absolute z-10 flex justify-center px-2 @container"
+          style:left="{frame?.left ?? 0}px"
+          style:width={frame ? `${frame.width}px` : '100%'}
+          style:top="{(frame?.top ?? 0) + clearTop + GAP_PX}px"
         >
           <div bind:clientHeight={topH} class="flex min-w-0 justify-center">
             <FormatBar ids={layout!.spec.bars.format} edge="top" ctx={topCtx} registry={nav.registry} />
@@ -256,23 +288,26 @@
         </div>
       {/if}
       {#if (formatAt === 'bottom' || corner || cue) && bottomCtx}
-        <!-- One row while both fit: the bar centred and the corner at the
-             right; the right track never shrinks below the corner
-             (`minmax(max-content, 1fr)`), so with less room the bar shifts
-             left rather than the two meeting. Too narrow for both
-             (measured): the corner stacks above the bar, right-aligned. -->
+        <!-- Over the focused pane. One row while both fit: the bar centred
+             and the corner at the right, a clear 16 px apart; the right
+             track never shrinks below the corner (`minmax(max-content,
+             1fr)`), so with less room the bar shifts left rather than the
+             two meeting. Too narrow for both (measured): the corner stacks
+             above the bar, right-aligned. -->
         <div
           data-testid="float-bottom"
           data-stacked={stacked}
-          class="pointer-events-none absolute inset-x-0 z-10 px-2 @container"
-          style:bottom="{clearBottom + GAP_PX}px"
+          class="pointer-events-none absolute z-10 px-2 @container"
+          style:left="{frame?.left ?? 0}px"
+          style:width={frame ? `${frame.width}px` : '100%'}
+          style:bottom="{(frame?.bottom ?? 0) + clearBottom + GAP_PX}px"
         >
           <div
             bind:clientHeight={bottomH}
             bind:clientWidth={rowW}
             class={stacked
               ? 'flex flex-col items-center gap-2'
-              : 'grid grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] items-end gap-2'}
+              : 'grid grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] items-end gap-x-4'}
           >
             {#if corner || cue}
               <div class="col-start-3 row-start-1 flex justify-end {stacked ? 'self-end' : ''}">

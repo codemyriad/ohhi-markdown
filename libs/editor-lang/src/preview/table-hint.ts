@@ -1,6 +1,7 @@
 /**
  * The table hint toolbar (E4, the approved mock): while the caret is in a
- * table, a small bar floats above it — `Tab next cell · ↵ next row` as hints,
+ * table, a small bar floats above it — `Tab next cell · ↵ next row · ↵ on an
+ * empty row: done` as hints,
  * then `+ row`, `+ column` and `Align` as buttons that run the `table.*`
  * commands. Live and Source; never Reading (nothing to edit there).
  *
@@ -52,6 +53,7 @@ function createHint(view: EditorView): { dom: HTMLElement } {
   }
   hint(t.nextCell)
   hint(t.nextRow)
+  hint(t.leave)
   button(t.addRow, 'table.insert-row-below')
   button(t.addColumn, 'table.insert-column-right')
   button(t.align, 'table.align')

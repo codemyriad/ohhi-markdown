@@ -49,13 +49,23 @@ test('the keyboard walks into the table: an arrow from the line above shows the 
   await expect(page.locator('.cm-table-hint')).toBeVisible()
 })
 
-test('Tab aligns and moves cell to cell, Enter goes down a row and adds one, undo takes it back', async ({
+test('Tab aligns and moves cell to cell, undo takes it back, Enter goes down a row, adds one and leaves on an empty one', async ({
   page,
 }) => {
   await seedReadNote(page, 'tables-keys', NOTE)
+  const original = '| a | b |\n|---|:-:|\n| 1 | 2 |'
+  // Past the undo manager's 500 ms capture window, so the seed and the Tab
+  // are two undo steps (else one Mod+Z takes the whole note back).
+  await page.waitForTimeout(600)
   await page.locator('.cm-table-grid th', { hasText: 'a' }).click()
   await page.keyboard.press('Tab')
   expect(await text(page)).toContain('| a   |  b  |\n| --- | :-: |\n| 1   |  2  |')
+  // The alignment is one undo step: Mod+Z puts the table's bytes back.
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => text(page)).toContain(original)
+  expect(await text(page)).toBe(NOTE)
+
+  await page.keyboard.press('Tab')
   await page.keyboard.type('!')
   expect(await text(page)).toContain('|  b!  |')
   await page.keyboard.press('Enter')
@@ -65,6 +75,16 @@ test('Tab aligns and moves cell to cell, Enter goes down a row and adds one, und
   expect(await text(page)).toMatch(/\|\s+\|\s+z\s+\|/)
   // Tab stays in the editor: focus did not leave for the next control.
   await expect(content(page)).toBeFocused()
+  // Enter past the last row adds an empty one; Enter on it takes it out and leaves the table.
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('After.')
+  const lines = (await text(page)).split('\n')
+  const at = lines.indexOf('After.')
+  expect(at).toBeGreaterThan(0)
+  expect(lines[at - 1]).toBe('')
+  expect(lines[at - 2]).toMatch(/\|\s+\|\s+z\s+\|/)
+  expect(lines.filter((l) => l.startsWith('|'))).toHaveLength(4)
 })
 
 test('the hint bar’s + row and the palette’s table rows act on the table', async ({ page }) => {

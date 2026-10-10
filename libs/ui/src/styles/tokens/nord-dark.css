@@ -124,7 +124,9 @@
 
     /* --- tasks (editor-usability E2): the checked box fills with the box's
      * own colour; a done task's text is the faint ink, lightly struck. */
-    --ed-task-done-fg: var(--ed-ink-faint);
+    /* Nord's faint ink is nearly its body ink, so a done task would not
+     * fade: its own grey (nord3-light), 3.5:1 on the surface. */
+    --ed-task-done-fg: #7b88a1;
     --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
 
     --ed-table-header-bg: #22272f;       /* --table-header-background */
@@ -202,6 +204,6 @@
     --ed-callout-question: #d08770;
     --ed-callout-bug: #bf616a;
     --ed-callout-example: #b48ead;
-    --ed-callout-quote: var(--ed-ink-faint);
+    --ed-callout-quote: #7b88a1;          /* faded like a done task, not the near-ink faint */
   }
 }

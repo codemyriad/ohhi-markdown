@@ -137,6 +137,7 @@ export function readLabels(): ReadLabels {
       toolbar: t.table_hint.toolbar(),
       nextCell: t.table_hint.next_cell(),
       nextRow: t.table_hint.next_row(),
+      leave: t.table_hint.leave(),
       addRow: t.table_hint.add_row(),
       addColumn: t.table_hint.add_column(),
       align: t.table_hint.align(),

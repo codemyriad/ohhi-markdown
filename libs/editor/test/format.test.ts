@@ -354,6 +354,10 @@ describe('block commands (E6)', () => {
     expect(run(insertCallout, 'Ti‸tle')).toBe('> [!note] Ti‸tle')
     expect(run(insertCallout, '‹one\n\ntwo›')).toBe('‹> [!note] one\n>\n> two›')
   })
+  it('callout: skips the blank lines a selection starts and ends on — the header lands on the first line with text', () => {
+    expect(run(insertCallout, '‹\n\none\n\ntwo\n\n›')).toBe('‹\n\n> [!note] one\n>\n> two\n\n›')
+    expect(run(toggleQuote, '‹\none\n›')).toBe('‹\n> one\n›')
+  })
   it('callout: toggles off on a callout', () => {
     expect(run(insertCallout, '> [!note] ‹one\n>\n> two›')).toBe('‹one\n\ntwo›')
     expect(twice(insertCallout, 'Ti‸tle')).toBe('Ti‸tle')
@@ -422,7 +426,6 @@ describe('FORMAT_COMMANDS', () => {
       ['format.italic', 'Mod+i'],
       ['format.strike', 'Mod+Shift+x'],
       ['format.highlight', 'Mod+Shift+h'],
-      ['format.code', 'Mod+Shift+c'],
       ['format.list', 'Mod+Shift+8'],
       ['format.ordered-list', 'Mod+Shift+7'],
       ['format.link', 'Mod+k'],
@@ -434,7 +437,6 @@ describe('FORMAT_COMMANDS', () => {
       'Mod-i',
       'Mod-Shift-x',
       'Mod-Shift-h',
-      'Mod-Shift-c',
       'Mod-Shift-8',
       'Mod-Shift-7',
       'Mod-k',

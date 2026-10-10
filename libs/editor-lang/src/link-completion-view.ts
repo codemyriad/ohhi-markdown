@@ -181,7 +181,13 @@ export function linkCompletions(hostOf: (state: EditorState) => WikiLinkHost) {
       // pass over the vault, and only the picked row ever pays for it.
       apply: (view, completion, from) =>
         applyLink(
-          linkTarget(note.path, paths, note.group === 'scope' && mount ? mount.path : '', typedPath),
+          linkTarget(
+            note.path,
+            paths,
+            note.group === 'scope' && mount ? mount.path : '',
+            typedPath,
+            ctx.path
+          ),
           'target'
         )(view, completion, from),
     }))

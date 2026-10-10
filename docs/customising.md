@@ -230,6 +230,19 @@ none.
   `.ohhi/keymaps/device.json` (`device-2.json` if that name is taken) the
   first time a vault is open, and that keymap becomes active.
 
+The format commands' default keys (the `default` keymap; every one can be
+rebound or unbound like any other): bold `Mod+B`, italic `Mod+I`, link
+`Mod+K` (Obsidian's), strikethrough `Mod+Shift+X`, highlight `Mod+Shift+H`,
+bullet list `Mod+Shift+8`, numbered list `Mod+Shift+7`. Inline code
+(`format.code`), headings, task, quote, callout, code block, table, image,
+rule, indent and outdent are unbound by default — inline code because
+`Mod+E` is editing ↔ Reading and `Mod+Shift+C` is the browser's element
+picker, the headings because `Mod+1`–`9` are the browser's tab keys; bind
+them from a keymap file. In the editor
+itself, `Mod+L` toggles a task, Tab / Shift+Tab indent a list item (and insert
+a tab in a paragraph), and in a table Tab / Shift+Tab move between cells and
+Enter moves down a row.
+
 Two kinds of palette row cannot be bound, because their ids come and go: one
 `group.open:<id>` per saved tab group and one `template:<name>` per template.
 Bind `template.insert` instead.

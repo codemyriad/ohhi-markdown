@@ -2,9 +2,14 @@
   /**
    * The pane mode's corner cue (E6; Settings › Layout › Pane keys). While a
    * mode is live and the hints are *Subtle* (the default) or *Off*, the keys
-   * sit in the editor area's bottom-right corner — the focused pane's
-   * corner, directly above the word count — instead of the full bar along
-   * the bottom (`ModeBar.svelte`, which *Full* keeps).
+   * sit in the focused pane's bottom-right corner (the editor area's floating
+   * layer follows the focused pane), directly above the word count — instead
+   * of the full bar along the bottom (`ModeBar.svelte`, which *Full* keeps).
+   *
+   * Its width never moves the format bar beside it: the `?` line's *more* /
+   * *less* label is as wide as the longer of the two whichever shows, and the
+   * all-keys card opens above the line out of flow (anchored to its right
+   * edge), so opening it does not widen the corner column.
    *
    * Subtle: one quiet line — the mode's badge, its two most-used verbs
    * (`mode-cue.ts`) and `?` keys. Off: the badge alone. `?` (the pane mode
@@ -33,14 +38,15 @@
 </script>
 
 {#if shown}
-  <div class="pointer-events-none flex flex-col items-end gap-1" data-testid="mode-cue" data-level={level}>
+  <div class="pointer-events-none relative flex flex-col items-end gap-1" data-testid="mode-cue" data-level={level}>
     {#if panes.modeKeysOpen}
-      <!-- Every key of the mode: `?` again, or leaving the mode, closes it. -->
+      <!-- Every key of the mode: `?` again, or leaving the mode, closes it.
+           Out of flow, above the line: the corner column keeps its width. -->
       <div
         role="status"
         aria-label={t.cue.all()}
         data-testid="mode-cue-all"
-        class="grid max-w-[min(28rem,90vw)] grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-xs text-base-content/70 shadow-sm"
+        class="absolute right-0 bottom-full mb-1 grid w-max max-w-[min(28rem,90vw)] grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-xs text-base-content/70 shadow-sm"
       >
         {#each rows as hint (hint.key)}
           <kbd class="{kbd} justify-self-end">{hint.key}</kbd>
@@ -70,7 +76,12 @@
       {/each}
       {#if level === 'subtle'}
         <span class="inline-flex items-center gap-1">
-          <kbd class={kbd}>{t.cue.more_key()}</kbd>{panes.modeKeysOpen ? t.cue.less() : t.cue.more()}
+          <kbd class={kbd}>{t.cue.more_key()}</kbd>
+          <!-- Both labels hold the cell; the hidden one only keeps its width. -->
+          <span class="grid">
+            <span class="col-start-1 row-start-1 {panes.modeKeysOpen ? 'invisible' : ''}">{t.cue.more()}</span>
+            <span class="col-start-1 row-start-1 {panes.modeKeysOpen ? '' : 'invisible'}">{t.cue.less()}</span>
+          </span>
         </span>
       {/if}
     </div>

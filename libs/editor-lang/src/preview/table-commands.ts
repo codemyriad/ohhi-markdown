@@ -21,7 +21,7 @@ import { Prec, type EditorState, type Extension, type Line } from '@codemirror/s
 import { keymap, type Command, type EditorView } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { previewMode } from '../read-host.js'
-import { applyTableOp, locate, offsetIn, type TableOp } from './table-ops.js'
+import { applyTableOp, locate, offsetIn, splitRow, type TableOp } from './table-ops.js'
 
 /** How long a command may spend finishing the parse around the caret. */
 const PARSE_BUDGET_MS = 50
@@ -138,8 +138,46 @@ const key =
 export const tableNextCell: Command = key('next-cell')
 /** Shift-Tab: align, then the previous cell. */
 export const tablePrevCell: Command = key('prev-cell')
-/** Enter: align, then the same column one row down (a new row past the last). */
-export const tableNextRow: Command = key('next-row')
+/**
+ * Enter on the table's LAST row when every cell of it is empty (the row the
+ * previous Enter or Tab just made): the row comes out and the caret leaves
+ * the table — Advanced Tables' way out, so Enter alone can finish a table.
+ * The row's line becomes a blank line and the caret goes onto a fresh line
+ * after it: GFM (and lezer) read ANY non-blank line right under a table as
+ * one more row, so without the blank line the next words typed would be.
+ * Both lines keep the container prefix (a quote's `>`, a list item's indent),
+ * so the caret stays in the block the table is in. One `input.table`
+ * transaction; false anywhere else.
+ */
+export function exitEmptyLastRow(view: EditorView): boolean {
+  const { state } = view
+  if (state.readOnly) return false
+  const head = state.selection.main.head
+  const node = tableNodeAt(state, head)
+  if (!node) return false
+  const block = tableBlock(state, node)
+  const row = state.doc.lineAt(head).number - block.lines[0].number
+  // A body row (the header and the delimiter row are 0 and 1), and the last.
+  if (row < 2 || row !== block.lines.length - 1) return false
+  if (!splitRow(block.bodies[row]).every((c) => c.text.trim() === '')) return false
+  const line = block.lines[row]
+  const prefix = block.prefixes[row]
+  const insert = `${prefix.trimEnd()}\n${prefix}`
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert },
+    selection: { anchor: line.from + insert.length },
+    scrollIntoView: true,
+    userEvent: 'input.table',
+  })
+  return true
+}
+
+/**
+ * Enter: align, then the same column one row down (a new row past the last);
+ * on an empty last row, out of the table (`exitEmptyLastRow`).
+ */
+export const tableNextRow: Command = (view) =>
+  plainCaret(view) && (exitEmptyLastRow(view) || runTableOp(view, 'next-row'))
 
 /**
  * ArrowDown / ArrowUp onto a Live grid. The grid is a block widget, and CM6's

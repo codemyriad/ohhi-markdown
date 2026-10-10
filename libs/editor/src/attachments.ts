@@ -12,7 +12,7 @@
  * Without a host nothing here does anything, and CM6's own paste and drop run
  * as before (they read files as text and skip binaries).
  */
-import { Facet, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
+import { Facet, StateEffect, StateField, type ChangeDesc, type EditorState, type Extension } from '@codemirror/state'
 import { EditorView, ViewPlugin, type PluginValue } from '@codemirror/view'
 
 /** What a paste or a drop is: the host names a pasted picture by the clock. */
@@ -125,21 +125,42 @@ export function pastedAttachments(data: DataTransfer | null): File[] {
 
 /**
  * Where each in-flight save will insert, mapped through every edit that lands
- * while the bytes are written — a peer's typing, or the person's own. Bias is
- * to the left, so text typed at the caret after a paste stays after the image.
+ * while the bytes are written — a peer's typing, or the person's own.
+ *
+ * - A caret (an empty range) is one point that maps to the left, so whatever
+ *   is typed at the caret meanwhile ends up after the link and nothing is
+ *   replaced.
+ * - A selection maps inward (`from` to the right, `to` to the left), so text
+ *   typed at either edge stays outside it. The selection is replaced only if
+ *   it still holds the text it held when the paste or drop began; if anyone
+ *   changed it meanwhile, the link goes in at its start and replaces nothing.
  */
-const addPending = StateEffect.define<{ id: number; from: number; to: number }>()
+export interface PendingAttachment {
+  id: number
+  from: number
+  to: number
+  /** The selected text when the save began ('' for a caret). */
+  text: string
+}
+
+const addPending = StateEffect.define<PendingAttachment>()
 const dropPending = StateEffect.define<number>()
 
-const pendingField = StateField.define<readonly { id: number; from: number; to: number }[]>({
+/** One pending range mapped through a change set (exported for the unit tests). */
+export function mapPending(p: PendingAttachment, changes: ChangeDesc): PendingAttachment {
+  if (p.from === p.to) {
+    const at = changes.mapPos(p.from, -1)
+    return { ...p, from: at, to: at }
+  }
+  const from = changes.mapPos(p.from, 1)
+  const to = Math.max(from, changes.mapPos(p.to, -1))
+  return { ...p, from, to }
+}
+
+const pendingField = StateField.define<readonly PendingAttachment[]>({
   create: () => [],
   update(value, tr) {
-    let next = tr.docChanged
-      ? value.map((p) => {
-          const from = tr.changes.mapPos(p.from, -1)
-          return { id: p.id, from, to: Math.max(from, tr.changes.mapPos(p.to, 1)) }
-        })
-      : value
+    let next = tr.docChanged ? value.map((p) => mapPending(p, tr.changes)) : value
     for (const e of tr.effects) {
       if (e.is(addPending)) next = [...next, e.value]
       else if (e.is(dropPending)) next = next.filter((p) => p.id !== e.value)
@@ -147,6 +168,16 @@ const pendingField = StateField.define<readonly { id: number; from: number; to: 
     return next
   },
 })
+
+/**
+ * Where the links go once the save answers: over the pending range when it
+ * still holds the text it held, else at its start replacing nothing.
+ */
+export function pendingTarget(state: EditorState, p: PendingAttachment): { from: number; to: number } {
+  if (p.from === p.to) return { from: p.from, to: p.from }
+  const now = state.doc.sliceString(p.from, p.to)
+  return now === p.text ? { from: p.from, to: p.to } : { from: p.from, to: p.from }
+}
 
 let nextId = 1
 
@@ -159,7 +190,8 @@ async function saveAndInsert(
   to: number
 ): Promise<void> {
   const id = nextId++
-  view.dispatch({ effects: addPending.of({ id, from, to }) })
+  view.dispatch({ effects: addPending.of({ id, from, to, text: view.state.doc.sliceString(from, to) }) })
+  const before = view.state.doc
   let saved: (SavedAttachment | null)[] = []
   try {
     saved = await host.save(files, gesture)
@@ -172,9 +204,21 @@ async function saveAndInsert(
   if (!view.dom.isConnected) return
   const at = view.state.field(pendingField, false)?.find((p) => p.id === id)
   const kept = saved.filter((s): s is SavedAttachment => s !== null)
-  const spec = at ? insertAttachments(view.state, at.from, at.to, kept.map((s) => s.link)) : null
-  if (spec && !view.state.readOnly) {
-    view.dispatch({ ...spec, effects: dropPending.of(id), scrollIntoView: true, userEvent: `input.${gesture}` })
+  const target = at ? pendingTarget(view.state, at) : null
+  const spec = target ? insertAttachments(view.state, target.from, target.to, kept.map((s) => s.link)) : null
+  if (spec && target && !view.state.readOnly) {
+    // The caret goes after the link when nothing was edited meanwhile, or the
+    // caret is still where the paste left it; if the person typed or moved on
+    // meanwhile, their caret just maps through the insert.
+    const sel = view.state.selection.main
+    const stayed = view.state.doc === before || (sel.from === target.from && sel.to === target.to)
+    view.dispatch({
+      changes: spec.changes,
+      ...(stayed ? { selection: spec.selection } : {}),
+      effects: dropPending.of(id),
+      scrollIntoView: stayed,
+      userEvent: `input.${gesture}`,
+    })
     host.inserted?.(kept)
   } else {
     view.dispatch({ effects: dropPending.of(id) })

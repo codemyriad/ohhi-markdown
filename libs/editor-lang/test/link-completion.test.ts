@@ -121,6 +121,19 @@ describe('linkTarget', () => {
     expect(linkTarget('Team/Solo.md', paths, 'Team')).toBe('Solo')
   })
 
+  it('grows past a share-relative target that is an exact vault path of another note (exact paths win in resolve)', () => {
+    const vault = ['Team/sub/Plan.md', 'sub/Plan.md', 'Team/Home.md']
+    // `sub/Plan` would open the root `sub/Plan.md`: write the vault path instead.
+    expect(linkTarget('Team/sub/Plan.md', vault, 'Team', false, 'Team/Home.md')).toBe('Team/sub/Plan')
+    expect(linkTarget('Team/sub/Plan.md', vault, 'Team', true, 'Team/Home.md')).toBe('Team/sub/Plan')
+    // The root note itself is still `sub/Plan`, which resolves to it.
+    expect(linkTarget('sub/Plan.md', vault, '', false, 'Team/Home.md')).toBe('sub/Plan')
+    // A share-relative target nothing else claims by exact path stays share-relative.
+    expect(linkTarget('Team/sub/Plan.md', ['Team/sub/Plan.md', 'Other/Plan.md'], 'Team', false, 'Team/Home.md')).toBe(
+      'sub/Plan'
+    )
+  })
+
   it('writes the whole root-relative path when a path was typed', () => {
     expect(linkTarget('Team/Solo.md', paths, 'Team', true)).toBe('Solo')
     expect(linkTarget('Team/Solo.md', paths, '', true)).toBe('Team/Solo')

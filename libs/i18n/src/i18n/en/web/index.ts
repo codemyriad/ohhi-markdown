@@ -354,6 +354,8 @@ const read = {
     toolbar: 'Table',
     next_cell: 'Tab next cell',
     next_row: '↵ next row',
+    /** Enter on an empty last row takes it out and leaves the table (Advanced Tables' way out). */
+    leave: '↵ on an empty row: done',
     add_row: '+ row',
     add_column: '+ column',
     align: 'Align',
@@ -2192,7 +2194,7 @@ const attachments = {
   vault_root: 'the vault root',
   /** Toasted after a picture goes into a note inside a shared folder. */
   shared_notice:
-    "This note is in {share:string}. Images don't sync yet, so collaborators will see a placeholder until they do.",
+    "This note is in {share:string}. Images don't sync, so collaborators will see a placeholder instead of this picture.",
   /** `![alt](https://…)`'s placeholder: nothing is fetched until the button is pressed. */
   remote_from: 'Image from {host:string}',
   remote_load: 'Load image',

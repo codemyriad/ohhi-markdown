@@ -191,7 +191,6 @@ describe('the format command table (quiet-shell F4)', () => {
       ['format.italic', 'Mod+i'],
       ['format.strike', 'Mod+Shift+x'],
       ['format.highlight', 'Mod+Shift+h'],
-      ['format.code', 'Mod+Shift+c'],
       ['format.list', 'Mod+Shift+8'],
       ['format.ordered-list', 'Mod+Shift+7'],
       ['format.link', 'Mod+k'],

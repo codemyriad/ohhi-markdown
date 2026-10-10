@@ -11,7 +11,10 @@ import {
   insertAttachments,
   isAttachment,
   isAttachmentType,
+  mapPending,
   pastedAttachments,
+  pendingTarget,
+  type PendingAttachment,
 } from '../src/attachments.js'
 
 const file = (name: string, type: string): File => ({ name, type }) as File
@@ -81,5 +84,38 @@ describe('when a paste is a picture paste', () => {
   it('is not one for a file a note does not take, or for no clipboard', () => {
     expect(pastedAttachments(clipboard([file('a.zip', 'application/zip')]))).toEqual([])
     expect(pastedAttachments(null)).toEqual([])
+  })
+})
+
+describe('edits that land while the save is in flight', () => {
+  /** Start a save over `from..to`, apply `edits` meanwhile, then insert the link where the range ended up. */
+  function run(doc: string, from: number, to: number, edits: { from: number; to?: number; insert: string }[]): string {
+    let state = EditorState.create({ doc })
+    let p: PendingAttachment = { id: 1, from, to, text: state.doc.sliceString(from, to) }
+    for (const e of edits) {
+      const tr = state.update({ changes: e })
+      p = mapPending(p, tr.changes)
+      state = tr.state
+    }
+    const at = pendingTarget(state, p)
+    return state.update(insertAttachments(state, at.from, at.to, ['x.png'])!).state.doc.toString()
+  }
+
+  it('keeps what the person types at the caret during save(), after the picture', () => {
+    // "ab|cd": paste at 2, then type "XY" at the caret before the save answers.
+    expect(run('abcd', 2, 2, [{ from: 2, insert: 'X' }, { from: 3, insert: 'Y' }])).toBe('ab![[x.png]]XYcd')
+  })
+
+  it('follows a peer insert before the caret and replaces nothing', () => {
+    expect(run('abcd', 2, 2, [{ from: 0, insert: 'PEER ' }])).toBe('PEER ab![[x.png]]cd')
+  })
+
+  it('replaces the selection, keeping text typed at its edges outside it', () => {
+    // "a[SEL]b": typing lands at both edges of the selection meanwhile.
+    expect(run('aSELb', 1, 4, [{ from: 1, insert: '<' }, { from: 5, insert: '>' }])).toBe('a<![[x.png]]>b')
+  })
+
+  it('inserts at the start without replacing when the selected text changed meanwhile', () => {
+    expect(run('aSELb', 1, 4, [{ from: 2, to: 3, insert: 'Q' }])).toBe('a![[x.png]]SQLb')
   })
 })

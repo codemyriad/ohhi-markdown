@@ -15,6 +15,9 @@ Editor is a collaborative, agent-native markdown editor: a drop-in replacement f
   2026-10-03/04 (§Build outcome): the quiet default and the layout spec
   (`plans/quiet-shell-shaping.md`), the shared world
   (`plans/sharing-shaping.md`); the shell's modules in `plans/shell-structure.md`
+- `plans/editor-usability-shaping.md` — the editor usability pass (link popover,
+  callouts, Live tables, image paste/drop, format bar, pane keys); build brief in
+  `plans/editor-usability-build.md`. Amends `plans/read-shaping.md` B7 and Fork 3
 - `plans/research/` — 13 web-grounded research notes + 3 architecture proposals
 
 Plans are ground truth. If implementation diverges from a plan, update the plan in the same change (multi-level consistency: frame → shaping → slices → code).

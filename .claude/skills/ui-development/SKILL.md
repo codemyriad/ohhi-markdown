@@ -151,6 +151,20 @@ which view tabs the palette offers (`offersView`; empty = all). **A dock tab
 is data**: `RAIL_SECTIONS` (`lib/layout.ts`, `links`,
 `history`) plus its icon in `Dock.svelte`'s `DOCK_ICONS` and its body in
 `DockPanel`. Agent-facing reference: `docs/customising.md`.
+**The tab strip's end buttons are data too**: `bars.tabs` (command ids;
+default `workspace.split-right`, `workspace.split-down`) drawn by
+`StripCommands.svelte` from the registry, an icon per id in `STRIP_ICONS`
+(an id without one is skipped with one warning) — faint until hovered or
+focused, hidden in a strip under 36rem (a container query on the strip). **The
+format bar is one row that never wraps** (`FormatBar.svelte`): it scrolls
+sideways with a mask fade at whichever end has more, the wheel mapped to
+horizontal; under 30rem it folds into one *Format* menu; which buttons it
+shows is `FormatBarPicker` in Settings › Layout, writing `overrides.bars.format`.
+**Pane keys** (`config.paneHints`, `pane-hints.svelte.ts`: `subtle` default ·
+`full` · `off`): *Full* is `ModeBar.svelte` along the bottom; *Subtle* / *Off*
+draw `ModeCue.svelte` in the focused pane's bottom-right, above the word count
+(badge, two verbs from `mode-cue.ts`, `?` for all keys in a status card —
+nothing in it is interactive, the keyboard belongs to the mode).
 
 **The shell's composition (`App.svelte`, split 2026-09-20 — see
 `plans/shell-structure.md`).** `App.svelte` is the composition root and the
@@ -529,6 +543,37 @@ manager, the remote carets and `git diff` never see it
   `libs/editor/src/theme.ts` and read `--ed-*` only — `docs/theming.md` lists
   the `(V2e)` entries and what reads each. A new construct usually needs no
   new token; if it does, the contract file and its test come first.
+- **A button inside a widget owns its press** (the fence's language chip and
+  *Copy*, the callout fold, a remote image's *Load image*): `mousedown`
+  `preventDefault()`s so the caret does not move — a moved caret changes the
+  active region and tears the widget down under the pointer — and `click`
+  (Enter / Space too, it is a real `<button>`) runs the action; the widget's
+  `ignoreEvent` returns true for events from inside a `button` and lets the
+  rest through, so a press elsewhere on the widget still puts the caret there.
+  `claim(button, run)` in `preview/code-widgets.ts` is the pattern (the
+  other widgets restate it today; one shared helper is the fix-round plan).
+- **Icons in decorations come from `preview/icons.ts`**: lucide's own node
+  lists restated as data (decoration code runs outside Svelte, so no
+  `@lucide/svelte`), `aria-hidden`, `currentColor`. Add an icon there, never
+  an inline SVG path in a widget.
+- **The link popover is a CM6 autocomplete tooltip, not a `ui/` overlay** —
+  the one exception to "overlays come from `apps/web/src/lib/ui/`". Its rules
+  (scope per fork A2, ranking, what a pick writes and where the caret lands,
+  share-relative targets) are pure in `libs/editor-lang/src/link-completion.ts`
+  with unit tests; `link-completion-view.ts` turns them into the source, the
+  rows, the one-line group headers and the key-hint footer. Its look is
+  `theme.ts`'s autocomplete block over `--ed-popover-*` (dressed as
+  `ui/Popover`). Every completion source registers in the single `override`
+  array in `wikilink-view.ts`.
+- **Paste and drop of pictures go through the `attachmentHost` Facet**
+  (`libs/editor/src/attachments.ts`): the editor notices image / PDF files,
+  hands them to the host, and inserts what it answers (`![[x.png]]`,
+  `[[x.pdf]]`) in one transaction; without a host, CM6's own paste and drop
+  run. Placement and naming are pure in `libs/workspace/src/attachments.ts`
+  (Obsidian's `attachmentFolderPath`, the share keeps its pictures), the write
+  is `writeAttachment` (journaled, atomic, never an overwrite), and the shell's
+  host is `apps/web/src/lib/attachment-host.ts` (the shared-folder notice —
+  golden rule 4: never imply peers have the bytes).
 
 ---
 

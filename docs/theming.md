@@ -211,6 +211,86 @@ was declared and unread until round 2 (P3) gave Editor that line: the
 an `<input>` inside an `<h1>` mounted in the editor's scroller above the note,
 reads it.
 
+## The editor usability tokens (`--ed-popover-*`, `--ed-drop-*`, `--ed-callout-*`, `--ed-task-done-*`)
+
+Added by the editor usability pass (`plans/editor-usability-shaping.md`,
+E1–E5, 2026-10-10). All of them are read only in `libs/editor/src/theme.ts`.
+The popover and drop groups derive from the DaisyUI colours every theme
+already sets, so a built-in theme need not restate them (the panes & tabs
+precedent); the callout colours are restated per built-in theme.
+
+### Link popover (`--ed-popover-*`)
+
+The `[[` and `#` completion tooltip. CodeMirror draws it, but it is dressed as
+the shell's `Popover` (`ui/Popover.svelte`: rounded, a base-300 hairline,
+base-100, a large shadow) so the editor's one overlay matches the chrome.
+Group headers are one line each; rows are compact single lines.
+
+| Token | Default | Read by |
+|---|---|---|
+| `--ed-popover-bg` / `--ed-popover-ink` / `--ed-popover-border` | `base-100` / `base-content` / `base-300` | the tooltip box and its row text |
+| `--ed-popover-muted` | content 75% into base-100 | group headers ("In Design team", "Only you · not in this share"), the footer's text |
+| `--ed-popover-faint` | content 62% into base-100 | a row's folder (dim, right-aligned), the row icons |
+| `--ed-popover-match` | `primary` | the matched letters, bolded, and the *Create* row |
+| `--ed-popover-selected` | primary 13% | the selected row |
+| `--ed-popover-footer-bg` | `base-200` | the key-hint footer (↵ / Tab link, `#` heading, `\|` alias, Esc) |
+| `--ed-popover-shadow` | Tailwind's `shadow-xl` | the tooltip |
+
+### Images (`--ed-drop-*`)
+
+| Token | Default | Read by |
+|---|---|---|
+| `--ed-drop-border` | primary 60% | the dashed outline of the drop target drawn over the editor while image files are dragged onto it; the focus ring of a remote image's *Load image* button |
+| `--ed-drop-bg` | primary 7% | the drop target's tint |
+| `--ed-drop-ink` / `--ed-drop-muted` | `base-content` / content 75% | the target's two lines ("Drop to add to this note", where it will be saved); the remote placeholder's text and button |
+| `--ed-drop-radius` | `8px` | the drop target |
+
+A remote `![alt](https://…)` waits in a dashed box (`--ed-code-border`) naming
+its host until a click loads it; nothing is fetched by opening the note.
+
+### Callouts (`--ed-callout-*`)
+
+`> [!type] Title` boxes. Each type's colour does three things: tints the box
+(`color-mix` 9%), draws its 1px hairline **all round** (26%; no coloured left
+rail), and paints the title row and its lucide icon. The radius is 8px. The
+body stays `--ed-ink`.
+
+| Token | Default | Types |
+|---|---|---|
+| `--ed-callout-note` | `primary` | note (and `info`, `todo` by default) |
+| `--ed-callout-tip` | `--ed-syn-function` | tip, hint, important (and `abstract`) |
+| `--ed-callout-success` | `success` | success, check, done |
+| `--ed-callout-warning` | `warning` | warning, caution, attention |
+| `--ed-callout-danger` | `error` | danger, error (and `failure`) |
+| `--ed-callout-question` | `accent` | question, help, faq |
+| `--ed-callout-bug` | `error` | bug |
+| `--ed-callout-example` | `--ed-syn-keyword` | example |
+| `--ed-callout-quote` | `--ed-ink-faint` | quote, cite |
+| `--ed-callout-info` / `-abstract` / `-todo` / `-failure` | `note` / `tip` / `note` / `danger` | the four types that follow another by default; set one to give it its own colour |
+
+Nine colours for Obsidian's thirteen types; the alias list is
+`libs/editor-lang/src/preview/callout.ts`. A theme can repaint any of them,
+and a type's colour must stay readable as text on the 9% tint of itself.
+
+### Done tasks (`--ed-task-done-*`)
+
+`--ed-task-done-fg` and `--ed-task-done-decoration` style a checked task's
+text (fork C1: muted and struck). The row in the live-preview table above has
+the defaults. A theme that wants fork C2 (muted only) sets
+`--ed-task-done-decoration: none`.
+
+### The code card
+
+A fenced block is drawn as **one card**, from existing tokens rather than new
+ones: every line carries `--ed-code-block-bg` and the side hairlines in
+`--ed-code-border`; the opening fence becomes a header bar (a language chip on
+the left, *Copy* on the right, both in `--ed-ink-muted`, hovering to
+`--ed-code-bg` / `--ed-ink`) and the closing fence a thin cap, each with the
+top or bottom hairline and an 8px radius. When the caret is on a fence line
+that line shows as text and takes the edge itself (`cm-code-first` /
+`cm-code-last`), so there is never a seam. Body text is `--ed-code-block-fg`
+with the `--ed-syn-*` slots; *Copied* flashes in `--ed-callout-success`.
+
 ## Theme switching
 
 `ThemePref = 'system' | 'editor-light' | 'editor-dark' | 'nord-light' |
@@ -244,7 +324,7 @@ build — `plans/spike-resource-root.md` F0.)
 
 Start from `libs/ui/src/styles/_template.css`; **the complete, authoritative
 token list with a default for every entry is
-`libs/ui/src/styles/tokens/_contract.css`** (115 tokens, grouped and commented;
+`libs/ui/src/styles/tokens/_contract.css`** (144 tokens, grouped and commented;
 the entries marked `(V2e)` are the live-preview band — see above for what
 reads each one).
 
@@ -363,11 +443,11 @@ Override `--ed-selection` in a custom theme if you want more.
 
 ## Not yet, and deliberately
 
-- **Callout tokens** (`--ed-callout-*`) are not shipped: live preview (X1)
-  deliberately does not render callouts, and the measured vault contains
-  **zero** of them — along with zero footnotes, math and transclusions
-  (`plans/read-shaping.md` §Evidence). They arrive with the construct, if a
-  complaint ever asks for it.
+- **Footnote, math and transclusion tokens** are not shipped: live preview
+  does not render those constructs, and the measured vault contains **zero**
+  of each (`plans/read-shaping.md` §Evidence). They arrive with the construct.
+  (Callouts were in this list until 2026-10-10; Chris's editor review brought
+  them back, and their tokens are above.)
 - **Tauri window translucency** (Chris's `appearance.json` has
   `translucency: true`) is out of scope. If it is added, `--ed-surface` must
   become semi-transparent *per theme* — a token-contract change, not a shell

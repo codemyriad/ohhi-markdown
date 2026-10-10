@@ -7,7 +7,7 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { appUrl, closeSettings, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, openSettings, panes, runCommand, tabNamed, paneTabs } from './fixtures.js'
+import { appUrl, closeSettings, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, openSettings, panes, runCommand, splitRight, tabNamed, paneTabs } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -564,8 +564,16 @@ test('pane keys (E6): Subtle sits in the corner above the word count, ? opens ev
   const count = (await page.getByTestId('corner-status').boundingBox())!
   expect(cue.y + cue.height).toBeLessThanOrEqual(count.y + 1)
   expect(Math.abs(cue.x + cue.width - (count.x + count.width))).toBeLessThanOrEqual(2)
+  // The cue stands clear of the format bar, and `?` moves neither the line nor the bar.
+  const bar = page.getByTestId('format-bar')
+  const barBefore = (await bar.boundingBox())!
+  if (cue.y < barBefore.y + barBefore.height && cue.y + cue.height > barBefore.y) {
+    expect(cue.x - (barBefore.x + barBefore.width)).toBeGreaterThanOrEqual(12)
+  }
   await page.keyboard.press('?')
   await expect(page.getByTestId('mode-cue-all')).toBeVisible()
+  expect((await bar.boundingBox())!.x).toBeCloseTo(barBefore.x, 0)
+  expect((await line.boundingBox())!.width).toBeCloseTo(cue.width, 0)
   await page.keyboard.press('?')
   await expect(page.getByTestId('mode-cue-all')).toHaveCount(0)
   await page.keyboard.press('Escape')
@@ -580,4 +588,44 @@ test('pane keys (E6): Subtle sits in the corner above the word count, ? opens ev
   await expect(page.getByTestId('mode-bar')).toBeVisible()
   await expect(page.getByTestId('mode-cue')).toHaveCount(0)
   await page.keyboard.press('Escape')
+})
+
+test('in a split the format bar and the corner float over the focused pane, and fold to its width', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 760 })
+  await page.goto(appUrl({ room: 'panes-float', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+  await editors(page).first().click()
+  await splitRight(page)
+  const bar = page.getByTestId('format-bar')
+  // Inside the pane (shifted off-centre only to make room for the corner on
+  // its row), and the corner at the pane's own right edge.
+  const floatsIn = async (n: number) => {
+    const pane = (await panes(page).nth(n).boundingBox())!
+    const b = (await bar.boundingBox())!
+    const c = (await page.getByTestId('corner-status').boundingBox())!
+    return (
+      b.x >= pane.x &&
+      b.x + b.width <= pane.x + pane.width &&
+      c.x + c.width <= pane.x + pane.width &&
+      c.x + c.width > pane.x + pane.width - 24
+    )
+  }
+  // The new (right) pane has focus; the bar sits in it, not over the divider.
+  await expect.poll(() => floatsIn(1)).toBe(true)
+  await editors(page).first().click()
+  await expect.poll(() => floatsIn(0)).toBe(true)
+  // A pane narrower than the bar's 30rem folds it into the one Format menu.
+  const handle = page.locator('[data-testid^="pane-resize:"]').first()
+  const h = (await handle.boundingBox())!
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(h.x - 300, h.y + h.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await editors(page).first().click()
+  await expect(page.getByTestId('toolbar-format-menu')).toBeVisible()
+  await editors(page).nth(1).click()
+  await expect(page.getByTestId('toolbar-format-menu')).toBeHidden()
 })

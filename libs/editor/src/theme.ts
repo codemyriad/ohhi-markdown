@@ -85,10 +85,19 @@ const editorBaseTheme = EditorView.theme({
   '.cm-searchMatch.cm-searchMatch-selected': {
     backgroundColor: 'var(--ed-search-match-active-bg)',
   },
-  '.cm-panels, .cm-tooltip': {
+  '.cm-panels': {
     backgroundColor: 'var(--ed-code-block-bg)',
     color: 'var(--ed-ink)',
     border: '1px solid var(--ed-code-border)',
+  },
+  // Every floating tooltip (the table hint, the completion popover below) is
+  // dressed as the shell's Popover through --ed-popover-*.
+  '.cm-tooltip': {
+    backgroundColor: 'var(--ed-popover-bg)',
+    color: 'var(--ed-popover-ink)',
+    border: '1px solid var(--ed-popover-border)',
+    borderRadius: '8px',
+    boxShadow: 'var(--ed-popover-shadow)',
   },
   // --- the completion popover (editor-usability E1) -----------------------
   // Dressed as the shell's Popover (8px radius, a base-300 hairline, base-100,
@@ -646,7 +655,8 @@ const editorBaseTheme = EditorView.theme({
   // The Live grid (E4): a click on a cell puts the caret in its text.
   '.cm-table-grid': { cursor: 'text' },
   // The hint bar over a table the caret is in (E4). The tooltip's own box
-  // (background, border) is the `.cm-tooltip` rule above.
+  // (background, border, radius, shadow) is the `.cm-tooltip` rule above —
+  // the popover tokens, so it reads as the link popover does.
   '.cm-table-hint': {
     display: 'flex',
     alignItems: 'center',
@@ -657,12 +667,12 @@ const editorBaseTheme = EditorView.theme({
     lineHeight: '1.4',
     whiteSpace: 'nowrap',
   },
-  '.cm-table-hint-key': { color: 'var(--ed-ink-muted)', padding: '0 0.35em' },
-  '.cm-table-hint-key + .cm-table-hint-key': { borderLeft: '1px solid var(--ed-code-border)' },
+  '.cm-table-hint-key': { color: 'var(--ed-popover-muted)', padding: '0 0.35em' },
+  '.cm-table-hint-key + .cm-table-hint-key': { borderLeft: '1px solid var(--ed-popover-border)' },
   '.cm-table-hint-key + .cm-table-hint-button': { marginLeft: '0.25em' },
   '.cm-table-hint-button': {
     font: 'inherit',
-    color: 'var(--ed-ink)',
+    color: 'var(--ed-popover-ink)',
     background: 'none',
     border: 'none',
     borderRadius: '0.3em',
@@ -670,8 +680,10 @@ const editorBaseTheme = EditorView.theme({
     cursor: 'pointer',
   },
   '.cm-table-hint-button:hover, .cm-table-hint-button:focus-visible': {
-    backgroundColor: 'var(--ed-selection)',
+    backgroundColor: 'var(--ed-popover-selected)',
+    outline: 'none',
   },
+  '.cm-table-hint-button:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
 
   // --- collab (class names come from y-codemirror.next) --------------------
   // The peer COLOUR is written as an inline style from awareness, so only the

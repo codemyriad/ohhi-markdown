@@ -61,6 +61,7 @@ import {
   mountRootsFrom,
   NEVER_ON_DISK,
   VaultSession,
+  WriteConflictError,
   type StoreDir,
 } from '@ohhi/vault'
 import type { EngineDoc, FileEntry, SyncEngine } from '@ohhi/sync'
@@ -344,6 +345,8 @@ export class MountSession {
   private sessionRef: VaultSession | null = null
   private adoptionEnabled = false
   private mapWork: Promise<void> = Promise.resolve()
+  /** writeAttachment runs one at a time, so two pastes never pick the same free name. */
+  private attachmentWork: Promise<unknown> = Promise.resolve()
   /**
    * Paths a live EDITOR VIEW currently holds open (spike S9 Q1). A set, not
    * one path: N panes can hold N notes, and the same note can be open in two
@@ -655,14 +658,25 @@ export class MountSession {
    * Obsidian or an agent wrote while we ran (the watcher ignores out-of-map
    * files), so the disk is asked too, and a taken name moves aside rather than
    * replacing bytes Editor did not write (golden rule 1). The create is
-   * journaled (a pre-image of null) and goes through the atomic write.
+   * journaled (a pre-image of null) and goes through the atomic write as a
+   * compare-and-swap that must find NO file there (`expectHash: ''`): a file
+   * that appears between the check and the rename refuses the write, and the
+   * attachment moves aside to the next free name instead. Writes are
+   * serialised per session, so two pastes in the same second (the same
+   * clock-made name) both land, the second beside the first.
    *
    * The entry is `{kind:'binary'}`, exactly what enrolment would have made of
    * the file: binaries are not synced (D2f), so peers see the name in the tree
    * and a placeholder where the picture is — never the bytes, and nothing here
    * claims otherwise.
    */
-  async writeAttachment(path: string, bytes: Uint8Array): Promise<string | null> {
+  writeAttachment(path: string, bytes: Uint8Array): Promise<string | null> {
+    const run = this.attachmentWork.then(() => this.writeAttachmentNow(path, bytes))
+    this.attachmentWork = run.catch(() => undefined)
+    return run
+  }
+
+  private async writeAttachmentNow(path: string, bytes: Uint8Array): Promise<string | null> {
     try {
       const clean = path.replace(/^\/+/, '')
       const segs = clean.split('/')
@@ -691,12 +705,23 @@ export class MountSession {
         if (entry && !entry.deleted) return true
         return (await this.adapter.read(p)) !== null
       }
-      let target = clean
-      for (let n = 1; await taken(target); n++) {
-        target = `${dir ? `${dir}/` : ''}${stem} ${n}${ext}`
+      const nameFor = (n: number): string => (n === 0 ? clean : `${dir ? `${dir}/` : ''}${stem} ${n}${ext}`)
+      let target = ''
+      for (let n = 0; ; n++) {
+        const candidate = nameFor(n)
+        if (await taken(candidate)) continue
+        await this.journal.record(candidate, null)
+        try {
+          // Must-not-exist: the adapter re-checks as late as it can (just
+          // before the rename), closing the window `taken` leaves open.
+          await this.adapter.writeAtomic(candidate, bytes, { expectHash: '' })
+        } catch (err) {
+          if (err instanceof WriteConflictError) continue
+          throw err
+        }
+        target = candidate
+        break
       }
-      await this.journal.record(target, null)
-      await this.adapter.writeAtomic(target, bytes)
       this.folderDoc.transactMap(
         (m) => m.set(target, { guid: crypto.randomUUID(), kind: 'binary' }),
         'local'

@@ -77,6 +77,32 @@ describe('Tab / Shift-Tab / Enter in a table', () => {
     expect(v.text().split('\n')).toHaveLength(5)
   })
 
+  it('Enter on an empty last row takes the row out and leaves the table below it, in one transaction', () => {
+    const v = fakeView(makeState(TABLE, { at: TABLE.indexOf('2') }))
+    expect(tableNextRow(v.view)).toBe(true) // a new, empty row
+    expect(tableNextRow(v.view)).toBe(true) // ...and out, past a blank line (else the next words are a row)
+    expect(v.text()).toBe('| a   |  b  |\n| --- | :-: |\n| 1   |  2  |\n\n\n')
+    expect(v.caret()).toBe(v.text().length - 1)
+    expect(v.transactions.at(-1)!.isUserEvent('input.table')).toBe(true)
+    expect(inTable(v.view.state)).toBe(false)
+  })
+
+  it('Enter on an empty row that is not the last, or on a last row with text, still moves down', () => {
+    const doc = '| a | b |\n|---|---|\n|   |   |\n| 1 | 2 |'
+    const mid = fakeView(makeState(doc, { at: doc.indexOf('|   |') + 2 }))
+    expect(tableNextRow(mid.view)).toBe(true)
+    expect(mid.text().split('\n')).toHaveLength(4)
+    expect(mid.text().slice(0, mid.caret()).split('\n')).toHaveLength(4)
+  })
+
+  it('keeps a quoted table’s prefix on the line it leaves onto', () => {
+    const doc = '> | a |\n> |---|\n> |   |'
+    const v = fakeView(makeState(doc, { at: doc.length - 2 }))
+    expect(tableNextRow(v.view)).toBe(true)
+    expect(v.text()).toBe('> | a |\n> |---|\n>\n> ')
+    expect(v.caret()).toBe(v.text().length)
+  })
+
   it('does nothing outside a table, in Reading, or with several carets', () => {
     expect(tableNextCell(fakeView(makeState('para\n', { at: 1 })).view)).toBe(false)
     const reading = EditorState.create({ doc: TABLE, extensions: [EditorState.readOnly.of(true)] })

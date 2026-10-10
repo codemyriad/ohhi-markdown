@@ -130,4 +130,32 @@ describe('writeAttachment', () => {
     expect(await h.adapter.read('img.png')).toEqual(PNG)
     h.session.dispose()
   })
+
+  it('two concurrent writes under the same name both survive, side by side', async () => {
+    const h = await boot({ 'Note.md': '# Note\n' })
+    const [a, b] = await Promise.all([
+      h.session.writeAttachment('Pasted image 20261010140307.png', PNG),
+      h.session.writeAttachment('Pasted image 20261010140307.png', OTHER),
+    ])
+    expect([a, b]).toEqual(['Pasted image 20261010140307.png', 'Pasted image 20261010140307 1.png'])
+    expect(await h.adapter.read(a!)).toEqual(PNG)
+    expect(await h.adapter.read(b!)).toEqual(OTHER)
+    expect(h.errors).toEqual([])
+    h.session.dispose()
+  })
+
+  it('a file that appears between the check and the write refuses it, and the attachment moves aside', async () => {
+    const h = await boot()
+    await h.adapter.writeAtomic('race.png', OTHER)
+    // Simulate the window: the existence check misses the file (it is written
+    // by someone else after `taken` looked), but the adapter's must-not-exist
+    // compare-and-swap still sees it.
+    const read = h.adapter.read.bind(h.adapter)
+    h.adapter.read = async (p: string) => (p === 'race.png' ? null : read(p))
+    expect(await h.session.writeAttachment('race.png', PNG)).toBe('race 1.png')
+    expect(await read('race.png')).toEqual(OTHER)
+    expect(await read('race 1.png')).toEqual(PNG)
+    expect(h.errors).toEqual([])
+    h.session.dispose()
+  })
 })

@@ -10,6 +10,8 @@
  * note in the private root sees one ungrouped list.
  */
 
+import { PathResolver } from '@ohhi/index'
+
 /** A shared folder, as the shell knows it: its workspace path and display name. */
 export interface LinkMount {
   /** Workspace-relative mount root, never `''` (the root mount is not a share). */
@@ -187,16 +189,36 @@ export function createFolder(query: string, contextPath: string | null | undefin
  * some other folder (a vault path would not resolve there at all). `''` is
  * the vault root. `typedPath` (the person typed a `/`) asks for the whole
  * root-relative path, as before.
+ *
+ * A share-relative answer is checked against the vault's own resolver
+ * (`PathResolver`, the rule the index and a click use, over the FULL path set
+ * `allPaths`, from `fromPath`), whose first rule is that an exact vault path
+ * wins: `sub/Plan` written for `Team/sub/Plan.md` would open a root
+ * `sub/Plan.md` instead. A target the resolver sends to a different note by
+ * exact path grows until it does not, and falls back to the whole vault path,
+ * which always lands. (An ambiguous basename the resolver can only break by
+ * proximity is left share-relative: that is the collaborator's resolution to
+ * make, in a vault where the share sits elsewhere.)
  */
 export function linkTarget(
   path: string,
   allPaths: readonly string[],
   root = '',
-  typedPath = false
+  typedPath = false,
+  fromPath?: string | null
 ): string {
   const bare = stripMd(path)
   const rel = root && inside(bare, root) ? bare.slice(root.length + 1) : bare
-  if (typedPath) return rel
+  let resolver: PathResolver | null = null
+  /** False when `target` is an exact vault path of some OTHER note (exact paths win). */
+  const lands = (target: string): boolean => {
+    if (!target.includes('/') || target === bare) return true
+    resolver ??= new PathResolver(allPaths)
+    const hit = resolver.resolve(target, fromPath ?? undefined)
+    const exactOther = hit !== null && stripMd(hit).toLowerCase() === target.toLowerCase()
+    return !exactOther || stripMd(hit).toLowerCase() === bare.toLowerCase()
+  }
+  if (typedPath) return lands(rel) ? rel : bare
   const segments = rel.split('/')
   const name = (segments[segments.length - 1] ?? '').toLowerCase()
   const sameName = allPaths.map((p) => stripMd(p).toLowerCase()).filter((p) => p === name || p.endsWith(`/${name}`))
@@ -204,9 +226,9 @@ export function linkTarget(
     const suffix = segments.slice(-k).join('/')
     const lower = suffix.toLowerCase()
     const hits = sameName.filter((p) => p === lower || p.endsWith(`/${lower}`))
-    if (hits.length <= 1) return suffix
+    if (hits.length <= 1 && lands(suffix)) return suffix
   }
-  return rel
+  return lands(rel) ? rel : bare
 }
 
 /**

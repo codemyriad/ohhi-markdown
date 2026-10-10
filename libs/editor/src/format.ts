@@ -371,6 +371,13 @@ function lineCommand(
         taken.add(n)
         lines.push({ line, text: line.text, parts: parts(line.text), blank })
       }
+      // `blanks` keeps the gaps INSIDE a block (a callout's bare `>`), never
+      // the blank lines a selection starts or ends on: those stay outside it,
+      // so the first line rewritten is the first one with text.
+      if (opts.blanks && lines.some((l) => !l.blank)) {
+        while (lines[0]?.blank) lines.shift()
+        while (lines[lines.length - 1]?.blank) lines.pop()
+      }
       if (lines.length === 0) return null
       const nonBlank = lines.filter((l) => !l.blank)
       const rewrite = decide(nonBlank.length > 0 ? nonBlank : lines)
@@ -720,8 +727,11 @@ export const FORMAT_COMMANDS: readonly FormatCommand[] = [
   { id: 'format.italic', run: toggleItalic, keys: 'Mod+i' },
   { id: 'format.strike', run: toggleStrike, keys: 'Mod+Shift+x' },
   { id: 'format.highlight', run: toggleHighlight, keys: 'Mod+Shift+h' },
-  // Not Mod+E: that is Obsidian's editing ↔ Reading (`view.toggle-reading`).
-  { id: 'format.code', run: toggleInlineCode, keys: 'Mod+Shift+c' },
+  // Unbound by default, like Obsidian's "Toggle code": Mod+E is editing ↔
+  // Reading (`view.toggle-reading`), Mod+Shift+C is the browsers' devtools
+  // element picker, and the backtick chords are macOS's window cycling. A
+  // keymap file binds it.
+  { id: 'format.code', run: toggleInlineCode },
   { id: 'format.heading-1', run: toggleHeading(1) },
   { id: 'format.heading-2', run: toggleHeading(2) },
   { id: 'format.heading-3', run: toggleHeading(3) },

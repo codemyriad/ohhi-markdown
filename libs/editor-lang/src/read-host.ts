@@ -93,6 +93,8 @@ export interface TableLabels {
   nextCell: string
   /** `↵ next row` — a hint, not a button. */
   nextRow: string
+  /** `↵ on an empty row: done` — Enter on an empty last row leaves the table. */
+  leave: string
   /** `+ row` — inserts a row below the caret's. */
   addRow: string
   /** `+ column` — inserts a column right of the caret's. */
@@ -106,6 +108,7 @@ export const FALLBACK_TABLE_LABELS: TableLabels = {
   toolbar: 'Table',
   nextCell: 'Tab next cell',
   nextRow: '↵ next row',
+  leave: '↵ on an empty row: done',
   addRow: '+ row',
   addColumn: '+ column',
   align: 'Align',
