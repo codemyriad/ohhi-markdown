@@ -463,10 +463,15 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
     `effect_update_depth_exceeded`.
   - Live-preview decorations (marker hiding, checkbox widgets, image embeds)
     land here in V2e — sliced X1–X4 in `plans/read-shaping.md`; see the
-    block-widget pattern below. Callouts, footnotes, math, `%%` comments and
-    transclusion stay out: the re-measured vault has **zero** of each. Tables
-    render in Reading only (16 blocks in 14 files) and stay source-styled in
-    Live; HTML is never rendered, in any mode.
+    block-widget pattern below. Footnotes, math, `%%` comments and
+    transclusion stay out: the re-measured vault has **zero** of each.
+    Callouts (Obsidian's `> [!type]±`) render as tinted boxes with view-only
+    folding since E3 (`preview/callout*.ts`). Tables render as a grid in
+    Reading and, since E4, in Live while the selection is outside the table —
+    the moment the caret enters, the raw pipes are back (with column guides
+    and the table hint bar, `preview/table-hint.ts`) and the `table.*` keys
+    and commands edit it (`preview/table-commands.ts` over the pure
+    `table-ops.ts`); HTML is never rendered, in any mode.
 
 ### Live-preview widgets — the block-widget pattern (`libs/editor-lang/src/preview/`, X1)
 

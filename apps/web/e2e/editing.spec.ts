@@ -15,8 +15,10 @@ import { expectAccessible, paneContent as content, seedReadNote } from './fixtur
 type View = {
   state: {
     selection: { main: { head: number } }
-    doc: { toString(): string; lineAt(p: number): { from: number } }
+    doc: { length: number; toString(): string; lineAt(p: number): { from: number } }
   }
+  dispatch(spec: { changes: { from: number; to: number; insert: string }; selection: { anchor: number } }): void
+  focus(): void
 }
 const viewOf = (el: Element): View => {
   const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
@@ -29,6 +31,19 @@ const docText = (page: Page) => content(page).evaluate((el) => {
   const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
   return view?.state.doc.toString() ?? ''
 })
+
+/**
+ * Replace the document through the view and put the caret at its end — no
+ * keyboard. WebKit intermittently dropped text typed after `Ctrl+End` /
+ * `insertText`, so a test whose subject is not those keys seeds this way.
+ */
+const setDoc = (page: Page, text: string) =>
+  content(page).evaluate((el, text) => {
+    const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+    if (!view) throw new Error('no CodeMirror view behind this .cm-content')
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: text.length } })
+    view.focus()
+  }, text)
 
 test('Tab on a nested item: the DOM caret is right of the bullet on every frame', async ({ page }) => {
   // Chris, 2026-10-10: on Tab the caret flashed before the bullet for a frame.
@@ -105,6 +120,8 @@ test('Tab off a list is a tab; Shift+Tab takes it back; Escape then Tab leaves t
 
 test('a lone `-` under a paragraph is a faint bullet, not a heading, until it is one', async ({ page }) => {
   await seedReadNote(page, 'edit-setext', 'A paragraph\n')
+  await setDoc(page, 'A paragraph\n')
+  await expect.poll(() => docText(page)).toBe('A paragraph\n')
   const editor = content(page)
   const para = editor.locator('.cm-line', { hasText: 'A paragraph' })
   const size = () => para.evaluate((el) => {
@@ -130,8 +147,7 @@ test('a lone `-` under a paragraph is a faint bullet, not a heading, until it is
   expect(await size()).toBeCloseTo(body, 0)
 
   // `---` under a paragraph, caret elsewhere: the heading it parses as.
-  await page.keyboard.press('ControlOrMeta+a')
-  await page.keyboard.insertText('Heading\n---\n\nafter')
+  await setDoc(page, 'Heading\n---\n\nafter')
   await expect.poll(() => docText(page)).toBe('Heading\n---\n\nafter')
   const heading = editor.locator('.cm-line', { hasText: 'Heading' })
   await expect(heading).not.toHaveClass(/cm-setext-provisional/)

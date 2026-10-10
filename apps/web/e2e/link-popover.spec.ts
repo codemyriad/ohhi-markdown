@@ -31,4 +31,11 @@ test('the popover ranks, shows its hints, and Tab writes a closed link', async (
   await expect(popover(page)).toHaveCount(0)
   await page.keyboard.type('!')
   await expect(content(page)).toContainText('see [[welcome]]!')
+  // closeBrackets paired the typed `[[` (`[[welc]]`); the accept steps over
+  // that `]]` rather than writing a second one.
+  const doc = await content(page).evaluate((el) => {
+    type Tile = { root?: { view?: { state: { doc: { toString(): string } } } } }
+    return (el as unknown as { cmTile?: Tile }).cmTile?.root?.view?.state.doc.toString() ?? ''
+  })
+  expect(doc.split('\n').at(-1)).toBe('see [[welcome]]!')
 })
