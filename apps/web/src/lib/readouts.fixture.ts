@@ -58,7 +58,7 @@ export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell
     relayKnown: () => false,
     revision: () => 0,
     inSyncByRoom: () => ({}),
-    membership: { isMember: () => false, watch: () => () => {}, invalidate: () => {} },
+    membership: { isMember: () => false, watch: () => () => {}, invalidate: () => {}, renamed: () => {} },
     ...over,
   }
 }

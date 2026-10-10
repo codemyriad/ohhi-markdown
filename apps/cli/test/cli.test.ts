@@ -290,6 +290,16 @@ describe('text rendering', () => {
     expect(readFileSync(join(v.root, 'Areas/CS/HTML.md'), 'utf8')).toContain('[[Data Format]]')
   })
 
+  it('mv of the folder a collection reads updates the collection\'s filter, with its undo handle', async () => {
+    const v = await fixture()
+    const { out, err, code } = await ohhi(inVault(v, ['mv', 'Competitors', 'Rivals']))
+    expect(code).toBe(0)
+    expect(out).toContain('updated 1 filter in Competitors.base')
+    expect(err).toContain('plan: 1 filter in Competitors.base')
+    expect(err).toContain('undo with: ohhi restore Competitors.base --seq ')
+    expect(readFileSync(join(v.root, 'Competitors.base'), 'utf8')).toContain('file.inFolder("Rivals")')
+  })
+
   it('--dry-run says "would", and changes nothing', async () => {
     const v = await fixture()
     const before = readFileSync(join(v.root, 'TODO/Writing.md'), 'utf8')

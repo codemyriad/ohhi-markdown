@@ -268,7 +268,9 @@ The rules, and why:
   the output lists exactly which notes would change. A note listed under
   `skipped` (it changed while the call ran, or its text was not where the
   index saw it) was left alone — read it and fix the link by hand, do not
-  re-run the move. `--keep-links` moves only. **To undo a move, move it
+  re-run the move. Collections follow too: a `.base` whose
+  `file.inFolder("…")` or `file.hasLink("…")` names what moved is updated
+  the same way (`updated 1 filter in X.base`). `--keep-links` moves only. **To undo a move, move it
   back** (`ohhi mv <to> <from>`), which follows the links back; `restore
   <note>` reverts that one note's text and leaves the move standing.
 - **Keep bursts under 20 files.** `mv`/`rm` touching more than 20 files —

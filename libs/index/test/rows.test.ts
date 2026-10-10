@@ -394,4 +394,23 @@ describe('a query pinned to one note (collections DB4: membership)', () => {
     index.rebuild(DOCS)
     expect(await one('Competitors/Ingredifind.md')).toEqual(['Competitors/Ingredifind.md'])
   })
+
+  it('keeps the pin when two notes trade paths, in either order of rename and removal', async () => {
+    const X = 'Competitors/Ingredifind.md'
+    const Y = 'Competitors/Quiteful.md'
+    // A swap, as a git checkout lands it: a to Y first, then b to X.
+    const swapped = build()
+    const one = (index: MemoryIndex, path: string) => index.rows({ filter: pathIs(path), now: 0 }).then((p) => p.items.map((r) => r.guid))
+    swapped.rename('g-ingredifind', Y)
+    swapped.rename('g-quiteful', X)
+    expect(await one(swapped, Y)).toEqual(['g-ingredifind'])
+    expect(await one(swapped, X)).toEqual(['g-quiteful'])
+
+    // Another note takes the path, and only then is the old owner removed.
+    const replaced = build()
+    replaced.upsert({ guid: 'g-quiteful', path: X, text: '---\nthreat: adjacent\n---\n' })
+    replaced.remove('g-ingredifind')
+    expect(await one(replaced, X)).toEqual(['g-quiteful'])
+    expect(await one(replaced, Y)).toEqual([])
+  })
 })

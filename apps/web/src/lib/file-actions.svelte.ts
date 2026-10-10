@@ -16,11 +16,15 @@
  * then edits each referencing note on its own live doc, one `'local'`
  * transaction per note, so peers see it and the sync readout is each
  * note's own. The planner is `@ohhi/index`'s, the same one `ohhi mv` runs.
+ * Collections follow the same way: a `.base` whose `file.inFolder("…")` or
+ * `file.hasLink("…")` names what moves is edited on its own live doc by
+ * `@ohhi/collections`' planner (also `ohhi mv`'s), so renaming the folder a
+ * collection reads does not leave it — and every row-note's form — empty.
  */
-import { COLLECTION_EXTENSION, newCollectionText } from '@ohhi/collections'
+import { COLLECTION_EXTENSION, isCollectionPath, newCollectionText, planCollectionMoves } from '@ohhi/collections'
 import { uniqueName } from './collection-cells.js'
 import { getLL } from '@ohhi/i18n'
-import { applyLinkEdits, collectMoveRefs, planLinkRewrites, type LinkRewrite, type MoveRefSource } from '@ohhi/index'
+import { applyLinkEdits, collectMoveRefs, planLinkRewrites, type LinkEdit, type MoveRefSource } from '@ohhi/index'
 import type { EngineDoc } from '@ohhi/sync'
 import type { FileRow } from '@ohhi/workspace'
 import type { ShareActions } from './share-actions.svelte.js'
@@ -139,13 +143,20 @@ const filesMoved = (paths: readonly string[], from: string): number =>
 const landed = (ws: Workspace, to: string): boolean =>
   ws.ui.files.some((f) => f.path === to || f.path.startsWith(`${to}/`))
 
+/** One file the move edits once it has landed: a note's links, or a collection's filter strings. */
+export interface PlannedEdit {
+  /** Its path once the move is done. */
+  path: string
+  edits: LinkEdit[]
+}
+
 /**
  * One note's edits as one transaction on its live doc, descending offsets so
  * none shifts another. False when the doc's text is not what the plan was
  * made from — the note changed under the index — and then nothing in it is
  * touched: a byte edit at a stale offset would corrupt a link, not fix one.
  */
-export function applyLinkEditsToDoc(doc: Pick<EngineDoc, 'getText' | 'transact'>, note: LinkRewrite): boolean {
+export function applyLinkEditsToDoc(doc: Pick<EngineDoc, 'getText' | 'transact'>, note: Pick<PlannedEdit, 'edits'>): boolean {
   if (applyLinkEdits(doc.getText(), note.edits) === null) return false
   doc.transact((t) => {
     for (const e of note.edits) {
@@ -162,7 +173,7 @@ export function createFileActions(host: FileHost): FileActions {
   /** The confirm's answer, awaited by the relocate that asked. */
   let answerLinks: ((go: boolean) => void) | null = null
   /** A move handed to `share.move` whose landing `afterMove` reports — the plan waits here. */
-  let pendingMove: { from: string; to: string; plan: LinkRewrite[] } | null = null
+  let pendingMove: { from: string; to: string; plan: PlannedEdit[] } | null = null
 
   host.share.afterMove = (from, to) => {
     const pending = pendingMove
@@ -172,13 +183,23 @@ export function createFileActions(host: FileHost): FileActions {
     followPlan(ws, to, pending.plan)
   }
 
-  /** What a move of `from` to `to` would rewrite, from the index as it is now. */
-  async function planLinks(ws: Workspace, from: string, to: string): Promise<LinkRewrite[]> {
+  /**
+   * What a move of `from` to `to` would rewrite, from the index and the
+   * collections' live text as they are now: the notes whose links break,
+   * and the `.base` files whose filter strings name what moves.
+   */
+  async function planLinks(ws: Workspace, from: string, to: string): Promise<PlannedEdit[]> {
     const index = host.index()
     if (!index) return []
     const paths = filePaths(ws.ui.files)
     const refs = await collectMoveRefs(index, paths, from, to)
-    return planLinkRewrites(refs, from, to, paths)
+    const notes: PlannedEdit[] = planLinkRewrites(refs, from, to, paths)
+    const bases: { path: string; text: string }[] = []
+    for (const path of paths.filter(isCollectionPath)) {
+      const text = ws.docForPath(path)?.getText()
+      if (text !== undefined) bases.push({ path, text })
+    }
+    return [...notes, ...planCollectionMoves(bases, from, to, paths)].sort((a, b) => a.path.localeCompare(b.path))
   }
 
   function askLinks(info: LinksConfirm): Promise<boolean> {
@@ -196,7 +217,7 @@ export function createFileActions(host: FileHost): FileActions {
   }
 
   /** The plan, applied now that the move has landed; a flash says how many notes changed. */
-  function followPlan(ws: Workspace, to: string, plan: LinkRewrite[]): void {
+  function followPlan(ws: Workspace, to: string, plan: PlannedEdit[]): void {
     if (plan.length === 0 || !landed(ws, to)) return
     const t = getLL().web.link_follow
     let updated = 0
@@ -243,6 +264,11 @@ export function createFileActions(host: FileHost): FileActions {
     if (!current) return
     if (kind === 'rename') {
       await current.renamePath(from, to)
+      // The moved note's own links may be among these edits. Its pane
+      // remounts on the new path around here (the {#key} in Pane.svelte),
+      // but the caret is safe on either side: the live view bound to the doc
+      // maps it through the edit, so the resume point the teardown captures
+      // never predates it (Pane.svelte.test.ts, both orders).
       followPlan(current, to, plan)
     } else {
       pendingMove = { from, to, plan }

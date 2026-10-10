@@ -517,10 +517,14 @@ manager, the remote carets and `git diff` never see it
   widgets `ignoreEvent` everything (every key and click inside is the
   form's or the table's), and an edit from the form is the patcher's
   changes dispatched by the widget as one transaction — never a write
-  around the editor. An input the host holds outside the state (whether
-  the note is a row of a collection) is read synchronously through
-  `ReadHost.inCollection()` and the host dispatches `refreshPreview` when
-  it changes.
+  around the editor. Two inputs the host holds outside the state are read
+  synchronously while the decorations build, and the host dispatches
+  `refreshPreview` when either changes: whether the note is a row of a
+  collection (`ReadHost.inCollection()`, refreshed when the membership
+  tracker's answer flips), and an embed's resolved `.base` path
+  (`ReadHost.resolveCollection()`, refreshed when the vault's path set —
+  `workspace.ui.files` — changes, since a collection can move while the
+  embed's text, and so the doc, stays put).
 - **Every hidden range is also an atomic range.** A `Decoration.replace` that
   hides a marker must be returned from `EditorView.atomicRanges` too, or the
   caret walks into text the reader cannot see. Whole-line furniture uses

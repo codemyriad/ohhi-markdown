@@ -35,8 +35,9 @@ import { tableHint } from './table-hint.js'
  * Rebuild the decorations although nothing in the state moved: what the host
  * dispatches when an input it holds OUTSIDE the state changes — whether the
  * open note is a row of a collection (`ReadHost.inCollection`), which the
- * host computes off the index on its own clock. One effect, no payload; the
- * builder re-asks the host.
+ * host computes off the index on its own clock, and the vault's path set,
+ * which an embedded collection's resolved path (`resolveCollection`) is a
+ * function of. One effect, no payload; the builder re-asks the host.
  */
 export const refreshPreview = StateEffect.define<null>()
 

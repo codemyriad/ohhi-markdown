@@ -254,6 +254,23 @@ describe('renames follow (DB6) — the planner over the index, applied on live d
     expect(ws.docs.get('notes/c.md')!.getText()).toBe('[[archive/docs/a]] [[a]]')
   })
 
+  it("a collection follows: renaming the folder it reads rewrites its inFolder, renaming its pillar its hasLink, on the .base's live doc", async () => {
+    const base = 'filters:\n  and:\n    - file.inFolder("docs")\nviews:\n  - type: table\n    name: All\n    filters: file.hasLink("pillar")\n'
+    seed({ 'docs/a.md': '[[pillar]]', 'pillar.md': '# Pillar', 'Docs.base': base, 'notes/b.md': 'Nothing.' })
+    fileOps.handle({ type: 'rename', path: 'docs', kind: 'dir' })
+    await fileOps.confirm('papers')
+    expect(ws.docs.get('Docs.base')!.getText()).toBe(base.replace('inFolder("docs")', 'inFolder("papers")'))
+    expect(ws.docs.get('Docs.base')!.origins).toEqual(['local'])
+    // Counted in the flash like any note it edited.
+    expect(flashes).toEqual([{ level: 'info', text: t.updated({ count: 1 }), path: 'papers' }])
+    syncIndex()
+
+    await expect(fileOps.renameNote('pillar.md', 'Keystone')).resolves.toBe('Keystone.md')
+    expect(ws.docs.get('Docs.base')!.getText()).toContain('file.hasLink("Keystone")')
+    expect(ws.docs.get('papers/a.md')!.getText()).toBe('[[Keystone]]')
+    expect(flashes.at(-1)).toEqual({ level: 'info', text: t.updated({ count: 2 }), path: 'Keystone.md' })
+  })
+
   // The threshold counts files touched: the moved file plus the notes rewritten,
   // exactly as `ohhi mv` counts them — so one note with 20 referrers is 21.
   const OVER = LINK_CONFIRM_THRESHOLD

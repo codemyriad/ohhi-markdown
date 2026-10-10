@@ -31,7 +31,8 @@ export interface LinkEdit {
   to: number
   /**
    * The bytes the planner believes start at `from`: the target as the index
-   * parsed it PLUS the one byte that ends it — `]`, `|` or `#` — so it is one
+   * parsed it PLUS the one byte that ends it — `]`, `|` or `#` (a closing
+   * quote for a collection's filter string) — so it is one
    * byte longer than the edit, and `[[a]]` recorded by the index can never
    * pass for `[[ab]]` on disk. An applier that finds anything else must
    * report the note rather than guess — the note changed under the index.
@@ -63,8 +64,14 @@ export function pathsAfterMove(paths: Iterable<string>, from: string, to: string
   return out
 }
 
-/** The bytes a link's target can end on. The planner names one; the applier checks it. */
-const TERMINATORS = new Set([']', '|', '#'])
+/**
+ * The bytes an edited target can end on. The planner names one; the
+ * applier checks it. `]`, `|` and `#` end a wikilink's target; a quote
+ * ends the string argument of a collection's `file.inFolder("…")` /
+ * `file.hasLink("…")` (`@ohhi/collections`' planner), which goes through
+ * this same applier.
+ */
+const TERMINATORS = new Set([']', '|', '#', '"', "'"])
 
 /**
  * Plan the link rewrites a move of `from` to `to` needs — a note or a
@@ -101,12 +108,10 @@ export function planLinkRewrites(
     if (!ref.target) continue
     const old = ref.resolved ?? before.resolve(ref.target, ref.path)
     if (!old) continue
-    // Where the note this link reached will be — moved, or where it was.
-    const next = pathAfterMove(old, from, to) ?? old
     const refPath = pathAfterMove(ref.path, from, to) ?? ref.path
-    if (stillPointsAt(ref.target, old, next, refPath, after)) continue
+    const insert = retargetLink(ref.target, old, from, to, after, refPath)
+    if (insert === null) continue
 
-    const insert = rewrittenTarget(ref.target, old, next, refPath, after)
     const start = ref.offset + (ref.embed ? 3 : 2)
     const terminator = ref.anchor !== null ? '#' : ref.alias !== null ? '|' : ']'
     const edit: LinkEdit = { from: start, to: start + ref.target.length, expect: ref.target + terminator, insert }
@@ -118,6 +123,30 @@ export function planLinkRewrites(
   const out = [...byNote.values()].filter((n) => n.edits.length > 0)
   for (const note of out) note.edits.sort((a, b) => b.from - a.from)
   return out.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+/**
+ * The one decision, for any written target that named the note at `old`:
+ * null when it still names that note once `from` has moved to `to` (read
+ * from `refPath`, or from nowhere in particular when there is none — a
+ * collection's `file.hasLink("…")` resolves without a home), else the
+ * target to write instead, in the shape the author wrote. `after` is the
+ * resolver over the vault as it will be. The wikilink planner and the
+ * collection planner (`@ohhi/collections`) both ask this, so a link and a
+ * filter string follow a move by the same rule.
+ */
+export function retargetLink(
+  written: string,
+  old: string,
+  from: string,
+  to: string,
+  after: PathResolver,
+  refPath?: string
+): string | null {
+  // Where the note this target reached will be — moved, or where it was.
+  const next = pathAfterMove(old, from, to) ?? old
+  if (stillPointsAt(written, old, next, refPath, after)) return null
+  return rewrittenTarget(written, old, next, refPath, after)
 }
 
 /** Every path a partial-path target could mean under the resolver's own rule: the path ends with it. */
@@ -144,7 +173,7 @@ const isExactPath = (written: string, path: string): boolean =>
  * names the note AND nothing else: a suffix two notes end with is a
  * proximity coin-toss, and one that no longer ends the path is dead.
  */
-function stillPointsAt(written: string, old: string, next: string, refPath: string, after: PathResolver): boolean {
+function stillPointsAt(written: string, old: string, next: string, refPath: string | undefined, after: PathResolver): boolean {
   if (!normalizeTarget(written).includes('/')) return after.resolve(written, refPath) === next
   if (isExactPath(written, next)) return true
   if (isExactPath(written, old)) return false
@@ -152,7 +181,7 @@ function stillPointsAt(written: string, old: string, next: string, refPath: stri
 }
 
 /** The new written target for `written`, now that its note has gone from `old` to `next`. */
-function rewrittenTarget(written: string, old: string, next: string, refPath: string, after: PathResolver): string {
+function rewrittenTarget(written: string, old: string, next: string, refPath: string | undefined, after: PathResolver): string {
   const hadMd = /\.md$/i.test(written.trim())
   const norm = normalizeTarget(written)
   const full = normalizeTarget(next)

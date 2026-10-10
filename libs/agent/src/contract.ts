@@ -16,7 +16,10 @@
  *     optional input or a new output field is still v1 (a reader ignores
  *     what it does not know); removing, renaming or retyping a field is v2.
  *     (`fm` gained `changed`, `hash`, `journalSeq`, `dryRun` and `ops` at
- *     v1 this way.)
+ *     v1 this way.) A write op's widened SIDE EFFECT is held to the same
+ *     line: `mv` now also rewrites other notes' links and collections'
+ *     filter strings, and stays v1 only because `--keep-links` restores the
+ *     old behaviour exactly.
  *  2. Search returns REFERENCES and snippets, never bodies (R4). Reading is
  *     `read`, which is addressable below the note and budgeted.
  *  3. Every list is limited and cursored (R4) and carries honesty counters

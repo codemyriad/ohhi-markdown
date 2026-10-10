@@ -48,16 +48,19 @@ const SKIP_REASONS: Record<OpOutput<'mv'>['skipped'][number]['reason'], string> 
   not_found: 'the note is gone',
 }
 
+/** What a rewrite changed in this file: a note's links, or a collection's (`.base`) filter strings. */
+const edited = (path: string, n: number): string => plural(n, /\.base$/i.test(path) ? 'filter' : 'link')
+
 export function renderMv(o: OpOutput<'mv'>, sink: Sink): void {
   sink.out(`${verb(o.dryRun, 'moved', 'move')} ${o.from} -> ${o.to}`)
   // One line per referencing note, with the same provenance every write
   // prints: the note's hash now and the undo handle for ITS pre-image.
   for (const r of o.rewrote) {
-    sink.out(`${verb(o.dryRun, 'updated', 'update')} ${plural(r.links, 'link')} in ${r.path}`)
+    sink.out(`${verb(o.dryRun, 'updated', 'update')} ${edited(r.path, r.links)} in ${r.path}`)
     wroteNote(sink, { path: r.path, hash: r.hash, journalSeq: r.journalSeq, dryRun: o.dryRun })
   }
   for (const s of o.skipped) {
-    sink.err(`warning: ${plural(s.links, 'link')} in ${s.path} not updated: ${SKIP_REASONS[s.reason]}`)
+    sink.err(`warning: ${edited(s.path, s.links)} in ${s.path} not updated: ${SKIP_REASONS[s.reason]}`)
   }
   sink.err(
     kv({

@@ -42,6 +42,7 @@ export {
   pathAfterMove,
   pathsAfterMove,
   planLinkRewrites,
+  retargetLink,
   type LinkEdit,
   type LinkRewrite,
   type MoveRefSource,

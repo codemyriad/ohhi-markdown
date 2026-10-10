@@ -1,5 +1,6 @@
-import { applyLinkEdits, collectMoveRefs, planLinkRewrites, type LinkRewrite } from '@ohhi/index'
-import type { VaultBackend } from '../backend.js'
+import { isCollectionPath, planCollectionMoves } from '@ohhi/collections'
+import { applyLinkEdits, collectMoveRefs, planLinkRewrites, type LinkEdit } from '@ohhi/index'
+import { readNote, type VaultBackend } from '../backend.js'
 import { OP_SCHEMAS, OpError, schemaName, type OpOutput } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { isUnder, normalizeVaultPath } from '../paths.js'
@@ -30,6 +31,14 @@ import { filesUnder, requireConfirmation, resolveTarget } from './move.js'
  * The plan goes to the trail (stderr) BEFORE the move: N+1 writes are not
  * one atomic act, and a crash between the move and the last rewrite must
  * leave the human a list of what was meant to change, not a silence.
+ *
+ * Collections follow too: a `.base` whose `file.inFolder("…")` or
+ * `file.hasLink("…")` names what moves gets the same kind of byte edit
+ * (`@ohhi/collections`' planner, the one the app runs), through the same
+ * journaled write, reported in `rewrote` beside the notes — `links` then
+ * counts the filter strings changed. Without it, renaming the folder a
+ * collection reads leaves the collection empty.
+ *
  * Reversing a move is `mv <to> <from>`, which follows the links back;
  * `restore <note>` reverts one note's text and leaves the move standing.
  */
@@ -54,7 +63,11 @@ export const mv: OpDef<'mv'> = {
     const dryRun = input.dryRun ?? false
     if (!dryRun && plan.length > 0) {
       backend.trail?.(`plan: move ${from} -> ${to}, then update links in ${plan.length} note${plan.length === 1 ? '' : 's'}:`)
-      for (const note of plan) backend.trail?.(`plan: ${note.edits.length} link${note.edits.length === 1 ? '' : 's'} in ${note.path}`)
+      for (const note of plan) {
+        const n = note.edits.length
+        const what = note.collection ? `filter${n === 1 ? '' : 's'}` : `link${n === 1 ? '' : 's'}`
+        backend.trail?.(`plan: ${n} ${what} in ${note.path}`)
+      }
     }
     if (!dryRun) {
       await backend.journal.rename(from, to)
@@ -69,7 +82,7 @@ export const mv: OpDef<'mv'> = {
       try {
         // A fresh read from disk at the note's post-move path — never the
         // walk's copy — so the pre-image journaled is what is there now.
-        const open = await openForWrite(backend, note.path)
+        const open = await openForWrite(backend, note.path, undefined, { allowCollection: note.collection })
         if (!open.exists) {
           skipped.push({ path: note.path, links, reason: 'not_found' })
           continue
@@ -94,9 +107,26 @@ export const mv: OpDef<'mv'> = {
   },
 }
 
-/** The planner over this vault: every file's path (text and binary), the index's refs. */
-async function planFor(backend: VaultBackend, from: string, to: string): Promise<LinkRewrite[]> {
+/** One file to edit after the move: a note's links, or a collection's filter strings. */
+interface PlannedEdit {
+  path: string
+  edits: LinkEdit[]
+  collection: boolean
+}
+
+/**
+ * The planners over this vault: every file's path (text and binary), the
+ * index's refs, and every `.base` as it reads on disk now, before the move.
+ */
+async function planFor(backend: VaultBackend, from: string, to: string): Promise<PlannedEdit[]> {
   const paths = [...(await backend.files()).keys()]
   const refs = await collectMoveRefs(await backend.index(), paths, from, to)
-  return planLinkRewrites(refs, from, to, paths)
+  const notes = planLinkRewrites(refs, from, to, paths).map((n) => ({ path: n.path, edits: n.edits, collection: false }))
+  const bases: { path: string; text: string }[] = []
+  for (const path of paths.filter(isCollectionPath)) {
+    const read = await readNote(backend, path)
+    if (read) bases.push({ path, text: read.text })
+  }
+  const collections = planCollectionMoves(bases, from, to, paths).map((c) => ({ ...c, collection: true }))
+  return [...notes, ...collections].sort((a, b) => a.path.localeCompare(b.path))
 }

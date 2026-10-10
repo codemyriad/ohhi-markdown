@@ -169,7 +169,11 @@
     index: nav.sink,
     attachIndex: (ws) => nav.attach(ws),
     attachPanes: (ws, room) => panes.attach(ws, room),
-    onRenamed: (moves) => panes.onRenamed(moves),
+    onRenamed: (moves) => {
+      // The membership answers move first, so the remount on the new path draws its form at once.
+      for (const { from, to } of moves) membership.renamed(from, to)
+      panes.onRenamed(moves)
+    },
     userName: () => loadUser() ?? 'Anonymous',
     lastVault,
     onOpened: (ws, entry) => {

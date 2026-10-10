@@ -7,12 +7,16 @@
  * synchronously through `ReadHost.inCollection` and is told to rebuild when
  * it flips.
  *
- * The last answer for a path is kept until the next one lands, so a note
- * reopened — or shown in a second pane — draws its form at once rather
- * than flashing the strip first; a note never asked about is asked at
- * once and shows the strip until the index replies.
+ * The last answer for a path is kept while anything watches it, until the
+ * next one lands, so a note shown in a second pane draws its form at once
+ * rather than flashing the strip first, and a rename carries the answer to
+ * the new path (`renamed`) so the remounted view draws it too. When the
+ * last watcher releases a path its answer goes: a note created later at
+ * that path has not earned the old one's form. A note not watched is asked
+ * at once and shows the strip until the index replies.
  */
 import { isCollectionPath } from '@ohhi/collections'
+import { untrack } from 'svelte'
 import type { VaultIndex } from '@ohhi/index'
 import type { Clock } from '@ohhi/vault'
 import { collectionQueries, inAnyCollection, type CompiledCollection } from './collection-membership.js'
@@ -24,6 +28,12 @@ export interface CollectionMembership {
   watch(path: string): () => void
   /** The index changed: re-ask for every watched note, coalesced on the clock. */
   invalidate(): void
+  /**
+   * `from` (a note, or a folder) is now at `to`: its answers, and those of
+   * every note under it, move with it — the remount that follows watches the
+   * new path, and should not flash the strip before its form.
+   */
+  renamed(from: string, to: string): void
 }
 
 export interface MembershipDeps {
@@ -59,7 +69,8 @@ export function createMembership(deps: MembershipDeps): CollectionMembership {
     for (const path of paths) {
       asked.set(path, run)
       void inAnyCollection(index, queries, path, now, tzOffsetMinutes).then((answer) => {
-        if (asked.get(path) === run) answers[path] = answer
+        // Released (or renamed away) meanwhile: an answer nobody watches is not kept.
+        if (asked.get(path) === run && watchers.has(path)) answers[path] = answer
       })
     }
   }
@@ -79,16 +90,36 @@ export function createMembership(deps: MembershipDeps): CollectionMembership {
     isMember: (path) => answers[path] ?? false,
     watch(path) {
       watchers.set(path, (watchers.get(path) ?? 0) + 1)
-      // Never asked: at once. Asked before: its last answer stands, and the
-      // next coalesced run refreshes it.
-      if (path in answers) invalidate()
-      else run([path])
+      // Not answered: at once. Answered (another pane watches it, or a
+      // rename carried it here): that answer stands, and the next coalesced
+      // run refreshes it. Untracked: a pane calls this from an effect, which
+      // must depend on its note's path alone — not on the answer it is about
+      // to receive (the release drops it, so that would ask forever) nor on
+      // the file list a run reads.
+      untrack(() => {
+        if (path in answers) invalidate()
+        else run([path])
+      })
       return () => {
         const left = (watchers.get(path) ?? 1) - 1
-        if (left <= 0) watchers.delete(path)
-        else watchers.set(path, left)
+        if (left > 0) {
+          watchers.set(path, left)
+          return
+        }
+        watchers.delete(path)
+        asked.delete(path)
+        delete answers[path]
       }
     },
     invalidate,
+    renamed(from, to) {
+      for (const path of Object.keys(answers)) {
+        const next = path === from ? to : path.startsWith(`${from}/`) ? `${to}${path.slice(from.length)}` : null
+        if (next === null) continue
+        answers[next] = answers[path]
+        delete answers[path]
+        asked.delete(path)
+      }
+    },
   }
 }

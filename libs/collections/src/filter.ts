@@ -40,7 +40,8 @@ export interface FilterScope {
 // ---- tokens ------------------------------------------------------------------
 
 type Tok =
-  | { t: 'str'; v: string }
+  /** `from`/`to` bound the text between the quotes in the source; `q` is the quote. */
+  | { t: 'str'; v: string; from: number; to: number; q: string }
   | { t: 'num'; v: number }
   | { t: 'id'; v: string }
   | { t: 'op'; v: string }
@@ -70,7 +71,7 @@ function tokenize(src: string, statement: string): Tok[] {
         }
       }
       if (j >= src.length) throw new UnsupportedFilter(statement, 'unterminated string')
-      out.push({ t: 'str', v })
+      out.push({ t: 'str', v, from: i + 1, to: j, q: c })
       i = j + 1
       continue
     }
@@ -377,6 +378,53 @@ class Parser {
     if (o.kind === 'expr') return o.expr
     this.fail(o.kind === 'filter' ? 'a condition where a value was expected' : `\`${o.kind}\` on its own`)
   }
+}
+
+/** The string argument of a `file.inFolder("…")` or `file.hasLink("…")` call, where the source holds it. */
+export interface FileCallString {
+  fn: 'inFolder' | 'hasLink'
+  /** The argument as the filter reads it. */
+  value: string
+  /** The text between the quotes, `[from, to)` in the statement's source. */
+  from: number
+  to: number
+  /** The quote that opened it, `"` or `'`. */
+  quote: string
+  /** True when the source bytes between the quotes ARE the value — no escape sequence in them. */
+  verbatim: boolean
+}
+
+/**
+ * Every `file.inFolder("…")` / `file.hasLink("…")` first argument in one
+ * statement, with its offsets — what a move rewrites (`rewrite.ts`). Read
+ * with the compiler's own tokenizer, so a string that merely contains the
+ * words is never mistaken for a call; a statement the tokenizer refuses
+ * has none.
+ */
+export function fileCallStrings(statement: string): FileCallString[] {
+  let toks: Tok[]
+  try {
+    toks = tokenize(statement, statement)
+  } catch {
+    return []
+  }
+  const out: FileCallString[] = []
+  const isOp = (t: Tok | undefined, v: string): boolean => t?.t === 'op' && t.v === v
+  for (let i = 0; i + 4 < toks.length; i++) {
+    const [file, dot, fn, open, arg] = toks.slice(i, i + 5)
+    if (file.t !== 'id' || file.v !== 'file' || isOp(toks[i - 1], '.')) continue
+    if (!isOp(dot, '.') || fn.t !== 'id' || (fn.v !== 'inFolder' && fn.v !== 'hasLink') || !isOp(open, '(')) continue
+    if (arg.t !== 'str') continue
+    out.push({
+      fn: fn.v,
+      value: arg.v,
+      from: arg.from,
+      to: arg.to,
+      quote: arg.q,
+      verbatim: statement.slice(arg.from, arg.to) === arg.v,
+    })
+  }
+  return out
 }
 
 /** Compile one statement. Throws `UnsupportedFilter` outside the subset. */

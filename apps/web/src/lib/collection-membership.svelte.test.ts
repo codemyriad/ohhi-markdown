@@ -1,6 +1,7 @@
 /**
  * The shell's membership tracker: one ask per watched note, coalesced on
- * the injected clock, the last answer kept until the next lands.
+ * the injected clock, the last answer kept while watched until the next
+ * lands, carried across a rename, dropped with its last watcher.
  */
 import { MemoryIndex, type IndexDoc } from '@ohhi/index'
 import { describe, expect, it, vi } from 'vitest'
@@ -95,20 +96,51 @@ describe('createMembership', () => {
     expect(membership.isMember('Competitors/Ingredifind.md')).toBe(false)
   })
 
-  it('a released note is not re-asked; a re-watched one keeps its last answer and joins the next run', async () => {
+  it('a released note is not re-asked, and its answer goes with its last watcher', async () => {
     const { membership, rows, clock } = setup()
     const release = membership.watch('Competitors/Ingredifind.md')
+    const second = membership.watch('Competitors/Ingredifind.md')
     await flush()
+    second()
+    // Another pane still shows it: the answer stands.
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(true)
     release()
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(false)
     rows.mockClear()
     membership.invalidate()
     clock.advance(MEMBERSHIP_COALESCE_MS)
     expect(rows).not.toHaveBeenCalled()
+    // Watched again: asked at once, as a note never seen is.
     membership.watch('Competitors/Ingredifind.md')
-    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(true)
-    expect(rows).not.toHaveBeenCalled()
-    clock.advance(MEMBERSHIP_COALESCE_MS)
     expect(rows).toHaveBeenCalledTimes(1)
+    await flush()
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(true)
+  })
+
+  it('an answer still in flight when its note is released is dropped, not kept', async () => {
+    const { membership } = setup()
+    const release = membership.watch('Competitors/Ingredifind.md')
+    release()
+    await flush()
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(false)
+  })
+
+  it('a rename carries the answer to the new path — the note and everything under a folder — and the old path keeps none', async () => {
+    const { membership, rows } = setup()
+    const release = membership.watch('Competitors/Ingredifind.md')
+    await flush()
+    membership.renamed('Competitors', 'Rivals')
+    expect(membership.isMember('Rivals/Ingredifind.md')).toBe(true)
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(false)
+    // The remount: the new path is watched (answer at once, no ask), the old released.
+    rows.mockClear()
+    const next = membership.watch('Rivals/Ingredifind.md')
+    release()
+    expect(membership.isMember('Rivals/Ingredifind.md')).toBe(true)
+    expect(rows).not.toHaveBeenCalled()
+    next()
+    // A note created later at the old path has earned nothing.
+    expect(membership.isMember('Competitors/Ingredifind.md')).toBe(false)
   })
 
   it('with nothing watched, an invalidation schedules nothing', () => {

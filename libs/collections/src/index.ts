@@ -7,7 +7,8 @@
  * Pure and Node-safe: it serves the app's collection tab, the CLI's
  * `collections` / `rows` and the importer alike.
  */
-export { compileStatement, UnsupportedFilter, type FilterScope } from './filter.js'
+export { compileStatement, fileCallStrings, UnsupportedFilter, type FileCallString, type FilterScope } from './filter.js'
+export { planCollectionMoves, planCollectionRewrites, type CollectionRewrite, type CollectionRewriteOptions } from './rewrite.js'
 export { parseCollection } from './parse.js'
 export { compileView, folderOf, keyFor, labelFor, NOTES_ONLY } from './query.js'
 export { addView, patchView, removeView, type NewView, type PatchReason, type PatchResult, type ViewPatch } from './patch.js'

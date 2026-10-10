@@ -247,16 +247,27 @@
    * The shell's one tracker answers, once per note path however many panes
    * show it, coalesced on the shell's clock; this pane only says which note
    * it is showing. The engine reads the answer synchronously through
-   * `inCollection` and is told to rebuild with one effect when it changes.
+   * `inCollection` and is told to rebuild with one effect when it changes —
+   * or when the vault's path set does (below).
    */
   $effect(() => {
     const p = path
     if (!membership || !p || isCollectionPath(p)) return
     return membership.watch(p)
   })
+  /**
+   * The vault's path set, as one string so the effect below re-runs only
+   * when a path appears, goes or moves — not on every row update. An embed's
+   * `.base` is resolved when the decorations are built (`resolveCollection`),
+   * so a collection that moves while the embed's text stays put
+   * (`![[Competitors.base]]` still resolves after a move between folders)
+   * would keep its old path without this.
+   */
+  const pathSet = $derived(workspace.ui.files.map((f) => f.path).join('\n'))
   $effect(() => {
     const p = path
     void (p && membership ? membership.isMember(p) : false)
+    void pathSet
     const view = handle?.view
     if (view) view.dispatch({ effects: refreshPreview.of(null) })
   })

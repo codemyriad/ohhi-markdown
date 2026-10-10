@@ -254,6 +254,40 @@ describe('mv follows links (bases-shaping A5.1)', () => {
     expect(vault.trail).toEqual([])
   })
 
+  it('renaming the folder a collection reads rewrites its inFolder, through the journal, and the rows follow', async () => {
+    const vault = await open()
+    const before = vault.notes['Competitors.base']
+    const out = await runOp(vault.backend, 'mv', { from: 'Competitors', to: 'Rivals' })
+    expect(out.rewrote.map((r) => [r.path, r.links])).toEqual([['Competitors.base', 1]])
+    const base = out.rewrote[0]
+    expect(base.journalSeq).not.toBeNull()
+    // One string changed, every other byte kept.
+    expect(await vault.text('Competitors.base')).toBe(before.replace('file.inFolder("Competitors")', 'file.inFolder("Rivals")'))
+    expect(await vault.backend.journal.list('Competitors.base')).toHaveLength(1)
+    expect(vault.trail).toContain('plan: 1 filter in Competitors.base')
+    // The collection still has its rows, at their new paths.
+    const rows = await runOp(await reopen(vault), 'rows', { collection: 'Competitors.base' })
+    expect(rows.rows.length).toBeGreaterThan(0)
+    expect(rows.rows.every((r) => r.path.startsWith('Rivals/'))).toBe(true)
+  })
+
+  it('a pillar note renamed: a collection\'s hasLink follows it; a dry run reports and writes nothing; --keep-links leaves it', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Pillar.base'), 'filters: file.hasLink("JSON")\nviews:\n  - type: table\n    name: All\n', 'utf8')
+    let backend = await reopen(vault)
+    const dry = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md', dryRun: true })
+    expect(dry.rewrote.find((r) => r.path === 'Pillar.base')?.links).toBe(1)
+    expect(await vault.text('Pillar.base')).toBe('filters: file.hasLink("JSON")\nviews:\n  - type: table\n    name: All\n')
+    const kept = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Kept.md', keepLinks: true })
+    expect(kept.rewrote).toEqual([])
+    expect(await vault.text('Pillar.base')).toContain('file.hasLink("JSON")')
+    backend = await reopen(vault)
+    await runOp(backend, 'mv', { from: 'Areas/CS/Kept.md', to: 'Areas/CS/JSON.md', keepLinks: true })
+    backend = await reopen(vault)
+    await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(await vault.text('Pillar.base')).toBe('filters: file.hasLink("Data Format")\nviews:\n  - type: table\n    name: All\n')
+  })
+
   it('counts the notes it would rewrite toward the breaker', async () => {
     const vault = await open()
     for (let i = 0; i < MASS_CHANGE_PATHS; i++) {

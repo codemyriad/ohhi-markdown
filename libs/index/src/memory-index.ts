@@ -200,7 +200,9 @@ export class MemoryIndex implements WritableIndex {
     const existing = this.docs.get(doc.guid)
     if (existing) {
       this.unpost(existing)
-      this.byPath.delete(existing.path)
+      // Only while the old path is still ours: two notes trading names (a
+      // git checkout, a swap) land one upsert on the other's path first.
+      if (this.byPath.get(existing.path) === doc.guid) this.byPath.delete(existing.path)
     }
     const entry = this.derive(doc)
     this.docs.set(doc.guid, entry)
@@ -223,7 +225,9 @@ export class MemoryIndex implements WritableIndex {
     if (!entry) return
     this.unpost(entry)
     this.docs.delete(guid)
-    this.byPath.delete(entry.path)
+    // Another note may hold this path by now (it was renamed or created
+    // there before this removal landed): its pin is not ours to drop.
+    if (this.byPath.get(entry.path) === guid) this.byPath.delete(entry.path)
     this.resolver.reset(this.paths())
     this.resolutionDirty = true
   }

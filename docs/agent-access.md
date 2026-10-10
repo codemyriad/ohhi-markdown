@@ -726,6 +726,20 @@ inline title (`@ohhi/index`'s `planLinkRewrites`), so the two agree:
   note changed with its new `hash` and `journalSeq` (`ohhi restore <that
   note> --seq N` undoes one note).
 
+**Collections follow too.** A `.base` names its rows by folder and by link,
+so `mv` also rewrites the quoted string in a collection's
+`file.inFolder("…")` when it names the moved folder or one under it (the
+prefix is rewritten: `Competitors` → `Rivals`, `Competitors/Deep` →
+`Rivals/Deep`) and in `file.hasLink("…")` when its target resolved to the
+moved note — by the same bare-versus-path rule as a `[[link]]`
+(`@ohhi/collections`' `planCollectionRewrites`, the planner the app runs
+too). Only statements in a `filters` tree are read; nothing else in the file
+moves a byte, and the edit is the same journaled, compare-and-swapped write.
+The collection appears in `rewrote` beside the notes, its `links` counting
+the filter strings changed (the text renderer says `updated 1 filter in
+Competitors.base`). A string written with an escape, or a new name the
+statement's quoting cannot hold byte for byte, is left as it is.
+
 `--dry-run` plans it all and reports `rewrote` without moving or writing —
 look first when the note is widely linked. `--keep-links` moves only.
 Before it moves anything, `mv` prints the plan to stderr (`plan: 3 links in
@@ -1027,7 +1041,8 @@ and it asserts three things:
 | `libs/agent/src/backend.ts` | `VaultBackend` — root, adapter, lazy index, docs, journal, clock, coverage. |
 | `libs/agent/src/select-vault.ts` | Vault selection and the data directory. |
 | `libs/agent/src/ops/` | One file per op, registered in `ops/index.ts`. |
-| `libs/collections/src/` | The `.base` reader, the filter grammar and the view patcher behind `collections` and `rows`. |
+| `libs/index/src/link-rewrite.ts` | The rename planner `mv` and the app share: which `[[links]]` a move breaks (`collectMoveRefs`, `planLinkRewrites`, `retargetLink`) and the checked byte edit (`applyLinkEdits`). |
+| `libs/collections/src/` | The `.base` reader, the filter grammar and the view patcher behind `collections` and `rows`; `rewrite.ts` is the collections' rename planner (`planCollectionRewrites`) `mv` runs beside the link one. |
 | `apps/cli/src/run.ts` | `run(argv, io) => exit code` — no framework, `node:util` `parseArgs`. |
 | `apps/cli/src/render/` | The text renderers (humans only). |
 | `apps/cli/src/mcp.ts` | The stdio MCP server. |
