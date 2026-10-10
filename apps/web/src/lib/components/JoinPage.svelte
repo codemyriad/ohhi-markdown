@@ -1,6 +1,10 @@
 <script lang="ts" module>
-  /** The desktop builds (docs/desktop-builds.md §How releases happen). Not copy: a URL. */
-  export const RELEASES_URL = 'https://github.com/codemyriad/ohhi-markdown/releases'
+  /**
+   * Where "Download" goes: the getting-started guide's install section, on
+   * this page's own origin — never the private repository's Releases page,
+   * which answers 404 to anyone outside the GitHub org.
+   */
+  export const DOWNLOAD_HREF = '/guide/start.html#install'
 </script>
 
 <script lang="ts">
@@ -46,12 +50,7 @@
     networkNote?: string
     /** The relay health check; tests hand in a fake. */
     probe?: Probe
-    /**
-     * Where "Download" goes: the repository's Releases page, where every
-     * build's `.dmg` / `.AppImage` lands (docs/deploy-tailnet.md §Teammates,
-     * docs/desktop-builds.md). The repository is private, so it opens for
-     * people in the GitHub org.
-     */
+    /** Where "Download" goes; default `DOWNLOAD_HREF`, the guide's install section. */
     downloadHref?: string
   }
 
@@ -62,7 +61,7 @@
     teamHost = teamRelayHost(),
     networkNote = TEAM_NETWORK_NOTE,
     probe = defaultProbe,
-    downloadHref = RELEASES_URL,
+    downloadHref = DOWNLOAD_HREF,
   }: Props = $props()
 
   const t = $derived($LL.web.join_page)
@@ -114,7 +113,7 @@
 
   const option = `flex flex-col gap-2 ${CARD} p-4`
   const primary =
-    'self-start rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary'
+    'self-start rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary'
   const outline = `self-start ${OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-base-content/80`
   const linkCls = 'text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary'
 </script>
@@ -171,6 +170,10 @@
               {:else if check === 'ok'}
                 <CircleCheck size={16} strokeWidth={1.75} aria-hidden="true" class="mt-0.5 shrink-0 text-success" />
                 <span>{t.relay_ok()}</span>
+              {:else if check === 'unhealthy'}
+                <!-- Reached, so no network advice: the relay itself needs its operator. -->
+                <CircleAlert size={16} strokeWidth={1.75} aria-hidden="true" class="mt-0.5 shrink-0 text-warning" />
+                <span>{t.relay_unhealthy()}</span>
               {:else}
                 <CircleAlert size={16} strokeWidth={1.75} aria-hidden="true" class="mt-0.5 shrink-0 text-warning" />
                 <span>

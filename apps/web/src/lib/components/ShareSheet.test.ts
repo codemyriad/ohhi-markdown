@@ -129,7 +129,7 @@ describe('ShareSheet — not shared yet (a secret saved)', () => {
     expect(screen.queryByRole('button', { name: t.stop() })).toBeNull()
   })
 
-  it('shares, and copies the URL form carrying the folder and the name — Settings untouched', async () => {
+  it('shares with no name typed: a named first link is minted beside the carve — the owner’s credential is never copied', async () => {
     const user = setupUser()
     const props = open()
 
@@ -137,13 +137,24 @@ describe('ShareSheet — not shared yet (a secret saved)', () => {
 
     await waitFor(() => expect(props.onShare).toHaveBeenCalledOnce())
     expect(props.onRemember).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(admin.mintShare).toHaveBeenCalledWith(RELAY, 'op-secret', {
+        folderGuid: ROOM,
+        label: t.first_link_default(),
+        readOnly: false,
+      })
+    )
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
     const link = writeText.mock.calls[0]![0] as string
     expect(link.startsWith(`${ORIGIN}/join#editor1:`)).toBe(true)
-    expect(decodeShareLink(link)).toMatchObject({ relay: RELAY, room: ROOM, token: 'a'.repeat(64), label: 'notes', from: 'Chris' })
+    const decoded = decodeShareLink(link)
+    expect(decoded).toMatchObject({ relay: RELAY, room: ROOM, token: 'tok-new', label: 'notes', from: 'Chris' })
+    // The carve's token is the owner's own credential: never handed over.
+    expect(decoded.token).not.toBe(decodeShareLink(FOLDER_LINK).token)
+    expect(screen.getByTestId('share-done-link')).not.toHaveValue(expect.stringContaining(FOLDER_LINK))
     expect(await screen.findByTestId('share-done')).toHaveTextContent(t.shared_copied())
-    // No name typed: the carve's link; nothing minted beside it.
-    expect(admin.mintShare).not.toHaveBeenCalled()
+    // The done block names the link by its default name.
+    expect(screen.getByText(t.just_made({ name: t.first_link_default() }))).toBeVisible()
     expect(props.onSaveName).not.toHaveBeenCalled()
   })
 
@@ -163,6 +174,7 @@ describe('ShareSheet — not shared yet (a secret saved)', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
     const link = writeText.mock.calls[0]![0] as string
     expect(decodeShareLink(link)).toMatchObject({ token: 'tok-new', label: 'notes', from: 'Chris D' })
+    expect(decodeShareLink(link).token).not.toBe(decodeShareLink(FOLDER_LINK).token)
     // The name typed is the saved name now.
     expect(props.onSaveName).toHaveBeenCalledWith('Chris D')
     expect(await screen.findByText(t.just_made({ name: 'Sam' }))).toBeVisible()
@@ -340,7 +352,7 @@ describe('ShareSheet — shared', () => {
 
   it('on the desktop the link points at the team host derived from the relay; elsewhere it is bare', async () => {
     const user = setupUser()
-    open({ mount: carved, desktop: true, locationOrigin: 'tauri://localhost' })
+    open({ mount: carved, desktop: true, locationOrigin: 'tauri://localhost', pinnedHost: 'ohhi.example.ts.net' })
     await user.click(await screen.findByRole('button', { name: t.copy_link_for({ name: 'Team' }) }))
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
     expect((writeText.mock.calls[0]![0] as string).startsWith(`${ORIGIN}/join#editor1:`)).toBe(true)
@@ -351,6 +363,18 @@ describe('ShareSheet — shared', () => {
     await user.click(await screen.findByRole('button', { name: t.copy_link_for({ name: 'Team' }) }))
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2))
     expect((writeText.mock.calls[1]![0] as string).startsWith('editor1:')).toBe(true)
+    cleanup()
+
+    // A generic desktop build sharing on someone's wss://<host>/relay: no
+    // guessed join page — the bare link, and the message says to paste it in the app.
+    open({ mount: carved, desktop: true, locationOrigin: 'tauri://localhost', pinnedHost: '' })
+    await user.click(await screen.findByRole('button', { name: t.copy_link_for({ name: 'Team' }) }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(3))
+    const bare = writeText.mock.calls[2]![0] as string
+    expect(bare.startsWith('editor1:')).toBe(true)
+    await user.click(screen.getByRole('button', { name: t.copy_message_for({ name: 'Team' }) }))
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(4))
+    expect(writeText.mock.calls[3]![0]).toContain(t.message_bare({ folder: 'notes', link: bare }))
   })
 
   it('removes a link and reloads the list', async () => {

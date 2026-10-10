@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { joinPageLink, parseAppParams } from './params.js'
+import { describe, expect, it, vi } from 'vitest'
+import { dropJoinLink, joinPageLink, parseAppParams, settleJoinAddress } from './params.js'
 
 function memStore(): Storage {
   const m = new Map<string, string>()
@@ -40,18 +40,34 @@ describe('joinPageLink — the /join page (first-run C2)', () => {
   const href = 'https://ohhi.example.ts.net/join#editor1:abc'
 
   it('is the whole address on /join in a browser, with or without a trailing slash', () => {
-    expect(joinPageLink({ pathname: '/join', href }, false)).toBe(href)
-    expect(joinPageLink({ pathname: '/join/', href }, false)).toBe(href)
+    expect(joinPageLink({ pathname: '/join', href }, false, null)).toBe(href)
+    expect(joinPageLink({ pathname: '/join/', href }, false, null)).toBe(href)
   })
 
   it('still answers with an empty fragment, so the page can show its error state', () => {
     const bare = 'https://ohhi.example.ts.net/join'
-    expect(joinPageLink({ pathname: '/join', href: bare }, false)).toBe(bare)
+    expect(joinPageLink({ pathname: '/join', href: bare }, false, null)).toBe(bare)
   })
 
   it('is null anywhere else, and always on the desktop', () => {
     expect(joinPageLink({ pathname: '/', href: 'https://h/#editor1:abc' }, false)).toBeNull()
     expect(joinPageLink({ pathname: '/joinery', href: 'https://h/joinery' }, false)).toBeNull()
     expect(joinPageLink({ pathname: '/join', href }, true)).toBeNull()
+  })
+
+  it('takes the token out of the address bar at once, and a reload of /join in the same tab finds it again', () => {
+    const store = memStore()
+    const hist = { replaceState: vi.fn() }
+    settleJoinAddress(href, hist, store)
+    // Replaced, not pushed: Back's history no longer holds the token either.
+    expect(hist.replaceState).toHaveBeenCalledExactlyOnceWith({}, '', '/join')
+    const bare = 'https://ohhi.example.ts.net/join'
+    expect(joinPageLink({ pathname: '/join', href: bare }, false, store)).toBe(href)
+    // A new link in the address wins over the held one.
+    const other = 'https://ohhi.example.ts.net/join#editor1:other'
+    expect(joinPageLink({ pathname: '/join', href: other }, false, store)).toBe(other)
+    // Leaving the page for the manager forgets it.
+    dropJoinLink(store)
+    expect(joinPageLink({ pathname: '/join', href: bare }, false, store)).toBe(bare)
   })
 })

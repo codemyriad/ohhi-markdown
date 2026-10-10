@@ -33,11 +33,16 @@ on:
     branches: [release]
     tags: ['v*']
     # Path filters apply to the branch push only; tag pushes always build.
-    # Not '**/*.md': apps/web bundles templates/*.md.
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.claude/**'
+    # Everything builds except the docs, root *.md and .claude/ — but
+    # docs/guide/** is re-included: the web app embeds the guide pages, so a
+    # guide-only push must rebuild it. Order matters: a later pattern overrides
+    # an earlier one. Not '!**/*.md': apps/web bundles templates/*.md.
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!*.md'
+      - '!.claude/**'
+      - 'docs/guide/**'
   workflow_dispatch:
 
 permissions:

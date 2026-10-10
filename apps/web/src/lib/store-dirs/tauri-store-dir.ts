@@ -117,6 +117,16 @@ export async function createTauriStoreDir(sub: string): Promise<TauriStoreDir> {
 }
 
 /**
+ * `<appData>/stores/<sub>` if it exists, else null — never creates it: a read
+ * for the manager's row facts.
+ */
+export async function openTauriStoreDirIfExists(sub: string): Promise<TauriStoreDir | null> {
+  const base = normalizePosix(toPosix(await appDataDir()))
+  const root = `${base}/stores/${sub}`
+  return (await exists(root)) ? new TauriStoreDir(root) : null
+}
+
+/**
  * Delete the whole `<appData>/stores/<sub>` namespace, directory included —
  * the forget-vault path (wipeStoreDir removes files; this also drops the
  * skeleton). Missing namespace is a no-op.

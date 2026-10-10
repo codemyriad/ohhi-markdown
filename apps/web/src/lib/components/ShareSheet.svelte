@@ -10,21 +10,22 @@
    * The FIRST RUN (first-run-shaping D1/D2, Fork 5-A) meets the relay inline,
    * with no operator secret yet: "Syncs through" + the relay card (probed;
    * *Use another…* reveals the address field, never in a pinned build),
-   * "Permission to create links" — verified against the relay before any
+   * the team's secret — verified against the relay before any
    * mint, *Share* disabled with the reason until it says "works" — and both
    * are remembered in Settings › Sync on Share. A folder not shared yet also
    * names its FIRST LINK ("who is it for?") and "Your name, shown to them"
    * (prefilled, saved on Share).
    *
    * The carve (`onShare`) mints the OWNER's credential, which this device's
-   * own session connects with — so it is never made read-only and never
-   * named for someone else. A named first link is minted beside it, for that
-   * person, exactly as *Create link* does; without a name the carve's link is
-   * the one copied, as before.
+   * own session connects with — so it is never made read-only, never named
+   * for someone else, and never handed over. The first link is ALWAYS minted
+   * beside it, for the person it is for, exactly as *Create link* does;
+   * without a name it is minted as "First link", so its row in the list is
+   * still named.
    *
    * Links leave the sheet in the URL form when an origin is known
-   * (`share-message.ts`: the browser's own; the team host on the desktop;
-   * else the bare `editor1:` link), carrying `label` (the folder) and `from`
+   * (`share-message.ts`: the browser's own; the team host on the desktop,
+   * only for a relay on it; else the bare `editor1:` link), carrying `label` (the folder) and `from`
    * (the name typed) — and *Copy message* wraps one in a sentence (C4).
    */
   import { untrack } from 'svelte'
@@ -236,7 +237,7 @@
   }
 
   // ---- the link as it leaves the sheet (C1/C4) ----
-  const origin = $derived(linkOrigin({ desktop, locationOrigin, relayUrl: folderRelay }))
+  const origin = $derived(linkOrigin({ desktop, locationOrigin, relayUrl: folderRelay, teamHost: pinnedHost }))
   const fromName = $derived(yourName.trim() || userName)
 
   function present(target: ShareTarget): string {
@@ -286,16 +287,16 @@
         justShared = { copied: await copy(carved, '__folder'), link: carved, name: '' }
         return
       }
-      const label = firstLabel.trim()
-      if (label) {
-        // One link per person, named for them — beside the owner's own credential.
-        const minted = await mintShare(target.relay, usingSecret, {
-          folderGuid: target.room,
-          label,
-          readOnly: firstReadOnly,
-        })
-        target = { ...target, token: minted.token }
-      }
+      // One link per person, named for them — beside the owner's own
+      // credential, which never leaves this device. No name typed: a named
+      // default, so the token manager's row is not nameless.
+      const label = firstLabel.trim() || t.first_link_default()
+      const minted = await mintShare(target.relay, usingSecret, {
+        folderGuid: target.room,
+        label,
+        readOnly: firstReadOnly,
+      })
+      target = { ...target, token: minted.token }
       const link = present(target)
       justShared = { copied: await copy(link, '__folder'), link, name: label }
       void refresh()
@@ -345,7 +346,7 @@
 
   const button = `${OUTLINE_BUTTON} px-3 py-1.5 text-xs text-base-content/80 disabled:opacity-50`
   const primary =
-    'rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+    'rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
   const rowButton =
     'rounded px-2 py-1 text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>

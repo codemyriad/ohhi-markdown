@@ -21,6 +21,7 @@ import {
   loadShares,
   loadUser,
   grantsForBundle,
+  ignoredSavedRelay,
   clearHotkeys,
   drawerSeenAt,
   hotkeys,
@@ -301,6 +302,54 @@ describe('the build’s default relay (VITE_DEFAULT_RELAY)', () => {
     expect(relayKnown()).toBe(false)
     const b = await build('wss://relay-b.example')
     expect(b.relayKnown()).toBe(true)
+  })
+})
+
+describe('a pinned build ignores a relay saved before the pin (VITE_TEAM_HOST)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  const TEAM = 'wss://ohhi.example.ts.net/relay'
+
+  /** config.ts as a pinned build loads it: team host + the team's relay baked in. */
+  async function pinned(): Promise<typeof import('./config.js')> {
+    vi.stubEnv('VITE_TEAM_HOST', 'ohhi.example.ts.net')
+    vi.stubEnv('VITE_DEFAULT_RELAY', TEAM)
+    vi.resetModules()
+    return import('./config.js')
+  }
+
+  it('every reader falls back to the build’s relay — defaultRelay, relayKnown, the grants’ fallback — and names the ignored one', async () => {
+    setDefaultRelay('wss://old.example/relay') // saved by an unpinned build
+    setRoomToken('orphan-r', 'tok') // no relay recorded: falls back
+    const c = await pinned()
+    expect(c.TEAM_HOST).toBe('ohhi.example.ts.net')
+    expect(c.defaultRelay()).toBe(TEAM)
+    expect(c.relayKnown()).toBe(true) // the build's own relay
+    expect(c.grantsForBundle()).toEqual([{ room: 'orphan-r', relay: TEAM, token: 'tok' }])
+    expect(c.ignoredSavedRelay()).toBe('wss://old.example/relay')
+    // Nothing is rewritten: the saved value stays as it was (files and config are not ours to reserialize).
+    expect(c.loadConfig().defaultRelay).toBe('wss://old.example/relay')
+  })
+
+  it('a saved relay ON the pinned host is used, case-insensitively, and nothing is ignored', async () => {
+    setDefaultRelay('wss://OHHI.example.ts.net/relay/')
+    const c = await pinned()
+    expect(c.defaultRelay()).toBe('wss://OHHI.example.ts.net/relay/')
+    expect(c.ignoredSavedRelay()).toBe('')
+  })
+
+  it('a generic build keeps whatever was saved', () => {
+    setDefaultRelay('wss://old.example/relay')
+    expect(defaultRelay()).toBe('wss://old.example/relay')
+    expect(relayKnown()).toBe(true)
+    expect(ignoredSavedRelay()).toBe('')
+    // The pinned host can also be passed (Settings passes its own).
+    expect(defaultRelay('ohhi.example.ts.net')).toBe(DEFAULT_RELAY)
+    expect(relayKnown('ohhi.example.ts.net')).toBe(false) // the test build was given no relay
+    expect(ignoredSavedRelay('ohhi.example.ts.net')).toBe('wss://old.example/relay')
   })
 })
 

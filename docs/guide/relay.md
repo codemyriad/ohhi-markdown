@@ -37,8 +37,10 @@ the `ohhi-relay-data` volume, and restarts by itself. `GET /healthz` answers
 
 ## The secret
 
-`OPERATOR_SECRET` is what lets people create and remove share links. The
-command above generates a long random one into `relay.env`.
+`OPERATOR_SECRET` is what lets people create and remove share links; the app
+calls it **the team's secret** (the relay's `OPERATOR_SECRET`), and asks for
+it in its *Team secret* field. The command above generates a long random one
+into `relay.env`.
 
 - Put it in your group's password manager, under a name everyone will find.
   The people who share enter it once per device, in the app.
@@ -63,6 +65,13 @@ relay.example.com {
 The relay's address is then `wss://relay.example.com`. Each person sets it
 once in **Settings › Sync**; every link made after that carries it, so the
 people you share with never type it.
+
+With the relay at the root path like this, links stay bare text starting with
+`editor1:`: the people you share with paste them into the app (*Add a folder
+someone shared with you*). Clickable `https://<host>/join#…` links need the
+web app served on the same host with the relay under `/relay`
+(`wss://<host>/relay`); then a link opens the join page on that host. The
+repository's `docs/deploy-tailnet.md` shows that layout.
 
 If the relay is reachable from the internet, it is reachable by anyone. Each
 folder is still protected by its links, but consider keeping the admin

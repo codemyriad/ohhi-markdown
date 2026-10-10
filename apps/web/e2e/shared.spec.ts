@@ -5,7 +5,8 @@
  * and when the relay goes away the card reads "Reconnecting…" while every
  * pill agrees (golden rule 4: all of it is f(records)). A vault that shares
  * nothing shows the onboarding instead, the relay card above its doors reading
- * the relay (first-run D1/D3) and Settings › Sync checking a secret; a folder
+ * the relay (first-run D1/D3), Settings › Sync checking the team's secret, and
+ * one real first share from it (the e2e relay runs with an operator secret); a folder
  * share opened as its own vault is titled "Adding …" (F1). Axe over each
  * surface.
  */
@@ -134,9 +135,9 @@ test('a vault that shares nothing opens Shared on its onboarding', async ({ page
     timeout: 10_000,
   })
   await expect(page.getByTestId('settings-own-relay')).toContainText('One relay per group')
-  // This relay runs without an operator secret: the check says so, never "works".
+  // A wrong team's secret: the check says so, never "works".
   await page.getByTestId('settings-secret').fill('anything')
-  await expect(page.getByTestId('settings-secret-check')).toContainText('this relay has no admin API', { timeout: 10_000 })
+  await expect(page.getByTestId('settings-secret-check')).toContainText('doesn’t match this relay', { timeout: 10_000 })
   await expectAccessible(page, 'settings sync (secret checked)')
   await page.getByTestId('settings-close').click()
   await page.getByTestId('settings-discard').click()
@@ -144,11 +145,39 @@ test('a vault that shares nothing opens Shared on its onboarding', async ({ page
   await expect(card).toContainText('localhost:8799')
   await expect(block).toContainText('you will need the team’s secret once')
   await expect(block).not.toContainText('No relay yet')
+  await expectAccessible(page, 'shared view (empty, relay reachable)')
+
+  // A folder to share (a new vault has none), made from the tree's own menu.
+  await page.getByTestId('file-tree').click({ button: 'right' })
+  await page.getByTestId('tree-menu:new-folder').click()
+  await page.getByTestId('tree-op-name').fill('team')
+  await page.getByTestId('tree-op-confirm').click()
+  await expect(page.getByTestId('tree-op-dialog')).toHaveCount(0)
 
   // Share a folder… asks which folder first.
   await empty.getByTestId('shared-share').click()
   await expect(page.getByTestId('share-folder-picker')).toBeVisible()
   await expectAccessible(page, 'share folder picker')
+
+  // One real first share, end to end: the folder, the sheet, the team's
+  // secret, Share, the done block — then the Shared view lists it, by you.
+  const folder = 'team'
+  await page.getByTestId('share-folder-select').selectOption(folder)
+  await page.getByTestId('share-folder-next').click()
+  await expect(page.getByTestId('folder-share-dialog')).toBeVisible()
+  await expect(page.getByTestId('relay-card').last()).toHaveAttribute('data-state', 'reachable', { timeout: 10_000 })
+  await page.getByTestId('share-secret').fill('e2e-operator-secret')
+  await expect(page.getByTestId('share-secret-check')).toContainText('works', { timeout: 10_000 })
+  await page.getByTestId('share-your-name').fill('Lone')
+  await page.getByTestId('confirm-share-folder').click()
+  await expect(page.getByTestId('share-done')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('share-done-link')).toHaveValue(/editor1:/)
+  await page.getByTestId('close-folder-share').click()
+  await expect(page.getByTestId('folder-share-dialog')).toHaveCount(0)
+  const room = page.getByTestId(`shared-room:${folder}`)
+  await expect(room).toBeVisible({ timeout: 15_000 })
+  await expect(room).toContainText('Shared by you')
+  await expect(page.locator('[data-testid^="shared-room:"]')).toHaveCount(1)
 })
 
 test('a folder share opened as its own vault is "Adding …", not "Linking this device" (first-run F1)', async ({ page }) => {

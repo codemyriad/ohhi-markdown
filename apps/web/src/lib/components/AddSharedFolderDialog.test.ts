@@ -143,6 +143,21 @@ describe('AddSharedFolderDialog', () => {
     expect(screen.getByTestId('add-share-probe')).not.toHaveTextContent('tailnet')
   })
 
+  it('a relay that answered unhealthy is reached: its own line, no network sentence, announced as a status', async () => {
+    const user = userEvent.setup()
+    const p = deferredProbe()
+    open({ probe: p.probe, teamHost: 'relay.example', networkNote: 'Shares work only on the tailnet.' })
+    await user.click(linkField())
+    await user.paste(folderLink)
+    const line = screen.getByTestId('add-share-probe')
+    expect(line).toHaveAttribute('role', 'status')
+    p.answer({ ok: false, reason: 'unhealthy' })
+    await waitFor(() => expect(line).toHaveTextContent(t.probe_unhealthy()))
+    expect(line).toHaveAttribute('data-check', 'unhealthy')
+    expect(line).not.toHaveTextContent('tailnet')
+    expect(line).not.toHaveTextContent(t.probe_down())
+  })
+
   it('closing the dialog cancels the probe in flight', async () => {
     const user = userEvent.setup()
     const p = deferredProbe()
@@ -335,6 +350,20 @@ describe('AddSharedFolderDialog', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(reason)
     expect(props.onClose).not.toHaveBeenCalled()
+    expect(linkField()).toHaveValue(folderLink)
+  })
+
+  it('as its own vault: a hand-off that resolves false (the folder picker was cancelled) keeps the dialog and the paste', async () => {
+    const user = userEvent.setup()
+    const props = open({ vaultName: null, onJoinIntoVault: null, onJoinAsVault: vi.fn(async () => false) })
+
+    await user.type(linkField(), folderLink)
+    await user.click(screen.getByRole('button', { name: t.join() }))
+
+    await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByRole('button', { name: t.join() })).toBeEnabled())
+    expect(props.onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(linkField()).toHaveValue(folderLink)
   })
 })

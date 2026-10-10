@@ -3,9 +3,9 @@
  * says — carved / joined, an adopted mount on its relay's side — and "when
  * opened" is calendar days on this device.
  */
-import type { MountDesc } from '@ohhi/vault'
+import { MemStoreDir, MountsFile, type MountDesc } from '@ohhi/vault'
 import { describe, expect, it } from 'vitest'
-import { factsFromMounts, factsFromUi, openedWhen, readVaultFacts } from './vault-facts.js'
+import { factsFromMounts, factsFromUi, openedWhen, readMountTable, readVaultFacts } from './vault-facts.js'
 import type { VaultEntry } from './config.js'
 
 const ROOT_RELAY = 'wss://team.example/relay'
@@ -71,6 +71,35 @@ describe('readVaultFacts', () => {
       sharedByYou: 1,
       sharedWithYou: 0,
     })
+  })
+})
+
+describe('readMountTable', () => {
+  const entry: VaultEntry = { name: 'A', room: 'room-a', vault: { kind: 'opfs', id: 'a' } }
+
+  it('a vault with no store namespace on this device has no mounts — zero, not unknown — and none is created', async () => {
+    const asked: string[] = []
+    const open = async (_source: VaultEntry['vault'], room: string) => {
+      asked.push(room)
+      return null
+    }
+    expect(await readMountTable(entry, open)).toEqual([])
+    expect(asked).toEqual(['room-a'])
+    expect(await readVaultFacts(entry, (e) => readMountTable(e, open))).toEqual({ sharedByYou: 0, sharedWithYou: 0 })
+  })
+
+  it('reads mounts.json from a namespace that exists', async () => {
+    const dir = new MemStoreDir()
+    await new MountsFile(dir.io('mounts.json')).save([mount({ room: 'c', path: 'clients', provenance: 'carved' })])
+    const facts = await readVaultFacts(entry, (e) => readMountTable(e, async () => dir))
+    expect(facts).toEqual({ sharedByYou: 1, sharedWithYou: 0 })
+  })
+
+  it('an unreadable table is still null', async () => {
+    const facts = await readVaultFacts(entry, (e) =>
+      readMountTable(e, async () => Promise.reject(new Error('locked')))
+    )
+    expect(facts).toBeNull()
   })
 })
 

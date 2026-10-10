@@ -388,6 +388,69 @@ describe('Settings > Sync (first-run D1/D2, R10)', () => {
     expect(own).not.toHaveTextContent(card.change())
   })
 
+  it('the SAVED secret is only ever checked against the SAVED relay — never a relay merely typed', async () => {
+    const { setDefaultRelay, setOperatorSecret } = await import('../config.js')
+    setDefaultRelay(RELAY)
+    setOperatorSecret('team-secret')
+    const verify = vi.fn(async () => 'ok' as const)
+    const { user } = await openSync({ verify })
+    // Opened with a secret saved: checked against the saved relay.
+    await waitFor(() => expect(verify).toHaveBeenCalledWith(RELAY, 'team-secret'))
+    await waitFor(() => expect(screen.getByTestId('settings-secret-check')).toHaveAttribute('data-check', 'ok'))
+
+    await user.click(screen.getByRole('button', { name: card.change() }))
+    const relayField = screen.getByTestId('settings-relay')
+    for (const typed of ['wss://other.example/relay', 'ws://plain.example/relay', 'wss://ohhi.exmaple.ts.net/relay']) {
+      await user.clear(relayField)
+      await user.type(relayField, typed)
+      await user.tab() // blur the secret path too
+      // The card follows what is typed; the secret check does not.
+      await waitFor(() => expect(screen.getByTestId('relay-card')).toHaveTextContent(new URL(typed).host))
+      expect(screen.getByTestId('settings-secret-check')).toHaveAttribute('data-check', 'idle')
+    }
+    for (const [relay] of verify.mock.calls as unknown as [string, string][]) expect(relay).toBe(RELAY)
+
+    // A secret typed AFTER the edit is for that relay, and is checked there.
+    await user.clear(secretField())
+    await user.type(secretField(), 'their-secret')
+    await waitFor(() => expect(verify).toHaveBeenLastCalledWith('wss://ohhi.exmaple.ts.net/relay', 'their-secret'))
+
+    // Editing the relay again drops it: that secret was typed for the old address.
+    await user.clear(relayField)
+    await user.type(relayField, 'wss://elsewhere.example/relay')
+    await waitFor(() => expect(screen.getByTestId('settings-secret-check')).toHaveAttribute('data-check', 'idle'))
+    expect(verify).not.toHaveBeenCalledWith('wss://elsewhere.example/relay', expect.anything())
+    // Across everything: the saved secret went to the saved relay only.
+    for (const [relay, secret] of verify.mock.calls as unknown as [string, string][]) {
+      if (secret === 'team-secret') expect(relay).toBe(RELAY)
+    }
+  })
+
+  it('a pinned build ignores a relay saved before the pin, and says so once', async () => {
+    const { setDefaultRelay } = await import('../config.js')
+    setDefaultRelay('wss://old.example/relay')
+    const { props } = await openSync({ pinnedHost: 'ohhi.example.ts.net', teamRelay: RELAY })
+    // The read-only field and the card are on the pinned relay, not the saved one
+    // (the test build has no VITE_DEFAULT_RELAY, so the build's relay is the fallback).
+    expect(screen.getByTestId('settings-relay')).not.toHaveValue('wss://old.example/relay')
+    await waitFor(() => expect(props.probe).toHaveBeenCalled())
+    expect(props.probe).not.toHaveBeenCalledWith('wss://old.example/relay')
+    expect(screen.getByTestId('settings-relay-ignored')).toHaveTextContent(
+      sync.relay_pinned_saved_ignored({ saved: 'wss://old.example/relay', host: 'ohhi.example.ts.net' })
+    )
+    cleanup()
+    // A saved relay ON the pinned host is used, and nothing is said.
+    setDefaultRelay(RELAY)
+    await openSync({ pinnedHost: 'ohhi.example.ts.net', teamRelay: RELAY })
+    expect(screen.getByTestId('settings-relay')).toHaveValue(RELAY)
+    expect(screen.queryByTestId('settings-relay-ignored')).toBeNull()
+  })
+
+  it('the relay guide is a real link (the e2e reads its href)', async () => {
+    await openSync()
+    expect(screen.getByTestId('settings-relay-guide')).toHaveAttribute('href', '/guide/relay.html')
+  })
+
   it('Your devices: without a secret, what is missing and where it lives', async () => {
     await openSync()
     expect(screen.getByTestId('settings-device-link')).toHaveTextContent(sync.devices())

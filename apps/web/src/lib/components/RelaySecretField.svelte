@@ -6,8 +6,8 @@
 
 <script lang="ts">
   /**
-   * The operator secret, verified and placed (first-run-shaping D2):
-   * "Permission to create links", what it lets the app do, and — after a
+   * The team's secret (the relay's operator secret), verified and placed
+   * (first-run-shaping D2): "Team secret", what it lets the app do, and — after a
    * paste (debounced on the injected clock) and on blur — whether it works
    * on THIS relay: "works" (a listing call answered 200, just now — nothing
    * more), "doesn't match this relay", "this relay has no admin API", "can't
@@ -17,6 +17,7 @@
    * and a gate where it is about to be used (the share sheet reads `check`
    * and keeps *Share* disabled until it is `ok`).
    */
+  import { untrack } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Clock } from '@ohhi/vault'
   import { realClock } from '../real-clock.js'
@@ -28,7 +29,11 @@
   import SecretHelp from './SecretHelp.svelte'
 
   interface Props {
-    /** The relay the secret is checked against. */
+    /**
+     * The relay the secret is checked against; '' = check nothing. The
+     * parent decides which relay may see the secret (Settings › Sync never
+     * hands the SAVED secret to a relay that is only typed).
+     */
     relayUrl: string
     value: string
     /** Out: the latest check for the current value and relay. */
@@ -38,6 +43,8 @@
     required?: boolean
     placeholder?: string
     onblur?: () => void
+    /** Called on every keystroke in the field, before the check is scheduled. */
+    oninput?: () => void
     clock?: Clock
     /** Injected for tests: the listing call. */
     verify?: (relayUrl: string, secret: string) => Promise<SecretCheck>
@@ -54,6 +61,7 @@
     required = false,
     placeholder,
     onblur,
+    oninput,
     clock = realClock,
     verify,
     hint,
@@ -94,20 +102,24 @@
       })
   }
 
+  /**
+   * Forget the shown answer at once — an answer for the old value or relay is
+   * no longer about this one, and a gate reading `check` (the share sheet's
+   * *Share*) must not stay open through the debounce — then ask again.
+   */
   function schedule(): void {
     cancelPending?.()
-    seq++ // an answer for the old value is no longer about this one
-    check = value.trim() ? 'checking' : 'idle'
+    seq++
+    check = value.trim() && relayUrl ? 'checking' : 'idle'
     checked = ''
     cancelPending = clock.schedule(run, VERIFY_DEBOUNCE_MS)
   }
 
   // A secret already in the field (Settings opened with one saved), or the
-  // relay changing under it: ask again.
+  // relay changing under it: reset synchronously, then ask again.
   $effect(() => {
     void relayUrl
-    const cancel = clock.schedule(run, VERIFY_DEBOUNCE_MS)
-    return cancel
+    untrack(schedule)
   })
   $effect(() => () => cancelPending?.())
 
@@ -121,7 +133,10 @@
     type="password"
     autocomplete="off"
     bind:value
-    oninput={schedule}
+    oninput={() => {
+      oninput?.()
+      schedule()
+    }}
     onblur={() => {
       run()
       onblur?.()

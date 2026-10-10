@@ -16,7 +16,7 @@
   } from './lib/config.js'
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
-  import { joinPageLink, parseAppConfig, parseAppParams } from './lib/params.js'
+  import { dropJoinLink, joinPageLink, parseAppConfig, parseAppParams, settleJoinAddress } from './lib/params.js'
   import { hasOpfs, isTauri, userResourceRoot } from './lib/platform.js'
   import { createCustomise } from './lib/customise.svelte.js'
   import { createStorageNote } from './lib/storage-note.svelte.js'
@@ -74,6 +74,11 @@
    * instead of the manager. Null on the desktop and on every other path.
    */
   let joinLink = $state(joinPageLink(location, isTauri()))
+  // The token leaves the address bar and Back's history at once (R2), not
+  // only when *Add here* is clicked: *Copy* and closing the tab is the
+  // recommended desktop path. The tab keeps it for a reload of /join.
+  // svelte-ignore state_referenced_locally -- the launch address, once
+  if (joinLink !== null) settleJoinAddress(joinLink, history)
   /** A device link handed over by the join page, for *Link this device*. */
   let deviceLinkPrefill = $state('')
   /**
@@ -83,6 +88,7 @@
    */
   function leaveJoinPage(): void {
     history.replaceState({}, '', '/')
+    dropJoinLink()
     joinLink = null
   }
   /**
@@ -439,7 +445,7 @@
     onRenameVault={(room, name) => manager.renameVault(room, name)}
     onOpenFolder={(name) => void manager.openFolder(name)}
     onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
-    onJoin={(name, link) => void manager.joinShare(name, link)}
+    onJoin={(name, link) => manager.join(name, link)}
     joinInto={workspace
       ? { vaultName: currentVaultName, dirs: dirPaths(workspace.ui.files), join: joinIntoOpenVault }
       : null}

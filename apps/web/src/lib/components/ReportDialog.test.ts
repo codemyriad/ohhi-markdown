@@ -117,6 +117,10 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Report a problem' })).toBeInTheDocument()
     expect(screen.getByText('Attached automatically')).toBeInTheDocument()
     expect(screen.getByTestId('report-never')).toHaveTextContent('Note contents are never included.')
+    // The live region is there, empty, from mount: a screen reader announces its later text.
+    const status = screen.getByRole('status')
+    expect(status).toHaveAttribute('data-testid', 'report-status')
+    expect(status).toHaveTextContent('')
     const shown = screen.getAllByTestId('report-fact').map((li) => li.textContent)
     expect(shown).toEqual(reportFactLines(facts, LL))
 
@@ -127,7 +131,8 @@ describe('ReportDialog', () => {
     expect(text).toContain('What happened: The pill stayed yellow')
     expect(text).toContain('Open note: team/plan.md · synced (relay) · 2 people online')
     // Copied, never "sent": the person pastes it.
-    expect(await screen.findByTestId('report-copied')).toHaveTextContent('Report copied. Paste it in the team chat.')
+    expect(await screen.findByTestId('report-copied')).toHaveTextContent(LL.web.help.report.copied())
+    expect(screen.getByRole('status')).toBe(status)
     expect(document.body.textContent).not.toMatch(/\bsent\b/i)
     expect(screen.getByTestId('report-cancel')).toHaveTextContent('Close')
   })

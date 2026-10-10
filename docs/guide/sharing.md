@@ -17,10 +17,52 @@ date: 2026-10-10
 3. **A link is the key to one folder.** Make one per person, named for them,
    so you can remove one later. Anyone holding a link can open the folder, and
    the relay holds a copy of what is in it.
-4. **To make links you need the team secret, once per device. To open links
+4. **To make links you need the team's secret, once per device. To open links
    you need nothing.**
 5. **Your own second computer is *Link a device* in Settings.** That link opens
    your whole vault, so it is never for anyone else.
+
+## Share a folder
+
+1. In the file tree, right-click the folder and choose **Share…**. (The
+   Shared view's *Share a folder…* asks which folder first.)
+2. The share sheet opens. Under *Syncs through*, a card shows the relay the
+   folder will use and whether it answers.
+3. The first time on this device, it asks for the **Team secret** (see
+   [below](#the-teams-secret-and-where-it-lives)). The app checks it as you
+   type: it says *works* when it is right, and *doesn’t match this relay*
+   when it isn't. The share button stays off until it says *works*.
+4. *First link: who is it for?* Type the name of the person the link is for.
+   Left empty, it is called *First link*. Add *Your name, shown to them* so
+   the link says who sent it.
+5. Choose **Share and copy link**. The folder is shared and its first link is
+   on your clipboard.
+6. **Copy message** gives you the link inside a short sentence, ready to send
+   in a chat or an email. **Copy link** gives you the link alone.
+
+Each first share makes a separate, named link for the person you send it
+to; your own device keeps its own access. To make more links later, open
+**Share…** on the folder again: each link has its own row, with *Copy link*,
+*Copy message* and a way to remove it.
+
+## What happens when someone opens the link
+
+A link from a team setup is a web address, `https://<host>/join#editor1:…`.
+Clicked, it opens a page on your team's host that says who sent it (the name
+they typed), what they get, and whether the relay answers from where they
+are. They then choose:
+
+- *In the desktop app*: **Copy link**, then in Oh hi markdown choose
+  *Add a folder someone shared with you* and paste it;
+- *In this browser*: **Add here**.
+
+The part after `#` never reaches the host: the page reads it in the browser.
+
+When the relay is not served beside the web app (a relay you run yourself,
+or a desktop app syncing through a relay other than the team's host), the
+link is bare text starting with `editor1:`, and the message says to paste it
+into the app with *Add a folder someone shared with you*. See
+[Running your own relay](relay.md).
 
 ## What the relay is
 
@@ -51,13 +93,15 @@ someone follow along without editing.
 Removing a link stops new connections with it. Someone already connected
 stays connected until their app reconnects.
 
-## The secret, and where it lives
+## The team's secret, and where it lives
 
-Making links needs the relay's **operator secret**. It is one secret for the
-whole relay, so it is kept somewhere safe that the people who share can reach
-— usually your team's password manager. The app asks for it the first time
-you share a folder on a device and remembers it there. It also checks it
-before making a link, so a mistyped secret tells you so straight away.
+Making links needs **the team's secret** (the relay's own docs call it the
+operator secret). It is one secret for the whole relay, so it is kept
+somewhere safe that the people who share can reach — usually your team's
+password manager; *Where do I get this?* under the **Team secret** field says
+where, on a team build. The app asks for it the first time you share a
+folder on a device and remembers it there. It checks it as you type, so a
+mistyped secret tells you so straight away.
 
 Opening a link needs no secret at all. Only people who create links need it.
 

@@ -24,6 +24,7 @@
     defaultRelay,
     devtoolsEnabled,
     hotkeys,
+    ignoredSavedRelay,
     isRelayUrl,
     listVaults,
     loadShares,
@@ -61,7 +62,7 @@
   import TextControl from '../ui/TextControl.svelte'
   import type { Clock } from '@ohhi/vault'
   import { relayHost, type SharedSnapshot } from '@ohhi/workspace'
-  import { guideHref } from '../guide.js'
+  import { guideHref, openGuide } from '../guide.js'
   import { realClock } from '../real-clock.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
   import { HEADING } from '../ui/styles.js'
@@ -168,20 +169,25 @@
   // The relay as the form showed it: saving stores the relay only when the
   // user changed it, so saving just the secret never pins this build's
   // default (config.ts, `AppConfigV2.defaultRelay`).
-  let shownRelay = $state(defaultRelay())
+  // svelte-ignore state_referenced_locally -- seed only; the pin is fixed at build time
+  let shownRelay = $state(defaultRelay(pinnedHost))
+  /** A relay saved before this build was pinned, which the pin now ignores ('' = none). */
+  // svelte-ignore state_referenced_locally -- seed only
+  const ignoredRelay = ignoredSavedRelay(pinnedHost)
   function persistSync({ relay, secret }: { relay: string; secret: string }): void {
     if (relay.trim() !== shownRelay) {
       setDefaultRelay(relay)
-      shownRelay = defaultRelay()
+      shownRelay = defaultRelay(pinnedHost)
     }
     setOperatorSecret(secret)
-    syncRelayKnown = relayKnown() || !!pinnedHost
+    secretTypedFor = null
+    syncRelayKnown = relayKnown(pinnedHost) || !!pinnedHost
   }
 
   // ---- the relay card (first-run D1, R10) ----
   /** Whether a relay is known at all; a pinned build always knows its one. */
   // svelte-ignore state_referenced_locally -- seed only; the pin is fixed at build time
-  let syncRelayKnown = $state(relayKnown() || !!pinnedHost)
+  let syncRelayKnown = $state(relayKnown(pinnedHost) || !!pinnedHost)
   /**
    * The address field: open with nothing known (the card says none), after
    * *Change…*, and — read-only — always in a pinned build, which offers no
@@ -219,6 +225,15 @@
   }
   /** The relay the card is about: what the field holds when it is a relay URL, else the saved one. */
   const cardRelay = $derived(isRelayUrl(sync.data.relay.trim()) ? sync.data.relay.trim() : shownRelay)
+  /**
+   * The relay the secret may be checked against. The SAVED secret only ever
+   * goes to the SAVED relay: while the address field holds another one (a
+   * paste, a typo, a `ws://` host), only a secret typed after that edit is
+   * checked there — never the one saved for the team's relay. Save makes the
+   * new relay the saved one.
+   */
+  let secretTypedFor = $state<string | null>(null)
+  const secretRelay = $derived(cardRelay === shownRelay ? shownRelay : secretTypedFor === cardRelay ? cardRelay : '')
   /** The snapshot's roll-up for that relay, when the vault holds rooms there. */
   const cardConnection = $derived(
     relays.find((r) => r.host && r.host.toLowerCase() === (relayHost(cardRelay) ?? '').toLowerCase()) ?? null
@@ -420,7 +435,7 @@
                 type="submit"
                 data-testid="settings-save-general"
                 disabled={!general.dirty || general.busy}
-                class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
+                class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content disabled:opacity-50"
               >
                 {$LL.common.save()}
               </button>
@@ -569,9 +584,15 @@
                 <Description>{pinnedHost ? t.sync.relay_pinned_hint() : t.sync.relay_hint()}</Description>
                 <FieldErrors />
               </Field>
+              {#if pinnedHost && ignoredRelay}
+                <p data-testid="settings-relay-ignored" class="text-xs text-base-content/80">
+                  {t.sync.relay_pinned_saved_ignored({ saved: ignoredRelay, host: pinnedHost })}
+                </p>
+              {/if}
             {/if}
             <RelaySecretField
-              relayUrl={cardRelay}
+              relayUrl={secretRelay}
+              oninput={() => (secretTypedFor = cardRelay)}
               bind:value={sync.data.secret}
               errors={sync.errorsFor('secret')}
               onblur={() => sync.touch('secret')}
@@ -586,7 +607,7 @@
                 type="submit"
                 data-testid="settings-save-sync"
                 disabled={!sync.dirty || sync.busy}
-                class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
+                class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content disabled:opacity-50"
               >
                 {$LL.common.save()}
               </button>
@@ -628,6 +649,12 @@
                 href={guideHref('relay')}
                 target="_blank"
                 rel="noreferrer"
+                onclick={(e) => {
+                  // The desktop has no opener: a guide opens in its own window.
+                  if (!isTauri()) return
+                  e.preventDefault()
+                  void openGuide('relay')
+                }}
                 data-testid="settings-relay-guide"
                 class="mt-1 inline-block text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
                 >{t.sync.running_guide()}</a
@@ -761,7 +788,7 @@
         type="button"
         data-testid="settings-save-all"
         onclick={() => void saveAllAndClose()}
-        class="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-content hover:bg-primary/90"
+        class="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-content"
       >
         {t.save_and_close()}
       </button>

@@ -13,7 +13,7 @@ import { getLL } from '@ohhi/i18n'
 import type { ProbeResult } from '../relay-probe.js'
 import type { Probe } from '../relay-check.js'
 import { encodeDeviceLink, encodeShareUrl } from '../share-link.js'
-import JoinPage from './JoinPage.svelte'
+import JoinPage, { DOWNLOAD_HREF } from './JoinPage.svelte'
 
 afterEach(() => {
   cleanup()
@@ -50,7 +50,6 @@ function open(over: Partial<ComponentProps<typeof JoinPage>> = {}) {
     teamHost: 'ohhi.example.ts.net' as string | null,
     networkNote: 'Shares work only while you are on the company tailnet.',
     probe: deferredProbe().probe,
-    downloadHref: '/guide/start.html',
     ...over,
   }
   render(JoinPage, props)
@@ -86,7 +85,7 @@ describe('JoinPage', () => {
     expect(other).not.toHaveTextContent('company tailnet')
   })
 
-  it('probes the link’s relay on load: pending, then "reachable · checked just now"', async () => {
+  it('probes the link’s relay on load: pending, then "the relay answered"', async () => {
     const p = deferredProbe()
     open({ probe: p.probe })
     expect(p.calls).toEqual([TEAM_RELAY])
@@ -104,6 +103,26 @@ describe('JoinPage', () => {
     expect(line).toHaveTextContent('Shares work only while you are on the company tailnet.')
     expect(line).toHaveTextContent(t.reload())
     expect(line).not.toHaveTextContent(t.relay_ok())
+  })
+
+  it('unreachable with no network sentence: still two sentences that read, down then reload', async () => {
+    const p = deferredProbe()
+    open({ probe: p.probe, networkNote: '' })
+    p.answer({ ok: false, reason: 'unreachable' })
+    const line = screen.getByRole('status')
+    await waitFor(() => expect(line).toHaveTextContent(`${t.relay_down()} ${t.reload()}`))
+  })
+
+  it('a relay that answered unhealthy is not "can’t reach": no tailnet advice, tell whoever runs it', async () => {
+    const p = deferredProbe()
+    open({ probe: p.probe })
+    p.answer({ ok: false, reason: 'unhealthy' })
+    const line = screen.getByRole('status')
+    await waitFor(() => expect(line).toHaveTextContent(t.relay_unhealthy()))
+    expect(line).toHaveAttribute('data-check', 'unhealthy')
+    expect(line).not.toHaveTextContent(t.relay_down())
+    expect(line).not.toHaveTextContent('company tailnet')
+    expect(line).not.toHaveTextContent(t.reload())
   })
 
   it('unreachable on someone else’s relay: ask whoever shared it', async () => {
@@ -191,9 +210,10 @@ describe('JoinPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(LL.web.share.link_error.missing_fields())
   })
 
-  it('the foot links to the download and the guide', () => {
+  it('the foot links to the download — the guide’s install section on this origin, never a private repo — and the guide', () => {
     open()
-    expect(screen.getByRole('link', { name: t.download() })).toHaveAttribute('href', '/guide/start.html')
+    expect(DOWNLOAD_HREF).toBe('/guide/start.html#install')
+    expect(screen.getByRole('link', { name: t.download() })).toHaveAttribute('href', '/guide/start.html#install')
     expect(screen.getByRole('link', { name: t.guide() })).toHaveAttribute('href', '/guide/start.html')
   })
 })
