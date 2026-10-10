@@ -139,10 +139,13 @@ export function parseMarkdown(text: string): ParsedDoc {
   const inCode = (offset: number): boolean =>
     inFence(offset) || spans.some(([from, to]) => offset >= from && offset < to)
 
+  // Links stay out of `code spans` for the same reason tags do: the editor
+  // never looks inside one, so a link counted here would be a backlink with
+  // nothing to click — and a rename would rewrite a code sample (DB6).
   const links: RawLink[] = []
   WIKILINK.lastIndex = 0
   for (let m = WIKILINK.exec(body); m; m = WIKILINK.exec(body)) {
-    if (inFence(m.index)) continue
+    if (inCode(m.index)) continue
     const inner = m[2]
     if (!inner.trim()) continue
     const pipe = inner.indexOf('|')

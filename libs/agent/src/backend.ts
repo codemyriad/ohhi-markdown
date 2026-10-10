@@ -45,6 +45,8 @@ export interface FilesBackendOptions {
    * ONLY — never written. `restore` lists their pre-images beside its own.
    */
   appStoreDirs?: string[]
+  /** Where `VaultBackend.trail` lines go — the CLI's stderr. */
+  trail?: (line: string) => void
 }
 
 interface Walk {
@@ -110,6 +112,7 @@ export async function createFilesBackend(opts: FilesBackendOptions): Promise<Vau
       await index()
       return buildMs
     },
+    ...(opts.trail === undefined ? {} : { trail: opts.trail }),
   }
 }
 

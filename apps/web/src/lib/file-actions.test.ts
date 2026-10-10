@@ -254,14 +254,19 @@ describe('renames follow (DB6) — the planner over the index, applied on live d
     expect(ws.docs.get('notes/c.md')!.getText()).toBe('[[archive/docs/a]] [[a]]')
   })
 
+  // The threshold counts files touched: the moved file plus the notes rewritten,
+  // exactly as `ohhi mv` counts them — so one note with 20 referrers is 21.
+  const OVER = LINK_CONFIRM_THRESHOLD
+  const UNDER = LINK_CONFIRM_THRESHOLD - 1
+
   it('over the threshold it asks first, naming the count; confirm renames and updates, cancel does nothing', async () => {
     const vault: Record<string, string> = { 'docs/a.md': '' }
-    for (let i = 0; i <= LINK_CONFIRM_THRESHOLD; i++) vault[`notes/n${i}.md`] = 'See [[a]].'
+    for (let i = 0; i < OVER; i++) vault[`notes/n${i}.md`] = 'See [[a]].'
     seed(vault)
 
     const cancelled = fileOps.renameNote('docs/a.md', 'Plans')
     await vi.waitFor(() => expect(fileOps.linksConfirm).not.toBeNull())
-    expect(fileOps.linksConfirm).toEqual({ kind: 'rename', path: 'docs/a.md', name: 'a.md', notes: LINK_CONFIRM_THRESHOLD + 1 })
+    expect(fileOps.linksConfirm).toEqual({ kind: 'rename', path: 'docs/a.md', name: 'a.md', notes: OVER })
     expect(ws.calls).toEqual([])
     fileOps.cancelLinks()
     await expect(cancelled).resolves.toBeNull()
@@ -269,35 +274,68 @@ describe('renames follow (DB6) — the planner over the index, applied on live d
     expect(ws.docs.get('notes/n0.md')!.getText()).toBe('See [[a]].')
 
     const confirmed = fileOps.renameNote('docs/a.md', 'Plans')
-    await vi.waitFor(() => expect(fileOps.linksConfirm?.notes).toBe(LINK_CONFIRM_THRESHOLD + 1))
+    await vi.waitFor(() => expect(fileOps.linksConfirm?.notes).toBe(OVER))
     fileOps.confirmLinks()
     await expect(confirmed).resolves.toBe('docs/Plans.md')
     expect(ws.calls).toEqual(['renamePath(docs/a.md, docs/Plans.md)'])
-    expect(ws.docs.get(`notes/n${LINK_CONFIRM_THRESHOLD}.md`)!.getText()).toBe('See [[Plans]].')
-    expect(flashes).toEqual([{ level: 'info', text: t.updated({ count: LINK_CONFIRM_THRESHOLD + 1 }), path: 'docs/Plans.md' }])
+    expect(ws.docs.get(`notes/n${OVER - 1}.md`)!.getText()).toBe('See [[Plans]].')
+    expect(flashes).toEqual([{ level: 'info', text: t.updated({ count: OVER }), path: 'docs/Plans.md' }])
     expect(fileOps.linksConfirm).toBeNull()
   })
 
   it('at the threshold it just does it', async () => {
     const vault: Record<string, string> = { 'docs/a.md': '' }
-    for (let i = 0; i < LINK_CONFIRM_THRESHOLD; i++) vault[`notes/n${i}.md`] = 'See [[a]].'
+    for (let i = 0; i < UNDER; i++) vault[`notes/n${i}.md`] = 'See [[a]].'
     seed(vault)
     await expect(fileOps.renameNote('docs/a.md', 'Plans')).resolves.toBe('docs/Plans.md')
     expect(fileOps.linksConfirm).toBeNull()
-    expect(flashes.map((f) => f.text)).toEqual([t.updated({ count: LINK_CONFIRM_THRESHOLD })])
+    expect(flashes.map((f) => f.text)).toEqual([t.updated({ count: UNDER })])
+  })
+
+  it('a folder move counts the files it carries, like the CLI', async () => {
+    // Twenty files in the folder and one referrer: 21 touched, so it asks.
+    const vault: Record<string, string> = { 'notes/ref.md': '[[docs/f0]]' }
+    for (let i = 0; i < OVER; i++) vault[`docs/f${i}.md`] = ''
+    seed(vault)
+    fileOps.handle({ type: 'move', path: 'docs', kind: 'dir' })
+    const moved = fileOps.confirm('archive')
+    await vi.waitFor(() => expect(fileOps.linksConfirm).not.toBeNull())
+    expect(fileOps.linksConfirm).toEqual({ kind: 'move', path: 'docs', name: 'docs', notes: 1 })
+    fileOps.confirmLinks()
+    await moved
+    expect(share.moves).toEqual(['docs -> archive/docs'])
+    expect(ws.docs.get('notes/ref.md')!.getText()).toBe('[[archive/docs/f0]]')
+  })
+
+  it('a second rename while the question is up is refused with a flash, not quietly swapped in', async () => {
+    const vault: Record<string, string> = { 'docs/a.md': '' }
+    for (let i = 0; i < OVER; i++) vault[`notes/n${i}.md`] = 'See [[a]].'
+    seed(vault)
+    // Two panes on one note: both inline titles commit the rename.
+    const first = fileOps.renameNote('docs/a.md', 'Plans')
+    await vi.waitFor(() => expect(fileOps.linksConfirm).not.toBeNull())
+    await expect(fileOps.renameNote('docs/a.md', 'Plans')).resolves.toBeNull()
+    expect(flashes).toEqual([{ level: 'warn', text: t.busy(), path: 'docs/a.md' }])
+    expect(fileOps.linksConfirm?.notes).toBe(OVER)
+    fileOps.confirmLinks()
+    await expect(first).resolves.toBe('docs/Plans.md')
+    expect(ws.calls).toEqual(['renamePath(docs/a.md, docs/Plans.md)'])
   })
 
   it('a note whose text is not what the index saw is reported, not guessed at; the others still update', async () => {
-    seed({ 'docs/a.md': '', 'notes/b.md': 'See [[a]].', 'notes/c.md': 'See [[a]].' })
+    seed({ 'docs/a.md': '', 'notes/b.md': 'See [[a]].', 'notes/c.md': 'See [[a]].', 'notes/d.md': 'See [[a]].' })
     // c changed under the index: the link is no longer where the plan says.
     ws.docs.set('notes/c.md', fakeDoc('g:notes/c.md', 'Now: see [[a]].'))
+    // d has no live doc at all.
+    ws.docs.delete('notes/d.md')
     await fileOps.renameNote('docs/a.md', 'Plans')
     expect(ws.docs.get('notes/b.md')!.getText()).toBe('See [[Plans]].')
     expect(ws.docs.get('notes/c.md')!.getText()).toBe('Now: see [[a]].')
     expect(ws.docs.get('notes/c.md')!.origins).toEqual([])
     expect(flashes).toEqual([
       { level: 'info', text: t.updated({ count: 1 }), path: 'docs/Plans.md' },
-      { level: 'warn', text: t.not_updated({ count: 1 }), path: 'notes/c.md' },
+      { level: 'warn', text: t.changed({ count: 1 }), path: 'notes/c.md' },
+      { level: 'warn', text: t.unreachable({ count: 1 }), path: 'notes/d.md' },
     ])
   })
 

@@ -27,7 +27,7 @@ function indexOf(vault: Vault): MemoryIndex {
 async function plan(vault: Vault, from: string, to: string, extraFiles: string[] = []): Promise<LinkRewrite[]> {
   const index = indexOf(vault)
   const paths = [...Object.keys(vault), ...extraFiles]
-  const refs = await collectMoveRefs(index, paths, from)
+  const refs = await collectMoveRefs(index, paths, from, to)
   return planLinkRewrites(refs, from, to, paths)
 }
 
@@ -176,6 +176,98 @@ describe('the applier refuses to guess', () => {
     const planned = planLinkRewrites(refs, 'Clusters.md', 'Groupings.md', ['Clusters.md', 'A.md'])
     expect(applyLinkEdits('[[ Clusters ]]', planned[0].edits)).toBeNull()
   })
+
+  it('`expect` covers the byte that ends the target, so [[a]] in the index never passes for [[ab]] on disk', async () => {
+    const planned = await plan({ 'a.md': '', 'N.md': 'See [[a]] and [[a|x]] and [[a#h]].' }, 'a.md', 'Plans.md')
+    const edits = planned[0].edits
+    expect(edits.map((e) => e.expect).sort()).toEqual(['a#', 'a]', 'a|'])
+    expect(edits.every((e) => e.to - e.from === 1)).toBe(true)
+    expect(applyLinkEdits('See [[a]] and [[a|x]] and [[a#h]].', edits)).toBe('See [[Plans]] and [[Plans|x]] and [[Plans#h]].')
+    // Grown under the index: `[[ab]]` would have become `[[Plansb]]`.
+    expect(applyLinkEdits('See [[ab]] and [[a|x]] and [[a#h]].', edits)).toBeNull()
+    // A hand-made edit whose terminator is not one a link can end on is refused too.
+    expect(applyLinkEdits('See [[a]]', [{ from: 6, to: 7, expect: 'a ', insert: 'b' }])).toBeNull()
+  })
+})
+
+describe('what a rename must not do', () => {
+  it('a case-only rename rewrites nothing: every link still resolves', async () => {
+    const vault = { 'Pillars/Clusters.md': '', 'A.md': '[[Clusters]] [[clusters]] [[Pillars/Clusters]] [[Pillars/Clusters.md|x]]' }
+    expect(await plan(vault, 'Pillars/Clusters.md', 'Pillars/clusters.md')).toEqual([])
+  })
+
+  it('a link in a code span is not a link, so it is neither a backlink nor rewritten', async () => {
+    const vault = { 'Clusters.md': '', 'A.md': 'Real [[Clusters]]; sample `[[Clusters]]`; fenced:\n```\n[[Clusters]]\n```\n' }
+    const v = await after(vault, 'Clusters.md', 'Groupings.md')
+    expect(v['A.md']).toBe('Real [[Groupings]]; sample `[[Clusters]]`; fenced:\n```\n[[Clusters]]\n```\n')
+  })
+
+  it('a referrer that is not a markdown note is left alone', async () => {
+    const vault = { 'Clusters.md': '', 'Board.canvas': '{"nodes":[{"text":"[[Clusters]]"}]}', 'A.md': '[[Clusters]]' }
+    const planned = await plan(vault, 'Clusters.md', 'Groupings.md')
+    expect(planned.map((n) => n.path)).toEqual(['A.md'])
+  })
+})
+
+describe('the written form is kept', () => {
+  it('a lower-case bare link and a bare link with .md both take the new name', async () => {
+    const v = await after({ 'Clusters.md': '', 'A.md': '[[clusters]] and [[Clusters.md]] and [[clusters.MD|x]]' }, 'Clusters.md', 'Groupings.md')
+    expect(v['A.md']).toBe('[[Groupings]] and [[Groupings.md]] and [[Groupings.md|x]]')
+  })
+
+  it('a frontmatter flow list of links is rewritten item by item, brackets and quotes kept', async () => {
+    const v = await after(
+      { 'Clusters.md': '', 'Other.md': '', 'A.md': '---\nrelated: ["[[Clusters]]", "[[Other]]", "[[Clusters|c]]"]\n---\n' },
+      'Clusters.md',
+      'Groupings.md'
+    )
+    expect(v['A.md']).toBe('---\nrelated: ["[[Groupings]]", "[[Other]]", "[[Groupings|c]]"]\n---\n')
+  })
+})
+
+describe('namesakes — a rename must not capture another note.s links', () => {
+  it('a bare link that meant the other note becomes a path when the renamed note would capture it', async () => {
+    const vault = {
+      'Pillars/Clusters.md': '',
+      'Other/Groupings.md': '',
+      // From Pillars/Y, [[Groupings]] means Other/Groupings today (the only one); once
+      // Pillars/Groupings exists it would win by proximity — so the link is pinned.
+      'Pillars/Y.md': 'See [[Groupings]] and [[Clusters]].',
+      'Z.md': '[[Groupings]]',
+    }
+    const planned = await plan(vault, 'Pillars/Clusters.md', 'Pillars/Groupings.md')
+    expect(planned.map((n) => [n.path, n.edits.length])).toEqual([['Pillars/Y.md', 2]])
+    const v = await after(vault, 'Pillars/Clusters.md', 'Pillars/Groupings.md')
+    expect(v['Pillars/Y.md']).toBe('See [[Other/Groupings]] and [[Pillars/Groupings]].')
+    // Z sits at the root, equally far from both: the tie falls to the alphabet and
+    // Other/Groupings still wins, so the link still lands where it did — untouched.
+    expect(v['Z.md']).toBe('[[Groupings]]')
+  })
+})
+
+describe('partial paths', () => {
+  it('a suffix that still names the moved note alone is kept; one that no longer resolves takes the same depth', async () => {
+    const vault = { 'Areas/CS/Clusters.md': '', 'A.md': '[[CS/Clusters]] and [[Areas/CS/Clusters]]' }
+    // The folder moves deeper: the suffix still ends the path, and nothing else does.
+    const deeper = await after(vault, 'Areas', 'Archive/Areas')
+    expect(deeper['A.md']).toBe('[[CS/Clusters]] and [[Archive/Areas/CS/Clusters]]')
+    // The folder is renamed: the suffix is stale, and its same-depth sibling names the note alone.
+    const renamed = await after(vault, 'Areas/CS', 'Areas/Computing')
+    expect(renamed['A.md']).toBe('[[Computing/Clusters]] and [[Areas/Computing/Clusters]]')
+  })
+
+  it('a same-depth suffix two notes end with is not offered; the full path is', async () => {
+    const vault = { 'Areas/CS/Clusters.md': '', 'Other/Computing/Clusters.md': '', 'A.md': '[[CS/Clusters]]' }
+    const v = await after(vault, 'Areas/CS', 'Areas/Computing')
+    expect(v['A.md']).toBe('[[Areas/Computing/Clusters]]')
+  })
+
+  it('a suffix the move makes ambiguous is pinned to the full path', async () => {
+    const vault = { 'Areas/CS/Clusters.md': '', 'Old/Clusters.md': '', 'A.md': '[[CS/Clusters]]' }
+    // Old/Clusters moves to Other/CS/Clusters: now two paths end with CS/Clusters.
+    const v = await after(vault, 'Old', 'Other/CS')
+    expect(v['A.md']).toBe('[[Areas/CS/Clusters]]')
+  })
 })
 
 describe('collectMoveRefs', () => {
@@ -183,7 +275,7 @@ describe('collectMoveRefs', () => {
     const vault: Vault = { 'T.md': '' }
     for (let i = 0; i < 120; i++) vault[`n${i}.md`] = `[[T]]`
     const index = indexOf(vault)
-    const refs = await collectMoveRefs(index, Object.keys(vault), 'T.md')
+    const refs = await collectMoveRefs(index, Object.keys(vault), 'T.md', 'U.md')
     expect(refs).toHaveLength(120)
     expect(planLinkRewrites(refs, 'T.md', 'U.md', Object.keys(vault))).toHaveLength(120)
   })

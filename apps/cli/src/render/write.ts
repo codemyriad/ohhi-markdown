@@ -68,6 +68,9 @@ export function renderMv(o: OpOutput<'mv'>, sink: Sink): void {
       dryRun: o.dryRun || undefined,
     })
   )
+  if (!o.dryRun && o.rewrote.length > 0) {
+    sink.err(`note: restore <note> reverts that note's text, not the move — reverse the move with: ohhi mv ${o.to} ${o.from} (links follow it back)`)
+  }
 }
 
 export function renderRm(o: OpOutput<'rm'>, sink: Sink): void {

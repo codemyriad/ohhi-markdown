@@ -1452,10 +1452,19 @@ export type NamespaceWebTranslation = {
 		 */
 		updated: RequiredParams<'count'>
 		/**
-		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​w​e​r​e​ ​n​o​t​ ​u​p​d​a​t​e​d​ ​—​ ​t​h​e​ ​t​e​x​t​ ​h​a​d​ ​c​h​a​n​g​e​d​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
+		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​w​e​r​e​ ​n​o​t​ ​u​p​d​a​t​e​d​ ​—​ ​t​h​e​ ​t​e​x​t​ ​h​a​d​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​e​ ​r​e​n​a​m​e​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
 		 * @param {number} count
 		 */
-		not_updated: RequiredParams<'count'>
+		changed: RequiredParams<'count'>
+		/**
+		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​p​d​a​t​e​d​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
+		 * @param {number} count
+		 */
+		unreachable: RequiredParams<'count'>
+		/**
+		 * A​n​s​w​e​r​ ​t​h​e​ ​o​p​e​n​ ​“​U​p​d​a​t​e​ ​l​i​n​k​s​”​ ​q​u​e​s​t​i​o​n​ ​f​i​r​s​t​.
+		 */
+		busy: string
 		confirm: {
 			/**
 			 * U​p​d​a​t​e​ ​l​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​?
@@ -9452,9 +9461,17 @@ export type TranslationFunctions = {
 			 */
 			updated: (arg: { count: number }) => LocalizedString
 			/**
-			 * Links in {count} note{{s}} were not updated — the text had changed. Fix {{it|them}} by hand.
+			 * Links in {count} note{{s}} were not updated — the text had changed under the rename. Fix {{it|them}} by hand.
 			 */
-			not_updated: (arg: { count: number }) => LocalizedString
+			changed: (arg: { count: number }) => LocalizedString
+			/**
+			 * Links in {count} note{{s}} could not be updated. Fix {{it|them}} by hand.
+			 */
+			unreachable: (arg: { count: number }) => LocalizedString
+			/**
+			 * Answer the open “Update links” question first.
+			 */
+			busy: () => LocalizedString
 			confirm: {
 				/**
 				 * Update links in {count} notes?

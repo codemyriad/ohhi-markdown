@@ -8,27 +8,33 @@
  * they share this, not because they were written alike.
  *
  * The rule: a link is rewritten only when its WRITTEN target would no longer
- * resolve to the moved note. The post-move resolver answers that question
- * exactly as the editor will once the move has landed — so a bare
+ * resolve to the note it resolved to before. The post-move resolver answers
+ * that exactly as the editor will once the move has landed — so a bare
  * `[[Clusters]]` survives a move between folders (basename unchanged), a
- * path-prefixed `[[Pillars/Clusters]]` does not, and an ambiguous basename
- * that the move tips the other way is caught too. What is rewritten is the
+ * path that is no longer the path does not, an ambiguous basename the move
+ * tips the other way is caught, and so is a bare link to some OTHER note
+ * that the moved one's new name would capture. What is rewritten is the
  * target and nothing else: alias, anchor, the `!` of an embed, the quotes
  * round a frontmatter value all stay byte for byte (golden rule 2). A
  * frontmatter link is the same edit as a body one — the offsets index the
  * original text — never a YAML reserialization.
+ *
+ * A case-only rename (`Clusters.md` → `clusters.md`) rewrites nothing: the
+ * resolver reads names and paths without case, so every link still lands.
  */
 import { basename, normalizeTarget, PathResolver } from './resolve.js'
 import type { LinkRef, Page, PageOptions } from './types.js'
 
-/** One byte edit: replace `[from, to)` — which must read `expect` — with `insert`. */
+/** One byte edit: replace `[from, to)` with `insert`, once `expect` has been checked. */
 export interface LinkEdit {
   from: number
   to: number
   /**
-   * The bytes the planner believes sit at `[from, to)`: the target as the
-   * index parsed it. An applier that finds anything else must report the
-   * note rather than guess — the note changed under the index.
+   * The bytes the planner believes start at `from`: the target as the index
+   * parsed it PLUS the one byte that ends it — `]`, `|` or `#` — so it is one
+   * byte longer than the edit, and `[[a]]` recorded by the index can never
+   * pass for `[[ab]]` on disk. An applier that finds anything else must
+   * report the note rather than guess — the note changed under the index.
    */
   expect: string
   insert: string
@@ -57,22 +63,27 @@ export function pathsAfterMove(paths: Iterable<string>, from: string, to: string
   return out
 }
 
+/** The bytes a link's target can end on. The planner names one; the applier checks it. */
+const TERMINATORS = new Set([']', '|', '#'])
+
 /**
  * Plan the link rewrites a move of `from` to `to` needs — a note or a
- * folder: every ref whose resolved target is `from` or under it is
- * considered, and nothing else is.
+ * folder: every ref is re-asked against the vault as it will be, and only
+ * one whose written target would land somewhere else is touched.
  *
  * `refs` are the candidates (see `collectMoveRefs`); `vaultPaths` is every
  * FILE path in the vault before the move, text and binary alike, so an
  * embed of a moved attachment resolves the way the editor resolves it. Two
  * resolvers come from that list: the vault as it is, to place a ref the
  * index left unresolved (a binary's embed), and the vault as it will be, to
- * decide whether a written target still lands on the note and whether its
- * new bare name is unambiguous.
+ * decide whether a written target still lands on its note and what shape
+ * the rewritten one takes.
  *
  * The rewritten target keeps the shape it had: a bare name stays bare when
- * the new basename is unique in the vault, else becomes the path; a path
- * stays a path; a written `.md` is kept, an unwritten one is not added.
+ * the new basename is unique in the vault, else becomes the path; a
+ * partial path (`CS/Clusters`) stays a partial path of the same depth when
+ * that still names the note alone, else becomes the full path; a written
+ * `.md` is kept, an unwritten one is not added.
  */
 export function planLinkRewrites(
   refs: readonly LinkRef[],
@@ -90,14 +101,15 @@ export function planLinkRewrites(
     if (!ref.target) continue
     const old = ref.resolved ?? before.resolve(ref.target, ref.path)
     if (!old) continue
-    const next = pathAfterMove(old, from, to)
-    if (!next) continue
+    // Where the note this link reached will be — moved, or where it was.
+    const next = pathAfterMove(old, from, to) ?? old
     const refPath = pathAfterMove(ref.path, from, to) ?? ref.path
-    if (stillPointsAt(ref.target, next, refPath, after)) continue
+    if (stillPointsAt(ref.target, old, next, refPath, after)) continue
 
-    const insert = rewrittenTarget(ref.target, next, after)
+    const insert = rewrittenTarget(ref.target, old, next, refPath, after)
     const start = ref.offset + (ref.embed ? 3 : 2)
-    const edit: LinkEdit = { from: start, to: start + ref.target.length, expect: ref.target, insert }
+    const terminator = ref.anchor !== null ? '#' : ref.alias !== null ? '|' : ']'
+    const edit: LinkEdit = { from: start, to: start + ref.target.length, expect: ref.target + terminator, insert }
     const note = byNote.get(ref.guid) ?? { path: refPath, guid: ref.guid, edits: [] }
     if (!note.edits.some((e) => e.from === edit.from)) note.edits.push(edit)
     byNote.set(ref.guid, note)
@@ -108,29 +120,55 @@ export function planLinkRewrites(
   return out.sort((a, b) => a.path.localeCompare(b.path))
 }
 
-/**
- * Does the written target still name the note at `next`, read from `refPath`?
- * A bare name is asked of the post-move resolver — it survives a move
- * between folders and dies with a basename change or an ambiguity the move
- * tips the other way. A path-prefixed target is held to the path itself:
- * the resolver would still accept `[[Pillars/Clusters]]` for
- * `Archive/Pillars/Clusters.md` (its suffix rule), but a path that no longer
- * is the path is stale, and the next note to appear at the old one would
- * capture it. A link that carries the folder's path follows the folder.
- */
-function stillPointsAt(written: string, next: string, refPath: string, after: PathResolver): boolean {
-  const norm = normalizeTarget(written)
-  if (!norm.includes('/')) return after.resolve(written, refPath) === next
-  return norm.toLowerCase() === normalizeTarget(next).toLowerCase()
+/** Every path a partial-path target could mean under the resolver's own rule: the path ends with it. */
+function suffixMatches(resolver: PathResolver, norm: string): string[] {
+  const needle = norm.toLowerCase()
+  return resolver.candidates(norm).filter((p) => normalizeTarget(p).toLowerCase().endsWith(needle))
 }
 
-/** The new written target for `written`, now that the note is at `next`. */
-function rewrittenTarget(written: string, next: string, after: PathResolver): string {
+/** Was the written target the note's full path (`Areas/CS/Clusters`), as opposed to a bare name or a partial one? */
+const isExactPath = (written: string, path: string): boolean =>
+  normalizeTarget(written).toLowerCase() === normalizeTarget(path).toLowerCase()
+
+/**
+ * Does the written target still name the note that was at `old` and will be
+ * at `next`, read from `refPath`? A bare name is asked of the post-move
+ * resolver — it survives a move between folders and dies with a basename
+ * change, an ambiguity the move tips the other way, or a new neighbour
+ * that captures it. The full path, written exactly, is held to the path:
+ * when the note moves it follows, even though the resolver would still
+ * accept `Areas/CS/Clusters` for `Archive/Areas/CS/Clusters.md` by its
+ * suffix rule — a path that is no longer the path is stale, and the next
+ * note to appear at the old one would capture it. A partial path
+ * (`CS/Clusters`), which was a suffix already, is kept while it still
+ * names the note AND nothing else: a suffix two notes end with is a
+ * proximity coin-toss, and one that no longer ends the path is dead.
+ */
+function stillPointsAt(written: string, old: string, next: string, refPath: string, after: PathResolver): boolean {
+  if (!normalizeTarget(written).includes('/')) return after.resolve(written, refPath) === next
+  if (isExactPath(written, next)) return true
+  if (isExactPath(written, old)) return false
+  return suffixMatches(after, normalizeTarget(written)).length === 1 && after.resolve(written, refPath) === next
+}
+
+/** The new written target for `written`, now that its note has gone from `old` to `next`. */
+function rewrittenTarget(written: string, old: string, next: string, refPath: string, after: PathResolver): string {
   const hadMd = /\.md$/i.test(written.trim())
-  const bare = !normalizeTarget(written).includes('/')
-  const name = basename(next)
-  const unambiguous = after.candidates(name).length === 1
-  const target = bare && unambiguous ? name : next.replace(/\.md$/i, '')
+  const norm = normalizeTarget(written)
+  const full = normalizeTarget(next)
+  let target = full
+  if (!norm.includes('/')) {
+    const name = basename(next)
+    if (after.candidates(name).length === 1) target = name
+  } else if (!isExactPath(written, old)) {
+    // A partial path keeps the depth the author wrote, when that alone names the note.
+    const depth = norm.split('/').length
+    const segments = full.split('/')
+    if (depth < segments.length) {
+      const suffix = segments.slice(-depth).join('/')
+      if (suffixMatches(after, suffix).length === 1 && after.resolve(suffix, refPath) === next) target = suffix
+    }
+  }
   return hadMd && !/\.md$/i.test(target) ? `${target}.md` : target
 }
 
@@ -141,7 +179,10 @@ function rewrittenTarget(written: string, next: string, after: PathResolver): st
  * nothing per note: half a note's links updated is worse to find than none.
  */
 export function applyLinkEdits(text: string, edits: readonly LinkEdit[]): string | null {
-  for (const e of edits) if (text.slice(e.from, e.to) !== e.expect) return null
+  for (const e of edits) {
+    if (!TERMINATORS.has(e.expect.slice(-1))) return null
+    if (text.slice(e.from, e.from + e.expect.length) !== e.expect) return null
+  }
   let out = text
   // Descending order, so an earlier edit never shifts a later offset.
   for (const e of [...edits].sort((a, b) => b.from - a.from)) {
@@ -156,31 +197,43 @@ export type MoveRefSource = {
   unresolved(opts?: PageOptions): Promise<Page<LinkRef>>
 }
 
+/** Only a markdown note is rewritten: a `.canvas` or `.txt` that links has an owner that is not a text patcher. */
+const isNote = (path: string): boolean => /\.md$/i.test(path)
+
 /**
- * Every ref a move of `from` could break: the backlinks of each file at or
- * under it, plus the index's unresolved links that resolve — over the full
- * file list, binaries included — to one of those files. The second half is
- * how `![[diagram.png]]` follows its attachment: the index only resolves
- * links to text, so an attachment's embeds are unresolved there, but the
- * editor resolves them by the same rules over every file, and so does this.
- * Pages through everything; a move must not stop at the first fifty.
+ * Every ref a move of `from` to `to` could break: the backlinks of each
+ * file at or under `from`; the backlinks of every file that shares a
+ * basename with one of those files' NEW names, because the moved note can
+ * capture a bare link meant for its namesake (or lose one to it); and the
+ * index's unresolved links that resolve — over the full file list, binaries
+ * included — to one of the moving files, which is how `![[diagram.png]]`
+ * follows its attachment: the index only resolves links to text, so an
+ * attachment's embeds are unresolved there, but the editor resolves them by
+ * the same rules over every file, and so does this. Refs from anything that
+ * is not a markdown note are dropped: the app and the CLI then agree on
+ * what gets edited. Pages through everything; a move must not stop at the
+ * first fifty.
  */
 export async function collectMoveRefs(
   index: MoveRefSource,
   vaultPaths: Iterable<string>,
-  from: string
+  from: string,
+  to: string
 ): Promise<LinkRef[]> {
   const paths = [...vaultPaths]
   const moving = new Set(paths.filter((p) => moves(p, from)))
+  const newNames = new Set([...moving].map((p) => basename(pathAfterMove(p, from, to) ?? p).toLowerCase()))
+  const namesakes = paths.filter((p) => !moving.has(p) && newNames.has(basename(p).toLowerCase()))
   const seen = new Set<string>()
   const out: LinkRef[] = []
   const take = (ref: LinkRef): void => {
+    if (!isNote(ref.path)) return
     const key = `${ref.guid}\u0000${ref.offset}`
     if (seen.has(key)) return
     seen.add(key)
     out.push(ref)
   }
-  for (const path of moving) {
+  for (const path of [...moving, ...namesakes]) {
     for (const ref of await allPages((opts) => index.backlinks(path, opts))) take(ref)
   }
   const resolver = new PathResolver(paths)

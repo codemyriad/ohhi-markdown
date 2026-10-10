@@ -258,6 +258,38 @@ describe('text rendering', () => {
     expect(restore.err).toContain('not_found')
   })
 
+  it('mv prints one line per note whose links it rewrote, each with its undo handle, and how to reverse the move', async () => {
+    const v = await fixture()
+    const dry = await ohhi(inVault(v, ['mv', 'Areas/CS/JSON.md', 'Areas/CS/Data Format.md', '--dry-run']))
+    expect(dry.code).toBe(0)
+    expect(dry.out).toContain('would move Areas/CS/JSON.md -> Areas/CS/Data Format.md')
+    expect(dry.out).toContain('would update 1 link in Areas/CS/HTML.md')
+    expect(dry.out).toContain('would update 1 link in Projects/Editor.md')
+    expect(dry.err).toContain('files=1 rewrote=4 dryRun=true')
+    expect(dry.err).not.toContain('plan:')
+    expect(dry.err).not.toContain('ohhi restore')
+    expect(readFileSync(join(v.root, 'Areas/CS/HTML.md'), 'utf8')).toContain('[[JSON]]')
+
+    const { out, err, code } = await ohhi(inVault(v, ['mv', 'Areas/CS/JSON.md', 'Areas/CS/Data Format.md']))
+    expect(code).toBe(0)
+    const lines = out.trimEnd().split('\n')
+    expect(lines[0]).toBe('moved Areas/CS/JSON.md -> Areas/CS/Data Format.md')
+    expect(lines.slice(1)).toEqual([
+      'updated 1 link in Areas/CS/HTML.md',
+      'updated 1 link in Daily/02-5-2024.md',
+      'updated 1 link in Edible/Docs.md',
+      'updated 1 link in Projects/Editor.md',
+    ])
+    // The plan went to stderr BEFORE the move; the handles after it.
+    expect(err.indexOf('plan: move Areas/CS/JSON.md')).toBeLessThan(err.indexOf('undo with:'))
+    expect(err).toContain('plan: 1 link in Edible/Docs.md')
+    expect(err).toContain('undo with: ohhi restore Areas/CS/HTML.md --seq ')
+    expect(err).toContain('undo with: ohhi restore Projects/Editor.md --seq ')
+    expect(err).toContain('files=1 rewrote=4')
+    expect(err).toContain('reverse the move with: ohhi mv Areas/CS/Data Format.md Areas/CS/JSON.md')
+    expect(readFileSync(join(v.root, 'Areas/CS/HTML.md'), 'utf8')).toContain('[[Data Format]]')
+  })
+
   it('--dry-run says "would", and changes nothing', async () => {
     const v = await fixture()
     const before = readFileSync(join(v.root, 'TODO/Writing.md'), 'utf8')

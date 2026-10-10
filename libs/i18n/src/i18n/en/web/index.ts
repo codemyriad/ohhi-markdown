@@ -516,7 +516,12 @@ const tree_op = {
  */
 const link_follow = {
   updated: 'Updated links in {count:number} note{{s}}',
-  not_updated: 'Links in {count:number} note{{s}} were not updated — the text had changed. Fix {{count:it|them}} by hand.',
+  /** The note's text is not what the plan was made from: nothing in it was touched. */
+  changed: 'Links in {count:number} note{{s}} were not updated — the text had changed under the rename. Fix {{count:it|them}} by hand.',
+  /** No live document to edit (not a note the vault holds open). */
+  unreachable: 'Links in {count:number} note{{s}} could not be updated. Fix {{count:it|them}} by hand.',
+  /** A second rename or move while the links confirm is up. */
+  busy: 'Answer the open “Update links” question first.',
   confirm: {
     title: 'Update links in {count:number} notes?',
     rename_body: 'Renaming “{name:string}” changes what {count:number} notes link to. Each of them is edited, with its own sync state and history.',

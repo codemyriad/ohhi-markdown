@@ -728,6 +728,30 @@ inline title (`@ohhi/index`'s `planLinkRewrites`), so the two agree:
 
 `--dry-run` plans it all and reports `rewrote` without moving or writing —
 look first when the note is widely linked. `--keep-links` moves only.
+Before it moves anything, `mv` prints the plan to stderr (`plan: 3 links in
+Clusters/A.md`, one line per note), so a crash between the move and the
+last rewrite leaves a list of what was meant to change. **To reverse a
+move, move it back**: `ohhi mv <to> <from>` follows the links back;
+`ohhi restore <note>` reverts that one note's text and leaves the move
+standing.
+
+Two things it leaves alone on purpose: a case-only rename (`Clusters.md` →
+`clusters.md`) rewrites nothing, because names and paths resolve without
+case and every link still lands; and a link inside a code span
+(`` `[[Clusters]]` ``) is not a link to the index (the editor never looks
+inside one), so it is neither a backlink nor rewritten. Links in notes that
+are not `.md` (a `.canvas`, a `.txt`) are not rewritten either — the app
+and the CLI agree on that.
+
+A rename can also change where a bare link to some OTHER note lands: rename
+`Pillars/Clusters.md` to `Pillars/Groupings.md` while `Other/Groupings.md`
+exists, and a neighbour's `[[Groupings]]` that meant the other note would
+now resolve to the renamed one by proximity. `mv` checks the namesakes'
+backlinks too and rewrites such a link to the path it meant
+(`[[Other/Groupings]]`), reported in `rewrote` like the rest. A partial
+path (`[[CS/Clusters]]`) is kept while it still names the note alone, and
+otherwise becomes the same-depth suffix of the new path when that does, else
+the full path.
 
 **The breaker counts the notes it would rewrite with the files moved**: a
 rename that would touch more than 20 (moved + rewritten) needs `--yes`, like

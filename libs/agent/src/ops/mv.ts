@@ -26,6 +26,12 @@ import { filesUnder, requireConfirmation, resolveTarget } from './move.js'
  * notes stand. The breaker counts those notes with the files moved: a
  * rename that would rewrite 24 notes is a burst, whatever moved. `keepLinks`
  * skips all of it; `dryRun` plans and reports and writes nothing.
+ *
+ * The plan goes to the trail (stderr) BEFORE the move: N+1 writes are not
+ * one atomic act, and a crash between the move and the last rewrite must
+ * leave the human a list of what was meant to change, not a silence.
+ * Reversing a move is `mv <to> <from>`, which follows the links back;
+ * `restore <note>` reverts one note's text and leaves the move standing.
  */
 export const mv: OpDef<'mv'> = {
   ...OP_SCHEMAS.mv,
@@ -46,6 +52,10 @@ export const mv: OpDef<'mv'> = {
     requireConfirmation(files + plan.length, input.yes ?? false, what)
 
     const dryRun = input.dryRun ?? false
+    if (!dryRun && plan.length > 0) {
+      backend.trail?.(`plan: move ${from} -> ${to}, then update links in ${plan.length} note${plan.length === 1 ? '' : 's'}:`)
+      for (const note of plan) backend.trail?.(`plan: ${note.edits.length} link${note.edits.length === 1 ? '' : 's'} in ${note.path}`)
+    }
     if (!dryRun) {
       await backend.journal.rename(from, to)
       if (source.kind === 'file') await backend.adapter.rename(from, to)
@@ -87,6 +97,6 @@ export const mv: OpDef<'mv'> = {
 /** The planner over this vault: every file's path (text and binary), the index's refs. */
 async function planFor(backend: VaultBackend, from: string, to: string): Promise<LinkRewrite[]> {
   const paths = [...(await backend.files()).keys()]
-  const refs = await collectMoveRefs(await backend.index(), paths, from)
+  const refs = await collectMoveRefs(await backend.index(), paths, from, to)
   return planLinkRewrites(refs, from, to, paths)
 }

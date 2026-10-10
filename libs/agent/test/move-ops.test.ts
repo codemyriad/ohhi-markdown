@@ -198,6 +198,62 @@ describe('mv follows links (bases-shaping A5.1)', () => {
     expect(await vault.text('Areas/CS/Data Format.md')).toBe(vault.notes['Areas/CS/JSON.md'])
   })
 
+  it('a folder with a sub-folder: path links deep inside follow, a suffix that still fits is kept', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Inbox/Deep.md'), '[[Areas/CS/JSON]] [[CS/JSON]] [[Areas/Life/Music|tunes]] [[JSON]]\n', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas', to: 'Archive/Areas' })
+    expect(out.files).toBe(4)
+    expect(out.rewrote.map((r) => [r.path, r.links])).toEqual([['Inbox/Deep.md', 2]])
+    expect(await vault.text('Inbox/Deep.md')).toBe('[[Archive/Areas/CS/JSON]] [[CS/JSON]] [[Archive/Areas/Life/Music|tunes]] [[JSON]]\n')
+    expect(await vault.text('Archive/Areas/CS/JSON.md')).toBe(vault.notes['Areas/CS/JSON.md'])
+  })
+
+  it('the moved note.s own named self-link follows; its [[#anchor]] does not; the pre-image sits under the new path', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Areas/CS/JSON.md'), '# JSON\n\nSee [[JSON#Top]] and [[#Top]] and [[HTML]].\n', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(out.rewrote.map((r) => r.path)).toContain('Areas/CS/Data Format.md')
+    expect(await vault.text('Areas/CS/Data Format.md')).toBe('# JSON\n\nSee [[Data Format#Top]] and [[#Top]] and [[HTML]].\n')
+    expect(await backend.journal.list('Areas/CS/Data Format.md')).toHaveLength(1)
+    expect(await backend.journal.list('Areas/CS/JSON.md')).toHaveLength(0)
+  })
+
+  it('a referrer that is not a markdown note is neither rewritten nor reported', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Inbox/Board.canvas'), '{"nodes":[{"text":"[[JSON]]"}]}', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(out.rewrote.map((r) => r.path)).toEqual(linksToJson)
+    expect(out.skipped).toEqual([])
+    expect(await vault.text('Inbox/Board.canvas')).toBe('{"nodes":[{"text":"[[JSON]]"}]}')
+  })
+
+  it('a bare link to a namesake the rename would capture is pinned to its path, and reported', async () => {
+    const vault = await open()
+    // Areas/CS/Markup.md is linked bare from Areas/CS/Guide.md. Renaming HTML.md to
+    // Markup.md beside it would capture that link by proximity.
+    await mkdir(join(vault.root, 'Areas/Web'), { recursive: true })
+    await writeFile(join(vault.root, 'Areas/Web/Markup.md'), '# Markup\n', 'utf8')
+    await writeFile(join(vault.root, 'Areas/CS/Guide.md'), 'Read [[Markup]] then [[HTML]].\n', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/HTML.md', to: 'Areas/CS/Markup.md' })
+    expect(out.rewrote.find((r) => r.path === 'Areas/CS/Guide.md')?.links).toBe(2)
+    expect(await vault.text('Areas/CS/Guide.md')).toBe('Read [[Areas/Web/Markup]] then [[Areas/CS/Markup]].\n')
+  })
+
+  it('names every note it is about to rewrite on the trail before it moves anything', async () => {
+    const vault = await open()
+    await runOp(vault.backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(vault.trail[0]).toBe('plan: move Areas/CS/JSON.md -> Areas/CS/Data Format.md, then update links in 4 notes:')
+    expect(vault.trail.slice(1)).toEqual(linksToJson.map((p) => `plan: 1 link in ${p}`))
+    // A dry run writes nothing, so there is nothing to leave a trail for.
+    vault.trail.length = 0
+    await runOp(await reopen(vault), 'mv', { from: 'Areas/CS/Data Format.md', to: 'Areas/CS/JSON.md', dryRun: true })
+    expect(vault.trail).toEqual([])
+  })
+
   it('counts the notes it would rewrite toward the breaker', async () => {
     const vault = await open()
     for (let i = 0; i < MASS_CHANGE_PATHS; i++) {

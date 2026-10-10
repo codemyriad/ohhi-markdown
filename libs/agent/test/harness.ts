@@ -13,6 +13,8 @@ import { makeFixtureVault, type FixtureVault } from './fixture.js'
 export interface Harness extends FixtureVault {
   backend: VaultBackend
   clock: SimClock
+  /** Every `trail` line the backend was handed, in order. */
+  trail: string[]
   /** Raw bytes on disk, for byte-identity assertions. */
   bytes(path: string): Promise<Uint8Array>
   text(path: string): Promise<string>
@@ -26,11 +28,13 @@ export async function harness(opts: { appStoreDirs?: string[] } = {}): Promise<H
   // two have to come from the same clock domain or a 1970 journal looks older
   // than every file in the vault. Time still never moves unless a test moves it.
   clock.advance(Date.now()) // clock-exempt: anchors the sim clock to the filesystem's domain
-  const backend = await createFilesBackend({ root: vault.root, dataDir: vault.dataDir, clock, ...opts })
+  const trail: string[] = []
+  const backend = await createFilesBackend({ root: vault.root, dataDir: vault.dataDir, clock, trail: (line) => trail.push(line), ...opts })
   return {
     ...vault,
     backend,
     clock,
+    trail,
     bytes: async (path) => new Uint8Array(await readFile(join(vault.root, path))),
     text: async (path) => readFile(join(vault.root, path), 'utf8'),
   }

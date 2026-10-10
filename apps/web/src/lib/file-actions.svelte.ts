@@ -56,9 +56,10 @@ export interface LinksConfirm {
 }
 
 /**
- * Above this many referencing notes a rename or move asks first (the same
- * number `ohhi mv` refuses at without `--yes`, and the app's mass-change
- * breaker); at or under it the links just follow.
+ * Above this many files touched — the files moved plus the notes whose
+ * links are rewritten, counted exactly as `ohhi mv` counts them before it
+ * refuses without `--yes`, and as the app's mass-change breaker counts a
+ * burst — a rename or move asks first; at or under it the links just follow.
  */
 export const LINK_CONFIRM_THRESHOLD = 20
 
@@ -130,6 +131,10 @@ export function renameRefusal(ws: Workspace, from: string, name: string): string
 const filePaths = (files: readonly FileRow[]): string[] =>
   files.filter((f) => f.kind === 'text' || f.kind === 'binary').map((f) => f.path)
 
+/** How many files a move of `from` carries: one for a file, everything under a folder. */
+const filesMoved = (paths: readonly string[], from: string): number =>
+  paths.filter((p) => p === from || p.startsWith(`${from}/`)).length
+
 /** Is anything at `to` now — the moved file, or a moved folder's contents? */
 const landed = (ws: Workspace, to: string): boolean =>
   ws.ui.files.some((f) => f.path === to || f.path.startsWith(`${to}/`))
@@ -172,13 +177,11 @@ export function createFileActions(host: FileHost): FileActions {
     const index = host.index()
     if (!index) return []
     const paths = filePaths(ws.ui.files)
-    const refs = await collectMoveRefs(index, paths, from)
+    const refs = await collectMoveRefs(index, paths, from, to)
     return planLinkRewrites(refs, from, to, paths)
   }
 
   function askLinks(info: LinksConfirm): Promise<boolean> {
-    // A second ask while one is up answers the first with "no".
-    answerLinks?.(false)
     return new Promise((resolve) => {
       answerLinks = resolve
       linksConfirm = info
@@ -197,16 +200,22 @@ export function createFileActions(host: FileHost): FileActions {
     if (plan.length === 0 || !landed(ws, to)) return
     const t = getLL().web.link_follow
     let updated = 0
-    const failed: string[] = []
+    // Two different failures, said apart: no live doc to edit at all, and a
+    // doc whose text is no longer what the plan was made from.
+    const unreachable: string[] = []
+    const changed: string[] = []
     for (const note of plan) {
       const doc = ws.docForPath(note.path)
-      if (doc && applyLinkEditsToDoc(doc, note)) updated++
-      else failed.push(note.path)
+      if (!doc) unreachable.push(note.path)
+      else if (applyLinkEditsToDoc(doc, note)) updated++
+      else changed.push(note.path)
     }
     if (updated) ws.flash({ level: 'info', text: t.updated({ count: updated }), path: to })
-    if (failed.length) {
-      ws.flash({ level: 'warn', text: t.not_updated({ count: failed.length }), ...(failed.length === 1 ? { path: failed[0] } : {}) })
+    const report = (paths: string[], text: string): void => {
+      if (paths.length) ws.flash({ level: 'warn', text, ...(paths.length === 1 ? { path: paths[0] } : {}) })
     }
+    report(changed, t.changed({ count: changed.length }))
+    report(unreachable, t.unreachable({ count: unreachable.length }))
   }
 
   /**
@@ -218,8 +227,15 @@ export function createFileActions(host: FileHost): FileActions {
   async function relocate(from: string, to: string, kind: 'rename' | 'move'): Promise<void> {
     const ws = host.workspace()
     if (!ws) return
+    // One question at a time: a second rename while the confirm is up (two
+    // panes on one note, both titles blurring) is refused and said so, not
+    // quietly swapped for the first.
+    if (answerLinks) {
+      ws.flash({ level: 'warn', text: getLL().web.link_follow.busy(), path: from })
+      return
+    }
     const plan = await planLinks(ws, from, to)
-    if (plan.length > LINK_CONFIRM_THRESHOLD) {
+    if (filesMoved(filePaths(ws.ui.files), from) + plan.length > LINK_CONFIRM_THRESHOLD) {
       const go = await askLinks({ kind, path: from, name: from.slice(from.lastIndexOf('/') + 1), notes: plan.length })
       if (!go) return
     }

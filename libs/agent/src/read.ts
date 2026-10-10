@@ -49,6 +49,12 @@ export interface VaultBackend {
   exists(path: string): Promise<'file' | 'dir' | null>
   /** Milliseconds the index build took in this process (0 until it is built). */
   buildMs(): Promise<number>
+  /**
+   * A line for the human's stderr, written BEFORE a step whose crash would
+   * otherwise leave no trace — `mv` names every note it is about to rewrite
+   * before it moves anything. Never part of the answer; absent in a test.
+   */
+  trail?(line: string): void
 }
 
 /** Read a note's current bytes, decoded. Always from disk — never a cache. */
