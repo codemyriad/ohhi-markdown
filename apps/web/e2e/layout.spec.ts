@@ -29,7 +29,12 @@ test('a new install boots the default layout: no navigator column, the rail clos
   // P1/P2: the header is arrows, a title and the readouts; formatting is its own bar.
   await expect(page.getByRole('banner').getByTestId('nav')).toBeVisible()
   await expect(page.getByRole('banner').getByTestId('toolbar-format')).toHaveCount(0)
+  // The format bar is the note's (devtools-shaping D7): an empty tab draws
+  // none; the first note brings it, at the bottom.
+  await expect(page.getByTestId('format-bar')).toHaveCount(0)
+  await openByQuickOpen(page, 'welcome')
   await expect(page.getByTestId('format-bar')).toHaveCount(1)
+  await expect(page.getByTestId('format-bar')).toHaveAttribute('data-position', 'bottom')
   // Round 3 (Q4, Q5): no mode menu and no word count in the toolbar.
   await expect(page.getByTestId('toolbar').locator('[data-testid$="mode-menu"]')).toHaveCount(0)
   await expect(page.getByTestId('toolbar').locator('[data-testid$="word-count"]')).toHaveCount(0)
@@ -90,7 +95,9 @@ test('the Files field turns the drawer into a column at once; a pin reads "(pinn
   await expect(page.getByTestId('navigator')).toHaveCount(0)
   await page.keyboard.press('Escape')
 
-  // A pin (the dock's icon) wins over the field, and the form says so.
+  // A pin (the dock's icon) wins over the field, and the form says so. The
+  // strip is the note's door (devtools-shaping D7): a note first.
+  await openByQuickOpen(page, 'welcome')
   await page.getByTestId('rail-expand').click()
   await page.getByTestId('rail-pin').click()
   await expect(page.getByTestId('right-rail')).toBeVisible()

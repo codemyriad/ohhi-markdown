@@ -15,6 +15,13 @@
    * first) line: the layer's height becomes `--ed-float-bottom` /
    * `--ed-float-top` on this area, and every CM6 scroller under it pads by
    * that much. The layer clears a top tab strip and a bottom status bar.
+   *
+   * The layer is the NOTE's chrome (devtools-shaping D7, R10): it draws only
+   * while the focused pane's active tab is a note (`focusedIsNote`). Focus a
+   * view tab (Inspector, Log, Shared) or an empty tab and the format bar and
+   * the corner go, the scrollers pad nothing, and the dock's floating strip
+   * goes with them; focus a note and all of it returns. Known limit: in a
+   * split with a note focused the layer still spans the whole area.
    */
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -26,6 +33,7 @@
   import { themeState } from '../theme.svelte.js'
   import type { ShellSpec } from '../layout-spec.js'
   import { getReadoutContext, inBar } from '../readouts.js'
+  import { focusedIsNote } from '../readout-state.js'
   import type { ShellLayout } from '../shell-layout.svelte.js'
   import type { PaneChrome } from '../pane-chrome.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
@@ -75,11 +83,15 @@
   /** The bottom layer's readouts and menus open upward; the top one's downward. */
   const bottomCtx = $derived(shellCtx ? inBar(shellCtx, { side: 'top' }) : null)
   const topCtx = $derived(shellCtx ? inBar(shellCtx, { side: 'bottom' }) : null)
+  /** The note's chrome only over a note (D7): a view or an empty tab draws none of it. */
+  const onNote = $derived(focusedIsNote(panes.layout))
   const formatAt = $derived(
-    layout && layout.spec.regions.format !== 'off' && layout.focusKeeps('format') ? layout.spec.regions.format : null
+    onNote && layout && layout.spec.regions.format !== 'off' && layout.focusKeeps('format')
+      ? layout.spec.regions.format
+      : null
   )
   const corner = $derived(
-    layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
+    onNote && layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
   )
 
   /** The pane container the layer floats in, and what it must clear at its edges. */
@@ -149,8 +161,22 @@
     formatAt === 'bottom' && corner && barW > 0 && cornerW > 0 && barW + cornerW + 2 * GAP_PX > rowW
   )
 
-  const padBottom = $derived(bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
-  const padTop = $derived(topH > 0 ? topH + 2 * GAP_PX : 0)
+  /**
+   * Focus where the dock's strip would have taken it, when no strip is drawn
+   * (D7): the focused pane's selected tab, else the first control in it.
+   */
+  function focusPane(): void {
+    const pane = stage?.querySelector<HTMLElement>(`[data-pane-id="${CSS.escape(panes.layout.focus)}"]`)
+    const target =
+      pane?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ??
+      pane?.querySelector<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex="0"]')
+    target?.focus()
+  }
+
+  // A stack that is not drawn pads nothing: `bind:clientHeight` keeps its
+  // last value when the element goes, so the gate is read here too.
+  const padBottom = $derived((formatAt === 'bottom' || corner) && bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
+  const padTop = $derived(formatAt === 'top' && topH > 0 ? topH + 2 * GAP_PX : 0)
 
   /** The three measures (F1) — set inline here, so the CM6 theme's `var(--ed-measure)` reads it. */
   const MEASURES: Record<ShellSpec['editor']['measure'], string> = {
@@ -279,7 +305,7 @@
     <ModeBar {panes} />
   </main>
   {#if floatingDock && layout}
-    <Dock {workspace} {nav} {layout} form="float" {area} />
+    <Dock {workspace} {nav} {layout} form="float" {area} showStrip={onNote} refocus={focusPane} />
   {/if}
 </div>
 

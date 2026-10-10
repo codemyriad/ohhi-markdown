@@ -282,7 +282,10 @@ close it; pin opens it as the rail column, which offers unpin only, and
 unpinned it is the floating strip again; pinned, the format bar and the
 corner span the panes left of the column; bottom-right, the strip stands
 above the corner count at every width; at a narrow width the strip shrinks to
-its expand button, and Focus mode hides it.
+its expand button, and Focus mode hides it. A view tab draws neither the strip
+nor the format bar and corner (devtools-shaping D7); `e2e/chrome.spec.ts`
+checks it over the Log and the Inspector, and that a note's tab brings them
+back.
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server

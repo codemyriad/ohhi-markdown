@@ -113,6 +113,10 @@ say only what differs. Resolving it yields the complete shell spec.
 | `editor` | `measure` (`narrow`/`comfortable`/`wide`), `typewriter` (boolean), `inlineTitle` (boolean — the note's name as an editable heading at the top of its body; editing it renames the file) |
 | `focus` | `keep`: the region ids Focus mode leaves on screen |
 
+The floating format bar, the `status` corner and the dock's icon strip are a
+note's chrome: a view tab (Inspector, Log, Shared) or an empty tab focused
+draws none of them, and focusing a note brings them back.
+
 **Older names still load.** Files written before 2026-10-06 are read as
 today's shape: `extends: "light"` → `"default"`, `regions.rail: "menu"` →
 `"dock"`, `bars["toolbar.format"]` → `bars.format`, and the readout ids

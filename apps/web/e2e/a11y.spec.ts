@@ -292,7 +292,9 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await expect(page.getByTestId('settings-panel')).toHaveCount(0)
 
   // Unpinned, the column is gone: the floating strip is the dock (a pinned
-  // column has no collapse — Chris, 2026-10-06).
+  // column has no collapse — Chris, 2026-10-06). The strip is drawn over a
+  // note only (devtools-shaping D7), so one is open.
+  await page.getByTestId('file-item:notes/welcome.md').click()
   await page.getByTestId('rail-unpin').click()
   await expect(page.getByTestId('right-rail')).toHaveCount(0)
   await expect(page.getByTestId('dock')).toBeVisible()

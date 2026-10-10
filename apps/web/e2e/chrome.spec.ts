@@ -5,14 +5,26 @@
  */
 import { expect, test } from '@playwright/test'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
-import { MANAGER_URL, RELAY, createBrowserVault, dragTo, openApp, openByQuickOpen, openManager, paneContent, runCommand } from './fixtures.js'
+import {
+  MANAGER_URL,
+  RELAY,
+  appUrl,
+  createBrowserVault,
+  dragTo,
+  openApp,
+  openByQuickOpen,
+  openManager,
+  paneContent,
+  runCommand,
+  tabNamed,
+} from './fixtures.js'
 
 test('the pinned rail is the dock panel: tabs, unpin only (no collapse), one open state and one tab, Mod+ArrowRight', async ({
   page,
 }) => {
   await openApp(page, 'chrome-rail')
   // A note open: the floating strip sits in the margin beside its measure
-  // (over a view or an empty pane there is no margin, and it is `«` alone).
+  // (over a view or an empty tab there is no strip at all — devtools D7).
   await openByQuickOpen(page, 'welcome')
   const rail = page.getByTestId('right-rail')
   await expect(rail).toHaveAttribute('data-state', 'expanded')
@@ -61,6 +73,8 @@ test('the pinned rail is the dock panel: tabs, unpin only (no collapse), one ope
   await page.reload()
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
   await expect(rail).toHaveCount(0)
+  // The reload restores no tab: the strip is a note's (devtools-shaping D7).
+  await openByQuickOpen(page, 'welcome')
   await page.getByTestId('rail-expand').click()
   await expect(page.getByTestId('dock-panel')).toBeVisible()
 })
@@ -88,6 +102,9 @@ test('the navigator resizes from the keyboard, collapses by drag, hides on Mod+A
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId('navigator')).toHaveCSS('width', '624px')
   await expect(page.getByTestId('right-rail')).toHaveCount(0)
+  // Unpinned, the dock is the floating strip — over a note (devtools-shaping D7).
+  await expect(page.getByTestId('dock')).toHaveCount(0)
+  await openByQuickOpen(page, 'welcome')
   await expect(page.getByTestId('dock')).toBeVisible()
 
   await page.keyboard.press('ControlOrMeta+ArrowLeft')
@@ -374,6 +391,57 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
   await page.getByTestId('log-clear').click()
   await page.getByTestId('log-clear-confirm').getByRole('button', { name: 'Clear' }).click()
   await expect(page.getByTestId('log-empty')).toContainText('Nothing to report')
+})
+
+test('a view tab draws no note chrome: no format bar, no dock strip, no corner count; the note’s tab brings them back (devtools-shaping D7)', async ({
+  page,
+}) => {
+  // The default layout: the format bar floats at the bottom, the corner
+  // count beside it, the dock a floating strip — all of it the note's.
+  await page.goto(appUrl({ room: 'chrome-view-chrome', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await openByQuickOpen(page, 'welcome')
+  const area = page.getByTestId('editor-area')
+  const floatBottom = (): Promise<string> =>
+    area.evaluate((el) => getComputedStyle(el).getPropertyValue('--ed-float-bottom').trim())
+  const noteChrome = async (on: boolean): Promise<void> => {
+    const n = on ? 1 : 0
+    await expect(page.getByTestId('float-bottom')).toHaveCount(n)
+    await expect(page.getByTestId('format-bar')).toHaveCount(n)
+    await expect(page.getByTestId('corner-status')).toHaveCount(n)
+    await expect(page.getByTestId('word-count')).toHaveCount(n)
+    await expect(page.getByTestId('dock')).toHaveCount(n)
+    await expect(page.getByTestId('rail-expand')).toHaveCount(n)
+    if (on) await expect.poll(floatBottom).not.toBe('0px')
+    else await expect.poll(floatBottom).toBe('0px')
+  }
+  await noteChrome(true)
+
+  // The Log, a view tab: none of it (Chris: "for all non-note panels").
+  await runCommand(page, 'Open log')
+  await expect(page.getByTestId('log-view')).toBeVisible()
+  await noteChrome(false)
+  await tabNamed(page, 'welcome').click()
+  await noteChrome(true)
+
+  // The Inspector, the same.
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:developer').click()
+  await page.getByTestId('settings-devtools').check()
+  await page.getByTestId('settings-close').click()
+  await runCommand(page, 'Open inspector')
+  await expect(page.getByTestId('inspector')).toBeVisible()
+  await noteChrome(false)
+  await tabNamed(page, 'welcome').click()
+  await noteChrome(true)
+
+  // The strip going while it holds focus (the next tab is the Inspector):
+  // focus lands in the pane, never on the page body.
+  await page.getByTestId('rail-expand').focus()
+  await page.keyboard.press('Control+Tab')
+  await expect(page.getByTestId('inspector')).toBeVisible()
+  await noteChrome(false)
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-pane-id]') !== null)).toBe(true)
 })
 
 test('settings are tabs: keyboard between them, validated forms with their own Save, and an unsaved-changes guard on close', async ({
