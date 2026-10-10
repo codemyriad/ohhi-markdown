@@ -698,6 +698,11 @@ const presence = {
   sync: {
     with_people: '{status:string} · {count:number} {{person|people}} online',
     title: 'Who is where',
+    /** The card's name when nobody else is here: only the inspector's door is in it (devtools-shaping DT5). */
+    title_alone: 'This note',
+    /** The card's footer while developer tools are on: the focused note in its own inspector tab. */
+    inspect: 'Inspect this note',
+    inspect_path: 'Open the inspector on {path:string}',
   },
 }
 

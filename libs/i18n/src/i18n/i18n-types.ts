@@ -2018,6 +2018,19 @@ export type NamespaceWebTranslation = {
 			 * W​h​o​ ​i​s​ ​w​h​e​r​e
 			 */
 			title: string
+			/**
+			 * T​h​i​s​ ​n​o​t​e
+			 */
+			title_alone: string
+			/**
+			 * I​n​s​p​e​c​t​ ​t​h​i​s​ ​n​o​t​e
+			 */
+			inspect: string
+			/**
+			 * O​p​e​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r​ ​o​n​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			inspect_path: RequiredParams<'path'>
 		}
 	}
 	links: {
@@ -6562,6 +6575,18 @@ export type TranslationFunctions = {
 				 * Who is where
 				 */
 				title: () => LocalizedString
+				/**
+				 * This note
+				 */
+				title_alone: () => LocalizedString
+				/**
+				 * Inspect this note
+				 */
+				inspect: () => LocalizedString
+				/**
+				 * Open the inspector on {path}
+				 */
+				inspect_path: (arg: { path: string }) => LocalizedString
 			}
 		}
 		links: {
