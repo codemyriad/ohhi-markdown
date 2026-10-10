@@ -173,7 +173,8 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
    *Settings › Developer*, then open the inspector: *Open inspector* in the
    command palette, or the bug icon at the toolbar's right. In the browser,
    adding `?debug=1` to the URL turns developer tools on for one session. The
-   note you were looking at is selected: its chain (disk, base — the text
+   note you were looking at when the inspector opened is selected (it does
+   not follow the focus afterwards; click a row to pick another): its chain (disk, base — the text
    disk and doc last agreed on — doc, relay), its state in words, and the
    diff that explains it. (*Inspect this note* in the sync icon's hover card
    opens that note in its own inspector tab.) Then **Copy report** → *The

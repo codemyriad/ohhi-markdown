@@ -635,8 +635,13 @@ their pairwise diffs, the raw facts — as a right column when the
 pane is wide and a drawer over the list when it is narrow; *Open in its own
 tab* moves one file's detail to a tab titled `Inspector · <path>`. **Copy
 report** puts the selected file or every row in scope on the clipboard as
-text for a bug report. It refreshes on record changes, scope changes and its
-refresh button — no polling, and nothing in it can mutate state.
+text for a bug report; the scope's report names the active filters and order
+and counts `N of M rows`. The mount snapshot re-reads when the vault's shape
+changes (files created, deleted or renamed, mounts coming or going), when
+the scope changes and on its refresh button; a record change only re-colours
+the rows and re-reads the selected file. No polling — the snapshot's age is
+re-worded on a clock tick, nothing is read by it — and nothing in it can
+mutate state.
 
 ---
 
