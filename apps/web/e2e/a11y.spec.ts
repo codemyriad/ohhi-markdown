@@ -717,13 +717,22 @@ test('a collection tab is accessible', async ({ page }) => {
   await expect(page.getByTestId('collection-list')).toBeVisible()
   await expectAccessible(page, 'collection list')
 
-  // A row-note (DB4, Fork 3-B): the collection over the root claims every
-  // note, so the welcome note's frontmatter is the properties form — one
-  // row, `status`, with the table's own text editor — and a key is a door
-  // into the YAML, where the form gives way to the text (R4.1.1).
+  // A row-note (DB4, Fork 3-B): the collection was created over the open
+  // note's folder (`file.inFolder("notes")`, its one view unfiltered), so
+  // the welcome note is a row and its frontmatter is the properties form —
+  // one row, `status`, with the table's own text editor. In Reading the
+  // form is text: no editor, no door into the YAML.
   await page.getByTestId('file-item:notes/welcome.md').click()
   await expect(page.getByTestId('properties-form')).toBeVisible()
   await expectAccessible(page, 'properties form')
+  await page.keyboard.press('ControlOrMeta+e')
+  await expect(page.getByTestId('properties-form')).toBeVisible()
+  await expect(page.getByTestId('properties-form').getByRole('button')).toHaveCount(0)
+  await expect(page.getByTestId('property:status')).toHaveText('draft')
+  await expectAccessible(page, 'properties form (reading)')
+  await page.keyboard.press('ControlOrMeta+e')
+  // Back in Live, a key is a door into the YAML, where the form gives way
+  // to the text (R4.1.1).
   await page.getByTestId('property:status').click()
   await expect(page.getByTestId('property:status:input')).toBeVisible()
   await expectAccessible(page, 'properties form cell editor')
@@ -740,5 +749,8 @@ test('a collection tab is accessible', async ({ page }) => {
   await expect(page.getByTestId('collection-embed')).toBeVisible()
   await expect(page.getByTestId('collection-embed').getByTestId('collection-table')).toBeVisible()
   await expect(page.getByTestId('collection-embed').getByTestId('collection-new')).toHaveCount(0)
+  // The embed scrolls in a box of its own rather than growing with the collection.
+  await expect(page.getByTestId('collection-embed-body')).toHaveCSS('overflow-y', 'auto')
+  await expect(page.getByTestId('collection-embed-body')).toHaveCSS('max-height', '384px')
   await expectAccessible(page, 'collection embed')
 })

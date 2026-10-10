@@ -293,6 +293,31 @@ function contains(target: Val, value: Val, ctx: FilterContext): boolean {
   return items(target).some((item) => wanted.some((w) => scalarEquals(item, w, ctx)))
 }
 
+/**
+ * The one path a filter pins the query to, if it does: `file.path == "x"`
+ * at the top, or inside the top-level `and`s. The backing index then looks
+ * that one note up instead of walking the vault — the membership question
+ * ("is THIS note a row?") is asked once per open note on every index tick.
+ * Null when the filter is not pinned; the full filter is still evaluated
+ * on the note found, so the answer is the same either way.
+ */
+export function pinnedPath(filter: RowFilter): string | null {
+  if (filter.op === 'cmp' && filter.cmp === '==') {
+    const { left, right } = filter
+    const isPath = (e: RowExpr): boolean => 'key' in e && 'file' in e.key && e.key.file === 'path'
+    if (isPath(left) && 'lit' in right && typeof right.lit === 'string') return right.lit
+    if (isPath(right) && 'lit' in left && typeof left.lit === 'string') return left.lit
+    return null
+  }
+  if (filter.op === 'and') {
+    for (const arg of filter.args) {
+      const found = pinnedPath(arg)
+      if (found !== null) return found
+    }
+  }
+  return null
+}
+
 export function matchesFilter(row: Row, filter: RowFilter, ctx: FilterContext): boolean {
   switch (filter.op) {
     case 'and':

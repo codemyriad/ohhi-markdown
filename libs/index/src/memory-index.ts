@@ -86,7 +86,7 @@ import { fuzzyScore, toSpans } from './fuzzy.js'
 import { lineAt, lineStartsOf } from './lines.js'
 import { paginate } from './paginate.js'
 import { parseMarkdown, type ParsedDoc } from './parse.js'
-import { compareRows, matchesFilter, scalarText, typeProperty, type FilterContext } from './properties.js'
+import { compareRows, matchesFilter, pinnedPath, scalarText, typeProperty, type FilterContext } from './properties.js'
 import { basename, normalizeTarget, PathResolver } from './resolve.js'
 import { tagKey } from './tag-syntax.js'
 import { queryTerms, tokenize } from './tokenize.js'
@@ -169,6 +169,8 @@ export class MemoryIndex implements WritableIndex {
   readonly schemaVersion = SCHEMA_VERSION
 
   private docs = new Map<string, DocEntry>()
+  /** path → guid, so a query pinned to one note (`rows`) is a lookup, not a walk. */
+  private byPath = new Map<string, string>()
   /** term → guids containing it. Postings; offsets live on the doc entry. */
   private postings = new Map<string, Set<string>>()
   private resolver = new PathResolver()
@@ -196,9 +198,13 @@ export class MemoryIndex implements WritableIndex {
 
   upsert(doc: IndexDoc): void {
     const existing = this.docs.get(doc.guid)
-    if (existing) this.unpost(existing)
+    if (existing) {
+      this.unpost(existing)
+      this.byPath.delete(existing.path)
+    }
     const entry = this.derive(doc)
     this.docs.set(doc.guid, entry)
+    this.byPath.set(doc.path, doc.guid)
     for (const term of entry.terms.keys()) {
       const bucket = this.postings.get(term)
       if (bucket) bucket.add(doc.guid)
@@ -217,6 +223,7 @@ export class MemoryIndex implements WritableIndex {
     if (!entry) return
     this.unpost(entry)
     this.docs.delete(guid)
+    this.byPath.delete(entry.path)
     this.resolver.reset(this.paths())
     this.resolutionDirty = true
   }
@@ -233,10 +240,12 @@ export class MemoryIndex implements WritableIndex {
   rebuild(docs: Iterable<IndexDoc>): void {
     const started = now()
     this.docs.clear()
+    this.byPath.clear()
     this.postings.clear()
     for (const doc of docs) {
       const entry = this.derive(doc)
       this.docs.set(doc.guid, entry)
+      this.byPath.set(doc.path, doc.guid)
       for (const term of entry.terms.keys()) {
         const bucket = this.postings.get(term)
         if (bucket) bucket.add(doc.guid)
@@ -571,8 +580,19 @@ export class MemoryIndex implements WritableIndex {
       ...(query.tzOffsetMinutes === undefined ? {} : { tzOffsetMinutes: query.tzOffsetMinutes }),
       resolve: (target) => this.resolver.resolve(target),
     }
+    // A filter pinned to one note (`file.path == "x"` among its top-level
+    // ands) is answered from that note alone — the membership question the
+    // app asks per open note on every index change — and the full filter
+    // still decides.
+    const pinned = query.filter ? pinnedPath(query.filter) : null
+    let pool: Iterable<DocEntry> = this.docs.values()
+    if (pinned !== null) {
+      const guid = this.byPath.get(pinned)
+      const entry = guid === undefined ? undefined : this.docs.get(guid)
+      pool = entry ? [entry] : []
+    }
     const rows: Row[] = []
-    for (const entry of this.docs.values()) {
+    for (const entry of pool) {
       const row = this.rowOf(entry)
       if (query.filter && !matchesFilter(row, query.filter, ctx)) continue
       rows.push(row)

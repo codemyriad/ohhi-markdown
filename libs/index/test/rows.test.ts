@@ -2,10 +2,10 @@
  * Rows — notes as records (collections DB1): typed values, links inside
  * properties, the structured filter, ordering and paging.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MemoryIndex } from '../src/memory-index.js'
 import { parseMarkdown } from '../src/parse.js'
-import { compareRows, matchesFilter, todayOf, typeScalar } from '../src/properties.js'
+import { compareRows, matchesFilter, pinnedPath, todayOf, typeScalar } from '../src/properties.js'
 import type { IndexDoc, Row, RowFilter } from '../src/types.js'
 
 const note = (guid: string, path: string, fm: string, body = '', mtime?: number): IndexDoc => ({
@@ -350,5 +350,48 @@ describe('pure helpers', () => {
     const b = row({ path: 'b.md', props: { n: { kind: 'string', value: 'v10' } } })
     expect(compareRows(a, b, [{ key: { prop: 'n' }, direction: 'asc' }])).toBeLessThan(0)
     expect(compareRows(a, b, [{ key: { prop: 'n' }, direction: 'desc' }])).toBeGreaterThan(0)
+  })
+})
+
+describe('a query pinned to one note (collections DB4: membership)', () => {
+  const pathIs = (path: string): RowFilter => ({ op: 'cmp', cmp: '==', left: { key: { file: 'path' } }, right: { lit: path } })
+  const direct: RowFilter = { op: 'cmp', cmp: '==', left: { key: { prop: 'threat' } }, right: { lit: 'direct' } }
+
+  it('finds the pin at the top, inside the top-level ands, on either side — and nowhere else', () => {
+    expect(pinnedPath(pathIs('a.md'))).toBe('a.md')
+    expect(pinnedPath({ op: 'and', args: [direct, pathIs('a.md')] })).toBe('a.md')
+    expect(pinnedPath({ op: 'and', args: [direct, { op: 'and', args: [pathIs('a.md')] }] })).toBe('a.md')
+    expect(pinnedPath({ op: 'cmp', cmp: '==', left: { lit: 'a.md' }, right: { key: { file: 'path' } } })).toBe('a.md')
+    expect(pinnedPath({ op: 'or', args: [pathIs('a.md')] })).toBeNull()
+    expect(pinnedPath({ op: 'not', arg: pathIs('a.md') })).toBeNull()
+    expect(pinnedPath({ op: 'cmp', cmp: '!=', left: { key: { file: 'path' } }, right: { lit: 'a.md' } })).toBeNull()
+    expect(pinnedPath({ op: 'cmp', cmp: '==', left: { key: { file: 'name' } }, right: { lit: 'a' } })).toBeNull()
+    expect(pinnedPath(direct)).toBeNull()
+  })
+
+  it('answers from the one note, with the rest of the filter still deciding, and never walks the vault', async () => {
+    const index = build()
+    const rowOf = vi.spyOn(index as unknown as { rowOf: (e: unknown) => Row }, 'rowOf')
+    const q = (rest: RowFilter, path: string) => index.rows({ filter: { op: 'and', args: [rest, pathIs(path)] }, now: 0 }, { limit: 1 })
+    expect(paths((await q(direct, 'Competitors/Ingredifind.md')).items)).toEqual(['Competitors/Ingredifind.md'])
+    expect(rowOf).toHaveBeenCalledTimes(1)
+    // The rest of the filter refuses the note: no row, and still one look.
+    expect((await q(direct, 'Competitors/Quiteful.md')).items).toEqual([])
+    expect(rowOf).toHaveBeenCalledTimes(2)
+    // A path the vault has not got: nothing to look at.
+    expect((await q(direct, 'Nowhere.md')).items).toEqual([])
+    expect(rowOf).toHaveBeenCalledTimes(2)
+  })
+
+  it('follows a rename, a removal and a rebuild', async () => {
+    const index = build()
+    const one = (path: string) => index.rows({ filter: pathIs(path), now: 0 }).then((p) => paths(p.items))
+    index.rename('g-ingredifind', 'Competitors/Renamed.md')
+    expect(await one('Competitors/Ingredifind.md')).toEqual([])
+    expect(await one('Competitors/Renamed.md')).toEqual(['Competitors/Renamed.md'])
+    index.remove('g-ingredifind')
+    expect(await one('Competitors/Renamed.md')).toEqual([])
+    index.rebuild(DOCS)
+    expect(await one('Competitors/Ingredifind.md')).toEqual(['Competitors/Ingredifind.md'])
   })
 })

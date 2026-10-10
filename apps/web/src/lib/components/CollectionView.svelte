@@ -74,9 +74,11 @@
     viewName?: string | null
     /** What `this.file` means in the filters: the embedding note, else the collection itself. */
     scopePath?: string
+    /** False (an embed in Reading): every cell is text and no card moves. */
+    editable?: boolean
   }
 
-  let { workspace, path, embedded = false, viewName = null, scopePath }: Props = $props()
+  let { workspace, path, embedded = false, viewName = null, scopePath, editable = true }: Props = $props()
 
   const shell = getViewShell()
   const clock = shellClock()
@@ -362,11 +364,12 @@
     {:else if rows.length === 0}
       <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
     {:else if view.type === 'kanban'}
-      <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} {movable} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
+      <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} movable={movable && editable} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
     {:else if view.type === 'list' || view.type === 'cards'}
       <CollectionList {groups} {columns} cards={view.type === 'cards'} grouped={!!compiled?.groupBy} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} />
     {:else}
-      <div class="h-full min-h-0 overflow-auto">
+      <!-- The tab's table scrolls in the tab; an embed's scrolls in the embed's own box (below). -->
+      <div class={embedded ? '' : 'h-full min-h-0 overflow-auto'}>
         <table class="w-full border-collapse text-xs" data-testid="collection-table">
           <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
           <thead class="sticky top-0 z-[1] bg-base-100">
@@ -444,6 +447,7 @@
                           kind={kindFor(col, value)}
                           column={col.label}
                           row={row.name}
+                          {editable}
                           options={columnInfo.get(col.id)?.options ?? []}
                           testid="collection-cell:{row.name}:{col.id}"
                           onCommit={(raw) => onCell(row, col, raw)}
@@ -468,7 +472,7 @@
 <section
   aria-label={embedded && view ? t.embed_label({ name, view: view.name }) : t.label({ name })}
   data-testid={embedded ? 'collection-embed' : 'collection-view'}
-  class="flex min-h-0 flex-col bg-ed-surface text-base-content {embedded ? 'max-h-96' : 'h-full'}"
+  class="flex min-h-0 flex-col bg-ed-surface text-base-content {embedded ? '' : 'h-full'}"
 >
   {#if spec.error}
     <div class="m-4 rounded border border-warning/40 bg-base-100 p-3 text-sm" role="alert">
@@ -520,7 +524,10 @@
         {t.embed_view_missing({ view: viewName, shown: view.name })}
       </p>
     {/if}
-    {@render body()}
+    <!-- Never taller than a screen's worth of rows, scrolling inside the note's flow. -->
+    <div class="max-h-96 overflow-auto" data-testid="collection-embed-body">
+      {@render body()}
+    </div>
   {:else}
     <!-- The saved views as a tab list (one tab stop, arrows move), the verbs at the row's end. -->
     <Tabs tabs={viewTabs} bind:value={activeValue} size="sm" label={t.views({ name })} testid="collection-views">

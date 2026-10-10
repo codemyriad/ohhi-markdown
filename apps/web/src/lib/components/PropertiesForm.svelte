@@ -11,10 +11,16 @@
    * An edit is `patchFrontmatter` over the document's text RIGHT NOW — one
    * value's bytes, nothing re-emitted (golden rule 2) — handed back to the
    * widget, which dispatches it as one editor transaction: the path typing
-   * takes, so it undoes, syncs and diffs like a keystroke. A key is a button
-   * into the YAML at its line; *Edit as YAML* at the end is the keyboard's
-   * door when no key is the one wanted; the gutter at the left is the same
-   * door for the mouse.
+   * takes, so it undoes, syncs and diffs like a keystroke — and Mod+Z /
+   * Mod+Shift+Z pressed anywhere in the form but an open text field reach
+   * that history too (the widget ignores every key, so the form hands them
+   * on; an open field keeps its own undo for the draft being typed). A key
+   * is a button into the YAML at its line; *Edit as YAML* at the end is the
+   * keyboard's door when no key is the one wanted; the gutter at the left
+   * is the same door for the mouse. Reading (`editable` false) shows text.
+   *
+   * The widget is swapped — and this component with it — when membership
+   * flips, so a cell editor open at that moment loses its draft.
    */
   import type { PropertiesEditor } from '@ohhi/editor-lang'
   import { parseFrontmatter, patchFrontmatter } from '@ohhi/frontmatter'
@@ -58,12 +64,19 @@
 
   /**
    * A text row's suggestions: the values the vault holds for that key, from
-   * the index — what the table offers a column. Fetched once per key the
-   * form shows, never per keystroke.
+   * the index — what the table offers a column. Fetched once per SET of
+   * text keys: a value changing under the form (its own edit, a peer's)
+   * does not re-ask; a key appearing or going does.
    */
   let options = $state.raw<Map<string, string[]>>(new Map())
+  const textKeys = $derived(
+    rows
+      .filter((r) => r.kind === 'text')
+      .map((r) => r.key)
+      .join('\0')
+  )
   $effect(() => {
-    const keys = rows.filter((r) => r.kind === 'text').map((r) => r.key)
+    const keys = textKeys ? textKeys.split('\0') : []
     if (!shell || keys.length === 0) return
     let live = true
     const index = shell.index()
@@ -87,9 +100,25 @@
     }
     return editor.apply(result.changes)
   }
+
+  /** Mod+Z / Mod+Shift+Z (Mod+Y) on anything but an open text field: the document's own history. */
+  function onKey(e: KeyboardEvent): void {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+    const key = e.key.toLowerCase()
+    const undo = key === 'z' && !e.shiftKey
+    const redo = (key === 'z' && e.shiftKey) || key === 'y'
+    if (!undo && !redo) return
+    const target = e.target
+    if (target instanceof HTMLInputElement && target.type !== 'checkbox') return
+    e.preventDefault()
+    e.stopPropagation()
+    if (undo) editor.undo()
+    else editor.redo()
+  }
 </script>
 
-<div class="ed-properties" role="group" aria-label={t.properties_label({ name })} data-testid="properties-form">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the keys handled here are the document's undo and redo, from any control in the form -->
+<div class="ed-properties" role="group" aria-label={t.properties_label({ name })} data-testid="properties-form" onkeydown={onKey}>
   {#if editable}
     <!-- The mouse's door into the YAML; the keys and the button below are the keyboard's. -->
     <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
@@ -113,6 +142,7 @@
             kind={row.kind}
             column={row.key}
             row={name}
+            {editable}
             options={options.get(row.key) ?? []}
             testid="property:{row.key}"
             onCommit={(raw) => commit(row, raw)}

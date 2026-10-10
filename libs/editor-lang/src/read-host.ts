@@ -6,6 +6,7 @@
  * change of mode or host never destroys the view (and its Y.Text binding).
  */
 import { Facet } from '@codemirror/state'
+import type { EditorView } from '@codemirror/view'
 
 /** One CM6 view, three ways of looking at the same document. */
 export type ViewMode = 'live' | 'source' | 'reading'
@@ -206,6 +207,9 @@ export interface PropertiesEditor {
   apply(changes: readonly TextChange[]): boolean
   /** Put the caret on `line` (0-based) of the block — the way back into the YAML (R4.1.1). */
   enter(line: number): void
+  /** The document's undo / redo (the host's history), for Mod+Z pressed inside the form. False when there was nothing to do. */
+  undo(): boolean
+  redo(): boolean
 }
 
 export interface PropertiesProps {
@@ -220,6 +224,8 @@ export interface CollectionEmbedProps {
   path: string
   /** The view named after `#`, or null for the first. */
   view: string | null
+  /** False in Reading (`EditorView.editable` off): the cells are text. */
+  editable: boolean
 }
 
 /** What a rendered note can ask its host for. Every method is optional to call from a widget; none may throw. */
@@ -269,6 +275,13 @@ export interface ReadHost {
   resolveCollection?(name: string): string | null
   /** An embedded collection view (A6). Absent: a `.base` embed stays as its text. */
   mountCollection?(dom: HTMLElement, props: CollectionEmbedProps): Mounted<CollectionEmbedProps>
+  /**
+   * The document's undo and redo — the host's history commands, because the
+   * form inside a widget ignores every key and hands Mod+Z on. Absent: the
+   * keys do nothing there.
+   */
+  undo?(view: EditorView): boolean
+  redo?(view: EditorView): boolean
 }
 
 /**

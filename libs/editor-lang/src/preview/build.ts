@@ -20,7 +20,7 @@
  */
 import { syntaxTree } from '@codemirror/language'
 import type { EditorState, Line, Range } from '@codemirror/state'
-import { Decoration, type DecorationSet, type WidgetType } from '@codemirror/view'
+import { Decoration, EditorView, type DecorationSet, type WidgetType } from '@codemirror/view'
 import type { SyntaxNode, SyntaxNodeRef, Tree } from '@lezer/common'
 import { FM_CLOSE, FM_MAX_LINES, FM_OPEN } from '../frontmatter-block.js'
 import {
@@ -178,6 +178,13 @@ class Builder {
   private range: { from: number; to: number } = { from: 0, to: 0 }
   private readonly spans: Span[]
   private readonly mode: ViewMode
+  /**
+   * May the host-mounted widgets write? Reading turns `EditorView.editable`
+   * off (libs/editor's mode extensions) and so does a read-only host: the
+   * properties form and an embedded collection then show text, as every
+   * other surface in Reading does — the X1 checkbox stays the one exception.
+   */
+  private readonly editable: boolean
   private readonly host: ReadHost
   private readonly doc: EditorState['doc']
 
@@ -186,6 +193,7 @@ class Builder {
     private readonly opts: BuilderOptions = {}
   ) {
     this.mode = state.facet(previewMode)
+    this.editable = this.mode !== 'reading' && state.facet(EditorView.editable)
     this.host = state.facet(readHost)
     this.doc = state.doc
     // Reading has no caret, so it has no active region: everything renders.
@@ -327,13 +335,17 @@ class Builder {
       // A row of a collection gets the properties form (Fork 3-B) — when the
       // block is one the patcher can write into; a block outside the flat
       // subset keeps the strip and its badge, because a form over values it
-      // cannot write would be a promise the patcher refuses.
+      // cannot write would be a promise the patcher refuses. (A row-note
+      // with no block at all reaches neither: there is nothing to add keys
+      // from yet, and a form over nothing would have to invent a block.)
+      // A change of membership swaps the widget class, so CM6 redraws the
+      // element: a cell editor open at that moment loses its draft.
       const form = info.supported && this.host.inCollection?.() === true && !!this.host.mountProperties
       this.replaceBlock(
         first,
         last,
         form
-          ? new PropertiesFormWidget(this.doc.sliceString(first.from, last.to), this.mode !== 'reading', this.host)
+          ? new PropertiesFormWidget(this.doc.sliceString(first.from, last.to), this.editable, this.host)
           : new FrontmatterStripWidget(info.tags, info.entries.length, info.supported, this.host.labels, this.mode !== 'reading')
       )
       return false
@@ -761,7 +773,7 @@ class Builder {
     const l = this.doc.lineAt(node.from)
     if (l.text.trim() !== this.doc.sliceString(node.from, node.to).trim()) return this.rawWikiLink(node)
     const { target, anchor } = splitWikiLink(inner)
-    this.replaceBlock(l, l, new CollectionEmbedWidget(target, anchor, this.host.resolveCollection(target), this.host))
+    this.replaceBlock(l, l, new CollectionEmbedWidget(target, anchor, this.host.resolveCollection(target), this.editable, this.host))
     return false
   }
 

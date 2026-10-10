@@ -10,6 +10,7 @@
 import type { Extension } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import type { EngineDoc } from '@ohhi/sync'
+import type { Command } from '@codemirror/view'
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next'
 import { Awareness } from 'y-protocols/awareness'
 import { peerLabelInk } from './peer-label.js'
@@ -73,3 +74,15 @@ export function createCollabExtensions(
   // The label's ink by its fill's luminance, not one token (peer-label.ts).
   return [collab, keymap.of(yUndoManagerKeymap), peerLabelInk()]
 }
+
+
+/**
+ * The doc's undo and redo as commands — the Y.UndoManager's, never CM6's
+ * history — for a surface that takes the keys itself (the properties form
+ * inside a widget ignores every event, so Mod+Z inside it has to be handed
+ * on). Lifted from the keymap y-codemirror.next ships, which is the only
+ * place the package exports them.
+ */
+const bound = (key: string): Command => yUndoManagerKeymap.find((b) => b.key === key)?.run ?? (() => false)
+export const undoCommand: Command = bound('Mod-z')
+export const redoCommand: Command = bound('Mod-Shift-z')

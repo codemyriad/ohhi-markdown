@@ -19,6 +19,8 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
+const flushEffects = () => new Promise<void>((r) => setTimeout(r, 0))
+
 const BLOCK = '---\nthreat: direct\nactive: true\nscore: 8\nverified: 2026-06-02\ntags:\n  - a\n  - b\nlink: "[[Clusters]]"\n---'
 const BODY = '\n\n# Ingredifind\n'
 
@@ -29,7 +31,7 @@ function setup(over: { text?: string; editable?: boolean } = {}) {
     for (const c of [...changes].sort((a, b) => b.from - a.from)) doc = doc.slice(0, c.from) + c.insert + doc.slice(c.to)
     return true
   })
-  const editor: PropertiesEditor = { text: () => doc, apply, enter: vi.fn() }
+  const editor: PropertiesEditor = { text: () => doc, apply, enter: vi.fn(), undo: vi.fn(() => true), redo: vi.fn(() => true) }
   const flash = vi.fn()
   const workspace = { flash } as unknown as Workspace
   const index = new MemoryIndex()
@@ -38,12 +40,13 @@ function setup(over: { text?: string; editable?: boolean } = {}) {
       (path): IndexDoc => ({ guid: path, path, text: `---\nthreat: ${path.includes('Stale') ? 'direct' : 'adjacent'}\n---\n` })
     )
   )
+  const propertyValues = vi.spyOn(index, 'propertyValues')
   const shell = fakeViewShell(Date.UTC(2026, 6, 1), { index: () => index })
   const rendered = render(PropertiesForm, {
     props: { workspace, path: 'Competitors/Ingredifind.md', text: over.text ?? BLOCK, editable: over.editable ?? true, editor },
     context: viewShellContext(shell),
   })
-  return { editor, apply, flash, doc: () => doc, rerender: rendered.rerender }
+  return { editor, apply, flash, propertyValues, doc: () => doc, rerender: rendered.rerender }
 }
 
 describe('PropertiesForm', () => {
@@ -105,14 +108,47 @@ describe('PropertiesForm', () => {
     expect(editor.enter).toHaveBeenCalledTimes(3)
   })
 
-  it('in Reading the keys are text and there is no door into the YAML — the cells still edit', async () => {
-    const { doc } = setup({ editable: false })
-    expect(screen.queryByRole('button', { name: /as YAML/ })).toBeNull()
+  it('in Reading everything is text: no door into the YAML, no editors, no checkbox', () => {
+    setup({ editable: false })
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('checkbox')).toBeNull()
     expect(screen.queryByTestId('properties-gutter')).toBeNull()
     expect(screen.getByTestId('property-key:threat').tagName).toBe('SPAN')
+    expect(screen.getByTestId('property:threat').tagName).toBe('SPAN')
+    expect(screen.getByTestId('property:threat')).toHaveTextContent('direct')
+    expect(screen.getByTestId('property:active')).toHaveTextContent('true')
+  })
+
+  it('Mod+Z and Mod+Shift+Z from a cell reach the document’s history; an open text field keeps its own', async () => {
+    const { editor } = setup()
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('property:active'))
-    expect(doc()).toContain('active: false\n')
+    screen.getByTestId('property:threat').focus()
+    await user.keyboard('{Control>}z{/Control}')
+    expect(editor.undo).toHaveBeenCalledTimes(1)
+    await user.keyboard('{Control>}{Shift>}z{/Shift}{/Control}')
+    expect(editor.redo).toHaveBeenCalledTimes(1)
+    await user.keyboard('{Control>}y{/Control}')
+    expect(editor.redo).toHaveBeenCalledTimes(2)
+    // The checkbox is a cell too; a key button is in the form as well.
+    screen.getByTestId('property:active').focus()
+    await user.keyboard('{Meta>}z{/Meta}')
+    expect(editor.undo).toHaveBeenCalledTimes(2)
+    // Inside an open text field the chord is the field's own draft undo.
+    await user.click(screen.getByTestId('property:threat'))
+    await user.keyboard('{Control>}z{/Control}')
+    expect(editor.undo).toHaveBeenCalledTimes(2)
+  })
+
+  it('asks the index for suggestions once per set of text keys, not per change', async () => {
+    const { propertyValues, rerender } = setup()
+    await waitFor(() => expect(propertyValues).toHaveBeenCalledTimes(1))
+    // A value changes (an edit, a peer): the same keys, no second ask.
+    await rerender({ text: BLOCK.replace('threat: direct', 'threat: adjacent') })
+    await flushEffects()
+    expect(propertyValues).toHaveBeenCalledTimes(1)
+    // A new text key appears: asked again, for both.
+    await rerender({ text: BLOCK.replace('threat: direct', 'threat: direct\nowner: Ana') })
+    await waitFor(() => expect(propertyValues).toHaveBeenCalledTimes(3))
   })
 
   it('follows the block when the document changes under it', async () => {

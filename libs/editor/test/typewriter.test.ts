@@ -42,6 +42,12 @@ describe('centreTarget', () => {
   it('does not mistake a family prefix for a family', () => {
     expect(centreTarget(tr({ docChanged: true, userEvent: 'inputx' }))).toBeNull()
   })
+
+  it('leaves the page alone for an edit made from the properties form (collections DB4)', () => {
+    // The form's commit is a document change with the caret elsewhere; the
+    // person is in the form, so the caret line must not scroll into view.
+    expect(centreTarget(tr({ docChanged: true, userEvent: 'edit.properties' }))).toBeNull()
+  })
 })
 
 describe('typewriterExtension', () => {

@@ -311,9 +311,13 @@ export class PropertiesFormWidget extends HostedWidget {
       text: () => view.state.doc.toString(),
       apply: (changes: readonly TextChange[]): boolean => {
         if (changes.length === 0) return false
-        view.dispatch({ changes: changes.map((c) => ({ from: c.from, to: c.to, insert: c.insert })), userEvent: 'input' })
+        // Its own user-event family: not `input`, so typewriter scrolling
+        // does not centre on a caret the person is nowhere near.
+        view.dispatch({ changes: changes.map((c) => ({ from: c.from, to: c.to, insert: c.insert })), userEvent: 'edit.properties' })
         return true
       },
+      undo: (): boolean => this.host.undo?.(view) ?? false,
+      redo: (): boolean => this.host.redo?.(view) ?? false,
       enter: (line: number): void => {
         const at = view.state.doc.line(Math.max(1, Math.min(line + 1, view.state.doc.lines)))
         view.dispatch({ selection: { anchor: at.to }, scrollIntoView: true })
@@ -347,13 +351,15 @@ export class CollectionEmbedWidget extends HostedWidget {
     readonly view: string | null,
     /** The resolved path, or null when the vault has no such collection. */
     readonly path: string | null,
+    /** False in Reading: the embedded cells are text (read-shaping's `editable(false)`). */
+    readonly editable: boolean,
     private readonly host: ReadHost
   ) {
     super()
   }
 
   override eq(other: CollectionEmbedWidget): boolean {
-    return other.name === this.name && other.view === this.view && other.path === this.path
+    return other.name === this.name && other.view === this.view && other.path === this.path && other.editable === this.editable
   }
 
   toDOM(): HTMLElement {
@@ -364,7 +370,7 @@ export class CollectionEmbedWidget extends HostedWidget {
       wrap.textContent = `${this.name} — ${this.host.labels.missingCollection}`
       return wrap
     }
-    mounted.set(wrap, this.host.mountCollection(wrap, { path: this.path, view: this.view }))
+    mounted.set(wrap, this.host.mountCollection(wrap, { path: this.path, view: this.view, editable: this.editable }))
     return wrap
   }
 
@@ -372,7 +378,7 @@ export class CollectionEmbedWidget extends HostedWidget {
     const app = mounted.get(dom) as Mounted<CollectionEmbedProps> | undefined
     // Resolved ↔ missing is a different element; let CM6 redraw it.
     if (!app || this.path === null) return false
-    app.update({ path: this.path, view: this.view })
+    app.update({ path: this.path, view: this.view, editable: this.editable })
     return true
   }
 }

@@ -28,7 +28,11 @@ export interface TypewriterInput {
   head: number
 }
 
-/** The user-event families that count as "typing" for the caret to follow. */
+/**
+ * The user-event families that count as "typing" for the caret to follow.
+ * An edit made from a widget — the properties form's `edit.properties` —
+ * is in none of them: the person is in the form, not at the caret.
+ */
 const FOLLOWS = ['input', 'delete', 'move', 'select', 'undo', 'redo'] as const
 
 /** `input.type.compose` belongs to `input`, as CM6's own `isUserEvent` reads it. */

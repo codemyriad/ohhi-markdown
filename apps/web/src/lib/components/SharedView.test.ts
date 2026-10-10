@@ -68,6 +68,7 @@ function setup(over: {
     },
     index: () => new MemoryIndex(),
     indexRevision: () => 0,
+    membership: { isMember: () => false, watch: () => () => {}, invalidate: () => {} },
     openPath: vi.fn(),
     openView: vi.fn(),
     createFromLink: vi.fn(),

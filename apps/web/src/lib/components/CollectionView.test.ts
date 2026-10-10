@@ -108,7 +108,7 @@ function fakeDoc(path: string, index: MemoryIndex, store: Map<string, string>): 
   return doc as unknown as EngineDoc
 }
 
-function setup(extra: { embedded?: boolean; viewName?: string | null; scopePath?: string } = {}) {
+function setup(extra: { embedded?: boolean; viewName?: string | null; scopePath?: string; editable?: boolean } = {}) {
   const store = new Map(Object.entries(NOTES))
   const index = new MemoryIndex()
   index.rebuild([...store.entries()].map(([path, text]): IndexDoc => ({ guid: path, path, text })))
@@ -398,6 +398,31 @@ describe('CollectionView embedded in a note (bases-shaping A6)', () => {
     expect(store.get('Competitors/Stale.md')).toBe('---\nthreat: direct\nverified: 2026-07-01\n---\n')
     await user.click(screen.getByTestId('collection-embed-open'))
     expect(openPath).toHaveBeenCalledWith('Competitors.base', { background: false })
+  })
+
+  it('scrolls inside its own box rather than growing with the collection', async () => {
+    setup({ embedded: true })
+    await screen.findByTestId('collection-table')
+    const body = screen.getByTestId('collection-embed-body')
+    expect(body.className).toContain('overflow-auto')
+    expect(body.className).toContain('max-h-96')
+    // The table's own wrapper no longer claims a height it cannot have inside an auto-height box.
+    expect(screen.getByTestId('collection-table').parentElement?.className).not.toContain('h-full')
+  })
+
+  it('in a read-only view (Reading) every cell is text and no card moves', async () => {
+    setup({ embedded: true, editable: false })
+    await screen.findByTestId('collection-table')
+    expect(screen.getByTestId('collection-cell:Ingredifind:depth').tagName).toBe('SPAN')
+    expect(screen.getByTestId('collection-cell:Ingredifind:active').tagName).toBe('SPAN')
+    expect(screen.getByTestId('collection-cell:Ingredifind:active')).toHaveTextContent('true')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    // The row's name still opens the note: reading is reading, not a dead end.
+    expect(screen.getByTestId('collection-row:Competitors/Ingredifind.md').tagName).toBe('BUTTON')
+    cleanup()
+    setup({ embedded: true, viewName: 'Board', editable: false })
+    await screen.findByTestId('collection-board')
+    expect(screen.queryByRole('combobox', { name: /Move .* to/ })).toBeNull()
   })
 
   it('falls back to the first view when `#view` names none, and says so', async () => {

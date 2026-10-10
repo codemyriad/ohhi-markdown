@@ -15,7 +15,7 @@
    * (the facade owns it), not to the view.
    */
   import MarkdownEditor from '@ohhi/editor/src/MarkdownEditor.svelte'
-  import { attachmentHost, runFormat, type MarkdownEditorHandle } from '@ohhi/editor'
+  import { attachmentHost, redoCommand, runFormat, undoCommand, type MarkdownEditorHandle } from '@ohhi/editor'
   import {
     inTable,
     readHost,
@@ -36,7 +36,6 @@
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
-  import { collectionQueries, inAnyCollection } from '../collection-membership.js'
   import { activeTab, panes as panesOf, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
@@ -193,10 +192,13 @@
     // chips at the top of a note agree with `tag:#x` search by construction.
     frontmatter: parseFrontmatter,
     // Whether this note is a row of a collection (bases-shaping Fork 3-B):
-    // the answer `member` holds, computed below off the index; the engine is
-    // told to rebuild when it changes.
-    inCollection: () => untrack(() => member),
+    // the shell's tracker's last answer; the engine is told to rebuild when
+    // it changes (below).
+    inCollection: () => untrack(() => (path && membership ? membership.isMember(path) : false)),
     mountProperties,
+    // The doc's own history (the Y.UndoManager's), for Mod+Z inside the form.
+    undo: (view) => undoCommand(view),
+    redo: (view) => redoCommand(view),
     // `![[X.base]]` resolves like any link, but only a collection counts.
     resolveCollection: (name: string) =>
       untrack(() => {
@@ -238,58 +240,23 @@
 
   // ---- the shell (verbs and the index) this pane's widgets reach ----
   const shell = getViewShell()
-  /** The reader's zone, so `today()` in a filter is their calendar day. A zone is not a clock. clock-exempt */
-  const tzOffsetMinutes = -new Date().getTimezoneOffset() // clock-exempt
-  /** How long typing elsewhere may go on before membership is re-asked. */
-  const MEMBERSHIP_COALESCE_MS = 120
+  const membership = shell?.membership ?? null
 
   /**
    * Is the open note a row of at least one collection (bases-shaping A7)?
-   * Asked of the index through the same compiler the collection tab uses,
-   * once per note at once and then coalesced on the shell's clock as the
-   * index revision ticks (golden rule 5: only the injected clock schedules).
-   * The engine reads it synchronously through `inCollection` and is told to
-   * rebuild with one effect when it changes.
+   * The shell's one tracker answers, once per note path however many panes
+   * show it, coalesced on the shell's clock; this pane only says which note
+   * it is showing. The engine reads the answer synchronously through
+   * `inCollection` and is told to rebuild with one effect when it changes.
    */
-  let member = $state(false)
-  let memberOf: string | null = null
   $effect(() => {
     const p = path
-    void shell?.indexRevision()
-    if (!shell || !p || isCollectionPath(p)) {
-      member = false
-      memberOf = null
-      return
-    }
-    let live = true
-    const run = (): void => {
-      const queries = untrack(() =>
-        collectionQueries(
-          workspace.ui.files.map((f) => f.path),
-          (file) => workspace.docForPath(file)?.getText() ?? null
-        )
-      )
-      void inAnyCollection(shell.index(), queries, p, shell.clock.now(), tzOffsetMinutes).then((answer) => {
-        if (live) member = answer
-      })
-    }
-    if (memberOf !== p) {
-      // Another note: the previous answer is not this note's. Asked at once.
-      memberOf = p
-      member = false
-      run()
-      return () => {
-        live = false
-      }
-    }
-    const cancel = shell.clock.schedule(run, MEMBERSHIP_COALESCE_MS)
-    return () => {
-      live = false
-      cancel()
-    }
+    if (!membership || !p || isCollectionPath(p)) return
+    return membership.watch(p)
   })
   $effect(() => {
-    void member
+    const p = path
+    void (p && membership ? membership.isMember(p) : false)
     const view = handle?.view
     if (view) view.dispatch({ effects: refreshPreview.of(null) })
   })
@@ -334,7 +301,7 @@
    * component (the tab keys on the path too); a new view name is a prop.
    */
   function mountCollection(dom: HTMLElement, props: CollectionEmbedProps): Mounted<CollectionEmbedProps> {
-    const live = $state({ view: props.view })
+    const live = $state({ view: props.view, editable: props.editable })
     let at = props.path
     const start = () =>
       mount(CollectionView, {
@@ -346,6 +313,9 @@
           get viewName() {
             return live.view
           },
+          get editable() {
+            return live.editable
+          },
           get scopePath() {
             return untrack(() => path) ?? at
           },
@@ -356,6 +326,7 @@
     return {
       update: (next) => {
         live.view = next.view
+        live.editable = next.editable
         if (next.path !== at) {
           void unmount(app)
           at = next.path

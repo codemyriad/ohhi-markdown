@@ -104,3 +104,5 @@ export {
 } from './working-highlight.js'
 /** A host's data into a view, a microtask after each change — never inside an update. */
 export { hostPush, type PushSource } from './host-push.js'
+
+export { redoCommand, undoCommand } from './binding.js'

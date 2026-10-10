@@ -6,6 +6,7 @@
  * Everything here is the decoration SET, not the DOM: the engine is a function
  * of the state, and that is what makes the whole table testable in node (R6).
  */
+import { EditorView } from '@codemirror/view'
 import { describe, expect, it } from 'vitest'
 import { buildPreview } from '../src/preview/build.js'
 import type { FenceWidget } from '../src/preview/code-widgets.js'
@@ -284,8 +285,16 @@ describe('collection embeds (bases-shaping A6)', () => {
     expect(decorations(makeState('intro\n\n![[Competitors.base]]\n', { at: 0 })).some((d) => d.value === 'EmbedWidget')).toBe(false)
   })
 
-  it('renders in Reading too', () => {
-    expect(widgetOf('intro\n\n![[Competitors.base]]\n', { mode: 'reading' })?.kind).toBe('block-widget')
+  it('renders in Reading too — with its cells as text, as under any read-only view', () => {
+    const live = widgetOf('intro\n\n![[Competitors.base]]\n')?.widget as CollectionEmbedWidget
+    expect(live.editable).toBe(true)
+    const reading = widgetOf('intro\n\n![[Competitors.base]]\n', { mode: 'reading' })
+    expect(reading?.kind).toBe('block-widget')
+    expect((reading?.widget as CollectionEmbedWidget).editable).toBe(false)
+    const readOnly = widgetOf('intro\n\n![[Competitors.base]]\n', { extensions: [EditorView.editable.of(false)] })
+    expect((readOnly?.widget as CollectionEmbedWidget).editable).toBe(false)
+    // A different editability is a different widget: CM6 redraws rather than reuses.
+    expect(live.eq(reading?.widget as CollectionEmbedWidget)).toBe(false)
   })
 })
 
@@ -484,9 +493,13 @@ describe('the properties form on a row-note (bases-shaping A7, Fork 3-B)', () =>
     }
   })
 
-  it('is read-only on its keys in Reading, and plain text in Source', () => {
+  it('is read-only in Reading and under a read-only view, and plain text in Source', () => {
     const reading = decorations(makeState(note, { at: 0, mode: 'reading', host: member() })).find((d) => d.value === 'PropertiesFormWidget')
     expect((reading?.widget as PropertiesFormWidget).editable).toBe(false)
+    const readOnly = decorations(makeState(note, { at: 55, host: member(), extensions: [EditorView.editable.of(false)] })).find(
+      (d) => d.value === 'PropertiesFormWidget'
+    )
+    expect((readOnly?.widget as PropertiesFormWidget).editable).toBe(false)
     expect(names(note, { mode: 'source' })).toEqual([])
   })
 

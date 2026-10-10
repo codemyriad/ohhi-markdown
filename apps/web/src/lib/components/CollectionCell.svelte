@@ -10,6 +10,10 @@
    * cell showing what the note still says.
    *
    * A boolean is its checkbox directly: a click is the edit.
+   *
+   * `editable` false (Reading, an embed in a read-only view): the value as
+   * text, whatever its kind — read-shaping's `editable(false)`; the X1
+   * checkbox in the body is the one exception, and it is not this cell.
    */
   import { tick } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -25,12 +29,14 @@
     row: string
     /** Suggestions for a text cell: the values this property holds elsewhere. */
     options?: readonly string[]
+    /** False: the value as text, no editor of any kind. */
+    editable?: boolean
     testid?: string
     /** True when the note took the edit; false when it was refused (the cell shows the old value). */
     onCommit: (raw: string | boolean) => boolean
   }
 
-  let { value, kind, column, row, options = [], testid, onCommit }: Props = $props()
+  let { value, kind, column, row, options = [], editable = true, testid, onCommit }: Props = $props()
 
   const t = $derived($LL.web.collections)
   const uid = $props.id()
@@ -87,7 +93,11 @@
   const field = 'w-full rounded border border-base-300 bg-base-100 px-1.5 py-0.5 text-xs text-base-content focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
-{#if kind === 'boolean'}
+{#if !editable}
+  <span class="block truncate px-1.5 py-0.5 text-xs {text ? 'text-base-content' : 'text-base-content/70'}" data-testid={testid}>
+    {text || t.empty_cell()}
+  </span>
+{:else if kind === 'boolean'}
   <input
     type="checkbox"
     class="dui-checkbox dui-checkbox-xs"

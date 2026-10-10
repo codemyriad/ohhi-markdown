@@ -52,6 +52,7 @@
   import { realClock } from './lib/real-clock.js'
   import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
   import { sharedSnapshot } from '@ohhi/workspace'
+  import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
@@ -318,6 +319,17 @@
     // The `.claude/skills/` farm: only where another app reads the disk.
     desktop: isTauri(),
   })
+  // ---- which open notes are rows of a collection (bases-shaping A7): one tracker, re-asked as the index changes ----
+  const membership = createMembership({
+    index: () => nav.index,
+    clock: realClock,
+    paths: () => workspace?.ui.files.map((f) => f.path) ?? [],
+    textOf: (path) => workspace?.docForPath(path)?.getText() ?? null,
+  })
+  $effect(() => {
+    void nav.revision
+    membership.invalidate()
+  })
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
@@ -337,6 +349,7 @@
     inSyncByRoom: () => sharedFeed.inSyncByRoom,
     index: () => nav.index,
     indexRevision: () => nav.revision,
+    membership,
   })
   // ---- the readouts' context (readouts.ts): the toolbar's, and every per-pane status bar's ----
   const readoutCtx: ReadoutContext = {
