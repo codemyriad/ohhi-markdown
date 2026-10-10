@@ -35,6 +35,8 @@ export interface RawProperty {
   key: string
   value: string | string[]
   kind: 'scalar' | 'flow-list' | 'block-list'
+  /** Which written scalars were quoted (text whatever they look like): one flag, or one per item. */
+  quoted?: boolean | boolean[]
   /** Offset of the entry's first line. */
   offset: number
 }
@@ -283,7 +285,7 @@ function readFrontmatter(text: string): {
       if (e.reason) continue
       const offset = starts[e.lines[0]] ?? 0
       const limit = e.lines[1] + 1 < starts.length ? starts[e.lines[1] + 1] : fm.end
-      properties.push({ key: e.key, value: e.value, kind: e.kind, offset })
+      properties.push({ key: e.key, value: e.value, kind: e.kind, ...(e.quoted === undefined ? {} : { quoted: e.quoted }), offset })
       propertyLinks.push(...scanLinks(text, offset, limit, e.key))
     }
   }

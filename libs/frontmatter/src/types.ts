@@ -24,6 +24,12 @@ export interface FmEntry {
   /** `tags: [a b]` — Obsidian's pre-1.4 space-separated flow list; read as N items, written back as a block list */
   legacy?: boolean
   /**
+   * Which written scalars were quoted — one flag for a scalar, one per item
+   * for a list. A quoted value is TEXT whatever it looks like (`"8"`,
+   * `'true'`), as YAML means it; a reader typing values must honour this.
+   */
+  quoted?: boolean | boolean[]
+  /**
    * Why THIS entry is outside the flat subset (a nested map, a block
    * scalar, an anchor, a duplicate of an earlier key). Entries without one
    * are readable cells even when the block as a whole is `supported: false`.

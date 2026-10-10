@@ -67,10 +67,10 @@ describe('flag mapping', () => {
   })
 
   it('fm collects repeatable key=value flags into typed records', () => {
-    const { input } = parse(['fm', 'a.md', '--set', 'status=done', '--set', 'score=8', '--set', 'ok=true', '--set', 'note=1e3', '--set-list', 'tags=a, b', '--unset', 'x', '--unset', 'y', '--rename', 'old=new', '--dry-run'])
+    const { input } = parse(['fm', 'a.md', '--set', 'status=done', '--set', 'score= 8', '--set', 'ok=true', '--set', 'note=1e3', '--set-list', 'tags=a, "b, c"', '--unset', 'x', '--unset', 'y', '--rename', 'old=new', '--dry-run'])
     expect(input).toEqual({
       path: 'a.md',
-      set: { status: 'done', score: 8, ok: true, note: '1e3', tags: ['a', 'b'] },
+      set: { status: 'done', score: 8, ok: true, note: '1e3', tags: ['a', 'b, c'] },
       unset: ['x', 'y'],
       rename: { old: 'new' },
       dryRun: true,
@@ -191,10 +191,28 @@ describe('text rendering', () => {
     const v = await fixture()
     const { out, err, code } = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=done', '--set', 'retries=4']))
     expect(code).toBe(0)
+    expect(out).toMatch(/^changed Projects\/Editor\.md \(2 keys\)/)
     expect(out).toMatch(/status:\s+done\s+\(string\)/)
     expect(out).toMatch(/retries:\s+4\s+\(number\)/)
-    expect(err).toContain('changed=true')
     expect(err).toMatch(/undo with: ohhi restore Projects\/Editor\.md --seq \d+/)
+    const again = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=done']))
+    expect(again.out).toMatch(/already said so/)
+    const dry = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=open', '--dry-run']))
+    expect(dry.out).toMatch(/^would change Projects\/Editor\.md \(1 key\)/)
+  })
+
+  it('fm over MCP takes the records as JSON', async () => {
+    const v = await fixture()
+    const backend = await createFilesBackend({ root: v.root, dataDir: v.dataDir, clock: new RealClock() })
+    const ok = await callTool(backend, 'ohhi_fm', { path: 'Projects/Editor.md', set: { score: 7, tags: ['a', 'b'] }, unset: ['draft'] })
+    expect(ok.isError).toBeUndefined()
+    const doc = JSON.parse(ok.content[0].text) as { changed: boolean; ops: number; frontmatter: { entries: { key: string; value: unknown }[] } }
+    expect(doc).toMatchObject({ changed: true, ops: 3 })
+    expect(doc.frontmatter.entries.find((e) => e.key === 'score')?.value).toBe(7)
+    expect(doc.frontmatter.entries.find((e) => e.key === 'draft')).toBeUndefined()
+    const bad = await callTool(backend, 'ohhi_fm', { path: 'Projects/Editor.md', set: { '': 'x' } })
+    expect(bad.isError).toBe(true)
+    expect(JSON.parse(bad.content[0].text)).toMatchObject({ code: 'usage' })
   })
 
   it('rows --json notes a partly computed view on stderr', async () => {

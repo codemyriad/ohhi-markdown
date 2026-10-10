@@ -168,7 +168,7 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
     positionals: [{ key: 'path', label: 'path', required: true }],
     flags: {
       set: { key: 'set', kind: 'pairs', pairs: 'typed', multiple: true, arg: 'KEY=VALUE', help: 'set a key (repeatable); true/false and plain numbers are written as such' },
-      'set-list': { key: 'set', kind: 'pairs', pairs: 'list', multiple: true, arg: 'KEY=A,B', help: 'set a key to a list (repeatable)' },
+      'set-list': { key: 'set', kind: 'pairs', pairs: 'list', multiple: true, arg: 'KEY=A,B', help: 'set a key to a list (repeatable; quote an item holding a comma; wins over --set for the same key)' },
       unset: { key: 'unset', kind: 'string', multiple: true, arg: 'KEY', help: 'remove a key (repeatable)' },
       rename: { key: 'rename', kind: 'pairs', multiple: true, arg: 'OLD=NEW', help: 'rename a key (repeatable)' },
       ...writeFlags,
@@ -313,11 +313,29 @@ function parseArgsOptions(): Record<string, { type: 'string' | 'boolean'; multip
 const OPTIONS = parseArgsOptions()
 
 /** `--set key=VALUE`: the VALUE as the index would read it from the note. */
-function typedValue(raw: string): string | number | boolean {
-  const text = raw.trim()
+function typedValue(text: string): string | number | boolean {
   if (text === 'true' || text === 'false') return text === 'true'
   if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text) && !Object.is(Number(text), -0)) return Number(text)
-  return raw
+  return text
+}
+
+/** `--set-list key=a, "b, c", d` → `a` · `b, c` · `d`: quotes keep a comma inside an item, and come off. */
+function splitList(text: string): string[] {
+  const out: string[] = []
+  let item = ''
+  let quote: string | null = null
+  for (const ch of text) {
+    if (quote) {
+      if (ch === quote) quote = null
+      else item += ch
+    } else if (ch === '"' || ch === "'") quote = ch
+    else if (ch === ',') {
+      out.push(item)
+      item = ''
+    } else item += ch
+  }
+  out.push(item)
+  return out.map((s) => s.trim()).filter(Boolean)
 }
 
 function toNumber(flag: string, raw: string): number {
@@ -411,8 +429,9 @@ export function parseCommand(argv: string[]): Command {
         const eq = pair.indexOf('=')
         if (eq <= 0) usageError(`--${flag} expects KEY=VALUE, got ${JSON.stringify(pair)}`, { op, flag })
         const key = pair.slice(0, eq).trim()
-        const value = pair.slice(eq + 1)
-        into[key] = spec.pairs === 'list' ? value.split(',').map((s) => s.trim()).filter(Boolean) : spec.pairs === 'typed' ? typedValue(value) : value
+        // The value is trimmed: a YAML value never starts with a space.
+        const value = pair.slice(eq + 1).trim()
+        into[key] = spec.pairs === 'list' ? splitList(value) : spec.pairs === 'typed' ? typedValue(value) : value
       }
       input[spec.key] = into
       continue

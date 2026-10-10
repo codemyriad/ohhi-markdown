@@ -44,10 +44,24 @@ export function typeScalar(raw: string): PropScalar {
   return { kind: 'string', value: text }
 }
 
-/** A frontmatter entry's value, as the flat-subset reader hands it over. */
-export function typeProperty(value: string | string[]): PropValue {
-  if (Array.isArray(value)) return { kind: 'list', items: value.map(typeScalar) }
-  return typeScalar(value)
+/**
+ * A frontmatter entry's value, as the flat-subset reader hands it over. A
+ * QUOTED scalar is text whatever it looks like — `"8"` is the string `8`,
+ * as YAML means it and as the patcher wrote it — except a wikilink, which
+ * YAML forces into quotes (`"[[Clusters]]"`) and which is a link all the same.
+ */
+export function typeProperty(value: string | string[], quoted?: boolean | boolean[]): PropValue {
+  if (Array.isArray(value)) {
+    const flags = Array.isArray(quoted) ? quoted : []
+    return { kind: 'list', items: value.map((item, i) => typeWritten(item, flags[i] === true)) }
+  }
+  return typeWritten(value, quoted === true)
+}
+
+function typeWritten(raw: string, quoted: boolean): PropScalar {
+  const typed = typeScalar(raw)
+  if (!quoted || typed.kind === 'link') return typed
+  return { kind: 'string', value: raw }
 }
 
 /** The text a scalar compares and displays as. A link is its target. */

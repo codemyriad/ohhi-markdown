@@ -1,6 +1,6 @@
 /**
- * The ONE write path (golden rule 1). `write`, `patch`, `append`, `rm` and
- * `restore` all come through here, so the sequence is impossible to get
+ * The ONE write path (golden rule 1). `write`, `patch`, `append`, `fm`, `rm`
+ * and `restore` all come through here, so the sequence is impossible to get
  * wrong or to do differently in one op:
  *
  *   1. Read the CURRENT bytes from disk (never a cache).

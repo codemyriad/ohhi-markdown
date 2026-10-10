@@ -1,6 +1,7 @@
 /** Text renderers for the reading vocabulary: `ls`, `read`, `fm`, `stats`, `changes`. */
 import type { OpOutput } from '@ohhi/agent'
 import { bytes, columnWidth, counters, coverageNote, kv, oneLine, type Sink } from './format.js'
+import { wroteNote } from './write.js'
 
 export function renderLs(o: OpOutput<'ls'>, sink: Sink): void {
   const width = columnWidth(o.items, (i) => i.path)
@@ -36,12 +37,14 @@ export function renderRead(o: OpOutput<'read'>, sink: Sink): void {
 }
 
 export function renderFm(o: OpOutput<'fm'>, sink: Sink): void {
-  renderFrontmatterBlock(o.frontmatter, sink)
-  sink.err(kv({ path: o.path, present: o.frontmatter.present, supported: o.frontmatter.supported, hash: o.hash }))
-  if (o.changed || o.dryRun) {
-    sink.err(kv({ changed: o.changed, journalSeq: o.journalSeq ?? 'none', dryRun: o.dryRun || undefined }))
-    if (o.changed && !o.dryRun && o.journalSeq !== null) sink.err(`undo with: ohhi restore ${o.path} --seq ${o.journalSeq}`)
+  if (o.ops > 0) {
+    // A write (or a dry run of one) says what it did before showing the block.
+    const keys = `${o.ops} key${o.ops === 1 ? '' : 's'}`
+    sink.out(o.dryRun ? `would change ${o.path} (${keys})${o.changed ? '' : ' — nothing would change'}` : o.changed ? `changed ${o.path} (${keys})` : `${o.path} already said so (${keys}, nothing written)`)
   }
+  renderFrontmatterBlock(o.frontmatter, sink)
+  sink.err(kv({ path: o.path, present: o.frontmatter.present, supported: o.frontmatter.supported, hash: o.ops > 0 ? undefined : o.hash }))
+  if (o.ops > 0) wroteNote(sink, o)
 }
 
 function renderFrontmatterBlock(fm: OpOutput<'fm'>['frontmatter'] | undefined, sink: Sink): void {

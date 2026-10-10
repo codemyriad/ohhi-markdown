@@ -142,7 +142,9 @@ and the skill in the same change.
 
 - **Every output document carries `schema: "ohhi.<op>.v1"`.** A reader written
   against v1 keeps working while v1 is served, and a change of shape is a change
-  of name rather than a silent drift.
+  of name rather than a silent drift. A version grows additively: a new optional
+  input or a new output field is still v1 (ignore what you do not know);
+  removing, renaming or retyping a field would be v2.
 - **Every list carries `returned`, `total`, `nextCursor`.** `nextCursor: null`
   means the end; `total: null` means the backend could not count cheaply, not
   that there are none. Cursors are opaque — pass them back, never parse them.
@@ -677,16 +679,23 @@ ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --expect-hash <hash> --dry
 
 `--set KEY=VALUE` writes `true`/`false` as booleans and plain decimals as
 numbers, everything else as text — quoted only where a plain scalar would read
-back as something else (`"8"` when you meant the text). `--set-list KEY=A,B`
-writes a block list. Order: `--rename`, then `--unset`, then `--set`. The
-patcher moves the value's bytes and nothing else: the key's spelling, a
-trailing comment, every other line and the body stay (golden rule 2). A note
-with no block gets one; unsetting a key that is not there is a no-op; a batch
-that changes nothing writes nothing (`changed: false`). A block outside the
+back as something else (`"8"` when you meant the text; a quoted value reads
+back as text, in `fm`, `rows` and the app alike). `--set-list KEY=A,B` writes
+a block list (quote an item that holds a comma; it wins over `--set` for the
+same key). `--set KEY=` leaves the key with no value (reads back as `null`);
+`--set-list KEY=` writes `[]`. Order: `--rename`, then `--unset`, then
+`--set` — so `--unset a --set a=x` ends with `a: x`, and `--rename a=b --set
+a=x` ends with both `b` and a new `a`. The patcher moves the value's bytes
+and nothing else: the key's spelling, a trailing comment, every other line and
+the body stay (golden rule 2). A note with no block gets one; unsetting a key
+that is not there is a no-op; a batch that changes nothing writes nothing
+(`changed: false`, `ops` says how many keys were asked). A block outside the
 flat subset (nested, multi-line, anchors, a duplicate key) is `refused` with
-`details.reason` — edit it in the note. Journaled, atomic, compare-and-swap
-like every write: `--expect-hash` · `--dry-run`; `journalSeq` is the handle
-`restore` takes.
+`details.reason` — edit it in the note; renaming onto a key that exists is
+`refused` naming the key; an empty or multi-line key or value is `usage`.
+Journaled, atomic, compare-and-swap like every write: `--expect-hash` ·
+`--dry-run` (shows the block as it would be; `hash` is always the disk's, so
+it is the one to expect next); `journalSeq` is the handle `restore` takes.
 
 ### `mv <from> <to>`
 

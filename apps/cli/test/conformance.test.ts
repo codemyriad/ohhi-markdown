@@ -36,7 +36,7 @@ const INVOCATIONS: Record<OpName, string[]> = {
   write: ['write', 'Inbox/New Note.md', '--text', 'hello\n'],
   patch: ['patch', 'Areas/CS/JSON.md', '--old', 'JSON is a data format.', '--new', 'JSON is a data format!'],
   append: ['append', 'TODO/Writing.md', '--text', 'appended line\n'],
-  fm: ['fm', 'Projects/Editor.md'],
+  fm: ['fm', 'Projects/Editor.md', '--set', 'status=done', '--unset', 'draft'],
   mv: ['mv', 'Areas/CS/HTML.md', 'Areas/CS/HTML (renamed).md'],
   rm: ['rm', 'Daily/02-5-2024.md'],
   restore: ['restore', 'Areas/CS/JSON.md', '--list'],

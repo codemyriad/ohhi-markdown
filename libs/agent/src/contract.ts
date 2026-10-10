@@ -12,7 +12,11 @@
  *  1. Every output document carries `schema: 'ohhi.<op>.v1'`. A reader
  *     written against v1 keeps working while v1 is served, and a change of
  *     shape is a change of name, not a silent drift (Cassini's
- *     `cassini.meetings.context.v1`).
+ *     `cassini.meetings.context.v1`). A version GROWS additively: a new
+ *     optional input or a new output field is still v1 (a reader ignores
+ *     what it does not know); removing, renaming or retyping a field is v2.
+ *     (`fm` gained `changed`, `hash`, `journalSeq`, `dryRun` and `ops` at
+ *     v1 this way.)
  *  2. Search returns REFERENCES and snippets, never bodies (R4). Reading is
  *     `read`, which is addressable below the note and budgeted.
  *  3. Every list is limited and cursored (R4) and carries honesty counters
@@ -516,33 +520,39 @@ export const AppendOut = z.object({
   dryRun: z.boolean(),
 })
 
+/** A frontmatter key as the flat subset writes it: one line, not empty. */
+const FmKey = z.string().min(1).regex(/^[^\r\n]+$/, 'a key is one line')
+/** A text value: one line (a multi-line value is a block scalar, outside the subset). */
+const FmText = z.string().regex(/^[^\r\n]*$/, 'a value is one line')
 /**
  * A value `fm --set` writes: a string as text (quoted where a plain scalar
  * would read back as something else), a number or boolean plain, an array
  * as a block list of those. The flat-subset patcher (`libs/frontmatter`)
  * moves ONE value's bytes per key and nothing else (golden rule 2).
  */
-const FmWriteScalar = z.union([z.string(), z.number(), z.boolean()])
+const FmWriteScalar = z.union([FmText, z.number().finite(), z.boolean()])
 export const FmWriteValue = z.union([FmWriteScalar, z.array(FmWriteScalar)])
 
 export const FmIn = z.object({
   path: VaultPath,
-  /** Keys to set. Applied after `rename` and `unset`. */
-  set: z.record(z.string(), FmWriteValue).optional(),
-  /** Keys to remove. Removing a key that is not there is a no-op. */
-  unset: z.array(z.string()).optional(),
-  /** Keys to rename, old → new. Applied first. */
-  rename: z.record(z.string(), z.string()).optional(),
+  set: z
+    .record(FmKey, FmWriteValue)
+    .optional()
+    .describe('Keys to set, applied after `rename` and `unset`. A string is written as text, a number or boolean plain, an array as a list; an empty string leaves the key with no value.'),
+  unset: z.array(FmKey).optional().describe('Keys to remove. A key that is not there is already removed.'),
+  rename: z.record(FmKey, FmKey).optional().describe('Keys to rename, old → new, applied first. Refused when the new name exists.'),
   ...WriteCommon,
 })
 export const FmOut = z.object({
   schema: z.literal(schemaName('fm')),
   path: VaultPath,
-  /** The block as it is now — after the write, when there was one. */
+  /** The block as it is now on disk — or, on a dry run, as it would be. */
   frontmatter: Frontmatter,
-  /** True when bytes changed (false on a read, a no-op write, or a dry run that would change nothing). */
+  /** Keys touched by this call: 0 on a read. */
+  ops: z.number().int().nonnegative(),
+  /** True when bytes changed — or, on a dry run, would change. */
   changed: z.boolean(),
-  /** The note's content hash now — the `expectHash` for a later write. */
+  /** The note's content hash ON DISK now (a dry run writes nothing) — the `expectHash` for a later write. */
   hash: z.string(),
   journalSeq: z.number().int().nonnegative().nullable(),
   dryRun: z.boolean(),

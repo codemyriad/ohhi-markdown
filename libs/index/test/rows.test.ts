@@ -58,6 +58,16 @@ describe('typeScalar — what a value says it is', () => {
     expect(typeScalar('Deep')).toEqual({ kind: 'string', value: 'Deep' })
   })
 
+  it('a quoted scalar is text whatever it looks like, in a scalar and in a list', async () => {
+    const parsed = parseMarkdown('---\nscore: "8"\nflag: \'true\'\nmixed: ["1", 2]\n---\n')
+    expect(parsed.properties.map((p) => [p.key, p.quoted])).toEqual([['score', true], ['flag', true], ['mixed', [true, false]]])
+    const index = new MemoryIndex()
+    index.rebuild([{ guid: 'q', path: 'Q.md', text: '---\nscore: "8"\nmixed: ["1", 2]\n---\n' }])
+    const row = (await index.rows({ now: 0 })).items[0]
+    expect(row.props.score).toEqual({ kind: 'string', value: '8' })
+    expect(row.props.mixed).toEqual({ kind: 'list', items: [{ kind: 'string', value: '1' }, { kind: 'number', value: 2 }] })
+  })
+
   it('keeps a leading-zero number and a phone number as text', () => {
     expect(typeScalar('010')).toEqual({ kind: 'string', value: '010' })
     expect(typeScalar('0123456789')).toEqual({ kind: 'string', value: '0123456789' })

@@ -15,7 +15,7 @@ const verb = (dryRun: boolean, done: string, would: string): string => (dryRun ?
  * shape, because a caller comparing two of these lines must not have to
  * notice that they were written by different functions.
  */
-function wroteNote(
+export function wroteNote(
   sink: Sink,
   o: { path: string; hash: string; journalSeq: number | null; dryRun: boolean; bytes?: number }
 ): void {

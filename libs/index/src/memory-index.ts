@@ -749,7 +749,7 @@ export class MemoryIndex implements WritableIndex {
       })),
       tags: mergeTags(parsed),
       frontmatterKeys: parsed.frontmatterKeys,
-      props: Object.fromEntries(parsed.properties.map((p) => [p.key, typeProperty(p.value)])),
+      props: Object.fromEntries(parsed.properties.map((p) => [p.key, typeProperty(p.value, p.quoted)])),
       mtime: doc.mtime ?? null,
     }
   }
