@@ -8,9 +8,12 @@
    *     of the contract's ops (a unit test holds it to `OP_NAMES`).
    *  2. Connect one — three routes as tabs (Claude Code, another MCP client,
    *     the terminal), every line filled in with this vault's folder and
-   *     copyable, plus how `ohhi` itself is got today: the repo's install
-   *     scripts (Fork 6, the desktop sidecar, is deferred — so there is no
-   *     "is it installed" probe either).
+   *     copyable, plus how `ohhi` itself is got today: step 1 on every route
+   *     is the checkout of the repository — private, so it says access is
+   *     needed — with Node 22 and its dependencies installed; then the repo's
+   *     install scripts (Fork 6, the desktop sidecar, is deferred — so there
+   *     is no "is it installed" probe either). Claude Code's MCP line is an
+   *     unnumbered alternative to its skill line, not a further step.
    *
    * Where it is drawn decides what it says (`getSettingsEnv()`):
    *  - a folder vault (`tauri`, path known): the routes with its path;
@@ -28,6 +31,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import {
     AGENT_CAPABILITIES,
+    GET_REPO,
     INSTALL_OHHI,
     INSTALL_SKILL,
     PLACEHOLDER_VAULT_PATH,
@@ -114,6 +118,11 @@
   </div>
 {/snippet}
 
+{#snippet repo()}
+  {@render code('get-repo', GET_REPO, t.step_repo())}
+  <p class="mt-1 text-xs text-base-content/70">{t.repo_note()}</p>
+{/snippet}
+
 {#snippet step(n: number, label: string, body: Snippet)}
   <li class="flex gap-2.5">
     <span class={stepNumber} aria-hidden="true">{n}</span>
@@ -184,13 +193,14 @@
                   {@render code('claude-skill', claudeCodeSkillLine(path), t.claude_start())}
                   <p class="mt-1 text-xs text-base-content/70">{t.claude_note()}</p>
                 {/snippet}
-                {#snippet mcp()}
-                  {@render code('claude-mcp', claudeMcpAddLine(path), t.claude_mcp())}
-                {/snippet}
-                {@render step(1, t.step_install_both(), install)}
-                {@render step(2, t.claude_start(), start)}
-                {@render step(3, t.claude_mcp(), mcp)}
+                {@render step(1, t.step_repo(), repo)}
+                {@render step(2, t.step_install_both(), install)}
+                {@render step(3, t.claude_start(), start)}
               </ol>
+              <div class="mt-3 pl-7.5" data-testid="agents-claude-instead">
+                <p class="text-sm text-base-content">{t.claude_mcp_instead()}</p>
+                {@render code('claude-mcp', claudeMcpAddLine(path), t.claude_mcp())}
+              </div>
             {:else if value === 'mcp'}
               <ol class="space-y-3">
                 {#snippet install()}
@@ -200,8 +210,9 @@
                   {@render code('mcp-json', mcpConfigJson(path), t.mcp_config())}
                   <p class="mt-1 text-xs text-base-content/70">{t.mcp_note()}</p>
                 {/snippet}
-                {@render step(1, t.step_install(), install)}
-                {@render step(2, t.mcp_config(), config)}
+                {@render step(1, t.step_repo(), repo)}
+                {@render step(2, t.step_install(), install)}
+                {@render step(3, t.mcp_config(), config)}
               </ol>
             {:else}
               <ol class="space-y-3">
@@ -211,8 +222,9 @@
                 {#snippet tryIt()}
                   {@render code('terminal', terminalLines(path).join('\n'), t.terminal_try())}
                 {/snippet}
-                {@render step(1, t.step_install(), install)}
-                {@render step(2, t.terminal_try(), tryIt)}
+                {@render step(1, t.step_repo(), repo)}
+                {@render step(2, t.step_install(), install)}
+                {@render step(3, t.terminal_try(), tryIt)}
               </ol>
             {/if}
           {/snippet}

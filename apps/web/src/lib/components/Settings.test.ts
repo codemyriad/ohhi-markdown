@@ -118,7 +118,7 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
     expect(screen.getByTestId('settings-layout')).toBeVisible()
   })
 
-  it('the Customise and Agents placeholders render with a vault open', async () => {
+  it('the Customise and Agents sections render with a vault open', async () => {
     const view = render(Settings, { section: 'customise', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
     expect(screen.getByTestId('settings-customise')).toHaveTextContent(LL.web.settings.customise.intro())
     await view.rerender({ section: 'agents', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
@@ -148,7 +148,7 @@ describe('Settings: one save model (R3) — no Save buttons, nothing to guard', 
     for (const section of SETTINGS_SECTIONS) {
       await view.rerender({ ...props, section })
       await screen.findByTestId(`settings-section:${section}`)
-      expect(screen.queryByRole('button', { name: /^Save$/ }), section).toBeNull()
+      expect(screen.queryByRole('button', { name: /\bSave\b/ }), section).toBeNull()
     }
   })
 

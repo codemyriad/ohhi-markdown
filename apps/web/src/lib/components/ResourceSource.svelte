@@ -32,17 +32,24 @@
   const env = getSettingsEnv()
   const t = $derived($LL.web.settings.customise)
   const shadows = $derived(source.shadows.map((r) => t.from[r]()).join(', '))
-  let status = $state('')
+  /** The button says *Copied* / *Could not copy* for two seconds; the live region says it too, then clears. */
+  let done = $state<'copied' | 'failed' | null>(null)
+  let reset: ReturnType<typeof setTimeout> | undefined
 
   async function copy(): Promise<void> {
     if (!source.path) return
+    clearTimeout(reset)
+    done = null
     try {
       await write(filePath(source.path, source.root, env.vault))
-      status = t.copied()
+      done = 'copied'
     } catch {
-      status = t.copy_failed()
+      done = 'failed'
     }
+    reset = setTimeout(() => (done = null), 2000)
   }
+  $effect(() => () => clearTimeout(reset))
+  const said = $derived(done === 'copied' ? t.copied() : done === 'failed' ? t.copy_failed() : '')
 </script>
 
 <div class="mb-3 rounded border border-base-300 px-3 py-2" data-testid={testid}>
@@ -61,7 +68,7 @@
           aria-label={t.copy_path_label({ what: source.path })}
           onclick={() => void copy()}
         >
-          {t.copy_path()}
+          {said || t.copy_path()}
         </button>
       {/if}
       <button
@@ -79,5 +86,5 @@
     <p class="mt-1 text-xs text-error" data-testid="{testid}-fallback">{t.fell_back({ name: source.fellBackFrom })}</p>
   {/if}
   {#if children}<p class="mt-1 text-xs text-base-content/70">{@render children()}</p>{/if}
-  <p class="text-xs text-base-content/70 empty:hidden" role="status">{status}</p>
+  <p class="sr-only" role="status" data-testid="{testid}-status">{said}</p>
 </div>

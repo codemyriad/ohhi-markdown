@@ -849,6 +849,18 @@ export function reopenTab(
   now = Date.now()
 ): Layout {
   return editLayout(l, (d) => {
+    // A one-per-window view already open elsewhere (opened again since it
+    // closed) is focused, taking the closed tab's argument, never twinned.
+    const view = closed.tab.view
+    if (view && ONE_PER_WINDOW.has(view)) {
+      for (const q of panes(d.tree)) {
+        const existing = q.tabs.find((t) => t.view === view)
+        if (!existing) continue
+        if (closed.tab.viewArg !== undefined) existing.viewArg = closed.tab.viewArg
+        activateIn(d, q, existing.id, now)
+        return
+      }
+    }
     const p = findPane(d, closed.paneId) ?? focusedPane(d)
     const dup = closed.tab.path ? p.tabs.find((t) => t.path === closed.tab.path) : null
     if (dup) {
@@ -1626,6 +1638,20 @@ export function normalize(raw: unknown, ids: () => string = nextId): Layout | nu
   if (r.version !== LAYOUT_VERSION) return null
   const tree = normalizeNode(r.tree, ids, new Set<string>())
   if (!tree) return null
+  // A one-per-window view stored twice (an older build, a hand-edited blob)
+  // keeps its first tab; a later twin reads as an empty tab.
+  const seen = new Set<TabView>()
+  for (const p of panes(tree)) {
+    for (const t of p.tabs) {
+      if (!t.view || !ONE_PER_WINDOW.has(t.view)) continue
+      if (!seen.has(t.view)) {
+        seen.add(t.view)
+        continue
+      }
+      delete t.view
+      delete t.viewArg
+    }
+  }
   const l: Layout = {
     tree,
     focus: str(r.focus, ''),

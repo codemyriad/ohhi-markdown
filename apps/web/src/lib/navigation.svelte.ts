@@ -171,6 +171,12 @@ export function createNavigation(): {
   let templates: TemplateSource | null = null
   let layoutFiles: LayoutFileSource | null = null
   /**
+   * The `layouts` rows, read once per opening of that mode (correctness
+   * LOW-4): `rows()` reads every root and parses every chain, so a keystroke
+   * or an index revision filters this list rather than reading it again.
+   */
+  let layoutRows: ReturnType<LayoutFileSource['rows']> | null = null
+  /**
    * Bumped by the index sink so derived queries re-run on any content change.
    *
    * The index itself is deliberately NOT reactive: it is a plain data
@@ -254,6 +260,7 @@ export function createNavigation(): {
 
   const refresh = async (): Promise<void> => {
     const mode = palette.mode
+    if (mode !== 'layouts') layoutRows = null
     if (!mode) {
       palette.rows = []
       return
@@ -283,7 +290,8 @@ export function createNavigation(): {
       const q = query.trim().toLowerCase()
       const LL = getLL()
       const inUse = LL.web.palette.layouts.in_use()
-      return (await (layoutFiles?.rows() ?? Promise.resolve([])))
+      layoutRows ??= layoutFiles?.rows().catch(() => []) ?? Promise.resolve([])
+      return (await layoutRows)
         .filter((r) => !q || r.title.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
         .map((r) => {
           const tags: NonNullable<PaletteRow['tags']> = []
@@ -411,6 +419,7 @@ export function createNavigation(): {
     },
     links,
     open(mode) {
+      layoutRows = null
       palette.mode = mode
       palette.query = ''
     },

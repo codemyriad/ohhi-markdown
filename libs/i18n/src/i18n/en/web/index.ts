@@ -801,7 +801,7 @@ const shared = {
     unnamed: 'unnamed device',
     linked: 'This whole vault syncs to your devices.',
     online_at: 'online {when:string}',
-    needs_secret: 'Set the relay operator secret in Settings › Sync & devices to list your linked devices.',
+    needs_secret: 'Set the team’s secret in Settings › Sync & devices to list your linked devices.',
   },
   changes: {
     title: 'Changes',
@@ -1116,7 +1116,7 @@ const settings = {
     name: 'Display name',
     name_placeholder: 'Anonymous',
     name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
-    name_required: 'A name your collaborators will see.',
+    name_required: 'Enter a name — it’s what your collaborators see.',
   },
   /** Settings › Editor: how notes open and read — the default view plus the layout's editor fields. */
   editor: {
@@ -1185,25 +1185,28 @@ const settings = {
     reset: 'Reset to default',
     reset_editor: 'Reset editor options',
   },
-  /**
-   * Settings › Keys (tab-groups R1.3): every registered command, the key
-   * in force, and a field to change it. "Mod" is spelled out wherever the
-   * user has to type it — it is the one piece of syntax the field requires.
-   */
   /** Settings › Keys (settings-shaping ST3, K1): the chips are the control, changes write through. */
   keys: {
     intro: 'Every command and the keys that run it. Click a key to record a new one; each change is saved as you make it.',
     /** The source line: the keymap in use, where it lives, what it extends. */
     keymap: 'Keymap',
     pick: 'Use keymap',
+    /** A picker option: the keymap and where it is read from (`customise.from`). */
+    pick_option: '{name:string} · {source:string}',
+    /** The picker's entry while the legacy per-device keys are in force. */
+    on_device: 'Keys on this device',
     extends: 'Extends {name:string}.',
     read_only_hint: 'Read-only here: your first change creates a keymap file in this vault that extends it.',
     shadows_builtin: 'Named like a built-in, so it is read here but never written.',
-    legacy: 'Keys kept on this device. Open a vault and they move into a keymap file there.',
+    legacy:
+      'Your keys are still kept on this device: moving them into a keymap file in this vault failed. The Log has the reason.',
+    show_log: 'Open the Log',
     cannot_write: 'Nothing can be changed over a keymap that could not be used. Fix its file, or pick another keymap.',
     /** The toolbar. */
     search: 'Search commands',
-    search_placeholder: 'Search {count:number} commands by name, id or key',
+    search_placeholder: 'Search {count:number} commands by name or key',
+    /** Live, under the filters, while a search, pressed keys or a chip narrows the list. */
+    result_count: '{count:number} command{{s}}',
     press_keys: 'Press keys',
     press_keys_label: 'Find a command by pressing its keys',
     press_keys_placeholder: 'Press the keys to see what they run…',
@@ -1216,6 +1219,9 @@ const settings = {
       unbound: 'No key',
     },
     group_changed: '{count:number} changed',
+    /** A group toggle's accessible name. */
+    group_label: '{group:string}, {count:number} command{{s}}',
+    group_label_changed: '{group:string}, {count:number} command{{s}}, {changed:number} changed',
     ungrouped: 'Other',
     none: 'No commands are registered yet.',
     no_match: 'No command matches.',
@@ -1230,14 +1236,20 @@ const settings = {
     default_none: 'Default: no key',
     reset: 'Reset',
     reset_for: 'Reset {command:string} to its default keys',
-    conflict: 'Also runs {commands:string}: only the last one registered wins.',
+    conflict: 'Also runs {commands:string}, so only one of them works. Change one of the two keys.',
     reserved: 'Your desktop takes this key before Oh hi markdown can see it.',
     /** After a change. */
-    created: 'Your changes are saved in {path:string}.',
-    saved: 'Saved to {path:string}.',
+    created: '{command:string}: {keys:string}. Your keys are now saved in {path:string}.',
+    saved: '{command:string}: {keys:string}. Saved to {path:string}.',
     undo: 'Undo',
-    undone: 'Undone.',
+    undone: 'Undone. {command:string}: {keys:string}, in {path:string}.',
     error: 'Could not save the change: {error:string}',
+    undo_error: 'Could not undo: {error:string}',
+    /** Undo refused: the file was written by someone else since the change it would undo. */
+    undo_stale:
+      '{path:string} has changed since, so Undo would write over that change. Nothing was undone.',
+    /** Recording refused a key that types on its own; still recording. */
+    needs_modifier: 'Add Ctrl, Alt or Cmd — on its own, that key would stop you typing it.',
   },
   sync: {
     relay: 'Default relay',
@@ -1263,7 +1275,7 @@ const settings = {
   /** Settings › Customise (settings-shaping ST4 fills it). */
   customise: {
     intro:
-      'Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.',
+      'Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up (in a browser, press Reload files).',
     roots: 'Where files are read from',
     roots_rule: 'Each name is read from the first of these that has it: this vault wins over your config folder, which wins over built in.',
     root: {
@@ -1324,7 +1336,7 @@ const settings = {
       'The desktop app reloads a file when it changes on disk. Reload reads every root again, here and in the shell.',
     agent: 'Ask an agent to make one',
     agent_prompt:
-      'In the Oh hi vault at "{vault:string}", write .ohhi/layouts/<name>.json extending "default". Validate it against spec/ohhi.layout.v1.schema.json; the readout, bar and command ids are in docs/customising.md. The app picks the file up when it lands, or on Reload files in Settings › Customise.',
+      'In the Oh hi vault at "{vault:string}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.',
     agent_browser:
       'Agents reach folders on disk. This vault lives in this browser, so its .ohhi is reachable only from here.',
     copy_prompt: 'Copy prompt',
@@ -1352,7 +1364,7 @@ const settings = {
     /** One line per group of `ohhi` ops (`agent-setup.ts` AGENT_CAPABILITIES); the op names are drawn beside it. */
     cap: {
       find: 'Find notes: ranked search that returns references, never whole notes',
-      read: 'Read a note’s outline, then just one section or a few lines',
+      read: 'Read a note’s outline and its properties, then just one section or a few lines',
       links: 'Follow links and backlinks, and list links whose note does not exist yet',
       changes: 'See what changed since a time',
       write: 'Write, patch and append, each write journaled first and made atomically',
@@ -1368,11 +1380,18 @@ const settings = {
       'No vault is open, so the lines below show a placeholder path. Put your vault’s folder in its place.',
     placeholder_browser: 'Vaults kept in this browser can’t be reached by an agent: it needs a vault in a folder on disk, in the desktop app.',
     get_body:
-      'The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi repository: each script makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.',
+      'The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.',
+    /** Step 1 on every route: the checkout and its dependencies (`agent-setup.ts` GET_REPO). */
+    step_repo: 'Get the repository and install its dependencies',
+    repo_note:
+      'Needs access to the private codemyriad/ohhi-markdown repository and Node 22. Run the next steps from the ohhi-markdown folder.',
     step_install: 'Install the command',
     step_install_both: 'Install the command and the skill',
     claude_start: 'Start Claude Code with this vault named',
-    claude_mcp: 'Or give Claude Code the commands as MCP tools instead',
+    /** The copy button's name for the MCP line (`copy_what`). */
+    claude_mcp: 'Give Claude Code the commands as MCP tools',
+    /** Claude Code's alternative to step 3, drawn unnumbered under the steps. */
+    claude_mcp_instead: 'Instead: give Claude Code the commands as MCP tools',
     claude_note: 'The skill is the recommended route: no tools stay loaded, and it carries the habits that keep an agent’s reads small.',
     mcp_config: 'Add this server to the client’s MCP settings',
     mcp_note: 'If the client can’t find ohhi, put its full path in "command" (the install script links it in ~/.local/bin).',
@@ -1972,6 +1991,8 @@ const keymaps = {
   invalid: 'The keymap "{name:string}" could not be used, so the default keys are in force: {error:string}',
   not_found: 'No keymap named "{name:string}" in this vault, your config folder or the built-ins.',
   needs_vault: 'Open a vault first — a saved keymap is a file inside it.',
+  cannot_restore: 'This window cannot put a keymap file back.',
+  cannot_remove: '{path:string}: this vault cannot remove a file.',
   bad_name: 'Use letters, numbers, spaces, - and _ ("default" is the built-in).',
   migrated: 'Your shortcuts are now a keymap file: {path:string}',
   migrate_failed: 'Your shortcuts could not be written to a keymap file, so they stay on this device: {error:string}',

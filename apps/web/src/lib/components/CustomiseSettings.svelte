@@ -120,16 +120,31 @@
   const deviceChanges = $derived(layout ? hasOverrides(layout.overrides) : false)
 
   // ---- verbs ----
-  let status = $state('')
-  async function copy(text: string): Promise<void> {
+  /**
+   * Copy feedback (Agents' pattern): the button that copied says *Copied*
+   * (or *Could not copy*) for two seconds, and one always-present live
+   * region next to nothing else says it too — beside the button, not at the
+   * foot of a long section, and it clears itself.
+   */
+  let done = $state<{ id: string; ok: boolean } | null>(null)
+  let reset: ReturnType<typeof setTimeout> | undefined
+  async function copy(id: string, text: string): Promise<void> {
+    clearTimeout(reset)
+    done = null
     try {
       await write(text)
-      status = t.copied()
+      done = { id, ok: true }
     } catch {
-      status = t.copy_failed()
+      done = { id, ok: false }
     }
+    reset = setTimeout(() => (done = null), 2000)
   }
-  const copyPath = (path: string, root: RootId): Promise<void> => copy(filePath(path, root, env.vault))
+  $effect(() => () => clearTimeout(reset))
+  /** A copy button's word: *Copied* / *Could not copy* just after, else its own. */
+  const said = (id: string, label: string): string =>
+    done?.id === id ? (done.ok ? t.copied() : t.copy_failed()) : label
+  const copyPath = (id: string, path: string, root: RootId): Promise<void> =>
+    copy(id, filePath(path, root, env.vault))
 
   /** The resolved file a kind has in use, as JSON; null when there is none to copy. */
   function jsonOf(kind: KindRow['kind']): string | null {
@@ -142,7 +157,6 @@
   }
 
   function reload(): void {
-    status = ''
     const command = registry?.get('app.reload-resources')
     if (command) void command.run()
     else void load()
@@ -161,10 +175,10 @@
   <section aria-labelledby="customise-roots-h" data-testid="customise-roots">
     <h3 id="customise-roots-h" class={HEADING}>{t.roots()}</h3>
     <p class="mt-1 text-xs text-base-content/70">{t.roots_rule()}</p>
-    <ol class="mt-2 grid gap-2 sm:grid-cols-3">
+    <ol class="mt-2 grid gap-2 @lg:grid-cols-3">
       {#each roots as line, i (line.id)}
         <li class="rounded border border-base-300 px-3 py-2" data-testid="customise-root:{line.id}" data-detail={line.detail}>
-          <p class="text-xs font-semibold text-base-content">{i + 1} · {t.root[line.id]()}</p>
+          <p class="text-xs font-semibold text-base-content"><span aria-hidden="true">{i + 1} · </span>{t.root[line.id]()}</p>
           <p class="mt-0.5 text-xs text-base-content/80">
             {line.detail === 'browser'
               ? t.detail.browser({ name: env.vault?.name ?? '' })
@@ -189,9 +203,9 @@
               class="{smallBtn} mt-1"
               data-testid="customise-root-copy:{line.id}"
               aria-label={t.copy_path_label({ what: t.root[line.id]() })}
-              onclick={() => void copy(line.path ?? '')}
+              onclick={() => void copy(`root:${line.id}`, line.path ?? '')}
             >
-              {t.copy_path()}
+              {said(`root:${line.id}`, t.copy_path())}
             </button>
           {/if}
         </li>
@@ -200,24 +214,24 @@
     {#if env.desktop}<p class="mt-1 text-xs text-base-content/70">{t.no_reveal()}</p>{/if}
   </section>
 
-  <!-- One row per kind. -->
+  <!-- One row per kind; below 28rem (a narrow pane) each row stacks as a card. -->
   <section aria-labelledby="customise-kinds-h">
     <h3 id="customise-kinds-h" class={HEADING}>{t.kinds()}</h3>
-    <table class="mt-2 w-full border-collapse text-left text-xs" data-testid="customise-kinds">
-      <thead>
+    <table class="mt-2 w-full border-collapse text-left text-xs @max-md:block" data-testid="customise-kinds">
+      <thead class="@max-md:hidden">
         <tr class="border-b border-base-300 text-base-content/80">
           <th scope="col" class="py-1 pr-3 font-medium">{t.col_kind()}</th>
           <th scope="col" class="py-1 pr-3 font-medium">{t.col_in_use()}</th>
           <th scope="col" class="py-1 font-medium">{t.col_also()}</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="@max-md:block">
         {#each rows as row (row.kind)}
           {@const broken = problemNames(problems, row.kind)}
           {@const json = jsonOf(row.kind)}
-          <tr class="border-b border-base-300 align-top" data-testid="customise-kind:{row.kind}">
-            <th scope="row" class="py-2 pr-3 font-medium text-base-content">{t.kind[row.kind]()}</th>
-            <td class="py-2 pr-3" data-testid="customise-in-use:{row.kind}">
+          <tr class="border-b border-base-300 align-top @max-md:block @max-md:py-2" data-testid="customise-kind:{row.kind}">
+            <th scope="row" class="py-2 pr-3 font-medium text-base-content @max-md:block @max-md:p-0">{t.kind[row.kind]()}</th>
+            <td class="py-2 pr-3 @max-md:block @max-md:p-0 @max-md:pt-1" data-testid="customise-in-use:{row.kind}">
               {#if row.inUse}
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="font-semibold text-base-content">{row.inUse.name}</span>
@@ -250,9 +264,9 @@
                         class={smallBtn}
                         data-testid="customise-copy-path:{row.kind}"
                         aria-label={t.copy_path_label({ what: path })}
-                        onclick={() => void copyPath(path, root)}
+                        onclick={() => void copyPath(`path:${row.kind}`, path, root)}
                       >
-                        {t.copy_path()}
+                        {said(`path:${row.kind}`, t.copy_path())}
                       </button>
                     {/if}
                     {#if json}
@@ -261,9 +275,9 @@
                         class={smallBtn}
                         data-testid="customise-copy-json:{row.kind}"
                         aria-label={t.copy_json_label({ kind: t.kind[row.kind]() })}
-                        onclick={() => void copy(json)}
+                        onclick={() => void copy(`json:${row.kind}`, json)}
                       >
-                        {t.copy_json()}
+                        {said(`json:${row.kind}`, t.copy_json())}
                       </button>
                     {/if}
                   </div>
@@ -273,7 +287,8 @@
                 <p class="mt-0.5 text-base-content/70">{t.templates_how()}</p>
               {/if}
             </td>
-            <td class="py-2">
+            <td class="py-2 @max-md:block @max-md:p-0 @max-md:pt-1.5">
+              <span class="hidden text-base-content/70 @max-md:mb-0.5 @max-md:block">{t.col_also()}</span>
               {#if row.kind === 'themes'}
                 <p class="text-base-content/70">{t.themes_how()}</p>
               {:else if row.others.length === 0}
@@ -322,9 +337,9 @@
                 type="button"
                 class={smallBtn}
                 data-testid="customise-problem-copy-error"
-                onclick={() => void copy(`${problem.path}: ${problem.message}`)}
+                onclick={() => void copy(`error:${problem.path}`, `${problem.path}: ${problem.message}`)}
               >
-                {t.copy_error()}
+                {said(`error:${problem.path}`, t.copy_error())}
               </button>
               {#if problem.root !== 'builtin'}
                 <button
@@ -332,9 +347,9 @@
                   class={smallBtn}
                   data-testid="customise-problem-copy-path"
                   aria-label={t.copy_path_label({ what: problem.path })}
-                  onclick={() => void copyPath(problem.path, problem.root)}
+                  onclick={() => void copyPath(`problem:${problem.path}`, problem.path, problem.root)}
                 >
-                  {t.copy_path()}
+                  {said(`problem:${problem.path}`, t.copy_path())}
                 </button>
               {/if}
             </div>
@@ -376,9 +391,9 @@
         type="button"
         class="{OUTLINE_BUTTON} mt-2 px-3 py-1.5 text-xs font-medium text-base-content/80"
         data-testid="customise-copy-prompt"
-        onclick={() => void copy(prompt ?? '')}
+        onclick={() => void copy('prompt', prompt ?? '')}
       >
-        {t.copy_prompt()}
+        {said('prompt', t.copy_prompt())}
       </button>
     {:else}
       <p class="mt-1 text-xs text-base-content/80" data-testid="customise-agent-browser">{t.agent_browser()}</p>
@@ -397,5 +412,7 @@
     </p>
   </section>
 
-  <p class="text-xs text-base-content/70 empty:hidden" role="status" data-testid="customise-status">{status}</p>
+  <p class="sr-only" role="status" data-testid="customise-status">
+    {done ? (done.ok ? t.copied() : t.copy_failed()) : ''}
+  </p>
 </div>

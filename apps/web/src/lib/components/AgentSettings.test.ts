@@ -10,7 +10,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
-import { AGENT_CAPABILITIES, PLACEHOLDER_VAULT_PATH } from '../agent-setup.js'
+import { AGENT_CAPABILITIES, GET_REPO, PLACEHOLDER_VAULT_PATH } from '../agent-setup.js'
 import { settingsEnvContext, type SettingsEnv, type SettingsVault } from '../settings-host.js'
 import AgentSettings from './AgentSettings.svelte'
 
@@ -73,6 +73,27 @@ describe('Settings › Agents', () => {
     // The terminal.
     await user.click(screen.getByTestId('agents-route:terminal'))
     expect(codeOf('terminal')).toContain('ohhi stats --vault "/home/me/black book"')
+  })
+
+  it('starts every route with the private repository and its dependencies; MCP is Claude Code’s unnumbered alternative', async () => {
+    const { user } = setup({ vault: { name: 'n', kind: 'tauri', path: '/n' }, desktop: true })
+    expect(screen.getByTestId('agents-get').textContent).toContain('codemyriad/ohhi-markdown')
+    expect(screen.getByTestId('agents-get').textContent).toContain('private')
+    expect(GET_REPO).toContain('git clone git@github.com:codemyriad/ohhi-markdown.git')
+    expect(GET_REPO).toContain('node common/scripts/install-run-rush.js install')
+
+    for (const route of ['claude', 'mcp', 'terminal']) {
+      await user.click(screen.getByTestId(`agents-route:${route}`))
+      const first = screen.getByRole('tabpanel').querySelector('ol > li')!
+      expect(first.textContent).toContain(t.step_repo())
+      expect(first.querySelector('[data-testid="agents-code:get-repo"]')?.textContent).toBe(GET_REPO)
+    }
+
+    await user.click(screen.getByTestId('agents-route:claude'))
+    const instead = screen.getByTestId('agents-claude-instead')
+    expect(instead.closest('ol')).toBeNull()
+    expect(instead.textContent).toContain(t.claude_mcp_instead())
+    expect(instead.querySelector('[data-testid="agents-code:claude-mcp"]')).not.toBeNull()
   })
 
   it('says when the clipboard refused', async () => {

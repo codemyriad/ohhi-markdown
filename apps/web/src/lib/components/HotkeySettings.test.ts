@@ -120,7 +120,11 @@ describe('Settings › Keys: write-through (Fork 2)', () => {
     expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'tab.close': 'Mod+Shift+w' } })
     expect(world.registry.effectiveKeys('tab.close')).toBe('Mod+Shift+w')
     await waitFor(() => expect(chips('tab.close')).toEqual(['Ctrl+Shift+W']))
-    expect(screen.getByTestId('keymap-saved')).toHaveTextContent(t.created({ path: '.ohhi/keymaps/mine.json' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('keymap-saved')).toHaveTextContent(
+        t.created({ command: 'Close tab', keys: 'Ctrl+Shift+W', path: '.ohhi/keymaps/mine.json' })
+      )
+    )
     // Changed: now the row shows its default, with a Reset.
     expect(screen.getByTestId('hotkey-default:tab.close')).toHaveTextContent(t.default_is({ binding: 'Ctrl+W' }))
     expect(screen.getByTestId('keymap-source')).toHaveTextContent('.ohhi/keymaps/mine.json')
@@ -132,13 +136,21 @@ describe('Settings › Keys: write-through (Fork 2)', () => {
     await waitFor(() =>
       expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'nav.back': [], 'tab.close': 'Mod+Shift+w' } })
     )
-    await waitFor(() => expect(screen.getByTestId('keymap-saved')).toHaveTextContent(t.saved({ path: '.ohhi/keymaps/mine.json' })))
+    await waitFor(() =>
+      expect(screen.getByTestId('keymap-saved')).toHaveTextContent(
+        t.saved({ command: 'Back', keys: t.unbound(), path: '.ohhi/keymaps/mine.json' })
+      )
+    )
 
     // Undo puts back the bytes the second write replaced…
     await user.click(screen.getByTestId('keymap-undo'))
     await waitFor(() => expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'tab.close': 'Mod+Shift+w' } }))
     await waitFor(() => expect(chips('nav.back')).toEqual(['Ctrl+[']))
-    expect(screen.getByTestId('keymap-saved')).toHaveTextContent(t.undone())
+    await waitFor(() =>
+      expect(screen.getByTestId('keymap-saved')).toHaveTextContent(
+        t.undone({ command: 'Back', keys: 'Ctrl+[', path: '.ohhi/keymaps/mine.json' })
+      )
+    )
     // …and then removes the file the first created, with the built-in active again.
     await user.click(screen.getByTestId('keymap-undo'))
     await waitFor(() => expect(world.config.active).toBe('default'))
@@ -146,6 +158,8 @@ describe('Settings › Keys: write-through (Fork 2)', () => {
     expect(world.writes.at(-1)).toBe('-.ohhi/keymaps/mine.json')
     expect(world.registry.effectiveKeys('tab.close')).toBe('Mod+w')
     await waitFor(() => expect(screen.queryByTestId('keymap-undo')).toBeNull())
+    // The choice moved back before the file went: nothing ever resolved a missing `mine`.
+    expect(world.warnings).toEqual([])
   })
 
   it('writes the active vault file in place, extends kept; Reset puts the default back', async () => {
@@ -157,7 +171,11 @@ describe('Settings › Keys: write-through (Fork 2)', () => {
     await user.keyboard('{Alt>}g{/Alt}')
     await waitFor(() => expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'group.new': 'Alt+g' } }))
     await waitFor(() => expect(chips('group.new')).toEqual(['Alt+G']))
-    expect(screen.getByTestId('keymap-saved')).toHaveTextContent(t.saved({ path: '.ohhi/keymaps/mine.json' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('keymap-saved')).toHaveTextContent(
+        t.saved({ command: 'New group', keys: 'Alt+G', path: '.ohhi/keymaps/mine.json' })
+      )
+    )
 
     await user.click(screen.getByTestId('hotkey-add:group.new'))
     await user.keyboard('{Control>}{Shift>}g{/Shift}{/Control}')
@@ -283,5 +301,196 @@ describe('Settings › Keys: finding a command', () => {
     ])
     await user.click(screen.getByTestId('hotkey-filter:unbound'))
     expect(screen.getAllByTestId(/^hotkey-row:/).map((r) => r.dataset.testid)).toEqual(['hotkey-row:group.new'])
+  })
+})
+
+describe('Settings › Keys: focus and what is said (review H1, H2)', () => {
+  it('the live regions are in the page from the start, empty', async () => {
+    await openKeys()
+    expect(screen.getByTestId('keymap-saved')).toHaveAttribute('role', 'status')
+    expect(screen.getByTestId('keymap-saved').textContent?.trim()).toBe('')
+    expect(screen.getByTestId('keymap-save-error')).toHaveAttribute('role', 'alert')
+    expect(screen.getByTestId('keymap-save-error').textContent?.trim()).toBe('')
+  })
+
+  it('after a recording, a ×, a Reset and an Undo the focus lands on the row, never the page', async () => {
+    const user = userEvent.setup()
+    const world = await openKeys({ files: { '.ohhi/keymaps/mine.json': mine }, active: 'custom:mine' })
+
+    // Recording onto +: the new chip has the focus.
+    await user.click(screen.getByTestId('hotkey-add:tab.close'))
+    await user.keyboard('{Alt>}q{/Alt}')
+    await waitFor(() => expect(chips('tab.close')).toEqual(['Ctrl+W', 'Alt+Q']))
+    await waitFor(() => expect(screen.getByTestId('hotkey-chip:tab.close:1')).toHaveFocus())
+
+    // Escape: back on the chip it was recording over.
+    await user.click(screen.getByTestId('hotkey-chip:tab.close:0'))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByTestId('hotkey-chip:tab.close:0')).toHaveFocus())
+
+    // × on the first chip: the next chip (now first) takes the focus.
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() => expect(chips('tab.close')).toEqual(['Alt+Q']))
+    await waitFor(() => expect(screen.getByTestId('hotkey-chip:tab.close:0')).toHaveFocus())
+
+    // × on the last chip: the + takes it.
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() => expect(chips('tab.close')).toEqual([]))
+    await waitFor(() => expect(screen.getByTestId('hotkey-add:tab.close')).toHaveFocus())
+
+    // Reset: the Reset button goes; the first chip has the focus.
+    await user.click(screen.getByTestId('hotkey-reset:tab.close'))
+    await waitFor(() => expect(chips('tab.close')).toEqual(['Ctrl+W']))
+    await waitFor(() => expect(screen.getByTestId('hotkey-chip:tab.close:0')).toHaveFocus())
+
+    // Undo with more to undo keeps the focus on Undo.
+    await user.click(screen.getByTestId('keymap-undo'))
+    await waitFor(() => expect(chips('tab.close')).toEqual([]))
+    expect(screen.getByTestId('keymap-undo')).toHaveFocus()
+    expect(world.config.active).toBe('custom:mine')
+  })
+
+  it('the last Undo hands the focus to the row it put back', async () => {
+    const user = userEvent.setup()
+    await openKeys({ files: { '.ohhi/keymaps/mine.json': mine }, active: 'custom:mine' })
+    await user.click(screen.getByTestId('hotkey-remove:nav.back:0'))
+    await waitFor(() => expect(chips('nav.back')).toEqual([]))
+    await user.click(screen.getByTestId('keymap-undo'))
+    await waitFor(() => expect(chips('nav.back')).toEqual(['Ctrl+[']))
+    await waitFor(() => expect(screen.getByTestId('hotkey-chip:nav.back:0')).toHaveFocus())
+  })
+})
+
+describe('Settings › Keys: recording refuses a key that types (review M5)', () => {
+  it('a letter, Enter or Space alone is refused and recording goes on; with Alt it is taken', async () => {
+    const user = userEvent.setup()
+    const world = await openKeys()
+    await user.click(screen.getByTestId('hotkey-add:group.new'))
+    for (const key of ['q', '{Enter}', ' ', '{Shift>}Q{/Shift}', '{Backspace}']) {
+      await user.keyboard(key)
+      expect(screen.getByTestId('hotkey-recorder:group.new')).toHaveFocus()
+    }
+    await waitFor(() => expect(screen.getByTestId('keymap-save-error')).toHaveTextContent(t.needs_modifier()))
+    expect(world.writes).toEqual([])
+    await user.keyboard('{Alt>}q{/Alt}')
+    await waitFor(() => expect(chips('group.new')).toEqual(['Alt+Q']))
+  })
+})
+
+describe('Settings › Keys: the writer (review M14, MED-3, LOW-6)', () => {
+  it('a failed write says why, puts nothing on the Undo stack, and the next write still lands', async () => {
+    const user = userEvent.setup()
+    const world = await openKeys({ files: { '.ohhi/keymaps/mine.json': mine }, active: 'custom:mine' })
+    const vault = world.vault!
+    const real = vault.writeAppFile
+    vault.writeAppFile = () => Promise.reject(new Error('disk full'))
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() => expect(screen.getByTestId('keymap-save-error')).toHaveTextContent(t.error({ error: 'disk full' })))
+    expect(screen.queryByTestId('keymap-undo')).toBeNull()
+    expect(written(world, 'mine')).toEqual(mine)
+
+    vault.writeAppFile = real
+    await user.click(screen.getByTestId('hotkey-remove:nav.back:0'))
+    await waitFor(() => expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'nav.back': [] } }))
+    expect(screen.getByTestId('keymap-save-error').textContent?.trim()).toBe('')
+    expect(screen.getByTestId('keymap-undo')).toBeVisible()
+  })
+
+  it('a change to the active file keeps what an agent wrote there a moment before', async () => {
+    const user = userEvent.setup()
+    const world = await openKeys({ files: { '.ohhi/keymaps/mine.json': mine }, active: 'custom:mine' })
+    // Written on disk, not yet heard by the watcher: the resolved copy is behind.
+    world.disk!.set('.ohhi/keymaps/mine.json', JSON.stringify({ ...mine, bindings: { 'group.new': 'Alt+n' } }))
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() =>
+      expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'group.new': 'Alt+n', 'tab.close': [] } })
+    )
+  })
+
+  it('Undo after another keymap was picked puts the file back and leaves the pick alone', async () => {
+    const user = userEvent.setup()
+    const other = { $schema: KEYMAP_SCHEMA_ID, extends: 'default', bindings: { 'nav.back': 'Alt+b' } }
+    const world = await openKeys({ files: { '.ohhi/keymaps/other.json': other } })
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() => expect(world.config.active).toBe('custom:mine'))
+    await user.selectOptions(screen.getByTestId('keymap-pick'), 'custom:other')
+    await waitFor(() => expect(world.config.active).toBe('custom:other'))
+
+    await user.click(screen.getByTestId('keymap-undo'))
+    await waitFor(() => expect(written(world, 'mine')).toBeUndefined())
+    expect(world.config.active).toBe('custom:other')
+    expect(world.registry.effectiveKeys('nav.back')).toBe('Alt+b')
+  })
+
+  it('Undo after the file was rewritten elsewhere refuses, says so, and writes nothing', async () => {
+    const user = userEvent.setup()
+    const world = await openKeys({ files: { '.ohhi/keymaps/mine.json': mine }, active: 'custom:mine' })
+    await user.click(screen.getByTestId('hotkey-remove:tab.close:0'))
+    await waitFor(() => expect(written(world, 'mine')).toEqual({ ...mine, bindings: { 'tab.close': [] } }))
+    const theirs = JSON.stringify({ ...mine, bindings: { 'group.new': 'Alt+n' } })
+    world.disk!.set('.ohhi/keymaps/mine.json', theirs)
+    const writes = world.writes.length
+
+    await user.click(screen.getByTestId('keymap-undo'))
+    await waitFor(() =>
+      expect(screen.getByTestId('keymap-save-error')).toHaveTextContent(t.undo_stale({ path: '.ohhi/keymaps/mine.json' }))
+    )
+    expect(world.disk!.get('.ohhi/keymaps/mine.json')).toBe(theirs)
+    expect(world.writes).toHaveLength(writes)
+    expect(screen.queryByTestId('keymap-undo')).toBeNull()
+    expect(world.config.active).toBe('custom:mine')
+  })
+})
+
+describe('Settings › Keys: the picker, the groups and the count (review M8b, M9, M12, L17, L18)', () => {
+  it('every keymap option names where it is read from', async () => {
+    await openKeys({ files: { '.ohhi/keymaps/mine.json': mine } })
+    const options = () =>
+      within(screen.getByTestId('keymap-pick'))
+        .getAllByRole('option')
+        .map((o) => o.textContent!.trim())
+    await waitFor(() => expect(options()).toHaveLength(2))
+    expect(options()).toEqual([
+      t.pick_option({ name: 'default', source: LL.web.settings.customise.from.builtin() }),
+      t.pick_option({ name: 'mine', source: LL.web.settings.customise.from.vault() }),
+    ])
+  })
+
+  it('with the per-device keys still in force, the picker says so and the line says why', async () => {
+    const world = keymapWorld({ registry: registryWith(), vault: null, hotkeys: { 'tab.close': 'Alt+w' } })
+    await world.keymap.reload()
+    expect(world.keymap.legacy).toBe(true)
+    render(Settings, {
+      section: 'keys',
+      onSection: vi.fn(),
+      vault: VAULT,
+      registry: world.registry,
+      keymap: world.keymap,
+      resources: world.resources,
+      readAppFile: async () => null,
+    })
+    const pick = await screen.findByTestId('keymap-pick')
+    const first = within(pick).getAllByRole('option')[0]!
+    expect(first).toHaveTextContent(t.on_device())
+    expect(first).toBeDisabled()
+    expect(pick).toHaveValue('')
+    expect(screen.getByTestId('keymap-from')).toHaveTextContent(t.legacy())
+  })
+
+  it('a group toggle names its list and its counts; a narrowed list says how many rows are left', async () => {
+    const user = userEvent.setup()
+    await openKeys({
+      files: { '.ohhi/keymaps/mine.json': { ...mine, bindings: { 'view.toggle-source': 'Mod+e' } } },
+      active: 'custom:mine',
+    })
+    const toggle = screen.getByTestId('hotkey-group-toggle:View')
+    const list = document.getElementById(toggle.getAttribute('aria-controls')!)
+    expect(list).toContainElement(screen.getByTestId('hotkey-row:view.toggle-source'))
+    expect(toggle).toHaveAccessibleName(t.group_label_changed({ group: 'View', count: 2, changed: 1 }))
+    expect(screen.getByTestId('hotkey-group-toggle:Tab')).toHaveAccessibleName(t.group_label({ group: 'Tab', count: 1 }))
+
+    expect(screen.getByTestId('hotkey-result-count').textContent?.trim()).toBe('')
+    await user.type(screen.getByTestId('hotkey-search'), 'toggle')
+    expect(screen.getByTestId('hotkey-result-count')).toHaveTextContent(t.result_count({ count: 2 }))
   })
 })

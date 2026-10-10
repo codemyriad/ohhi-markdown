@@ -312,13 +312,19 @@ export async function openSettings(page: Page, section?: string): Promise<void> 
   await page.keyboard.press('ControlOrMeta+,')
   await expect(settingsView(page)).toBeVisible()
   if (!section) return
-  await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+  // In a pane narrower than 32rem the nav is a select (Tabs' `collapse`).
+  const select = settingsView(page).getByTestId('settings-tabs-select')
+  if (await select.isVisible()) await select.selectOption(section)
+  else await settingsView(page).getByTestId(`settings-tab:${section}`).click()
   await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
 }
 
 /** Close the Settings tab like any tab: `Mod+W` with the tab focused (a field in a pane does not claim it). */
 export async function closeSettings(page: Page): Promise<void> {
-  await settingsView(page).getByRole('tab', { selected: true }).focus()
+  // In a pane narrower than 32rem the nav is a select, the tabs hidden.
+  const select = settingsView(page).getByTestId('settings-tabs-select')
+  if (await select.isVisible()) await select.focus()
+  else await settingsView(page).getByRole('tab', { selected: true }).focus()
   await page.keyboard.press('ControlOrMeta+w')
   await expect(settingsView(page)).toHaveCount(0)
 }

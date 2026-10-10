@@ -431,8 +431,20 @@ test('settings is a view tab: grouped sections, the keyboard between them, field
   await expect(page.getByTestId('settings-relay')).toHaveValue('wss://relay.example.test')
   await page.keyboard.press('ControlOrMeta+,')
   await expect(settingsView(page)).toHaveCount(1)
-  // The tab and its section are the pane layout's, written on its save debounce.
-  await page.waitForTimeout(600)
+  // The tab and its section are the pane layout's, written on its save debounce:
+  // wait until the stored layout (`editor:workspace:<vault>`) has Settings at Sync.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('editor:workspace:'))
+          .some((k) => {
+            const stored = localStorage.getItem(k) ?? ''
+            return stored.includes('"view":"settings"') && stored.includes('"viewArg":"sync"')
+          })
+      )
+    )
+    .toBe(true)
   await page.reload()
   await expect(settingsView(page)).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId('settings-section:sync')).toBeVisible()

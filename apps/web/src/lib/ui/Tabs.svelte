@@ -8,6 +8,12 @@
    * row — the note tab strip's height — of 11 px labels, each beside its
    * icon, with `end` (the row's own controls) at its right end, outside the
    * tablist so the list holds tabs and nothing else.
+   *
+   * `collapse` (vertical only; Settings in a narrow pane): the tabs measure
+   * their own width (a container, not the viewport — a split pane is narrow
+   * on a wide screen). Below 32rem the side list gives way to a native
+   * `<select>` above the panel, holding the same choices; the panel then has
+   * the full width.
    */
   import type { LucideIcon } from '@lucide/svelte'
   import { createTabs, melt } from '@melt-ui/svelte'
@@ -40,6 +46,8 @@
     size?: 'md' | 'sm'
     /** Controls at the compact row's right end (outside the tablist). */
     end?: Snippet
+    /** Vertical only: below a 32rem-wide container the list becomes a `<select>`. */
+    collapse?: boolean
   }
 
   let {
@@ -51,9 +59,11 @@
     panel,
     size = 'md',
     end,
+    collapse = false,
   }: Props = $props()
 
   const vertical = $derived(orientation === 'vertical')
+  const collapsing = $derived(vertical && collapse)
   const compact = $derived(!vertical && size === 'sm')
   // Melt 0.86 emits role/tabindex/data-state but no aria-selected, and points
   // the panel's aria-labelledby at the bare value string; the ids below make
@@ -78,7 +88,7 @@
   })
   // …and the other way: a value the PARENT sets selects that tab. Without
   // this, Melt kept its own copy and a bound `value` written from outside
-  // (Settings' *Save and close* sending you to the tab that needs a name)
+  // (a Settings section's link to another section, or the view tab's arg)
   // changed nothing on screen.
   $effect(() => {
     const next = value
@@ -91,7 +101,7 @@
     use:melt={$list}
     aria-label={label}
     class="flex shrink-0 {vertical
-      ? 'w-40 flex-col gap-0.5'
+      ? `w-40 flex-col gap-0.5 ${collapsing ? '@max-[32rem]:hidden' : ''}`
       : compact
         ? 'min-w-0 flex-1 flex-row items-stretch gap-0.5'
         : 'flex-row gap-1 border-b border-base-300'}"
@@ -115,27 +125,50 @@
   </div>
 {/snippet}
 
-<div use:melt={$root} data-testid={testid} class="flex min-h-0 {vertical ? 'flex-row gap-4' : compact ? 'flex-col' : 'flex-col gap-4'}">
-  {#if compact}
-    <div class="flex h-8 shrink-0 items-stretch border-b border-base-300">
-      {@render tabList()}
-      {#if end}
-        <div class="flex shrink-0 items-center gap-0.5 px-1">{@render end()}</div>
-      {/if}
-    </div>
-  {:else}
-    {@render tabList()}
-  {/if}
-  {#each tabs as tab (tab.value)}
-    {#if $current === tab.value}
-      <div
-        use:melt={$content(tab.value)}
-        id={panelId(tab.value)}
-        aria-labelledby={tabId(tab.value)}
-        class="min-h-0 min-w-0 flex-1 focus:outline-none"
+<div class={collapsing ? '@container h-full min-h-0' : 'contents'}>
+  <div
+    use:melt={$root}
+    data-testid={testid}
+    class="flex min-h-0 {vertical
+      ? `flex-row gap-4 ${collapsing ? '@max-[32rem]:flex-col @max-[32rem]:gap-3' : ''}`
+      : compact
+        ? 'flex-col'
+        : 'flex-col gap-4'}"
+  >
+    {#if collapsing}
+      <select
+        aria-label={label}
+        data-testid={testid ? `${testid}-select` : undefined}
+        value={$current}
+        onchange={(e) => current.set(e.currentTarget.value)}
+        class="hidden w-full rounded border border-base-300 bg-base-100 px-2 py-1.5 text-sm text-base-content focus:border-primary focus:outline-none @max-[32rem]:block"
       >
-        {@render panel(tab.value)}
-      </div>
+        {#each tabs as tab (tab.value)}
+          <option value={tab.value}>{tab.label}</option>
+        {/each}
+      </select>
     {/if}
-  {/each}
+    {#if compact}
+      <div class="flex h-8 shrink-0 items-stretch border-b border-base-300">
+        {@render tabList()}
+        {#if end}
+          <div class="flex shrink-0 items-center gap-0.5 px-1">{@render end()}</div>
+        {/if}
+      </div>
+    {:else}
+      {@render tabList()}
+    {/if}
+    {#each tabs as tab (tab.value)}
+      {#if $current === tab.value}
+        <div
+          use:melt={$content(tab.value)}
+          id={panelId(tab.value)}
+          aria-labelledby={tabId(tab.value)}
+          class="min-h-0 min-w-0 flex-1 focus:outline-none"
+        >
+          {@render panel(tab.value)}
+        </div>
+      {/if}
+    {/each}
+  </div>
 </div>

@@ -12,6 +12,7 @@ import {
   isChanged,
   matchesChord,
   matchesText,
+  takesTypingKey,
   withChord,
   withoutChord,
 } from './hotkey-rows.js'
@@ -96,5 +97,16 @@ describe('chip edits', () => {
     expect(withChord(['Mod+e', 'Alt+e'], 'Mod+E', 'add', format)).toEqual(['Mod+e', 'Alt+e'])
     expect(withChord(['Mod+e', 'Alt+e'], 'Mod+e', 1, format)).toEqual(['Mod+e'])
     expect(withoutChord(['Mod+e', 'Alt+e'], 0)).toEqual(['Alt+e'])
+  })
+})
+
+describe('takesTypingKey (review M5)', () => {
+  it('refuses a key that types or edits text unless Mod, Ctrl or Alt is held', () => {
+    for (const b of ['q', 'Shift+q', '1', '+', 'Shift++', 'Enter', ' ', 'Shift+ ', 'Backspace', 'Delete']) {
+      expect(takesTypingKey(b), b).toBe(true)
+    }
+    for (const b of ['Mod+q', 'Ctrl+Enter', 'Alt+ ', 'Mod++', 'F2', 'Shift+F5', 'Escape', 'ArrowLeft', 'Ctrl+Mod+Backspace']) {
+      expect(takesTypingKey(b), b).toBe(false)
+    }
   })
 })

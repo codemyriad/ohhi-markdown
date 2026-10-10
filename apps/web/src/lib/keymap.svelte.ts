@@ -35,6 +35,7 @@ import {
 } from './keymap-spec.js'
 import type { ResolvedKeymap, Resources } from './resources.svelte.js'
 import type { EditorKeyId, FormatBindings } from '@ohhi/editor'
+import { getLL } from '@ohhi/i18n'
 
 export interface KeymapHost {
   resources: Pick<Resources, 'resolveKeymap' | 'saveKeymap' | 'list' | 'read'> &
@@ -161,14 +162,33 @@ export function createKeymap(host: KeymapHost) {
   }
 
   /**
-   * Undo a `save` (Settings › Keys, settings-shaping ST3): put the file back
-   * to the bytes it replaced (`null` = the save created it: remove it), then
-   * make `choice` — the keymap active before — active again.
+   * Undo a `save` (Settings › Keys, settings-shaping ST3) or a reloaded
+   * change (ST6): put the file back to the bytes it replaced (`null` = the
+   * save created it: remove it) and make `choice` — the keymap active before
+   * — active again (null = leave the choice as it is now). `expected` is what
+   * the file must still hold (`Resources.restoreKeymap`): anything else
+   * refuses, and the choice stays as it was.
+   *
+   * The choice moves BEFORE the file does, so removing the file in use never
+   * lets the change feed's reload resolve a keymap that is gone (a spurious
+   * `keymap_invalid`).
    */
-  async function restore(name: string, text: string | null, choice: KeymapChoice): Promise<void> {
-    if (!host.resources.restoreKeymap) throw new Error('restoring a keymap is not available here')
-    await host.resources.restoreKeymap(name, text)
-    await setActive(choice)
+  async function restore(
+    name: string,
+    text: string | null,
+    choice: KeymapChoice | null,
+    expected?: string | null
+  ): Promise<void> {
+    if (!host.resources.restoreKeymap) throw new Error(getLL().web.keymaps.cannot_restore())
+    const prior = host.choice()
+    if (choice !== null) host.setChoice(choice)
+    try {
+      await host.resources.restoreKeymap(name, text, expected)
+    } catch (err) {
+      if (choice !== null) host.setChoice(prior)
+      throw err
+    }
+    await reload()
   }
 
   return {

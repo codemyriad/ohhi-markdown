@@ -113,7 +113,7 @@ test('a reloaded layout says so with Undo, which goes back for this session only
 
   await toast.getByTestId('toast-action').click()
   await expect(page.getByTestId('navigator')).toBeVisible()
-  await expect(page.getByTestId('toast').filter({ hasText: 'Back to the layout you had' })).toHaveCount(1)
+  await expect(page.getByTestId('toast').filter({ hasText: /Back to the layout you had/ })).toHaveCount(1)
 
   // Settings › Customise says the layout is held; the Log's Customise chip keeps the reload.
   await openSettings(page, 'customise')

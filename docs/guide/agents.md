@@ -34,17 +34,31 @@ Through MCP each of these is a tool of the same name, starting `ohhi_`
   desktop app, or link the desktop app to it from **Settings › Sync &
   devices**, which keeps a copy of the vault as files in a folder you choose.
 - **The `ohhi` command.** It isn't bundled with the app yet: today it
-  installs from a checkout of the Oh hi markdown repository, with two scripts
-  run from the repository's root —
+  installs from a checkout of the Oh hi markdown repository,
+  [codemyriad/ohhi-markdown](https://github.com/codemyriad/ohhi-markdown) on
+  GitHub. **That repository is private: you need access to it** to follow
+  these steps. You also need git and Node 22.
+
+  First get the repository and install its dependencies (the repository's
+  own copy of Rush does it, so nothing else needs installing globally):
+
+  ```sh
+  git clone git@github.com:codemyriad/ohhi-markdown.git
+  cd ohhi-markdown
+  node common/scripts/install-run-rush.js install
+  ```
+
+  Then, from that folder, two scripts:
 
   ```sh
   ./scripts/install-ohhi.sh
   ./scripts/install-skill.sh
   ```
 
-  The first links `ohhi` into `~/.local/bin` (make sure that folder is on your
-  `PATH`); the second links the *ohhi-vault* skill into `~/.claude/skills`.
-  Both make links rather than copies, so neither goes stale.
+  The first builds `ohhi` and links it into `~/.local/bin` (make sure that
+  folder is on your `PATH`); the second links the *ohhi-vault* skill into
+  `~/.claude/skills`. Both make links rather than copies, so neither goes
+  stale.
 
 ## Connect one: Settings › Agents
 
@@ -54,7 +68,7 @@ already filled in:
 - **Claude Code**: start it with the vault named (`OHHI_VAULT="<folder>"
   claude`) and the skill does the rest. This is the recommended route: no
   tools stay loaded, and the skill carries the habits that keep an agent's
-  reads small. You can add the commands as MCP tools instead
+  reads small. Instead of the skill, you can add the commands as MCP tools
   (`claude mcp add ohhi -- ohhi mcp --vault "<folder>"`).
 - **Another MCP client**: a server entry for its settings, running
   `ohhi mcp --vault <folder>`.
@@ -85,4 +99,7 @@ layout, keymap and template files in the vault's `.ohhi` folder. See
 [Customising the app](customise.md).
 
 The full reference for the command — every operation, its flags and its
-output — is `docs/agent-access.md` in the Oh hi markdown repository.
+output — is
+[`docs/agent-access.md`](https://github.com/codemyriad/ohhi-markdown/blob/main/docs/agent-access.md)
+in the Oh hi markdown repository. The repository is private: the link opens
+only for people with access to it.

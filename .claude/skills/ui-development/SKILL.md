@@ -253,20 +253,31 @@ for an error the app can help with). A view tab is a row in `VIEW_KINDS`
 (`panes.ts`) plus a `ViewDef` in `lib/views.ts`. The developer-tools toggle
 lives in Settings › Developer only.
 
-**Settings (chrome U6)** is a `Dialog` of vertical `Tabs` — General,
-Appearance (theme only — fonts come from the theme, there is no font
-choice), Hotkeys (over the active keymap file), Sync, Vaults & shares, Layout
-(one live form over the device's layout overrides, *Reset to default*; it
-applies as you change it, so it has no Save and nothing for the dirty guard),
-Developer — with `createForm` behind the
-two tabs that validate (display name; relay URL must be `ws(s)://`), a Save
-per form (disabled until `form.dirty`), and a **dirty guard**: `Dialog`'s
-`beforeClose` veto keeps the dialog open and shows Discard / Save-and-close
-instead of silently persisting or dropping edits (`ui/Tabs` honours a
-`value` the parent sets, which is how *Save and close* lands you on the tab
-that needs attention). Add a setting to the tab it
-belongs to; add a validated setting to that tab's schema, never as a bare
-`bind:value`.
+**Settings (settings-shaping ST1–ST6)** is a **view tab**, one per window:
+open it with `openView('settings', '<section>')` (or
+`getViewShell()?.openSettings(section)`; `Mod+,` is `app.settings`), the
+section riding as the tab's `viewArg`. With no vault open the manager shows
+the same body as a page (`SettingsPage.svelte`); the tab is
+`SettingsView.svelte`; both render `Settings.svelte` — the grouped nav (You ·
+Editor · Layout · Appearance · Keys | Sync & devices · Customise · Agents |
+Developer · About, `SETTINGS_GROUPS` in `lib/settings.ts`) and the section
+on show. Each section is its own `*Settings.svelte` in `components/`. A
+section in `NEEDS_VAULT` (Keys, Customise) says "open a vault" when none is
+open rather than hiding. What a section may ask about where it is drawn
+(vault open, its kind and folder, desktop, the host, moving to another
+section) is the `SettingsEnv` context — `getSettingsEnv()` from
+`settings-host.ts`; tests inject one with `settingsEnvContext(env)`.
+**One save model, no Save button and no close guard:** every control
+applies as it changes; a text field that validates (the name, the relay)
+commits on Enter or blur; Keys writes each change through to a keymap file,
+with Undo. File-backed sections carry a `ResourceSource` line (the file in
+use and its root). The nav and the sections measure their own width
+(container queries): below 32rem the nav is a `<select>` (`Tabs`'
+`collapse`), and a section's grids use `@md:`-style container breakpoints,
+never `sm:`, so a split pane gets the narrow layout. Test ids:
+`settings-view` / `settings-page`, `settings` (with `data-section`),
+`settings-tab:<id>`, `settings-section:<id>`, `settings-needs-vault:<id>`,
+`settings-tabs-select`. Add a setting to the section it belongs to.
 
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 

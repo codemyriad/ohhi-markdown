@@ -2340,7 +2340,7 @@ export type NamespaceWebTranslation = {
 			 */
 			online_at: RequiredParams<'when'>
 			/**
-			 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
+			 * S​e​t​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
 			 */
 			needs_secret: string
 		}
@@ -3182,7 +3182,7 @@ export type NamespaceWebTranslation = {
 			 */
 			name_hint: string
 			/**
-			 * A​ ​n​a​m​e​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​.
+			 * E​n​t​e​r​ ​a​ ​n​a​m​e​ ​—​ ​i​t​’​s​ ​w​h​a​t​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​.
 			 */
 			name_required: string
 		}
@@ -3414,6 +3414,16 @@ export type NamespaceWebTranslation = {
 			 */
 			pick: string
 			/**
+			 * {​n​a​m​e​}​ ​·​ ​{​s​o​u​r​c​e​}
+			 * @param {string} name
+			 * @param {string} source
+			 */
+			pick_option: RequiredParams<'name' | 'source'>
+			/**
+			 * K​e​y​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			on_device: string
+			/**
 			 * E​x​t​e​n​d​s​ ​{​n​a​m​e​}​.
 			 * @param {string} name
 			 */
@@ -3427,9 +3437,13 @@ export type NamespaceWebTranslation = {
 			 */
 			shadows_builtin: string
 			/**
-			 * K​e​y​s​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​O​p​e​n​ ​a​ ​v​a​u​l​t​ ​a​n​d​ ​t​h​e​y​ ​m​o​v​e​ ​i​n​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​t​h​e​r​e​.
+			 * Y​o​u​r​ ​k​e​y​s​ ​a​r​e​ ​s​t​i​l​l​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​:​ ​m​o​v​i​n​g​ ​t​h​e​m​ ​i​n​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​f​a​i​l​e​d​.​ ​T​h​e​ ​L​o​g​ ​h​a​s​ ​t​h​e​ ​r​e​a​s​o​n​.
 			 */
 			legacy: string
+			/**
+			 * O​p​e​n​ ​t​h​e​ ​L​o​g
+			 */
+			show_log: string
 			/**
 			 * N​o​t​h​i​n​g​ ​c​a​n​ ​b​e​ ​c​h​a​n​g​e​d​ ​o​v​e​r​ ​a​ ​k​e​y​m​a​p​ ​t​h​a​t​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​.​ ​F​i​x​ ​i​t​s​ ​f​i​l​e​,​ ​o​r​ ​p​i​c​k​ ​a​n​o​t​h​e​r​ ​k​e​y​m​a​p​.
 			 */
@@ -3439,10 +3453,15 @@ export type NamespaceWebTranslation = {
 			 */
 			search: string
 			/**
-			 * S​e​a​r​c​h​ ​{​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​s​ ​b​y​ ​n​a​m​e​,​ ​i​d​ ​o​r​ ​k​e​y
+			 * S​e​a​r​c​h​ ​{​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​s​ ​b​y​ ​n​a​m​e​ ​o​r​ ​k​e​y
 			 * @param {number} count
 			 */
 			search_placeholder: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​{​{​s​}​}
+			 * @param {number} count
+			 */
+			result_count: RequiredParams<'count'>
 			/**
 			 * P​r​e​s​s​ ​k​e​y​s
 			 */
@@ -3486,6 +3505,19 @@ export type NamespaceWebTranslation = {
 			 * @param {number} count
 			 */
 			group_changed: RequiredParams<'count'>
+			/**
+			 * {​g​r​o​u​p​}​,​ ​{​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​{​{​s​}​}
+			 * @param {number} count
+			 * @param {string} group
+			 */
+			group_label: RequiredParams<'count' | 'group'>
+			/**
+			 * {​g​r​o​u​p​}​,​ ​{​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​{​{​s​}​}​,​ ​{​c​h​a​n​g​e​d​}​ ​c​h​a​n​g​e​d
+			 * @param {number} changed
+			 * @param {number} count
+			 * @param {string} group
+			 */
+			group_label_changed: RequiredParams<'changed' | 'count' | 'group'>
 			/**
 			 * O​t​h​e​r
 			 */
@@ -3547,7 +3579,7 @@ export type NamespaceWebTranslation = {
 			 */
 			reset_for: RequiredParams<'command'>
 			/**
-			 * A​l​s​o​ ​r​u​n​s​ ​{​c​o​m​m​a​n​d​s​}​:​ ​o​n​l​y​ ​t​h​e​ ​l​a​s​t​ ​o​n​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​n​s​.
+			 * A​l​s​o​ ​r​u​n​s​ ​{​c​o​m​m​a​n​d​s​}​,​ ​s​o​ ​o​n​l​y​ ​o​n​e​ ​o​f​ ​t​h​e​m​ ​w​o​r​k​s​.​ ​C​h​a​n​g​e​ ​o​n​e​ ​o​f​ ​t​h​e​ ​t​w​o​ ​k​e​y​s​.
 			 * @param {string} commands
 			 */
 			conflict: RequiredParams<'commands'>
@@ -3556,28 +3588,49 @@ export type NamespaceWebTranslation = {
 			 */
 			reserved: string
 			/**
-			 * Y​o​u​r​ ​c​h​a​n​g​e​s​ ​a​r​e​ ​s​a​v​e​d​ ​i​n​ ​{​p​a​t​h​}​.
+			 * {​c​o​m​m​a​n​d​}​:​ ​{​k​e​y​s​}​.​ ​Y​o​u​r​ ​k​e​y​s​ ​a​r​e​ ​n​o​w​ ​s​a​v​e​d​ ​i​n​ ​{​p​a​t​h​}​.
+			 * @param {string} command
+			 * @param {string} keys
 			 * @param {string} path
 			 */
-			created: RequiredParams<'path'>
+			created: RequiredParams<'command' | 'keys' | 'path'>
 			/**
-			 * S​a​v​e​d​ ​t​o​ ​{​p​a​t​h​}​.
+			 * {​c​o​m​m​a​n​d​}​:​ ​{​k​e​y​s​}​.​ ​S​a​v​e​d​ ​t​o​ ​{​p​a​t​h​}​.
+			 * @param {string} command
+			 * @param {string} keys
 			 * @param {string} path
 			 */
-			saved: RequiredParams<'path'>
+			saved: RequiredParams<'command' | 'keys' | 'path'>
 			/**
 			 * U​n​d​o
 			 */
 			undo: string
 			/**
-			 * U​n​d​o​n​e​.
+			 * U​n​d​o​n​e​.​ ​{​c​o​m​m​a​n​d​}​:​ ​{​k​e​y​s​}​,​ ​i​n​ ​{​p​a​t​h​}​.
+			 * @param {string} command
+			 * @param {string} keys
+			 * @param {string} path
 			 */
-			undone: string
+			undone: RequiredParams<'command' | 'keys' | 'path'>
 			/**
 			 * C​o​u​l​d​ ​n​o​t​ ​s​a​v​e​ ​t​h​e​ ​c​h​a​n​g​e​:​ ​{​e​r​r​o​r​}
 			 * @param {string} error
 			 */
 			error: RequiredParams<'error'>
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​u​n​d​o​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			undo_error: RequiredParams<'error'>
+			/**
+			 * {​p​a​t​h​}​ ​h​a​s​ ​c​h​a​n​g​e​d​ ​s​i​n​c​e​,​ ​s​o​ ​U​n​d​o​ ​w​o​u​l​d​ ​w​r​i​t​e​ ​o​v​e​r​ ​t​h​a​t​ ​c​h​a​n​g​e​.​ ​N​o​t​h​i​n​g​ ​w​a​s​ ​u​n​d​o​n​e​.
+			 * @param {string} path
+			 */
+			undo_stale: RequiredParams<'path'>
+			/**
+			 * A​d​d​ ​C​t​r​l​,​ ​A​l​t​ ​o​r​ ​C​m​d​ ​—​ ​o​n​ ​i​t​s​ ​o​w​n​,​ ​t​h​a​t​ ​k​e​y​ ​w​o​u​l​d​ ​s​t​o​p​ ​y​o​u​ ​t​y​p​i​n​g​ ​i​t​.
+			 */
+			needs_modifier: string
 		}
 		sync: {
 			/**
@@ -3644,7 +3697,7 @@ export type NamespaceWebTranslation = {
 		}
 		customise: {
 			/**
-			 * L​a​y​o​u​t​s​,​ ​k​e​y​m​a​p​s​,​ ​t​e​m​p​l​a​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s​:​ ​y​o​u​,​ ​a​n​ ​a​g​e​n​t​ ​o​r​ ​a​ ​t​e​a​m​m​a​t​e​ ​c​a​n​ ​c​h​a​n​g​e​ ​t​h​e​m​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​c​h​a​n​g​e​ ​u​p​.
+			 * L​a​y​o​u​t​s​,​ ​k​e​y​m​a​p​s​,​ ​t​e​m​p​l​a​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s​:​ ​y​o​u​,​ ​a​n​ ​a​g​e​n​t​ ​o​r​ ​a​ ​t​e​a​m​m​a​t​e​ ​c​a​n​ ​c​h​a​n​g​e​ ​t​h​e​m​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​c​h​a​n​g​e​ ​u​p​ ​(​i​n​ ​a​ ​b​r​o​w​s​e​r​,​ ​p​r​e​s​s​ ​R​e​l​o​a​d​ ​f​i​l​e​s​)​.
 			 */
 			intro: string
 			/**
@@ -3851,7 +3904,7 @@ export type NamespaceWebTranslation = {
 			 */
 			agent: string
 			/**
-			 * I​n​ ​t​h​e​ ​O​h​ ​h​i​ ​v​a​u​l​t​ ​a​t​ ​"​{​v​a​u​l​t​}​"​,​ ​w​r​i​t​e​ ​.​o​h​h​i​/​l​a​y​o​u​t​s​/​<​n​a​m​e​>​.​j​s​o​n​ ​e​x​t​e​n​d​i​n​g​ ​"​d​e​f​a​u​l​t​"​.​ ​V​a​l​i​d​a​t​e​ ​i​t​ ​a​g​a​i​n​s​t​ ​s​p​e​c​/​o​h​h​i​.​l​a​y​o​u​t​.​v​1​.​s​c​h​e​m​a​.​j​s​o​n​;​ ​t​h​e​ ​r​e​a​d​o​u​t​,​ ​b​a​r​ ​a​n​d​ ​c​o​m​m​a​n​d​ ​i​d​s​ ​a​r​e​ ​i​n​ ​d​o​c​s​/​c​u​s​t​o​m​i​s​i​n​g​.​m​d​.​ ​T​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​f​i​l​e​ ​u​p​ ​w​h​e​n​ ​i​t​ ​l​a​n​d​s​,​ ​o​r​ ​o​n​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e​.
+			 * I​n​ ​t​h​e​ ​O​h​ ​h​i​ ​v​a​u​l​t​ ​a​t​ ​"​{​v​a​u​l​t​}​"​,​ ​w​r​i​t​e​ ​.​o​h​h​i​/​l​a​y​o​u​t​s​/​<​n​a​m​e​>​.​j​s​o​n​ ​e​x​t​e​n​d​i​n​g​ ​"​d​e​f​a​u​l​t​"​.​ ​T​h​e​ ​f​o​r​m​a​t​,​ ​e​v​e​r​y​ ​r​e​a​d​o​u​t​,​ ​b​a​r​ ​a​n​d​ ​c​o​m​m​a​n​d​ ​i​d​,​ ​a​n​d​ ​t​w​o​ ​w​o​r​k​e​d​ ​e​x​a​m​p​l​e​s​ ​a​r​e​ ​i​n​ ​d​o​c​s​/​c​u​s​t​o​m​i​s​i​n​g​.​m​d​ ​i​n​ ​t​h​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​a​n​d​ ​t​h​e​ ​s​c​h​e​m​a​ ​i​s​ ​i​t​s​ ​s​p​e​c​/​o​h​h​i​.​l​a​y​o​u​t​.​v​1​.​s​c​h​e​m​a​.​j​s​o​n​ ​(​w​i​t​h​ ​t​h​e​ ​o​h​h​i​-​v​a​u​l​t​ ​s​k​i​l​l​ ​i​n​s​t​a​l​l​e​d​,​ ​i​t​ ​c​a​n​ ​f​i​n​d​ ​b​o​t​h​ ​t​h​e​r​e​)​.​ ​T​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​f​i​l​e​ ​u​p​ ​w​h​e​n​ ​i​t​ ​l​a​n​d​s​,​ ​o​r​ ​o​n​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e​.
 			 * @param {string} vault
 			 */
 			agent_prompt: RequiredParams<'vault'>
@@ -3917,7 +3970,7 @@ export type NamespaceWebTranslation = {
 				 */
 				find: string
 				/**
-				 * R​e​a​d​ ​a​ ​n​o​t​e​’​s​ ​o​u​t​l​i​n​e​,​ ​t​h​e​n​ ​j​u​s​t​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​o​r​ ​a​ ​f​e​w​ ​l​i​n​e​s
+				 * R​e​a​d​ ​a​ ​n​o​t​e​’​s​ ​o​u​t​l​i​n​e​ ​a​n​d​ ​i​t​s​ ​p​r​o​p​e​r​t​i​e​s​,​ ​t​h​e​n​ ​j​u​s​t​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​o​r​ ​a​ ​f​e​w​ ​l​i​n​e​s
 				 */
 				read: string
 				/**
@@ -3970,9 +4023,17 @@ export type NamespaceWebTranslation = {
 			 */
 			placeholder_browser: string
 			/**
-			 * T​h​e​ ​c​o​m​m​a​n​d​ ​i​s​n​’​t​ ​b​u​n​d​l​e​d​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​ ​y​e​t​.​ ​T​o​d​a​y​ ​i​t​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​a​ ​c​h​e​c​k​o​u​t​ ​o​f​ ​t​h​e​ ​O​h​ ​h​i​ ​r​e​p​o​s​i​t​o​r​y​:​ ​e​a​c​h​ ​s​c​r​i​p​t​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​ ​a​n​d​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
+			 * T​h​e​ ​c​o​m​m​a​n​d​ ​i​s​n​’​t​ ​b​u​n​d​l​e​d​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​ ​y​e​t​.​ ​T​o​d​a​y​ ​i​t​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​a​ ​c​h​e​c​k​o​u​t​ ​o​f​ ​t​h​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​c​o​d​e​m​y​r​i​a​d​/​o​h​h​i​-​m​a​r​k​d​o​w​n​ ​o​n​ ​G​i​t​H​u​b​.​ ​T​h​a​t​ ​r​e​p​o​s​i​t​o​r​y​ ​i​s​ ​p​r​i​v​a​t​e​:​ ​y​o​u​ ​n​e​e​d​ ​a​c​c​e​s​s​ ​t​o​ ​i​t​ ​t​o​ ​f​o​l​l​o​w​ ​t​h​e​s​e​ ​s​t​e​p​s​.​ ​T​h​e​ ​c​h​e​c​k​o​u​t​ ​n​e​e​d​s​ ​g​i​t​ ​a​n​d​ ​N​o​d​e​ ​2​2​;​ ​e​a​c​h​ ​i​n​s​t​a​l​l​ ​s​c​r​i​p​t​ ​t​h​e​n​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​ ​a​n​d​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
 			 */
 			get_body: string
+			/**
+			 * G​e​t​ ​t​h​e​ ​r​e​p​o​s​i​t​o​r​y​ ​a​n​d​ ​i​n​s​t​a​l​l​ ​i​t​s​ ​d​e​p​e​n​d​e​n​c​i​e​s
+			 */
+			step_repo: string
+			/**
+			 * N​e​e​d​s​ ​a​c​c​e​s​s​ ​t​o​ ​t​h​e​ ​p​r​i​v​a​t​e​ ​c​o​d​e​m​y​r​i​a​d​/​o​h​h​i​-​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​ ​a​n​d​ ​N​o​d​e​ ​2​2​.​ ​R​u​n​ ​t​h​e​ ​n​e​x​t​ ​s​t​e​p​s​ ​f​r​o​m​ ​t​h​e​ ​o​h​h​i​-​m​a​r​k​d​o​w​n​ ​f​o​l​d​e​r​.
+			 */
+			repo_note: string
 			/**
 			 * I​n​s​t​a​l​l​ ​t​h​e​ ​c​o​m​m​a​n​d
 			 */
@@ -3986,9 +4047,13 @@ export type NamespaceWebTranslation = {
 			 */
 			claude_start: string
 			/**
-			 * O​r​ ​g​i​v​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​t​h​e​ ​c​o​m​m​a​n​d​s​ ​a​s​ ​M​C​P​ ​t​o​o​l​s​ ​i​n​s​t​e​a​d
+			 * G​i​v​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​t​h​e​ ​c​o​m​m​a​n​d​s​ ​a​s​ ​M​C​P​ ​t​o​o​l​s
 			 */
 			claude_mcp: string
+			/**
+			 * I​n​s​t​e​a​d​:​ ​g​i​v​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​t​h​e​ ​c​o​m​m​a​n​d​s​ ​a​s​ ​M​C​P​ ​t​o​o​l​s
+			 */
+			claude_mcp_instead: string
 			/**
 			 * T​h​e​ ​s​k​i​l​l​ ​i​s​ ​t​h​e​ ​r​e​c​o​m​m​e​n​d​e​d​ ​r​o​u​t​e​:​ ​n​o​ ​t​o​o​l​s​ ​s​t​a​y​ ​l​o​a​d​e​d​,​ ​a​n​d​ ​i​t​ ​c​a​r​r​i​e​s​ ​t​h​e​ ​h​a​b​i​t​s​ ​t​h​a​t​ ​k​e​e​p​ ​a​n​ ​a​g​e​n​t​’​s​ ​r​e​a​d​s​ ​s​m​a​l​l​.
 			 */
@@ -5762,6 +5827,15 @@ export type NamespaceWebTranslation = {
 		 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​f​i​r​s​t​ ​—​ ​a​ ​s​a​v​e​d​ ​k​e​y​m​a​p​ ​i​s​ ​a​ ​f​i​l​e​ ​i​n​s​i​d​e​ ​i​t​.
 		 */
 		needs_vault: string
+		/**
+		 * T​h​i​s​ ​w​i​n​d​o​w​ ​c​a​n​n​o​t​ ​p​u​t​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​b​a​c​k​.
+		 */
+		cannot_restore: string
+		/**
+		 * {​p​a​t​h​}​:​ ​t​h​i​s​ ​v​a​u​l​t​ ​c​a​n​n​o​t​ ​r​e​m​o​v​e​ ​a​ ​f​i​l​e​.
+		 * @param {string} path
+		 */
+		cannot_remove: RequiredParams<'path'>
 		/**
 		 * U​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​,​ ​s​p​a​c​e​s​,​ ​-​ ​a​n​d​ ​_​ ​(​"​d​e​f​a​u​l​t​"​ ​i​s​ ​t​h​e​ ​b​u​i​l​t​-​i​n​)​.
 		 */
@@ -8120,7 +8194,7 @@ export type TranslationFunctions = {
 				 */
 				online_at: (arg: { when: string }) => LocalizedString
 				/**
-				 * Set the relay operator secret in Settings › Sync & devices to list your linked devices.
+				 * Set the team’s secret in Settings › Sync & devices to list your linked devices.
 				 */
 				needs_secret: () => LocalizedString
 			}
@@ -8940,7 +9014,7 @@ export type TranslationFunctions = {
 				 */
 				name_hint: () => LocalizedString
 				/**
-				 * A name your collaborators will see.
+				 * Enter a name — it’s what your collaborators see.
 				 */
 				name_required: () => LocalizedString
 			}
@@ -9164,6 +9238,14 @@ export type TranslationFunctions = {
 				 */
 				pick: () => LocalizedString
 				/**
+				 * {name} · {source}
+				 */
+				pick_option: (arg: { name: string, source: string }) => LocalizedString
+				/**
+				 * Keys on this device
+				 */
+				on_device: () => LocalizedString
+				/**
 				 * Extends {name}.
 				 */
 				'extends': (arg: { name: string }) => LocalizedString
@@ -9176,9 +9258,13 @@ export type TranslationFunctions = {
 				 */
 				shadows_builtin: () => LocalizedString
 				/**
-				 * Keys kept on this device. Open a vault and they move into a keymap file there.
+				 * Your keys are still kept on this device: moving them into a keymap file in this vault failed. The Log has the reason.
 				 */
 				legacy: () => LocalizedString
+				/**
+				 * Open the Log
+				 */
+				show_log: () => LocalizedString
 				/**
 				 * Nothing can be changed over a keymap that could not be used. Fix its file, or pick another keymap.
 				 */
@@ -9188,9 +9274,13 @@ export type TranslationFunctions = {
 				 */
 				search: () => LocalizedString
 				/**
-				 * Search {count} commands by name, id or key
+				 * Search {count} commands by name or key
 				 */
 				search_placeholder: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} command{{s}}
+				 */
+				result_count: (arg: { count: number }) => LocalizedString
 				/**
 				 * Press keys
 				 */
@@ -9233,6 +9323,14 @@ export type TranslationFunctions = {
 				 * {count} changed
 				 */
 				group_changed: (arg: { count: number }) => LocalizedString
+				/**
+				 * {group}, {count} command{{s}}
+				 */
+				group_label: (arg: { count: number, group: string }) => LocalizedString
+				/**
+				 * {group}, {count} command{{s}}, {changed} changed
+				 */
+				group_label_changed: (arg: { changed: number, count: number, group: string }) => LocalizedString
 				/**
 				 * Other
 				 */
@@ -9286,7 +9384,7 @@ export type TranslationFunctions = {
 				 */
 				reset_for: (arg: { command: string }) => LocalizedString
 				/**
-				 * Also runs {commands}: only the last one registered wins.
+				 * Also runs {commands}, so only one of them works. Change one of the two keys.
 				 */
 				conflict: (arg: { commands: string }) => LocalizedString
 				/**
@@ -9294,25 +9392,37 @@ export type TranslationFunctions = {
 				 */
 				reserved: () => LocalizedString
 				/**
-				 * Your changes are saved in {path}.
+				 * {command}: {keys}. Your keys are now saved in {path}.
 				 */
-				created: (arg: { path: string }) => LocalizedString
+				created: (arg: { command: string, keys: string, path: string }) => LocalizedString
 				/**
-				 * Saved to {path}.
+				 * {command}: {keys}. Saved to {path}.
 				 */
-				saved: (arg: { path: string }) => LocalizedString
+				saved: (arg: { command: string, keys: string, path: string }) => LocalizedString
 				/**
 				 * Undo
 				 */
 				undo: () => LocalizedString
 				/**
-				 * Undone.
+				 * Undone. {command}: {keys}, in {path}.
 				 */
-				undone: () => LocalizedString
+				undone: (arg: { command: string, keys: string, path: string }) => LocalizedString
 				/**
 				 * Could not save the change: {error}
 				 */
 				error: (arg: { error: string }) => LocalizedString
+				/**
+				 * Could not undo: {error}
+				 */
+				undo_error: (arg: { error: string }) => LocalizedString
+				/**
+				 * {path} has changed since, so Undo would write over that change. Nothing was undone.
+				 */
+				undo_stale: (arg: { path: string }) => LocalizedString
+				/**
+				 * Add Ctrl, Alt or Cmd — on its own, that key would stop you typing it.
+				 */
+				needs_modifier: () => LocalizedString
 			}
 			sync: {
 				/**
@@ -9378,7 +9488,7 @@ export type TranslationFunctions = {
 			}
 			customise: {
 				/**
-				 * Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.
+				 * Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up (in a browser, press Reload files).
 				 */
 				intro: () => LocalizedString
 				/**
@@ -9578,7 +9688,7 @@ export type TranslationFunctions = {
 				 */
 				agent: () => LocalizedString
 				/**
-				 * In the Oh hi vault at "{vault}", write .ohhi/layouts/<name>.json extending "default". Validate it against spec/ohhi.layout.v1.schema.json; the readout, bar and command ids are in docs/customising.md. The app picks the file up when it lands, or on Reload files in Settings › Customise.
+				 * In the Oh hi vault at "{vault}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.
 				 */
 				agent_prompt: (arg: { vault: string }) => LocalizedString
 				/**
@@ -9643,7 +9753,7 @@ export type TranslationFunctions = {
 					 */
 					find: () => LocalizedString
 					/**
-					 * Read a note’s outline, then just one section or a few lines
+					 * Read a note’s outline and its properties, then just one section or a few lines
 					 */
 					read: () => LocalizedString
 					/**
@@ -9696,9 +9806,17 @@ export type TranslationFunctions = {
 				 */
 				placeholder_browser: () => LocalizedString
 				/**
-				 * The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi repository: each script makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.
+				 * The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.
 				 */
 				get_body: () => LocalizedString
+				/**
+				 * Get the repository and install its dependencies
+				 */
+				step_repo: () => LocalizedString
+				/**
+				 * Needs access to the private codemyriad/ohhi-markdown repository and Node 22. Run the next steps from the ohhi-markdown folder.
+				 */
+				repo_note: () => LocalizedString
 				/**
 				 * Install the command
 				 */
@@ -9712,9 +9830,13 @@ export type TranslationFunctions = {
 				 */
 				claude_start: () => LocalizedString
 				/**
-				 * Or give Claude Code the commands as MCP tools instead
+				 * Give Claude Code the commands as MCP tools
 				 */
 				claude_mcp: () => LocalizedString
+				/**
+				 * Instead: give Claude Code the commands as MCP tools
+				 */
+				claude_mcp_instead: () => LocalizedString
 				/**
 				 * The skill is the recommended route: no tools stay loaded, and it carries the habits that keep an agent’s reads small.
 				 */
@@ -11380,6 +11502,14 @@ export type TranslationFunctions = {
 			 * Open a vault first — a saved keymap is a file inside it.
 			 */
 			needs_vault: () => LocalizedString
+			/**
+			 * This window cannot put a keymap file back.
+			 */
+			cannot_restore: () => LocalizedString
+			/**
+			 * {path}: this vault cannot remove a file.
+			 */
+			cannot_remove: (arg: { path: string }) => LocalizedString
 			/**
 			 * Use letters, numbers, spaces, - and _ ("default" is the built-in).
 			 */

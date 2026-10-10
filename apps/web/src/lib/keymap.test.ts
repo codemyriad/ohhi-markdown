@@ -182,3 +182,33 @@ describe('resources — the keymaps kind', () => {
     await expect(keymapWorld({ vault: null }).resources.saveKeymap('mine', file)).rejects.toThrow()
   })
 })
+
+describe('createKeymap — restore (settings-shaping ST3 Undo)', () => {
+  it('moves the choice back before removing the file in use, and back again when the restore is refused', async () => {
+    const w = keymapWorld({
+      registry: registry(),
+      active: 'custom:mine',
+      vault: { '.ohhi/keymaps/mine.json': { $schema, extends: 'default', bindings: { 'tab.close': 'Alt+w' } } },
+    })
+    await w.keymap.reload()
+    const seen: string[] = []
+    const real = w.vault!.deleteAppFile!
+    w.vault!.deleteAppFile = async (path) => {
+      seen.push(w.config.active)
+      await real(path)
+    }
+    await w.keymap.restore('mine', null, 'default')
+    // The choice was already `default` when the file went: no reload ever resolved a missing `mine`.
+    expect(seen).toEqual(['default'])
+    expect(w.keymap.active).toBe('default')
+    expect(w.warnings).toEqual([])
+
+    // A refused restore (the file is not what the caller expected) leaves the choice as it was.
+    w.open({ '.ohhi/keymaps/mine.json': { $schema, bindings: {} } })
+    w.config.active = 'custom:mine'
+    await w.keymap.reload()
+    await expect(w.keymap.restore('mine', null, 'default', 'not these bytes')).rejects.toThrow()
+    expect(w.config.active).toBe('custom:mine')
+    expect(w.disk!.has('.ohhi/keymaps/mine.json')).toBe(true)
+  })
+})

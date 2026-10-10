@@ -26,14 +26,15 @@ import { getLL } from '@ohhi/i18n'
 import type { CommandRegistry } from './commands.js'
 import { clearHotkeys, hotkeys, keymapChoice, setKeymapChoice } from './config.js'
 import { createKeymap, formatBindingsOf, type KeymapHost } from './keymap.svelte.js'
-import { BUILTIN_KEYMAPS } from './keymap-spec.js'
+import { BUILTIN_KEYMAPS, type KeymapChoice } from './keymap-spec.js'
 import type { FlashInput, NoticeInput } from './notices.js'
-import { announceReload, reloadedFile } from './resource-reload.js'
+import { announceReload, reloadedFile, type ReloadedFile } from './resource-reload.js'
 import { savableName } from './resource-kind.js'
 import {
   createResources,
   type ResolvedKeymap,
   type ResourceChange,
+  type ResourceEntry,
   type ResourceRoot,
   type VaultAppFiles,
 } from './resources.svelte.js'
@@ -121,39 +122,82 @@ export function createCustomise(host: CustomiseHost) {
     content: JSON.stringify(r.bindings),
   })
 
+  /** A file a reload names: its basename (`mine.json`), as `reloadedFile` names the active one. */
+  const named = (entry: ResourceEntry): ReloadedFile => ({
+    kind: 'keymaps',
+    name: entry.name,
+    root: entry.root,
+    file: entry.root === 'builtin' ? entry.name : entry.path.slice(entry.path.lastIndexOf('/') + 1),
+  })
+
+  /**
+   * Overlapping change events (the watcher can fire twice for one save, or a
+   * reload lands mid-change) read once and say once: each re-read bumps the
+   * generation, only the latest announces, and it compares against what was
+   * in force before the FIRST of them (so nothing is lost, and nothing said
+   * twice).
+   */
+  let reloads = 0
+  let baseline: { choice: KeymapChoice; before: ResolvedKeymap | null; opened: boolean } | null = null
+
   /**
    * Re-read the keymap on its kind's change feed, then say so when the one
-   * in use now says something else (ST6). Undo writes the bytes it had read
-   * back through the journal — only for a vault file the app may write, and
-   * only when it is the same file.
+   * in use now says something else (ST6), naming the file that changed:
+   *
+   *  - the active file's own bytes changed → named, with an Undo that writes
+   *    the bytes it had read back through the journal — only for a vault file
+   *    the app may write, only when it is the same file, and only while the
+   *    file still holds the bytes this reload read (`restoreKeymap`'s
+   *    `expected`; anything newer refuses as stale);
+   *  - only a keymap it `extends` changed → that parent is named, and there
+   *    is no Undo (the active file is as it was; undoing it would do nothing);
+   *  - the app's own write (Settings › Keys, an Undo) landing through the
+   *    change feed → nothing.
    */
   async function reloadKeymap(why: ResourceChange): Promise<void> {
-    const choice = keymap.active
-    const before = keymap.legacy ? null : keymap.resolved
+    const gen = ++reloads
+    baseline ??= { choice: keymap.active, before: keymap.legacy ? null : keymap.resolved, opened: false }
+    if (why === 'open') baseline.opened = true
     await keymap.reload()
+    if (gen !== reloads) return
+    const { choice, before, opened } = baseline
+    baseline = null
     const after = keymap.resolved
-    if (!before || !after || keymap.legacy || after === before) return
+    if (opened || !before || !after || keymap.legacy || after === before) return
     const changed = reloadedFile('keymaps', sideOf(before, choice), sideOf(after, keymap.active), why)
     if (!changed || !after.entry) return
-    // The app's own write (Keys, an Undo) landing through the change feed.
-    if (resources.isOwnWrite(after.entry.path, after.text)) return
     const entry = after.entry
+    const sameFile = before.entry?.path === entry.path
+    const announcer = {
+      notify: (input: NoticeInput) => host.workspace()?.notify(input),
+      toast: host.toast ?? showToast,
+      ...(host.openSettings ? { openSettings: host.openSettings } : {}),
+    }
+    if (sameFile && before.text === after.text) {
+      // The file in use is byte-for-byte what it was: a keymap it extends changed.
+      const was = new Map((before.ancestors ?? []).map((a) => [a.entry.path, a.text]))
+      const parent = (after.ancestors ?? []).find((a) => was.get(a.entry.path) !== a.text)
+      if (parent && resources.isOwnWrite(parent.entry.path, parent.text)) return
+      announceReload(announcer, parent ? named(parent.entry) : changed, null)
+      return
+    }
+    // The app's own write (Keys, an Undo) landing through the change feed.
+    if (resources.isOwnWrite(entry.path, after.text)) return
     const text = before.text
+    const current = after.text
     const writable =
       entry.root === 'vault' &&
-      before.entry?.path === entry.path &&
+      sameFile &&
       text !== undefined &&
+      current !== undefined &&
       savableName(entry.name, BUILTIN_KEYMAPS)
     announceReload(
-      {
-        notify: (input) => host.workspace()?.notify(input),
-        toast: host.toast ?? showToast,
-        ...(host.openSettings ? { openSettings: host.openSettings } : {}),
-      },
+      announcer,
       changed,
       writable
         ? async () => {
-            await keymap.restore(entry.name, text, choice)
+            // The choice moves back only if it is still the one this reload saw.
+            await keymap.restore(entry.name, text, keymap.active === choice ? choice : null, current)
             return getLL().web.resources.undone_keymap({ file: changed.file })
           }
         : null

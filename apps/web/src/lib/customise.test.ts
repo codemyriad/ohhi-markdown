@@ -177,6 +177,58 @@ describe('createCustomise — the keymap in use reloaded (settings-shaping ST6)'
     expect(w.toasts[0]!.description).toBeUndefined()
   })
 
+  it('only a keymap it extends changed: that parent is named, with no Undo (review MED-1)', async () => {
+    const base = (bindings: Record<string, unknown>) => `${JSON.stringify({ $schema: KEYMAP_SCHEMA_ID, extends: 'default', bindings })}\n`
+    const own = `${JSON.stringify({ $schema: KEYMAP_SCHEMA_ID, extends: 'base', bindings: {} })}\n`
+    const w = world({ '.ohhi/keymaps/mine.json': own, '.ohhi/keymaps/base.json': base({ 'tab.close': 'Alt+w' }) })
+    w.config.active = 'custom:mine'
+    await settle()
+    // Even after the app wrote mine.json itself this session.
+    await w.customise.keymap.save('mine', { $schema: KEYMAP_SCHEMA_ID, extends: 'base', bindings: { 'format.bold': 'Alt+b' } })
+    await settle()
+    w.v.disk.set('.ohhi/keymaps/base.json', base({ 'tab.close': 'Alt+q' }))
+    w.v.touch('.ohhi/keymaps/base.json')
+    await settle()
+    expect(w.registry.effectiveKeys('tab.close')).toBe('Alt+q')
+    expect(w.toasts).toHaveLength(1)
+    expect(w.toasts[0]!.title).toBe('Keymap base.json reloaded from this vault')
+    expect(w.toasts[0]!.action?.label).toBe('Show')
+    expect(w.toasts[0]!.description).toBeUndefined()
+  })
+
+  it('Undo refuses when the file changed again since the notice (review MED-2)', async () => {
+    const before = mine({ 'tab.close': 'Alt+w' })
+    const w = world({ '.ohhi/keymaps/mine.json': before })
+    w.config.active = 'custom:mine'
+    await settle()
+    w.v.disk.set('.ohhi/keymaps/mine.json', mine({ 'tab.close': 'Alt+q' }))
+    w.v.touch('.ohhi/keymaps/mine.json')
+    await settle()
+    expect(w.toasts).toHaveLength(1)
+    // Changed again, not yet heard by the watcher.
+    const newest = mine({ 'tab.close': 'Alt+z' })
+    w.v.disk.set('.ohhi/keymaps/mine.json', newest)
+    const writes = w.v.writes.length
+    w.toasts[0]!.action!.run()
+    await settle()
+    expect(w.v.disk.get('.ohhi/keymaps/mine.json')).toBe(newest)
+    expect(w.v.writes).toHaveLength(writes)
+    expect(w.toasts[1]).toEqual({ level: 'error', title: 'Could not undo: it has changed again since, so nothing was undone' })
+  })
+
+  it('overlapping change events for one save are announced once (review PLAUSIBLE)', async () => {
+    const w = world({ '.ohhi/keymaps/mine.json': mine({ 'tab.close': 'Alt+w' }) })
+    w.config.active = 'custom:mine'
+    await settle()
+    w.v.disk.set('.ohhi/keymaps/mine.json', mine({ 'tab.close': 'Alt+q' }))
+    w.v.touch('.ohhi/keymaps/mine.json')
+    w.v.touch('.ohhi/keymaps/mine.json')
+    await settle()
+    expect(w.registry.effectiveKeys('tab.close')).toBe('Alt+q')
+    expect(w.toasts).toHaveLength(1)
+    expect(w.notices.filter((n) => n.code === 'resource_reloaded')).toHaveLength(1)
+  })
+
   it('a keymap that can no longer be used is the fallback warning alone', async () => {
     const w = world({ '.ohhi/keymaps/mine.json': mine({ 'tab.close': 'Alt+w' }) })
     w.config.active = 'custom:mine'

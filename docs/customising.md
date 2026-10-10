@@ -32,8 +32,8 @@ keymap file that does not parse or validate, listed with its file, root and
 message until it is fixed (read from the files on each change and on
 *Reload files*, which runs `app.reload-resources`). Its verbs are read-only:
 *Copy path* (the desktop app cannot open a folder for you yet) and *Copy as
-JSON* (the resolved file in use). Settings › Layout and › Appearance each
-carry one line naming their file and its root.
+JSON* (the resolved file in use). Settings › Layout, › Appearance and › Keys
+each carry one line naming their file and its root.
 
 Each kind is read from **ordered roots**; the first root that has a name wins:
 

@@ -33,6 +33,25 @@ export const AGENT_CAPABILITIES: readonly { id: AgentCapability; ops: readonly s
 /** Stands in for the vault's folder where none is known (the manager's page, no vault open). */
 export const PLACEHOLDER_VAULT_PATH = '/path/to/your/vault'
 
+/**
+ * Where `ohhi` comes from today: the Oh hi markdown repository on GitHub. It
+ * is PRIVATE — the setup can only be followed with access to it, and every
+ * surface that names it says so.
+ */
+export const REPO_URL = 'https://github.com/codemyriad/ohhi-markdown'
+
+/**
+ * Step one on every route: the checkout and its dependencies
+ * (docs/running-and-testing.md §1–2 — Node 22, Rush through the repo's own
+ * `install-run-rush.js`, so no global Rush is needed). `install-ohhi.sh`
+ * builds the CLI and needs these installed first.
+ */
+export const GET_REPO = [
+  'git clone git@github.com:codemyriad/ohhi-markdown.git',
+  'cd ohhi-markdown',
+  'node common/scripts/install-run-rush.js install',
+].join('\n')
+
 /** The repo's install scripts — today's only route to `ohhi` and the skill (Fork 6 deferred). */
 export const INSTALL_OHHI = './scripts/install-ohhi.sh'
 export const INSTALL_SKILL = './scripts/install-skill.sh'

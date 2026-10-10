@@ -15,6 +15,12 @@
    * moving to another section) is the `SettingsEnv` context set here
    * (`settings-host.ts`). A section in `NEEDS_VAULT` says "open a vault to
    * change this" when none is open, rather than hiding.
+   *
+   * Narrow panes (a split, a phone): the nav and each section measure their
+   * own width (container queries, not the viewport). Below 32rem the nav is
+   * a `<select>` above the section (`Tabs`' `collapse`); a section's grids
+   * use container breakpoints (`@md:`), so a split pane on a wide screen
+   * gets the narrow layout too.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Clock } from '@ohhi/vault'
@@ -138,10 +144,10 @@
 </script>
 
 <div data-testid="settings" data-section={section} class="h-full min-h-0">
-  <Tabs tabs={TABS} bind:value={current} orientation="vertical" label={t.sections()} testid="settings-tabs">
+  <Tabs tabs={TABS} bind:value={current} orientation="vertical" collapse label={t.sections()} testid="settings-tabs">
     {#snippet panel(id)}
       {@const sid = id as SettingsSection}
-      <div class="max-w-2xl pb-8" data-testid="settings-section:{sid}">
+      <div class="@container max-w-2xl pb-8" data-testid="settings-section:{sid}">
         <h2 class="mb-3 text-base font-semibold text-base-content">{t.nav[sid]()}</h2>
         {#if NEEDS_VAULT.has(sid) && !vaultOpen}
           <div data-testid="settings-needs-vault:{sid}" class="space-y-2">
@@ -178,6 +184,7 @@
             {resources}
             canSave={keymap !== undefined && readAppFile !== undefined}
             legacy={() => overridesToBindings(hotkeys())}
+            onShowLog={showLog}
           />
         {:else if sid === 'sync'}
           <SyncSettings

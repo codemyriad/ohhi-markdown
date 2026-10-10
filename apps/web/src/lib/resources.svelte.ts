@@ -199,6 +199,24 @@ export interface ResolvedKeymap {
    * write from someone else's (`isOwnWrite`).
    */
   text?: string
+  /**
+   * Each file its `extends` chain read, nearest first, with its bytes (absent
+   * on a fallback): how a reload tells a change to the active file from a
+   * change to a keymap it extends (settings-shaping ST6).
+   */
+  ancestors?: { entry: ResourceEntry; text: string }[]
+}
+
+/**
+ * An Undo refused because the file no longer holds the bytes the change it
+ * undoes left there — someone (an agent, an editor, another device) wrote it
+ * since, and putting the old bytes back would throw their write away.
+ */
+export class StaleUndoError extends Error {
+  constructor(readonly path: string) {
+    super(getLL().web.resources.undo_stale())
+    this.name = 'StaleUndoError'
+  }
 }
 
 /** What a resolved layout came from, for Settings and the notice. */
@@ -343,10 +361,18 @@ export function createResources(host: ResourcesHost) {
     def: JsonKind<F>,
     name: string,
     from = 0
-  ): Promise<{ file: F; root: F; chain: Record<string, F>; entry: ResourceEntry; text: string }> {
+  ): Promise<{
+    file: F
+    root: F
+    chain: Record<string, F>
+    entry: ResourceEntry
+    text: string
+    ancestors: { entry: ResourceEntry; text: string }[]
+  }> {
     const top = await readFile(def, name, from)
     const root: F = { ...top.file }
     const chain: Record<string, F> = {}
+    const ancestors: { entry: ResourceEntry; text: string }[] = []
     let node = root
     let nodeName = name
     let nodeIndex = top.index
@@ -361,6 +387,7 @@ export function createResources(host: ResourcesHost) {
         throw def.fail(`extends "${target}": ${err instanceof Error ? err.message : String(err)}`)
       })
       const key = self ? `${target}@${parent.entry.root}` : target
+      ancestors.push({ entry: parent.entry, text: parent.text })
       if (self) node.extends = key
       const copy: F = { ...parent.file }
       chain[key] = copy
@@ -368,7 +395,7 @@ export function createResources(host: ResourcesHost) {
       nodeName = key
       nodeIndex = parent.index
     }
-    return { file: top.file, root, chain, entry: top.entry, text: top.text }
+    return { file: top.file, root, chain, entry: top.entry, text: top.text, ancestors }
   }
 
   /** A layout by name, resolved through the roots; throws a `LayoutError` saying why it cannot be. */
@@ -410,13 +437,14 @@ export function createResources(host: ResourcesHost) {
 
   /** A keymap by name, resolved through the roots; throws a `KeymapError` saying why it cannot be. */
   async function resolveKeymapName(name: string, from = 0): Promise<Omit<ResolvedKeymap, 'error'>> {
-    const { file, root, chain, entry, text } = await readChain(KEYMAPS, name, from)
+    const { file, root, chain, entry, text, ancestors } = await readChain(KEYMAPS, name, from)
     return {
       bindings: resolveKeymap(root, chain, name),
       parent: resolveKeymap({ ...root, bindings: {} }, chain, name),
       file,
       entry,
       text,
+      ancestors,
     }
   }
 
@@ -497,19 +525,30 @@ export function createResources(host: ResourcesHost) {
 
   /**
    * Put `.ohhi/keymaps/<name>.json` back to `text` — the exact bytes a
-   * Settings › Keys write replaced — or remove it when `text` is null (the
-   * write created it). Settings › Keys' Undo (settings-shaping ST3). Both go
-   * through the workspace's journaled calls, so the bytes Undo replaces are
-   * journaled in their turn; nothing is re-serialised.
+   * Settings › Keys write (or a reloaded change) replaced — or remove it when
+   * `text` is null (the write created it). Settings › Keys' Undo
+   * (settings-shaping ST3) and the reload notice's (ST6). Both go through
+   * the workspace's journaled calls, so the bytes Undo replaces are journaled
+   * in their turn; nothing is re-serialised.
+   *
+   * `expected` is what the file must still hold for the Undo to be safe (the
+   * bytes the undone change left; null = no file): the file is read again
+   * first, and anything else — written since by an agent, an editor or
+   * another device — refuses with a `StaleUndoError` rather than writing
+   * over it. Absent → not checked.
    */
-  async function restoreKeymap(name: string, text: string | null): Promise<string> {
+  async function restoreKeymap(name: string, text: string | null, expected?: string | null): Promise<string> {
     const vault = writableVault(KEYMAPS, name)
     const path = `.ohhi/keymaps/${name}${KIND_EXT.keymaps}`
+    if (expected !== undefined) {
+      const now = await vault.readAppFile(path).catch(() => null)
+      if (now !== expected) throw new StaleUndoError(path)
+    }
     if (text !== null) await writeText(vault, path, text)
     else if (vault.deleteAppFile) {
       ownWrites.set(path, null)
       await vault.deleteAppFile(path)
-    } else throw new KeymapError(`${path}: this vault cannot remove a file`)
+    } else throw new KeymapError(getLL().web.keymaps.cannot_remove({ path }))
     await refreshKeymaps()
     return path
   }
@@ -628,6 +667,8 @@ export function createResources(host: ResourcesHost) {
     onChange,
     /** True when `text` is exactly what the app itself last wrote to `path` (its own write, not a change under it). */
     isOwnWrite: (path: string, text: string | undefined): boolean => text !== undefined && ownWrites.get(path) === text,
+    /** The bytes the app itself last wrote to `path` (null = it removed the file; undefined = it has not written it). */
+    written: (path: string): string | null | undefined => ownWrites.get(path),
     /** `app.reload-resources` (quiet-shell F9): every kind re-reads, the layout re-seeding its columns. */
     reloadAll: (): void => emit(RESOURCE_KINDS, 'reload'),
   }

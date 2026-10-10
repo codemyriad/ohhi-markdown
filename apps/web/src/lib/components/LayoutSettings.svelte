@@ -132,7 +132,7 @@
   {/if}
   {#if part === 'shell'}<p class="text-xs text-base-content/70">{t.intro()}</p>{/if}
 
-  <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+  <div class="mt-3 grid grid-cols-1 gap-3 @md:grid-cols-2">
     {#each SELECTS as field (field.id)}
       {#if pinned(field)}
         <div class="block">

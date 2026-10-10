@@ -12,8 +12,16 @@
    * draft, no Save. The first change to a read-only keymap creates
    * `.ohhi/keymaps/mine.json` extending it, and Undo puts back what a write
    * replaced. Pure filtering lives in `hotkey-rows.ts`.
+   *
+   * Focus never drops to the page: after a recording, a ×, a Reset or an
+   * Undo it lands on the row's first chip (or its +). What happened is said
+   * in two live regions that are always in the page and empty when idle —
+   * a status (the change, naming the command, its keys and the file) and an
+   * alert (a failure) — cleared before each message, so the same sentence
+   * twice is announced twice.
    */
   import { onMount, tick } from 'svelte'
+  import { getLL } from '@ohhi/i18n'
   import { ChevronDown, ChevronRight, Keyboard, Plus, TriangleAlert, X } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { CommandBinding, CommandRegistry } from '../commands.js'
@@ -23,6 +31,7 @@
     filterRows,
     groupRows,
     isChanged,
+    takesTypingKey,
     withChord,
     withoutChord,
     type HotkeyFilter,
@@ -45,9 +54,12 @@
     canSave: boolean
     /** The legacy per-device map, as bindings (what is in force before a vault's keymap). */
     legacy?: () => KeymapBindings
+    /** Opens the Log (where a failed keys migration says why); absent → not offered. */
+    onShowLog?: () => void
   }
 
-  let { registry, keymap, resources, canSave, legacy = () => ({}) }: Props = $props()
+  let { registry, keymap, resources, canSave, legacy = () => ({}), onShowLog }: Props = $props()
+  const uid = $props.id()
 
   const t = $derived($LL.web.settings.keys)
   const format = (keys: string): string => registry.format(keys)
@@ -58,8 +70,8 @@
     active: 'default' as const,
     resolved: null,
     legacy: true,
-    save: () => Promise.reject(new Error('no keymap')),
-    restore: () => Promise.reject(new Error('no keymap')),
+    save: () => Promise.reject(new Error(getLL().web.keymaps.needs_vault())),
+    restore: () => Promise.reject(new Error(getLL().web.keymaps.needs_vault())),
   }
   const writer = createHotkeyWriter({
     get registry() {
@@ -119,18 +131,101 @@
     recording = null
   }
 
+  // ---- focus and the live regions (review H1, H2) ----
+  let root = $state<HTMLElement | undefined>()
+  /** The status region's sentence (polite) and the alert region's (a failure). */
+  let status = $state('')
+  let alert = $state('')
+
+  /** Say `text` in a region: both emptied first, so the same sentence twice is announced twice. */
+  async function say(region: 'status' | 'alert', text: string): Promise<void> {
+    status = ''
+    alert = ''
+    await tick()
+    if (region === 'status') status = text
+    else alert = text
+  }
+
+  /** Chip `at` of row `id`, else its first chip, else its +, else the search field (the row was filtered out). */
+  async function focusRow(id: string, at = 0): Promise<void> {
+    await tick()
+    const find = (testid: string) => root?.querySelector<HTMLElement>(`[data-testid="${testid}"]`) ?? null
+    const el = find(`hotkey-chip:${id}:${at}`) ?? find(`hotkey-chip:${id}:0`) ?? find(`hotkey-add:${id}`) ?? searchField
+    el?.focus()
+  }
+
+  const keysText = (chords: readonly string[]): string =>
+    chords.length > 0 ? chords.map(format).join(', ') : t.unbound()
+  const titleOf = (id: string): string => rows.find((r) => r.id === id)?.title ?? id
+
+  /** Say what the last write or Undo did, or why it did not. */
+  async function report(): Promise<void> {
+    const problem = writer.problem
+    if (problem) {
+      if (problem.kind === 'stale') return say('alert', t.undo_stale({ path: problem.path }))
+      if (problem.kind === 'undo') return say('alert', t.undo_error({ error: problem.message }))
+      return say('alert', t.error({ error: problem.message }))
+    }
+    const last = writer.last
+    if (last) {
+      const parts = { command: titleOf(last.id), keys: keysText(last.chords), path: last.path }
+      return say('status', last.created ? t.created(parts) : t.saved(parts))
+    }
+    const undone = writer.undone
+    if (undone) {
+      const chords = rows.find((r) => r.id === undone.id)?.chords ?? []
+      return say('status', t.undone({ command: titleOf(undone.id), keys: keysText(chords), path: undone.path }))
+    }
+  }
+
+  /** Write `chords` for `row`, say so, and put focus back on the row (chip `at`). */
+  async function change(row: CommandBinding, chords: string[], at = 0): Promise<void> {
+    await writer.set(row, chords)
+    await report()
+    await focusRow(row.id, at)
+  }
+
+  async function reset(row: CommandBinding): Promise<void> {
+    await writer.reset(row)
+    await report()
+    await focusRow(row.id)
+  }
+
+  async function undo(): Promise<void> {
+    await writer.undo()
+    await report()
+    await tick()
+    // Undo keeps the focus while there is more to undo; else back to the row it put back.
+    const button = root?.querySelector<HTMLElement>('[data-testid="keymap-undo"]')
+    if (button) button.focus()
+    else if (writer.undone) await focusRow(writer.undone.id)
+    else searchField?.focus()
+  }
+
   function onRecordKey(row: CommandBinding, e: KeyboardEvent): void {
     // Tab is how a keyboard user leaves; it is never recorded.
     if (e.key === 'Tab') return stopRecording()
     e.preventDefault()
     e.stopPropagation()
-    // Escape cancels the recording and changes nothing.
-    if (e.key === 'Escape') return stopRecording()
+    // Escape cancels the recording, changes nothing, and gives the focus back to the row.
+    if (e.key === 'Escape') {
+      const at = recording?.at
+      stopRecording()
+      void focusRow(row.id, typeof at === 'number' ? at : 0)
+      return
+    }
     const binding = registry.bindingFor(e)
     if (!binding || !recording) return // modifiers only — the user is still reaching
-    const next = withChord(row.chords, binding, recording.at, format)
+    // A key that types (a letter, Enter, Space…) on its own is refused; still recording.
+    if (takesTypingKey(binding)) {
+      void say('alert', t.needs_modifier())
+      return
+    }
+    const at = recording.at
+    const next = withChord(row.chords, binding, at, format)
     stopRecording()
-    void writer.set(row, next)
+    const landed = next.findIndex((c) => format(c) === format(binding))
+    void change(row, next, landed >= 0 ? landed : 0)
   }
 
   function onSearchKey(e: KeyboardEvent): void {
@@ -165,7 +260,8 @@
   )
   /** The rest of the line: what the file extends, and where a change will go when it is read-only. */
   const sourceNote = $derived.by(() => {
-    if (!keymap || keymap.legacy) return t.legacy()
+    if (!keymap) return ''
+    if (keymap.legacy) return t.legacy()
     const resolved = keymap.resolved
     const parts: string[] = []
     const parent = resolved?.entry && resolved.entry.root !== 'builtin' ? resolved.file.extends : undefined
@@ -178,7 +274,7 @@
   const CHIP = 'rounded border border-base-300 bg-base-100 px-1.5 py-0.5 font-ed-mono text-xs text-base-content'
 </script>
 
-<section data-testid="settings-hotkeys" class="space-y-3">
+<section bind:this={root} data-testid="settings-hotkeys" class="space-y-3">
   <p class="text-xs text-base-content/70">{t.intro()}</p>
 
   {#if keymap}
@@ -188,7 +284,17 @@
           <span data-testid="keymap-from">{sourceNote}</span>
         </ResourceSource>
       {:else}
-        <p class="mb-3 text-xs text-base-content/70" data-testid="keymap-from">{sourceNote}</p>
+        <p class="mb-3 text-xs text-base-content/70" data-testid="keymap-from">
+          {sourceNote}
+          {#if keymap.legacy && onShowLog}
+            <button
+              type="button"
+              data-testid="keymap-show-log"
+              onclick={() => onShowLog?.()}
+              class="ml-1 rounded text-primary underline-offset-2 hover:underline">{t.show_log()}</button
+            >
+          {/if}
+        </p>
       {/if}
       <label class="flex items-center gap-1.5 text-xs">
         <span class="text-base-content/80">{t.pick()}</span>
@@ -198,8 +304,13 @@
           onchange={(e) => void keymap.setActive(e.currentTarget.value as typeof keymap.active)}
           class="rounded border border-base-300 bg-base-100 px-2 py-1 text-xs focus:border-primary focus:outline-none"
         >
+          {#if keymap.legacy}
+            <option value="" disabled>{t.on_device()}</option>
+          {/if}
           {#each resources?.keymaps ?? [] as option (option.name)}
-            <option value={choiceOf(option, BUILTIN_KEYMAPS)}>{option.name}</option>
+            <option value={choiceOf(option, BUILTIN_KEYMAPS)}
+              >{t.pick_option({ name: option.name, source: $LL.web.settings.customise.from[option.root]() })}</option
+            >
           {/each}
         </select>
       </label>
@@ -268,6 +379,10 @@
         </button>
       {/each}
     </div>
+    <!-- How many rows the search, the pressed keys or a chip leave: always in the page, empty when nothing narrows. -->
+    <p role="status" class="text-[11px] text-base-content/70" data-testid="hotkey-result-count">
+      {#if text.trim() || (byKeys && chord) || filter !== 'all'}{t.result_count({ count: shown.length })}{/if}
+    </p>
   </div>
 
   {#if rows.length === 0}
@@ -276,13 +391,18 @@
     <p class="text-xs text-base-content/70" data-testid="hotkey-no-match">{t.no_match()}</p>
   {/if}
 
-  {#each groups as group (group.label)}
+  {#each groups as group, gi (group.label)}
     {@const open = !collapsed[group.label]}
+    {@const listId = `${uid}-group-${gi}`}
     <div data-testid="hotkey-group:{group.label}">
       <h3>
         <button
           type="button"
           aria-expanded={open}
+          aria-controls={listId}
+          aria-label={group.changed > 0
+            ? t.group_label_changed({ group: group.label, count: group.rows.length, changed: group.changed })
+            : t.group_label({ group: group.label, count: group.rows.length })}
           data-testid="hotkey-group-toggle:{group.label}"
           onclick={() => (collapsed[group.label] = open)}
           class="flex w-full items-center gap-1 rounded py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase hover:text-base-content"
@@ -291,12 +411,12 @@
           <span>{group.label}</span>
           <span class="font-normal tabular-nums normal-case">{group.rows.length}</span>
           {#if group.changed > 0}
-            <span class="font-normal normal-case text-primary">· {t.group_changed({ count: group.changed })}</span>
+            <span class="font-normal normal-case text-primary"><span aria-hidden="true">·</span> {t.group_changed({ count: group.changed })}</span>
           {/if}
         </button>
       </h3>
       {#if open}
-        <ul class="divide-y divide-base-200">
+        <ul id={listId} class="divide-y divide-base-200">
           {#each group.rows as row (row.id)}
             {@const changed = isChanged(row, format)}
             {@const rec = recording?.id === row.id ? recording : null}
@@ -319,7 +439,7 @@
                       data-testid="hotkey-reset:{row.id}"
                       aria-label={t.reset_for({ command: row.title })}
                       disabled={!writer.canWrite}
-                      onclick={() => void writer.reset(row)}
+                      onclick={() => void reset(row)}
                       class="rounded px-1 text-base-content/80 underline-offset-2 hover:underline disabled:opacity-50"
                     >
                       {t.reset()}
@@ -363,7 +483,7 @@
                         label={t.remove_chip({ binding: format(keys), command: row.title })}
                         testid="hotkey-remove:{row.id}:{i}"
                         disabled={!writer.canWrite}
-                        onclick={() => void writer.set(row, withoutChord(row.chords, i))}
+                        onclick={() => void change(row, withoutChord(row.chords, i), i)}
                         class="opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100"
                       />
                     </span>
@@ -403,32 +523,24 @@
     />
   {/snippet}
 
-  {#if writer.error || writer.last || writer.undone}
-    <div
-      class="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-base-300 bg-base-100 py-2 text-xs"
-      data-testid="keymap-status"
-    >
-      {#if writer.error}
-        <p role="alert" class="flex-1 text-error" data-testid="keymap-save-error">{t.error({ error: writer.error })}</p>
-      {:else}
-        <p role="status" class="flex-1 text-base-content/80" data-testid="keymap-saved">
-          {#if writer.last}
-            {writer.last.created ? t.created({ path: writer.last.path }) : t.saved({ path: writer.last.path })}
-          {:else}
-            {t.undone()}
-          {/if}
-        </p>
-      {/if}
-      {#if writer.canUndo}
-        <button
-          type="button"
-          data-testid="keymap-undo"
-          onclick={() => void writer.undo()}
-          class="{OUTLINE_BUTTON} px-2 py-1 text-xs font-medium text-base-content/80"
-        >
-          {t.undo()}
-        </button>
-      {/if}
-    </div>
-  {/if}
+  <!-- The status bar: two live regions always in the page (empty when idle), and Undo. -->
+  <div
+    class="sticky bottom-0 flex flex-wrap items-center gap-2 bg-base-100 text-xs {status || alert || writer.canUndo
+      ? 'border-t border-base-300 py-2'
+      : ''}"
+    data-testid="keymap-status"
+  >
+    <p role="alert" class="text-error {alert ? 'flex-1' : ''}" data-testid="keymap-save-error">{alert}</p>
+    <p role="status" class="text-base-content/80 {status ? 'flex-1' : ''}" data-testid="keymap-saved">{status}</p>
+    {#if writer.canUndo}
+      <button
+        type="button"
+        data-testid="keymap-undo"
+        onclick={() => void undo()}
+        class="{OUTLINE_BUTTON} px-2 py-1 text-xs font-medium text-base-content/80"
+      >
+        {t.undo()}
+      </button>
+    {/if}
+  </div>
 </section>

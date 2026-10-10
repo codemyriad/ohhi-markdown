@@ -1102,6 +1102,26 @@ describe('openView (devtools-shaping D1-A: a shell surface as a tab)', () => {
     expect(panes(back!.tree).flatMap((p) => p.tabs).find((t) => t.view === 'settings')?.viewArg).toBe('keys')
   })
 
+  it('settings stays one per window through a reopen and a stored twin', () => {
+    const gen = ids('o')
+    let l = openView(createLayout(gen), 'settings', { arg: 'layout' }, gen)
+    const first = activeTab(paneAt(l, 0))!
+    const closed = closedTabOf(l, first.id)!
+    l = closeTab(l, first.id, gen)
+    // Opened again since it closed: reopening focuses that one, with the closed tab's section.
+    l = openView(l, 'settings', { arg: 'keys' }, gen)
+    l = reopenTab(l, closed, gen)
+    const settingsTabs = (x: Layout) => panes(x.tree).flatMap((p) => p.tabs).filter((t) => t.view === 'settings')
+    expect(settingsTabs(l)).toHaveLength(1)
+    expect(settingsTabs(l)[0].viewArg).toBe('layout')
+    // A stored layout with two Settings tabs keeps the first; the twin reads as an empty tab.
+    const raw = serialize(l) as unknown as { tree: { tabs: Record<string, unknown>[] } }
+    raw.tree.tabs.push({ id: 'twin', path: null, view: 'settings', viewArg: 'about' })
+    const back = normalize(raw, ids('n'))!
+    expect(settingsTabs(back)).toHaveLength(1)
+    expect(settingsTabs(back)[0].viewArg).toBe('layout')
+  })
+
   it('reads any registered view kind back, and an unknown one as an empty tab', () => {
     expect(VIEW_KINDS).toContain('inspector')
     for (const kind of VIEW_KINDS) expect(isViewKind(kind)).toBe(true)

@@ -121,6 +121,35 @@ describe('Settings › Customise', () => {
     expect(screen.getByTestId('customise-in-use:themes')).toHaveTextContent(t.from.builtin())
   })
 
+  it('says Copied on the button that copied and in one live region, then clears after two seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const { write } = setup({ files: {} })
+      const button = screen.getByTestId('customise-copy-json:layouts')
+      const status = screen.getByTestId('customise-status')
+      expect(status).toHaveAttribute('role', 'status')
+      expect(status).toHaveTextContent('')
+
+      await user.click(button)
+      await waitFor(() => expect(button).toHaveTextContent(t.copied()))
+      expect(status).toHaveTextContent(t.copied())
+      // Only the button that copied says so.
+      expect(screen.getByTestId('customise-copy-prompt')).toHaveTextContent(t.copy_prompt())
+
+      vi.advanceTimersByTime(2000)
+      await waitFor(() => expect(button).toHaveTextContent(t.copy_json()))
+      expect(status).toHaveTextContent('')
+
+      write.mockRejectedValueOnce(new Error('denied'))
+      await user.click(button)
+      await waitFor(() => expect(button).toHaveTextContent(t.copy_failed()))
+      expect(status).toHaveTextContent(t.copy_failed())
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('copies the layout in use as JSON, a file’s path on disk, and the agent prompt with the vault’s folder', async () => {
     const user = userEvent.setup()
     const { write } = setup({ files: { '.ohhi/layouts/focus.json': 'nope' } })

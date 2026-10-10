@@ -126,3 +126,21 @@ export function withChord(chords: readonly string[], chord: string, at: number |
 
 /** The row's chords without chip `at`. */
 export const withoutChord = (chords: readonly string[], at: number): string[] => chords.filter((_, i) => i !== at)
+
+/** Keys that type or edit text: bound on their own, they would stop doing that in every note. */
+const TEXT_KEYS = new Set(['Enter', 'Backspace', 'Delete', ' ', 'Space', 'Spacebar'])
+
+/**
+ * A recorded chord that would take a key away from typing (review M5): a
+ * printable character, Enter, Space, Backspace or Delete with no Mod, Ctrl
+ * or Alt — Shift alone still types (`Shift+a` is `A`). Function keys, Escape
+ * and the like are fine on their own.
+ */
+export function takesTypingKey(binding: string): boolean {
+  // `Shift++` is Shift and the `+` key: the key is whatever follows the last separator.
+  const cut = binding.endsWith('++') ? binding.length - 1 : binding.lastIndexOf('+') + 1
+  const key = binding.slice(cut) || '+'
+  const mods = binding.slice(0, Math.max(0, cut - 1)).split('+').filter(Boolean)
+  if (mods.some((m) => m === 'Mod' || m === 'Ctrl' || m === 'Alt')) return false
+  return key.length === 1 || TEXT_KEYS.has(key)
+}
