@@ -825,6 +825,8 @@ const shared = {
     link_body: 'Syncs the whole vault to a laptop or a second desk. Only yours: never share this link.',
     no_relay: 'No relay configured. You will choose one the first time you share.',
     relay_is: 'Shares go through {host:string}.',
+    /** After `relay_is` when no operator secret is saved yet (first-run D3). */
+    secret_once: 'To create links you will need the team’s secret once.',
   },
   /** The tree's change tick (sharing E3). */
   tick: 'Changed by someone else in the last hour',
@@ -893,6 +895,8 @@ const manager = {
   link_device_hint:
     'Already have this vault on another device? Paste its device link and the whole vault arrives here.',
   link_device_open: 'Link this device…',
+  /** A folder share opened as its own vault in the browser, when the link names no folder. */
+  joined_vault_name: 'Shared folder on {host:string}',
   errors: {
     // A link that will not decode is named by `share.link_error.*` now — one
     // reason per way a link can be unusable, not one word for all of them.
@@ -1126,6 +1130,13 @@ const share = {
     into_vault_unavailable: 'Open a vault first to add a folder inside it.',
     own_vault: 'As its own vault',
     own_vault_hint: 'Kept apart; switch to it from the vault menu.',
+    /** Under "As its own vault", per platform (first-run F1): what happens next. */
+    own_vault_desktop: 'You will pick an empty folder for it to live in.',
+    own_vault_browser: 'Kept in this browser; switch to it from the vault menu.',
+    /** The progress panel for a folder share opened as its own vault (first-run F1). */
+    panel_title: 'Adding {name:string}',
+    panel_folder: 'Folder',
+    panel_failed: 'Adding the folder failed.',
     dest: 'Folder',
     dest_placeholder: 'e.g. shared/team',
     dest_hint: 'A new folder, or an existing empty one. A top-level name keeps it beside your notes.',

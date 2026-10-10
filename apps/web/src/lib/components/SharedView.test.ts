@@ -30,6 +30,7 @@ function setup(over: {
   presenceByPath?: Record<string, { name: string; color: number; clientId: number }[]>
   events?: AppEvent[]
   secret?: string
+  relayKnown?: boolean
 } = {}) {
   const ui = {
     mounts: over.mounts ?? [CS, MY],
@@ -61,6 +62,7 @@ function setup(over: {
     revealFolder: vi.fn(),
     relayUrl: () => 'wss://relay.ohhi.md',
     secret: () => over.secret ?? '',
+    relayKnown: () => over.relayKnown ?? false,
     revision: () => 0,
     inSyncByRoom: () => ({ cs: { since: NOW - 2 * MIN } }),
   }
@@ -93,6 +95,24 @@ describe('SharedView (sharing E2)', () => {
     await user.selectOptions(select, 'notes')
     await user.click(screen.getByTestId('share-folder-next'))
     expect(shell.shareFolder).toHaveBeenCalledWith('notes')
+  })
+
+  it('the empty state’s footer reads the relay, not the secret (first-run D3)', () => {
+    // A team build with the relay baked in and no secret yet: where shares go, and what is still needed.
+    setup({ mounts: [], relayKnown: true })
+    const footer = screen.getByTestId('shared-empty-relay')
+    expect(footer).toHaveTextContent(t.empty.relay_is({ host: 'relay.ohhi.md' }))
+    expect(footer).toHaveTextContent(t.empty.secret_once())
+    expect(footer).not.toHaveTextContent(t.empty.no_relay())
+    cleanup()
+    // With the secret saved, only where shares go.
+    setup({ mounts: [], relayKnown: true, secret: 's3cret' })
+    expect(screen.getByTestId('shared-empty-relay')).toHaveTextContent(t.empty.relay_is({ host: 'relay.ohhi.md' }))
+    expect(screen.getByTestId('shared-empty-relay')).not.toHaveTextContent(t.empty.secret_once())
+    cleanup()
+    // A secret but no relay known (the dev fallback only) still says none is configured.
+    setup({ mounts: [], relayKnown: false, secret: 's3cret' })
+    expect(screen.getByTestId('shared-empty-relay')).toHaveTextContent(t.empty.no_relay())
   })
 
   it('the relay card says connected, rooms, people and since when it is in sync with the relay — never "durable"', () => {

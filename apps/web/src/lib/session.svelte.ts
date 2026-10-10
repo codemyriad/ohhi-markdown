@@ -29,6 +29,11 @@ export interface BootFailure {
 export interface Joining {
   entry: VaultEntry
   destination: string
+  /**
+   * What is arriving (first-run F1): a whole vault through a device link, or
+   * a folder share opened as its own vault — the panel titles them apart.
+   */
+  kind: 'device' | 'folder'
 }
 
 /** What the session needs from the rest of the shell. */

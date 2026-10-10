@@ -34,6 +34,7 @@ function open(over: Partial<ComponentProps<typeof AddSharedFolderDialog>> = {}) 
       | null,
     onJoinAsVault: vi.fn(),
     onClose: vi.fn(),
+    isTauri: false,
     ...over,
   }
   render(AddSharedFolderDialog, props)
@@ -136,6 +137,21 @@ describe('AddSharedFolderDialog', () => {
     await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(folderLink))
     expect(props.onJoinIntoVault).not.toHaveBeenCalled()
     await waitFor(() => expect(props.onClose).toHaveBeenCalled())
+  })
+
+  it('as its own vault says what happens next on this platform, and only once chosen (first-run F1)', async () => {
+    const user = userEvent.setup()
+    open({ isTauri: true })
+    expect(screen.queryByTestId('add-share-own-platform')).toBeNull()
+    await user.click(ownVault())
+    expect(screen.getByTestId('add-share-own-platform')).toHaveTextContent(t.own_vault_desktop())
+    await user.click(intoVault())
+    expect(screen.queryByTestId('add-share-own-platform')).toBeNull()
+    cleanup()
+
+    open({ vaultName: null, onJoinIntoVault: null, isTauri: false })
+    expect(screen.getByTestId('add-share-own-platform')).toHaveTextContent(t.own_vault_browser())
+    expect(screen.queryByText(t.own_vault_desktop())).toBeNull()
   })
 
   it('from the manager with no vault open: only "as its own vault", and it says why', async () => {

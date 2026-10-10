@@ -4,7 +4,9 @@
  * the relay card, the room card with B in its stack, B's edit in Changes —
  * and when the relay goes away the card reads "Reconnecting…" while every
  * pill agrees (golden rule 4: all of it is f(records)). A vault that shares
- * nothing shows the onboarding instead. Axe over each surface.
+ * nothing shows the onboarding instead, its footer reading the relay (first-run
+ * D3); a folder share opened as its own vault is titled "Adding …" (F1). Axe
+ * over each surface.
  */
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { encodeShareLink } from '../src/lib/share-link.js'
@@ -111,10 +113,44 @@ test('a vault that shares nothing opens Shared on its onboarding', async ({ page
   const empty = page.getByTestId('shared-empty')
   await expect(empty).toContainText('Nothing is shared yet')
   await expect(page.getByTestId('relay-card')).toHaveCount(0)
+  // The footer reads the RELAY, not the secret (first-run D3). This build has
+  // no VITE_DEFAULT_RELAY and nothing is saved: no relay is known.
+  const footer = page.getByTestId('shared-empty-relay')
+  await expect(footer).toContainText('No relay configured')
   await expectAccessible(page, 'shared view (empty)')
+
+  // A relay saved in Settings, still no secret: where shares go, and the one thing still needed.
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:sync').click()
+  await page.getByTestId('settings-relay').fill('wss://relay.example.test')
+  await page.getByTestId('settings-save-sync').click()
+  await expect(page.getByTestId('settings-save-sync')).toBeDisabled()
+  await page.getByTestId('settings-close').click()
+  await expect(footer).toContainText('Shares go through relay.example.test.')
+  await expect(footer).toContainText('you will need the team’s secret once')
+  await expect(footer).not.toContainText('No relay configured')
 
   // Share a folder… asks which folder first.
   await empty.getByTestId('shared-share').click()
   await expect(page.getByTestId('share-folder-picker')).toBeVisible()
   await expectAccessible(page, 'share folder picker')
+})
+
+test('a folder share opened as its own vault is "Adding …", not "Linking this device" (first-run F1)', async ({ page }) => {
+  await page.goto(MANAGER_URL)
+  await page.getByTestId('manager-name').fill('Bob')
+  await page.getByTestId('join-share').click()
+  await page.getByTestId('add-share-link').fill(encodeShareLink({ relay: RELAY, room: 'f1-folder', token: 'f1-token' }))
+  // As its own vault (the manager's only choice): the browser says where it will live.
+  await expect(page.getByTestId('add-share-where-own')).toBeChecked()
+  await expect(page.getByTestId('add-share-own-platform')).toContainText('Kept in this browser')
+  await page.getByTestId('add-share-join').click()
+
+  // The panel names the folder (no label on this link: the relay's host), on a Folder row.
+  const panel = page.getByTestId('join-progress')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByRole('heading')).toHaveText('Adding Shared folder on localhost:8799')
+  await expect(panel).toContainText('Folder')
+  await expect(panel).not.toContainText('Linking this device')
+  await expect(panel.getByTestId('join-attachments')).toBeVisible()
 })

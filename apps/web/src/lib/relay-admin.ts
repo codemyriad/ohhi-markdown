@@ -31,6 +31,32 @@ export function adminBaseUrl(relayWsUrl: string): string {
   return relayWsUrl.trim().replace(/^ws/, 'http').replace(/\/+$/, '')
 }
 
+/**
+ * One request to the admin API with the operator secret as bearer, the raw
+ * `Response` back; rejects only when the request never got an answer
+ * (network, CORS, abort). `call` below renders statuses as sentences; the
+ * secret check (`relay-probe.ts verifySecret`) reads them as codes instead.
+ */
+export function adminRequest(
+  relayWsUrl: string,
+  secret: string,
+  method: string,
+  path: string,
+  opts: { body?: unknown; fetch?: typeof fetch; signal?: AbortSignal } = {}
+): Promise<Response> {
+  const { body, signal } = opts
+  const doFetch = opts.fetch ?? fetch
+  return doFetch(`${adminBaseUrl(relayWsUrl)}${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${secret}`,
+      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(signal ? { signal } : {}),
+  })
+}
+
 async function call<T>(
   relayWsUrl: string,
   secret: string,
@@ -40,14 +66,7 @@ async function call<T>(
 ): Promise<T> {
   let res: Response
   try {
-    res = await fetch(`${adminBaseUrl(relayWsUrl)}${path}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${secret}`,
-        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    })
+    res = await adminRequest(relayWsUrl, secret, method, path, { body })
   } catch {
     throw new Error(getLL().web.relay.unreachable({ url: adminBaseUrl(relayWsUrl) }))
   }

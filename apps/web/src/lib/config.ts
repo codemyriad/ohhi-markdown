@@ -68,6 +68,38 @@ export function resolveDefaultRelay(buildValue: unknown): string {
 /** This build's default relay (`.env.example`); never stored — see `AppConfigV2.defaultRelay`. */
 export const DEFAULT_RELAY = resolveDefaultRelay(import.meta.env.VITE_DEFAULT_RELAY)
 
+/**
+ * Whether the build was GIVEN a relay (`VITE_DEFAULT_RELAY` is a relay URL),
+ * as opposed to running on the local-dev fallback. A team build with the
+ * relay baked in knows where shares go before anyone opens Settings; a build
+ * with no variable does not, even though `DEFAULT_RELAY` reads
+ * `ws://localhost:8787` (first-run-shaping D3).
+ */
+export function isDefaultRelayConfigured(buildValue: unknown): boolean {
+  const url = typeof buildValue === 'string' ? buildValue.trim() : ''
+  return isRelayUrl(url)
+}
+
+/** This build was given a relay (see `isDefaultRelayConfigured`). */
+export const DEFAULT_RELAY_CONFIGURED = isDefaultRelayConfigured(import.meta.env.VITE_DEFAULT_RELAY)
+
+/** A build-time sentence: trimmed, '' when unset or not a string. */
+export const buildText = (buildValue: unknown): string => (typeof buildValue === 'string' ? buildValue.trim() : '')
+
+/**
+ * Where this deployment keeps the operator secret, in one sentence
+ * (`VITE_TEAM_SECRET_HINT`, first-run-shaping D2) — '' when the build says
+ * nothing. Rendered by the secret field's *Where do I get this?*.
+ */
+export const TEAM_SECRET_HINT = buildText(import.meta.env.VITE_TEAM_SECRET_HINT)
+
+/**
+ * One sentence about reaching this deployment's relay
+ * (`VITE_TEAM_NETWORK_NOTE`, e.g. "only while you are on the company
+ * tailnet") — '' when the build says nothing.
+ */
+export const TEAM_NETWORK_NOTE = buildText(import.meta.env.VITE_TEAM_NETWORK_NOTE)
+
 /** One room's stored credential. */
 export interface RoomToken {
   token: string
@@ -422,6 +454,15 @@ export function defaultRelay(): string {
 }
 
 /** Store a relay the user chose (never an echo of the default); blank = follow the build again. */
+/**
+ * Whether this install knows where shares go: a relay saved in Settings ›
+ * Sync, or one the build was given. The local-dev fallback does not count
+ * (first-run-shaping D3: the Shared view's empty state says so).
+ */
+export function relayKnown(): boolean {
+  return loadConfig().defaultRelay !== '' || DEFAULT_RELAY_CONFIGURED
+}
+
 export function setDefaultRelay(url: string): void {
   const cfg = loadConfig()
   cfg.defaultRelay = url.trim()

@@ -2,4 +2,8 @@
 interface ImportMetaEnv {
   /** The relay a fresh install proposes; see `resolveDefaultRelay` in src/lib/config.ts. */
   readonly VITE_DEFAULT_RELAY?: string
+  /** Where the operator secret lives, one sentence; see `TEAM_SECRET_HINT` in src/lib/config.ts. */
+  readonly VITE_TEAM_SECRET_HINT?: string
+  /** Reachability, one sentence; see `TEAM_NETWORK_NOTE` in src/lib/config.ts. */
+  readonly VITE_TEAM_NETWORK_NOTE?: string
 }

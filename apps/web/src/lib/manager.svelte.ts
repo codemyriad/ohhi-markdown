@@ -10,6 +10,7 @@
  * `ManagerHost`, so a test can drive a join without a Tauri window.
  */
 import { getLL } from '@ohhi/i18n'
+import { relayHost } from '@ohhi/workspace'
 import {
   addShare,
   defaultRelay,
@@ -20,6 +21,7 @@ import {
   mergeGrants,
   operatorSecret,
   purgeRooms,
+  relayKnown,
   removeVault as removeVaultEntry,
   saveUser,
   setDefaultRelay,
@@ -53,6 +55,8 @@ export interface Manager {
   readonly vaults: VaultEntry[]
   readonly shares: StoredShare[]
   readonly relayDefault: string
+  /** A relay saved in Settings or given by the build — not the dev fallback (`config.relayKnown`). */
+  readonly relayKnown: boolean
   readonly opSecret: string
   /** Re-read the registry after anything wrote to it. */
   refresh(): void
@@ -83,12 +87,14 @@ export function createManager(session: Session, host: ManagerHost): Manager {
   let vaults = $state(listVaults())
   let shares = $state(loadShares())
   let relayDefault = $state(defaultRelay())
+  let isRelayKnown = $state(relayKnown())
   let opSecret = $state(operatorSecret())
 
   function refresh(): void {
     vaults = listVaults()
     shares = loadShares()
     relayDefault = defaultRelay()
+    isRelayKnown = relayKnown()
     opSecret = operatorSecret()
   }
 
@@ -151,6 +157,18 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     return session.failure?.message ?? null
   }
 
+  /**
+   * A browser vault opened from a folder share is named after the folder
+   * (first-run F1): the link's label when it carries one — the sharer's path,
+   * so its last segment — else the relay's host, never a literal "Shared
+   * vault" that every such vault would share.
+   */
+  function joinedVaultName(target: { relay: string; label?: string | undefined }): string {
+    const folder = target.label?.split('/').filter((s) => s.trim() !== '').pop()?.trim()
+    if (folder) return folder
+    return getLL().web.manager.joined_vault_name({ host: relayHost(target.relay) ?? target.relay })
+  }
+
   async function joinShareInto(name: string, link: string): Promise<void> {
     saveUser(name)
     session.failure = null
@@ -194,7 +212,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
         }
       } else {
         entry = {
-          name: 'Shared vault',
+          name: joinedVaultName(target),
           vault: { kind: 'opfs', id: target.room },
           room: target.room,
           relay: { url: target.relay, token: target.token },
@@ -209,7 +227,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
       host.cleanUrl()
       // A whole-vault pull gets the panel too: it is the same minute of
       // waiting whichever affordance started it.
-      session.joining = { entry, destination: destinationOf(entry.vault) }
+      session.joining = { entry, destination: destinationOf(entry.vault), kind: 'folder' }
       await session.boot(entry)
     } catch (err) {
       session.failure = { room: null, message: message(err) }
@@ -256,7 +274,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     refresh()
     host.cleanUrl()
     host.onDeviceLinked()
-    session.joining = { entry, destination: destinationOf(vault) }
+    session.joining = { entry, destination: destinationOf(vault), kind: 'device' }
     await session.boot(entry)
   }
 
@@ -295,6 +313,9 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     },
     get relayDefault() {
       return relayDefault
+    },
+    get relayKnown() {
+      return isRelayKnown
     },
     get opSecret() {
       return opSecret

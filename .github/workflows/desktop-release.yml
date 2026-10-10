@@ -64,6 +64,8 @@ jobs:
       channel: ${{ steps.meta.outputs.channel }}
       team_host: ${{ steps.meta.outputs.team_host }}
       relay: ${{ steps.meta.outputs.relay }}
+      secret_hint: ${{ steps.meta.outputs.secret_hint }}
+      network_note: ${{ steps.meta.outputs.network_note }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,6 +76,8 @@ jobs:
         env:
           TEAM_HOST: ${{ vars.TEAM_HOST }}
           DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
+          TEAM_SECRET_HINT: ${{ vars.TEAM_SECRET_HINT }}
+          TEAM_NETWORK_NOTE: ${{ vars.TEAM_NETWORK_NOTE }}
         run: |
           base=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
           if [ "$GITHUB_REF_TYPE" = tag ]; then
@@ -94,12 +98,18 @@ jobs:
           fi
           relay="${TEAM_HOST:+wss://$TEAM_HOST/relay}"
           relay="${relay:-$DEFAULT_RELAY}"
+          # One sentence each (docs/desktop-builds.md, "Build settings"); a
+          # newline would end the output line, so they are flattened.
+          secret_hint=$(printf '%s' "$TEAM_SECRET_HINT" | tr '\r\n' '  ')
+          network_note=$(printf '%s' "$TEAM_NETWORK_NOTE" | tr '\r\n' '  ')
           {
             echo "version=$version"
             echo "tag=v$version"
             echo "channel=$channel"
             echo "team_host=$TEAM_HOST"
             echo "relay=$relay"
+            echo "secret_hint=$secret_hint"
+            echo "network_note=$network_note"
           } >> "$GITHUB_OUTPUT"
           echo "::notice::$channel build v$version (team host: ${TEAM_HOST:-none}, relay: ${relay:-none})"
 
@@ -174,6 +184,8 @@ jobs:
         working-directory: apps/web
         env:
           VITE_DEFAULT_RELAY: ${{ needs.meta.outputs.relay }}
+          VITE_TEAM_SECRET_HINT: ${{ needs.meta.outputs.secret_hint }}
+          VITE_TEAM_NETWORK_NOTE: ${{ needs.meta.outputs.network_note }}
         run: node ../../common/scripts/install-run-rushx.js build
 
       - name: CSP guard

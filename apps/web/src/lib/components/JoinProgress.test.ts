@@ -15,11 +15,12 @@ const LL = getLL()
 const t = LL.web.device_link
 const DEST = '/home/chris/vault'
 
-function open(progress: PullProgress | null, error: string | null = null) {
+function open(progress: PullProgress | null, error: string | null = null, kind?: 'device' | 'folder') {
   const onRetry = vi.fn()
   const onCancel = vi.fn()
   render(JoinProgress, {
-    vaultName: 'Chris’s vault',
+    ...(kind ? { kind } : {}),
+    vaultName: kind === 'folder' ? 'Team notes' : 'Chris’s vault',
     destination: DEST,
     progress,
     error,
@@ -83,6 +84,32 @@ describe('JoinProgress', () => {
 
     await user.click(screen.getByRole('button', { name: LL.common.cancel() }))
     expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('a device link is "Linking this device", the vault named on a Vault row (the default kind)', () => {
+    open(null, null, 'device')
+    expect(screen.getByRole('heading', { name: t.panel_title() })).toBeInTheDocument()
+    expect(screen.getByText(t.panel_vault())).toBeInTheDocument()
+    expect(screen.queryByText(LL.web.share.add.panel_folder())).toBeNull()
+    expect(screen.getByTestId('join-attachments')).toHaveTextContent(t.attachments())
+  })
+
+  it('a folder share opened as its own vault is "Adding <folder>", on a Folder row (first-run F1)', () => {
+    const f = LL.web.share.add
+    open({ phase: 'pull', done: 1, total: 4 }, null, 'folder')
+    expect(screen.getByRole('heading', { name: f.panel_title({ name: 'Team notes' }) })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: t.panel_title() })).toBeNull()
+    expect(screen.getByText(f.panel_folder())).toBeInTheDocument()
+    expect(screen.queryByText(t.panel_vault())).toBeNull()
+    expect(screen.getByTestId('join-destination')).toHaveTextContent(DEST)
+    // The attachments note is true of a folder too.
+    expect(screen.getByTestId('join-attachments')).toHaveTextContent(t.attachments())
+  })
+
+  it('a folder join that fails says adding failed, not linking', () => {
+    open({ phase: 'pull', done: 1, total: 4 }, 'relay stalled', 'folder')
+    expect(screen.getByRole('alert')).toHaveTextContent(LL.web.share.add.panel_failed())
+    expect(screen.getByRole('alert')).not.toHaveTextContent(t.failed())
   })
 
   it('offers no retry while it is still working', () => {

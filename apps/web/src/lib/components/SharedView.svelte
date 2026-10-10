@@ -224,7 +224,10 @@
           </div>
         </div>
         <p data-testid="shared-empty-relay" class="text-xs text-base-content/80">
-          {#if secret}{t.empty.relay_is({ host: relayHost(shell?.relayUrl()) ?? '' })}{:else}{t.empty.no_relay()}{/if}
+          <!-- It reads the RELAY, not the secret (first-run D3): a team build
+               knows where shares go before anyone has the secret. -->
+          {#if shell?.relayKnown()}{t.empty.relay_is({ host: relayHost(shell.relayUrl()) ?? '' })}{#if !secret}
+              {t.empty.secret_once()}{/if}{:else}{t.empty.no_relay()}{/if}
         </p>
       </div>
     {:else}

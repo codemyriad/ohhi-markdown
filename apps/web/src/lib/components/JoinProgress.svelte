@@ -15,11 +15,17 @@
    *
    * Decision 6 is stated plainly rather than discovered: images and PDFs do
    * not travel until attachment sync (D2f) lands.
+   *
+   * The same panel serves a folder share opened as its own vault
+   * (first-run F1): `kind: 'folder'` titles it "Adding <folder>" with a
+   * Folder row, so a joiner is never told they are linking a device.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { PullProgress } from '../workspace.svelte.js'
 
   interface Props {
+    /** A device link (the whole vault) or a folder share opened as its own vault. */
+    kind?: 'device' | 'folder'
     vaultName: string
     /** Where the vault is being written — a folder path, or the browser. */
     destination: string
@@ -31,9 +37,11 @@
     onCancel: () => void
   }
 
-  let { vaultName, destination, progress, error, onRetry, onCancel }: Props = $props()
+  let { kind = 'device', vaultName, destination, progress, error, onRetry, onCancel }: Props = $props()
 
   const t = $derived($LL.web.device_link)
+  const tf = $derived($LL.web.share.add)
+  const title = $derived(kind === 'folder' ? tf.panel_title({ name: vaultName }) : t.panel_title())
   const phaseLine = $derived.by(() => {
     if (!progress) return t.starting()
     return progress.phase === 'pull'
@@ -51,10 +59,10 @@
   class="flex h-screen flex-col items-center justify-center gap-4 bg-base-100 px-6 text-base-content"
 >
   <div class="w-full max-w-md space-y-3">
-    <h1 class="text-lg font-semibold">{t.panel_title()}</h1>
+    <h1 class="text-lg font-semibold">{title}</h1>
 
     <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.panel_vault()}</dt>
+      <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{kind === 'folder' ? tf.panel_folder() : t.panel_vault()}</dt>
       <dd class="truncate">{vaultName}</dd>
       <dt class="font-semibold tracking-wide text-base-content/70 uppercase">{t.panel_destination()}</dt>
       <dd class="truncate font-ed-mono" data-testid="join-destination">{destination}</dd>
@@ -62,7 +70,7 @@
 
     {#if error}
       <p role="alert" data-testid="join-error" class="rounded bg-error/10 px-3 py-2 text-sm text-error">
-        {t.failed()}
+        {kind === 'folder' ? tf.panel_failed() : t.failed()}
         {error}
       </p>
     {:else}

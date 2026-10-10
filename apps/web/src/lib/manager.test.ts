@@ -5,6 +5,7 @@
  * hands to the dialog, and that removing the OPEN vault closes it first.
  * The session is a stand-in — its own transitions are `session.test.ts`'s.
  */
+import { getLL } from '@ohhi/i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   defaultRelay,
@@ -143,7 +144,8 @@ describe('createManager', () => {
       vault: { kind: 'tauri', path: '/home/chris/vault' },
     })
     expect(loadShares()).toEqual([{ link: FOLDER_LINK, room: ROOM, label: entry.name }])
-    expect(session.joining).toEqual({ entry, destination: '/home/chris/vault' })
+    // Titled as a folder arriving, not as a device being linked (first-run F1).
+    expect(session.joining).toEqual({ entry, destination: '/home/chris/vault', kind: 'folder' })
   })
 
   it('joinShare in the browser needs no picker: a private OPFS vault keyed by the room', async () => {
@@ -151,6 +153,16 @@ describe('createManager', () => {
     await manager.joinShare('chris', FOLDER_LINK)
     expect(session.booted[0]!.vault).toEqual({ kind: 'opfs', id: ROOM })
     expect(session.joining?.destination).not.toBe('')
+    expect(session.joining?.kind).toBe('folder')
+    // Named after where it came from, never the literal "Shared vault" (first-run F1).
+    expect(session.booted[0]!.name).toBe(getLL().web.manager.joined_vault_name({ host: 'relay.example.com' }))
+  })
+
+  it('joinShare in the browser names the vault after the folder when the link carries its label', async () => {
+    host.isTauri = () => false
+    const labelled = encodeShareLink({ relay: RELAY, room: ROOM, token: 'deadbeefcafef00d', label: 'clients/Team notes' })
+    await manager.joinShare('chris', labelled)
+    expect(session.booted[0]!.name).toBe('Team notes')
   })
 
   it('a device link pasted into Join takes the device path', async () => {
@@ -158,6 +170,8 @@ describe('createManager', () => {
     expect(session.booted[0]!.room).toBe(ROOM)
     expect(roomTokenKind(ROOM)).toBe('device')
     expect(linked).toBe(1)
+    // A device link keeps "Linking this device".
+    expect(session.joining?.kind).toBe('device')
   })
 
   it('linkThisDevice merges the grants and stores the device key BEFORE the boot', async () => {

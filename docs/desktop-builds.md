@@ -54,9 +54,15 @@ channel.
 | --- | --- | --- |
 | `TEAM_HOST` | repository variable | Bare hostname of the team host, e.g. `ohhi.<tailnet>.ts.net`. Sets the default relay to `wss://<host>/relay`, pins the CSP to that host (below) and points the updater at `https://<host>/updates/latest.json`. Unset → none of that, and no `latest.json`. |
 | `DEFAULT_RELAY` | repository variable | Fallback default relay when `TEAM_HOST` is unset. |
+| `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
+| `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the company tailnet.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
 | `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
 
-A relay saved in Settings › Sync always wins over the build's default.
+A relay saved in Settings › Sync always wins over the build's default. The
+`meta` job flattens the two sentences to one line each and passes them, with
+the relay, to every build job's web build; `apps/web/.env.example` lists the
+same `VITE_*` names for a local build. The variables are wired now; the app
+does not render them yet (first-run-shaping D2, F4).
 
 ### What lands where
 

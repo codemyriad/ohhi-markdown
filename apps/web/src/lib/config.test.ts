@@ -4,7 +4,13 @@ import {
   DEFAULT_RELAY,
   defaultRelay,
   FALLBACK_RELAY,
+  buildText,
+  DEFAULT_RELAY_CONFIGURED,
+  isDefaultRelayConfigured,
+  relayKnown,
   resolveDefaultRelay,
+  TEAM_NETWORK_NOTE,
+  TEAM_SECRET_HINT,
   setStorageNoticeDismissed,
   storageNoticeDismissed,
   deriveVaultName,
@@ -271,6 +277,55 @@ describe('the build’s default relay (VITE_DEFAULT_RELAY)', () => {
     const c = await build('relay.example.com')
     expect(c.DEFAULT_RELAY).toBe(FALLBACK_RELAY)
     expect(c.defaultRelay()).toBe(FALLBACK_RELAY)
+  })
+
+  it('knows whether the build was given a relay — the local-dev fallback is not one', async () => {
+    expect(isDefaultRelayConfigured(undefined)).toBe(false)
+    expect(isDefaultRelayConfigured('')).toBe(false)
+    expect(isDefaultRelayConfigured('relay.example.com')).toBe(false)
+    expect(isDefaultRelayConfigured('  wss://relay.example.test ')).toBe(true)
+    // Given explicitly, even the dev URL is a choice the build made.
+    expect(isDefaultRelayConfigured('ws://localhost:8787')).toBe(true)
+    // The test build sets none.
+    expect(DEFAULT_RELAY_CONFIGURED).toBe(false)
+    expect((await build('wss://relay-a.example')).DEFAULT_RELAY_CONFIGURED).toBe(true)
+    expect((await build('nonsense')).DEFAULT_RELAY_CONFIGURED).toBe(false)
+  })
+
+  it('a relay is known when Settings saved one or the build was given one', async () => {
+    expect(relayKnown()).toBe(false) // fresh install, no variable: only the fallback
+    setDefaultRelay('ws://mine:9000')
+    expect(relayKnown()).toBe(true)
+    setDefaultRelay('')
+    expect(relayKnown()).toBe(false)
+    const b = await build('wss://relay-b.example')
+    expect(b.relayKnown()).toBe(true)
+  })
+})
+
+describe('the build’s team sentences (VITE_TEAM_SECRET_HINT, VITE_TEAM_NETWORK_NOTE)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('reads a sentence trimmed, and nothing as empty', () => {
+    expect(buildText(undefined)).toBe('')
+    expect(buildText(42)).toBe('')
+    expect(buildText('   ')).toBe('')
+    expect(buildText('  the team password manager, under ohhi relay ')).toBe('the team password manager, under ohhi relay')
+    // The test build sets neither.
+    expect(TEAM_SECRET_HINT).toBe('')
+    expect(TEAM_NETWORK_NOTE).toBe('')
+  })
+
+  it('exposes what the build was given', async () => {
+    vi.stubEnv('VITE_TEAM_SECRET_HINT', ' the team password manager, under ohhi relay ')
+    vi.stubEnv('VITE_TEAM_NETWORK_NOTE', 'Shares work only while you are on the company tailnet.')
+    vi.resetModules()
+    const c = await import('./config.js')
+    expect(c.TEAM_SECRET_HINT).toBe('the team password manager, under ohhi relay')
+    expect(c.TEAM_NETWORK_NOTE).toBe('Shares work only while you are on the company tailnet.')
   })
 })
 

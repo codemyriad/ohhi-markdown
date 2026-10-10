@@ -475,6 +475,21 @@ build` (or a git-ignored `apps/web/.env.local`, see `apps/web/.env.example`)
 sets the relay a fresh install proposes for new shares; unset or malformed →
 `ws://localhost:8787`. A relay saved in Settings › Sync always wins; an install
 that never saved one follows each new build's default.
+The Shared view's empty state reads the relay, not the secret: with a relay
+saved or baked in it says "Shares go through <host>." (plus "To create links
+you will need the team's secret once." until a secret is saved); with only the
+local-dev fallback it says no relay is configured (`config.ts relayKnown`).
+Two more build-time sentences sit beside it, `VITE_TEAM_SECRET_HINT` (where
+the operator secret lives) and `VITE_TEAM_NETWORK_NOTE` (reachability), read
+by `config.ts` as `TEAM_SECRET_HINT` / `TEAM_NETWORK_NOTE` ('' when unset);
+the release workflow fills them from repo variables (`docs/desktop-builds.md`).
+
+**Adding a shared folder as its own vault** says what happens next under the
+choice (desktop: you will pick an empty folder; browser: kept in this
+browser), and the progress panel is titled "Adding <folder>" with a Folder
+row — "Linking this device" is the device link's alone. A browser vault
+opened this way is named after the link's folder label, else "Shared folder
+on <host>".
 
 **Browser storage.** A browser vault lives in storage the browser may clear
 unless it has promised to keep it. At launch the web app checks

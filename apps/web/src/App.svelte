@@ -262,6 +262,7 @@
     revealFolder: (path) => layout.revealInTree(path),
     relayUrl: () => manager.relayDefault,
     secret: () => manager.opSecret,
+    relayKnown: () => manager.relayKnown,
     revision: () => sharing.revision,
     inSyncByRoom: () => sharedFeed.inSyncByRoom,
   })
@@ -390,6 +391,7 @@
          until the boot resolves (the tree is empty and the folder is
          half-written until then). -->
     <JoinProgress
+      kind={session.joining.kind}
       vaultName={session.joining.entry.name}
       destination={session.joining.destination}
       progress={session.pull}

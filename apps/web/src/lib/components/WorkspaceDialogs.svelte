@@ -10,6 +10,7 @@
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { FileActions } from '../file-actions.svelte.js'
+  import { isTauri } from '../platform.js'
   import type { ShareActions } from '../share-actions.svelte.js'
   import { dirPaths } from '../tree-model.js'
   import type { Workspace } from '../workspace.svelte.js'
@@ -58,6 +59,7 @@
     initialDest={sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : ''}
     onJoinIntoVault={(link, dest) => workspace.addShareMount(link, dest)}
     {onJoinAsVault}
+    isTauri={isTauri()}
     onClose={() => (sharing.addShareOpen = null)}
   />
 {/if}

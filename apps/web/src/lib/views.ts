@@ -78,6 +78,11 @@ export interface ViewShell {
   /** The relay new shares are minted on, and the operator secret ('' = none). */
   relayUrl(): string
   secret(): string
+  /**
+   * Whether this install knows where shares go — a relay saved in Settings or
+   * one the build was given; never the local-dev fallback (`config.relayKnown`).
+   */
+  relayKnown(): boolean
   /** Bumped when a share or device dialog closes: re-read the token lists. */
   revision(): number
   /** Per room, its rollup's last green span — relay receipt, not durability (`shared.svelte.ts`). */

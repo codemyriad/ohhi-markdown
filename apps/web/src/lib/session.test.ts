@@ -106,7 +106,7 @@ describe('createSession', () => {
   })
 
   it('a failure while a whole vault is arriving stays on the progress panel', async () => {
-    session.joining = { entry: A, destination: 'browser' }
+    session.joining = { entry: A, destination: 'browser', kind: 'device' }
     const done = session.boot(A)
     await tick()
     pending[0]!.reject(new Error('stalled'))

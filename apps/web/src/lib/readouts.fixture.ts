@@ -51,6 +51,7 @@ export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell
     revealFolder: vi.fn(),
     relayUrl: () => '',
     secret: () => '',
+    relayKnown: () => false,
     revision: () => 0,
     inSyncByRoom: () => ({}),
     ...over,

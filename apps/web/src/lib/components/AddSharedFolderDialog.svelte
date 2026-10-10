@@ -12,6 +12,10 @@
    * vault, and mounting a vault as a folder of another is not a thing this
    * product does. As its own vault, the manager's join already routes a
    * device link to *Link this device*.
+   *
+   * "As its own vault" says what happens next on this platform (first-run
+   * F1): on the desktop an OS folder picker opens with no sentence of its
+   * own, so the dialog explains it before it does.
    */
   import { z } from 'zod'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -46,6 +50,8 @@
      */
     onJoinAsVault: (link: string) => void | Promise<void>
     onClose: () => void
+    /** The desktop app (an OS folder picker follows "as its own vault") or the browser. */
+    isTauri: boolean
   }
 
   let {
@@ -57,6 +63,7 @@
     onJoinIntoVault,
     onJoinAsVault,
     onClose,
+    isTauri,
   }: Props = $props()
 
   const t = $derived($LL.web.share.add)
@@ -180,6 +187,11 @@
         <span class="min-w-0">
           <span class="block text-sm">{t.own_vault()}</span>
           <span class="block text-xs text-base-content/70">{t.own_vault_hint()}</span>
+          {#if form.data.where === 'own'}
+            <span class="block text-xs text-base-content/80" data-testid="add-share-own-platform">
+              {isTauri ? t.own_vault_desktop() : t.own_vault_browser()}
+            </span>
+          {/if}
         </span>
       </label>
     </fieldset>

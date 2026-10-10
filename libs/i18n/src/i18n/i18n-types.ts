@@ -2454,6 +2454,10 @@ export type NamespaceWebTranslation = {
 			 * @param {string} host
 			 */
 			relay_is: RequiredParams<'host'>
+			/**
+			 * T​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​y​o​u​ ​w​i​l​l​ ​n​e​e​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​o​n​c​e​.
+			 */
+			secret_once: string
 		}
 		/**
 		 * C​h​a​n​g​e​d​ ​b​y​ ​s​o​m​e​o​n​e​ ​e​l​s​e​ ​i​n​ ​t​h​e​ ​l​a​s​t​ ​h​o​u​r
@@ -2614,6 +2618,11 @@ export type NamespaceWebTranslation = {
 		 * L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​…
 		 */
 		link_device_open: string
+		/**
+		 * S​h​a​r​e​d​ ​f​o​l​d​e​r​ ​o​n​ ​{​h​o​s​t​}
+		 * @param {string} host
+		 */
+		joined_vault_name: RequiredParams<'host'>
 		errors: {
 			/**
 			 * V​a​u​l​t​ ​f​o​r​g​o​t​t​e​n​,​ ​b​u​t​ ​s​o​m​e​ ​o​f​ ​i​t​s​ ​s​y​n​c​ ​s​t​a​t​e​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​d​e​l​e​t​e​d​ ​(​{​m​e​s​s​a​g​e​}​)​.​ ​T​h​e​ ​l​e​f​t​o​v​e​r​s​ ​a​r​e​ ​i​n​e​r​t​ ​—​ ​r​e​o​p​e​n​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​ ​s​t​i​l​l​ ​s​t​a​r​t​s​ ​f​r​e​s​h​.
@@ -3276,6 +3285,27 @@ export type NamespaceWebTranslation = {
 			 * K​e​p​t​ ​a​p​a​r​t​;​ ​s​w​i​t​c​h​ ​t​o​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​m​e​n​u​.
 			 */
 			own_vault_hint: string
+			/**
+			 * Y​o​u​ ​w​i​l​l​ ​p​i​c​k​ ​a​n​ ​e​m​p​t​y​ ​f​o​l​d​e​r​ ​f​o​r​ ​i​t​ ​t​o​ ​l​i​v​e​ ​i​n​.
+			 */
+			own_vault_desktop: string
+			/**
+			 * K​e​p​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​;​ ​s​w​i​t​c​h​ ​t​o​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​m​e​n​u​.
+			 */
+			own_vault_browser: string
+			/**
+			 * A​d​d​i​n​g​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			panel_title: RequiredParams<'name'>
+			/**
+			 * F​o​l​d​e​r
+			 */
+			panel_folder: string
+			/**
+			 * A​d​d​i​n​g​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​a​i​l​e​d​.
+			 */
+			panel_failed: string
 			/**
 			 * F​o​l​d​e​r
 			 */
@@ -6680,6 +6710,10 @@ export type TranslationFunctions = {
 				 * Shares go through {host}.
 				 */
 				relay_is: (arg: { host: string }) => LocalizedString
+				/**
+				 * To create links you will need the team’s secret once.
+				 */
+				secret_once: () => LocalizedString
 			}
 			/**
 			 * Changed by someone else in the last hour
@@ -6837,6 +6871,10 @@ export type TranslationFunctions = {
 			 * Link this device…
 			 */
 			link_device_open: () => LocalizedString
+			/**
+			 * Shared folder on {host}
+			 */
+			joined_vault_name: (arg: { host: string }) => LocalizedString
 			errors: {
 				/**
 				 * Vault forgotten, but some of its sync state could not be deleted ({message}). The leftovers are inert — reopening the folder still starts fresh.
@@ -7468,6 +7506,26 @@ export type TranslationFunctions = {
 				 * Kept apart; switch to it from the vault menu.
 				 */
 				own_vault_hint: () => LocalizedString
+				/**
+				 * You will pick an empty folder for it to live in.
+				 */
+				own_vault_desktop: () => LocalizedString
+				/**
+				 * Kept in this browser; switch to it from the vault menu.
+				 */
+				own_vault_browser: () => LocalizedString
+				/**
+				 * Adding {name}
+				 */
+				panel_title: (arg: { name: string }) => LocalizedString
+				/**
+				 * Folder
+				 */
+				panel_folder: () => LocalizedString
+				/**
+				 * Adding the folder failed.
+				 */
+				panel_failed: () => LocalizedString
 				/**
 				 * Folder
 				 */

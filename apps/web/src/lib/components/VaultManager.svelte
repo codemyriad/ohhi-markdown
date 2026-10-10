@@ -382,6 +382,7 @@
     dirs={joinInto?.dirs ?? []}
     initialLink={prefillLink}
     initialWhere="own"
+    {isTauri}
     onJoinIntoVault={joinInto?.join ?? null}
     onJoinAsVault={(l) => onJoin(displayName, l)}
     onClose={() => (joinOpen = false)}
