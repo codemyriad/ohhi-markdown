@@ -13,7 +13,9 @@
  */
 import { expect, test } from '@playwright/test'
 import {
+  closeSettings,
   expectAccessible,
+  openSettings,
   openApp,
   tabNamed,
   paneContent as content,
@@ -145,9 +147,9 @@ test('the mode belongs to the tab — the strip menu, the Settings default, a re
   // The Settings default moves every tab that never chose for itself, and
   // leaves the one that did alone — which is why `Tab.mode` is absent rather
   // than stamped at open time.
-  await page.keyboard.press('ControlOrMeta+,')
+  await openSettings(page, 'editor')
   await page.getByTestId('default-mode:reading').click()
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   await expect(page.getByTestId('mode-menu')).toContainText('Reading')
   await page.locator('[data-slot-kind="tab"]', { hasText: 'welcome' }).first().click()
   await expect(page.getByTestId('mode-menu')).toContainText('Source')
