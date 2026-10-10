@@ -75,7 +75,7 @@ export const help = new HelpState()
 
 /** What only the shell can do for a help item. */
 export interface HelpHost {
-  /** Settings › Hotkeys. */
+  /** Settings at Keys (the settings view tab). */
   openShortcuts(): void
   /** Open a guide page; defaults to `openGuide`. */
   openGuide?(page: GuidePage): void
@@ -121,7 +121,7 @@ export function runHelp(id: HelpCommandId): void {
   }
 }
 
-/** Read the desktop build's own version (Settings › General shows the same). */
+/** Read the desktop build's own version (Settings › About shows the same). */
 export async function loadVersion(): Promise<void> {
   if (!isTauri()) return
   try {

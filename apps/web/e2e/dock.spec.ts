@@ -6,7 +6,7 @@
  * `dense` — every test boots the device's own choice, `light`'s dock.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, dismissToasts, expectAccessible, openByQuickOpen } from './fixtures.js'
+import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings } from './fixtures.js'
 
 async function boot(page: Page, room: string): Promise<void> {
   await page.goto(appUrl({ room, layout: null }))
@@ -188,10 +188,9 @@ test('bottom-right, the strip stands above the corner count at every width — a
 }) => {
   await boot(page, 'dock-bottom-right')
   await openByQuickOpen(page, 'welcome')
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:layout').click()
+  await openSettings(page, 'layout')
   await page.getByTestId('layout-field:sidebar_position').selectOption('bottom-right')
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   const strip = page.getByTestId('dock')
   await expect(strip).toHaveAttribute('data-position', 'bottom-right')
 
@@ -219,10 +218,9 @@ test('bottom-right, the strip stands above the corner count at every width — a
   await expect(strip).toHaveAttribute('data-compact', 'false')
   await standsOnCorner(1280)
   const before = (await strip.boundingBox())!
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:layout').click()
+  await openSettings(page, 'layout')
   await page.getByTestId('layout-field:status').selectOption('off')
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   await expect(page.getByTestId('corner-status')).toHaveCount(0)
   const area = (await page.getByTestId('editor-area').boundingBox())!
   await expect.poll(async () => (await strip.boundingBox())!.y).toBeGreaterThan(before.y)

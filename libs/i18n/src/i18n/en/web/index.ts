@@ -783,7 +783,7 @@ const shared = {
     unnamed: 'unnamed device',
     linked: 'This whole vault syncs to your devices.',
     online_at: 'online {when:string}',
-    needs_secret: 'Set the relay operator secret in Settings › Sync to list your linked devices.',
+    needs_secret: 'Set the relay operator secret in Settings › Sync & devices to list your linked devices.',
   },
   changes: {
     title: 'Changes',
@@ -964,6 +964,7 @@ const manager = {
     remembered: 'Links you were sent: {count:number} remembered',
     remembered_title: 'Links you were sent',
     remembered_hint: 'Open one again as a vault of its own.',
+    forget_share: 'Forget {label:string} on this device',
   },
   /**
    * A vault entry with a relay: since N2 that means LINKED to your own
@@ -1050,7 +1051,7 @@ const storage = {
   dismiss: 'Dismiss',
   /** The one reminder a workspace shows, when the app reopens straight into a browser vault. */
   notice:
-    "This browser may clear this site's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Vaults & shares can ask the browser again or turn this reminder off.",
+    "This browser may clear this site's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Sync & devices can ask the browser again or turn this reminder off.",
   settings: {
     heading: 'Storage in this browser',
     checking: 'Checking…',
@@ -1065,24 +1066,44 @@ const storage = {
 const settings = {
   title: 'Settings',
   sections: 'Settings sections',
-  tabs: {
-    general: 'General',
-    appearance: 'Appearance',
-    hotkeys: 'Hotkeys',
-    sync: 'Sync',
-    vaults: 'Vaults & shares',
-    developer: 'Developer',
+  /** The nav (settings-shaping Fork 3): three groups, in this order. */
+  nav: {
+    you: 'You',
+    editor: 'Editor',
     layout: 'Layout',
+    appearance: 'Appearance',
+    keys: 'Keys',
+    sync: 'Sync & devices',
+    customise: 'Customise',
+    agents: 'Agents',
+    developer: 'Developer',
+    about: 'About',
   },
-  general: {
+  /** The manager's page host (no vault open): its way back. */
+  page: {
+    back: '← Vaults',
+  },
+  /** A section whose settings are files inside a vault, drawn with none open (R2). */
+  needs_vault: {
+    body: 'Open a vault to change this.',
+    keys: 'Keymaps are files inside a vault, in .ohhi/keymaps/.',
+    customise: 'Layouts, keymaps, templates and themes are files inside a vault, in .ohhi/.',
+    open: 'Open a vault',
+  },
+  /** A text field that commits on Enter or when you leave it (R3). */
+  saved: 'Saved',
+  you: {
     name: 'Display name',
     name_placeholder: 'Anonymous',
-    name_hint: 'Shown to collaborators; applies the next time a vault is opened.',
+    name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
     name_required: 'A name your collaborators will see.',
+  },
+  /** Settings › Editor: how notes open and read — the default view plus the layout's editor fields. */
+  editor: {
+    intro: 'How notes open and read. Changes apply at once and stay on this device.',
     default_mode: 'Default view for new tabs',
     default_mode_hint:
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
-    version: 'Version {version:string}',
   },
   appearance: {
     theme: 'Theme',
@@ -1097,12 +1118,14 @@ const settings = {
     needs_vault: 'Open a vault first — custom themes live inside it.',
   },
   /**
-   * Settings > Layout (round 3, Q6): ONE form over this device's layout
-   * overrides, applied live under the dialog — no names, no files, no Save.
+   * Settings › Layout and › Editor (round 3, Q6): forms over this device's
+   * layout overrides, applied live — no names, no files, no Save.
    * Each field is `<field>` and its values `<field>_<value>`.
    */
   layout: {
     intro: 'What the shell shows around the note. Changes apply at once and stay on this device.',
+    /** With no vault open (the manager's page). */
+    no_vault: 'The layout file comes from the vault you open; until then this shows the built-in default.',
     files: 'Files',
     files_drawer: 'As a drawer',
     files_column: 'As a column',
@@ -1140,9 +1163,10 @@ const settings = {
     unpin: 'Unpin',
     unpin_label: 'Unpin {what:string}',
     reset: 'Reset to default',
+    reset_editor: 'Reset editor options',
   },
   /**
-   * Settings > Hotkeys (tab-groups R1.3): every registered command, the key
+   * Settings › Keys (tab-groups R1.3): every registered command, the key
    * in force, and a field to change it. "Mod" is spelled out wherever the
    * user has to type it — it is the one piece of syntax the field requires.
    */
@@ -1200,25 +1224,35 @@ const settings = {
     running_pinned:
       'This build syncs through {host:string} only: its security policy allows no other relay. A group that runs its own relay uses a build without that pin.',
     running_guide: 'The relay guide',
+    /** Fields that save as you leave them (R3). */
+    relay_commit_hint: 'Saved when you press Enter or leave the field.',
+    vaults: 'Vaults and shares',
+    vaults_body: 'The vaults and shared folders this device remembers are listed in the vault manager.',
+    vaults_open: 'Manage vaults…',
   },
-  vaults: {
-    vaults: 'Vaults',
-    none: 'No vaults remembered.',
-    forget_vault: 'Forget vault {name:string}',
-    forget: 'forget',
-    forget_hint: 'Forgetting a vault never touches its files.',
-    shares: 'Remembered shares',
-    no_shares: 'No shares remembered.',
-    forget_share: 'Forget share {label:string}',
+  /** Settings › Customise (settings-shaping ST4 fills it). */
+  customise: {
+    intro:
+      'Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.',
+  },
+  /** Settings › Agents (settings-shaping ST5 fills it). */
+  agents: {
+    intro:
+      'Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.',
+  },
+  /** Settings › About: the running build, the updater's last outcome, the guides. */
+  about: {
+    updates: 'Updates',
+    web_updates: 'This web app updates when the page is reloaded.',
+    guides: 'Guides',
+    guide_import: 'Bringing notes in from another app',
+    guide_relay: 'Running your own relay',
   },
   developer: {
     devtools: 'Developer tools',
     devtools_help:
       "Enables the inspector — a tab showing the disk ↔ CRDT state of every mount and file — in the command palette. {flag:string} forces it on and opens it for one session.",
   },
-  unsaved: 'You have unsaved changes.',
-  discard: 'Discard',
-  save_and_close: 'Save and close',
 }
 
 /**
@@ -1506,7 +1540,7 @@ const device_link = {
   needs_secret: 'Creating a device link needs permission to create links on this relay: paste it above.',
   /** The owner's dialog, opened without a secret saved. */
   needs_secret_dialog:
-    'Creating a device link needs permission to create links on this relay. Add it in Settings › Sync, then come back here.',
+    'Creating a device link needs permission to create links on this relay. Add it in Settings › Sync & devices, then come back here.',
   // ---- the owner's dialog ----
   title: 'Link a device',
   description:

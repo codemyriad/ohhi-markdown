@@ -18,7 +18,7 @@ first**.
    other editor. A browser vault lives in the browser's private storage, where
    no script, backup tool or file manager can reach it. The browser may also
    clear that storage to free up space unless it has promised to keep it.
-   *Settings › Vaults & shares* shows whether it has, and can ask it to.
+   *Settings › Sync & devices* shows whether it has, and can ask it to.
 2. **Use the browser for joining team folders.** A shared folder's content also
    lives on your teammates' devices and on the relay, so losing a browser costs
    you a re-join, not notes.
@@ -112,9 +112,6 @@ In the vault manager, click **✕** on the vault, then **Remove?** to confirm.
   shared them first, because they won't reconnect by themselves.
 - **Browser vault:** ✕ **deletes its notes too**, because they live nowhere
   else.
-
-*Settings › Vaults & shares › forget* is different: it only takes the vault
-off the list.
 
 ## Getting a version out of the journal
 

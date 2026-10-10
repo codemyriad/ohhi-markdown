@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Settings › Hotkeys (tab-groups R1.3; quiet-shell F10): every registered
+   * Settings › Keys (tab-groups R1.3; quiet-shell F10): every registered
    * command, the key in force under the ACTIVE keymap file, and a field to
    * change it. Edits are a draft (`hotkey-draft.svelte.ts`, owned by the
    * dialog so a tab switch keeps them); Save writes the keymap file; the
@@ -28,7 +28,7 @@
     resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps'>>
     /** False with no vault open: a keymap is a file inside one. */
     canSave: boolean
-    /** The row recording a chord, if any — the dialog's Escape cancels it first. */
+    /** The row recording a chord, if any (Escape in the field cancels it). */
     recording?: string | null
   }
 
@@ -116,9 +116,14 @@
       stopRecording()
       return
     }
-    // Escape belongs to the dialog's dismissal path (its `beforeClose` turns
-    // it into "cancel the recording").
-    if (e.key === 'Escape') return
+    // Escape cancels the recording and changes nothing (Settings is a view
+    // tab now, so there is no dialog for it to close).
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      stopRecording()
+      return
+    }
     e.preventDefault()
     e.stopPropagation()
     const binding = registry.bindingFor(e)

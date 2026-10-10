@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /**
- * Settings › Layout (round 3, Q6): one form over this device's overrides,
- * applied live — every change goes straight to the layout (no Save, no
- * names), the stored overrides are only what differs from the file, a pinned
- * side says so with *Unpin*, and *Reset to default* clears them.
+ * Settings › Layout and › Editor (round 3, Q6; settings-shaping ST2): a form
+ * over this device's overrides in two parts, applied live — every change
+ * goes straight to the layout (no Save, no names), the stored overrides are
+ * only what differs from the file, a pinned side says so with *Unpin*, and
+ * each part's reset puts back only its own fields.
  */
 import { cleanup, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
@@ -28,7 +29,7 @@ const $schema = LAYOUT_SCHEMA_ID
 const t = getLL().web.settings.layout
 
 /** The shell layout's override surface, the way `createShellLayout` does it (file → overrides → pins). */
-function setup(opts: { file?: ShellSpec; overrides?: LayoutFile; pins?: LayoutPins } = {}) {
+function setup(opts: { file?: ShellSpec; overrides?: LayoutFile; pins?: LayoutPins; part?: 'shell' | 'editor' } = {}) {
   const file = opts.file ?? PRESETS.default
   const overrides = box<LayoutFile>(opts.overrides ?? NO_OVERRIDES)
   const pins = box<LayoutPins>(opts.pins ?? {})
@@ -58,20 +59,22 @@ function setup(opts: { file?: ShellSpec; overrides?: LayoutFile; pins?: LayoutPi
       pins.value = withPin(pins.value, side, false)
     }),
   }
-  render(LayoutSettings, { layout })
+  render(LayoutSettings, { layout, part: opts.part ?? 'shell' })
   return { layout }
 }
 
 const field = (id: string): HTMLSelectElement => screen.getByTestId(`layout-field:${id}`) as HTMLSelectElement
 
 describe('Settings › Layout (round 3, Q6)', () => {
-  it('is one form of curated fields, labelled from the dictionary — no cards, no names, no Save', () => {
+  it('is one form of curated fields in two parts, labelled from the dictionary — no cards, no names, no Save', () => {
     setup()
-    for (const id of ['files', 'sidebar', 'sidebar_position', 'tabs', 'toolbar', 'format', 'status', 'open', 'measure']) {
+    for (const id of ['files', 'sidebar', 'sidebar_position', 'tabs', 'toolbar', 'format', 'status']) {
       expect(field(id)).toBeInTheDocument()
     }
-    expect(screen.getByTestId('layout-field:typewriter')).toBeInTheDocument()
-    expect(screen.getByTestId('layout-field:inline-title')).toBeInTheDocument()
+    // The editor's options are Editor's part (finding 6), not Layout's.
+    for (const id of ['open', 'measure', 'typewriter', 'inline-title']) {
+      expect(screen.queryByTestId(`layout-field:${id}`)).toBeNull()
+    }
     expect(screen.getByText(t.files())).toBeInTheDocument()
     expect(within(field('files')).getByRole('option', { name: t.files_drawer() })).toBeInTheDocument()
     expect(within(field('status')).getByRole('option', { name: t.status_corner() })).toBeInTheDocument()
@@ -79,13 +82,20 @@ describe('Settings › Layout (round 3, Q6)', () => {
     expect(field('files').value).toBe('drawer')
     expect(field('toolbar').value).toBe('top')
     expect(field('status').value).toBe('corner')
-    expect(field('open').value).toBe('replace')
     for (const gone of ['layout-save', 'layout-save-name', 'layout-create-toggle', 'layout-list']) {
       expect(screen.queryByTestId(gone)).toBeNull()
     }
     // Only the values worth offering: no header or status-bar choices.
     expect(screen.queryByTestId('layout-field:header')).toBeNull()
     expect(screen.queryByTestId('layout-field:statusbar')).toBeNull()
+
+    cleanup()
+    setup({ part: 'editor' })
+    expect(field('open').value).toBe('replace')
+    expect(field('measure')).toBeInTheDocument()
+    expect(screen.getByTestId('layout-field:typewriter')).toBeInTheDocument()
+    expect(screen.getByTestId('layout-field:inline-title')).toBeInTheDocument()
+    expect(screen.queryByTestId('layout-field:toolbar')).toBeNull()
   })
 
   it('applies every change at once, storing only what differs from the file', async () => {
@@ -97,28 +107,29 @@ describe('Settings › Layout (round 3, Q6)', () => {
     expect(field('toolbar').value).toBe('bottom')
 
     await user.selectOptions(field('status'), 'off')
-    await user.click(screen.getByTestId('layout-field:typewriter'))
+    await user.selectOptions(field('sidebar_position'), 'bottom-right')
     expect(layout.overrides).toEqual({
       $schema,
       regions: { status: 'off' },
       toolbar: { position: 'bottom' },
-      editor: { typewriter: true },
+      dock: { position: 'bottom-right' },
     })
 
     // Back to the file's own value: no longer an override.
     await user.selectOptions(field('toolbar'), 'top')
-    expect(layout.overrides).toEqual({ $schema, regions: { status: 'off' }, editor: { typewriter: true } })
+    expect(layout.overrides).toEqual({ $schema, regions: { status: 'off' }, dock: { position: 'bottom-right' } })
   })
 
-  it('Reset to default clears every override; it is off when there are none', async () => {
+  it('each part resets only its own fields; the button is off when its part has none', async () => {
     const user = userEvent.setup()
-    const { layout } = setup({ overrides: { $schema, editor: { measure: 'wide' } } })
-    expect(field('measure').value).toBe('wide')
+    const { layout } = setup({ overrides: { $schema, toolbar: { position: 'bottom' }, editor: { measure: 'wide' } } })
+    expect(field('toolbar').value).toBe('bottom')
     const reset = screen.getByTestId('layout-reset')
     expect(reset).toBeEnabled()
     await user.click(reset)
-    expect(layout.resetOverrides).toHaveBeenCalledOnce()
-    expect(field('measure').value).toBe('comfortable')
+    // The editor's override is Editor's to reset, and stays.
+    expect(layout.overrides).toEqual({ $schema, editor: { measure: 'wide' } })
+    expect(field('toolbar').value).toBe('top')
     expect(screen.getByTestId('layout-reset')).toBeDisabled()
   })
 

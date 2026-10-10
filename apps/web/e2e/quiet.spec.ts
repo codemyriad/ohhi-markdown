@@ -7,6 +7,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   appUrl,
+  closeSettings,
+  openSettings,
   dismissToasts,
   dragTo,
   editors,
@@ -204,11 +206,10 @@ test.describe('toolbar and focus', () => {
     await boot(page, 'quiet-bottom')
     await openByQuickOpen(page, 'welcome')
 
-    await page.keyboard.press('ControlOrMeta+,')
-    await page.getByTestId('settings-tab:layout').click()
+    await openSettings(page, 'layout')
     // Q6: the form edits the device's layout live; closing keeps it.
     await page.getByTestId('layout-field:toolbar').selectOption('bottom')
-    await page.getByTestId('settings-close').click()
+    await closeSettings(page)
 
     await expect(toolbar(page)).toHaveAttribute('data-position', 'bottom')
     const area = (await page.getByTestId('editor-area').boundingBox())!
@@ -241,10 +242,9 @@ test.describe('toolbar and focus', () => {
   test('format bar "top" floats under the tab strip, centred, and the scroller makes room for it', async ({ page }) => {
     await boot(page, 'quiet-format-top')
     await openByQuickOpen(page, 'welcome')
-    await page.keyboard.press('ControlOrMeta+,')
-    await page.getByTestId('settings-tab:layout').click()
+    await openSettings(page, 'layout')
     await page.getByTestId('layout-field:format').selectOption('top')
-    await page.getByTestId('settings-close').click()
+    await closeSettings(page)
 
     const bar = page.getByTestId('format-bar')
     await expect(bar).toHaveAttribute('data-position', 'top')
@@ -386,10 +386,9 @@ test.describe('panes', () => {
     await axe(page, 'one note, the strip')
 
     // Settings › Layout › Tabs: auto — the strip only from two tabs.
-    await page.keyboard.press('ControlOrMeta+,')
-    await page.getByTestId('settings-tab:layout').click()
+    await openSettings(page, 'layout')
     await page.getByTestId('layout-field:tabs').selectOption('auto')
-    await page.getByTestId('settings-close').click()
+    await closeSettings(page)
     // Opening in place closes the drawer: its job is done.
     await expect(page.getByTestId('navigator-drawer')).toHaveCount(0)
     await expect(editors(page)).toContainText('Welcome')

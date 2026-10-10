@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 /**
- * Settings > Hotkeys (tab-groups R1.3, quiet-shell F10), and the Appearance
- * tab's fonts — none to pick since round 3 (Q7).
+ * Settings, host-neutral (settings-shaping ST1/ST2): the grouped nav, one
+ * save model (no Save, no close guard), the sections that need a vault, and
+ * — as before — Keys (tab-groups R1.3, quiet-shell F10), Appearance's fonts
+ * (none to pick since round 3, Q7) and Sync & devices (first-run D1/D2).
  *
- * The tab is a VIEW of the shell's command registry under the ACTIVE keymap
+ * Keys is a VIEW of the shell's command registry under the ACTIVE keymap
  * file, so the test builds a registry, the real resource loader over a fake
  * vault and the real keymap, the way App.svelte does — and asserts what the
  * user can see and do: the key in force, an edit that is a draft until Save,
@@ -18,7 +20,11 @@ import { CommandRegistry } from '../commands.js'
 import { KEYMAP_SCHEMA_ID } from '../keymap-spec.js'
 import { LAYOUT_SCHEMA_ID, NO_OVERRIDES, PRESETS, applyOverrides, type LayoutFile, type ShellSpec } from '../layout-spec.js'
 import { keymapWorld } from '../keymap.fixture.js'
-import SettingsPanel from './SettingsPanel.svelte'
+import { box } from '../shell-actions.fixture.svelte.js'
+import Settings from './Settings.svelte'
+import { SETTINGS_SECTIONS } from '../settings.js'
+
+const VAULT = { name: 'black book', kind: 'tauri' as const, path: '/home/me/black book' }
 
 afterEach(() => {
   cleanup()
@@ -42,17 +48,18 @@ function registryWith(): CommandRegistry {
 
 const mine = { $schema: KEYMAP_SCHEMA_ID, extends: 'default', bindings: {} }
 
-/** Render Settings straight onto the Hotkeys tab, over a vault holding `files`. */
+/** Render Settings straight onto Keys, over a vault holding `files`. */
 async function openHotkeys(opts: { files?: Record<string, unknown>; active?: 'default' | `custom:${string}` } = {}) {
   const world = keymapWorld({ registry: registryWith(), vault: opts.files ?? {}, active: opts.active ?? 'default' })
   await world.keymap.reload()
-  render(SettingsPanel, {
-    onClose: vi.fn(),
+  render(Settings, {
+    section: 'keys',
+    onSection: vi.fn(),
+    vault: VAULT,
     registry: world.registry,
     keymap: world.keymap,
     resources: world.resources,
     readAppFile: (p: string) => world.vault!.readAppFile(p),
-    initialTab: 'hotkeys',
   })
   await screen.findByTestId('settings-hotkeys')
   return world
@@ -63,7 +70,7 @@ const shown = (id: string): string => screen.getByTestId(`hotkey-binding:${id}`)
 const written = (world: ReturnType<typeof keymapWorld>, name: string): unknown =>
   JSON.parse(world.disk!.get(`.ohhi/keymaps/${name}.json`)!)
 
-describe('Settings > Hotkeys', () => {
+describe('Settings › Keys', () => {
   it('lists every registered command under its group, with the key in force', async () => {
     await openHotkeys()
 
@@ -210,10 +217,10 @@ describe('Settings > Hotkeys', () => {
   })
 })
 
-describe('Settings > Appearance > Fonts (round 3 Q7)', () => {
+describe('Settings › Appearance › Fonts (round 3 Q7)', () => {
   it('offers no font pickers: the faces come from the theme, and nothing is set inline', async () => {
     document.documentElement.removeAttribute('style')
-    render(SettingsPanel, { onClose: vi.fn(), registry: registryWith(), initialTab: 'appearance' })
+    render(Settings, { section: 'appearance', onSection: vi.fn(), vault: null, registry: registryWith() })
     await screen.findByText(LL.web.settings.appearance.theme())
     expect(screen.queryByTestId('font-pickers')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Notes' })).toBeNull()
@@ -221,75 +228,169 @@ describe('Settings > Appearance > Fonts (round 3 Q7)', () => {
   })
 })
 
-describe('Settings > Layout is live, and the close guard (round 3, Q6)', () => {
-  /** The shell layout's override surface, as `createShellLayout` exposes it. */
-  function liveLayout() {
-    let overrides: LayoutFile = NO_OVERRIDES
-    const layout = {
-      fileSpec: PRESETS.default as ShellSpec,
-      get ownSpec(): ShellSpec {
-        return applyOverrides(PRESETS.default, overrides)
-      },
-      get overrides(): LayoutFile {
-        return overrides
-      },
-      setOverrides: vi.fn((next: LayoutFile) => {
-        overrides = next
-      }),
-      resetOverrides: vi.fn(() => {
-        overrides = NO_OVERRIDES
-      }),
-    }
-    return layout
+/** The shell layout's override surface, as `createShellLayout` exposes it. */
+function liveLayout() {
+  const overrides = box<LayoutFile>(NO_OVERRIDES)
+  return {
+    fileSpec: PRESETS.default as ShellSpec,
+    get ownSpec(): ShellSpec {
+      return applyOverrides(PRESETS.default, overrides.value)
+    },
+    get overrides(): LayoutFile {
+      return overrides.value
+    },
+    setOverrides: vi.fn((next: LayoutFile) => {
+      overrides.value = next
+    }),
+    resetOverrides: vi.fn(() => {
+      overrides.value = NO_OVERRIDES
+    }),
   }
+}
 
-  it('a layout change applies at once and leaves nothing to guard: Escape closes without asking', async () => {
+describe('Settings: the nav and its hosts (ST1/ST2)', () => {
+  it('lists the ten sections in three groups, in order; picking one asks the host to move', async () => {
     const user = userEvent.setup()
-    const world = keymapWorld({ registry: registryWith(), vault: {}, active: 'default' })
-    const layout = liveLayout()
-    const onClose = vi.fn()
-    render(SettingsPanel, {
-      onClose,
-      registry: world.registry,
-      resources: world.resources,
-      layout,
-      readAppFile: (p: string) => world.vault!.readAppFile(p),
-      initialTab: 'layout',
-    })
-    await screen.findByTestId('settings-layout')
-    await user.selectOptions(screen.getByTestId('layout-field:toolbar'), 'bottom')
-    expect(layout.setOverrides).toHaveBeenCalledWith({ $schema: LAYOUT_SCHEMA_ID, toolbar: { position: 'bottom' } })
+    const onSection = vi.fn()
+    render(Settings, { section: 'you', onSection, vault: VAULT, registry: registryWith() })
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs.map((tab) => tab.getAttribute('data-testid'))).toEqual(SETTINGS_SECTIONS.map((s) => `settings-tab:${s}`))
+    expect(tabs.map((tab) => tab.textContent!.trim())).toEqual([
+      'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'Developer', 'About',
+    ])
+    // A rule starts the second and third groups (drawn by the tab itself: the list holds tabs only).
+    const separated = tabs.filter((tab) => tab.className.includes('before:border-t')).map((tab) => tab.dataset.testid)
+    expect(separated).toEqual(['settings-tab:sync', 'settings-tab:developer'])
 
-    await user.keyboard('{Escape}')
-    expect(screen.queryByTestId('settings-unsaved')).toBeNull()
-    expect(onClose).toHaveBeenCalledOnce()
+    await user.click(screen.getByTestId('settings-tab:about'))
+    expect(onSection).toHaveBeenCalledWith('about')
   })
 
-  it('Save and close saves what it can and sends you to the tab that still needs you (the tab really changes)', async () => {
+  it('follows the host: a new section prop shows that section', async () => {
+    const view = render(Settings, { section: 'you', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    expect(screen.getByTestId('settings-section:you')).toBeVisible()
+    await view.rerender({ section: 'developer', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    expect(await screen.findByTestId('settings-section:developer')).toBeVisible()
+    expect(screen.getByTestId('settings-tab:developer')).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('no vault open: Keys and Customise say so (with the way to one) instead of hiding; Layout says where its file comes from', async () => {
+    const onManageVaults = vi.fn()
     const user = userEvent.setup()
-    const world = await openHotkeys()
-    // A hotkey edit on the read-only built-in: only Save as, with a name, can keep it.
-    await user.clear(input('nav.back'))
-    await user.tab()
-    await waitFor(() => expect(shown('nav.back')).toBe(t.unbound()))
-    // …and a General edit, which Save and close can save.
-    await user.click(screen.getByTestId('settings-tab:general'))
-    await user.clear(screen.getByTestId('settings-name'))
-    await user.type(screen.getByTestId('settings-name'), 'Chris B')
+    const view = render(Settings, {
+      section: 'keys',
+      onSection: vi.fn(),
+      vault: null,
+      registry: registryWith(),
+      layout: liveLayout(),
+      onManageVaults,
+    })
+    expect(screen.getByTestId('settings-needs-vault:keys')).toHaveTextContent(LL.web.settings.needs_vault.body())
+    expect(screen.queryByTestId('settings-hotkeys')).toBeNull()
+    await user.click(screen.getByTestId('settings-needs-vault-open'))
+    expect(onManageVaults).toHaveBeenCalledOnce()
 
-    await user.keyboard('{Escape}')
-    expect(await screen.findByTestId('settings-unsaved')).toBeVisible()
-    await user.click(screen.getByTestId('settings-save-all'))
+    await view.rerender({ section: 'customise', onSection: vi.fn(), vault: null, registry: registryWith(), layout: liveLayout() })
+    expect(await screen.findByTestId('settings-needs-vault:customise')).toBeVisible()
 
-    // The name is saved; the hotkeys tab is on screen, asking for its name.
-    await waitFor(() => expect(localStorage.getItem('editor:user')).toBe('Chris B'))
-    expect(await screen.findByTestId('settings-hotkeys')).toBeVisible()
-    expect(screen.getByTestId('settings-tab:hotkeys')).toHaveAttribute('aria-selected', 'true')
-    expect(world.registry.effectiveKeys('nav.back')).toBe('Mod+[')
+    await view.rerender({ section: 'layout', onSection: vi.fn(), vault: null, registry: registryWith(), layout: liveLayout() })
+    expect(await screen.findByTestId('settings-layout-no-vault')).toHaveTextContent(LL.web.settings.layout.no_vault())
+    expect(screen.getByTestId('settings-layout')).toBeVisible()
+  })
+
+  it('the Customise and Agents placeholders render with a vault open', async () => {
+    const view = render(Settings, { section: 'customise', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    expect(screen.getByTestId('settings-customise')).toHaveTextContent(LL.web.settings.customise.intro())
+    await view.rerender({ section: 'agents', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    expect(await screen.findByTestId('settings-agents')).toHaveTextContent(LL.web.settings.agents.intro())
   })
 })
 
-describe('Settings > Sync (first-run D1/D2, R10)', () => {
+describe('Settings: one save model (R3) — no Save buttons, nothing to guard', () => {
+  it('has no Save button in any section but Keys (ST3 makes Keys write through)', async () => {
+    const world = keymapWorld({ registry: registryWith(), vault: {}, active: 'default' })
+    await world.keymap.reload()
+    const props = {
+      onSection: vi.fn(),
+      vault: VAULT,
+      registry: world.registry,
+      layout: liveLayout(),
+      keymap: world.keymap,
+      resources: world.resources,
+      readAppFile: (p: string) => world.vault!.readAppFile(p),
+      onLinkDevice: vi.fn(),
+      probe: vi.fn(async () => ({ ok: true as const })),
+      verify: vi.fn(async () => 'ok' as const),
+      pinnedHost: '',
+      teamRelay: '',
+    }
+    const view = render(Settings, { ...props, section: 'you' })
+    for (const section of SETTINGS_SECTIONS.filter((s) => s !== 'keys')) {
+      await view.rerender({ ...props, section })
+      await screen.findByTestId(`settings-section:${section}`)
+      expect(screen.queryByRole('button', { name: /^Save$/ }), section).toBeNull()
+    }
+  })
+
+  it('the name commits on leaving the field, and an empty one is refused inline', async () => {
+    const user = userEvent.setup()
+    const onConfigChange = vi.fn()
+    render(Settings, { section: 'you', onSection: vi.fn(), vault: VAULT, registry: registryWith(), onConfigChange })
+    const field = screen.getByTestId('settings-name')
+    await user.type(field, 'Chris B')
+    expect(localStorage.getItem('editor:user')).toBeNull()
+    await user.tab()
+    expect(localStorage.getItem('editor:user')).toBe('Chris B')
+    expect(screen.getByTestId('settings-name-status')).toHaveTextContent(LL.web.settings.saved())
+    expect(onConfigChange).toHaveBeenCalledOnce()
+
+    await user.clear(field)
+    await user.keyboard('{Enter}')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByTestId('field-errors:name')).toHaveTextContent(LL.web.settings.you.name_required())
+    expect(localStorage.getItem('editor:user')).toBe('Chris B')
+  })
+
+  it('a layout change applies at once; Editor holds the editor options, each part resets only its own', async () => {
+    const user = userEvent.setup()
+    const layout = liveLayout()
+    const view = render(Settings, { section: 'layout', onSection: vi.fn(), vault: VAULT, registry: registryWith(), layout })
+    await user.selectOptions(screen.getByTestId('layout-field:toolbar'), 'bottom')
+    expect(layout.setOverrides).toHaveBeenLastCalledWith({ $schema: LAYOUT_SCHEMA_ID, toolbar: { position: 'bottom' } })
+    // The editor's fields moved to Editor.
+    expect(screen.queryByTestId('layout-field:measure')).toBeNull()
+
+    await view.rerender({ section: 'editor', onSection: vi.fn(), vault: VAULT, registry: registryWith(), layout })
+    await screen.findByTestId('settings-editor-layout')
+    expect(screen.getByTestId('default-mode')).toBeVisible()
+    expect(screen.queryByTestId('layout-field:toolbar')).toBeNull()
+    await user.selectOptions(screen.getByTestId('layout-field:measure'), 'wide')
+    expect(layout.overrides).toMatchObject({ toolbar: { position: 'bottom' }, editor: { measure: 'wide' } })
+
+    // Editor's reset puts back the editor's fields and keeps the toolbar's.
+    await user.click(screen.getByTestId('layout-reset-editor'))
+    expect(layout.overrides).toEqual({ $schema: LAYOUT_SCHEMA_ID, toolbar: { position: 'bottom' } })
+    expect(screen.getByTestId('layout-reset-editor')).toBeDisabled()
+  })
+
+  it('About: the version line is the updater’s honest outcome; no Check now; the guides and the report', async () => {
+    const { help } = await import('../help.svelte.js')
+    help.version = '1.4.0'
+    help.update = { kind: 'current', checkedAt: 1_000_000 }
+    const clock = { now: () => 1_000_000 + 2 * 3_600_000, schedule: () => () => {} }
+    render(Settings, { section: 'about', onSection: vi.fn(), vault: null, registry: registryWith(), desktop: true, clock })
+    expect(screen.getByTestId('settings-version')).toHaveTextContent(
+      LL.web.help.version.current({ version: '1.4.0', when: LL.web.relative_time.hours({ count: 2 }) })
+    )
+    expect(screen.queryByRole('button', { name: /check now/i })).toBeNull()
+    expect(screen.getByTestId('settings-guide:changes')).toHaveTextContent(LL.web.help.menu.changes({ version: '1.4.0' }))
+    expect(screen.getByTestId('settings-report')).toBeVisible()
+    help.version = null
+    help.update = { kind: 'unchecked' }
+  })
+})
+
+describe('Settings › Sync & devices (first-run D1/D2, R10)', () => {
   const sync = LL.web.settings.sync
   const card = LL.web.relay_card
   const RELAY = 'wss://ohhi.example.ts.net/relay'
@@ -308,9 +409,10 @@ describe('Settings > Sync (first-run D1/D2, R10)', () => {
 
   async function openSync(over: Record<string, unknown> = {}) {
     const props = {
-      onClose: vi.fn(),
+      section: 'sync' as const,
+      onSection: vi.fn(),
+      vault: VAULT,
       registry: registryWith(),
-      initialTab: 'sync' as const,
       onLinkDevice: vi.fn(),
       clock,
       probe: vi.fn(async () => ({ ok: true as const })),
@@ -321,7 +423,7 @@ describe('Settings > Sync (first-run D1/D2, R10)', () => {
       secretHint: '',
       ...over,
     }
-    render(SettingsPanel, props)
+    render(Settings, props)
     await screen.findByTestId('settings-relay-card')
     return { props, user: userEvent.setup() }
   }
@@ -393,5 +495,45 @@ describe('Settings > Sync (first-run D1/D2, R10)', () => {
     expect(screen.getByTestId('settings-device-link')).toHaveTextContent(sync.devices())
     expect(screen.getByTestId('settings-link-device-needs-secret')).toHaveTextContent(LL.web.device_link.needs_secret())
     expect(screen.getByTestId('settings-link-device-where-body')).toHaveTextContent(card.secret.where_generic())
+  })
+
+  it('the relay address commits on Enter, validated inline; a bad one is never stored', async () => {
+    const { defaultRelay } = await import('../config.js')
+    const onConfigChange = vi.fn()
+    const { user } = await openSync({ onConfigChange })
+    const field = screen.getByTestId('settings-relay')
+    await user.clear(field)
+    await user.type(field, 'http://nope{Enter}')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByTestId('field-errors:relay')).toHaveTextContent(sync.relay_invalid())
+    await user.clear(field)
+    await user.type(field, `${RELAY}{Enter}`)
+    expect(defaultRelay()).toBe(RELAY)
+    expect(onConfigChange).toHaveBeenCalledOnce()
+    expect(field).not.toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('the secret commits when the field is left; Link a device… opens with it saved', async () => {
+    const { operatorSecret } = await import('../config.js')
+    const { props, user } = await openSync()
+    await user.type(secretField(), 's3cret')
+    expect(operatorSecret()).toBe('')
+    await user.click(screen.getByTestId('settings-link-device'))
+    expect(operatorSecret()).toBe('s3cret')
+    expect(props.onLinkDevice).toHaveBeenCalledOnce()
+  })
+
+  it('vaults and shares live in the manager now: one door to it; a browser shows its storage here', async () => {
+    const onManageVaults = vi.fn()
+    const { user } = await openSync({ onManageVaults, desktop: false })
+    expect(screen.getByTestId('settings-vaults')).toHaveTextContent(sync.vaults_body())
+    await user.click(screen.getByTestId('settings-manage-vaults'))
+    expect(onManageVaults).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('settings-storage')).toBeVisible()
+  })
+
+  it('the desktop keeps real files: no browser-storage section', async () => {
+    await openSync({ desktop: true })
+    expect(screen.queryByTestId('settings-storage')).toBeNull()
   })
 })

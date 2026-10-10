@@ -38,7 +38,6 @@ function registeredIds(): string[] {
     hasWorkspace: () => true,
     inWorkspace: () => true,
     claimed: () => false,
-    openSettings: vi.fn(),
     openDeviceLink: vi.fn(),
     openView: vi.fn(),
     devtools: () => true,

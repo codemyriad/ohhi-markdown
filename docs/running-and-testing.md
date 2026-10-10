@@ -253,8 +253,8 @@ quiet default boots with `layout: null` and gets a fresh profile's `default`.
 
 `e2e/layout.spec.ts` covers the layout spec (foundations Stage 1, round 3
 Q6): a new install boots `default` (no navigator column, no rail column, the
-format bar at the bottom); Settings › Layout applies live under the dialog,
-closes without asking, persists, and *Reset to default* restores; the Files
+format bar at the bottom); Settings › Layout (a view tab) applies live,
+has nothing to save, persists, and *Reset to default* restores; the Files
 field turns the drawer into a column at once, and a pinned side reads
 "(pinned)" with *Unpin*; no field combination can hide the `sync` icon (word
 count off, toolbar at the bottom); and the palette's *Use layout file…* lists
@@ -465,7 +465,7 @@ shows the **vault manager**, in one of two states:
   and *Bring your vault from another device*. The top bar carries the version
   (desktop), help and Settings; the foot opens the **Import** dialog ("Coming
   from another app?") and links the two-minute guide. No name is asked here:
-  the name peers see lives in Settings › General.
+  the name peers see lives in Settings › You.
 - **The list** (one or more vaults; also where *Manage vaults…* and a failed
   auto-reopen land): one row per vault — a kind glyph, the name ("open now"
   on the vault open behind the manager), the path and when it was last opened
@@ -494,10 +494,10 @@ shares/vaults).
 **The default relay is set at build time.** `VITE_DEFAULT_RELAY=wss://… rushx
 build` (or a git-ignored `apps/web/.env.local`, see `apps/web/.env.example`)
 sets the relay a fresh install proposes for new shares; unset or malformed →
-`ws://localhost:8787`. A relay saved in Settings › Sync always wins; an install
+`ws://localhost:8787`. A relay saved in Settings › Sync & devices always wins; an install
 that never saved one follows each new build's default.
 **The relay is one card** (`RelayCard.svelte`, first-run D1), drawn in the
-Shared view, Settings › Sync and the share sheet's first run: icon, host in
+Shared view, Settings › Sync & devices and the share sheet's first run: icon, host in
 mono, a status line, actions. For a relay this vault holds rooms on it reads
 the Shared view's snapshot ("Connected · N rooms · in sync with the relay
 since …" / "Reconnecting…" / "Offline · last in sync …" / "Refused by the
@@ -516,7 +516,7 @@ by `config.ts` as `TEAM_SECRET_HINT` / `TEAM_NETWORK_NOTE` ('' when unset);
 the release workflow fills them from repo variables (`docs/desktop-builds.md`).
 **A pinned build** (`VITE_TEAM_HOST`, the workflow's `TEAM_HOST`; `config.ts
 TEAM_HOST`) has a CSP that allows no other relay, so the card offers no
-*Use another…* / *Change…*, Settings › Sync shows the relay address
+*Use another…* / *Change…*, Settings › Sync & devices shows the relay address
 read-only, and both say "This build syncs through <host> only."
 
 **The secret is verified and placed** (D2): titled "Permission to create
@@ -524,7 +524,7 @@ links", it is checked against the relay's admin API after a paste (debounced)
 and on blur — "works" (a listing call answered 200), "doesn't match this
 relay", "this relay has no admin API", "can't reach the relay" — with a
 *Where do I get this?* disclosure (the build's hint, else the generic
-sentence). The same disclosure sits in Settings › Sync's *Your devices* and
+sentence). The same disclosure sits in *Your devices* in Settings › Sync & devices and
 in the device-link dialog when no secret is saved.
 
 **The share sheet's first run** (no operator secret yet): "Syncs through" +
@@ -533,7 +533,7 @@ the start when no relay is known), the verified secret, then — for any folder
 not shared yet — "First link: who is it for?" (+ read-only) and "Your name,
 shown to them" (prefilled from the saved name, saved on Share; Fork 5-A), then
 *Share and copy link*, disabled with the reason until the secret says
-"works". Share remembers relay + secret in Settings › Sync, carves (the
+"works". Share remembers relay + secret in Settings › Sync & devices, carves (the
 carve's token is this device's own credential, never read-only), and — when
 the first link is named — mints that person's link beside it and copies it.
 Links leave the sheet in the URL form when an origin is known
@@ -559,7 +559,7 @@ unless it has promised to keep it. At launch the web app checks
 While the answer is no, the welcome's browser door carries *Ask the browser
 to keep it* under its description (the list shows a dismissible note with the
 same button), a workspace reopened straight into a browser vault gets
-one notice per session, and Settings › Vaults & shares shows the status,
+one notice per session, and Settings › Sync & devices shows the status,
 usage and the reminder switch. None of this runs in the desktop app. To see
 the note in Chromium, use a fresh profile (a well-used site may already hold
 the grant).

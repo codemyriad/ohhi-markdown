@@ -13,8 +13,6 @@ const common = {
   app_name: 'Oh hi markdown',
   cancel: 'Cancel',
   close: 'Close',
-  save: 'Save',
-  saved: 'Saved',
   working: 'Working…',
 }
 

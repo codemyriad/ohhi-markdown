@@ -9,7 +9,8 @@ Everything you can change about the shell's shape is a **file**: JSON for
 layouts and keymaps, markdown for templates, CSS for themes. Files are data,
 never code (`plans/quiet-shell-shaping.md` Decision 2): a vault's `.ohhi/`
 folder travels by git and by copy, so nothing in it can run. A person edits
-these files in Settings; **an agent edits them directly** with its own file
+these files in Settings (a view tab — `app.settings`, Mod+, — or, with no
+vault open, the vault manager's settings page); **an agent edits them directly** with its own file
 tools — this page is everything it needs. Ground truth for the decisions:
 `plans/quiet-shell-shaping.md` F1–F16 and `plans/foundations-plan.md` Stage 6.
 
@@ -20,7 +21,7 @@ tools — this page is everything it needs. Ground truth for the decisions:
 | Kind | File | Schema | Chosen in |
 |---|---|---|---|
 | Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | Settings › Layout |
-| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Hotkeys |
+| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
 | Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance |
 
@@ -47,12 +48,13 @@ layout file, then this device's **overrides**, then its **pins**:
 - the file is `default` unless you pick another with **Use layout file…**
   in the command palette (`layout.use-file`) — the only place a
   `.ohhi/layouts/*.json` is chosen;
-- **overrides** (`config.layout.overrides`) are what Settings › Layout
-  edits: one form of the options worth changing (files drawer or column,
-  sidebar dock or column and its corner, tabs, toolbar position, format
-  bar, word count, how notes open, line width, typewriter, inline title).
-  Each change applies at once, under the dialog, and is kept on this device
-  as the difference from the file; *Reset to default* drops them all;
+- **overrides** (`config.layout.overrides`) are what Settings › Layout and
+  Settings › Editor edit: Layout has the shell's options (files drawer or
+  column, sidebar dock or column and its corner, tabs, toolbar position,
+  format bar, word count), Editor the note's (how notes open, line width,
+  typewriter, inline title). Each change applies at once — split Settings
+  beside a note to watch it — and is kept on this device as the difference
+  from the file; each section's reset drops its own;
 - **pins**: *Pin as a column* on the navigator or the dock
   (`config.layout.pins`) wins over both.
 
@@ -69,7 +71,9 @@ is the layout `writing`.
 
 ### Applying a change
 
-Settings applies its changes as you make them. A file written by anything else — an
+Settings applies its changes as you make them: there is no Save button and
+nothing to confirm on leaving (Keys keeps a draft with *Save* / *Save as*
+for now). A file written by anything else — an
 agent, your editor, `git pull` — is picked up by the desktop app's watcher;
 when that cannot run (the browser, or a watcher that failed to start), run
 **Reload layouts and resources** (`app.reload-resources`) from the command
@@ -109,7 +113,7 @@ say only what differs. Resolving it yields the complete shell spec.
 | `toolbar` | `position`: `top`/`bottom` |
 | `dock` | `position`: `top-right`/`bottom-right` — where the dock's icon strip floats |
 | `panes` | `borders` (`hairline`/`none`), `focusMark`, `lead` (booleans), `open` (`tab`/`replace`) |
-| `views` | the view ids whose commands the palette offers (`inspector`, `log`, `shared`); an empty list offers every registered view |
+| `views` | the view ids whose commands the palette offers (`inspector`, `log`, `shared`); an empty list offers every registered view. `settings` is always offered, listed or not: it is where a layout is changed back |
 | `editor` | `measure` (`narrow`/`comfortable`/`wide`), `typewriter` (boolean), `inlineTitle` (boolean — the note's name as an editable heading at the top of its body; editing it renames the file) |
 | `focus` | `keep`: the region ids Focus mode leaves on screen |
 
@@ -179,7 +183,7 @@ none.
   the desktop's workspace switcher).
 - `extends` layers keymaps: the parent's bindings first, this file's over them,
   per command id. Cycles are refused.
-- Settings › Hotkeys edits **the active keymap file**. On the read-only
+- Settings › Keys edits **the active keymap file**. On the read-only
   built-in `default` (or a file in your user folder) it offers *Save as*, which
   writes a new vault file that `extends` it and holds only what changed.
 - Shortcuts saved on a device before keymaps were files move into
@@ -418,6 +422,7 @@ Entries of `views` — the views whose palette commands a layout offers; an empt
 - `inspector`
 - `log`
 - `shared`
+- `settings`
 <!-- /generated -->
 
 ---
@@ -458,7 +463,7 @@ toolbar.
 }
 ```
 
-Then choose **mine** under Keymap in Settings › Hotkeys. If a keymap file is
+Then choose **mine** under Keymap in Settings › Keys. If a keymap file is
 already active (`custom:device` after the migration, say), add the two lines
 to *that* file's `bindings` instead and reload — no choice needed.
 

@@ -452,7 +452,6 @@ export function defaultCommands(actions: {
   newNote: () => void
   toggleSidebar: () => void
   toggleRail: () => void
-  settings: () => void
   back: () => void
   forward: () => void
   /** Chrome U3: file ops on the OPEN note (Chris's Mod+Shift+R / Mod+Shift+A rebinds). */
@@ -513,7 +512,7 @@ export function defaultCommands(actions: {
     { id: 'daily.today', title: t.daily_today(), group: g.daily(), keys: 'Mod+\\', run: actions.dailyToday },
     { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), keys: 'Mod+-', run: actions.dailyPrev, when: actions.hasPrevDaily },
     { id: 'daily.next', title: t.daily_next(), group: g.daily(), keys: 'Mod+=', run: actions.dailyNext, when: actions.hasNextDaily },
-    { id: 'app.settings', title: t.settings(), group: g.app(), keys: 'Mod+,', run: actions.settings },
+    // `app.settings` (Mod+,) is the `settings` view's row, from viewCommands below.
     ...viewCommands(actions.openView, { devtools: actions.devtools }),
   ]
 }

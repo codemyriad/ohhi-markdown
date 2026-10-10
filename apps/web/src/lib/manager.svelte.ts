@@ -23,6 +23,7 @@ import {
   operatorSecret,
   purgeRooms,
   relayKnown,
+  removeShare,
   removeVault as removeVaultEntry,
   saveUser,
   setDefaultRelay,
@@ -99,6 +100,8 @@ export interface Manager {
   /** Rejects with the reason — the dialog keeps the paste and shows it. */
   linkThisDevice(link: string): Promise<void>
   removeVault(room: string): Promise<void>
+  /** Forget a remembered share link on this device (settings-shaping Fork 3: moved here from Settings). */
+  forgetShare(room: string): void
   /** What the progress panel calls the place a vault is being written. */
   destinationOf(vault: VaultSourceDesc): string
 }
@@ -376,6 +379,10 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     joinShare,
     linkThisDevice,
     removeVault,
+    forgetShare: (room: string) => {
+      removeShare(room)
+      refresh()
+    },
     destinationOf,
   }
 }

@@ -11,7 +11,16 @@
  */
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { encodeShareLink } from '../src/lib/share-link.js'
-import { MANAGER_URL, RELAY, appUrl, createBrowserVault, expectAccessible, severableRelay } from './fixtures.js'
+import {
+  MANAGER_URL,
+  RELAY,
+  appUrl,
+  closeSettings,
+  createBrowserVault,
+  expectAccessible,
+  openSettings,
+  severableRelay,
+} from './fixtures.js'
 
 /**
  * Boot a memory vault whose websockets pass through a switch, so the RELAY
@@ -124,12 +133,11 @@ test('a vault that shares nothing opens Shared on its onboarding', async ({ page
   await expectAccessible(page, 'shared view (empty)')
 
   // A relay saved in Settings, still no secret: the card probes it, and the one thing still needed.
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
+  await openSettings(page, 'sync')
   await page.getByTestId('settings-relay').fill(RELAY)
-  await page.getByTestId('settings-save-sync').click()
-  await expect(page.getByTestId('settings-save-sync')).toBeDisabled()
-  // Settings › Sync draws the same card: reachable is a health check, nothing more.
+  // It commits on Enter (settings-shaping R3: no Save button).
+  await page.getByTestId('settings-relay').press('Enter')
+  // Settings › Sync & devices draws the same card: reachable is a health check, nothing more.
   await expect(page.getByTestId('settings-relay-card').getByTestId('relay-card')).toHaveAttribute('data-state', 'reachable', {
     timeout: 10_000,
   })
@@ -138,8 +146,9 @@ test('a vault that shares nothing opens Shared on its onboarding', async ({ page
   await page.getByTestId('settings-secret').fill('anything')
   await expect(page.getByTestId('settings-secret-check')).toContainText('this relay has no admin API', { timeout: 10_000 })
   await expectAccessible(page, 'settings sync (secret checked)')
-  await page.getByTestId('settings-close').click()
-  await page.getByTestId('settings-discard').click()
+  // The secret commits when the field is left: empty it first, so none is kept.
+  await page.getByTestId('settings-secret').fill('')
+  await closeSettings(page)
   await expect(card).toHaveAttribute('data-state', 'reachable', { timeout: 10_000 })
   await expect(card).toContainText('localhost:8799')
   await expect(block).toContainText('you will need the team’s secret once')

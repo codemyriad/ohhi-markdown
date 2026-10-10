@@ -193,7 +193,7 @@ export function bindingFromEvent(e: KeyEventLike, mac: boolean): string | null {
   return [...parts.filter(Boolean), key.length === 1 ? key.toLowerCase() : key].join('+')
 }
 
-/** One row of the Settings > Hotkeys table: what a command is bound to, and why. */
+/** One row of the Settings › Keys table: what a command is bound to, and why. */
 export interface CommandBinding {
   id: string
   title: string

@@ -299,3 +299,26 @@ export async function severableRelay(
     },
   }
 }
+
+/** Settings is a view tab (settings-shaping ST1): its body, wherever it is. */
+export const settingsView = (page: Page): Locator => page.getByTestId('settings-view')
+
+/**
+ * Open Settings (`Mod+,`, the palette's `app.settings`) and, given one, move
+ * to `section` through the nav. Focus must be somewhere the shell's keys reach
+ * (not a field outside the panes).
+ */
+export async function openSettings(page: Page, section?: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+,')
+  await expect(settingsView(page)).toBeVisible()
+  if (!section) return
+  await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+  await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
+}
+
+/** Close the Settings tab like any tab: `Mod+W` with the tab focused (a field in a pane does not claim it). */
+export async function closeSettings(page: Page): Promise<void> {
+  await settingsView(page).getByRole('tab', { selected: true }).focus()
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(settingsView(page)).toHaveCount(0)
+}

@@ -61,7 +61,7 @@ relay.example.com {
 ```
 
 The relay's address is then `wss://relay.example.com`. Each person sets it
-once in **Settings › Sync**; every link made after that carries it, so the
+once in **Settings › Sync & devices**; every link made after that carries it, so the
 people you share with never type it.
 
 If the relay is reachable from the internet, it is reachable by anyone. Each

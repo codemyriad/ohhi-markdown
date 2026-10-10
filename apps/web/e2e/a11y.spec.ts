@@ -18,7 +18,20 @@
  * must be, it is listed here with the reason and the slice that lifts it.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { MANAGER_URL, RELAY, appUrl, createBrowserVault, expectAccessible, openApp, openManager, seedReadNote, tabNamed } from './fixtures.js'
+import {
+  MANAGER_URL,
+  RELAY,
+  appUrl,
+  closeSettings,
+  createBrowserVault,
+  expectAccessible,
+  openApp,
+  openManager,
+  openSettings,
+  seedReadNote,
+  settingsView,
+  tabNamed,
+} from './fixtures.js'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
 
 test('the default layout (no columns) is accessible', async ({ page }) => {
@@ -117,10 +130,9 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   await expectAccessible(page, 'log view')
 
   // The inspector tab (devtools-shaping D): a table, two filters, a scope nav.
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:developer').click()
+  await openSettings(page, 'developer')
   await page.getByTestId('settings-devtools').check()
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   await page.keyboard.press('ControlOrMeta+Shift+p')
   await page.getByTestId('command-palette-input').fill('Open inspector')
   await page.getByTestId('command-palette-row').first().click()
@@ -302,21 +314,18 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await expectAccessible(page, 'vault menu')
   await page.keyboard.press('Escape')
 
+  // Settings is a view tab (settings-shaping ST1). Only the open section is
+  // in the DOM, so every section is opened to be scanned — Keys above all
+  // (a field, a toggle and a reset for every command).
   await page.getByTestId('open-settings').click()
-  await expect(page.getByTestId('settings-panel')).toBeVisible()
-  await expectAccessible(page, 'settings')
-  // Only the open tab's panel is in the DOM, so the tab with the most controls
-  // per row (Hotkeys: a field, a toggle and a reset for every command) has to
-  // be opened to be scanned at all.
-  await page.getByTestId('settings-tab:hotkeys').click()
-  await expect(page.getByTestId('settings-hotkeys')).toBeVisible()
-  await expectAccessible(page, 'settings hotkeys')
-  // Layout (foundations Stage 1): the named layouts, Customise, Save as.
-  await page.getByTestId('settings-tab:layout').click()
-  await expect(page.getByTestId('settings-layout')).toBeVisible()
-  await expectAccessible(page, 'settings layout')
-  await page.getByTestId('settings-close').click()
-  await expect(page.getByTestId('settings-panel')).toHaveCount(0)
+  await expect(settingsView(page)).toBeVisible()
+  await expectAccessible(page, 'settings view')
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'agents', 'developer', 'about']) {
+    await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+    await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
+    await expectAccessible(page, `settings ${section}`)
+  }
+  await closeSettings(page)
 
   // Unpinned, the column is gone: the floating strip is the dock (a pinned
   // column has no collapse — Chris, 2026-10-06).
@@ -406,8 +415,7 @@ test('the share sheet, first run, is accessible', async ({ page }) => {
 
 test('the owner device-link dialog is accessible', async ({ page }) => {
   await openApp(page, 'a11y-device-link')
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
+  await openSettings(page, 'sync')
   // The mint button only exists once the relay operator secret is set.
   await page.getByTestId('settings-secret').fill('e2e-operator-secret')
   await page.getByTestId('settings-link-device').click()
@@ -434,10 +442,22 @@ test('the browser-storage note and its Settings section are accessible', async (
   await expect(page.getByTestId('storage-note-outcome')).toContainText('The browser said no')
   await expectAccessible(page, 'storage note (refused)')
 
+  // Settings as the manager's page (settings-shaping ST1): every section,
+  // the ones needing a vault saying so; storage sits in Sync & devices.
   await page.getByTestId('manager-settings').click()
-  await page.getByTestId('settings-tab:vaults').click()
+  await expect(page.getByTestId('settings-page')).toBeVisible()
+  await expectAccessible(page, 'settings page (no vault)')
+  await page.getByTestId('settings-tab:sync').click()
   await expect(page.getByTestId('settings-storage-status')).toContainText('Not guaranteed')
   await expectAccessible(page, 'settings: storage in this browser')
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'customise', 'agents', 'developer', 'about']) {
+    await page.getByTestId(`settings-tab:${section}`).click()
+    await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
+    await expectAccessible(page, `settings page ${section}`)
+  }
+  await expect(page.getByTestId('settings-needs-vault:keys')).toHaveCount(0)
+  await page.getByTestId('settings-tab:keys').click()
+  await expect(page.getByTestId('settings-needs-vault:keys')).toBeVisible()
 })
 
 test('the link-this-device dialog and the join progress panel are accessible', async ({ page }) => {

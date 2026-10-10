@@ -1,6 +1,6 @@
 /** Screenshot pass — not a gate; run manually to eyeball the themes. */
 import { test, type Page } from '@playwright/test'
-import { appUrl } from './fixtures.js'
+import { appUrl, closeSettings, settingsView } from './fixtures.js'
 
 const OUT = process.env.SHOT_DIR ?? 'test-results/shots'
 
@@ -43,9 +43,9 @@ for (const theme of ['editor-dark', 'editor-light', 'nord-dark', 'nord-light']) 
     await page.setViewportSize({ width: 1440, height: 900 })
     await boot(page, `shot-${theme}`)
     await page.getByTestId('open-settings').click()
-    await page.getByTestId('settings-tab:appearance').click()
+    await settingsView(page).getByTestId('settings-tab:appearance').click()
     await page.getByTestId(`theme-${theme}`).click()
-    await page.getByTestId('settings-close').click()
+    await closeSettings(page)
     await page.waitForTimeout(250)
     await page.screenshot({ path: `${OUT}/${theme}.png` })
   })
@@ -55,9 +55,9 @@ test('shot quick-open', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await boot(page, 'shot-qo')
   await page.getByTestId('open-settings').click()
-  await page.getByTestId('settings-tab:appearance').click()
+  await settingsView(page).getByTestId('settings-tab:appearance').click()
   await page.getByTestId('theme-nord-dark').click()
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   await page.keyboard.press('ControlOrMeta+o')
   await page.getByTestId('quick-open-input').fill('note')
   await page.waitForTimeout(250)

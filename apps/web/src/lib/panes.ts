@@ -76,8 +76,15 @@ export interface Waypoint {
  * title, icon, component and command. Adding a view is a row here and a row
  * there (`log`, `shared` and the harness's `session` register the same way).
  */
-export const VIEW_KINDS = ['inspector', 'log', 'shared'] as const
+export const VIEW_KINDS = ['inspector', 'log', 'shared', 'settings'] as const
 export type TabView = (typeof VIEW_KINDS)[number]
+
+/**
+ * Kinds there is one of per window (settings-shaping ST1): opening one again
+ * — from any pane, with any argument — focuses the existing tab and hands it
+ * the new argument (Settings' section), rather than opening a second.
+ */
+export const ONE_PER_WINDOW: ReadonlySet<TabView> = new Set<TabView>(['settings'])
 
 export function isViewKind(value: unknown): value is TabView {
   return typeof value === 'string' && (VIEW_KINDS as readonly string[]).includes(value)
@@ -698,7 +705,8 @@ export function openPath(
 /**
  * Open a shell surface as a tab (devtools-shaping D1-A). One per pane per
  * (view, arg): a second open of the same view — with the same argument —
- * activates the first. A foreground open fills an empty tab, exactly as
+ * activates the first. A kind in `ONE_PER_WINDOW` is one per window: the
+ * existing tab, wherever it is, is focused and takes the new argument. A foreground open fills an empty tab, exactly as
  * `open` does for a note — an empty tab is a slot waiting for something to show.
  */
 export function openView(
@@ -710,6 +718,15 @@ export function openView(
 ): Layout {
   const arg = opts.arg
   return editLayout(l, (d) => {
+    if (ONE_PER_WINDOW.has(view)) {
+      for (const q of panes(d.tree)) {
+        const existing = q.tabs.find((t) => t.view === view)
+        if (!existing) continue
+        if (arg !== undefined) existing.viewArg = arg
+        activateIn(d, q, existing.id, now)
+        return
+      }
+    }
     const p = findPane(d, opts.paneId ?? d.focus) ?? panes(d.tree)[0]
     const dup = p.tabs.find((t) => t.view === view && t.viewArg === arg)
     if (dup) {

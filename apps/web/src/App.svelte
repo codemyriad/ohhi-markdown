@@ -1,5 +1,5 @@
 <script lang="ts">
-  import SettingsPanel from './lib/components/SettingsPanel.svelte'
+  import SettingsPage from './lib/components/SettingsPage.svelte'
   import VaultManager from './lib/components/VaultManager.svelte'
   import { configForMemory, configForSession } from './lib/boot.js'
   import DeviceLinkDialog from './lib/components/DeviceLinkDialog.svelte'
@@ -53,6 +53,9 @@
   import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
   import { sharedSnapshot } from '@ohhi/workspace'
   import { setViewShell } from './lib/views.js'
+  import type { TabView } from './lib/panes.js'
+  import { settingsSection, type SettingsSection } from './lib/settings.js'
+  import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
@@ -60,9 +63,12 @@
   const memConfig = parseAppConfig(url)
   const appParams = parseAppParams(url)
 
-  let settingsOpen = $state(false)
-  /** The tab Settings opens on (the Shared view's *Change relay…* asks for Sync; Help's *Keyboard shortcuts*, Hotkeys). */
-  let settingsTab = $state<'sync' | 'hotkeys' | undefined>(undefined)
+  /**
+   * Settings on the manager's page (settings-shaping ST1): the section shown,
+   * or null for the vault list. In the workspace Settings is the `settings`
+   * view tab instead; `openSettings` below picks the host.
+   */
+  let managerSettings = $state<SettingsSection | null>(null)
   /**
    * A link arriving at the manager: `?share=` today, or handed over by the
    * join page's *Add here* (the manager mounts after it, so its Add dialog
@@ -87,8 +93,7 @@
   }
   /**
    * Device linking (N2). `deviceLinkOpen` is the OWNER's dialog (Settings ›
-   * Sync and the command palette both open it — never nested inside the
-   * settings dialog); `linkDeviceOpen` is the NEW DEVICE's paste dialog on the
+   * Sync & devices and the command palette both open it); `linkDeviceOpen` is the NEW DEVICE's paste dialog on the
    * manager. The two-phase panel's state (`joining`, `pull`) is the session's.
    */
   let deviceLinkOpen = $state(false)
@@ -110,10 +115,7 @@
   void loadVersion()
   // ---- Help (first-run E1–E3): the menu's one shell-side action ----
   setHelpHost({
-    openShortcuts: () => {
-      settingsTab = 'hotkeys'
-      settingsOpen = true
-    },
+    openShortcuts: () => openSettings('keys'),
   })
 
   // ---- V2b/V2c: index, commands, palette, link panels ----
@@ -287,21 +289,16 @@
   const sharedFeed = createSharedFeed({ workspace: () => workspace, clock: realClock })
   /** The open vault's relays, as the Shared view rolls them up — Settings › Sync's relay card (first-run D1). */
   const settingsRelays = $derived(
-    settingsOpen && workspace
-      ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays
-      : []
+    workspace ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays : []
   )
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
-    openView: (id, arg) => panes.openView(id, arg),
+    openView: (id, arg) => openView(id, arg),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,
-    openSettings: (tab) => {
-      settingsTab = tab
-      settingsOpen = true
-    },
+    openSettings: (section) => openSettings(section),
     shareFolder: (path) => (sharing.folderSharePath = path),
     addSharedFolder: (dir = '') => (sharing.addShareOpen = { dir }),
     linkDevice: () => (deviceLinkOpen = true),
@@ -352,9 +349,8 @@
     hasWorkspace: () => workspace !== null,
     inWorkspace: () => view === 'workspace',
     claimed: keyboardClaimed,
-    openSettings: () => (settingsOpen = true),
     openDeviceLink: () => (deviceLinkOpen = true),
-    openView: (id, arg) => panes.openView(id, arg),
+    openView: (id, arg) => openView(id, arg),
     devtools: () => devtools,
     reloadResources: () => customise.reloadAll(),
     templates,
@@ -394,7 +390,74 @@
       manager.refresh()
       session.showManager()
     },
-    onSettings: () => (settingsOpen = true),
+    onSettings: () => openSettings(),
+  })
+
+  // ---- Settings (settings-shaping ST1): a view tab in the workspace, a page on the manager ----
+  /**
+   * Every door to Settings comes here: the palette's `app.settings` and any
+   * `openView('settings', …)`, the navigator's gear, the Shared view's
+   * *Change relay…*, Help's *Keyboard shortcuts*, the manager. With the
+   * workspace on screen it is the one `settings` view tab, focused and
+   * switched to `section`; otherwise the manager's page.
+   */
+  function openSettings(section?: string): void {
+    if (view === 'workspace' && workspace) {
+      panes.openView('settings', section === undefined ? undefined : settingsSection(section))
+      return
+    }
+    managerSettings = settingsSection(section)
+    if (view !== 'manager') session.showManager()
+  }
+  function openView(id: TabView, arg?: string): void {
+    if (id === 'settings') openSettings(arg)
+    else panes.openView(id, arg)
+  }
+  /** What Settings is handed, in both hosts — every field read live. */
+  const settingsHost: SettingsHost = {
+    registry: nav.registry,
+    layout,
+    resources,
+    keymap,
+    get readAppFile() {
+      const ws = workspace
+      return ws ? (p: string) => ws.readAppFile(p) : undefined
+    },
+    get vault() {
+      if (!workspace) return null
+      const vault = getVault(workspace.room)?.vault
+      return {
+        name: currentVaultName,
+        kind: vault?.kind ?? 'memory',
+        ...(vault?.kind === 'tauri' ? { path: vault.path } : {}),
+      }
+    },
+    get relays() {
+      return settingsRelays
+    },
+    get onLinkDevice() {
+      return workspace
+        ? () => {
+            manager.refresh()
+            deviceLinkOpen = true
+          }
+        : undefined
+    },
+    onManageVaults: () => {
+      manager.refresh()
+      managerSettings = null
+      session.showManager()
+    },
+    onConfigChange: () => {
+      manager.refresh()
+      devtools = debugForced || devtoolsEnabled()
+    },
+  }
+  setSettingsHost(settingsHost)
+  // The page belongs to one visit to the manager: leaving it (a vault opens,
+  // Back) means the next visit starts at the vault list.
+  $effect(() => {
+    if (view !== 'manager') managerSettings = null
   })
 
   // ---- initial routing: everything above is wired, now pick a vault ----
@@ -419,6 +482,16 @@
       linkDeviceOpen = true
     }}
   />
+{:else if view === 'manager' && managerSettings !== null}
+  <SettingsPage
+    host={settingsHost}
+    section={managerSettings}
+    onSection={(next) => (managerSettings = next)}
+    onBack={() => {
+      managerSettings = null
+      manager.refresh()
+    }}
+  />
 {:else if view === 'manager'}
   <VaultManager
     isTauri={isTauri()}
@@ -436,6 +509,7 @@
     onLoadFacts={() => void manager.loadFacts(workspace?.room ?? null)}
     onOpenVault={(entry) => void session.boot(entry)}
     onRemoveVault={(room) => void manager.removeVault(room)}
+    onForgetShare={(room) => manager.forgetShare(room)}
     onRenameVault={(room, name) => manager.renameVault(room, name)}
     onOpenFolder={(name) => void manager.openFolder(name)}
     onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
@@ -449,7 +523,7 @@
       linkDeviceOpen = true
     }}
     onBack={() => session.showWorkspace()}
-    onSettings={() => (settingsOpen = true)}
+    onSettings={() => openSettings()}
     storageNote={storage.note}
     onKeepStorage={() => storage.keep()}
     onDismissStorage={() => storage.dismiss()}
@@ -606,32 +680,5 @@
     initialLink={deviceLinkPrefill || prefillLink}
     onLink={(link) => manager.linkThisDevice(link)}
     onClose={() => (linkDeviceOpen = false)}
-  />
-{/if}
-
-{#if settingsOpen}
-  <SettingsPanel
-    initialTab={settingsTab}
-    registry={nav.registry}
-    {layout}
-    {resources}
-    {keymap}
-    readAppFile={workspace ? (p) => workspace!.readAppFile(p) : undefined}
-    relays={settingsRelays}
-    onLinkDevice={workspace
-      ? () => {
-          // Settings saved its forms before calling this (see the panel), so
-          // the dialog reads the operator secret the user just typed.
-          manager.refresh()
-          settingsOpen = false
-          deviceLinkOpen = true
-        }
-      : undefined}
-    onClose={() => {
-      settingsOpen = false
-      settingsTab = undefined
-      manager.refresh()
-      devtools = debugForced || devtoolsEnabled()
-    }}
   />
 {/if}

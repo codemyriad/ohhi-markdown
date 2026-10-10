@@ -424,7 +424,7 @@ export function createResources(host: ResourcesHost) {
 
   /**
    * Write `.ohhi/keymaps/<name>.json` in the open vault — journaled, atomic
-   * (`Workspace.writeAppFile`), from Settings › Hotkeys or the `config.hotkeys`
+   * (`Workspace.writeAppFile`), from Settings › Keys or the `config.hotkeys`
    * migration. Only what the file adds over the keymap it `extends` is
    * written: a binding its parent chain already says is dropped, and a
    * parent that does not resolve refuses the save (the file would not

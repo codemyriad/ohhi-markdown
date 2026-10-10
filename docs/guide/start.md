@@ -82,7 +82,7 @@ More in [Sharing and the relay](sharing.md).
 
 Your own second computer gets your whole vault with a device link:
 
-1. On the first computer: **Settings › Sync › Link a device…**, then copy the
+1. On the first computer: **Settings › Sync & devices › Link a device…**, then copy the
    link.
 2. On the second: *Bring your vault from another device*, paste the link and
    pick an empty folder.
@@ -103,7 +103,7 @@ your own notes in the desktop app.
 The **question mark** at the right end of the toolbar opens Help:
 
 - these guides, including [When something goes wrong](recovery.md);
-- **Keyboard shortcuts**, which opens Settings › Hotkeys;
+- **Keyboard shortcuts**, which opens Settings › Keys;
 - **What's new**, the changes in the version you are running;
 - **Report a problem…**, which copies a short report with the facts someone
   needs to help you. Paste it in your team chat.

@@ -7,7 +7,7 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { appUrl, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, panes, tabNamed, paneTabs } from './fixtures.js'
+import { appUrl, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, panes, runCommand, tabNamed, paneTabs } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
@@ -274,9 +274,10 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
   await page.getByTestId(`file-item:${IDEAS}`).click()
   await expect(paneTabs(page)).toHaveCount(2)
 
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
-  await page.getByTestId('settings-relay').click()
+  // Settings is a tab now (settings-shaping ST1); Report a problem is a real
+  // dialog with a field in it.
+  await runCommand(page, 'Report a problem')
+  await page.getByTestId('report-what').click()
 
   // `Mod+P` is the pane-mode leader, and a live mode preventDefaults every key
   // until Escape — so entering one from a text field ate the rest of what was
@@ -284,10 +285,10 @@ test('a dialog owns the keyboard: pane keys never reach the tabs behind it', asy
   await page.keyboard.press('ControlOrMeta+p')
   await expect(page.getByTestId('mode-bar')).toHaveCount(0)
   await page.keyboard.press('ControlOrMeta+w')
-  await expect(page.getByTestId('settings-panel')).toBeVisible()
+  await expect(page.getByTestId('report-dialog')).toBeVisible()
 
-  await page.getByTestId('settings-close').click()
-  await expect(page.getByTestId('settings-panel')).toHaveCount(0)
+  await page.getByTestId('report-cancel').click()
+  await expect(page.getByTestId('report-dialog')).toHaveCount(0)
   await expect(paneTabs(page)).toHaveCount(2)
 })
 

@@ -1,13 +1,15 @@
 <script lang="ts">
   /**
-   * Settings › Layout (round 3, Q6): ONE form over this device's layout
-   * overrides (`config.layout.overrides`). Every control applies at once —
-   * the shell re-renders under the dialog — and persists as it changes: no
-   * Save, no names, no files, nothing for the close guard to hold. Only the
-   * fields worth exposing are here, each labelled from the dictionary; a
-   * side this device pins as a column (P7) reads *(pinned)* with *Unpin*
-   * beside it, since the pin wins over the field. *Reset to default* drops
-   * every override, back to the layout file's own settings.
+   * Settings › Layout and › Editor (round 3, Q6; settings-shaping ST2): a form
+   * over this device's layout overrides (`config.layout.overrides`), drawn in
+   * two parts — `shell` (Layout: the regions, bars and dock) and `editor`
+   * (Editor: how a note opens, line width, typewriter, the inline title).
+   * Every control applies at once — the shell re-renders beside the view —
+   * and persists as it changes: no Save, no names, no files. Only the fields
+   * worth exposing are here, each labelled from the dictionary; a side this
+   * device pins as a column (P7) reads *(pinned)* with *Unpin* beside it,
+   * since the pin wins over the field. Each part's reset puts ITS fields
+   * back to the layout file's own values and leaves the other part's alone.
    *
    * What is stored is the minimal delta over the active file
    * (`overridesFor` — a field set back to the file's value stops being an
@@ -21,9 +23,11 @@
   interface Props {
     layout: Pick<ShellLayout, 'fileSpec' | 'ownSpec' | 'overrides' | 'setOverrides' | 'resetOverrides'> &
       Partial<Pick<ShellLayout, 'pins' | 'unpin'>>
+    /** Which fields: Layout's (`shell`) or Editor's (`editor`). */
+    part?: 'shell' | 'editor'
   }
 
-  let { layout }: Props = $props()
+  let { layout, part = 'shell' }: Props = $props()
 
   const t = $derived($LL.web.settings.layout)
   /** The dictionary's labels as a lookup: `<field>` and `<field>_<value>`. */
@@ -40,22 +44,30 @@
     options: readonly string[]
     /** The side a pin overrides, for the two column fields. */
     pin?: PinSide
+    part: 'shell' | 'editor'
   }
-  const SELECTS: readonly Select[] = [
-    { id: 'files', section: 'regions', key: 'navigator', options: ['drawer', 'column'], pin: 'navigator' },
-    { id: 'sidebar', section: 'regions', key: 'rail', options: ['dock', 'column'], pin: 'rail' },
-    { id: 'sidebar_position', section: 'dock', key: 'position', options: ['top-right', 'bottom-right'] },
-    { id: 'tabs', section: 'regions', key: 'tabs', options: ['auto', 'always'] },
-    { id: 'toolbar', section: 'toolbar', key: 'position', options: ['top', 'bottom'] },
-    { id: 'format', section: 'regions', key: 'format', options: ['bottom', 'top', 'off'] },
-    { id: 'status', section: 'regions', key: 'status', options: ['corner', 'off'] },
-    { id: 'open', section: 'panes', key: 'open', options: ['replace', 'tab'] },
-    { id: 'measure', section: 'editor', key: 'measure', options: ['narrow', 'comfortable', 'wide'] },
+  const ALL_SELECTS: readonly Select[] = [
+    { id: 'files', section: 'regions', key: 'navigator', options: ['drawer', 'column'], pin: 'navigator', part: 'shell' },
+    { id: 'sidebar', section: 'regions', key: 'rail', options: ['dock', 'column'], pin: 'rail', part: 'shell' },
+    { id: 'sidebar_position', section: 'dock', key: 'position', options: ['top-right', 'bottom-right'], part: 'shell' },
+    { id: 'tabs', section: 'regions', key: 'tabs', options: ['auto', 'always'], part: 'shell' },
+    { id: 'toolbar', section: 'toolbar', key: 'position', options: ['top', 'bottom'], part: 'shell' },
+    { id: 'format', section: 'regions', key: 'format', options: ['bottom', 'top', 'off'], part: 'shell' },
+    { id: 'status', section: 'regions', key: 'status', options: ['corner', 'off'], part: 'shell' },
+    { id: 'open', section: 'panes', key: 'open', options: ['replace', 'tab'], part: 'editor' },
+    { id: 'measure', section: 'editor', key: 'measure', options: ['narrow', 'comfortable', 'wide'], part: 'editor' },
   ]
-  const CHECKS: readonly { id: string; label: string; key: string }[] = [
-    { id: 'typewriter', label: 'typewriter', key: 'typewriter' },
-    { id: 'inline-title', label: 'inline_title', key: 'inlineTitle' },
+  const ALL_CHECKS: readonly { id: string; label: string; key: string; part: 'shell' | 'editor' }[] = [
+    { id: 'typewriter', label: 'typewriter', key: 'typewriter', part: 'editor' },
+    { id: 'inline-title', label: 'inline_title', key: 'inlineTitle', part: 'editor' },
   ]
+  const SELECTS = $derived(ALL_SELECTS.filter((f) => f.part === part))
+  const CHECKS = $derived(ALL_CHECKS.filter((f) => f.part === part))
+  /** This part's fields as (section, key) pairs — what its reset puts back. */
+  const fields = $derived([
+    ...SELECTS.map((f) => [f.section, f.key] as const),
+    ...CHECKS.map((f) => ['editor' as Section, f.key] as const),
+  ])
 
   const valueOf = (spec: ShellSpec, section: Section, key: string): unknown =>
     (spec[section] as Record<string, unknown>)[key]
@@ -77,14 +89,30 @@
     layout.setOverrides(overridesFor($state.snapshot(layout.fileSpec) as ShellSpec, next))
   }
 
+  /** Any of this part's fields differ from the file's own value. */
+  const changed = $derived(
+    hasOverrides(layout.overrides) &&
+      fields.some(([section, key]) => valueOf(layout.ownSpec, section, key) !== valueOf(layout.fileSpec, section, key))
+  )
+
+  /** Put this part's fields back to the file's values; the other part's overrides stay. */
+  function resetPart(): void {
+    const file = $state.snapshot(layout.fileSpec) as ShellSpec
+    const next = $state.snapshot(layout.ownSpec) as unknown as Record<Section, Record<string, unknown>>
+    for (const [section, key] of fields) {
+      next[section] = { ...next[section], [key]: valueOf(file, section, key) }
+    }
+    layout.setOverrides(overridesFor(file, next as unknown as ShellSpec))
+  }
+
   const selectCls =
     'mt-1 w-full rounded border border-base-300 bg-base-100 px-2 py-1 text-xs focus:border-primary focus:outline-none'
   const smallBtn =
     'rounded border border-base-300 px-2 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
-<section data-testid="settings-layout">
-  <p class="text-xs text-base-content/70">{t.intro()}</p>
+<section data-testid={part === 'shell' ? 'settings-layout' : 'settings-editor-layout'}>
+  {#if part === 'shell'}<p class="text-xs text-base-content/70">{t.intro()}</p>{/if}
 
   <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
     {#each SELECTS as field (field.id)}
@@ -140,11 +168,11 @@
     <button
       type="button"
       class={smallBtn}
-      data-testid="layout-reset"
-      disabled={!hasOverrides(layout.overrides)}
-      onclick={() => layout.resetOverrides()}
+      data-testid={part === 'shell' ? 'layout-reset' : 'layout-reset-editor'}
+      disabled={!changed}
+      onclick={resetPart}
     >
-      {t.reset()}
+      {part === 'shell' ? t.reset() : t.reset_editor()}
     </button>
   </div>
 </section>

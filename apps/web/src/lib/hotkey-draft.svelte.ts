@@ -1,5 +1,5 @@
 /**
- * Settings › Hotkeys over the ACTIVE keymap file (quiet-shell F10).
+ * Settings › Keys over the ACTIVE keymap file (quiet-shell F10).
  *
  * The draft is the file's own `bindings`, edited in place; what the rows show
  * is the registry's table previewed over `parent ∪ draft`, so a conflict an

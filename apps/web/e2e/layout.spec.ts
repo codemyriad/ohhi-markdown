@@ -8,12 +8,10 @@
  * other spec boots the `dense` example (fixtures.ts forces `?layout=dense`).
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, dismissToasts, expectAccessible, openByQuickOpen } from './fixtures.js'
+import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings, settingsView } from './fixtures.js'
 
 const openLayoutSettings = async (page: Page): Promise<void> => {
-  await page.keyboard.press('ControlOrMeta+,')
-  await expect(page.getByTestId('settings-panel')).toBeVisible()
-  await page.getByTestId('settings-tab:layout').click()
+  await openSettings(page, 'layout')
   await expect(page.getByTestId('settings-layout')).toBeVisible()
 }
 
@@ -39,7 +37,7 @@ test('a new install boots the default layout: no navigator column, the rail clos
   await expect(page.getByTestId('file-tree')).toBeVisible()
 })
 
-test('Settings › Layout applies live under the dialog, closes without asking, persists, and Reset to default restores (Q6)', async ({
+test('Settings › Layout applies live beside the shell, closes without asking, persists, and Reset to default restores (Q6)', async ({
   page,
 }) => {
   await page.goto(appUrl({ room: 'layout-live', layout: null }))
@@ -52,15 +50,13 @@ test('Settings › Layout applies live under the dialog, closes without asking, 
   await expect(page.getByTestId('layout-save')).toHaveCount(0)
   await expect(page.getByTestId('layout-reset')).toBeDisabled()
 
-  // The toolbar moves while the dialog is still open.
+  // The toolbar moves while Settings is still open (a tab, not a dialog).
   await page.getByTestId('layout-field:toolbar').selectOption('bottom')
-  await expect(page.getByTestId('settings-panel')).toBeVisible()
+  await expect(settingsView(page)).toBeVisible()
   await expect(page.getByTestId('toolbar')).toHaveAttribute('data-position', 'bottom')
 
-  // Escape closes: nothing to save, so nothing asks.
-  await page.keyboard.press('Escape')
-  await expect(page.getByTestId('settings-unsaved')).toHaveCount(0)
-  await expect(page.getByTestId('settings-panel')).toHaveCount(0)
+  // Closing the tab asks nothing: there is nothing to save.
+  await closeSettings(page)
 
   // The choice is this device's: it survives a reload (the memory boot URL has no `?layout=`).
   await page.reload()
@@ -88,7 +84,7 @@ test('the Files field turns the drawer into a column at once; a pin reads "(pinn
   await expect(page.getByTestId('navigator')).toBeVisible()
   await page.getByTestId('layout-field:files').selectOption('drawer')
   await expect(page.getByTestId('navigator')).toHaveCount(0)
-  await page.keyboard.press('Escape')
+  await closeSettings(page)
 
   // A pin (the dock's icon) wins over the field, and the form says so.
   await page.getByTestId('rail-expand').click()
@@ -112,7 +108,7 @@ test('Customise cannot hide the note pill: the word count off and the toolbar at
   await openLayoutSettings(page)
   await page.getByTestId('layout-field:status').selectOption('off')
   await page.getByTestId('layout-field:toolbar').selectOption('bottom')
-  await page.keyboard.press('Escape')
+  await closeSettings(page)
   await expect(page.getByTestId('sync-pill-note')).toBeVisible()
 })
 

@@ -72,7 +72,7 @@ together, run by one person in that group.
 
 You can hold folders from more than one relay in the same vault: each folder
 remembers which relay it came from. You create new links on one relay at a
-time, the one set in **Settings › Sync**. A team build of the app may be
+time, the one set in **Settings › Sync & devices**. A team build of the app may be
 locked to the team's own relay; then it says so, and it cannot reach any
 other.
 
@@ -94,6 +94,6 @@ links, which the person who runs it may have to make again.
 
 ## Your own devices
 
-*Settings › Sync › Link a device…* makes a device link. It opens your whole
+*Settings › Sync & devices › Link a device…* makes a device link. It opens your whole
 vault, and every folder in it, now and later. Use it only between your own
 computers, and never send it to anyone.

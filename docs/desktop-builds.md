@@ -56,10 +56,10 @@ channel.
 | `DEFAULT_RELAY` | repository variable | Fallback default relay when `TEAM_HOST` is unset. |
 | `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
 | `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the company tailnet.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
-| `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, Settings › Sync's relay field read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
+| `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, the relay field in Settings › Sync & devices read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
 | `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
 
-A relay saved in Settings › Sync always wins over the build's default. The
+A relay saved in Settings › Sync & devices always wins over the build's default. The
 `meta` job flattens the two sentences to one line each and passes them, with
 the relay, to every build job's web build; `apps/web/.env.example` lists the
 same `VITE_*` names for a local build. The app renders them in the relay card
@@ -96,8 +96,8 @@ match the public key it was built with.
 ### Updates
 
 On launch and every 6 hours, installed apps check
-`https://<team host>/updates/latest.json` (Settings › General shows the version
-you're running). A newer build downloads and installs in the background, then a
+`https://<team host>/updates/latest.json` (Settings › About shows the version
+you're running and the last check's outcome). A newer build downloads and installs in the background, then a
 toast offers **Restart** and **What changed**. *What changed* opens the
 `changes` guide page in a guide window: on a team build it is read from
 `https://<team host>/guide/changes.html`, which serves the release the update

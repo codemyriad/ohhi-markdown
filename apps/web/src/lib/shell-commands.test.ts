@@ -41,7 +41,6 @@ function setup(over: Partial<ShellCommandDeps> = {}) {
     addShare: null as unknown,
     shareSheet: null as string | null,
     mounts: [] as { path: string }[],
-    settings: 0,
     deviceLink: 0,
     palette: [] as string[],
   }
@@ -90,9 +89,6 @@ function setup(over: Partial<ShellCommandDeps> = {}) {
     hasWorkspace: () => true,
     inWorkspace: () => state.inWorkspace,
     claimed: () => state.claimed,
-    openSettings: () => {
-      state.settings++
-    },
     openDeviceLink: () => {
       state.deviceLink++
     },
@@ -141,7 +137,8 @@ describe('installShellCommands', () => {
     run('share.add')
     run('share.link-device')
     expect(state.palette).toEqual(['quick-open'])
-    expect(state.settings).toBe(1)
+    // Settings is a view tab (settings-shaping ST1): `app.settings` is its row.
+    expect(deps.openView).toHaveBeenCalledWith('settings', undefined)
     expect(deps.layout.treeOpen).toBe(false)
     expect(state.fileOp).toEqual({ type: 'new-folder', dir: '' })
     expect(state.addShare).toEqual({ dir: '' })
@@ -188,6 +185,8 @@ describe('installShellCommands', () => {
     expect(offered('app.log')).toBe(true)
     expect(offered('app.shared')).toBe(false)
     expect(offered('app.inspector')).toBe(false)
+    // Settings is never hidden by a layout: it is where a layout is changed back.
+    expect(offered('app.settings')).toBe(true)
     // The row keeps its id (a keymap may still name it); the layout decides.
     expect(registry.get('app.shared')).toBeDefined()
     layout.spec = { ...PRESETS.default, views: [] }

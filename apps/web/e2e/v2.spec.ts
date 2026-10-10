@@ -4,7 +4,7 @@
  * uses, so it needs no real folder and no share.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, openApp, openByQuickOpen, severableRelay, splitRight } from './fixtures.js'
+import { appUrl, closeSettings, openApp, openByQuickOpen, settingsView, severableRelay, splitRight } from './fixtures.js'
 
 async function type(page: Page, text: string): Promise<void> {
   const content = page.locator('[data-testid="editor-pane"] .cm-content')
@@ -104,13 +104,14 @@ test('the theme drives chrome and editor together, and survives a reload', async
     })
 
   await page.getByTestId('open-settings').click()
-  await page.getByTestId('settings-tab:appearance').click()
+  await settingsView(page).getByTestId('settings-tab:appearance').click()
   await page.getByTestId('theme-nord-dark').click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  // Settings is a tab beside the note: close it to look at the note again.
+  await closeSettings(page)
   // Nord's --background-primary, resolved through --ed-surface into CM6.
   expect(await surfaceOf()).toBe('rgb(46, 52, 64)')
 
-  await page.getByTestId('settings-close').click()
   await page.reload()
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')

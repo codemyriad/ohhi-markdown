@@ -26,6 +26,7 @@
     MoreHorizontal,
     Settings,
     Users,
+    X,
   } from '@lucide/svelte'
   import { untrack } from 'svelte'
   import { melt } from '@melt-ui/svelte'
@@ -86,6 +87,8 @@
     onLinkDevice: (name: string) => void
     onBack: () => void
     onSettings: () => void
+    /** Forget a remembered share link (moved here from Settings' old Vaults & shares). */
+    onForgetShare?: (room: string) => void
     /** The browser-storage note, decided by App; null = hidden. `outcome` is the user's own ask. */
     storageNote: { canAsk: boolean; outcome: 'refused' | 'granted' | null } | null
     /** Must call `persist()` synchronously: Firefox wants the click's gesture. */
@@ -119,6 +122,7 @@
     onLinkDevice,
     onBack,
     onSettings,
+    onForgetShare,
     storageNote,
     onKeepStorage,
     onDismissStorage,
@@ -149,7 +153,7 @@
   let renameValue = $state('')
   let rememberedAnchor = $state<HTMLElement | null>(null)
 
-  /** The desktop build's version, from the same source Settings › General reads. */
+  /** The desktop build's version, from the same source Settings › About reads. */
   let appVersion = $state<string | null>(null)
   // svelte-ignore state_referenced_locally -- the platform is fixed for the page's life
   if (isTauri) {
@@ -689,7 +693,7 @@
       <p class="mt-1 text-xs text-base-content/70">{l.remembered_hint()}</p>
       <ul class="mt-2">
         {#each shares as share (share.room)}
-          <li>
+          <li class="flex items-center gap-1">
             <button
               data-testid="remembered-share:{share.room}"
               onclick={() => {
@@ -697,10 +701,21 @@
                 onJoin(name, share.link)
               }}
               disabled={busy}
-              class="w-full truncate rounded px-2 py-1.5 text-left text-sm leading-5 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+              class="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm leading-5 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
             >
               {share.label || share.room}
             </button>
+            {#if onForgetShare}
+              <IconButton
+                label={l.forget_share({ label: share.label || share.room })}
+                icon={X}
+                testid="remembered-forget:{share.room}"
+                onclick={() => {
+                  onForgetShare(share.room)
+                  if (shares.length <= 1) rememberedAnchor = null
+                }}
+              />
+            {/if}
           </li>
         {/each}
       </ul>

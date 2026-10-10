@@ -30,14 +30,6 @@ type RootTranslation = {
 		 */
 		close: string
 		/**
-		 * S​a​v​e
-		 */
-		save: string
-		/**
-		 * S​a​v​e​d
-		 */
-		saved: string
-		/**
 		 * W​o​r​k​i​n​g​…
 		 */
 		working: string
@@ -2311,7 +2303,7 @@ export type NamespaceWebTranslation = {
 			 */
 			online_at: RequiredParams<'when'>
 			/**
-			 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
+			 * S​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
 			 */
 			needs_secret: string
 		}
@@ -2820,6 +2812,11 @@ export type NamespaceWebTranslation = {
 			 * O​p​e​n​ ​o​n​e​ ​a​g​a​i​n​ ​a​s​ ​a​ ​v​a​u​l​t​ ​o​f​ ​i​t​s​ ​o​w​n​.
 			 */
 			remembered_hint: string
+			/**
+			 * F​o​r​g​e​t​ ​{​l​a​b​e​l​}​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 * @param {string} label
+			 */
+			forget_share: RequiredParams<'label'>
 		}
 		/**
 		 * l​i​n​k​e​d
@@ -3015,7 +3012,7 @@ export type NamespaceWebTranslation = {
 		 */
 		dismiss: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​t​h​i​s​ ​s​i​t​e​'​s​ ​s​t​o​r​a​g​e​,​ ​a​n​d​ ​n​o​t​e​s​ ​o​u​t​s​i​d​e​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​e​x​i​s​t​ ​o​n​l​y​ ​h​e​r​e​ ​—​ ​f​o​r​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​u​s​e​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.​ ​S​e​t​t​i​n​g​s​ ​›​ ​V​a​u​l​t​s​ ​&​ ​s​h​a​r​e​s​ ​c​a​n​ ​a​s​k​ ​t​h​e​ ​b​r​o​w​s​e​r​ ​a​g​a​i​n​ ​o​r​ ​t​u​r​n​ ​t​h​i​s​ ​r​e​m​i​n​d​e​r​ ​o​f​f​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​m​a​y​ ​c​l​e​a​r​ ​t​h​i​s​ ​s​i​t​e​'​s​ ​s​t​o​r​a​g​e​,​ ​a​n​d​ ​n​o​t​e​s​ ​o​u​t​s​i​d​e​ ​a​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​ ​e​x​i​s​t​ ​o​n​l​y​ ​h​e​r​e​ ​—​ ​f​o​r​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​,​ ​u​s​e​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​c​a​n​ ​a​s​k​ ​t​h​e​ ​b​r​o​w​s​e​r​ ​a​g​a​i​n​ ​o​r​ ​t​u​r​n​ ​t​h​i​s​ ​r​e​m​i​n​d​e​r​ ​o​f​f​.
 		 */
 		notice: string
 		settings: {
@@ -3060,37 +3057,77 @@ export type NamespaceWebTranslation = {
 		 * S​e​t​t​i​n​g​s​ ​s​e​c​t​i​o​n​s
 		 */
 		sections: string
-		tabs: {
+		nav: {
 			/**
-			 * G​e​n​e​r​a​l
+			 * Y​o​u
 			 */
-			general: string
+			you: string
+			/**
+			 * E​d​i​t​o​r
+			 */
+			editor: string
+			/**
+			 * L​a​y​o​u​t
+			 */
+			layout: string
 			/**
 			 * A​p​p​e​a​r​a​n​c​e
 			 */
 			appearance: string
 			/**
-			 * H​o​t​k​e​y​s
+			 * K​e​y​s
 			 */
-			hotkeys: string
+			keys: string
 			/**
-			 * S​y​n​c
+			 * S​y​n​c​ ​&​ ​d​e​v​i​c​e​s
 			 */
 			sync: string
 			/**
-			 * V​a​u​l​t​s​ ​&​ ​s​h​a​r​e​s
+			 * C​u​s​t​o​m​i​s​e
 			 */
-			vaults: string
+			customise: string
+			/**
+			 * A​g​e​n​t​s
+			 */
+			agents: string
 			/**
 			 * D​e​v​e​l​o​p​e​r
 			 */
 			developer: string
 			/**
-			 * L​a​y​o​u​t
+			 * A​b​o​u​t
 			 */
-			layout: string
+			about: string
 		}
-		general: {
+		page: {
+			/**
+			 * ←​ ​V​a​u​l​t​s
+			 */
+			back: string
+		}
+		needs_vault: {
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​c​h​a​n​g​e​ ​t​h​i​s​.
+			 */
+			body: string
+			/**
+			 * K​e​y​m​a​p​s​ ​a​r​e​ ​f​i​l​e​s​ ​i​n​s​i​d​e​ ​a​ ​v​a​u​l​t​,​ ​i​n​ ​.​o​h​h​i​/​k​e​y​m​a​p​s​/​.
+			 */
+			keys: string
+			/**
+			 * L​a​y​o​u​t​s​,​ ​k​e​y​m​a​p​s​,​ ​t​e​m​p​l​a​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s​ ​i​n​s​i​d​e​ ​a​ ​v​a​u​l​t​,​ ​i​n​ ​.​o​h​h​i​/​.
+			 */
+			customise: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t
+			 */
+			open: string
+		}
+		/**
+		 * S​a​v​e​d
+		 */
+		saved: string
+		you: {
 			/**
 			 * D​i​s​p​l​a​y​ ​n​a​m​e
 			 */
@@ -3100,13 +3137,19 @@ export type NamespaceWebTranslation = {
 			 */
 			name_placeholder: string
 			/**
-			 * S​h​o​w​n​ ​t​o​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.
+			 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.​ ​S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
 			 */
 			name_hint: string
 			/**
 			 * A​ ​n​a​m​e​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​w​i​l​l​ ​s​e​e​.
 			 */
 			name_required: string
+		}
+		editor: {
+			/**
+			 * H​o​w​ ​n​o​t​e​s​ ​o​p​e​n​ ​a​n​d​ ​r​e​a​d​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+			 */
+			intro: string
 			/**
 			 * D​e​f​a​u​l​t​ ​v​i​e​w​ ​f​o​r​ ​n​e​w​ ​t​a​b​s
 			 */
@@ -3116,11 +3159,6 @@ export type NamespaceWebTranslation = {
 			 * @param {string} key
 			 */
 			default_mode_hint: RequiredParams<'key'>
-			/**
-			 * V​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
-			 * @param {string} version
-			 */
-			version: RequiredParams<'version'>
 		}
 		appearance: {
 			/**
@@ -3166,6 +3204,10 @@ export type NamespaceWebTranslation = {
 			 * W​h​a​t​ ​t​h​e​ ​s​h​e​l​l​ ​s​h​o​w​s​ ​a​r​o​u​n​d​ ​t​h​e​ ​n​o​t​e​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 			 */
 			intro: string
+			/**
+			 * T​h​e​ ​l​a​y​o​u​t​ ​f​i​l​e​ ​c​o​m​e​s​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​y​o​u​ ​o​p​e​n​;​ ​u​n​t​i​l​ ​t​h​e​n​ ​t​h​i​s​ ​s​h​o​w​s​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​d​e​f​a​u​l​t​.
+			 */
+			no_vault: string
 			/**
 			 * F​i​l​e​s
 			 */
@@ -3312,6 +3354,10 @@ export type NamespaceWebTranslation = {
 			 * R​e​s​e​t​ ​t​o​ ​d​e​f​a​u​l​t
 			 */
 			reset: string
+			/**
+			 * R​e​s​e​t​ ​e​d​i​t​o​r​ ​o​p​t​i​o​n​s
+			 */
+			reset_editor: string
 		}
 		hotkeys: {
 			/**
@@ -3507,42 +3553,56 @@ export type NamespaceWebTranslation = {
 			 * T​h​e​ ​r​e​l​a​y​ ​g​u​i​d​e
 			 */
 			running_guide: string
-		}
-		vaults: {
 			/**
-			 * V​a​u​l​t​s
+			 * S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
+			 */
+			relay_commit_hint: string
+			/**
+			 * V​a​u​l​t​s​ ​a​n​d​ ​s​h​a​r​e​s
 			 */
 			vaults: string
 			/**
-			 * N​o​ ​v​a​u​l​t​s​ ​r​e​m​e​m​b​e​r​e​d​.
+			 * T​h​e​ ​v​a​u​l​t​s​ ​a​n​d​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​r​e​m​e​m​b​e​r​s​ ​a​r​e​ ​l​i​s​t​e​d​ ​i​n​ ​t​h​e​ ​v​a​u​l​t​ ​m​a​n​a​g​e​r​.
 			 */
-			none: string
+			vaults_body: string
 			/**
-			 * F​o​r​g​e​t​ ​v​a​u​l​t​ ​{​n​a​m​e​}
-			 * @param {string} name
+			 * M​a​n​a​g​e​ ​v​a​u​l​t​s​…
 			 */
-			forget_vault: RequiredParams<'name'>
+			vaults_open: string
+		}
+		customise: {
 			/**
-			 * f​o​r​g​e​t
+			 * L​a​y​o​u​t​s​,​ ​k​e​y​m​a​p​s​,​ ​t​e​m​p​l​a​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s​:​ ​y​o​u​,​ ​a​n​ ​a​g​e​n​t​ ​o​r​ ​a​ ​t​e​a​m​m​a​t​e​ ​c​a​n​ ​c​h​a​n​g​e​ ​t​h​e​m​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​c​h​a​n​g​e​ ​u​p​.
 			 */
-			forget: string
+			intro: string
+		}
+		agents: {
 			/**
-			 * F​o​r​g​e​t​t​i​n​g​ ​a​ ​v​a​u​l​t​ ​n​e​v​e​r​ ​t​o​u​c​h​e​s​ ​i​t​s​ ​f​i​l​e​s​.
+			 * A​g​e​n​t​s​ ​w​o​r​k​ ​o​n​ ​a​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​:​ ​r​a​n​k​e​d​ ​s​e​a​r​c​h​,​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​a​t​ ​a​ ​t​i​m​e​,​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​j​o​u​r​n​a​l​e​d​ ​w​r​i​t​e​s​ ​y​o​u​ ​c​a​n​ ​r​e​s​t​o​r​e​.
 			 */
-			forget_hint: string
+			intro: string
+		}
+		about: {
 			/**
-			 * R​e​m​e​m​b​e​r​e​d​ ​s​h​a​r​e​s
+			 * U​p​d​a​t​e​s
 			 */
-			shares: string
+			updates: string
 			/**
-			 * N​o​ ​s​h​a​r​e​s​ ​r​e​m​e​m​b​e​r​e​d​.
+			 * T​h​i​s​ ​w​e​b​ ​a​p​p​ ​u​p​d​a​t​e​s​ ​w​h​e​n​ ​t​h​e​ ​p​a​g​e​ ​i​s​ ​r​e​l​o​a​d​e​d​.
 			 */
-			no_shares: string
+			web_updates: string
 			/**
-			 * F​o​r​g​e​t​ ​s​h​a​r​e​ ​{​l​a​b​e​l​}
-			 * @param {string} label
+			 * G​u​i​d​e​s
 			 */
-			forget_share: RequiredParams<'label'>
+			guides: string
+			/**
+			 * B​r​i​n​g​i​n​g​ ​n​o​t​e​s​ ​i​n​ ​f​r​o​m​ ​a​n​o​t​h​e​r​ ​a​p​p
+			 */
+			guide_import: string
+			/**
+			 * R​u​n​n​i​n​g​ ​y​o​u​r​ ​o​w​n​ ​r​e​l​a​y
+			 */
+			guide_relay: string
 		}
 		developer: {
 			/**
@@ -3555,18 +3615,6 @@ export type NamespaceWebTranslation = {
 			 */
 			devtools_help: RequiredParams<'flag'>
 		}
-		/**
-		 * Y​o​u​ ​h​a​v​e​ ​u​n​s​a​v​e​d​ ​c​h​a​n​g​e​s​.
-		 */
-		unsaved: string
-		/**
-		 * D​i​s​c​a​r​d
-		 */
-		discard: string
-		/**
-		 * S​a​v​e​ ​a​n​d​ ​c​l​o​s​e
-		 */
-		save_and_close: string
 	}
 	share: {
 		link_error: {
@@ -4317,7 +4365,7 @@ export type NamespaceWebTranslation = {
 		 */
 		needs_secret: string
 		/**
-		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.​ ​A​d​d​ ​i​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​.
+		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.​ ​A​d​d​ ​i​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​.
 		 */
 		needs_secret_dialog: string
 		/**
@@ -5350,14 +5398,6 @@ export type TranslationFunctions = {
 		 * Close
 		 */
 		close: () => LocalizedString
-		/**
-		 * Save
-		 */
-		save: () => LocalizedString
-		/**
-		 * Saved
-		 */
-		saved: () => LocalizedString
 		/**
 		 * Working…
 		 */
@@ -7485,7 +7525,7 @@ export type TranslationFunctions = {
 				 */
 				online_at: (arg: { when: string }) => LocalizedString
 				/**
-				 * Set the relay operator secret in Settings › Sync to list your linked devices.
+				 * Set the relay operator secret in Settings › Sync & devices to list your linked devices.
 				 */
 				needs_secret: () => LocalizedString
 			}
@@ -7980,6 +8020,10 @@ export type TranslationFunctions = {
 				 * Open one again as a vault of its own.
 				 */
 				remembered_hint: () => LocalizedString
+				/**
+				 * Forget {label} on this device
+				 */
+				forget_share: (arg: { label: string }) => LocalizedString
 			}
 			/**
 			 * linked
@@ -8170,7 +8214,7 @@ export type TranslationFunctions = {
 			 */
 			dismiss: () => LocalizedString
 			/**
-			 * This browser may clear this site's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Vaults & shares can ask the browser again or turn this reminder off.
+			 * This browser may clear this site's storage, and notes outside a shared folder exist only here — for your own notes, use the desktop app. Settings › Sync & devices can ask the browser again or turn this reminder off.
 			 */
 			notice: () => LocalizedString
 			settings: {
@@ -8213,37 +8257,77 @@ export type TranslationFunctions = {
 			 * Settings sections
 			 */
 			sections: () => LocalizedString
-			tabs: {
+			nav: {
 				/**
-				 * General
+				 * You
 				 */
-				general: () => LocalizedString
+				you: () => LocalizedString
+				/**
+				 * Editor
+				 */
+				editor: () => LocalizedString
+				/**
+				 * Layout
+				 */
+				layout: () => LocalizedString
 				/**
 				 * Appearance
 				 */
 				appearance: () => LocalizedString
 				/**
-				 * Hotkeys
+				 * Keys
 				 */
-				hotkeys: () => LocalizedString
+				keys: () => LocalizedString
 				/**
-				 * Sync
+				 * Sync & devices
 				 */
 				sync: () => LocalizedString
 				/**
-				 * Vaults & shares
+				 * Customise
 				 */
-				vaults: () => LocalizedString
+				customise: () => LocalizedString
+				/**
+				 * Agents
+				 */
+				agents: () => LocalizedString
 				/**
 				 * Developer
 				 */
 				developer: () => LocalizedString
 				/**
-				 * Layout
+				 * About
 				 */
-				layout: () => LocalizedString
+				about: () => LocalizedString
 			}
-			general: {
+			page: {
+				/**
+				 * ← Vaults
+				 */
+				back: () => LocalizedString
+			}
+			needs_vault: {
+				/**
+				 * Open a vault to change this.
+				 */
+				body: () => LocalizedString
+				/**
+				 * Keymaps are files inside a vault, in .ohhi/keymaps/.
+				 */
+				keys: () => LocalizedString
+				/**
+				 * Layouts, keymaps, templates and themes are files inside a vault, in .ohhi/.
+				 */
+				customise: () => LocalizedString
+				/**
+				 * Open a vault
+				 */
+				open: () => LocalizedString
+			}
+			/**
+			 * Saved
+			 */
+			saved: () => LocalizedString
+			you: {
 				/**
 				 * Display name
 				 */
@@ -8253,13 +8337,19 @@ export type TranslationFunctions = {
 				 */
 				name_placeholder: () => LocalizedString
 				/**
-				 * Shown to collaborators; applies the next time a vault is opened.
+				 * Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.
 				 */
 				name_hint: () => LocalizedString
 				/**
 				 * A name your collaborators will see.
 				 */
 				name_required: () => LocalizedString
+			}
+			editor: {
+				/**
+				 * How notes open and read. Changes apply at once and stay on this device.
+				 */
+				intro: () => LocalizedString
 				/**
 				 * Default view for new tabs
 				 */
@@ -8268,10 +8358,6 @@ export type TranslationFunctions = {
 				 * Applies to any tab you have not given a view of its own. {key} switches one tab between editing and reading.
 				 */
 				default_mode_hint: (arg: { key: string }) => LocalizedString
-				/**
-				 * Version {version}
-				 */
-				version: (arg: { version: string }) => LocalizedString
 			}
 			appearance: {
 				/**
@@ -8312,6 +8398,10 @@ export type TranslationFunctions = {
 				 * What the shell shows around the note. Changes apply at once and stay on this device.
 				 */
 				intro: () => LocalizedString
+				/**
+				 * The layout file comes from the vault you open; until then this shows the built-in default.
+				 */
+				no_vault: () => LocalizedString
 				/**
 				 * Files
 				 */
@@ -8456,6 +8546,10 @@ export type TranslationFunctions = {
 				 * Reset to default
 				 */
 				reset: () => LocalizedString
+				/**
+				 * Reset editor options
+				 */
+				reset_editor: () => LocalizedString
 			}
 			hotkeys: {
 				/**
@@ -8636,40 +8730,56 @@ export type TranslationFunctions = {
 				 * The relay guide
 				 */
 				running_guide: () => LocalizedString
-			}
-			vaults: {
 				/**
-				 * Vaults
+				 * Saved when you press Enter or leave the field.
+				 */
+				relay_commit_hint: () => LocalizedString
+				/**
+				 * Vaults and shares
 				 */
 				vaults: () => LocalizedString
 				/**
-				 * No vaults remembered.
+				 * The vaults and shared folders this device remembers are listed in the vault manager.
 				 */
-				none: () => LocalizedString
+				vaults_body: () => LocalizedString
 				/**
-				 * Forget vault {name}
+				 * Manage vaults…
 				 */
-				forget_vault: (arg: { name: string }) => LocalizedString
+				vaults_open: () => LocalizedString
+			}
+			customise: {
 				/**
-				 * forget
+				 * Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.
 				 */
-				forget: () => LocalizedString
+				intro: () => LocalizedString
+			}
+			agents: {
 				/**
-				 * Forgetting a vault never touches its files.
+				 * Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.
 				 */
-				forget_hint: () => LocalizedString
+				intro: () => LocalizedString
+			}
+			about: {
 				/**
-				 * Remembered shares
+				 * Updates
 				 */
-				shares: () => LocalizedString
+				updates: () => LocalizedString
 				/**
-				 * No shares remembered.
+				 * This web app updates when the page is reloaded.
 				 */
-				no_shares: () => LocalizedString
+				web_updates: () => LocalizedString
 				/**
-				 * Forget share {label}
+				 * Guides
 				 */
-				forget_share: (arg: { label: string }) => LocalizedString
+				guides: () => LocalizedString
+				/**
+				 * Bringing notes in from another app
+				 */
+				guide_import: () => LocalizedString
+				/**
+				 * Running your own relay
+				 */
+				guide_relay: () => LocalizedString
 			}
 			developer: {
 				/**
@@ -8681,18 +8791,6 @@ export type TranslationFunctions = {
 				 */
 				devtools_help: (arg: { flag: string }) => LocalizedString
 			}
-			/**
-			 * You have unsaved changes.
-			 */
-			unsaved: () => LocalizedString
-			/**
-			 * Discard
-			 */
-			discard: () => LocalizedString
-			/**
-			 * Save and close
-			 */
-			save_and_close: () => LocalizedString
 		}
 		share: {
 			link_error: {
@@ -9398,7 +9496,7 @@ export type TranslationFunctions = {
 			 */
 			needs_secret: () => LocalizedString
 			/**
-			 * Creating a device link needs permission to create links on this relay. Add it in Settings › Sync, then come back here.
+			 * Creating a device link needs permission to create links on this relay. Add it in Settings › Sync & devices, then come back here.
 			 */
 			needs_secret_dialog: () => LocalizedString
 			/**

@@ -19,6 +19,12 @@
     testid?: string
     /** Drawn beside the label (`aria-hidden`); the label still names the tab. */
     icon?: LucideIcon
+    /**
+     * Vertical only: a rule above this tab, starting a new group (Settings'
+     * three groups). Drawn by the tab's own `::before`, so the tablist holds
+     * tabs and nothing else.
+     */
+    separated?: boolean
   }
 
   interface Props {
@@ -100,7 +106,7 @@
         data-testid={tab.testid}
         class={compact
           ? 'inline-flex items-center gap-1 border-b-2 border-transparent px-1.5 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary data-[state=active]:border-primary data-[state=active]:font-medium data-[state=active]:text-base-content'
-          : `rounded px-3 py-1.5 text-left text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary data-[state=active]:bg-primary data-[state=active]:font-medium data-[state=active]:text-primary-content ${vertical ? '' : 'rounded-b-none'}`}
+          : `rounded px-3 py-1.5 text-left text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary data-[state=active]:bg-primary data-[state=active]:font-medium data-[state=active]:text-primary-content ${vertical ? '' : 'rounded-b-none'} ${vertical && tab.separated ? "relative mt-3 before:pointer-events-none before:absolute before:inset-x-2 before:-top-2 before:border-t before:border-base-300 before:content-['']" : ''}`}
       >
         {#if tab.icon}<tab.icon size={14} strokeWidth={1.75} aria-hidden="true" />{/if}
         {tab.label}

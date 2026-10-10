@@ -1115,12 +1115,15 @@
           "inspector",
           "log",
           "shared",
+          "settings",
           "+inspector",
           "+log",
           "+shared",
+          "+settings",
           "-inspector",
           "-log",
-          "-shared"
+          "-shared",
+          "-settings"
         ]
       }
     },

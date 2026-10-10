@@ -5,7 +5,20 @@
  */
 import { expect, test } from '@playwright/test'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
-import { MANAGER_URL, RELAY, createBrowserVault, dragTo, openApp, openByQuickOpen, openManager, paneContent, runCommand } from './fixtures.js'
+import {
+  MANAGER_URL,
+  RELAY,
+  closeSettings,
+  createBrowserVault,
+  dragTo,
+  openApp,
+  openByQuickOpen,
+  openManager,
+  openSettings,
+  paneContent,
+  runCommand,
+  settingsView,
+} from './fixtures.js'
 
 test('the pinned rail is the dock panel: tabs, unpin only (no collapse), one open state and one tab, Mod+ArrowRight', async ({
   page,
@@ -348,10 +361,9 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
 
   // Developer tools on (Settings › Developer) → the palette opens the
   // inspector as a regular tab (devtools-shaping D1-A), one per pane.
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:developer').click()
+  await openSettings(page, 'developer')
   await page.getByTestId('settings-devtools').check()
-  await page.getByTestId('settings-close').click()
+  await closeSettings(page)
   for (let i = 0; i < 2; i++) {
     await runCommand(page, 'Open inspector')
   }
@@ -376,53 +388,54 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
   await expect(page.getByTestId('log-empty')).toContainText('Nothing to report')
 })
 
-test('settings are tabs: keyboard between them, validated forms with their own Save, and an unsaved-changes guard on close', async ({
+test('settings is a view tab: grouped sections, the keyboard between them, fields that commit as you leave them, nothing to save on close', async ({
   page,
 }) => {
   await openApp(page, 'chrome-settings')
-  await page.keyboard.press('ControlOrMeta+,')
-  const dialog = page.getByTestId('settings-panel')
-  await expect(dialog).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByTestId(`file-item:notes/welcome.md`).click()
+  await openSettings(page)
+  const view = settingsView(page)
+  // A tab beside the note, not a dialog over it (settings-shaping ST1).
+  await expect(page.locator('[aria-modal="true"]')).toHaveCount(0)
+  await expect(view.getByRole('tab', { name: 'You', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(view.getByRole('tab')).toHaveText([
+    'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'Developer', 'About',
+  ])
 
-  // Arrow keys move between tabs (vertical list → down). Three steps now:
-  // General, Appearance, Hotkeys, Sync (the Hotkeys tab landed with R1.3).
-  await page.getByRole('tab', { name: 'General' }).focus()
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('tab', { name: 'Sync' })).toHaveAttribute('aria-selected', 'true')
+  // Arrow keys move between sections (vertical list → down).
+  await view.getByRole('tab', { name: 'You', exact: true }).focus()
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown')
+  await expect(view.getByRole('tab', { name: 'Sync & devices' })).toHaveAttribute('aria-selected', 'true')
 
-  // An invalid relay URL is refused inline, wired to the control.
+  // An invalid relay URL is refused inline, wired to the control; nothing is stored.
   const relay = page.getByTestId('settings-relay')
   await relay.fill('http://not-a-relay')
   await relay.blur()
   await expect(relay).toHaveAttribute('aria-invalid', 'true')
   await expect(page.getByTestId('field-errors:relay')).toContainText('starts with ws://')
+  await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0)
 
-  // Escape with unsaved (and invalid) changes prompts instead of closing.
-  await page.keyboard.press('Escape')
-  await expect(dialog).toBeVisible()
-  await expect(page.getByTestId('settings-unsaved')).toBeVisible()
-  await page.getByTestId('settings-discard').click()
-  await expect(dialog).toHaveCount(0)
+  // A valid one commits on Enter; closing asks nothing, and it survives a reopen.
+  await relay.fill('wss://relay.example.test')
+  await relay.press('Enter')
+  await expect(relay).not.toHaveAttribute('aria-invalid', 'true')
+  await closeSettings(page)
+  await expect(page.getByTestId('editor-pane').locator('.cm-content')).toContainText('Welcome')
 
-  // A valid change saves from its own tab and survives a reopen.
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
-  await page.getByTestId('settings-relay').fill('wss://relay.example.test')
-  await page.getByTestId('settings-save-sync').click()
-  await expect(page.getByTestId('settings-save-sync')).toBeDisabled()
-  await page.getByTestId('settings-close').click()
-  await expect(dialog).toHaveCount(0)
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
+  // Reopened at a section (one per window): the section is the tab's, and it is kept.
+  await openSettings(page, 'sync')
   // A relay is known now: the card shows it, and Change… opens its address (first-run D1).
   const sync = page.getByTestId('settings-relay-card')
   await expect(sync.getByTestId('relay-card')).toContainText('relay.example.test')
   await sync.getByTestId('relay-change').click()
   await expect(page.getByTestId('settings-relay')).toHaveValue('wss://relay.example.test')
-  await page.getByTestId('settings-close').click()
+  await page.keyboard.press('ControlOrMeta+,')
+  await expect(settingsView(page)).toHaveCount(1)
+  // The tab and its section are the pane layout's, written on its save debounce.
+  await page.waitForTimeout(600)
+  await page.reload()
+  await expect(settingsView(page)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('settings-section:sync')).toBeVisible()
 })
 
 test('link a device: the manager refuses a folder link, and the panel reports a failure with a retry', async ({
@@ -463,8 +476,7 @@ test('settings › sync offers device linking, and asks for the operator secret 
   page,
 }) => {
   await openApp(page, 'chrome-device-link')
-  await page.keyboard.press('ControlOrMeta+,')
-  await page.getByTestId('settings-tab:sync').click()
+  await openSettings(page, 'sync')
   const section = page.getByTestId('settings-device-link')
   await expect(section).toContainText('Your devices')
 
@@ -473,11 +485,10 @@ test('settings › sync offers device linking, and asks for the operator secret 
   await expect(page.getByTestId('settings-link-device-needs-secret')).toBeVisible()
   await expect(page.getByTestId('settings-link-device')).toHaveCount(0)
 
-  // With a secret typed, the button appears — and leaving for the dialog SAVES
-  // the form first (the dialog mints with the secret from config).
+  // With a secret typed, the button appears — and leaving for the dialog
+  // commits the field first (the dialog mints with the secret from config).
   await page.getByTestId('settings-secret').fill('e2e-operator-secret')
   await page.getByTestId('settings-link-device').click()
-  await expect(page.getByTestId('settings-panel')).toHaveCount(0)
   await expect(page.getByTestId('device-link-dialog')).toBeVisible()
   // The R5 sentence rides with the LINK, so before one exists the dialog shows
   // the way to make one, not a warning about a key nobody holds yet.
@@ -501,17 +512,22 @@ test('the manager reaches Link a device from inside itself, without a trip throu
 
   // The bug (shell-polish P4): Settings opens from INSIDE the manager, and its
   // "Link a device" set a flag whose dialog was mounted in the workspace
-  // branch — so nothing appeared until you pressed Back.
+  // branch — so nothing appeared until you pressed Back. Settings is the
+  // manager's page now (settings-shaping ST1).
   await page.getByTestId('manager-settings').click()
+  await expect(page.getByTestId('settings-page')).toBeVisible()
   await page.getByTestId('settings-tab:sync').click()
   await page.getByTestId('settings-secret').fill('e2e-operator-secret')
   await page.getByTestId('settings-link-device').click()
   await expect(page.getByTestId('device-link-dialog')).toBeVisible()
   await expect(page.getByTestId('create-device-link')).toBeVisible()
-  // Still in the manager: the dialog did not wait for the workspace.
-  await expect(page.getByTestId('manager-back')).toBeVisible()
+  // Still on the manager's page: the dialog did not wait for the workspace.
+  await expect(page.getByTestId('settings-page')).toBeVisible()
   await page.getByTestId('close-device-link').click()
   await expect(page.getByTestId('device-link-dialog')).toHaveCount(0)
+  // ← Vaults goes back to the list.
+  await page.getByTestId('settings-page-back').click()
+  await expect(page.getByTestId('manager-back')).toBeVisible()
 })
 
 test('the vault manager welcomes, then lists its vaults with their facts, and removes one in two clicks', async ({

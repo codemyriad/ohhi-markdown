@@ -1080,6 +1080,28 @@ describe('openView (devtools-shaping D1-A: a shell surface as a tab)', () => {
     ])
   })
 
+  it('settings is one per window (settings-shaping ST1): opened again from any pane, it is focused and takes the new section', () => {
+    const gen = ids('v')
+    let l = openView(createLayout(gen), 'settings', { arg: 'layout' }, gen)
+    const home = paneAt(l, 0).id
+    l = split(l, home, 'row', gen)
+    // Focus the new pane, then ask for Settings at another section.
+    const other = panes(l.tree).find((p) => p.id !== home)!
+    l = focusPane(l, other.id)
+    l = openView(l, 'settings', { arg: 'keys' }, gen)
+    const all = panes(l.tree).flatMap((p) => p.tabs).filter((t) => t.view === 'settings')
+    expect(all).toHaveLength(1)
+    expect(all[0].viewArg).toBe('keys')
+    expect(l.focus).toBe(home)
+    expect(activeTab(paneAt(l, 0))?.view).toBe('settings')
+    // No argument: focused, section kept.
+    l = openView(l, 'settings', {}, gen)
+    expect(panes(l.tree).flatMap((p) => p.tabs).filter((t) => t.view === 'settings')[0].viewArg).toBe('keys')
+    // It survives a reload with its section.
+    const back = normalize(serialize(l), ids('w'))
+    expect(panes(back!.tree).flatMap((p) => p.tabs).find((t) => t.view === 'settings')?.viewArg).toBe('keys')
+  })
+
   it('reads any registered view kind back, and an unknown one as an empty tab', () => {
     expect(VIEW_KINDS).toContain('inspector')
     for (const kind of VIEW_KINDS) expect(isViewKind(kind)).toBe(true)

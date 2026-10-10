@@ -49,7 +49,6 @@ export interface ShellCommandDeps {
    * that acts on the pane tree must not fire from inside it.
    */
   claimed(): boolean
-  openSettings(): void
   openDeviceLink(): void
   /** Open a registered view tab (`views.ts`), and whether developer tools are on (the inspector's `when`). */
   openView(id: TabView, arg?: string): void
@@ -133,7 +132,6 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
         }
         layout.railOpen = !layout.railOpen
       },
-      settings: () => deps.openSettings(),
       // Fork 4: back/forward walk the FOCUSED TAB's own trail, not one
       // workspace-wide list — with four panes, "back" jumping panes is a
       // surprise, and a tab replaced in place is exactly what has a trail.
@@ -175,6 +173,8 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
   // offers: a view it does not list keeps its tab type, loses its command.
   // An empty list offers every view.
   for (const id of VIEW_KINDS) {
+    // Settings is never hidden by a layout: it is where a layout is changed back.
+    if (id === 'settings') continue
     const command = registry.get(viewDef(id).command.id)
     if (!command) continue
     const when = command.when

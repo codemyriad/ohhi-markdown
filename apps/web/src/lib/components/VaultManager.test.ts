@@ -272,6 +272,15 @@ describe('the list (vaults registered)', () => {
     expect(props.onJoin).toHaveBeenCalledWith('Chris', link)
   })
 
+  it('a remembered link can be forgotten here (Settings no longer lists them)', async () => {
+    const link = encodeShareLink({ relay: 'wss://relay.example', room: 'shared-r', token: 'a'.repeat(64) })
+    const onForgetShare = vi.fn()
+    const { user } = setup({ vaults: [disk], shares: [{ link, room: 'shared-r', label: 'Team notes' }], onForgetShare })
+    await user.click(screen.getByTestId('manager-remembered'))
+    await user.click(screen.getByRole('button', { name: l.forget_share({ label: 'Team notes' }) }))
+    expect(onForgetShare).toHaveBeenCalledWith('shared-r')
+  })
+
   it('a ?share= link opens the Add dialog from the list too', async () => {
     const link = encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: 'a'.repeat(64) })
     setup({ vaults: [disk], prefillLink: link })
