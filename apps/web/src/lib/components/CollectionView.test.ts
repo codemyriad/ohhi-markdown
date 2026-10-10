@@ -108,7 +108,7 @@ function fakeDoc(path: string, index: MemoryIndex, store: Map<string, string>): 
   return doc as unknown as EngineDoc
 }
 
-function setup() {
+function setup(extra: { embedded?: boolean; viewName?: string | null; scopePath?: string } = {}) {
   const store = new Map(Object.entries(NOTES))
   const index = new MemoryIndex()
   index.rebuild([...store.entries()].map(([path, text]): IndexDoc => ({ guid: path, path, text })))
@@ -132,7 +132,7 @@ function setup() {
   const openPath = vi.fn()
   const shell = fakeViewShell(Date.UTC(2026, 6, 1), { index: () => index, openPath })
   render(CollectionView, {
-    props: { workspace, path: 'Competitors.base' },
+    props: { workspace, path: 'Competitors.base', ...extra },
     context: viewShellContext(shell),
   })
   return { store, index, createFile, flash, openPath }
@@ -368,5 +368,80 @@ describe('CollectionView', () => {
     await screen.findByTestId('collection-board')
     expect(screen.getByTestId('board-column:Competitors')).toBeInTheDocument()
     expect(screen.getByTestId('board-move:Competitors/Stale.md')).toBeDisabled()
+  })
+})
+
+describe('CollectionView embedded in a note (bases-shaping A6)', () => {
+  it('shows the named view, read-mostly: cells edit, nothing about the view does', async () => {
+    const { store, openPath } = setup({ embedded: true, viewName: 'direct' })
+    await screen.findByTestId('collection-table')
+    const section = screen.getByTestId('collection-embed')
+    expect(section).toHaveAccessibleName('Competitors (collection) — Direct')
+    // The view's columns and rows; its name on the caption, which opens the collection's own tab.
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent?.trim())).toEqual(['Name', 'Verified'])
+    expect(rowNames()).toEqual(['Ingredifind', 'Nested', 'Stale'])
+    expect(screen.getByTestId('collection-count').textContent).toContain('3 rows')
+    // No tab list, no sort buttons, no grouping, no columns, no new view, no new row.
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Sort by/ })).toBeNull()
+    expect(screen.queryByTestId('collection-group')).toBeNull()
+    expect(screen.queryByTestId('collection-columns')).toBeNull()
+    expect(screen.queryByTestId('collection-add-view')).toBeNull()
+    expect(screen.queryByTestId('collection-new')).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: 'Name' })).not.toHaveAttribute('aria-sort')
+    // A cell still writes through the note's own patcher.
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('collection-cell:Stale:verified'))
+    const input = screen.getByTestId('collection-cell:Stale:verified:input')
+    await user.clear(input)
+    await user.type(input, '2026-07-01{Enter}')
+    expect(store.get('Competitors/Stale.md')).toBe('---\nthreat: direct\nverified: 2026-07-01\n---\n')
+    await user.click(screen.getByTestId('collection-embed-open'))
+    expect(openPath).toHaveBeenCalledWith('Competitors.base', { background: false })
+  })
+
+  it('falls back to the first view when `#view` names none, and says so', async () => {
+    setup({ embedded: true, viewName: 'Threat Watch' })
+    await screen.findByTestId('collection-table')
+    expect(screen.getByTestId('collection-embed')).toHaveAccessibleName('Competitors (collection) — All')
+    expect(screen.getByTestId('collection-embed-view-missing')).toHaveTextContent('No view called Threat Watch; showing All.')
+    expect(rowNames()).toEqual(['Ingredifind', 'Nested', 'Quiteful', 'Stale'])
+  })
+
+  it('shows the first view with no name, and a board embeds with its moves', async () => {
+    setup({ embedded: true })
+    await screen.findByTestId('collection-table')
+    expect(screen.getByTestId('collection-embed')).toHaveAccessibleName('Competitors (collection) — All')
+    expect(screen.queryByTestId('collection-embed-view-missing')).toBeNull()
+    cleanup()
+    setup({ embedded: true, viewName: 'Board' })
+    await screen.findByTestId('collection-board')
+    expect(screen.getAllByRole('combobox', { name: /Move .* to/ }).length).toBeGreaterThan(0)
+  })
+
+  it('scopes `this.file` to the embedding note', async () => {
+    const { store } = setup({ embedded: true, viewName: 'Linked', scopePath: 'Meetings/Weekly.md' })
+    // A view filtering on `file.hasLink(this.file.name)`: with the collection
+    // as scope nothing links to it; scoped to the embedding note, the notes
+    // linking there are the rows.
+    store.set('Competitors.base', BASE + "  - type: table\n    name: Linked\n    filters:\n      and:\n        - file.hasLink(this.file.name)\n    order:\n      - file.name\n")
+    cleanup()
+    const index = new MemoryIndex()
+    const texts = new Map(store)
+    texts.set('Competitors/Ingredifind.md', '---\nthreat: direct\n---\n\nSee [[Weekly]].\n')
+    index.rebuild([...texts.entries()].map(([path, text]): IndexDoc => ({ guid: path, path, text })))
+    const workspace = {
+      ui: { files: [...texts.keys()].map((path) => ({ path, guid: path, kind: 'text' as const })) },
+      docForPath: (path: string) => (texts.has(path) ? fakeDoc(path, index, texts) : null),
+      createFile: vi.fn(),
+      flash: vi.fn(),
+    } as unknown as Workspace
+    const shell = fakeViewShell(Date.UTC(2026, 6, 1), { index: () => index })
+    render(CollectionView, {
+      props: { workspace, path: 'Competitors.base', embedded: true, viewName: 'Linked', scopePath: 'Meetings/Weekly.md' },
+      context: viewShellContext(shell),
+    })
+    await screen.findByTestId('collection-table')
+    expect(rowNames()).toEqual(['Ingredifind'])
   })
 })

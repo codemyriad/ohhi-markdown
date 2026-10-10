@@ -342,6 +342,8 @@ const read = {
   /** The icon a Source/Reading tab carries; Live tabs carry nothing. */
   tab_mode: '{mode:string} view',
   missing_attachment: 'Missing attachment',
+  /** `![[X.base]]` naming a collection the vault has not got (bases-shaping A6). */
+  missing_collection: 'Missing collection',
   /** The accessible name of a checkbox whose task has no text yet. */
   task: 'Task',
   /** The dim count beside the collapsed strip's chips. */
@@ -2781,6 +2783,18 @@ const collections = {
     unsupported: 'outside the flat subset',
   },
   mtime_unknown: '—',
+  /** The properties form at the top of a row-note (bases-shaping A7). */
+  properties_label: 'Properties of {name:string}',
+  /** A key in the form: a door into the YAML at that line. */
+  property_key: 'Edit {key:string} as YAML',
+  /** The form's last control, the keyboard's way into the block. */
+  open_yaml: 'Edit as YAML',
+  /** An embedded collection view (A6): "Competitors (collection) — Threat Watch". */
+  embed_label: '{name:string} (collection) — {view:string}',
+  /** The embed's caption, a button opening the collection's own tab. */
+  embed_open: 'Open {name:string}',
+  /** `![[X.base#View]]` naming a view the file has not got. */
+  embed_view_missing: 'No view called {view:string}; showing {shown:string}.',
 }
 
 const web = {

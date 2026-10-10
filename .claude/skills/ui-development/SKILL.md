@@ -503,6 +503,24 @@ manager, the remote carets and `git diff` never see it
   tag, a translated label — arrives through the `readHost` **Facet**, exactly
   as `wikiLinkHost` does and for the same reason (a prop the wrapper tracks
   would destroy the view).
+  **The two exceptions are host-mounted** (collections DB4,
+  `plans/bases-shaping.md` A6/A7): the properties form over a row-note's
+  frontmatter (`PropertiesFormWidget`) and an embedded collection
+  (`CollectionEmbedWidget`, `![[X.base#View]]`) are applications of their
+  own, so `libs/editor-lang` — still Svelte-free — hands the host an
+  element and the widget's inputs (`ReadHost.mountProperties` /
+  `mountCollection`, returning a `Mounted<P>`), and `Pane.svelte` mounts
+  the Svelte component there with `mount()` + `viewShellContext(shell)`,
+  the inline-title pattern. The widget's `updateDOM` pushes new inputs
+  through the mount's `update` instead of redrawing, so the element — and
+  the focus inside it — survives every rebuild; `destroy` unmounts. Both
+  widgets `ignoreEvent` everything (every key and click inside is the
+  form's or the table's), and an edit from the form is the patcher's
+  changes dispatched by the widget as one transaction — never a write
+  around the editor. An input the host holds outside the state (whether
+  the note is a row of a collection) is read synchronously through
+  `ReadHost.inCollection()` and the host dispatches `refreshPreview` when
+  it changes.
 - **Every hidden range is also an atomic range.** A `Decoration.replace` that
   hides a marker must be returned from `EditorView.atomicRanges` too, or the
   caret walks into text the reader cannot see. Whole-line furniture uses

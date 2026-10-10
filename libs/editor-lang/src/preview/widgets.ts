@@ -18,8 +18,16 @@
  * - No colour and no layout here: every class is styled in libs/editor/theme.ts
  *   through --ed-* tokens (golden rule 7).
  */
+import type { EditorView } from '@codemirror/view'
 import { WidgetType } from '@codemirror/view'
-import type { ReadHost, ReadLabels } from '../read-host.js'
+import type {
+  CollectionEmbedProps,
+  Mounted,
+  PropertiesProps,
+  ReadHost,
+  ReadLabels,
+  TextChange,
+} from '../read-host.js'
 import { renderInline, tagChip, type InlinePiece } from './inline-dom.js'
 import type { Align } from './table-ops.js'
 
@@ -240,6 +248,132 @@ export class FrontmatterStripWidget extends ReadWidget {
       wrap.appendChild(badge)
     }
     return wrap
+  }
+}
+
+/**
+ * What the host mounted into a widget's element, found again by the element:
+ * CM6 reuses the DOM across rebuilds (`updateDOM`), so the instance belongs
+ * to the element, not to the widget object that first drew it.
+ */
+const mounted = new WeakMap<HTMLElement, Mounted<never>>()
+
+/**
+ * Keeps CodeMirror's hands off a widget that is an application of its own:
+ * every key, click and focus inside it is the form's or the table's, never a
+ * caret move or a keymap chord. (A `ReadWidget` lets mousedown through so the
+ * strip's chips and the checkboxes reach clicks.ts; these two have no such
+ * need — a key in the form is a button of its own.)
+ */
+abstract class HostedWidget extends WidgetType {
+  override ignoreEvent(): boolean {
+    return true
+  }
+
+  override destroy(dom: HTMLElement): void {
+    mounted.get(dom)?.destroy()
+    mounted.delete(dom)
+  }
+}
+
+/**
+ * The collapsed frontmatter block of a note that is a row of a collection
+ * (bases-shaping A7, Fork 3-B): one row per property, the key and a typed
+ * editor, drawn by the host. A cell's edit comes back as the patcher's text
+ * changes and is dispatched here as one transaction — the path typing takes
+ * — so undo, the peers and `git diff` see one value's bytes move (golden
+ * rule 2). A click on a key puts the caret in the YAML: the block is text,
+ * and the active-region rule shows it the moment the caret is inside
+ * (R4.1.1), exactly as for the strip.
+ */
+export class PropertiesFormWidget extends HostedWidget {
+  constructor(
+    /** The block's own text — what the form parses, and the identity for `eq`. */
+    readonly text: string,
+    readonly editable: boolean,
+    private readonly host: ReadHost
+  ) {
+    super()
+  }
+
+  override eq(other: PropertiesFormWidget): boolean {
+    return other.text === this.text && other.editable === this.editable
+  }
+
+  private props(): PropertiesProps {
+    return { text: this.text, editable: this.editable }
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.className = 'cm-properties-form'
+    const editor = {
+      text: () => view.state.doc.toString(),
+      apply: (changes: readonly TextChange[]): boolean => {
+        if (changes.length === 0) return false
+        view.dispatch({ changes: changes.map((c) => ({ from: c.from, to: c.to, insert: c.insert })), userEvent: 'input' })
+        return true
+      },
+      enter: (line: number): void => {
+        const at = view.state.doc.line(Math.max(1, Math.min(line + 1, view.state.doc.lines)))
+        view.dispatch({ selection: { anchor: at.to }, scrollIntoView: true })
+        view.focus()
+      },
+    }
+    const app = this.host.mountProperties?.(wrap, this.props(), editor)
+    if (app) mounted.set(wrap, app)
+    return wrap
+  }
+
+  /** The same element with new inputs: the form keeps its focus across a rebuild. */
+  override updateDOM(dom: HTMLElement): boolean {
+    const app = mounted.get(dom) as Mounted<PropertiesProps> | undefined
+    if (!app) return false
+    app.update(this.props())
+    return true
+  }
+}
+
+/**
+ * `![[Competitors.base]]` / `![[Competitors.base#Threat Watch]]` on a line of
+ * its own (bases-shaping A6): the collection's named view — else its first —
+ * mounted by the host, read-mostly. A name that resolves to nothing draws the
+ * same placeholder a missing picture does.
+ */
+export class CollectionEmbedWidget extends HostedWidget {
+  constructor(
+    /** As written, `.base` included — what the placeholder names. */
+    readonly name: string,
+    readonly view: string | null,
+    /** The resolved path, or null when the vault has no such collection. */
+    readonly path: string | null,
+    private readonly host: ReadHost
+  ) {
+    super()
+  }
+
+  override eq(other: CollectionEmbedWidget): boolean {
+    return other.name === this.name && other.view === this.view && other.path === this.path
+  }
+
+  toDOM(): HTMLElement {
+    const wrap = document.createElement('figure')
+    wrap.className = 'cm-embed cm-embed-block cm-embed-collection'
+    if (this.path === null || !this.host.mountCollection) {
+      wrap.classList.add('cm-embed-missing')
+      wrap.textContent = `${this.name} — ${this.host.labels.missingCollection}`
+      return wrap
+    }
+    mounted.set(wrap, this.host.mountCollection(wrap, { path: this.path, view: this.view }))
+    return wrap
+  }
+
+  override updateDOM(dom: HTMLElement): boolean {
+    const app = mounted.get(dom) as Mounted<CollectionEmbedProps> | undefined
+    // Resolved ↔ missing is a different element; let CM6 redraw it.
+    if (!app || this.path === null) return false
+    app.update({ path: this.path, view: this.view })
+    return true
   }
 }
 

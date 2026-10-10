@@ -31,6 +31,7 @@ import {
   type ReadHost,
   type ViewMode,
 } from '../read-host.js'
+import { splitWikiLink } from '../wikilink.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { activeSpans, inActiveRegion, markerSelected, type Span } from './active-lines.js'
 import * as cls from './classes.js'
@@ -45,8 +46,10 @@ import { provisionalBullet, SETEXT_PROVISIONAL } from './setext.js'
 import {
   BulletWidget,
   CheckboxWidget,
+  CollectionEmbedWidget,
   EmbedWidget,
   FrontmatterStripWidget,
+  PropertiesFormWidget,
   RuleWidget,
   TableWidget,
   type TableRowData,
@@ -117,6 +120,8 @@ const EMPHASIS = new Set(['StrongEmphasis', 'Emphasis', 'Strikethrough', 'Highli
 const HTML = new Set(['HTMLBlock', 'HTMLTag', 'Comment', 'CommentBlock', 'ProcessingInstruction'])
 /** `^abc123` at the end of a block. Dim, never resolved (D8). */
 const BLOCK_ID_RE = /(?:^|\s)(\^[A-Za-z0-9-]+)[ \t]*$/
+/** A collection file (bases-shaping A6) — `isCollectionPath` in @ohhi/collections. */
+const COLLECTION = /\.base$/i
 
 /**
  * Every decoration for the whole document. The one-shot form: what the tests
@@ -317,16 +322,19 @@ class Builder {
       this.doc.sliceString(0, Math.min(to + 1, this.doc.length))
     )
     if (!this.revealed(from, to) && info?.present) {
+      const first = this.doc.lineAt(from)
+      const last = this.doc.lineAt(to)
+      // A row of a collection gets the properties form (Fork 3-B) — when the
+      // block is one the patcher can write into; a block outside the flat
+      // subset keeps the strip and its badge, because a form over values it
+      // cannot write would be a promise the patcher refuses.
+      const form = info.supported && this.host.inCollection?.() === true && !!this.host.mountProperties
       this.replaceBlock(
-        this.doc.lineAt(from),
-        this.doc.lineAt(to),
-        new FrontmatterStripWidget(
-          info.tags,
-          info.entries.length,
-          info.supported,
-          this.host.labels,
-          this.mode !== 'reading'
-        )
+        first,
+        last,
+        form
+          ? new PropertiesFormWidget(this.doc.sliceString(first.from, last.to), this.mode !== 'reading', this.host)
+          : new FrontmatterStripWidget(info.tags, info.entries.length, info.supported, this.host.labels, this.mode !== 'reading')
       )
       return false
     }
@@ -723,6 +731,7 @@ class Builder {
     if (this.revealed(node.from, node.to)) return this.rawWikiLink(node)
     const inner = this.doc.sliceString(node.from + 3, node.to - 2)
     const name = (inner.split('|')[0] ?? '').trim()
+    if (COLLECTION.test(splitWikiLink(inner).target)) return this.collectionEmbed(node, inner)
     // Only a picture is drawn. `![[note]]` (transclusion) and `![[paper.pdf]]`
     // are markup this renderer has no picture for, and an <img> over bytes
     // that are not an image is a broken image, while a *missing attachment*
@@ -738,6 +747,21 @@ class Builder {
     } else {
       this.replace(node.from, node.to, new EmbedWidget(name, false, this.host))
     }
+    return false
+  }
+
+  /**
+   * `![[X.base]]` / `![[X.base#View]]` (bases-shaping A6): the collection's
+   * view, mounted by the host, on a line of its own only — a table has no
+   * place inside a sentence, so an inline one stays as its text, as does
+   * every one when the host cannot mount a collection (a bare editor).
+   */
+  private collectionEmbed(node: SyntaxNodeRef, inner: string): boolean {
+    if (!this.host.mountCollection || !this.host.resolveCollection) return this.rawWikiLink(node)
+    const l = this.doc.lineAt(node.from)
+    if (l.text.trim() !== this.doc.sliceString(node.from, node.to).trim()) return this.rawWikiLink(node)
+    const { target, anchor } = splitWikiLink(inner)
+    this.replaceBlock(l, l, new CollectionEmbedWidget(target, anchor, this.host.resolveCollection(target), this.host))
     return false
   }
 

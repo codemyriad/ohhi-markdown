@@ -24,12 +24,19 @@
     wikiLinkHost,
     type LinkHeading,
     type LinkMount,
+    refreshPreview,
+    type CollectionEmbedProps,
+    type Mounted,
+    type PropertiesEditor,
+    type PropertiesProps,
+    type ReadHost,
     type WikiLinkHost,
   } from '@ohhi/editor-lang'
   import { isCollectionPath } from '@ohhi/collections'
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
+  import { collectionQueries, inAnyCollection } from '../collection-membership.js'
   import { activeTab, panes as panesOf, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
@@ -41,9 +48,10 @@
   import type { Workspace } from '../workspace.svelte.js'
   import CollectionView from './CollectionView.svelte'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
-  import { getViewShell, shellClock, viewDef } from '../views.js'
+  import { getViewShell, shellClock, viewDef, viewShellContext } from '../views.js'
   import { isTauri } from '../platform.js'
   import InlineTitle from './InlineTitle.svelte'
+  import PropertiesForm from './PropertiesForm.svelte'
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
@@ -168,7 +176,7 @@
    * builds decorations, inside the effect that creates the view, so a tracked
    * read here would put the view's lifecycle on the pane tree.
    */
-  const noteHost = {
+  const noteHost: ReadHost = {
     readAttachment: (name: string, form?: 'wikilink' | 'markdown') =>
       untrack(() => workspace.readAttachment(name, path, form)),
     // `![alt](https://…)` loads on a click, never on open (E5).
@@ -184,6 +192,18 @@
     // The strip's reader: the same parser the index and the CLI use, so the
     // chips at the top of a note agree with `tag:#x` search by construction.
     frontmatter: parseFrontmatter,
+    // Whether this note is a row of a collection (bases-shaping Fork 3-B):
+    // the answer `member` holds, computed below off the index; the engine is
+    // told to rebuild when it changes.
+    inCollection: () => untrack(() => member),
+    mountProperties,
+    // `![[X.base]]` resolves like any link, but only a collection counts.
+    resolveCollection: (name: string) =>
+      untrack(() => {
+        const resolved = resolveLink(name, path ?? undefined)
+        return resolved && isCollectionPath(resolved) ? resolved : null
+      }),
+    mountCollection,
   }
   // ONE stable array, built once: both facets are reconfigured through the
   // host compartment, never re-created, so the Y.Text binding survives.
@@ -215,6 +235,136 @@
       )
     ),
   ]
+
+  // ---- the shell (verbs and the index) this pane's widgets reach ----
+  const shell = getViewShell()
+  /** The reader's zone, so `today()` in a filter is their calendar day. A zone is not a clock. clock-exempt */
+  const tzOffsetMinutes = -new Date().getTimezoneOffset() // clock-exempt
+  /** How long typing elsewhere may go on before membership is re-asked. */
+  const MEMBERSHIP_COALESCE_MS = 120
+
+  /**
+   * Is the open note a row of at least one collection (bases-shaping A7)?
+   * Asked of the index through the same compiler the collection tab uses,
+   * once per note at once and then coalesced on the shell's clock as the
+   * index revision ticks (golden rule 5: only the injected clock schedules).
+   * The engine reads it synchronously through `inCollection` and is told to
+   * rebuild with one effect when it changes.
+   */
+  let member = $state(false)
+  let memberOf: string | null = null
+  $effect(() => {
+    const p = path
+    void shell?.indexRevision()
+    if (!shell || !p || isCollectionPath(p)) {
+      member = false
+      memberOf = null
+      return
+    }
+    let live = true
+    const run = (): void => {
+      const queries = untrack(() =>
+        collectionQueries(
+          workspace.ui.files.map((f) => f.path),
+          (file) => workspace.docForPath(file)?.getText() ?? null
+        )
+      )
+      void inAnyCollection(shell.index(), queries, p, shell.clock.now(), tzOffsetMinutes).then((answer) => {
+        if (live) member = answer
+      })
+    }
+    if (memberOf !== p) {
+      // Another note: the previous answer is not this note's. Asked at once.
+      memberOf = p
+      member = false
+      run()
+      return () => {
+        live = false
+      }
+    }
+    const cancel = shell.clock.schedule(run, MEMBERSHIP_COALESCE_MS)
+    return () => {
+      live = false
+      cancel()
+    }
+  })
+  $effect(() => {
+    void member
+    const view = handle?.view
+    if (view) view.dispatch({ effects: refreshPreview.of(null) })
+  })
+
+  /**
+   * The properties form (A7), mounted into the engine's block widget over the
+   * frontmatter lines — the InlineTitle pattern: a Svelte component inside
+   * CM6's DOM, mounted imperatively, its inputs pushed through a reactive
+   * holder so the element (and the focus inside it) survives every rebuild.
+   */
+  function mountProperties(dom: HTMLElement, props: PropertiesProps, editor: PropertiesEditor): Mounted<PropertiesProps> {
+    const live = $state({ text: props.text, editable: props.editable })
+    const app = mount(PropertiesForm, {
+      target: dom,
+      props: {
+        workspace,
+        get path() {
+          return untrack(() => path) ?? ''
+        },
+        get text() {
+          return live.text
+        },
+        get editable() {
+          return live.editable
+        },
+        editor,
+      },
+      ...(shell ? { context: viewShellContext(shell) } : {}),
+    })
+    return {
+      update: (next) => {
+        live.text = next.text
+        live.editable = next.editable
+      },
+      destroy: () => void unmount(app),
+    }
+  }
+
+  /**
+   * An embedded collection (A6): the collection tab's own component, read-
+   * mostly, with `this.file` scoped to THIS note. A new target is a new
+   * component (the tab keys on the path too); a new view name is a prop.
+   */
+  function mountCollection(dom: HTMLElement, props: CollectionEmbedProps): Mounted<CollectionEmbedProps> {
+    const live = $state({ view: props.view })
+    let at = props.path
+    const start = () =>
+      mount(CollectionView, {
+        target: dom,
+        props: {
+          workspace,
+          path: at,
+          embedded: true,
+          get viewName() {
+            return live.view
+          },
+          get scopePath() {
+            return untrack(() => path) ?? at
+          },
+        },
+        ...(shell ? { context: viewShellContext(shell) } : {}),
+      })
+    let app = start()
+    return {
+      update: (next) => {
+        live.view = next.view
+        if (next.path !== at) {
+          void unmount(app)
+          at = next.path
+          app = start()
+        }
+      },
+      destroy: () => void unmount(app),
+    }
+  }
 
   const status = $derived(noteStatus(workspace.ui.files, workspace.ui.records, path))
 
@@ -350,7 +500,6 @@
    * were moved into CM6's DOM would tear down by walking CM6's siblings.
    * Only a note gets one — a view tab and the empty tab never reach here.
    */
-  const shell = getViewShell()
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
   const desktop = isTauri()
   // A collection's Source view has no inline title: its name is not a heading of a note.

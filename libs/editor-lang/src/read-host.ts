@@ -43,6 +43,8 @@ export interface FrontmatterView {
 export interface ReadLabels {
   /** Placeholder under an embed whose file this device does not hold. */
   missingAttachment: string
+  /** Placeholder for `![[X.base]]` when no such collection exists in the vault. */
+  missingCollection: string
   /** Accessible name for a checkbox whose task has no text yet (the a11y gate). */
   task: string
   /** The dim `4 properties` label on the collapsed strip; plural is the host's. */
@@ -172,6 +174,54 @@ export const FALLBACK_LINK_LABELS: LinkPopoverLabels = {
   keyEscape: 'Esc',
 }
 
+/**
+ * A widget body the HOST builds and keeps current — the properties form on a
+ * row-note and an embedded collection (bases-shaping A6/A7). This package is
+ * Svelte-free, so it hands the host an element and the widget's inputs; the
+ * host mounts whatever it draws with, pushes new inputs through `update` when
+ * the decoration is rebuilt with different ones (CM6's `updateDOM`, so the
+ * element — and the focus inside it — survives), and tears down on `destroy`.
+ */
+export interface Mounted<P> {
+  update(props: P): void
+  destroy(): void
+}
+
+/** One text edit against the document the host computed it from. */
+export interface TextChange {
+  from: number
+  to: number
+  insert: string
+}
+
+/**
+ * What the properties form may do to the editor it sits in. Every edit is a
+ * real transaction — the path typing takes — so undo, the peers and the
+ * reconciler see it as a keystroke (read-shaping R2.2; bases-shaping A7).
+ */
+export interface PropertiesEditor {
+  /** The document's text right now — what a patch is computed against. */
+  text(): string
+  /** Apply the patcher's changes as ONE transaction. False when nothing was applied. */
+  apply(changes: readonly TextChange[]): boolean
+  /** Put the caret on `line` (0-based) of the block — the way back into the YAML (R4.1.1). */
+  enter(line: number): void
+}
+
+export interface PropertiesProps {
+  /** The frontmatter block's own text, `---` to `---`. */
+  text: string
+  /** Live. Reading has no caret to hand back, so its keys are not doors into the YAML. */
+  editable: boolean
+}
+
+export interface CollectionEmbedProps {
+  /** The collection file's path, resolved by the host. */
+  path: string
+  /** The view named after `#`, or null for the first. */
+  view: string | null
+}
+
 /** What a rendered note can ask its host for. Every method is optional to call from a widget; none may throw. */
 export interface ReadHost {
   /**
@@ -205,6 +255,20 @@ export interface ReadHost {
    * block simply stays visible as YAML rather than collapsing to a strip.
    */
   frontmatter?(text: string): FrontmatterView
+  /**
+   * Is the open note a row of at least one collection (bases-shaping Fork
+   * 3-B)? Synchronous, because decorations are built synchronously; the host
+   * computes it off the index on its own clock and asks for a rebuild
+   * (`refreshPreview`) when the answer changes. Absent or false: the block
+   * collapses to the tag strip, as for every note outside a collection.
+   */
+  inCollection?(): boolean
+  /** The properties form for the collapsed block (A7). Absent: the strip. */
+  mountProperties?(dom: HTMLElement, props: PropertiesProps, editor: PropertiesEditor): Mounted<PropertiesProps>
+  /** `![[X.base]]` → the collection's vault path, or null when there is none. */
+  resolveCollection?(name: string): string | null
+  /** An embedded collection view (A6). Absent: a `.base` embed stays as its text. */
+  mountCollection?(dom: HTMLElement, props: CollectionEmbedProps): Mounted<CollectionEmbedProps>
 }
 
 /**
@@ -220,6 +284,7 @@ const NOOP_HOST: ReadHost = {
   tags: () => [],
   labels: {
     missingAttachment: 'Not on this device',
+    missingCollection: 'No such collection',
     task: 'Task',
     properties: (count) => `${count} properties`,
     frontmatterUnsupported: 'Frontmatter does not parse',

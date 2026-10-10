@@ -716,4 +716,29 @@ test('a collection tab is accessible', async ({ page }) => {
   await page.getByTestId('collection-add-view:list').click()
   await expect(page.getByTestId('collection-list')).toBeVisible()
   await expectAccessible(page, 'collection list')
+
+  // A row-note (DB4, Fork 3-B): the collection over the root claims every
+  // note, so the welcome note's frontmatter is the properties form — one
+  // row, `status`, with the table's own text editor — and a key is a door
+  // into the YAML, where the form gives way to the text (R4.1.1).
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await expect(page.getByTestId('properties-form')).toBeVisible()
+  await expectAccessible(page, 'properties form')
+  await page.getByTestId('property:status').click()
+  await expect(page.getByTestId('property:status:input')).toBeVisible()
+  await expectAccessible(page, 'properties form cell editor')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('property-key:status').click()
+  await expect(page.getByTestId('properties-form')).toHaveCount(0)
+  await expect(paneContent(page).locator('.cm-live-frontmatter')).toHaveCount(3)
+
+  // An embedded collection (A6): `![[Collection.base]]` on a line of its own
+  // draws the collection's first view inside the note, cells and all, with
+  // no view controls; the caret off its line, so the line is the widget.
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.insertText('\n\n![[Collection.base]]\n')
+  await expect(page.getByTestId('collection-embed')).toBeVisible()
+  await expect(page.getByTestId('collection-embed').getByTestId('collection-table')).toBeVisible()
+  await expect(page.getByTestId('collection-embed').getByTestId('collection-new')).toHaveCount(0)
+  await expectAccessible(page, 'collection embed')
 })

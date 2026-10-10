@@ -9,7 +9,13 @@
 import { describe, expect, it } from 'vitest'
 import { buildPreview } from '../src/preview/build.js'
 import type { FenceWidget } from '../src/preview/code-widgets.js'
-import type { CheckboxWidget, EmbedWidget, FrontmatterStripWidget } from '../src/preview/widgets.js'
+import type {
+  CheckboxWidget,
+  CollectionEmbedWidget,
+  EmbedWidget,
+  FrontmatterStripWidget,
+  PropertiesFormWidget,
+} from '../src/preview/widgets.js'
 import { decorations, hidden, makeState, testHost, type FlatDeco } from './support.js'
 
 const at = (decos: FlatDeco[], text: string): FlatDeco[] => decos.filter((d) => d.text === text)
@@ -236,6 +242,53 @@ describe('embeds (14, all .png)', () => {
   })
 })
 
+describe('collection embeds (bases-shaping A6)', () => {
+  /** A host that can mount a collection and knows one file. */
+  const host = () =>
+    testHost({
+      resolveCollection: (name) => (name === 'Competitors.base' ? 'Areas/Competitors.base' : null),
+      mountCollection: () => ({ update: () => {}, destroy: () => {} }),
+    })
+  const widgetOf = (doc: string, over = {}) =>
+    decorations(makeState(doc, { at: 0, host: host(), ...over })).find((d) => d.value === 'CollectionEmbedWidget')
+
+  it('mounts the first view of a resolved collection as a block', () => {
+    const embed = widgetOf('intro\n\n![[Competitors.base]]\n')
+    expect(embed?.kind).toBe('block-widget')
+    const w = embed?.widget as CollectionEmbedWidget
+    expect(w.name).toBe('Competitors.base')
+    expect(w.path).toBe('Areas/Competitors.base')
+    expect(w.view).toBeNull()
+  })
+
+  it('names the view after `#`, and tolerates an alias after `|`', () => {
+    const w = widgetOf('intro\n\n![[Competitors.base#Threat Watch|whatever]]\n')?.widget as CollectionEmbedWidget
+    expect(w.view).toBe('Threat Watch')
+    expect(w.path).toBe('Areas/Competitors.base')
+  })
+
+  it('draws the missing placeholder for a collection the vault has not got', () => {
+    const w = widgetOf('intro\n\n![[Nope.base]]\n')?.widget as CollectionEmbedWidget
+    expect(w.path).toBeNull()
+    expect(w.name).toBe('Nope.base')
+  })
+
+  it('stays as its text inside a sentence, in Source, in the active region, and without a host', () => {
+    expect(widgetOf('see ![[Competitors.base]] here\n')).toBeUndefined()
+    expect(widgetOf('![[Competitors.base]]\n', { mode: 'source' })).toBeUndefined()
+    expect(widgetOf('![[Competitors.base]]\n', { at: 3 })).toBeUndefined()
+    expect(
+      decorations(makeState('intro\n\n![[Competitors.base]]\n', { at: 0 })).some((d) => d.value === 'CollectionEmbedWidget')
+    ).toBe(false)
+    // …and a `.base` the host cannot mount is not an image either.
+    expect(decorations(makeState('intro\n\n![[Competitors.base]]\n', { at: 0 })).some((d) => d.value === 'EmbedWidget')).toBe(false)
+  })
+
+  it('renders in Reading too', () => {
+    expect(widgetOf('intro\n\n![[Competitors.base]]\n', { mode: 'reading' })?.kind).toBe('block-widget')
+  })
+})
+
 describe('tags, block ids and HTML (28 / 27 / 24)', () => {
   it('chips a tag in every mode — a chip hides nothing', () => {
     for (const mode of ['live', 'source', 'reading'] as const) {
@@ -381,6 +434,69 @@ describe('the frontmatter strip (17 files, Fork 5-C)', () => {
     const decos = decorations(makeState(half, { at: half.length }))
     expect(decos.some((d) => d.value === 'FrontmatterStripWidget')).toBe(false)
     expect(hidden(makeState(half, { at: half.length }))).toEqual([])
+  })
+})
+
+describe('the properties form on a row-note (bases-shaping A7, Fork 3-B)', () => {
+  const note = '---\ntitle: A note\ntags: [composition testing]\n---\n\n# Body\n'
+  const member = (over = {}) =>
+    testHost({
+      inCollection: () => true,
+      mountProperties: () => ({ update: () => {}, destroy: () => {} }),
+      ...over,
+    })
+  const names = (doc: string, over = {}) =>
+    decorations(makeState(doc, { at: 55, host: member(), ...over })).filter((d) => d.kind === 'block-widget').map((d) => d.value)
+
+  it('replaces the strip with the form, over the same block, when the note is in a collection', () => {
+    const decos = decorations(makeState(note, { at: 55, host: member() }))
+    const form = decos.find((d) => d.value === 'PropertiesFormWidget')
+    expect(form?.kind).toBe('block-widget')
+    expect(form?.from).toBe(0)
+    expect(form?.to).toBe(49)
+    const w = form?.widget as PropertiesFormWidget
+    expect(w.text).toBe('---\ntitle: A note\ntags: [composition testing]\n---')
+    expect(w.editable).toBe(true)
+    expect(decos.some((d) => d.value === 'FrontmatterStripWidget')).toBe(false)
+    // The same hidden range as the strip: the caret still steps over the block.
+    expect(hidden(makeState(note, { at: 55, host: member() }))).toEqual([{ from: 0, to: 49 }])
+  })
+
+  it('keeps the strip for a note in no collection, and when the host cannot mount a form', () => {
+    expect(names(note, { host: testHost({ inCollection: () => false }) })).toEqual(['FrontmatterStripWidget'])
+    expect(names(note, { host: testHost({ inCollection: () => true }) })).toEqual(['FrontmatterStripWidget'])
+    expect(names(note, { host: testHost() })).toEqual(['FrontmatterStripWidget'])
+  })
+
+  it('keeps the strip (and its badge) for a block the patcher cannot write into', () => {
+    const nested = '---\nkey:\n  nested: true\n---\n\nbody\n'
+    const decos = decorations(makeState(nested, { at: 30, host: member() }))
+    const strip = decos.find((d) => d.value === 'FrontmatterStripWidget')
+    expect((strip?.widget as FrontmatterStripWidget).supported).toBe(false)
+    expect(decos.some((d) => d.value === 'PropertiesFormWidget')).toBe(false)
+  })
+
+  it('is the YAML the moment the caret is in the block — every byte reachable (R4.1.1)', () => {
+    for (const pos of [0, 5, 20, 46]) {
+      const decos = decorations(makeState(note, { at: pos, host: member() }))
+      expect(decos.some((d) => d.value === 'PropertiesFormWidget')).toBe(false)
+      expect(decos.filter((d) => d.kind === 'line' && d.value === 'cm-live-frontmatter')).toHaveLength(4)
+    }
+  })
+
+  it('is read-only on its keys in Reading, and plain text in Source', () => {
+    const reading = decorations(makeState(note, { at: 0, mode: 'reading', host: member() })).find((d) => d.value === 'PropertiesFormWidget')
+    expect((reading?.widget as PropertiesFormWidget).editable).toBe(false)
+    expect(names(note, { mode: 'source' })).toEqual([])
+  })
+
+  it('is one widget for one block: equal inputs, equal widget', () => {
+    const a = decorations(makeState(note, { at: 55, host: member() })).find((d) => d.value === 'PropertiesFormWidget')?.widget as PropertiesFormWidget
+    const b = decorations(makeState(note, { at: 60, host: member() })).find((d) => d.value === 'PropertiesFormWidget')?.widget as PropertiesFormWidget
+    expect(a.eq(b)).toBe(true)
+    const edited = note.replace('A note', 'B note')
+    const c = decorations(makeState(edited, { at: 55, host: member() })).find((d) => d.value === 'PropertiesFormWidget')?.widget as PropertiesFormWidget
+    expect(a.eq(c)).toBe(false)
   })
 })
 

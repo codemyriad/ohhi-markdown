@@ -17,6 +17,11 @@
    * peer's edits reach the table without a second channel. The counter
    * bumps on every keystroke anywhere in the vault, so the re-query is
    * coalesced on the shell's clock; the first load is immediate.
+   *
+   * EMBEDDED (bases-shaping A6, `![[X.base#View]]` in a note): the one
+   * named view — else the first — read-mostly: cells edit, nothing about
+   * the view does (no sort, grouping, columns, new views or new rows), and
+   * `this.file` is the EMBEDDING note, as Obsidian scopes it.
    */
   import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, LayoutGrid } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
@@ -63,9 +68,15 @@
     workspace: Workspace
     /** The `.base` file. The pane keys this component on it. */
     path: string
+    /** Inside a note (A6): one view, cells only. */
+    embedded?: boolean
+    /** Embedded: the view named after `#`; null or unknown → the first. */
+    viewName?: string | null
+    /** What `this.file` means in the filters: the embedding note, else the collection itself. */
+    scopePath?: string
   }
 
-  let { workspace, path }: Props = $props()
+  let { workspace, path, embedded = false, viewName = null, scopePath }: Props = $props()
 
   const shell = getViewShell()
   const clock = shellClock()
@@ -87,15 +98,20 @@
     return workspace.docForPath(path)?.getText() ?? ''
   })
   const spec = $derived(parseCollection(text))
+  const scope = $derived({ thisPath: scopePath ?? path })
 
   /** Which saved view this tab shows, as the Tabs primitive's value. */
   let activeValue = $state('0')
+  const wantedName = $derived(viewName?.trim().toLowerCase() || null)
   const view = $derived.by(() => {
     if (!spec.views.length) return null
+    if (embedded) return (wantedName ? spec.views.find((v) => v.name.toLowerCase() === wantedName) : undefined) ?? spec.views[0]
     const wanted = Number(activeValue)
     return spec.views.find((v) => v.index === wanted) ?? spec.views[0]
   })
-  const compiled = $derived(view ? compileView(spec, view, { thisPath: path }) : null)
+  /** `#View` named a view the file has not got: say so, over the one shown instead. */
+  const viewMissing = $derived(embedded && !!wantedName && !!view && view.name.toLowerCase() !== wantedName)
+  const compiled = $derived(view ? compileView(spec, view, scope) : null)
   const viewTabs = $derived(spec.views.map((v) => ({ value: String(v.index), label: v.name, testid: `collection-tab:${v.name}` })))
 
   // ---- the rows ----
@@ -217,7 +233,6 @@
 
   /** Where "+ New" puts a note: the view's folder, else the collection's own. */
   const targetDir = $derived.by(() => {
-    const scope = { thisPath: path }
     const fromView = view ? folderOf(view.filters, scope) : null
     const fromGlobal = folderOf(spec.filters, scope)
     const slash = path.lastIndexOf('/')
@@ -321,7 +336,140 @@
   const cellClass = 'border-b border-base-200 px-1 py-0.5 align-top'
 </script>
 
-<section aria-label={t.label({ name })} data-testid="collection-view" class="flex h-full min-h-0 flex-col bg-ed-surface text-base-content">
+{#snippet body()}
+  {#if view}
+    {#if compiled && !compiled.supported && partlyOpen}
+      <p id="{uid}-partly" class="border-b border-base-300 bg-warning/10 px-3 py-1 text-xs" data-testid="collection-partly-detail">
+        {t.partly_detail({ reasons: compiled.reasons.join('; ') })}
+      </p>
+    {/if}
+    {#if boardNeedsGroup}
+      <div class="m-4 text-sm" data-testid="board-needs-group">
+        {#if embedded}
+          <p>{t.board_needs_group()}</p>
+        {:else}
+          <label class="flex items-center gap-2">
+            <span>{t.board_needs_group()}</span>
+            <select class="dui-select dui-select-xs" data-testid="board-group-pick" value="" onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}>
+              <option value="">—</option>
+              {#each [...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys])] as id (id)}
+                <option value={id}>{id}</option>
+              {/each}
+            </select>
+          </label>
+        {/if}
+      </div>
+    {:else if rows.length === 0}
+      <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
+    {:else if view.type === 'kanban'}
+      <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} {movable} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
+    {:else if view.type === 'list' || view.type === 'cards'}
+      <CollectionList {groups} {columns} cards={view.type === 'cards'} grouped={!!compiled?.groupBy} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} />
+    {:else}
+      <div class="h-full min-h-0 overflow-auto">
+        <table class="w-full border-collapse text-xs" data-testid="collection-table">
+          <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
+          <thead class="sticky top-0 z-[1] bg-base-100">
+            <tr>
+              <th scope="col" class="border-b border-base-300 px-1 py-0.5 text-left" aria-sort={embedded ? undefined : ariaSort('file.name')}>
+                {#if embedded}
+                  <span class={headerText} data-testid="collection-header:file.name">{nameColumn?.label ?? t.name_column()}</span>
+                {:else}
+                  <button
+                    type="button"
+                    class={headerButton}
+                    data-testid="collection-header:file.name"
+                    title={t.sort_by({ name: nameColumn?.label ?? t.name_column() })}
+                    onclick={() => onSort(nameColumn ?? { id: 'file.name', label: t.name_column(), key: { file: 'name' } })}
+                  >
+                    <span class="truncate">{nameColumn?.label ?? t.name_column()}</span>
+                    {#if sortOf('file.name') === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf('file.name') === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
+                  </button>
+                {/if}
+              </th>
+              {#each dataColumns as col (col.id)}
+                <th
+                  scope="col"
+                  class="border-b border-base-300 px-1 py-0.5 text-left"
+                  style={view.columnSize[col.id] ? `width:${view.columnSize[col.id]}px` : undefined}
+                  aria-sort={col.key && !embedded ? ariaSort(col.id) : undefined}
+                >
+                  {#if col.key && !embedded}
+                    <button type="button" class={headerButton} data-testid="collection-header:{col.id}" title={t.sort_by({ name: col.label })} onclick={() => onSort(col)}>
+                      <span class="truncate">{col.label}</span>
+                      {#if sortOf(col.id) === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf(col.id) === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
+                    </button>
+                  {:else if col.key}
+                    <span class={headerText} data-testid="collection-header:{col.id}">{col.label}</span>
+                  {:else}
+                    <!-- A column the file names that this app cannot compute: labelled, not clickable. -->
+                    <span class={headerText} data-testid="collection-header:{col.id}">
+                      {col.label}
+                      <span class="sr-only">{t.column_not_computed({ name: col.id })}</span>
+                    </span>
+                  {/if}
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          {#each groups as group (group.key)}
+            <tbody data-testid="collection-group:{group.key || '(none)'}">
+              {#if compiled?.groupBy}
+                <tr>
+                  <th scope="rowgroup" colspan={dataColumns.length + 1} class="border-b border-base-200 bg-base-200/60 px-2 py-1 text-left text-[11px] font-semibold">
+                    {group.key || t.group_empty()}
+                    <span class="ml-1 font-normal text-base-content/70">{t.count({ count: group.rows.length })}</span>
+                  </th>
+                </tr>
+              {/if}
+              {#each group.rows as row (row.guid)}
+                <tr class="odd:bg-base-100 even:bg-base-200/30">
+                  <th scope="row" class="{cellClass} font-normal">
+                    <button
+                      type="button"
+                      class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-base-content hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+                      aria-label={t.open_note({ name: row.name })}
+                      data-testid="collection-row:{row.path}"
+                      onclick={(e) => shell?.openPath(row.path, { background: e.metaKey || e.ctrlKey })}
+                    >
+                      {row.name}
+                    </button>
+                  </th>
+                  {#each dataColumns as col (col.id)}
+                    {@const value = col.key ? (keyValue(row, col.key) as PropValue | undefined) : undefined}
+                    <td class={cellClass}>
+                      {#if col.key && 'prop' in col.key}
+                        <CollectionCell
+                          {value}
+                          kind={kindFor(col, value)}
+                          column={col.label}
+                          row={row.name}
+                          options={columnInfo.get(col.id)?.options ?? []}
+                          testid="collection-cell:{row.name}:{col.id}"
+                          onCommit={(raw) => onCell(row, col, raw)}
+                        />
+                      {:else}
+                        <span class="block truncate px-1.5 py-0.5 text-base-content/70" data-testid="collection-cell:{row.name}:{col.id}">
+                          {plainCell(col, value)}
+                        </span>
+                      {/if}
+                    </td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          {/each}
+        </table>
+      </div>
+    {/if}
+  {/if}
+{/snippet}
+
+<section
+  aria-label={embedded && view ? t.embed_label({ name, view: view.name }) : t.label({ name })}
+  data-testid={embedded ? 'collection-embed' : 'collection-view'}
+  class="flex min-h-0 flex-col bg-ed-surface text-base-content {embedded ? 'max-h-96' : 'h-full'}"
+>
   {#if spec.error}
     <div class="m-4 rounded border border-warning/40 bg-base-100 p-3 text-sm" role="alert">
       <p>{t.unreadable({ error: spec.error })}</p>
@@ -330,10 +478,49 @@
   {:else if !view}
     <div class="m-4 text-sm">
       <p>{t.no_views()}</p>
-      <button type="button" class="{OUTLINE_BUTTON} mt-2 px-2 py-1 text-xs" data-testid="collection-add-table" onclick={() => addNewView('table')}>
-        {t.add_table()}
-      </button>
+      {#if !embedded}
+        <button type="button" class="{OUTLINE_BUTTON} mt-2 px-2 py-1 text-xs" data-testid="collection-add-table" onclick={() => addNewView('table')}>
+          {t.add_table()}
+        </button>
+      {/if}
     </div>
+  {:else if embedded}
+    <!-- The caption names the collection and the view and opens the collection's own tab; the count beside it. -->
+    <div class="flex shrink-0 items-center gap-2 border-b border-base-300 bg-base-200/60 px-2 py-1 text-xs">
+      <button
+        type="button"
+        class="flex min-w-0 items-center gap-1 truncate rounded px-1 font-semibold text-base-content hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+        aria-label={t.embed_open({ name })}
+        data-testid="collection-embed-open"
+        onclick={(e) => shell?.openPath(path, { background: e.metaKey || e.ctrlKey })}
+      >
+        <span class="truncate">{name}</span>
+        <span aria-hidden="true" class="text-base-content/70">›</span>
+        <span class="truncate font-normal">{view.name}</span>
+      </button>
+      <span class="ml-auto whitespace-nowrap text-base-content/70" data-testid="collection-count">
+        {compiled && compiled.limit !== null && total > rows.length ? t.count_of({ shown: rows.length, total }) : t.count({ count: rows.length })}
+      </span>
+      {#if compiled && !compiled.supported}
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[11px] text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+          aria-expanded={partlyOpen}
+          aria-controls="{uid}-partly"
+          data-testid="collection-partly"
+          onclick={() => (partlyOpen = !partlyOpen)}
+        >
+          <TriangleAlert aria-hidden="true" class="size-3" />
+          {t.partly()}
+        </button>
+      {/if}
+    </div>
+    {#if viewMissing && viewName}
+      <p class="shrink-0 border-b border-base-300 bg-warning/10 px-2 py-1 text-xs" data-testid="collection-embed-view-missing">
+        {t.embed_view_missing({ view: viewName, shown: view.name })}
+      </p>
+    {/if}
+    {@render body()}
   {:else}
     <!-- The saved views as a tab list (one tab stop, arrows move), the verbs at the row's end. -->
     <Tabs tabs={viewTabs} bind:value={activeValue} size="sm" label={t.views({ name })} testid="collection-views">
@@ -407,120 +594,7 @@
       {/snippet}
 
       {#snippet panel()}
-        {#if compiled && !compiled.supported && partlyOpen}
-          <p id="{uid}-partly" class="border-b border-base-300 bg-warning/10 px-3 py-1 text-xs" data-testid="collection-partly-detail">
-            {t.partly_detail({ reasons: compiled.reasons.join('; ') })}
-          </p>
-        {/if}
-        {#if boardNeedsGroup}
-          <div class="m-4 text-sm" data-testid="board-needs-group">
-            <label class="flex items-center gap-2">
-              <span>{t.board_needs_group()}</span>
-              <select class="dui-select dui-select-xs" data-testid="board-group-pick" value="" onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}>
-                <option value="">—</option>
-                {#each [...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys])] as id (id)}
-                  <option value={id}>{id}</option>
-                {/each}
-              </select>
-            </label>
-          </div>
-        {:else if rows.length === 0}
-          <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
-        {:else if view.type === 'kanban'}
-          <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} {movable} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
-        {:else if view.type === 'list' || view.type === 'cards'}
-          <CollectionList {groups} {columns} cards={view.type === 'cards'} grouped={!!compiled?.groupBy} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} />
-        {:else}
-        <div class="h-full min-h-0 overflow-auto">
-            <table class="w-full border-collapse text-xs" data-testid="collection-table">
-              <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
-              <thead class="sticky top-0 z-[1] bg-base-100">
-                <tr>
-                  <th scope="col" class="border-b border-base-300 px-1 py-0.5 text-left" aria-sort={ariaSort('file.name')}>
-                    <button
-                      type="button"
-                      class={headerButton}
-                      data-testid="collection-header:file.name"
-                      title={t.sort_by({ name: nameColumn?.label ?? t.name_column() })}
-                      onclick={() => onSort(nameColumn ?? { id: 'file.name', label: t.name_column(), key: { file: 'name' } })}
-                    >
-                      <span class="truncate">{nameColumn?.label ?? t.name_column()}</span>
-                      {#if sortOf('file.name') === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf('file.name') === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
-                    </button>
-                  </th>
-                  {#each dataColumns as col (col.id)}
-                    <th
-                      scope="col"
-                      class="border-b border-base-300 px-1 py-0.5 text-left"
-                      style={view.columnSize[col.id] ? `width:${view.columnSize[col.id]}px` : undefined}
-                      aria-sort={col.key ? ariaSort(col.id) : undefined}
-                    >
-                      {#if col.key}
-                        <button type="button" class={headerButton} data-testid="collection-header:{col.id}" title={t.sort_by({ name: col.label })} onclick={() => onSort(col)}>
-                          <span class="truncate">{col.label}</span>
-                          {#if sortOf(col.id) === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf(col.id) === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
-                        </button>
-                      {:else}
-                        <!-- A column the file names that this app cannot compute: labelled, not clickable. -->
-                        <span class={headerText} data-testid="collection-header:{col.id}">
-                          {col.label}
-                          <span class="sr-only">{t.column_not_computed({ name: col.id })}</span>
-                        </span>
-                      {/if}
-                    </th>
-                  {/each}
-                </tr>
-              </thead>
-              {#each groups as group (group.key)}
-                <tbody data-testid="collection-group:{group.key || '(none)'}">
-                  {#if compiled?.groupBy}
-                    <tr>
-                      <th scope="rowgroup" colspan={dataColumns.length + 1} class="border-b border-base-200 bg-base-200/60 px-2 py-1 text-left text-[11px] font-semibold">
-                        {group.key || t.group_empty()}
-                        <span class="ml-1 font-normal text-base-content/70">{t.count({ count: group.rows.length })}</span>
-                      </th>
-                    </tr>
-                  {/if}
-                  {#each group.rows as row (row.guid)}
-                    <tr class="odd:bg-base-100 even:bg-base-200/30">
-                      <th scope="row" class="{cellClass} font-normal">
-                        <button
-                          type="button"
-                          class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-base-content hover:underline focus-visible:outline-2 focus-visible:outline-primary"
-                          aria-label={t.open_note({ name: row.name })}
-                          data-testid="collection-row:{row.path}"
-                          onclick={(e) => shell?.openPath(row.path, { background: e.metaKey || e.ctrlKey })}
-                        >
-                          {row.name}
-                        </button>
-                      </th>
-                      {#each dataColumns as col (col.id)}
-                        {@const value = col.key ? (keyValue(row, col.key) as PropValue | undefined) : undefined}
-                        <td class={cellClass}>
-                          {#if col.key && 'prop' in col.key}
-                            <CollectionCell
-                              {value}
-                              kind={kindFor(col, value)}
-                              column={col.label}
-                              row={row.name}
-                              options={columnInfo.get(col.id)?.options ?? []}
-                              testid="collection-cell:{row.name}:{col.id}"
-                              onCommit={(raw) => onCell(row, col, raw)}
-                            />
-                          {:else}
-                            <span class="block truncate px-1.5 py-0.5 text-base-content/70" data-testid="collection-cell:{row.name}:{col.id}">
-                              {plainCell(col, value)}
-                            </span>
-                          {/if}
-                        </td>
-                      {/each}
-                    </tr>
-                  {/each}
-                </tbody>
-              {/each}
-            </table>
-        </div>
-        {/if}
+        {@render body()}
       {/snippet}
     </Tabs>
 
