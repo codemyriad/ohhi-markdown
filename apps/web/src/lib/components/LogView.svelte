@@ -12,7 +12,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Clock } from '@ohhi/vault'
   import { CHANGE_KINDS, type EventKind, type EventLevel } from '@ohhi/workspace'
-  import { filterLog, LOG_LEVELS, logReport, type LogScope, type LogTime } from '../log-view.js'
+  import { CUSTOMISE_CODES, filterLog, LOG_LEVELS, logReport, type LogScope, type LogTime } from '../log-view.js'
   import { clockTick } from '../relative-time.js'
   import { getViewShell, shellClock, type ViewProps } from '../views.js'
   import { HEADING } from '../ui/styles.js'
@@ -26,8 +26,9 @@
     writeClipboard?: (text: string) => Promise<void>
     /**
      * The filter it opens with. Absent → the tab's argument decides: `changes`
-     * (the Shared view's *Show all*) opens on the change kinds only, and
-     * `problems` (the drawer's) on errors and warnings.
+     * (the Shared view's *Show all*) opens on the change kinds only,
+     * `problems` (the drawer's) on errors and warnings, and `customise`
+     * (Settings › Customise's *Show in Log*) on the Customise chip.
      */
     initial?: { kinds?: readonly EventKind[] }
   }
@@ -55,6 +56,12 @@
   let kinds = $state<readonly EventKind[] | null>(
     initial?.kinds ?? (tab?.viewArg === 'changes' ? [...CHANGE_KINDS] : null)
   )
+  /**
+   * The *Customise* chip (settings-shaping ST6): only the notices about the
+   * app's own files (`CUSTOMISE_CODES`). Seeded once from the tab's argument.
+   */
+  // svelte-ignore state_referenced_locally -- seed only
+  let customise = $state(tab?.viewArg === 'customise')
   /** The scope picker's value: 'all' | 'vault' | 'note' | 'mount:<room>'. */
   let scopeKey = $state('all')
   let time = $state<LogTime>('all')
@@ -78,7 +85,9 @@
     }
     return { kind: 'all' }
   })
-  const rows = $derived(filterLog(workspace.ui.events, { levels, scope, time, kinds }, mounts, $tick))
+  const rows = $derived(
+    filterLog(workspace.ui.events, { levels, scope, time, kinds, codes: customise ? CUSTOMISE_CODES : null }, mounts, $tick)
+  )
 
   function toggleLevel(level: EventLevel): void {
     levels = levels.includes(level) ? levels.filter((l) => l !== level) : LOG_LEVELS.filter((l) => l === level || levels.includes(l))
@@ -136,6 +145,14 @@
         <option value="note" disabled={!lastNote}>{t.scope.note()}</option>
       </select>
     </label>
+    <button
+      type="button"
+      data-testid="log-customise"
+      aria-pressed={customise}
+      title={t.customise_hint()}
+      onclick={() => (customise = !customise)}
+      class={chip}>{t.customise()}</button
+    >
     {#if kinds}
       <button type="button" data-testid="log-kinds" aria-pressed="true" title={t.show_everything()} onclick={() => (kinds = null)} class={chip}
         >{t.changes_only()} ✕</button

@@ -50,6 +50,8 @@ export const COMMAND_IDS = [
   'help.shortcuts',
   'help.recovery',
   'help.sharing',
+  'help.customise',
+  'help.agents',
   'help.changes',
   'help.report',
   // pane-commands.ts › paneCommands

@@ -50,7 +50,9 @@ Each kind is read from **ordered roots**; the first root that has a name wins:
 **The vault wins.** A shared vault's `.ohhi/keymaps/default.json` shadows the
 built-in `default` for everyone who opens it; Settings › Customise shows
 which root each name came from and what it shadows (the palette's *Use
-layout file…* rows show each file's path), so a clash is visible. The *device* stores only which
+layout file…* rows show each file's path and the same root label, and say
+*can't be used* on a file Customise lists under Problems; *Insert template…*
+labels each template's root too), so a clash is visible. The *device* stores only which
 one is active (`default` or `custom:<name>`), never the file.
 
 **Layouts on a device, in three layers.** What the shell draws is the active
@@ -89,7 +91,20 @@ agent, your editor, `git pull` — is picked up by the desktop app's watcher;
 when that cannot run (the browser, or a watcher that failed to start), run
 **Reload layouts and resources** (`app.reload-resources`) from the command
 palette. An invalid file never half-applies: the shell falls back to the
-built-in `default` and posts a notice saying which file and why.
+built-in `default` and posts a notice saying which file and why, with *Show
+problems* (Settings › Customise).
+
+When the layout or keymap **in use** is read again and now says something
+else, the app says so once — "Layout focus.json reloaded from this vault" —
+logged in the Log (its *Customise* chip keeps every reload and problem) and
+toasted with *Show* and, only when it can be honest, *Undo*: for a layout,
+Undo shows the spec from before the change **for this session** (the app
+never writes a layout file; the next change to the file, a pick, a vault
+switch or *Reload files* applies the file again, and Settings › Customise
+says the layout is held meanwhile); for a keymap file in the vault that the
+app may write, Undo writes the bytes it had read back, journaled. A vault
+opening, a pick and the app's own writes are not announced, and a file that
+can no longer be used is the fallback notice's alone.
 
 ### Agents
 
@@ -98,7 +113,10 @@ non-`.md` paths, and `ohhi resource write` (plus `layout`, `keymap`,
 `templates`, `ui get`) are **reserved names** for the agent layer
 (`plans/quiet-shell-shaping.md` §Later). Until then an agent writes the files
 directly with its own tools — validate against the schema in `spec/` first,
-then ask the person to run *Reload layouts and resources*.
+then ask the person to run *Reload layouts and resources*. The person-facing
+version of this page is the **Customising the app** guide
+(`docs/guide/customise.md`, Help › *Customising the app*, and *Read the
+guide* in Settings › Customise).
 
 ---
 
@@ -289,6 +307,8 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `help.shortcuts`
 - `help.recovery`
 - `help.sharing`
+- `help.customise`
+- `help.agents`
 - `help.changes`
 - `help.report`
 - `workspace.split-auto`
@@ -379,7 +399,8 @@ and `bars.statusbar`. The last two below, `note.pill` and `people`, are old
 names read as `sync`; `vault.pill` draws the same icon. `help` is the Help
 menu (the default layout's last `toolbar.right` item): its rows are the
 `help.*` commands — `help.start`, `help.shortcuts`, `help.recovery`,
-`help.sharing`, `help.changes`, `help.report` — which the palette lists and a
+`help.sharing`, `help.customise`, `help.agents`, `help.changes`,
+`help.report` — which the palette lists and a
 keymap can bind; `help.menu` opens the menu itself, and is offered only while
 a layout draws the `help` readout.
 

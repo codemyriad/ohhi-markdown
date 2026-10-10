@@ -18,7 +18,9 @@ afterEach(() => cleanup())
 
 const t = getLL().web.settings.agents
 
-function setup(opts: { vault?: SettingsVault | null; desktop?: boolean; host?: 'view' | 'page' } = {}) {
+function setup(
+  opts: { vault?: SettingsVault | null; desktop?: boolean; host?: 'view' | 'page'; openGuide?: (page: string) => void } = {}
+) {
   const vault = opts.vault ?? null
   const env: SettingsEnv = {
     vaultOpen: vault !== null,
@@ -28,7 +30,10 @@ function setup(opts: { vault?: SettingsVault | null; desktop?: boolean; host?: '
     openSection: vi.fn(),
   }
   const writeClipboard = vi.fn(async (_text: string) => {})
-  render(AgentSettings, { props: { writeClipboard }, context: settingsEnvContext(env) })
+  render(AgentSettings, {
+    props: { writeClipboard, ...(opts.openGuide ? { openGuide: opts.openGuide } : {}) },
+    context: settingsEnvContext(env),
+  })
   return { env, writeClipboard, user: userEvent.setup() }
 }
 
@@ -98,5 +103,19 @@ describe('Settings › Agents', () => {
   it('with no vault in a browser, adds that browser vaults are out of reach', () => {
     setup({ vault: null, host: 'page', desktop: false })
     expect(screen.getByTestId('agents-placeholder').textContent).toContain(t.placeholder_browser())
+  })
+})
+
+describe('Settings › Agents — the guide (settings-shaping ST6)', () => {
+  it('Read the guide opens the agents guide page, in every place the section is drawn', async () => {
+    for (const vault of [{ name: 'notes', kind: 'tauri' as const, path: '/n' }, { name: 'web', kind: 'opfs' as const }, null]) {
+      const openGuide = vi.fn()
+      const { user } = setup({ vault, openGuide })
+      const link = screen.getByTestId('agents-guide')
+      expect(link).toHaveAccessibleName(t.read_guide_label())
+      await user.click(link)
+      expect(openGuide).toHaveBeenCalledExactlyOnceWith('agents')
+      cleanup()
+    }
   })
 })

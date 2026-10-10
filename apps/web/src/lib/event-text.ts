@@ -7,6 +7,7 @@
  */
 import type { TranslationFunctions } from '@ohhi/i18n'
 import type { Actor, AppEvent, EventParam } from '@ohhi/workspace'
+import { reloadText } from './resource-reload.js'
 import { ShareLinkError, shareLinkErrorText, type ShareLinkErrorCode } from './share-link.js'
 
 type Params = Record<string, EventParam> | undefined
@@ -20,6 +21,11 @@ interface NoticeDef {
    * is looking (a dialog's inline error) — logged, but not toasted as well.
    */
   toast?: false
+  /**
+   * The Settings section its toast offers to open (settings-shaping ST6):
+   * a file that can't be used → *Show problems*, Settings › Customise.
+   */
+  opens?: 'customise'
 }
 
 /**
@@ -58,11 +64,18 @@ export const NOTICE_TEXT = {
   /** A layout file could not be used; the default is showing (quiet-shell F8). */
   layout_invalid: {
     text: (LL, p) => LL.web.layouts.invalid({ name: str(p, 'name'), error: str(p, 'error') }),
+    opens: 'customise',
   },
   /** A keymap file could not be used; the default keys are in force (quiet-shell F10). */
   keymap_invalid: {
     text: (LL, p) => LL.web.keymaps.invalid({ name: str(p, 'name'), error: str(p, 'error') }),
+    opens: 'customise',
   },
+  /**
+   * The layout or keymap in use was read again and changed (settings-shaping
+   * ST6). Info: logged here, toasted once by `announceReload` with its Undo.
+   */
+  resource_reloaded: { text: (LL, p) => reloadText(LL, p) },
   /** `config.hotkeys` became `.ohhi/keymaps/device.json` (F10). */
   keymap_migrated: { text: (LL, p) => LL.web.keymaps.migrated({ path: str(p, 'path') }) },
   keymap_migrate_failed: { text: (LL, p) => LL.web.keymaps.migrate_failed({ error: str(p, 'error') }) },
@@ -185,6 +198,13 @@ export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
  * Whether a logged event toasts (Stage 4a): errors and warnings once each,
  * info never, and never a notice whose own surface already shows it.
  */
+/** The Settings section a logged notice's toast offers to open, if any (`NoticeDef.opens`). */
+export function noticeOpens(e: AppEvent): 'customise' | null {
+  if (e.kind !== 'notice') return null
+  const { code } = (e as AppEvent<'notice'>).payload
+  return isNoticeCode(code) ? ((NOTICE_TEXT[code] as NoticeDef).opens ?? null) : null
+}
+
 export function toastsWhenLogged(e: AppEvent): boolean {
   if (e.level === 'info') return false
   if (e.kind === 'notice') {

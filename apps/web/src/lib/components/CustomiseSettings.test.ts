@@ -27,7 +27,14 @@ function env(vault: SettingsVault | null, desktop: boolean): SettingsEnv {
   return { vaultOpen: vault !== null, vault, desktop, host: 'view', openSection: vi.fn() }
 }
 
-function setup(opts: { files: Record<string, unknown>; vault?: SettingsVault; desktop?: boolean }) {
+function setup(opts: {
+  files: Record<string, unknown>
+  vault?: SettingsVault
+  desktop?: boolean
+  held?: boolean
+  openGuide?: (page: string) => void
+  showLog?: () => void
+}) {
   const v = fakeVault(opts.files)
   const resources = createResources({ vault: () => v.vault, userRoot: async () => null, warn: () => {} })
   const registry = new CommandRegistry(false)
@@ -42,11 +49,19 @@ function setup(opts: { files: Record<string, unknown>; vault?: SettingsVault; de
     active: 'default' as const,
     source: { name: 'default', root: 'builtin' as const, path: 'built-in', shadows: [] },
     specError: null,
+    held: opts.held ?? false,
   }
   const write = vi.fn(async (_text: string) => {})
   const vault = opts.vault ?? DESKTOP_VAULT
   render(CustomiseSettings, {
-    props: { registry, resources, layout, write },
+    props: {
+      registry,
+      resources,
+      layout,
+      write,
+      ...(opts.openGuide ? { openGuide: opts.openGuide } : {}),
+      ...(opts.showLog ? { showLog: opts.showLog } : {}),
+    },
     context: settingsEnvContext(env(vault, opts.desktop ?? true)),
   })
   return { disk: v.disk, reload, write }
@@ -131,5 +146,31 @@ describe('Settings › Customise', () => {
     expect(screen.queryByTestId('customise-prompt')).toBeNull()
     expect(screen.getByTestId('customise-agent-browser')).toHaveTextContent(t.agent_browser())
     expect(await screen.findByTestId('customise-problems-none')).toBeVisible()
+  })
+})
+
+describe('Settings › Customise — doors (settings-shaping ST6)', () => {
+  it('Read the guide opens the customise guide page; Show in Log is offered only when the host can open it', async () => {
+    const user = userEvent.setup()
+    const openGuide = vi.fn()
+    const showLog = vi.fn()
+    setup({ files: {}, openGuide, showLog })
+    const link = screen.getByTestId('customise-guide')
+    expect(link).toHaveAccessibleName(t.read_guide_label())
+    await user.click(link)
+    expect(openGuide).toHaveBeenCalledExactlyOnceWith('customise')
+    await user.click(screen.getByTestId('customise-show-log'))
+    expect(showLog).toHaveBeenCalledOnce()
+    cleanup()
+    setup({ files: {} })
+    expect(screen.queryByTestId('customise-show-log')).toBeNull()
+  })
+
+  it('a reload’s Undo taken: the layout row says it is held for this session', () => {
+    setup({ files: {}, held: true })
+    expect(screen.getByTestId('customise-held')).toHaveTextContent(t.held())
+    cleanup()
+    setup({ files: {} })
+    expect(screen.queryByTestId('customise-held')).toBeNull()
   })
 })

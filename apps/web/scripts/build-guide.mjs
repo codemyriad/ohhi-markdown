@@ -27,7 +27,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Marked } from 'marked'
 
 /** The nav's order; any other page follows, by name. */
-export const PAGE_ORDER = ['start', 'sharing', 'recovery', 'import', 'relay', 'changes']
+export const PAGE_ORDER = ['start', 'sharing', 'recovery', 'import', 'relay', 'customise', 'agents', 'changes']
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 export const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ESCAPES[c])

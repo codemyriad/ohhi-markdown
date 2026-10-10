@@ -119,4 +119,27 @@ describe('LogView', () => {
     await user.click(within(dialog).getByRole('button', { name: t.clear_confirm.confirm() }))
     expect(workspace.clearEvents).toHaveBeenCalledOnce()
   })
+
+  it('the Customise chip keeps only the app’s own files’ notices, and a customise tab opens on it (ST6)', async () => {
+    const user = userEvent.setup()
+    const reloaded = { ...ev('r1', NOW - H, 'info'), payload: { code: 'resource_reloaded', params: { kind: 'layouts', name: 'focus', file: 'focus.json', root: 'vault' } } }
+    const workspace = {
+      ui: { events: [reloaded, ...EVENTS], mounts: [], selectedPath: null },
+      flash: vi.fn(),
+      clearEvents: vi.fn(),
+    }
+    const tab: Tab = { id: 't', path: null, view: 'log', viewArg: 'customise' } as Tab
+    render(LogView, {
+      props: { workspace: workspace as unknown as Workspace, tab },
+      context: viewShellContext(fakeViewShell(NOW)),
+    })
+    const chip = screen.getByTestId('log-customise')
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    const rows = (): string[] => within(screen.getByTestId('log-rows')).queryAllByRole('listitem').map((li) => li.dataset.testid!)
+    expect(rows()).toEqual(['event:r1'])
+    expect(screen.getByTestId('event:r1')).toHaveTextContent('Layout focus.json reloaded from this vault')
+    await user.click(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    expect(rows()).toHaveLength(4)
+  })
 })

@@ -10,8 +10,13 @@
    * in this app, and this is not a second one. Picking a note FILLS this tab
    * rather than opening another, and so does *New note*, because an empty tab
    * is a slot waiting for a note.
+   *
+   * Under the list, two quiet doors out (settings-shaping ST6): *Customise
+   * the app* (Settings › Customise — layouts, keys and themes are files) and,
+   * where an agent can reach the vault, *Connect an agent* (Settings ›
+   * Agents). Each is drawn only when the host hands its action in.
    */
-  import { ChevronDown, FilePlus, FileSearch, Search } from '@lucide/svelte'
+  import { Bot, ChevronDown, FilePlus, FileSearch, Search, SlidersHorizontal } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { segments, within, type Span } from '../highlight.js'
   import { CARD, HEADING } from '../ui/styles.js'
@@ -33,10 +38,14 @@
     onOpenQuick: () => void
     /** The bindings for those two verbs, when the host knows them. */
     bindings?: { newNote: string; openQuick: string }
+    /** Settings › Customise; absent → the row is not drawn. */
+    onCustomise?: () => void
+    /** Settings › Agents; absent (the browser, where no agent reaches the vault) → not drawn. */
+    onAgents?: () => void
     testid: string
   }
 
-  let { search, recent, onPick, onNew, onOpenQuick, bindings, testid }: Props = $props()
+  let { search, recent, onPick, onNew, onOpenQuick, bindings, onCustomise, onAgents, testid }: Props = $props()
 
   let query = $state('')
   let rows = $state.raw<PickerRow[]>([])
@@ -195,5 +204,29 @@
       {/if}
     {/if}
   </div>
+
+  {#if onCustomise || onAgents}
+    <ul class="flex flex-col gap-0.5" aria-label={t.more()}>
+      {#if onCustomise}
+        <li>{@render door(SlidersHorizontal, t.customise(), t.customise_hint(), 'customise', onCustomise)}</li>
+      {/if}
+      {#if onAgents}
+        <li>{@render door(Bot, t.agents(), t.agents_hint(), 'agents', onAgents)}</li>
+      {/if}
+    </ul>
+  {/if}
 </div>
 </div>
+
+{#snippet door(Icon: typeof Bot, label: string, hint: string, id: string, onclick: () => void)}
+  <button
+    type="button"
+    data-testid="{testid}-{id}"
+    {onclick}
+    class="flex w-full min-w-0 items-baseline gap-2 rounded px-2 py-1.5 text-left text-xs text-base-content/80 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+  >
+    <Icon size={14} strokeWidth={1.75} aria-hidden="true" class="shrink-0 self-center text-base-content/70" />
+    <span class="shrink-0 font-medium">{label}</span>
+    <span class="min-w-0 truncate text-base-content/70 @max-[18rem]:hidden">{hint}</span>
+  </button>
+{/snippet}

@@ -37,6 +37,8 @@
     { page: 'recovery', label: h.recovery() },
     { page: 'import', label: t.guide_import() },
     { page: 'relay', label: t.guide_relay() },
+    { page: 'customise', label: h.customise() },
+    { page: 'agents', label: h.agents() },
     { page: 'changes', label: help.version ? h.changes({ version: help.version }) : h.changes_plain() },
   ])
 

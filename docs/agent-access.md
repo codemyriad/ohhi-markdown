@@ -81,6 +81,8 @@ Claude Code (skill or `claude mcp add`), another MCP client's JSON config, and
 plain `ohhi … --vault` — with the open vault's folder already filled in and a
 Copy button on each. For a vault kept in browser storage it explains that no
 agent can reach it, and how to get the vault into a folder on disk.
+Its *Read the guide* — and Help › *Working with an agent* — open the
+person-facing summary of this page, `docs/guide/agents.md`.
 
 ---
 

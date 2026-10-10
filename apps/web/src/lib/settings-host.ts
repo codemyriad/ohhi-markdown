@@ -34,7 +34,7 @@ export interface SettingsVault {
 
 /** The layout surface Settings › Layout and › Editor edit (this device's overrides, live). */
 export type SettingsLayout = Pick<ShellLayout, 'fileSpec' | 'ownSpec' | 'overrides' | 'setOverrides' | 'resetOverrides'> &
-  Partial<Pick<ShellLayout, 'pins' | 'unpin' | 'active' | 'source' | 'specError'>>
+  Partial<Pick<ShellLayout, 'pins' | 'unpin' | 'active' | 'source' | 'specError' | 'held'>>
 
 export interface SettingsHost {
   /** The shell's one command registry (tab-groups R1.3): Keys is a view of it. */

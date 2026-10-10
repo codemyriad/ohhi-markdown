@@ -33,6 +33,8 @@ describe('HelpMenu', () => {
       'Keyboard shortcuts',
       'When something goes wrong',
       'Sharing and the relay',
+      'Customising the app',
+      'Working with an agent',
       'What’s new in 0.1.42',
       'Report a problem…',
     ])
@@ -54,6 +56,14 @@ describe('HelpMenu', () => {
     await user.click(screen.getByTestId('help-menu'))
     await user.click(await screen.findByTestId('help:sharing'))
     expect(openGuide).toHaveBeenCalledWith('sharing')
+
+    // settings-shaping ST6: the two guides the Customise and Agents sections link to.
+    await user.click(screen.getByTestId('help-menu'))
+    await user.click(await screen.findByTestId('help:customise'))
+    expect(openGuide).toHaveBeenLastCalledWith('customise')
+    await user.click(screen.getByTestId('help-menu'))
+    await user.click(await screen.findByTestId('help:agents'))
+    expect(openGuide).toHaveBeenLastCalledWith('agents')
 
     await user.click(screen.getByTestId('help-menu'))
     await user.click(await screen.findByTestId('help:changes'))

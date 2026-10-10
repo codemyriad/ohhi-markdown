@@ -39,3 +39,20 @@ describe('openGuide', () => {
     info.mockRestore()
   })
 })
+
+describe('the guide pages (settings-shaping ST6 adds customise and agents)', () => {
+  it('every page the app links to is a docs/guide file, in the renderer’s nav order', async () => {
+    const { readdirSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const { GUIDE_PAGES } = await import('./guide.js')
+    // A plain-JS script with no types: imported by a path the checker does not follow.
+    const script = '../../scripts/build-guide.mjs'
+    const { PAGE_ORDER } = (await import(/* @vite-ignore */ script)) as { PAGE_ORDER: string[] }
+    const dir = fileURLToPath(new URL('../../../../docs/guide/', import.meta.url))
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.slice(0, -3))
+    expect([...GUIDE_PAGES].sort()).toEqual(files.sort())
+    expect([...GUIDE_PAGES]).toEqual(PAGE_ORDER)
+  })
+})

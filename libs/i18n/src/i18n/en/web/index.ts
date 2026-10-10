@@ -192,6 +192,13 @@ const tabs = {
     recent: 'Recent',
     recent_empty: 'No notes opened here yet',
     results: 'Results',
+    /** settings-shaping ST6: the launcher's doors to Settings › Customise and › Agents. */
+    /** The list of the launcher's doors to Settings (its accessible name). */
+    more: 'More',
+    customise: 'Customise the app',
+    customise_hint: 'Layouts, keys and themes are files',
+    agents: 'Connect an agent',
+    agents_hint: 'Let an agent search and edit this vault',
   },
   commands: {
     new: 'New tab',
@@ -457,7 +464,15 @@ const palette = {
   /** `template.insert` (quiet-shell F11): the first word picks, the rest are arguments. */
   templates: { placeholder: 'Insert a template…   (name, then its arguments)', empty: 'No template matches' },
   /** `layout.use-file` (round 3, Q6): the vault's `.ohhi/layouts/*.json` and the built-in. */
-  layouts: { placeholder: 'Use a layout file…', empty: 'No layout file matches', builtin: 'Default', in_use: 'in use' },
+  layouts: {
+    placeholder: 'Use a layout file…',
+    empty: 'No layout file matches',
+    builtin: 'Default',
+    in_use: 'in use',
+    /** settings-shaping ST6: beside the root pill, for a file in Settings › Customise's Problems. */
+    cant_use: 'can’t be used',
+    shadows: 'shadows {roots:string}',
+  },
   recent: 'recent',
   filename_match: 'filename match',
   /**
@@ -582,6 +597,9 @@ const log = {
   /** The Log opened from the Changes card's *Show all*: change kinds only. */
   title_changes: 'Changes',
   changes_only: 'Changes only',
+  /** settings-shaping ST6: only the layout, keymap and template files' events (reloads, problems). */
+  customise: 'Customise',
+  customise_hint: 'Only the layout, keymap and template files: reloads and files that can’t be used',
   show_everything: 'Show every kind',
   level_label: 'Level',
   levels: {
@@ -927,6 +945,8 @@ const manager = {
     import_lead: 'Coming from another app?',
     import_link: 'How to bring notes in',
     guide: 'Two-minute guide',
+    /** settings-shaping ST6: the welcome's door to Settings › Agents (desktop). */
+    agents: 'Connect an agent',
   },
   // ---- the list: the manager with vaults in it (first-run B1) ----
   list: {
@@ -1308,7 +1328,12 @@ const settings = {
     agent_browser:
       'Agents reach folders on disk. This vault lives in this browser, so its .ohhi is reachable only from here.',
     copy_prompt: 'Copy prompt',
-    reference: 'The full reference — kinds, precedence, the delta grammar and every id — is {doc:string}.',
+    /** settings-shaping ST6: the guide page (`docs/guide/customise.md`). */
+    read_guide: 'Read the guide',
+    read_guide_label: 'Read the guide: Customising the app',
+    /** The layout in use was reloaded and its Undo taken (session only). */
+    held: 'Showing the version before its last change, for this session only. Reload files applies the file.',
+    show_in_log: 'Show in Log',
     /** The one-line source on a file-backed section (Fork 4): which file, from where. */
     source: {
       layout: 'Layout file',
@@ -1357,7 +1382,9 @@ const settings = {
     browser_desktop: 'In the desktop app, open or create a vault in a folder.',
     browser_link: 'Or link the desktop app to this vault from Sync & devices. It keeps a copy of the vault as files in a folder you choose.',
     open_sync: 'Open Sync & devices',
-    guide: 'The full reference is docs/agent-access.md in the Oh hi repository.',
+    /** settings-shaping ST6: the guide page (`docs/guide/agents.md`). */
+    read_guide: 'Read the guide',
+    read_guide_label: 'Read the guide: Working with an agent',
     copy: 'Copy',
     /** The copy button's accessible name: what it copies. */
     copy_what: 'Copy: {what:string}',
@@ -1838,6 +1865,8 @@ const help = {
     shortcuts: 'Keyboard shortcuts',
     recovery: 'When something goes wrong',
     sharing: 'Sharing and the relay',
+    customise: 'Customising the app',
+    agents: 'Working with an agent',
     changes: 'What’s new in {version:string}',
     changes_plain: 'What’s new',
     report: 'Report a problem…',
@@ -1859,6 +1888,8 @@ const help = {
     shortcuts: 'Help: Keyboard shortcuts',
     recovery: 'Help: When something goes wrong',
     sharing: 'Help: Sharing and the relay',
+    customise: 'Help: Customising the app',
+    agents: 'Help: Working with an agent',
     changes: 'Help: What’s new',
     report: 'Report a problem…',
   },
@@ -1953,6 +1984,33 @@ const templates = {
   not_found: 'No template named "{name:string}" in this vault, your config folder or the built-ins.',
 }
 
+/**
+ * A resource file in use changed on disk or on *Reload files*
+ * (settings-shaping ST6): the notice, its Undo, and its words in the Log.
+ */
+const resources = {
+  reloaded: '{kind:string} {file:string} reloaded from {root:string}',
+  reloaded_builtin: '{kind:string} {name:string} reloaded: the built-in one is in use',
+  kind: {
+    layouts: 'Layout',
+    keymaps: 'Keymap',
+  },
+  root: {
+    vault: 'this vault',
+    user: 'your config folder',
+  },
+  undo: 'Undo',
+  show: 'Show',
+  /** On a file that can't be used: opens Settings › Customise, where Problems lists it. */
+  show_problems: 'Show problems',
+  undo_layout_hint: 'Undo goes back to the layout you had, for this session. The file is not changed.',
+  undo_keymap_hint: 'Undo puts the file back as it was.',
+  undone_layout: 'Back to the layout you had, for this session. {file:string} is unchanged; Reload files applies it.',
+  undone_keymap: '{file:string} is back as it was.',
+  undo_failed: 'Could not undo: {error:string}',
+  undo_stale: 'it has changed again since, so nothing was undone',
+}
+
 const layouts = {
   invalid: 'The layout "{name:string}" could not be used, so the default layout is showing: {error:string}',
   not_found: 'No layout named "{name:string}" in this vault, your config folder or the built-ins.',
@@ -2038,6 +2096,7 @@ const web = {
   layouts,
   keymaps,
   templates,
+  resources,
   toolbar,
 } satisfies BaseTranslation
 

@@ -40,8 +40,9 @@ import { paneChrome, type PaneChrome } from './pane-chrome.js'
 import { applyPins, withPin, type LayoutPins, type PinSide } from './pin-layout.js'
 import type { ResolvedLayout, ResourceChange, ResourceEntry } from './resources.svelte.js'
 import type { AppEvent } from '@ohhi/workspace'
-import { describeEvent, toastsWhenLogged } from './event-text.js'
-import { isForeignChange, type Flash } from './notices.js'
+import { describeEvent, noticeOpens, toastsWhenLogged } from './event-text.js'
+import { isForeignChange, type Flash, type NoticeInput } from './notices.js'
+import { announceReload, reloadedFile, type ReloadSide } from './resource-reload.js'
 import { toast as showToast, type ToastData } from './ui/toaster.js'
 
 /** What the layout needs from the rest of the shell. */
@@ -66,6 +67,16 @@ export interface LayoutHost {
   now(): number
   /** Injected so a test can see what toasted without a DOM. */
   toast?: (data: ToastData) => void
+  /**
+   * Log a notice in the open vault (`workspace.notify`) — the layout's reload
+   * notice (settings-shaping ST6); absent → toasted only.
+   */
+  notify?: (input: NoticeInput) => void
+  /**
+   * Settings at a section: a toast's *Show* / *Show problems* (ST6). Absent →
+   * those toasts carry no such button.
+   */
+  openSettings?: (section: string) => void
   /**
    * Resolves a layout choice through the resource roots, this device's
    * overrides and pins laid over it (`resources.resolveLayout`); absent →
@@ -145,6 +156,13 @@ export interface ShellLayout {
   resetPins(): void
   /** Why the active layout fell back, when it did. */
   readonly specError: string | null
+  /**
+   * The layout in use was reloaded and its toast's *Undo* taken
+   * (settings-shaping ST6): the shell shows the spec from before the change,
+   * for this session, while the file says the new one. Cleared when the file
+   * changes again, on a pick, a vault switch or *Reload files*.
+   */
+  readonly held: boolean
   /** Choose a layout file (the palette's *Use layout file…*): persisted as the device's choice, then applied. */
   setActive(choice: LayoutChoice): Promise<void>
   /** Re-read the roots and re-apply the spec, re-seeding the columns (`app.reload-resources`). */
@@ -276,6 +294,14 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
   let spec = $state.raw<ShellSpec>(applyPins(ownSpec, pins))
   let source = $state.raw<ResourceEntry | null>(null)
   let specError = $state<string | null>(null)
+  /** The choice whose file `fileSpec` is (null until the roots first answer). */
+  let appliedChoice: LayoutChoice | null = null
+  /**
+   * A reload's Undo (ST6): `previous` stands in for the file while it still
+   * resolves to `undone` (the spec the Undo turned away) under `choice`.
+   */
+  let held = $state.raw<{ choice: LayoutChoice; undone: string; previous: ShellSpec } | null>(null)
+  const specKey = (spec: ShellSpec): string => JSON.stringify(spec)
   /** The column regions the toggles were last seeded from. */
   let seededFrom = seedKey(spec)
   // This tab's own toggles survive a page reload, each as long as it was
@@ -333,7 +359,12 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
 
   /** Only the newest resolve applies: a vault switch mid-read must not land the old vault's file. */
   let generation = 0
-  async function resolve(force: boolean): Promise<void> {
+  /**
+   * `why` is the change feed's reason (absent for a pick or a direct
+   * reload): a `change` or `reload` that alters the layout in use is
+   * announced (`resource-reload.ts`, ST6).
+   */
+  async function resolve(force: boolean, why?: ResourceChange): Promise<void> {
     const gen = ++generation
     const choice = active
     void host.refreshResources?.()
@@ -341,20 +372,65 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
       if (gen === generation) apply(shipped(choice), force)
       return
     }
+    // What is on screen now, as the notice compares it (and an Undo restores).
+    const beforeSpec = fileSpec
+    const before: ReloadSide | null =
+      appliedChoice === null
+        ? null
+        : { choice: appliedChoice, entry: source, error: specError, content: specKey(fileSpec) }
     const resolved = await host.resolveLayout(choice, pins, overrides)
     if (gen !== generation) return
+    const file = resolved.file ?? resolved.unpinned ?? resolved.spec
+    const key = specKey(file)
     source = resolved.entry
     specError = resolved.error
+    appliedChoice = choice
+    // A reload's Undo holds while the file still says what it turned away
+    // (another file in the folder changing re-reads this one too).
+    const keep = held
+    if (keep && why === 'change' && keep.choice === choice && keep.undone === key && resolved.error === null) {
+      apply(keep.previous, force)
+      return
+    }
+    held = null
     // The overrides and pins in force NOW go over the file's own spec (an
     // edit made while this read was in flight is not lost).
-    apply(resolved.file ?? resolved.unpinned ?? resolved.spec, force)
+    apply(file, force)
+    const changed = reloadedFile(
+      'layouts',
+      before,
+      { choice, entry: resolved.entry, error: resolved.error, content: key },
+      why
+    )
+    if (!changed || !before) return
+    // Undo is offered only over a layout that was itself in force: going
+    // back to a fallback (the file was broken before) is no undo.
+    announceReload(
+      { notify: host.notify, toast: host.toast ?? showToast, openSettings: host.openSettings },
+      changed,
+      before.error === null ? () => undoReload(choice, key, beforeSpec, changed.file) : null
+    )
+  }
+
+  /**
+   * A reload's Undo (ST6): show `previous` again, for this session, while the
+   * file still resolves to `undone`. Writes nothing — the app never writes a
+   * layout file. Refused once the layout in force has moved on.
+   */
+  async function undoReload(choice: LayoutChoice, undone: string, previous: ShellSpec, file: string): Promise<string> {
+    const t = getLL().web.resources
+    if (active !== choice || specKey(fileSpec) !== undone) throw new Error(t.undo_stale())
+    generation++
+    held = { choice, undone, previous }
+    apply(previous, false)
+    return t.undone_layout({ file })
   }
   const reload = (): Promise<void> => resolve(true)
 
   // A new vault (or none) re-resolves: its `.ohhi/layouts/` may hold the
   // active file, or shadow a built-in. A change under it re-applies;
   // `app.reload-resources` re-applies and re-seeds the columns.
-  host.onLayoutsChange?.((why) => void resolve(why === 'reload'))
+  host.onLayoutsChange?.((why) => void resolve(why === 'reload', why))
 
   // The toggles are this tab's: kept in sessionStorage, never in config and
   // never in the layout file.
@@ -434,7 +510,14 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
     for (const e of fresh.reverse()) {
       if (!toastsWhenLogged(e)) continue
       const LL = getLL()
-      toast({ level: e.level, title: LL.web.notices.toast_title[e.level](), description: describeEvent(e, LL) })
+      // A file that can't be used (ST6): *Show problems* opens Settings › Customise, where it stays listed.
+      const opens = host.openSettings ? noticeOpens(e) : null
+      toast({
+        level: e.level,
+        title: LL.web.notices.toast_title[e.level](),
+        description: describeEvent(e, LL),
+        ...(opens ? { action: { label: LL.web.resources.show_problems(), run: () => host.openSettings?.(opens) } } : {}),
+      })
     }
   })
   $effect(() => {
@@ -460,6 +543,9 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
     },
     get fileSpec() {
       return fileSpec
+    },
+    get held() {
+      return held !== null
     },
     get ownSpec() {
       return ownSpec

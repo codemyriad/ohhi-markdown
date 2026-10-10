@@ -87,6 +87,12 @@
       <MenuItem item={attrs.item} testid="help:sharing" onSelect={() => run('help.sharing')}>
         {t.menu.sharing()}
       </MenuItem>
+      <MenuItem item={attrs.item} testid="help:customise" onSelect={() => run('help.customise')}>
+        {t.menu.customise()}
+      </MenuItem>
+      <MenuItem item={attrs.item} testid="help:agents" onSelect={() => run('help.agents')}>
+        {t.menu.agents()}
+      </MenuItem>
       <MenuSeparator separator={attrs.separator} />
       <MenuItem item={attrs.item} testid="help:changes" onSelect={() => run('help.changes')}>
         {help.version ? t.menu.changes({ version: help.version }) : t.menu.changes_plain()}

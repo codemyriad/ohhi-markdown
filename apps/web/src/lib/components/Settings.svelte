@@ -25,6 +25,7 @@
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
   import { NEEDS_VAULT, SETTINGS_GROUPS, type SettingsSection } from '../settings.js'
   import { setSettingsEnv, type SettingsHost } from '../settings-host.js'
+  import { getViewShell } from '../views.js'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
   import Tabs from '../ui/Tabs.svelte'
   import AboutSettings from './AboutSettings.svelte'
@@ -80,6 +81,13 @@
     networkNote,
     secretHint,
   }: Props = $props()
+
+  /**
+   * Customise's *Show in Log* (ST6): the Log on its Customise filter — in the
+   * view tab only (the manager's page has no workspace on screen to open it in).
+   */
+  const viewShell = getViewShell()
+  const showLog = $derived(viewShell && host === 'view' ? (): void => viewShell.openView('log', 'customise') : undefined)
 
   const t = $derived($LL.web.settings)
   const vaultOpen = $derived(vault != null)
@@ -187,7 +195,7 @@
             {secretHint}
           />
         {:else if sid === 'customise'}
-          <CustomiseSettings {registry} {resources} {layout} {keymap} />
+          <CustomiseSettings {registry} {resources} {layout} {keymap} showLog={showLog} />
         {:else if sid === 'agents'}
           <AgentSettings />
         {:else if sid === 'developer'}

@@ -22,8 +22,7 @@
    *  - no vault (the manager's page): the routes with a placeholder path.
    *
    * Recent agent activity waits for spike S22 (attribution) and is not drawn.
-   * There is no guide page for agent access yet (settings-shaping ST6), so
-   * the reference is named, not linked.
+   * *Read the guide* opens `docs/guide/agents.md` (settings-shaping ST6).
    */
   import type { Snippet } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -37,6 +36,7 @@
     mcpConfigJson,
     terminalLines,
   } from '../agent-setup.js'
+  import { openGuide as openGuidePage, type GuidePage } from '../guide.js'
   import { getSettingsEnv } from '../settings-host.js'
   import { HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import { Tabs } from '../ui/index.js'
@@ -44,9 +44,14 @@
   interface Props {
     /** Injected for the tests; the system clipboard otherwise. */
     writeClipboard?: (text: string) => Promise<void>
+    /** Opens a guide page; injected for the tests. */
+    openGuide?: (page: GuidePage) => void
   }
 
-  let { writeClipboard = (text) => navigator.clipboard.writeText(text) }: Props = $props()
+  let {
+    writeClipboard = (text) => navigator.clipboard.writeText(text),
+    openGuide = (page) => void openGuidePage(page),
+  }: Props = $props()
 
   const env = getSettingsEnv()
   const t = $derived($LL.web.settings.agents)
@@ -222,5 +227,15 @@
     </section>
   {/if}
 
-  <p class="mt-5 border-t border-base-300 pt-4 text-xs text-base-content/70">{t.guide()}</p>
+  <p class="mt-5 border-t border-base-300 pt-4">
+    <button
+      type="button"
+      data-testid="agents-guide"
+      aria-label={t.read_guide_label()}
+      onclick={() => openGuide('agents')}
+      class="text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      {t.read_guide()}
+    </button>
+  </p>
 </div>

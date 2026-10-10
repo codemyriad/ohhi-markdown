@@ -11,6 +11,10 @@
  *   way, from `createShellLayout`'s host.
  * - a file that cannot be used is a logged warning (`layout_invalid` /
  *   `keymap_invalid`); the keymap migration says what it wrote.
+ * - the keymap in use, read again after its file changed (or on a reload)
+ *   and now different, is announced once with an honest Undo
+ *   (`resource-reload.ts`, settings-shaping ST6) — never for the app's own
+ *   writes (Settings › Keys, the Undo itself).
  * - the keymap is applied to the registry first, then every live editor
  *   from it, so a `[]` unbinds the chord in CodeMirror too.
  *
@@ -18,11 +22,22 @@
  * it with a fake vault.
  */
 import type { FormatBindings } from '@ohhi/editor'
+import { getLL } from '@ohhi/i18n'
 import type { CommandRegistry } from './commands.js'
 import { clearHotkeys, hotkeys, keymapChoice, setKeymapChoice } from './config.js'
 import { createKeymap, formatBindingsOf, type KeymapHost } from './keymap.svelte.js'
+import { BUILTIN_KEYMAPS } from './keymap-spec.js'
 import type { FlashInput, NoticeInput } from './notices.js'
-import { createResources, type ResourceRoot, type VaultAppFiles } from './resources.svelte.js'
+import { announceReload, reloadedFile } from './resource-reload.js'
+import { savableName } from './resource-kind.js'
+import {
+  createResources,
+  type ResolvedKeymap,
+  type ResourceChange,
+  type ResourceRoot,
+  type VaultAppFiles,
+} from './resources.svelte.js'
+import { toast as showToast, type ToastData } from './ui/toaster.js'
 import { createTemplates } from './templates.svelte.js'
 
 /** The open vault, as far as customising goes: its app files and its notices. */
@@ -50,6 +65,10 @@ export interface CustomiseHost {
   insertText(text: string): boolean
   /** The device's keymap choice and legacy `config.hotkeys`; absent → `config.ts`. */
   config?: Pick<KeymapHost, 'legacy' | 'clearLegacy' | 'choice' | 'setChoice'>
+  /** The reload notice's toast (ST6); absent → the app's toaster. */
+  toast?: (data: ToastData) => void
+  /** Settings at a section — the reload notice's *Show*; absent → not offered. */
+  openSettings?: (section: string) => void
 }
 
 export function createCustomise(host: CustomiseHost) {
@@ -95,7 +114,53 @@ export function createCustomise(host: CustomiseHost) {
     warn: (message) => host.workspace()?.notify({ level: 'warn', code: 'template_failed', params: { message } }),
   })
 
-  resources.onChange('keymaps', () => void keymap.reload())
+  const sideOf = (r: ResolvedKeymap, choice: string) => ({
+    choice,
+    entry: r.entry,
+    error: r.error,
+    content: JSON.stringify(r.bindings),
+  })
+
+  /**
+   * Re-read the keymap on its kind's change feed, then say so when the one
+   * in use now says something else (ST6). Undo writes the bytes it had read
+   * back through the journal — only for a vault file the app may write, and
+   * only when it is the same file.
+   */
+  async function reloadKeymap(why: ResourceChange): Promise<void> {
+    const choice = keymap.active
+    const before = keymap.legacy ? null : keymap.resolved
+    await keymap.reload()
+    const after = keymap.resolved
+    if (!before || !after || keymap.legacy || after === before) return
+    const changed = reloadedFile('keymaps', sideOf(before, choice), sideOf(after, keymap.active), why)
+    if (!changed || !after.entry) return
+    // The app's own write (Keys, an Undo) landing through the change feed.
+    if (resources.isOwnWrite(after.entry.path, after.text)) return
+    const entry = after.entry
+    const text = before.text
+    const writable =
+      entry.root === 'vault' &&
+      before.entry?.path === entry.path &&
+      text !== undefined &&
+      savableName(entry.name, BUILTIN_KEYMAPS)
+    announceReload(
+      {
+        notify: (input) => host.workspace()?.notify(input),
+        toast: host.toast ?? showToast,
+        ...(host.openSettings ? { openSettings: host.openSettings } : {}),
+      },
+      changed,
+      writable
+        ? async () => {
+            await keymap.restore(entry.name, text, choice)
+            return getLL().web.resources.undone_keymap({ file: changed.file })
+          }
+        : null
+    )
+  }
+
+  resources.onChange('keymaps', (why) => void reloadKeymap(why))
   resources.onChange('templates', () => void templates.reload())
 
   return {

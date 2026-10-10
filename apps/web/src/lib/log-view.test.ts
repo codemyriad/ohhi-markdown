@@ -1,7 +1,7 @@
 import { getLL } from '@ohhi/i18n'
 import type { AppEvent } from '@ohhi/workspace'
 import { describe, expect, it } from 'vitest'
-import { eventHint, filterLog, logReport, scopeMatches, timeFloor, type LogFilter } from './log-view.js'
+import { CUSTOMISE_CODES, eventHint, filterLog, logReport, scopeMatches, timeFloor, type LogFilter } from './log-view.js'
 import { event, notice as ev } from './readouts.fixture.js'
 
 const LL = getLL()
@@ -86,5 +86,25 @@ describe('the plain-text report', () => {
     const noToken: AppEvent = { ...ev('y', 0, 'warn'), payload: { code: 'no_token', params: { path: 't' } } }
     expect(eventHint(noToken, LL)).toBe(LL.web.log.hints.no_token())
     expect(eventHint({ ...noToken, level: 'info' }, LL)).toBeNull()
+  })
+})
+
+describe('the codes filter — the Customise chip (settings-shaping ST6)', () => {
+  it('keeps only notices about the app’s own files; null keeps everything', () => {
+    const coded = (id: string, code: string): AppEvent => ({ ...ev(id, NOW - H, 'info'), payload: { code, params: {} } }) as AppEvent
+    const events = [
+      coded('r', 'resource_reloaded'),
+      coded('l', 'layout_invalid'),
+      coded('m', 'mount_error'),
+      event({ id: 'ch', kind: 'doc.changed', at: NOW - H, scope: {} }),
+    ]
+    expect(filterLog(events, { ...all, codes: CUSTOMISE_CODES }, mounts, NOW).map((e) => e.id)).toEqual(['r', 'l'])
+    expect(filterLog(events, { ...all, codes: null }, mounts, NOW)).toHaveLength(4)
+  })
+
+  it('names every code the customising wiring logs', () => {
+    for (const code of ['resource_reloaded', 'layout_invalid', 'keymap_invalid', 'keymap_migrated', 'keymap_migrate_failed', 'template_failed']) {
+      expect(CUSTOMISE_CODES).toContain(code)
+    }
   })
 })

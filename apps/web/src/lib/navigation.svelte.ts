@@ -11,6 +11,7 @@ import { MemoryIndex, PathResolver, type LinkRef, type SearchHit } from '@ohhi/i
 import { CommandRegistry, type Command } from './commands.js'
 import type { PaletteRow } from './components/Palette.svelte'
 import type { TabView } from './panes.js'
+import type { RootId } from './resources.svelte.js'
 import { recentPaths, touchPath } from './recent.js'
 import { splitArgs } from './template.js'
 import { viewCommands } from './views.js'
@@ -23,7 +24,20 @@ export type PaletteMode = 'quick-open' | 'command' | 'search' | 'templates' | 'l
  * the layout files every root offers, the built-in first.
  */
 export interface LayoutFileSource {
-  rows(): Promise<readonly { name: string; title: string; subtitle?: string; active: boolean }[]>
+  rows(): Promise<
+    readonly {
+      name: string
+      title: string
+      subtitle?: string
+      active: boolean
+      /** The root it is read from (settings-shaping ST6: the palette names it). */
+      root?: RootId
+      /** Lower roots it shadows. */
+      shadows?: readonly RootId[]
+      /** Settings › Customise lists it under Problems: it can't be used. */
+      broken?: boolean
+    }[]
+  >
   use(name: string): void
 }
 
@@ -32,7 +46,7 @@ export interface LayoutFileSource {
  * of the query picks a template, the rest are its arguments.
  */
 export interface TemplateSource {
-  rows(): readonly { name: string; description: string; argumentHint: string }[]
+  rows(): readonly { name: string; description: string; argumentHint: string; root?: RootId }[]
   insert(name: string, args: string[]): void
 }
 
@@ -267,15 +281,26 @@ export function createNavigation(): {
   async function buildRows(mode: PaletteMode, query: string): Promise<PaletteRow[]> {
     if (mode === 'layouts') {
       const q = query.trim().toLowerCase()
-      const inUse = getLL().web.palette.layouts.in_use()
+      const LL = getLL()
+      const inUse = LL.web.palette.layouts.in_use()
       return (await (layoutFiles?.rows() ?? Promise.resolve([])))
         .filter((r) => !q || r.title.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
-        .map((r) => ({
-          id: r.name,
-          title: r.title,
-          ...(r.subtitle ? { subtitle: r.subtitle } : {}),
-          ...(r.active ? { hint: inUse } : {}),
-        }))
+        .map((r) => {
+          const tags: NonNullable<PaletteRow['tags']> = []
+          if (r.shadows?.length) {
+            const roots = r.shadows.map((id) => LL.web.settings.customise.from[id]()).join(', ')
+            tags.push({ text: LL.web.palette.layouts.shadows({ roots }) })
+          }
+          if (r.broken) tags.push({ text: LL.web.palette.layouts.cant_use(), error: true })
+          return {
+            id: r.name,
+            title: r.title,
+            ...(r.subtitle ? { subtitle: r.subtitle } : {}),
+            ...(r.active ? { hint: inUse } : {}),
+            ...(r.root ? { root: r.root } : {}),
+            ...(tags.length ? { tags } : {}),
+          }
+        })
     }
     if (mode === 'templates') {
       const [first = ''] = splitArgs(query)
@@ -287,6 +312,7 @@ export function createNavigation(): {
           title: r.name,
           ...(r.description ? { subtitle: r.description } : {}),
           ...(r.argumentHint ? { hint: r.argumentHint } : {}),
+          ...(r.root ? { root: r.root } : {}),
         }))
     }
     if (mode === 'command') {

@@ -193,6 +193,12 @@ export interface ResolvedKeymap {
   entry: ResourceEntry | null
   /** Why it fell back, when it did. */
   error: string | null
+  /**
+   * The active file's bytes as read (absent on a fallback): what a reload's
+   * Undo writes back (settings-shaping ST6), and how the app tells its own
+   * write from someone else's (`isOwnWrite`).
+   */
+  text?: string
 }
 
 /** What a resolved layout came from, for Settings and the notice. */
@@ -312,7 +318,7 @@ export function createResources(host: ResourcesHost) {
     def: JsonKind<F>,
     name: string,
     from = 0
-  ): Promise<{ file: F; entry: ResourceEntry; index: number }> {
+  ): Promise<{ file: F; entry: ResourceEntry; index: number; text: string }> {
     // A renamed built-in (`default`) is found under its new name when no root has a file by the old one.
     let found = await read(def.kind, name, from)
     if (!found) {
@@ -322,7 +328,7 @@ export function createResources(host: ResourcesHost) {
     if (!found) throw def.fail(def.text().not_found({ name }))
     const parsed = def.parse(found.text)
     if (!parsed.ok) throw def.fail(`${found.entry.path}: ${parsed.error}`)
-    return { file: parsed.value, entry: found.entry, index: found.index }
+    return { file: parsed.value, entry: found.entry, index: found.index, text: found.text }
   }
 
   /**
@@ -337,7 +343,7 @@ export function createResources(host: ResourcesHost) {
     def: JsonKind<F>,
     name: string,
     from = 0
-  ): Promise<{ file: F; root: F; chain: Record<string, F>; entry: ResourceEntry }> {
+  ): Promise<{ file: F; root: F; chain: Record<string, F>; entry: ResourceEntry; text: string }> {
     const top = await readFile(def, name, from)
     const root: F = { ...top.file }
     const chain: Record<string, F> = {}
@@ -362,7 +368,7 @@ export function createResources(host: ResourcesHost) {
       nodeName = key
       nodeIndex = parent.index
     }
-    return { file: top.file, root, chain, entry: top.entry }
+    return { file: top.file, root, chain, entry: top.entry, text: top.text }
   }
 
   /** A layout by name, resolved through the roots; throws a `LayoutError` saying why it cannot be. */
@@ -404,12 +410,13 @@ export function createResources(host: ResourcesHost) {
 
   /** A keymap by name, resolved through the roots; throws a `KeymapError` saying why it cannot be. */
   async function resolveKeymapName(name: string, from = 0): Promise<Omit<ResolvedKeymap, 'error'>> {
-    const { file, root, chain, entry } = await readChain(KEYMAPS, name, from)
+    const { file, root, chain, entry, text } = await readChain(KEYMAPS, name, from)
     return {
       bindings: resolveKeymap(root, chain, name),
       parent: resolveKeymap({ ...root, bindings: {} }, chain, name),
       file,
       entry,
+      text,
     }
   }
 
@@ -440,9 +447,22 @@ export function createResources(host: ResourcesHost) {
   /** Where `extends` is read from when saving `name`: its own name means the file it shadows (below the vault). */
   const parentFrom = (name: string, extendsName: string): number => (extendsName === name ? 1 : 0)
 
+  /**
+   * The bytes the app itself last wrote to each `.ohhi/` path (null = it
+   * removed the file) — so a reload caused by the app's own write (Settings ›
+   * Keys, a reload's Undo) is not announced as a file that changed under you
+   * (settings-shaping ST6). Session memory; never a record of anything.
+   */
+  const ownWrites = new Map<string, string | null>()
+
+  async function writeText(vault: VaultAppFiles, path: string, text: string): Promise<void> {
+    ownWrites.set(path, text)
+    await vault.writeAppFile(path, text)
+  }
+
   async function write(vault: VaultAppFiles, kind: ResourceKind, name: string, value: unknown): Promise<string> {
     const path = `.ohhi/${kind}/${name}${KIND_EXT[kind]}`
-    await vault.writeAppFile(path, `${JSON.stringify(value, null, 2)}\n`)
+    await writeText(vault, path, `${JSON.stringify(value, null, 2)}\n`)
     return path
   }
 
@@ -485,9 +505,11 @@ export function createResources(host: ResourcesHost) {
   async function restoreKeymap(name: string, text: string | null): Promise<string> {
     const vault = writableVault(KEYMAPS, name)
     const path = `.ohhi/keymaps/${name}${KIND_EXT.keymaps}`
-    if (text !== null) await vault.writeAppFile(path, text)
-    else if (vault.deleteAppFile) await vault.deleteAppFile(path)
-    else throw new KeymapError(`${path}: this vault cannot remove a file`)
+    if (text !== null) await writeText(vault, path, text)
+    else if (vault.deleteAppFile) {
+      ownWrites.set(path, null)
+      await vault.deleteAppFile(path)
+    } else throw new KeymapError(`${path}: this vault cannot remove a file`)
     await refreshKeymaps()
     return path
   }
@@ -604,6 +626,8 @@ export function createResources(host: ResourcesHost) {
     readAll,
     overview,
     onChange,
+    /** True when `text` is exactly what the app itself last wrote to `path` (its own write, not a change under it). */
+    isOwnWrite: (path: string, text: string | undefined): boolean => text !== undefined && ownWrites.get(path) === text,
     /** `app.reload-resources` (quiet-shell F9): every kind re-reads, the layout re-seeding its columns. */
     reloadAll: (): void => emit(RESOURCE_KINDS, 'reload'),
   }

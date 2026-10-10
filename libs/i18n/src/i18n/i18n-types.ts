@@ -566,6 +566,26 @@ export type NamespaceWebTranslation = {
 			 * R​e​s​u​l​t​s
 			 */
 			results: string
+			/**
+			 * M​o​r​e
+			 */
+			more: string
+			/**
+			 * C​u​s​t​o​m​i​s​e​ ​t​h​e​ ​a​p​p
+			 */
+			customise: string
+			/**
+			 * L​a​y​o​u​t​s​,​ ​k​e​y​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s
+			 */
+			customise_hint: string
+			/**
+			 * C​o​n​n​e​c​t​ ​a​n​ ​a​g​e​n​t
+			 */
+			agents: string
+			/**
+			 * L​e​t​ ​a​n​ ​a​g​e​n​t​ ​s​e​a​r​c​h​ ​a​n​d​ ​e​d​i​t​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			agents_hint: string
 		}
 		commands: {
 			/**
@@ -1367,6 +1387,15 @@ export type NamespaceWebTranslation = {
 			 * i​n​ ​u​s​e
 			 */
 			in_use: string
+			/**
+			 * c​a​n​’​t​ ​b​e​ ​u​s​e​d
+			 */
+			cant_use: string
+			/**
+			 * s​h​a​d​o​w​s​ ​{​r​o​o​t​s​}
+			 * @param {string} roots
+			 */
+			shadows: RequiredParams<'roots'>
 		}
 		/**
 		 * r​e​c​e​n​t
@@ -1684,6 +1713,14 @@ export type NamespaceWebTranslation = {
 		 * C​h​a​n​g​e​s​ ​o​n​l​y
 		 */
 		changes_only: string
+		/**
+		 * C​u​s​t​o​m​i​s​e
+		 */
+		customise: string
+		/**
+		 * O​n​l​y​ ​t​h​e​ ​l​a​y​o​u​t​,​ ​k​e​y​m​a​p​ ​a​n​d​ ​t​e​m​p​l​a​t​e​ ​f​i​l​e​s​:​ ​r​e​l​o​a​d​s​ ​a​n​d​ ​f​i​l​e​s​ ​t​h​a​t​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d
+		 */
+		customise_hint: string
 		/**
 		 * S​h​o​w​ ​e​v​e​r​y​ ​k​i​n​d
 		 */
@@ -2675,6 +2712,10 @@ export type NamespaceWebTranslation = {
 			 * T​w​o​-​m​i​n​u​t​e​ ​g​u​i​d​e
 			 */
 			guide: string
+			/**
+			 * C​o​n​n​e​c​t​ ​a​n​ ​a​g​e​n​t
+			 */
+			agents: string
 		}
 		list: {
 			/**
@@ -3823,10 +3864,21 @@ export type NamespaceWebTranslation = {
 			 */
 			copy_prompt: string
 			/**
-			 * T​h​e​ ​f​u​l​l​ ​r​e​f​e​r​e​n​c​e​ ​—​ ​k​i​n​d​s​,​ ​p​r​e​c​e​d​e​n​c​e​,​ ​t​h​e​ ​d​e​l​t​a​ ​g​r​a​m​m​a​r​ ​a​n​d​ ​e​v​e​r​y​ ​i​d​ ​—​ ​i​s​ ​{​d​o​c​}​.
-			 * @param {string} doc
+			 * R​e​a​d​ ​t​h​e​ ​g​u​i​d​e
 			 */
-			reference: RequiredParams<'doc'>
+			read_guide: string
+			/**
+			 * R​e​a​d​ ​t​h​e​ ​g​u​i​d​e​:​ ​C​u​s​t​o​m​i​s​i​n​g​ ​t​h​e​ ​a​p​p
+			 */
+			read_guide_label: string
+			/**
+			 * S​h​o​w​i​n​g​ ​t​h​e​ ​v​e​r​s​i​o​n​ ​b​e​f​o​r​e​ ​i​t​s​ ​l​a​s​t​ ​c​h​a​n​g​e​,​ ​f​o​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​o​n​l​y​.​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​f​i​l​e​.
+			 */
+			held: string
+			/**
+			 * S​h​o​w​ ​i​n​ ​L​o​g
+			 */
+			show_in_log: string
 			source: {
 				/**
 				 * L​a​y​o​u​t​ ​f​i​l​e
@@ -3974,9 +4026,13 @@ export type NamespaceWebTranslation = {
 			 */
 			open_sync: string
 			/**
-			 * T​h​e​ ​f​u​l​l​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​d​o​c​s​/​a​g​e​n​t​-​a​c​c​e​s​s​.​m​d​ ​i​n​ ​t​h​e​ ​O​h​ ​h​i​ ​r​e​p​o​s​i​t​o​r​y​.
+			 * R​e​a​d​ ​t​h​e​ ​g​u​i​d​e
 			 */
-			guide: string
+			read_guide: string
+			/**
+			 * R​e​a​d​ ​t​h​e​ ​g​u​i​d​e​:​ ​W​o​r​k​i​n​g​ ​w​i​t​h​ ​a​n​ ​a​g​e​n​t
+			 */
+			read_guide_label: string
 			/**
 			 * C​o​p​y
 			 */
@@ -5326,6 +5382,14 @@ export type NamespaceWebTranslation = {
 			 */
 			sharing: string
 			/**
+			 * C​u​s​t​o​m​i​s​i​n​g​ ​t​h​e​ ​a​p​p
+			 */
+			customise: string
+			/**
+			 * W​o​r​k​i​n​g​ ​w​i​t​h​ ​a​n​ ​a​g​e​n​t
+			 */
+			agents: string
+			/**
 			 * W​h​a​t​’​s​ ​n​e​w​ ​i​n​ ​{​v​e​r​s​i​o​n​}
 			 * @param {string} version
 			 */
@@ -5399,6 +5463,14 @@ export type NamespaceWebTranslation = {
 			 * H​e​l​p​:​ ​S​h​a​r​i​n​g​ ​a​n​d​ ​t​h​e​ ​r​e​l​a​y
 			 */
 			sharing: string
+			/**
+			 * H​e​l​p​:​ ​C​u​s​t​o​m​i​s​i​n​g​ ​t​h​e​ ​a​p​p
+			 */
+			customise: string
+			/**
+			 * H​e​l​p​:​ ​W​o​r​k​i​n​g​ ​w​i​t​h​ ​a​n​ ​a​g​e​n​t
+			 */
+			agents: string
 			/**
 			 * H​e​l​p​:​ ​W​h​a​t​’​s​ ​n​e​w
 			 */
@@ -5720,6 +5792,80 @@ export type NamespaceWebTranslation = {
 		 * @param {string} name
 		 */
 		not_found: RequiredParams<'name'>
+	}
+	resources: {
+		/**
+		 * {​k​i​n​d​}​ ​{​f​i​l​e​}​ ​r​e​l​o​a​d​e​d​ ​f​r​o​m​ ​{​r​o​o​t​}
+		 * @param {string} file
+		 * @param {string} kind
+		 * @param {string} root
+		 */
+		reloaded: RequiredParams<'file' | 'kind' | 'root'>
+		/**
+		 * {​k​i​n​d​}​ ​{​n​a​m​e​}​ ​r​e​l​o​a​d​e​d​:​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​o​n​e​ ​i​s​ ​i​n​ ​u​s​e
+		 * @param {string} kind
+		 * @param {string} name
+		 */
+		reloaded_builtin: RequiredParams<'kind' | 'name'>
+		kind: {
+			/**
+			 * L​a​y​o​u​t
+			 */
+			layouts: string
+			/**
+			 * K​e​y​m​a​p
+			 */
+			keymaps: string
+		}
+		root: {
+			/**
+			 * t​h​i​s​ ​v​a​u​l​t
+			 */
+			vault: string
+			/**
+			 * y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r
+			 */
+			user: string
+		}
+		/**
+		 * U​n​d​o
+		 */
+		undo: string
+		/**
+		 * S​h​o​w
+		 */
+		show: string
+		/**
+		 * S​h​o​w​ ​p​r​o​b​l​e​m​s
+		 */
+		show_problems: string
+		/**
+		 * U​n​d​o​ ​g​o​e​s​ ​b​a​c​k​ ​t​o​ ​t​h​e​ ​l​a​y​o​u​t​ ​y​o​u​ ​h​a​d​,​ ​f​o​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​.​ ​T​h​e​ ​f​i​l​e​ ​i​s​ ​n​o​t​ ​c​h​a​n​g​e​d​.
+		 */
+		undo_layout_hint: string
+		/**
+		 * U​n​d​o​ ​p​u​t​s​ ​t​h​e​ ​f​i​l​e​ ​b​a​c​k​ ​a​s​ ​i​t​ ​w​a​s​.
+		 */
+		undo_keymap_hint: string
+		/**
+		 * B​a​c​k​ ​t​o​ ​t​h​e​ ​l​a​y​o​u​t​ ​y​o​u​ ​h​a​d​,​ ​f​o​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​.​ ​{​f​i​l​e​}​ ​i​s​ ​u​n​c​h​a​n​g​e​d​;​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​a​p​p​l​i​e​s​ ​i​t​.
+		 * @param {string} file
+		 */
+		undone_layout: RequiredParams<'file'>
+		/**
+		 * {​f​i​l​e​}​ ​i​s​ ​b​a​c​k​ ​a​s​ ​i​t​ ​w​a​s​.
+		 * @param {string} file
+		 */
+		undone_keymap: RequiredParams<'file'>
+		/**
+		 * C​o​u​l​d​ ​n​o​t​ ​u​n​d​o​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		undo_failed: RequiredParams<'error'>
+		/**
+		 * i​t​ ​h​a​s​ ​c​h​a​n​g​e​d​ ​a​g​a​i​n​ ​s​i​n​c​e​,​ ​s​o​ ​n​o​t​h​i​n​g​ ​w​a​s​ ​u​n​d​o​n​e
+		 */
+		undo_stale: string
 	}
 	toolbar: {
 		/**
@@ -6301,6 +6447,26 @@ export type TranslationFunctions = {
 				 * Results
 				 */
 				results: () => LocalizedString
+				/**
+				 * More
+				 */
+				more: () => LocalizedString
+				/**
+				 * Customise the app
+				 */
+				customise: () => LocalizedString
+				/**
+				 * Layouts, keys and themes are files
+				 */
+				customise_hint: () => LocalizedString
+				/**
+				 * Connect an agent
+				 */
+				agents: () => LocalizedString
+				/**
+				 * Let an agent search and edit this vault
+				 */
+				agents_hint: () => LocalizedString
 			}
 			commands: {
 				/**
@@ -7069,6 +7235,14 @@ export type TranslationFunctions = {
 				 * in use
 				 */
 				in_use: () => LocalizedString
+				/**
+				 * can’t be used
+				 */
+				cant_use: () => LocalizedString
+				/**
+				 * shadows {roots}
+				 */
+				shadows: (arg: { roots: string }) => LocalizedString
 			}
 			/**
 			 * recent
@@ -7378,6 +7552,14 @@ export type TranslationFunctions = {
 			 * Changes only
 			 */
 			changes_only: () => LocalizedString
+			/**
+			 * Customise
+			 */
+			customise: () => LocalizedString
+			/**
+			 * Only the layout, keymap and template files: reloads and files that can’t be used
+			 */
+			customise_hint: () => LocalizedString
 			/**
 			 * Show every kind
 			 */
@@ -8303,6 +8485,10 @@ export type TranslationFunctions = {
 				 * Two-minute guide
 				 */
 				guide: () => LocalizedString
+				/**
+				 * Connect an agent
+				 */
+				agents: () => LocalizedString
 			}
 			list: {
 				/**
@@ -9404,9 +9590,21 @@ export type TranslationFunctions = {
 				 */
 				copy_prompt: () => LocalizedString
 				/**
-				 * The full reference — kinds, precedence, the delta grammar and every id — is {doc}.
+				 * Read the guide
 				 */
-				reference: (arg: { doc: string }) => LocalizedString
+				read_guide: () => LocalizedString
+				/**
+				 * Read the guide: Customising the app
+				 */
+				read_guide_label: () => LocalizedString
+				/**
+				 * Showing the version before its last change, for this session only. Reload files applies the file.
+				 */
+				held: () => LocalizedString
+				/**
+				 * Show in Log
+				 */
+				show_in_log: () => LocalizedString
 				source: {
 					/**
 					 * Layout file
@@ -9554,9 +9752,13 @@ export type TranslationFunctions = {
 				 */
 				open_sync: () => LocalizedString
 				/**
-				 * The full reference is docs/agent-access.md in the Oh hi repository.
+				 * Read the guide
 				 */
-				guide: () => LocalizedString
+				read_guide: () => LocalizedString
+				/**
+				 * Read the guide: Working with an agent
+				 */
+				read_guide_label: () => LocalizedString
 				/**
 				 * Copy
 				 */
@@ -10842,6 +11044,14 @@ export type TranslationFunctions = {
 				 */
 				sharing: () => LocalizedString
 				/**
+				 * Customising the app
+				 */
+				customise: () => LocalizedString
+				/**
+				 * Working with an agent
+				 */
+				agents: () => LocalizedString
+				/**
 				 * What’s new in {version}
 				 */
 				changes: (arg: { version: string }) => LocalizedString
@@ -10905,6 +11115,14 @@ export type TranslationFunctions = {
 				 * Help: Sharing and the relay
 				 */
 				sharing: () => LocalizedString
+				/**
+				 * Help: Customising the app
+				 */
+				customise: () => LocalizedString
+				/**
+				 * Help: Working with an agent
+				 */
+				agents: () => LocalizedString
 				/**
 				 * Help: What’s new
 				 */
@@ -11188,6 +11406,72 @@ export type TranslationFunctions = {
 			 * No template named "{name}" in this vault, your config folder or the built-ins.
 			 */
 			not_found: (arg: { name: string }) => LocalizedString
+		}
+		resources: {
+			/**
+			 * {kind} {file} reloaded from {root}
+			 */
+			reloaded: (arg: { file: string, kind: string, root: string }) => LocalizedString
+			/**
+			 * {kind} {name} reloaded: the built-in one is in use
+			 */
+			reloaded_builtin: (arg: { kind: string, name: string }) => LocalizedString
+			kind: {
+				/**
+				 * Layout
+				 */
+				layouts: () => LocalizedString
+				/**
+				 * Keymap
+				 */
+				keymaps: () => LocalizedString
+			}
+			root: {
+				/**
+				 * this vault
+				 */
+				vault: () => LocalizedString
+				/**
+				 * your config folder
+				 */
+				user: () => LocalizedString
+			}
+			/**
+			 * Undo
+			 */
+			undo: () => LocalizedString
+			/**
+			 * Show
+			 */
+			show: () => LocalizedString
+			/**
+			 * Show problems
+			 */
+			show_problems: () => LocalizedString
+			/**
+			 * Undo goes back to the layout you had, for this session. The file is not changed.
+			 */
+			undo_layout_hint: () => LocalizedString
+			/**
+			 * Undo puts the file back as it was.
+			 */
+			undo_keymap_hint: () => LocalizedString
+			/**
+			 * Back to the layout you had, for this session. {file} is unchanged; Reload files applies it.
+			 */
+			undone_layout: (arg: { file: string }) => LocalizedString
+			/**
+			 * {file} is back as it was.
+			 */
+			undone_keymap: (arg: { file: string }) => LocalizedString
+			/**
+			 * Could not undo: {error}
+			 */
+			undo_failed: (arg: { error: string }) => LocalizedString
+			/**
+			 * it has changed again since, so nothing was undone
+			 */
+			undo_stale: () => LocalizedString
 		}
 		toolbar: {
 			/**

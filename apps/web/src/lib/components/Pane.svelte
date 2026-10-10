@@ -30,6 +30,7 @@
   import type { Workspace } from '../workspace.svelte.js'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
   import { getViewShell, viewDef } from '../views.js'
+  import { isTauri } from '../platform.js'
   import InlineTitle from './InlineTitle.svelte'
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
@@ -260,6 +261,8 @@
    * Only a note gets one — a view tab and the empty tab never reach here.
    */
   const shell = getViewShell()
+  /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
+  const desktop = isTauri()
   const titled = $derived(inlineTitle && !!doc && !!path && !!shell)
   $effect(() => {
     const view = handle?.view
@@ -433,6 +436,8 @@
           onPick={(picked) => panes.navigate(picked, tab.id)}
           onNew={() => newNote(tab.id)}
           onOpenQuick={openQuick}
+          onCustomise={shell ? () => shell.openSettings('customise') : undefined}
+          onAgents={shell && desktop ? () => shell.openSettings('agents') : undefined}
         />
       {/if}
     </div>

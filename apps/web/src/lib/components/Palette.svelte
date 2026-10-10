@@ -12,7 +12,9 @@
   import type { Snippet } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { segments, type Span } from '../highlight.js'
+  import type { RootId } from '../resources.svelte.js'
   import Dialog from '../ui/Dialog.svelte'
+  import RootPill from './RootPill.svelte'
 
   export interface PaletteRow {
     /** Stable key AND what Enter acts on. */
@@ -23,6 +25,10 @@
     subtitle?: string
     /** Right-aligned hint: a key binding, a match count. */
     hint?: string
+    /** The resource root a file row comes from (settings-shaping ST6): drawn as its pill. */
+    root?: RootId
+    /** Short words beside the pill ("shadows built in", "can’t be used"). */
+    tags?: { text: string; error?: boolean }[]
     /** Extra lines under the row (search snippets). */
     detail?: { text: string; spans: Span[] }[]
     /** Character offset to land the caret on when this row is picked. */
@@ -148,6 +154,14 @@
                         class="bg-transparent font-semibold text-primary">{seg.text}</mark
                       >{:else}{seg.text}{/if}{/each}
                 </span>
+                {#if row.root}
+                  <span class="flex shrink-0 items-center gap-1.5 text-[11px]" data-testid="{testid}-source">
+                    <RootPill root={row.root} />
+                    {#each row.tags ?? [] as tag (tag.text)}
+                      <span class={tag.error ? 'text-error' : 'text-base-content/80'}>{tag.text}</span>
+                    {/each}
+                  </span>
+                {/if}
                 {#if row.hint}
                   <span class="shrink-0 font-ed-mono text-[10px] text-base-content/70"
                     >{row.hint}</span

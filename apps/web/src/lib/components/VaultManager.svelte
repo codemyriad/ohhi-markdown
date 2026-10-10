@@ -33,6 +33,7 @@
   import { LL, locale } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
   import { guideHref } from '../guide.js'
+  import type { SettingsSection } from '../settings.js'
   import { realClock } from '../real-clock.js'
   import { formatBytes } from '../storage-persistence.js'
   import { storageState } from '../storage.svelte.js'
@@ -86,7 +87,8 @@
     /** Open the "Link this device…" dialog (device-link N2, A1). */
     onLinkDevice: (name: string) => void
     onBack: () => void
-    onSettings: () => void
+    /** Settings on the manager's page, at `section` (the welcome's *Connect an agent* → `agents`). */
+    onSettings: (section?: SettingsSection) => void
     /** Forget a remembered share link (moved here from Settings' old Vaults & shares). */
     onForgetShare?: (room: string) => void
     /** The browser-storage note, decided by App; null = hidden. `outcome` is the user's own ask. */
@@ -296,7 +298,7 @@
     icon={Settings}
     size="md"
     testid="manager-settings"
-    onclick={onSettings}
+    onclick={() => onSettings()}
   />
 {/snippet}
 
@@ -419,9 +421,18 @@
             {w.import_link()}
           </button>
         </p>
-        <a href={guideHref('start')} target="_blank" rel="noreferrer" data-testid="manager-guide" class={textLink}>
-          {w.guide()}
-        </a>
+        <span class="flex flex-wrap items-center gap-3">
+          <!-- settings-shaping ST6: Settings › Agents works with no vault open; an
+               agent needs a folder on disk, so the door is the desktop app's. -->
+          {#if isTauri}
+            <button type="button" data-testid="manager-agents" onclick={() => onSettings('agents')} class={textLink}>
+              {w.agents()}
+            </button>
+          {/if}
+          <a href={guideHref('start')} target="_blank" rel="noreferrer" data-testid="manager-guide" class={textLink}>
+            {w.guide()}
+          </a>
+        </span>
       </footer>
     </main>
   </div>
@@ -659,7 +670,7 @@
         <p data-testid="manager-identity">
           {l.identity({ name: name || 'Anonymous' })}
           ·
-          <button type="button" data-testid="manager-identity-change" onclick={onSettings} class={textLink}>
+          <button type="button" data-testid="manager-identity-change" onclick={() => onSettings()} class={textLink}>
             {l.identity_change()}
           </button>
         </p>

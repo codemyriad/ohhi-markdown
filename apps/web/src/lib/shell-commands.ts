@@ -230,6 +230,8 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       'help.shortcuts': t.shortcuts,
       'help.recovery': t.recovery,
       'help.sharing': t.sharing,
+      'help.customise': t.customise,
+      'help.agents': t.agents,
       'help.changes': t.changes,
       'help.report': t.report,
     }
@@ -325,14 +327,21 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
  * root's, the built-in *Default* first — and the one in use marked. Picking
  * one sets `config.layout.active` (`layout.setActive`); the device's
  * overrides and pins stay laid over whichever file it is.
+ *
+ * Each row names its root (settings-shaping ST6) — this vault, your config
+ * folder or built in — what it shadows, and whether Settings › Customise
+ * lists it under Problems (`resources.overview`, when the loader has it: one
+ * fresh read of the roots per opening, so a broken file says so here too).
  */
 export function layoutFileSource(
-  resources: Pick<Resources, 'list'>,
+  resources: Pick<Resources, 'list'> & Partial<Pick<Resources, 'overview'>>,
   layout: Pick<ShellLayout, 'active' | 'setActive'>
 ): LayoutFileSource {
   return {
     async rows() {
-      const entries = await resources.list('layouts')
+      const overview = resources.overview ? await resources.overview().catch(() => null) : null
+      const entries = overview?.entries.layouts ?? (await resources.list('layouts'))
+      const broken = new Set((overview?.problems ?? []).filter((p) => p.kind === 'layouts').map((p) => p.name))
       return entries.map((entry) => {
         const choice = choiceOf(entry, BUILTIN_LAYOUTS)
         const builtin = entry.root === 'builtin'
@@ -341,6 +350,9 @@ export function layoutFileSource(
           title: builtin ? getLL().web.palette.layouts.builtin() : entry.name,
           ...(builtin ? {} : { subtitle: entry.path }),
           active: layout.active === choice,
+          root: entry.root,
+          shadows: entry.shadows,
+          ...(broken.has(entry.name) ? { broken: true } : {}),
         }
       })
     },

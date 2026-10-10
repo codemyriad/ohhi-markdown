@@ -35,7 +35,7 @@
     type KindRow,
     type ThemeInUse,
   } from '../customise-overview.js'
-  import { escapeHtml } from '../html.js'
+  import { openGuide as openGuidePage, type GuidePage } from '../guide.js'
   import { keymapFile, keymapName } from '../keymap-spec.js'
   import type { Keymap } from '../keymap.svelte.js'
   import { hasOverrides } from '../layout-spec.js'
@@ -54,9 +54,21 @@
     keymap?: Pick<Keymap, 'active' | 'resolved'>
     /** Injected for the tests. */
     write?: (text: string) => Promise<void>
+    /** Opens a guide page; injected for the tests. */
+    openGuide?: (page: GuidePage) => void
+    /** Opens the Log on its Customise filter (`openView('log', 'customise')`); absent → not offered. */
+    showLog?: () => void
   }
 
-  let { registry, resources, layout, keymap, write = (text) => navigator.clipboard.writeText(text) }: Props = $props()
+  let {
+    registry,
+    resources,
+    layout,
+    keymap,
+    write = (text) => navigator.clipboard.writeText(text),
+    openGuide = (page) => void openGuidePage(page),
+    showLog,
+  }: Props = $props()
 
   const env = getSettingsEnv()
   const t = $derived($LL.web.settings.customise)
@@ -137,7 +149,6 @@
   }
 
   const prompt = $derived(env.vault?.kind === 'tauri' && env.vault.path ? t.agent_prompt({ vault: env.vault.path }) : null)
-  const code = (text: string): string => `<code class="font-ed-mono">${escapeHtml(text)}</code>`
   const shadowsOf = (list: readonly RootId[]): string => list.map((r) => t.from[r]()).join(', ')
 
   const smallBtn = `${OUTLINE_BUTTON} px-2 py-0.5 text-xs font-medium text-base-content/80`
@@ -215,6 +226,9 @@
                     <span class="text-base-content/80">{t.shadows({ roots: shadowsOf(row.inUse.shadows) })}</span>
                   {/if}
                 </div>
+                {#if row.kind === 'layouts' && layout?.held}
+                  <p class="mt-0.5 text-base-content/80" data-testid="customise-held">{t.held()}</p>
+                {/if}
                 {#if row.kind === 'layouts' && deviceChanges}
                   <p class="mt-0.5 text-base-content/70" data-testid="customise-device-changes">{t.device_changes()}</p>
                 {/if}
@@ -337,6 +351,16 @@
       >
         {t.reload()}
       </button>
+      {#if showLog}
+        <button
+          type="button"
+          class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs font-medium text-base-content/80"
+          data-testid="customise-show-log"
+          onclick={showLog}
+        >
+          {t.show_in_log()}
+        </button>
+      {/if}
       <p class="text-xs text-base-content/70">{t.reload_hint()}</p>
     </div>
   </section>
@@ -359,8 +383,18 @@
     {:else}
       <p class="mt-1 text-xs text-base-content/80" data-testid="customise-agent-browser">{t.agent_browser()}</p>
     {/if}
-    <!-- The reference doc is named, not linked: no guide page renders it yet (ST6 adds the guide and its link). -->
-    <p class="mt-2 text-xs text-base-content/70">{@html t.reference({ doc: code('docs/customising.md') })}</p>
+    <!-- settings-shaping ST6: the guide page (`docs/guide/customise.md`). -->
+    <p class="mt-3">
+      <button
+        type="button"
+        data-testid="customise-guide"
+        aria-label={t.read_guide_label()}
+        onclick={() => openGuide('customise')}
+        class="text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        {t.read_guide()}
+      </button>
+    </p>
   </section>
 
   <p class="text-xs text-base-content/70 empty:hidden" role="status" data-testid="customise-status">{status}</p>

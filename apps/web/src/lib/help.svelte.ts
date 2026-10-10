@@ -35,6 +35,8 @@ export const HELP_COMMAND_IDS = [
   'help.shortcuts',
   'help.recovery',
   'help.sharing',
+  'help.customise',
+  'help.agents',
   'help.changes',
   'help.report',
 ] as const
@@ -45,6 +47,8 @@ export const HELP_GUIDES = {
   'help.start': 'start',
   'help.recovery': 'recovery',
   'help.sharing': 'sharing',
+  'help.customise': 'customise',
+  'help.agents': 'agents',
   'help.changes': 'changes',
 } as const satisfies Partial<Record<HelpCommandId, GuidePage>>
 

@@ -134,3 +134,30 @@ describe('EmptyTab', () => {
     expect(onPick).toHaveBeenCalledWith('notes/welcome.md')
   })
 })
+
+describe('EmptyTab — the doors to Settings (settings-shaping ST6)', () => {
+  const base = { search: fakeSearch, recent: () => [], onPick: vi.fn(), onNew: vi.fn(), onOpenQuick: vi.fn(), testid: TESTID }
+
+  it('Customise the app and Connect an agent run the host’s actions', async () => {
+    const user = userEvent.setup()
+    const onCustomise = vi.fn()
+    const onAgents = vi.fn()
+    render(EmptyTab, { ...base, onCustomise, onAgents })
+    const list = screen.getByRole('list', { name: t.more() })
+    expect(list).toHaveTextContent(t.customise())
+    expect(list).toHaveTextContent(t.customise_hint())
+    await user.click(screen.getByTestId(`${TESTID}-customise`))
+    expect(onCustomise).toHaveBeenCalledOnce()
+    await user.click(screen.getByTestId(`${TESTID}-agents`))
+    expect(onAgents).toHaveBeenCalledOnce()
+  })
+
+  it('a door the host does not hand in is not drawn (the browser has no agent door)', () => {
+    render(EmptyTab, { ...base, onCustomise: vi.fn() })
+    expect(screen.getByTestId(`${TESTID}-customise`)).toBeTruthy()
+    expect(screen.queryByTestId(`${TESTID}-agents`)).toBeNull()
+    cleanup()
+    render(EmptyTab, base)
+    expect(screen.queryByRole('list', { name: t.more() })).toBeNull()
+  })
+})

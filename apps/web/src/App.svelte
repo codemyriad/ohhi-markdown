@@ -200,9 +200,15 @@
     notePath: () => workspace?.ui.selectedPath ?? null,
     dateFormat: () => daily.config.format,
     insertText: (text) => panes.insertText(text),
+    // The keymap's reload notice (settings-shaping ST6): *Show* opens Settings › Keys.
+    openSettings: (section) => openSettings(section),
   })
   const { resources, keymap, templates } = customise
-  nav.setTemplates({ rows: () => templates.rows, insert: (name, args) => void templates.insert(name, args) })
+  // Each row names its root (settings-shaping ST6), as the layout picker's do.
+  nav.setTemplates({
+    rows: () => templates.rows.map((r) => ({ ...r, root: r.entry.root })),
+    insert: (name, args) => void templates.insert(name, args),
+  })
 
   // ---- layout (chrome U2, quiet-shell F2) + notices (chrome U5) ----
   const layout = createShellLayout({
@@ -217,6 +223,9 @@
     layoutOverride: appParams.layout,
     onLayoutsChange: (cb) => resources.onChange('layouts', cb),
     room: () => workspace?.room ?? null,
+    // The layout's reload notice and *Show problems* on a file that can't be used (settings-shaping ST6).
+    notify: (input) => workspace?.notify(input),
+    openSettings: (section) => openSettings(section),
   })
   nav.setLinksVisible(() => layout.linksVisible)
   nav.setLayoutFiles(layoutFileSource(resources, layout))
@@ -523,7 +532,7 @@
       linkDeviceOpen = true
     }}
     onBack={() => session.showWorkspace()}
-    onSettings={() => openSettings()}
+    onSettings={(section) => openSettings(section)}
     storageNote={storage.note}
     onKeepStorage={() => storage.keep()}
     onDismissStorage={() => storage.dismiss()}

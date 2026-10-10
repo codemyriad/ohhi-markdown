@@ -22,9 +22,19 @@
 import { getLL } from '@ohhi/i18n'
 import { isTauri } from './platform.js'
 
-export type GuidePage = 'start' | 'sharing' | 'recovery' | 'import' | 'relay' | 'changes'
+export type GuidePage = 'start' | 'sharing' | 'recovery' | 'import' | 'relay' | 'customise' | 'agents' | 'changes'
 
-export const GUIDE_PAGES: readonly GuidePage[] = ['start', 'sharing', 'recovery', 'import', 'relay', 'changes']
+/** Every page, in the guide's nav order (`scripts/build-guide.mjs` PAGE_ORDER says the same). */
+export const GUIDE_PAGES: readonly GuidePage[] = [
+  'start',
+  'sharing',
+  'recovery',
+  'import',
+  'relay',
+  'customise',
+  'agents',
+  'changes',
+]
 
 /** The guide page's href, relative to the app's own origin. */
 export function guideHref(page: GuidePage): string {

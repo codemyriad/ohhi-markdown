@@ -331,8 +331,15 @@ describe('Use layout file… (round 3, Q6)', () => {
     const layout = { active: 'default' as const, setActive: vi.fn(async () => {}) }
     const source = layoutFileSource({ list: async () => entries }, layout)
     expect(await source.rows()).toEqual([
-      { name: 'default', title: 'Default', active: true },
-      { name: 'custom:columns', title: 'columns', subtitle: '.ohhi/layouts/columns.json', active: false },
+      { name: 'default', title: 'Default', active: true, root: 'builtin', shadows: [] },
+      {
+        name: 'custom:columns',
+        title: 'columns',
+        subtitle: '.ohhi/layouts/columns.json',
+        active: false,
+        root: 'vault',
+        shadows: [],
+      },
     ])
     source.use('custom:columns')
     expect(layout.setActive).toHaveBeenCalledWith('custom:columns')
@@ -340,5 +347,32 @@ describe('Use layout file… (round 3, Q6)', () => {
     expect(layout.setActive).toHaveBeenLastCalledWith('default')
     source.use('../nope')
     expect(layout.setActive).toHaveBeenCalledTimes(2)
+  })
+  it('names each file’s root, what it shadows, and a file Settings › Customise lists as a problem (ST6)', async () => {
+    const layout = { active: 'default' as const, setActive: vi.fn(async () => {}) }
+    const overview = vi.fn(async () => ({
+      roots: [],
+      entries: {
+        layouts: [
+          { name: 'default', root: 'builtin' as const, path: 'built-in', shadows: [] },
+          { name: 'focus', root: 'vault' as const, path: '.ohhi/layouts/focus.json', shadows: [] },
+          { name: 'writing', root: 'user' as const, path: '~/.config/ohhi/layouts/writing.json', shadows: ['builtin' as const] },
+        ],
+        keymaps: [],
+        templates: [],
+      },
+      problems: [
+        { kind: 'layouts' as const, name: 'focus', root: 'vault' as const, path: '.ohhi/layouts/focus.json', message: 'x' },
+        { kind: 'keymaps' as const, name: 'writing', root: 'vault' as const, path: '.ohhi/keymaps/writing.json', message: 'y' },
+      ],
+    }))
+    const list = vi.fn(async () => entries)
+    const rows = await layoutFileSource({ list, overview }, layout).rows()
+    expect(list).not.toHaveBeenCalled()
+    expect(rows.map((r) => [r.name, r.root, r.shadows, r.broken ?? false])).toEqual([
+      ['default', 'builtin', [], false],
+      ['custom:focus', 'vault', [], true],
+      ['custom:writing', 'user', ['builtin'], false],
+    ])
   })
 })

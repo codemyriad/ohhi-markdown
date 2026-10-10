@@ -31,6 +31,31 @@ export interface LogFilter {
   time: LogTime
   /** Only these kinds (the Shared view's *Show all*: the change kinds); absent or null → every kind. */
   kinds?: readonly EventKind[] | null
+  /**
+   * Only `notice` events with one of these codes (the *Customise* chip:
+   * `CUSTOMISE_CODES`); absent or null → every event.
+   */
+  codes?: readonly string[] | null
+}
+
+/**
+ * The notices about the app's own files — layouts, keymaps, templates
+ * (settings-shaping ST6): what the Log's *Customise* chip keeps. A reload of
+ * a file in use, a file that can't be used, the keymap migration, a template
+ * that could not insert.
+ */
+export const CUSTOMISE_CODES: readonly string[] = [
+  'resource_reloaded',
+  'layout_invalid',
+  'keymap_invalid',
+  'keymap_migrated',
+  'keymap_migrate_failed',
+  'template_failed',
+]
+
+function codeMatches(e: AppEvent, codes: readonly string[] | null): boolean {
+  if (codes === null) return true
+  return e.kind === 'notice' && codes.includes((e as AppEvent<'notice'>).payload.code)
 }
 
 /** A shared folder as the scope picker lists it (`ui.mounts`). */
@@ -69,7 +94,7 @@ export function timeFloor(time: LogTime, now: number): number {
 
 /**
  * The events a filter keeps, in the order given (newest first from
- * `ui.events`) — the ONE log filter: levels, kinds, scope and time. The Log
+ * `ui.events`) — the ONE log filter: levels, kinds, codes, scope and time. The Log
  * view filters through it; anything else that narrows the log by those
  * axes should too.
  */
@@ -81,10 +106,12 @@ export function filterLog(
 ): AppEvent[] {
   const floor = timeFloor(f.time, now)
   const kinds = f.kinds ?? null
+  const codes = f.codes ?? null
   return events.filter(
     (e) =>
       f.levels.includes(e.level) &&
       (kinds === null || kinds.includes(e.kind)) &&
+      codeMatches(e, codes) &&
       e.at >= floor &&
       scopeMatches(e, f.scope, mounts)
   )

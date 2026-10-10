@@ -620,3 +620,180 @@ describe('createShellLayout — Focus mode (quiet-shell F7)', () => {
     expect(layout.focus).toBe(false)
   })
 })
+
+describe('createShellLayout — a reloaded layout says so, with an honest Undo (settings-shaping ST6)', () => {
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await Promise.resolve()
+    flushSync()
+  }
+  const v1: ShellSpec = { ...PRESETS.default, toolbar: { position: 'top' } }
+  const v2: ShellSpec = { ...PRESETS.default, toolbar: { position: 'bottom' } }
+  const v3: ShellSpec = { ...PRESETS.default, editor: { ...PRESETS.default.editor, typewriter: true } }
+  const entry = { name: 'focus', root: 'vault' as const, path: '.ohhi/layouts/focus.json', shadows: [] }
+  let file: { spec: ShellSpec; error: string | null }
+  let feeds: ((why: ResourceChange) => void)[]
+  let toasts: ToastData[]
+  let logged: { code: string; level: string; params?: Record<string, string | number> }[]
+  let opened: string[]
+
+  function buildIt(): void {
+    harness = withActions(() =>
+      createShellLayout({
+        inWorkspace: () => true,
+        events: () => [],
+        flashes: () => [],
+        now: () => 0,
+        toast: (data) => void toasts.push(data),
+        notify: (input) => void logged.push(input as (typeof logged)[number]),
+        openSettings: (section) => void opened.push(section),
+        resolveLayout: async (): Promise<ResolvedLayout> =>
+          file.error
+            ? { spec: PRESETS.default, entry: null, error: file.error }
+            : { spec: file.spec, file: file.spec, entry, error: null },
+        onLayoutsChange: (cb) => {
+          feeds.push(cb)
+          return () => (feeds = feeds.filter((f) => f !== cb))
+        },
+        session: null,
+      })
+    )
+    layout = harness.actions
+  }
+  const feed = async (why: ResourceChange): Promise<void> => {
+    for (const f of feeds) f(why)
+    await settle()
+  }
+
+  beforeEach(() => {
+    setLayoutPrefs({ active: 'custom:focus' })
+    file = { spec: v1, error: null }
+    feeds = []
+    toasts = []
+    logged = []
+    opened = []
+  })
+
+  it('a vault opening is not a reload: nothing is said', async () => {
+    buildIt()
+    await feed('open')
+    expect(layout.fileSpec).toEqual(v1)
+    expect(toasts).toEqual([])
+    expect(logged).toEqual([])
+  })
+
+  it('the file in use changing on disk: logged once, one toast naming it, with Undo and Show', async () => {
+    buildIt()
+    await feed('open')
+    file.spec = v2
+    await feed('change')
+    expect(layout.fileSpec).toEqual(v2)
+    expect(logged).toEqual([
+      { level: 'info', code: 'resource_reloaded', params: { kind: 'layouts', name: 'focus', file: 'focus.json', root: 'vault' } },
+    ])
+    expect(toasts).toHaveLength(1)
+    expect(toasts[0]!.title).toBe('Layout focus.json reloaded from this vault')
+    expect(toasts[0]!.action?.label).toBe('Undo')
+    expect(toasts[0]!.secondary?.label).toBe('Show')
+    toasts[0]!.secondary!.run()
+    expect(opened).toEqual(['customise'])
+  })
+
+  it('a change that resolves to the same spec says nothing', async () => {
+    buildIt()
+    await feed('open')
+    await feed('change')
+    await feed('reload')
+    expect(toasts).toEqual([])
+  })
+
+  it('Undo shows the previous spec for this session, writes nothing, and holds until the file changes again', async () => {
+    buildIt()
+    await feed('open')
+    file.spec = v2
+    await feed('change')
+    toasts[0]!.action!.run()
+    await settle()
+    expect(layout.fileSpec).toEqual(v1)
+    expect(layout.held).toBe(true)
+    expect(toasts[1]!.title).toBe('Back to the layout you had, for this session. focus.json is unchanged; Reload files applies it.')
+    // Another file in the folder changing re-reads this one: still held, nothing said.
+    await feed('change')
+    expect(layout.fileSpec).toEqual(v1)
+    expect(toasts).toHaveLength(2)
+    // The file changing again: the new version applies and is announced.
+    file.spec = v3
+    await feed('change')
+    expect(layout.fileSpec).toEqual(v3)
+    expect(layout.held).toBe(false)
+    expect(toasts).toHaveLength(3)
+  })
+
+  it('Reload files drops a held Undo and says what it applied', async () => {
+    buildIt()
+    await feed('open')
+    file.spec = v2
+    await feed('change')
+    toasts[0]!.action!.run()
+    await settle()
+    await feed('reload')
+    expect(layout.fileSpec).toEqual(v2)
+    expect(layout.held).toBe(false)
+    expect(toasts.at(-1)!.title).toBe('Layout focus.json reloaded from this vault')
+  })
+
+  it('a file that can no longer be used is the fallback notice’s alone: no reload toast', async () => {
+    buildIt()
+    await feed('open')
+    file.error = 'focus.json: bad'
+    await feed('change')
+    expect(layout.specError).toBe('focus.json: bad')
+    expect(toasts).toEqual([])
+    expect(logged).toEqual([])
+    // Fixed again: announced, but Undo would go back to a fallback, so it is not offered.
+    file.error = null
+    file.spec = v2
+    await feed('change')
+    expect(toasts).toHaveLength(1)
+    expect(toasts[0]!.action?.label).toBe('Show')
+    expect(toasts[0]!.secondary).toBeUndefined()
+  })
+
+  it('a pick is not a reload', async () => {
+    buildIt()
+    await feed('open')
+    file.spec = v2
+    await layout.setActive('custom:other')
+    await settle()
+    expect(toasts).toEqual([])
+  })
+})
+
+describe('createShellLayout — a file that can’t be used toasts with Show problems (ST6)', () => {
+  it('layout_invalid and keymap_invalid open Settings › Customise; other warnings carry no button', () => {
+    const opened: string[] = []
+    const toasts: ToastData[] = []
+    const events = box<AppEvent[]>([])
+    harness = withActions(() =>
+      createShellLayout({
+        inWorkspace: () => true,
+        events: () => events.value,
+        flashes: () => [],
+        now: () => 0,
+        toast: (data) => void toasts.push(data),
+        openSettings: (section) => void opened.push(section),
+        session: null,
+      })
+    )
+    flushSync()
+    events.value = [
+      { ...logged('k', 2, 'warn', {}), payload: { code: 'keymap_invalid', params: { name: 'mine', error: 'bad' } } },
+      { ...logged('l', 1, 'warn', {}), payload: { code: 'layout_invalid', params: { name: 'focus', error: 'bad' } } },
+      notice('other', 0),
+    ]
+    flushSync()
+    expect(toasts.map((t) => t.action?.label ?? null)).toEqual([null, 'Show problems', 'Show problems'])
+    toasts[1]!.action!.run()
+    expect(opened).toEqual(['customise'])
+    harness.stop()
+  })
+})
