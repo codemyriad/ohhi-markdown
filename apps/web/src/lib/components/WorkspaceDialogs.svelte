@@ -133,6 +133,21 @@
   />
 {/if}
 
+{#if fileOps.linksConfirm}
+  <ConfirmDialog
+    title={$LL.web.link_follow.confirm.title({ count: fileOps.linksConfirm.notes })}
+    body={fileOps.linksConfirm.kind === 'rename'
+      ? $LL.web.link_follow.confirm.rename_body({ name: fileOps.linksConfirm.name, count: fileOps.linksConfirm.notes })
+      : $LL.web.link_follow.confirm.move_body({ name: fileOps.linksConfirm.name, count: fileOps.linksConfirm.notes })}
+    confirmLabel={fileOps.linksConfirm.kind === 'rename'
+      ? $LL.web.link_follow.confirm.rename()
+      : $LL.web.link_follow.confirm.move()}
+    testid="links-confirm"
+    onConfirm={() => fileOps.confirmLinks()}
+    onCancel={() => fileOps.cancelLinks()}
+  />
+{/if}
+
 {#if fileOps.dialog}
   <TreeOpDialog
     mode={fileOps.dialog.mode}

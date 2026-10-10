@@ -361,6 +361,7 @@
     share: sharing,
     showHistory: () => layout.showSection('history'),
     reveal: (path) => (layout.revealDir = { path }),
+    index: () => (workspace ? nav.index : null),
   })
 
   // ---- the command table (B7/W2/X2/R1.3) and the global keyboard entry ----

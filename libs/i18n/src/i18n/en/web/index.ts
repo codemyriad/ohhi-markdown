@@ -507,6 +507,25 @@ const tree_op = {
   },
 }
 
+/**
+ * Renames follow (collections DB6, bases-shaping A5.1): a rename or move
+ * rewrites the `[[links]]` other notes hold to the moved one, each note on
+ * its own live doc. The flash says how many notes changed; over a threshold
+ * the confirm names the count first; a note whose link text is not where
+ * the index saw it is reported, never guessed at.
+ */
+const link_follow = {
+  updated: 'Updated links in {count:number} note{{s}}',
+  not_updated: 'Links in {count:number} note{{s}} were not updated — the text had changed. Fix {{count:it|them}} by hand.',
+  confirm: {
+    title: 'Update links in {count:number} notes?',
+    rename_body: 'Renaming “{name:string}” changes what {count:number} notes link to. Each of them is edited, with its own sync state and history.',
+    move_body: 'Moving “{name:string}” changes the path {count:number} notes link to. Each of them is edited, with its own sync state and history.',
+    rename: 'Rename and update links',
+    move: 'Move and update links',
+  },
+}
+
 const palette = {
   no_matches: 'No matches',
   quick_open: { placeholder: 'Open a note…', empty: 'No note matches' },
@@ -2774,6 +2793,7 @@ const web = {
   pill,
   tree,
   tree_op,
+  link_follow,
   palette,
   commands,
   daily,

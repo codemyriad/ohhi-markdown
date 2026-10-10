@@ -224,7 +224,9 @@ ohhi append "Notes/Retro.md" --text "- one more thing"
 ohhi append "Notes/Retro.md" --section "Open questions" --text "- and another"
 ohhi write "Notes/New Note.md" --create-only --text "# New Note"
 echo "# New Note" | ohhi write "Notes/New Note.md" --create-only   # or from stdin
-ohhi mv "Notes/Old.md" "Areas/CS/New.md"
+ohhi mv "Notes/Old.md" "Areas/CS/New.md" --dry-run       # which notes' [[links]] a rename would rewrite
+ohhi mv "Notes/Old.md" "Areas/CS/New.md"                  # move; links to it in other notes follow
+ohhi mv "Notes/Old.md" "Areas/CS/New.md" --keep-links     # move only
 ohhi rm "Notes/Scratch.md"                                # to .trash/, never deleted outright
 ohhi restore "Notes/Retro.md" --list                      # pre-images kept before earlier writes
 ohhi restore "Notes/Retro.md"                             # put the latest one back
@@ -257,8 +259,19 @@ The rules, and why:
   block outside the flat subset (nested, multi-line) — say so; do not rewrite
   the block with `patch`, that is the spurious-diff failure the editor forbids.
   Read first: the `hash` it prints is the `--expect-hash` for the write.
-- **Keep bursts under 20 files.** `mv`/`rm` on a directory holding more than 20
-  files is refused without `--yes`, and that refusal is the **only** guard: the
+- **A rename updates links.** `mv` rewrites every `[[link]]` in other notes
+  that the move would break — bare names on a rename, path-prefixed links on
+  any move, inside frontmatter values too — each note as its own journaled
+  write, after the move. It prints one line per note updated, with that
+  note's `hash` and its `journalSeq` (undo one with `ohhi restore <note>
+  --seq N`). Run it with `--dry-run` first on a note that is widely linked:
+  the output lists exactly which notes would change. A note listed under
+  `skipped` (it changed while the call ran, or its text was not where the
+  index saw it) was left alone — read it and fix the link by hand, do not
+  re-run the move. `--keep-links` moves only.
+- **Keep bursts under 20 files.** `mv`/`rm` touching more than 20 files —
+  for `mv`, the files moved plus the notes whose links it would rewrite — is
+  refused without `--yes`, and that refusal is the **only** guard: the
   running editor's own breaker does not catch a CLI burst. If you truly need a
   large batch, do it in runs of a dozen and say so.
 - **`write`/`patch`/`append` only edit `.md` notes**; anything else is

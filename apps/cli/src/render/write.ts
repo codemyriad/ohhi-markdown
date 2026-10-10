@@ -38,9 +38,36 @@ export function renderAppend(o: OpOutput<'append'>, sink: Sink): void {
   wroteNote(sink, o)
 }
 
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** Why a referencing note was left alone, and what to do about it. */
+const SKIP_REASONS: Record<OpOutput<'mv'>['skipped'][number]['reason'], string> = {
+  conflict: 'it changed while this call was in flight — read it again and fix the links by hand',
+  unaddressable: 'the link text is not where the index saw it — read it again and fix the links by hand',
+  refused: 'not a markdown note — fix the links by hand',
+  not_found: 'the note is gone',
+}
+
 export function renderMv(o: OpOutput<'mv'>, sink: Sink): void {
   sink.out(`${verb(o.dryRun, 'moved', 'move')} ${o.from} -> ${o.to}`)
-  sink.err(kv({ files: o.files, dryRun: o.dryRun || undefined }))
+  // One line per referencing note, with the same provenance every write
+  // prints: the note's hash now and the undo handle for ITS pre-image.
+  for (const r of o.rewrote) {
+    sink.out(`${verb(o.dryRun, 'updated', 'update')} ${plural(r.links, 'link')} in ${r.path}`)
+    wroteNote(sink, { path: r.path, hash: r.hash, journalSeq: r.journalSeq, dryRun: o.dryRun })
+  }
+  for (const s of o.skipped) {
+    sink.err(`warning: ${plural(s.links, 'link')} in ${s.path} not updated: ${SKIP_REASONS[s.reason]}`)
+  }
+  sink.err(
+    kv({
+      files: o.files,
+      rewrote: o.rewrote.length,
+      skipped: o.skipped.length || undefined,
+      keepLinks: o.keepLinks || undefined,
+      dryRun: o.dryRun || undefined,
+    })
+  )
 }
 
 export function renderRm(o: OpOutput<'rm'>, sink: Sink): void {

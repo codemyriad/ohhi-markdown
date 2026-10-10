@@ -561,9 +561,33 @@ export const FmOut = z.object({
 export const MvIn = z.object({
   from: VaultPath,
   to: VaultPath,
-  /** Required when `from` is a directory holding more than 20 files. */
+  /** Required when the files moved plus the notes whose links are rewritten exceed 20. */
   yes: z.boolean().optional(),
   dryRun: z.boolean().optional(),
+  /** Move only: leave every `[[link]]` to the moved note as it is written. */
+  keepLinks: z.boolean().optional().describe('Move only; leave links in other notes as they are written.'),
+})
+/** One referencing note whose links were rewritten — or, on a dry run, would be. */
+export const MvRewrite = z.object({
+  path: VaultPath,
+  /** Links rewritten in this note. */
+  links: z.number().int().positive(),
+  /** The note's content hash ON DISK now (a dry run writes nothing) — the `expectHash` for a later write. */
+  hash: z.string(),
+  journalSeq: z.number().int().nonnegative().nullable(),
+})
+/** A referencing note whose links were NOT rewritten, and why: the move itself still happened. */
+export const MvSkipped = z.object({
+  path: VaultPath,
+  links: z.number().int().positive(),
+  /**
+   * `conflict`: someone wrote the note while this call was in flight;
+   * `unaddressable`: the bytes at a link are not the link the index saw (the
+   * note changed since the walk); `refused`: not a markdown note; `not_found`:
+   * the note is gone. Read it again and fix the links by hand — nothing was
+   * guessed.
+   */
+  reason: z.enum(['conflict', 'unaddressable', 'refused', 'not_found']),
 })
 export const MvOut = z.object({
   schema: z.literal(schemaName('mv')),
@@ -571,6 +595,16 @@ export const MvOut = z.object({
   to: VaultPath,
   /** Files moved (1 for a note). */
   files: z.number().int().nonnegative(),
+  /**
+   * Referencing notes whose `[[links]]` were rewritten to follow the move
+   * (bases-shaping A5.1), each through its own journaled compare-and-swap
+   * write. Empty with `keepLinks`, or when nothing linked by a target the
+   * move breaks. On a dry run: what would be rewritten.
+   */
+  rewrote: z.array(MvRewrite),
+  /** Referencing notes left as they were, with the reason. */
+  skipped: z.array(MvSkipped),
+  keepLinks: z.boolean(),
   dryRun: z.boolean(),
 })
 
@@ -715,7 +749,7 @@ export const OP_SCHEMAS = {
   patch: { input: PatchIn, output: PatchOut, mutates: true, description: 'Replace one exact string in a note (journaled, atomic). Refused when the string is not unique.' },
   append: { input: AppendIn, output: AppendOut, mutates: true, description: 'Append text to a note or to one of its sections (journaled, atomic).' },
   fm: { input: FmIn, output: FmOut, mutates: true, description: 'Read a note’s frontmatter (flat subset), or set, unset and rename keys in it — one value’s bytes per key, nothing else moves (journaled, atomic).' },
-  mv: { input: MvIn, output: MvOut, mutates: true, description: 'Move or rename a note or folder.' },
+  mv: { input: MvIn, output: MvOut, mutates: true, description: 'Move or rename a note or folder; links to it in other notes follow (keepLinks leaves them; dryRun shows what would change).' },
   rm: { input: RmIn, output: RmOut, mutates: true, description: 'Move a note or folder to .trash/ (never deletes outright).' },
   restore: { input: RestoreIn, output: RestoreOut, mutates: true, description: 'List or restore pre-images the journal kept before earlier writes.' },
 } as const satisfies Record<OpName, { input: z.ZodType; output: z.ZodType; mutates: boolean; description: string }>

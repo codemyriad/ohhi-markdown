@@ -1445,6 +1445,45 @@ export type NamespaceWebTranslation = {
 			create: string
 		}
 	}
+	link_follow: {
+		/**
+		 * U​p​d​a​t​e​d​ ​l​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
+		 * @param {number} count
+		 */
+		updated: RequiredParams<'count'>
+		/**
+		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​w​e​r​e​ ​n​o​t​ ​u​p​d​a​t​e​d​ ​—​ ​t​h​e​ ​t​e​x​t​ ​h​a​d​ ​c​h​a​n​g​e​d​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
+		 * @param {number} count
+		 */
+		not_updated: RequiredParams<'count'>
+		confirm: {
+			/**
+			 * U​p​d​a​t​e​ ​l​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​?
+			 * @param {number} count
+			 */
+			title: RequiredParams<'count'>
+			/**
+			 * R​e​n​a​m​i​n​g​ ​“​{​n​a​m​e​}​”​ ​c​h​a​n​g​e​s​ ​w​h​a​t​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​ ​l​i​n​k​ ​t​o​.​ ​E​a​c​h​ ​o​f​ ​t​h​e​m​ ​i​s​ ​e​d​i​t​e​d​,​ ​w​i​t​h​ ​i​t​s​ ​o​w​n​ ​s​y​n​c​ ​s​t​a​t​e​ ​a​n​d​ ​h​i​s​t​o​r​y​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			rename_body: RequiredParams<'count' | 'name'>
+			/**
+			 * M​o​v​i​n​g​ ​“​{​n​a​m​e​}​”​ ​c​h​a​n​g​e​s​ ​t​h​e​ ​p​a​t​h​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​ ​l​i​n​k​ ​t​o​.​ ​E​a​c​h​ ​o​f​ ​t​h​e​m​ ​i​s​ ​e​d​i​t​e​d​,​ ​w​i​t​h​ ​i​t​s​ ​o​w​n​ ​s​y​n​c​ ​s​t​a​t​e​ ​a​n​d​ ​h​i​s​t​o​r​y​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			move_body: RequiredParams<'count' | 'name'>
+			/**
+			 * R​e​n​a​m​e​ ​a​n​d​ ​u​p​d​a​t​e​ ​l​i​n​k​s
+			 */
+			rename: string
+			/**
+			 * M​o​v​e​ ​a​n​d​ ​u​p​d​a​t​e​ ​l​i​n​k​s
+			 */
+			move: string
+		}
+	}
 	palette: {
 		/**
 		 * N​o​ ​m​a​t​c​h​e​s
@@ -9405,6 +9444,38 @@ export type TranslationFunctions = {
 				 * Create
 				 */
 				create: () => LocalizedString
+			}
+		}
+		link_follow: {
+			/**
+			 * Updated links in {count} note{{s}}
+			 */
+			updated: (arg: { count: number }) => LocalizedString
+			/**
+			 * Links in {count} note{{s}} were not updated — the text had changed. Fix {{it|them}} by hand.
+			 */
+			not_updated: (arg: { count: number }) => LocalizedString
+			confirm: {
+				/**
+				 * Update links in {count} notes?
+				 */
+				title: (arg: { count: number }) => LocalizedString
+				/**
+				 * Renaming “{name}” changes what {count} notes link to. Each of them is edited, with its own sync state and history.
+				 */
+				rename_body: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * Moving “{name}” changes the path {count} notes link to. Each of them is edited, with its own sync state and history.
+				 */
+				move_body: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * Rename and update links
+				 */
+				rename: () => LocalizedString
+				/**
+				 * Move and update links
+				 */
+				move: () => LocalizedString
 			}
 		}
 		palette: {

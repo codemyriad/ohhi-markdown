@@ -180,8 +180,9 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
       { key: 'to', label: 'to', required: true },
     ],
     flags: {
-      yes: { key: 'yes', kind: 'boolean', help: 'confirm a folder move of more than 20 files' },
-      'dry-run': { key: 'dryRun', kind: 'boolean', help: 'compute and report, move nothing' },
+      yes: { key: 'yes', kind: 'boolean', help: 'confirm a move touching more than 20 files (moved + notes whose links are rewritten)' },
+      'keep-links': { key: 'keepLinks', kind: 'boolean', help: 'move only; leave links to it in other notes as they are' },
+      'dry-run': { key: 'dryRun', kind: 'boolean', help: 'compute and report — the move and every link rewrite — write nothing' },
     },
   },
   rm: {

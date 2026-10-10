@@ -13,7 +13,7 @@ import { FileJournal } from '@ohhi/vault'
 import { NodeStoreDir } from '@ohhi/vault/node'
 import { runOp } from '../src/ops/index.js'
 import { MASS_CHANGE_PATHS } from '../src/ops/move.js'
-import { harness, reopen, type Harness } from './harness.js'
+import { harness, raceTheWrite, reopen, type Harness } from './harness.js'
 
 let h: Harness
 const open = async (): Promise<Harness> => (h = await harness())
@@ -97,6 +97,119 @@ describe('mv', () => {
     const out = await runOp(backend, 'mv', { from: 'TODO/Writing.md', to: 'TODO/Prose.md', dryRun: true })
     expect(out.dryRun).toBe(true)
     expect(await text('TODO/Writing.md')).toBe(notes['TODO/Writing.md'])
+  })
+})
+
+describe('mv follows links (bases-shaping A5.1)', () => {
+  // The fixture: JSON.md is linked bare from HTML.md, Docs.md, the daily note
+  // and Projects/Editor.md (whose frontmatter must stay byte for byte).
+  const linksToJson = ['Areas/CS/HTML.md', 'Daily/02-5-2024.md', 'Edible/Docs.md', 'Projects/Editor.md']
+
+  it('rewrites a bare link in every referencing note, each as one byte-minimal journaled write', async () => {
+    const { backend, text, notes } = await open()
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(out.files).toBe(1)
+    expect(out.rewrote.map((r) => r.path)).toEqual(linksToJson)
+    expect(out.skipped).toEqual([])
+    for (const path of linksToJson) {
+      expect(await text(path)).toBe(notes[path].replaceAll('[[JSON]]', '[[Data Format]]'))
+      // Its own pre-image, under its own path — `restore` takes it back alone.
+      expect(await backend.journal.list(path)).toHaveLength(1)
+    }
+    const editor = out.rewrote.find((r) => r.path === 'Projects/Editor.md')!
+    expect(editor.links).toBe(1)
+    expect(editor.journalSeq).not.toBeNull()
+    // Nothing else moved a byte.
+    expect(await text('Inbox/CRLF Note.md')).toBe(notes['Inbox/CRLF Note.md'])
+    expect(await text('Areas/CS/Networking.md')).toBe(notes['Areas/CS/Networking.md'])
+  })
+
+  it('keeps alias, anchor, embeds and a CRLF note.s line endings; a frontmatter link is the same byte edit', async () => {
+    const vault = await open()
+    await writeFile(
+      join(vault.root, 'Inbox/Refs.md'),
+      '---\npillar: "[[JSON]]"\nrelated:\n  - "[[JSON|the format]]"\n---\n\nSee [[JSON|json]], [[JSON#Heading]] and ![[JSON]].\n',
+      'utf8'
+    )
+    await writeFile(join(vault.root, 'Inbox/CRLF Links.md'), 'Linked: [[JSON]]\r\nsecond line\r\n', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(out.rewrote.find((r) => r.path === 'Inbox/Refs.md')?.links).toBe(5)
+    expect(await vault.text('Inbox/Refs.md')).toBe(
+      '---\npillar: "[[Data Format]]"\nrelated:\n  - "[[Data Format|the format]]"\n---\n\nSee [[Data Format|json]], [[Data Format#Heading]] and ![[Data Format]].\n'
+    )
+    expect(await vault.text('Inbox/CRLF Links.md')).toBe('Linked: [[Data Format]]\r\nsecond line\r\n')
+  })
+
+  it('a move between folders leaves bare links alone and rewrites path links; a folder move does the same', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Inbox/Paths.md'), 'Bare [[JSON]], path [[Areas/CS/JSON]], ext [[Areas/CS/JSON.md]].\n', 'utf8')
+    let backend = await reopen(vault)
+    const moved = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Archive/JSON.md' })
+    expect(moved.rewrote.map((r) => [r.path, r.links])).toEqual([['Inbox/Paths.md', 2]])
+    expect(await vault.text('Inbox/Paths.md')).toBe('Bare [[JSON]], path [[Archive/JSON]], ext [[Archive/JSON.md]].\n')
+
+    backend = await reopen(vault)
+    const folder = await runOp(backend, 'mv', { from: 'Archive', to: 'Areas/Old' })
+    expect(folder.files).toBe(1)
+    expect(folder.rewrote.map((r) => r.path)).toEqual(['Inbox/Paths.md'])
+    expect(await vault.text('Inbox/Paths.md')).toBe('Bare [[JSON]], path [[Areas/Old/JSON]], ext [[Areas/Old/JSON.md]].\n')
+  })
+
+  it('a note under a moved folder is rewritten at its new path', async () => {
+    const vault = await open()
+    await writeFile(join(vault.root, 'Areas/CS/Index.md'), 'Siblings: [[Areas/CS/JSON]] and [[HTML]].\n', 'utf8')
+    const backend = await reopen(vault)
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS', to: 'Areas/Computing' })
+    expect(out.rewrote.map((r) => r.path)).toEqual(['Areas/Computing/Index.md'])
+    expect(await vault.text('Areas/Computing/Index.md')).toBe('Siblings: [[Areas/Computing/JSON]] and [[HTML]].\n')
+    expect(await backend.journal.list('Areas/Computing/Index.md')).toHaveLength(1)
+  })
+
+  it('reports on a dry run and writes nothing', async () => {
+    const { backend, text, notes } = await open()
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md', dryRun: true })
+    expect(out.dryRun).toBe(true)
+    expect(out.rewrote.map((r) => r.path)).toEqual(linksToJson)
+    expect(out.rewrote.every((r) => r.journalSeq === null)).toBe(true)
+    for (const path of linksToJson) {
+      expect(await text(path)).toBe(notes[path])
+      expect(await backend.journal.list(path)).toHaveLength(0)
+    }
+    expect(await text('Areas/CS/JSON.md')).toBe(notes['Areas/CS/JSON.md'])
+  })
+
+  it('--keep-links moves and touches no other note', async () => {
+    const { backend, text, notes } = await open()
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md', keepLinks: true })
+    expect(out.keepLinks).toBe(true)
+    expect(out.rewrote).toEqual([])
+    expect(await text('Areas/CS/Data Format.md')).toBe(notes['Areas/CS/JSON.md'])
+    for (const path of linksToJson) expect(await text(path)).toBe(notes[path])
+  })
+
+  it('a referencing note that loses a race is skipped with `conflict`, its bytes kept, the move done', async () => {
+    const vault = await open()
+    raceTheWrite(vault, 'Edible/Docs.md', 'a human saved this\n')
+    const out = await runOp(vault.backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    expect(out.skipped).toEqual([{ path: 'Edible/Docs.md', links: 1, reason: 'conflict' }])
+    expect(out.rewrote.map((r) => r.path)).toEqual(linksToJson.filter((p) => p !== 'Edible/Docs.md'))
+    expect(await vault.text('Edible/Docs.md')).toBe('a human saved this\n')
+    expect(await vault.text('Areas/CS/Data Format.md')).toBe(vault.notes['Areas/CS/JSON.md'])
+  })
+
+  it('counts the notes it would rewrite toward the breaker', async () => {
+    const vault = await open()
+    for (let i = 0; i < MASS_CHANGE_PATHS; i++) {
+      await writeFile(join(vault.root, `Inbox/ref-${i}.md`), `See [[JSON]].\n`, 'utf8')
+    }
+    const backend = await reopen(vault)
+    await expect(
+      runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md' })
+    ).rejects.toMatchObject({ code: 'refused', details: { files: MASS_CHANGE_PATHS + linksToJson.length + 1 } })
+    expect(await vault.text('Areas/CS/JSON.md')).toBe(vault.notes['Areas/CS/JSON.md'])
+    const out = await runOp(backend, 'mv', { from: 'Areas/CS/JSON.md', to: 'Areas/CS/Data Format.md', yes: true })
+    expect(out.rewrote).toHaveLength(MASS_CHANGE_PATHS + linksToJson.length)
   })
 })
 

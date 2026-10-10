@@ -701,7 +701,37 @@ it is the one to expect next); `journalSeq` is the handle `restore` takes.
 
 Move or rename a note or a directory (any extension — see above). The target
 must not exist (`refused`), and a move of a directory into itself is `refused`.
-A directory holding more than 20 files needs `--yes` (see the note under `rm`).
+
+**Links follow** (bases-shaping A5.1, collections DB6). The index names every
+note that links to what moves, and `mv` rewrites each `[[link]]` the move
+would break — the same planner the app runs on a rename from the tree or the
+inline title (`@ohhi/index`'s `planLinkRewrites`), so the two agree:
+
+- a link is rewritten only when its **written** target would no longer reach
+  the note: a bare `[[Clusters]]` survives a move between folders (basename
+  unchanged) and becomes `[[New Name]]` on a rename — the bare name when the
+  new basename is unique in the vault, else the path; a path-prefixed
+  `[[Pillars/Clusters]]` becomes the new path (without `.md` unless `.md` was
+  written); a folder move rewrites the path links to everything under it and
+  leaves bare links alone;
+- the alias (`|…`), the anchor (`#…`), the `!` of an embed and the quotes
+  round a frontmatter value stay byte for byte: a link inside a property
+  value is the same byte edit as one in the body, never a YAML rewrite
+  (golden rule 2); a note's own `[[#heading]]` anchors are not links to it;
+- **each referencing note is its own write**: a fresh read from disk, its
+  own pre-image, its own compare-and-swap (see above), **after** the move.
+  A note that loses a race, or whose link text is no longer where the index
+  saw it, is listed in `skipped` with the reason and left untouched — the
+  move and the other notes stand, nothing is guessed. `rewrote` lists every
+  note changed with its new `hash` and `journalSeq` (`ohhi restore <that
+  note> --seq N` undoes one note).
+
+`--dry-run` plans it all and reports `rewrote` without moving or writing —
+look first when the note is widely linked. `--keep-links` moves only.
+
+**The breaker counts the notes it would rewrite with the files moved**: a
+rename that would touch more than 20 (moved + rewritten) needs `--yes`, like
+any other burst (see the note under `rm`).
 
 **The journal is re-keyed** (`journal.rename`): every pre-image for the old
 path, and prefix-wise for the subtree under it, moves to the new one — the note
@@ -709,7 +739,7 @@ is still the note, so its recoverable history follows it. Journal first, then
 the disk move, so a crash in between leaves history pointing forward rather
 than nowhere.
 
-`--yes` · `--dry-run`
+`--yes` · `--dry-run` · `--keep-links`
 
 ### `rm <path>`
 
