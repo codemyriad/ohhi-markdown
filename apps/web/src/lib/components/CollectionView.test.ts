@@ -57,6 +57,20 @@ views:
     order:
       - file.name
       - threat
+  - type: kanban
+    name: Active board
+    groupBy:
+      property: active
+      direction: ASC
+    order:
+      - file.name
+  - type: kanban
+    name: By folder
+    groupBy:
+      property: file.folder
+      direction: ASC
+    order:
+      - file.name
 `
 
 const NOTES: Record<string, string> = {
@@ -332,5 +346,27 @@ describe('CollectionView', () => {
     const text = store.get('Competitors.base')!
     expect(text).toContain('  - type: kanban\n    name: Board 2\n    groupBy:\n      property: threat\n      direction: ASC\n')
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Board 2' })).toHaveAttribute('aria-selected', 'true'))
+  })
+
+  it('a board grouped by a boolean moves a card as a boolean, and "no value" clears it', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'Active board' }))
+    await screen.findByTestId('collection-board')
+    await user.selectOptions(screen.getByTestId('board-move:Competitors/Stale.md'), 'true')
+    expect(store.get('Competitors/Stale.md')).toContain('\nactive: true\n')
+    await user.selectOptions(screen.getByTestId('board-move:Competitors/Ingredifind.md'), '')
+    expect(store.get('Competitors/Ingredifind.md')).toContain('\nactive:\n')
+  })
+
+  it('a board grouped by a file field offers no move and says why', async () => {
+    setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'By folder' }))
+    await screen.findByTestId('collection-board')
+    expect(screen.getByTestId('board-column:Competitors')).toBeInTheDocument()
+    expect(screen.getByTestId('board-move:Competitors/Stale.md')).toBeDisabled()
   })
 })

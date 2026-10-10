@@ -32,15 +32,15 @@ const COLUMNS: Column[] = [
   { id: 'owner', label: 'Owner', key: { prop: 'owner' } },
 ]
 const GROUPS: RowGroup[] = [
-  { key: 'Prep', rows: [row('Monday', { status: s('Prep'), owner: s('Ana') })] },
-  { key: 'Done', rows: [row('Friday', { status: s('Done') })] },
-  { key: '', rows: [row('Someday', {})] },
+  { key: 'Prep', value: s('Prep'), rows: [row('Monday', { status: s('Prep'), owner: s('Ana') })] },
+  { key: 'Done', value: s('Done'), rows: [row('Friday', { status: s('Done') })] },
+  { key: '', value: undefined, rows: [row('Someday', {})] },
 ]
 
-function show() {
-  const onMove = vi.fn()
+function show(over: { movable?: boolean; onMove?: (row: Row, group: RowGroup) => boolean } = {}) {
+  const onMove = vi.fn(over.onMove ?? (() => true))
   const onOpen = vi.fn()
-  render(CollectionBoard, { props: { groups: GROUPS, columns: COLUMNS, groupId: 'status', viewName: 'Board', onOpen, onMove } })
+  render(CollectionBoard, { props: { groups: GROUPS, columns: COLUMNS, groupId: 'status', movable: over.movable ?? true, viewName: 'Board', onOpen, onMove } })
   return { onMove, onOpen }
 }
 
@@ -58,7 +58,19 @@ describe('CollectionBoard', () => {
   it('the select on a card moves it by keyboard', async () => {
     const { onMove } = show()
     await userEvent.setup().selectOptions(screen.getByTestId('board-move:Meetings/Monday.md'), 'Done')
-    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Monday' }), 'Done')
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Monday' }), expect.objectContaining({ key: 'Done' }))
+  })
+
+  it('a refused move puts the select back; a board grouped by a file field offers no move', async () => {
+    const { onMove } = show({ onMove: () => false })
+    const select = screen.getByTestId('board-move:Meetings/Monday.md') as HTMLSelectElement
+    await userEvent.setup().selectOptions(select, 'Done')
+    expect(onMove).toHaveBeenCalled()
+    expect(select.value).toBe('Prep')
+    cleanup()
+    show({ movable: false })
+    expect(screen.getByTestId('board-move:Meetings/Monday.md')).toBeDisabled()
+    expect(screen.getByTestId('board-card:Meetings/Monday.md')).toHaveAttribute('draggable', 'false')
   })
 
   it('a drag from one column to another is the same move; dropping on "no value" clears', async () => {
@@ -67,10 +79,10 @@ describe('CollectionBoard', () => {
     await fireEvent.dragStart(card)
     await fireEvent.dragOver(screen.getByTestId('board-column:Done'))
     await fireEvent.drop(screen.getByTestId('board-column:Done'))
-    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Monday' }), 'Done')
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Monday' }), expect.objectContaining({ key: 'Done' }))
     await fireEvent.dragStart(screen.getByTestId('board-card:Meetings/Friday.md'))
     await fireEvent.drop(screen.getByTestId('board-column:(none)'))
-    expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Friday' }), '')
+    expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Friday' }), expect.objectContaining({ key: '' }))
   })
 
   it('a card’s name opens the note', async () => {

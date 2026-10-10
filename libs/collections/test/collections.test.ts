@@ -344,6 +344,13 @@ describe('addView / removeView', () => {
     expect(spec.views[4].type).toBe('list')
   })
 
+  it('writes a board with its grouping and sort, in the file’s own spelling', () => {
+    const out = addView('views: []\n', { type: 'kanban', name: 'Board', order: ['file.name'], groupBy: { property: 'status', direction: 'asc' }, sort: [{ property: 'due', direction: 'desc' }] })
+    expect((out as { text: string }).text).toBe(
+      'views:\n  - type: kanban\n    name: Board\n    groupBy:\n      property: status\n      direction: ASC\n    order:\n      - file.name\n    sort:\n      - property: due\n        direction: DESC\n'
+    )
+  })
+
   it('creates the views block when there is none', () => {
     const out = addView('filters: file.hasTag("x")\n', { type: 'table', name: 'A' })
     const spec = parseCollection((out as { text: string }).text)

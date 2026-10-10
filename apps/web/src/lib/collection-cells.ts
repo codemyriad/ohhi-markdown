@@ -173,6 +173,8 @@ export function toggleSort(sort: readonly ViewSort[], property: string): ViewSor
 export interface RowGroup {
   /** The group's value as text; `''` for rows with none. */
   key: string
+  /** The value itself, from the first row grouped here — what a move writes, typed as the note holds it. */
+  value: PropValue | undefined
   rows: Row[]
 }
 
@@ -182,13 +184,18 @@ export interface RowGroup {
  * text, as Obsidian does.
  */
 export function groupRows(rows: readonly Row[], groupBy: { key: RowKey; direction: 'asc' | 'desc' } | null): RowGroup[] {
-  if (!groupBy) return [{ key: '', rows: [...rows] }]
+  if (!groupBy) return [{ key: '', value: undefined, rows: [...rows] }]
   const buckets = new Map<string, Row[]>()
+  const values = new Map<string, PropValue | undefined>()
   for (const row of rows) {
-    const key = cellText(keyValue(row, groupBy.key))
+    const value = keyValue(row, groupBy.key) as PropValue | undefined
+    const key = cellText(value)
     const list = buckets.get(key)
     if (list) list.push(row)
-    else buckets.set(key, [row])
+    else {
+      buckets.set(key, [row])
+      values.set(key, key === '' ? undefined : value)
+    }
   }
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
   const keys = [...buckets.keys()].sort((a, b) => {
@@ -197,7 +204,30 @@ export function groupRows(rows: readonly Row[], groupBy: { key: RowKey; directio
     const c = collator.compare(a, b)
     return groupBy.direction === 'desc' ? -c : c
   })
-  return keys.map((key) => ({ key, rows: buckets.get(key)! }))
+  return keys.map((key) => ({ key, value: values.get(key), rows: buckets.get(key)! }))
+}
+
+/**
+ * The op that moves a note into a group (a board's drag or its select):
+ * the grouping property set to the group's own value, typed as the notes
+ * in that group hold it — a boolean stays a boolean, a number a number, a
+ * list its items. The "no value" group clears the property (`key:`), for
+ * every kind.
+ */
+export function moveOp(key: string, group: RowGroup, fallbackKind: CellKind): FmOp {
+  const v = group.value
+  if (group.key === '' || !v || v.kind === 'null') return { op: 'set', key, value: '' }
+  if (v.kind === 'list') return { op: 'set', key, value: v.items.map(scalarText) }
+  if (v.kind === 'boolean') return { op: 'set', key, value: v.value }
+  if (v.kind === 'number') return { op: 'set', key, value: v.value }
+  if (v.kind === 'link') return { op: 'set', key, value: v.alias ? `[[${v.target}|${v.alias}]]` : `[[${v.target}]]` }
+  return opFor(key, v.kind === 'date' ? 'date' : fallbackKind === 'list' ? 'text' : fallbackKind, scalarText(v))
+}
+
+/** A value as a card or a list entry shows it: a modified time as a date, the rest as the cell would. */
+export function displayCell(columnId: string, value: PropValue | undefined, unknown: string): string {
+  if (columnId === 'file.mtime') return value && value.kind === 'date' ? new Date(value.ms).toLocaleDateString() : unknown
+  return cellText(value)
 }
 
 /** A new row's text: the view's property columns as empty keys, then an empty body. */

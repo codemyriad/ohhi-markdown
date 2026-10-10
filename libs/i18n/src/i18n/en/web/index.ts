@@ -2738,7 +2738,8 @@ const collections = {
   board_label: 'Board of {view:string}',
   /** The keyboard's drag: a select on every card. */
   move_card: 'Move {name:string} to…',
-  move_card_to: 'Move to {group:string}',
+  /** A board grouped by a file field (folder, tags): cards cannot be moved by writing a property. */
+  not_movable: 'Grouped by {group:string}: move a note by changing it, not from here.',
   list_label: 'List of {view:string}',
   cards_label: 'Cards of {view:string}',
   unreadable: 'This file could not be read as a collection: {error:string}',

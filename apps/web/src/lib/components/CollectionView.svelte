@@ -39,8 +39,10 @@
     columnKind,
     groupRows,
     kindOf,
+    moveOp,
     newRowText,
     opFor,
+    type RowGroup,
     replaceDocText,
     toggleSort,
     type CellKind,
@@ -228,11 +230,9 @@
     if (created) shell?.openPath(created)
   }
 
-  /** The property a new board groups by: the current view's first property column, else the first key the vault has. */
+  /** The property a new board groups by: the current view's first property column, if it has one (else the board asks). */
   function firstProperty(): string | null {
-    const fromView = dataColumns.find((c) => c.key && 'prop' in c.key)
-    if (fromView) return fromView.id
-    return knownKeys[0] ?? null
+    return dataColumns.find((c) => c.key && 'prop' in c.key)?.id ?? null
   }
 
   function addNewView(type: 'table' | 'kanban' | 'list'): void {
@@ -245,8 +245,8 @@
     const order = view ? view.order : ['file.name']
     const groupBy = type === 'kanban' ? firstProperty() : null
     const next: NewView = { type, name, order, ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}) }
-    // The new view's index, read before the file changes under the derived chain.
-    const index = spec.views.length
+    // The new view's index — the sequence's next slot — read before the file changes under the derived chain.
+    const index = (spec.views.at(-1)?.index ?? -1) + 1
     const result = addView(doc.getText(), next)
     if (result.ok) {
       replaceDocText(doc, result.text)
@@ -255,12 +255,31 @@
     }
   }
 
-  /** A board's drag or its "Move to…": the grouping property set to the column's value. */
-  function onMove(row: Row, group: string): void {
+  /** A board grouped by a property can move its cards; one grouped by a file field cannot. */
+  const movable = $derived(!!compiled?.groupBy && 'prop' in compiled.groupBy.key)
+
+  /**
+   * A board's drag or its "Move to…": the grouping property set to the
+   * target group's own value, typed as the notes there hold it. True when
+   * the note took the edit.
+   */
+  function onMove(row: Row, group: RowGroup): boolean {
     const by = compiled?.groupBy
-    if (!by || !('prop' in by.key)) return
-    // The grouping property need not be one of the view's columns.
-    onCell(row, columns.find((c) => c.id === by.id) ?? { id: by.id, label: by.id, key: by.key }, group)
+    if (!by || !('prop' in by.key)) return false
+    const prop = by.key.prop
+    const doc = workspace.docForPath(row.path)
+    if (!doc) {
+      workspace.flash({ level: 'warn', text: t.not_a_note({ path: row.path }), path: row.path })
+      return false
+    }
+    const result = applyFrontmatterOp(doc, moveOp(prop, group, columnKind(undefined, rows.map((r) => r.props[prop]))))
+    if (!result.ok) {
+      const reasons = t.reason as unknown as Record<string, () => string>
+      const reason = (reasons[result.reason] ?? reasons.unsupported)()
+      workspace.flash({ level: 'warn', text: t.not_patched({ name: row.name, reason }), path: row.path })
+      return false
+    }
+    return true
   }
 
   // ---- the columns popover, and the "partly shown" detail ----
@@ -408,7 +427,7 @@
         {:else if rows.length === 0}
           <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
         {:else if view.type === 'kanban'}
-          <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
+          <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} {movable} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
         {:else if view.type === 'list' || view.type === 'cards'}
           <CollectionList {groups} {columns} cards={view.type === 'cards'} grouped={!!compiled?.groupBy} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} />
         {:else}

@@ -10,8 +10,10 @@ import {
   cellDraft,
   cellText,
   columnKind,
+  displayCell,
   groupRows,
   kindOf,
+  moveOp,
   newRowText,
   opFor,
   splitList,
@@ -180,7 +182,26 @@ describe('toggleSort and groupRows', () => {
       ['', ['b']],
     ])
     expect(groupRows(rows, { key: { prop: 'depth' }, direction: 'desc' }).map((g) => g.key)).toEqual(['Shallow', 'Deep', ''])
-    expect(groupRows(rows, null)).toEqual([{ key: '', rows }])
+    expect(groupRows(rows, null)).toEqual([{ key: '', value: undefined, rows }])
+    expect(groups[0].value).toEqual(s('Deep'))
+    expect(groups[2].value).toBeUndefined()
+  })
+
+  it('moveOp writes the group’s value typed as the group holds it, and clears for "no value"', () => {
+    const bool = (value: boolean): PropValue => ({ kind: 'boolean', value })
+    expect(moveOp('done', { key: 'true', value: bool(true), rows: [] }, 'text')).toEqual({ op: 'set', key: 'done', value: true })
+    expect(moveOp('done', { key: '', value: undefined, rows: [] }, 'boolean')).toEqual({ op: 'set', key: 'done', value: '' })
+    expect(moveOp('score', { key: '4', value: n(4), rows: [] }, 'text')).toEqual({ op: 'set', key: 'score', value: 4 })
+    expect(moveOp('people', { key: 'Smith, J, Ana', value: list('Smith, J', 'Ana'), rows: [] }, 'list')).toEqual({ op: 'set', key: 'people', value: ['Smith, J', 'Ana'] })
+    expect(moveOp('pillar', { key: 'Clusters', value: link('Clusters'), rows: [] }, 'text')).toEqual({ op: 'set', key: 'pillar', value: '[[Clusters]]' })
+    expect(moveOp('depth', { key: 'Deep', value: s('Deep'), rows: [] }, 'text')).toEqual({ op: 'set', key: 'depth', value: 'Deep' })
+    expect(moveOp('due', { key: '2026-01-01', value: d('2026-01-01'), rows: [] }, 'text')).toEqual({ op: 'set', key: 'due', value: '2026-01-01' })
+  })
+
+  it('displayCell shows a modified time as a date and the rest as the cell', () => {
+    expect(displayCell('file.mtime', d('2026-06-02'), '—')).toBe(new Date(Date.parse('2026-06-02')).toLocaleDateString())
+    expect(displayCell('file.mtime', undefined, '—')).toBe('—')
+    expect(displayCell('depth', s('Deep'), '—')).toBe('Deep')
   })
 })
 

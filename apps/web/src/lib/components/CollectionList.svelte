@@ -8,7 +8,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Column } from '@ohhi/collections'
   import { keyValue, type PropValue, type Row } from '@ohhi/index'
-  import { cellText, type RowGroup } from '../collection-cells.js'
+  import { displayCell, type RowGroup } from '../collection-cells.js'
 
   interface Props {
     groups: RowGroup[]
@@ -23,7 +23,7 @@
 
   const t = $derived($LL.web.collections)
   const shown = $derived(columns.filter((c) => c.id !== 'file.name' && c.id !== 'file.basename'))
-  const valueOf = (row: Row, col: Column): string => (col.key ? cellText(keyValue(row, col.key) as PropValue | undefined) : '')
+  const valueOf = (row: Row, col: Column): string => (col.key ? displayCell(col.id, keyValue(row, col.key) as PropValue | undefined, t.mtime_unknown()) : '')
 </script>
 
 <div class="h-full min-h-0 overflow-auto p-2" data-testid="collection-{cards ? 'cards' : 'list'}">
