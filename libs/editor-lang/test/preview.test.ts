@@ -8,7 +8,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildPreview } from '../src/preview/build.js'
-import type { CheckboxWidget, EmbedWidget, FenceWidget, FrontmatterStripWidget } from '../src/preview/widgets.js'
+import type { FenceWidget } from '../src/preview/code-widgets.js'
+import type { CheckboxWidget, EmbedWidget, FrontmatterStripWidget } from '../src/preview/widgets.js'
 import { decorations, hidden, makeState, testHost, type FlatDeco } from './support.js'
 
 const at = (decos: FlatDeco[], text: string): FlatDeco[] => decos.filter((d) => d.text === text)

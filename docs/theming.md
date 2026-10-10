@@ -194,7 +194,7 @@ what buys it).
 | `--ed-bullet` | the bullet widget — a filled dot 0.36em across after a 0.25em lead, centred on the x-height, about half an em from the text (E2, 2026-10-10) — that replaces `- ` the moment the space is typed, on the caret's line too; the marker is text only while the selection is on it (X1, amended 2026-10-06) |
 | `--ed-list-indent` | *(not `(V2e)` — read since 2026-10-06)* the width of one list nesting level in Live and Reading: the tab stop on list lines and the bullet's own box, so a child's dot sits under its parent's text. Default `1.1em` (tightened from `1.6em` in E2). A task's box takes the same column, so a task's text lines up with a sibling bullet's. Source keeps the four-column tabs |
 | `--ed-list-guide` | *(not `(V2e)` — read since 2026-10-06)* the 1px depth guide down each nesting level's children, drawn from the syntax tree's depth (a line class, no DOM measurement). Default `var(--ed-hr)` — the rule's hairline; `theme-contract.test.ts` asserts it resolves to `--ed-hr` in every built-in theme |
-| `--ed-checkbox` / `--ed-checkbox-done` | the task box (a real `<input type=checkbox>` drawn with `appearance: none`, so the same 0.9em square in every engine: Chris's WebKitGTK screenshot, measured): `--ed-checkbox` is its 1px border, `--ed-checkbox-done` its fill and border once checked — `var(--ed-checkbox)` in every built-in theme since E2 — with the tick in `--ed-surface`. 1,941 of them in the real vault (X1) |
+| `--ed-checkbox` / `--ed-checkbox-done` | the task box (a real `<input type=checkbox>` drawn with `appearance: none`, so the same 0.9em square in every engine: Chris's WebKitGTK screenshot, measured): `--ed-checkbox` is its 1px border, `--ed-checkbox-done` its fill and border once checked — the contract's `var(--ed-checkbox)`, which no built-in theme restates — with the tick in `--ed-surface`. 1,941 of them in the real vault (X1) |
 | `--ed-task-done-fg` / `--ed-task-done-decoration` | a checked task's text (E2, fork C1): `var(--ed-ink-faint)`, and a whole `text-decoration` value — a 1px line-through in a 60% mix of the done ink |
 | `--ed-mark-bg` / `--ed-mark-fg` | `==highlight==`, a new inline node (X1) |
 | `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
@@ -211,13 +211,22 @@ was declared and unread until round 2 (P3) gave Editor that line: the
 an `<input>` inside an `<h1>` mounted in the editor's scroller above the note,
 reads it.
 
-## The editor usability tokens (`--ed-popover-*`, `--ed-drop-*`, `--ed-callout-*`, `--ed-task-done-*`)
+## The editor usability tokens (`--ed-card-radius`, `--ed-focus-ring`, `--ed-popover-*`, `--ed-drop-*`, `--ed-code-copied`, `--ed-callout-*`, `--ed-task-done-*`)
 
 Added by the editor usability pass (`plans/editor-usability-shaping.md`,
 E1–E5, 2026-10-10). All of them are read only in `libs/editor/src/theme.ts`.
-The popover and drop groups derive from the DaisyUI colours every theme
-already sets, so a built-in theme need not restate them (the panes & tabs
-precedent); the callout colours are restated per built-in theme.
+**A token whose value derives from the DaisyUI colours lives only in the
+contract**: the popover, drop and done-task groups resolve from what every
+theme already sets, so a built-in theme restates one only when its value
+differs (the panes & tabs precedent — Nord's done-task grey is the one case).
+The callout colours are restated per built-in theme.
+
+### Cards and focus (`--ed-card-radius`, `--ed-focus-ring`)
+
+| Token | Default | Read by |
+|---|---|---|
+| `--ed-card-radius` | `8px` | every card the editor draws: the code card's corners, a callout's box, the link popover and the table hint (`.cm-tooltip`), the drop target |
+| `--ed-focus-ring` | `var(--ed-caret)` | the one `:focus-visible` outline (2px) of the buttons a widget owns — the code card's language chip and *Copy*, a callout's chevron, a remote image's *Load image* |
 
 ### Link popover (`--ed-popover-*`)
 
@@ -240,10 +249,9 @@ Group headers are one line each; rows are compact single lines.
 
 | Token | Default | Read by |
 |---|---|---|
-| `--ed-drop-border` | primary 60% | the dashed outline of the drop target drawn over the editor while image files are dragged onto it; the focus ring of a remote image's *Load image* button |
+| `--ed-drop-border` | primary 60% | the dashed outline of the drop target drawn over the editor while image files are dragged onto it |
 | `--ed-drop-bg` | primary 7% | the drop target's tint |
-| `--ed-drop-ink` / `--ed-drop-muted` | `base-content` / content 75% | the target's two lines ("Drop to add to this note", where it will be saved); the remote placeholder's text and button |
-| `--ed-drop-radius` | `8px` | the drop target |
+| `--ed-drop-ink` / `--ed-drop-muted` | `--ed-popover-ink` / `--ed-popover-muted` | the target's two lines ("Drop to add to this note", where it will be saved); the remote placeholder's text and button |
 
 A remote `![alt](https://…)` waits in a dashed box (`--ed-code-border`) naming
 its host until a click loads it; nothing is fetched by opening the note.
@@ -252,8 +260,8 @@ its host until a click loads it; nothing is fetched by opening the note.
 
 `> [!type] Title` boxes. Each type's colour does three things: tints the box
 (`color-mix` 9%), draws its 1px hairline **all round** (26%; no coloured left
-rail), and paints the title row and its lucide icon. The radius is 8px. The
-body stays `--ed-ink`.
+rail), and paints the title row and its lucide icon. The radius is
+`--ed-card-radius`. The body stays `--ed-ink`.
 
 | Token | Default | Types |
 |---|---|---|
@@ -279,17 +287,17 @@ text (fork C1: muted and struck). The row in the live-preview table above has
 the defaults. A theme that wants fork C2 (muted only) sets
 `--ed-task-done-decoration: none`.
 
-### The code card
+### The code card (`--ed-code-copied`)
 
-A fenced block is drawn as **one card**, from existing tokens rather than new
-ones: every line carries `--ed-code-block-bg` and the side hairlines in
+A fenced block is drawn as **one card**, from existing tokens but one: every line carries `--ed-code-block-bg` and the side hairlines in
 `--ed-code-border`; the opening fence becomes a header bar (a language chip on
 the left, *Copy* on the right, both in `--ed-ink-muted`, hovering to
 `--ed-code-bg` / `--ed-ink`) and the closing fence a thin cap, each with the
-top or bottom hairline and an 8px radius. When the caret is on a fence line
-that line shows as text and takes the edge itself (`cm-code-first` /
+top or bottom hairline and `--ed-card-radius`. When the caret is on a fence
+line that line shows as text and takes the edge itself (`cm-code-first` /
 `cm-code-last`), so there is never a seam. Body text is `--ed-code-block-fg`
-with the `--ed-syn-*` slots; *Copied* flashes in `--ed-callout-success`.
+with the `--ed-syn-*` slots; *Copied* flashes in `--ed-code-copied` (default
+`var(--ed-callout-success)`), the one token the card adds.
 
 ## Theme switching
 
@@ -324,7 +332,7 @@ build — `plans/spike-resource-root.md` F0.)
 
 Start from `libs/ui/src/styles/_template.css`; **the complete, authoritative
 token list with a default for every entry is
-`libs/ui/src/styles/tokens/_contract.css`** (144 tokens, grouped and commented;
+`libs/ui/src/styles/tokens/_contract.css`** (146 tokens, grouped and commented;
 the entries marked `(V2e)` are the live-preview band — see above for what
 reads each one).
 

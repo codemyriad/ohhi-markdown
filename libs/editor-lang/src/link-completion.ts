@@ -61,14 +61,19 @@ export function noteFolder(path: string): string {
 const inside = (path: string, root: string): boolean => path.startsWith(`${root}/`)
 
 /** The (innermost) share holding `path`, or null for the private root. */
-export function mountOf(path: string | null | undefined, mounts: readonly LinkMount[]): LinkMount | null {
+export function mountOf<M extends { path: string }>(path: string | null | undefined, mounts: readonly M[]): M | null {
   if (!path) return null
-  let best: LinkMount | null = null
+  let best: M | null = null
   for (const m of mounts) {
     if (!m.path || !inside(path, m.path)) continue
     if (!best || m.path.length > best.path.length) best = m
   }
   return best
+}
+
+/** What a share is called where the app names it: its folder's last segment. */
+export function shareName(mountPath: string): string {
+  return mountPath.slice(mountPath.lastIndexOf('/') + 1)
 }
 
 /**

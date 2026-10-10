@@ -114,14 +114,10 @@
     --ed-bullet: #5e81ac;
     --ed-marker: #a8b1c2;
     --ed-checkbox: #5e81ac;              /* ⚠ --checkbox-color (frost2) */
-    --ed-checkbox-done: var(--ed-checkbox);
 
-    /* --- tasks (editor-usability E2): the checked box fills with the box's
-     * own colour; a done task's text is the faint ink, lightly struck. */
     /* The same grey as nord-dark's (the comment colour), so a done task
      * fades as far in both: 3.6:1 on the surface, against the ink's 8.6:1. */
     --ed-task-done-fg: #7b88a1;
-    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
 
     --ed-table-header-bg: #eceff4;       /* ⚠ source rgba(light2,.2) ≈ invisible */
     --ed-table-row-alt-bg: #f4f6f9;
@@ -176,9 +172,7 @@
     --ed-group-7: #9c5335;
     --ed-group-8: #a8327d;
 
-    /* --- callouts (editor-usability E3): this theme's nine type colours;
-     * info / todo / abstract / failure follow note / tip / danger through
-     * the contract. */
+    /* --- callouts (E3): the nine type colours (see the contract) --- */
     --ed-callout-note: #5e81ac;
     --ed-callout-tip: #2f6f6e;
     --ed-callout-success: #4a7a2e;

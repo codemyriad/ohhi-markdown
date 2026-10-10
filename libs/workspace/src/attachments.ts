@@ -50,13 +50,13 @@ export function extensionOf(name: string): string {
 /** Is this a file a paste or drop can add — by name first, then by media type? */
 export function isAttachmentFile(name: string, type: string): boolean {
   const ext = extensionOf(name)
-  if (ext) return ext in ATTACHMENT_EXTENSIONS
+  if (ext) return Object.hasOwn(ATTACHMENT_EXTENSIONS, ext)
   return extensionForType(type) !== ''
 }
 
 /** Is it a picture (embedded with `![[…]]`) rather than a PDF (linked with `[[…]]`)? */
 export function isImageExtension(ext: string): boolean {
-  return ext in ATTACHMENT_EXTENSIONS && ext !== 'pdf'
+  return Object.hasOwn(ATTACHMENT_EXTENSIONS, ext) && ext !== 'pdf'
 }
 
 /** Obsidian's paste stamp, in the device's local time: `20261010140307`. */
@@ -88,22 +88,30 @@ export function cleanAttachmentName(name: string): string {
   return cleaned
 }
 
+/** A file name as its stem and its extension, the dot included (`['shot', '.png']`; `['README', '']`). */
+export function splitName(name: string): [stem: string, ext: string] {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, '']
+}
+
+/** The `n`th name for a taken one, Obsidian's way: `shot.png`, `shot 1.png`, `shot 2.png` … */
+export function numberedName(stem: string, ext: string, n: number): string {
+  return n === 0 ? `${stem}${ext}` : `${stem} ${n}${ext}`
+}
+
 /** `Pasted image 1.png` → `Pasted image 2.png` … until a name is free (case-insensitively). */
 export function dedupeName(folder: string, name: string, taken: ReadonlySet<string>): string {
   const lower = new Set([...taken].map((p) => p.toLowerCase()))
   const join = (n: string): string => (folder ? `${folder}/${n}` : n)
-  if (!lower.has(join(name).toLowerCase())) return join(name)
-  const dot = name.lastIndexOf('.')
-  const stem = dot > 0 ? name.slice(0, dot) : name
-  const ext = dot > 0 ? name.slice(dot) : ''
-  for (let n = 1; ; n++) {
-    const candidate = join(`${stem} ${n}${ext}`)
+  const [stem, ext] = splitName(name)
+  for (let n = 0; ; n++) {
+    const candidate = join(numberedName(stem, ext, n))
     if (!lower.has(candidate.toLowerCase())) return candidate
   }
 }
 
 /** Collapse `a/./b/../c` to `a/c`; null when it climbs out of the vault. */
-function normalize(path: string): string | null {
+export function normalizePath(path: string): string | null {
   const out: string[] = []
   for (const seg of path.split('/')) {
     if (seg === '' || seg === '.') continue
@@ -136,8 +144,8 @@ function folderFor(setting: string | null | undefined, noteDir: string, scope: s
   const raw = (setting ?? '/').trim()
   if (raw === '' || raw === '/') return scope
   if (raw === '.' || raw === './') return noteDir
-  if (raw.startsWith('./')) return normalize(`${noteDir}/${raw.slice(2)}`)
-  return normalize(scope ? `${scope}/${raw}` : raw)
+  if (raw.startsWith('./')) return normalizePath(`${noteDir}/${raw.slice(2)}`)
+  return normalizePath(scope ? `${scope}/${raw}` : raw)
 }
 
 export interface AttachmentPlacementInput {

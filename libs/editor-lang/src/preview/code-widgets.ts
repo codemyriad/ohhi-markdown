@@ -11,18 +11,19 @@
  * under the pointer); a press anywhere else on the bar goes to the editor,
  * which puts the caret on the fence line and shows it as text.
  */
-import { WidgetType, type EditorView } from '@codemirror/view'
-import type { ReadLabels } from '../read-host.js'
+import type { EditorView } from '@codemirror/view'
+import type { CodeLabels } from '../read-host.js'
 import { codeBlockText, openFenceLanguage } from './fence-edit.js'
 import { icon } from './icons.js'
+import { claim, ownsEvent, ReadWidget } from './widgets.js'
 
 const COPIED_MS = 1500
 
 /** A fence's opening line (`lang` is its info string) or, with `lang` null, its closing line. */
-export class FenceWidget extends WidgetType {
+export class FenceWidget extends ReadWidget {
   constructor(
     readonly lang: string | null,
-    readonly labels: ReadLabels | null = null,
+    readonly labels: CodeLabels | null = null,
     /** Reading has no caret to put in the info string: the chip is a label there. */
     readonly editable = true
   ) {
@@ -44,7 +45,7 @@ export class FenceWidget extends WidgetType {
     wrap.className = 'cm-fence-line cm-fence-open'
     // The info string's first word is the language; the rest (`title=…`) is not shown.
     const lang = (this.lang.trim().split(/\s+/)[0] ?? '').toLowerCase()
-    const shown = lang || labels.codePlain
+    const shown = lang || labels.plain
     const chip = document.createElement(this.editable ? 'button' : 'span')
     chip.className = 'cm-fence-chip'
     const name = document.createElement('span')
@@ -53,7 +54,7 @@ export class FenceWidget extends WidgetType {
     chip.appendChild(name)
     if (chip instanceof HTMLButtonElement) {
       chip.type = 'button'
-      chip.setAttribute('aria-label', labels.codeLanguage(shown))
+      chip.setAttribute('aria-label', labels.language(shown))
       chip.appendChild(icon('chevron-down'))
       claim(chip, () => openFenceLanguage(view, view.posAtDOM(wrap)))
     }
@@ -62,7 +63,7 @@ export class FenceWidget extends WidgetType {
     const copy = document.createElement('button')
     copy.type = 'button'
     copy.className = 'cm-fence-copy'
-    copy.setAttribute('aria-label', labels.copyCode)
+    copy.setAttribute('aria-label', labels.copy)
     copy.appendChild(icon('copy'))
     let reset: ReturnType<typeof setTimeout> | undefined
     claim(copy, () => {
@@ -72,12 +73,12 @@ export class FenceWidget extends WidgetType {
         () => {
           copy.replaceChildren(icon('check'))
           copy.classList.add('cm-fence-copied')
-          copy.setAttribute('aria-label', labels.codeCopied)
+          copy.setAttribute('aria-label', labels.copied)
           clearTimeout(reset)
           reset = setTimeout(() => {
             copy.replaceChildren(icon('copy'))
             copy.classList.remove('cm-fence-copied')
-            copy.setAttribute('aria-label', labels.copyCode)
+            copy.setAttribute('aria-label', labels.copy)
           }, COPIED_MS)
         },
         (err: unknown) => console.warn('[editor] copying the code block failed', err)
@@ -88,18 +89,8 @@ export class FenceWidget extends WidgetType {
   }
 
   override ignoreEvent(event: Event): boolean {
-    if ((event.target as Element | null)?.closest?.('button')) return true
-    return !(event.type === 'mousedown' || event.type === 'click')
+    return ownsEvent(event, 'button') || super.ignoreEvent(event)
   }
-}
-
-/** A button the widget owns: its press never reaches the editor; click (and Enter/Space) acts. */
-function claim(button: HTMLElement, run: () => void): void {
-  button.addEventListener('mousedown', (e) => e.preventDefault())
-  button.addEventListener('click', (e) => {
-    e.preventDefault()
-    run()
-  })
 }
 
 /** The clipboard, or a rejection to warn about — never a throw out of a click. */

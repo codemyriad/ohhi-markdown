@@ -120,14 +120,10 @@
     --ed-bullet: #81a1c1;
     --ed-marker: #4c566a;
     --ed-checkbox: #8fbcbb;              /* --checkbox-color */
-    --ed-checkbox-done: var(--ed-checkbox);
 
-    /* --- tasks (editor-usability E2): the checked box fills with the box's
-     * own colour; a done task's text is the faint ink, lightly struck. */
     /* Nord's faint ink is nearly its body ink, so a done task would not
      * fade: its own grey (nord3-light), 3.5:1 on the surface. */
     --ed-task-done-fg: #7b88a1;
-    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
 
     --ed-table-header-bg: #22272f;       /* --table-header-background */
     --ed-table-row-alt-bg: #2b303b;      /* --table-row-even-background */
@@ -193,9 +189,7 @@
     --ed-group-7: #d08770;
     --ed-group-8: #cbb69a;
 
-    /* --- callouts (editor-usability E3): this theme's nine type colours;
-     * info / todo / abstract / failure follow note / tip / danger through
-     * the contract. */
+    /* --- callouts (E3): the nine type colours (see the contract) --- */
     --ed-callout-note: #88c0d0;
     --ed-callout-tip: #8fbcbb;
     --ed-callout-success: #a3be8c;

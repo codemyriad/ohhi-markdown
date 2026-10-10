@@ -15,8 +15,8 @@
  *   left alone, and a command that changed nothing answers false;
  * - each selection range is handled on its own (multi-cursor).
  */
-import { indentLess, indentMore } from '@codemirror/commands'
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
+import { indentLess } from '@codemirror/commands'
+import type { syntaxTree } from '@codemirror/language'
 import {
   EditorSelection,
   type ChangeSpec,
@@ -25,20 +25,20 @@ import {
   type Text,
 } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
-import { indentListItem, outdentListItem } from '@ohhi/editor-lang'
+import {
+  indentListItem,
+  insertIndent,
+  isCalloutHeader,
+  outdentListItem,
+  stripCalloutHeader,
+  treeAt,
+} from '@ohhi/editor-lang'
 
 type Tree = ReturnType<typeof syntaxTree>
 type Node = ReturnType<Tree['resolveInner']>
 
 /** Nodes whose text is literal: no command may add markup inside them. */
 const LITERAL = new Set(['FencedCode', 'CodeBlock', 'Frontmatter'])
-
-/** How long a command may spend finishing the parse around its ranges. */
-const PARSE_BUDGET_MS = 50
-
-function treeOf(state: EditorState, upto: number): Tree {
-  return ensureSyntaxTree(state, upto, PARSE_BUDGET_MS) ?? syntaxTree(state)
-}
 
 /** True when [from, to] touches a literal block (inclusive at both ends). */
 function inLiteral(tree: Tree, from: number, to: number): boolean {
@@ -71,7 +71,7 @@ function perRange(
 ): boolean {
   const { state } = view
   if (state.readOnly) return false
-  const tree = treeOf(state, Math.min(state.doc.length, state.selection.ranges.at(-1)!.to + 1))
+  const tree = treeAt(state, state.selection.ranges.at(-1)!.to)
   let changed = false
   const spec = state.changeByRange((range) => {
     const out = fn(range, state, tree)
@@ -500,17 +500,15 @@ export const cycleHeading: Command = lineCommand((lines) => {
 
 /**
  * Indent: on a list line, the list's own indent (`indentListItem` — the
- * outliner rule, one indent unit before the marker); anywhere else CM6's
- * `indentMore`. The format bar's button and `Tab` on a list line are one
- * behaviour; `Tab` itself stays `edit.indent-list`.
+ * outliner rule, one indent unit before the marker); anywhere else what Tab
+ * does there (`insertIndent`: a tab at the caret, or the selected lines
+ * indented). The format bar's button and `Tab` are one behaviour; `Tab`
+ * itself stays `edit.indent-list`.
  */
-export const indentFormat: Command = (view) => indentListItem(view) || indentMore(view)
+export const indentFormat: Command = (view) => indentListItem(view) || insertIndent(view)
 
-/** Outdent: `outdentListItem` on a list line, CM6's `indentLess` elsewhere. */
+/** Outdent: `outdentListItem` on a list line, CM6's `indentLess` elsewhere — Shift-Tab's pair. */
 export const outdentFormat: Command = (view) => outdentListItem(view) || indentLess(view)
-
-/** A callout's first line: quote marker, `[!type]`, an optional fold sign. */
-const CALLOUT_HEAD = /^[ \t]{0,3}>[ \t]?\[![\w-]+\][+-]?[ \t]?/
 
 /**
  * Wrap the selected lines in a callout (Obsidian's `> [!note]`): the first
@@ -520,9 +518,9 @@ const CALLOUT_HEAD = /^[ \t]{0,3}>[ \t]?\[![\w-]+\][+-]?[ \t]?/
  */
 export const insertCallout: Command = lineCommand(
   (lines) => {
-    const off = CALLOUT_HEAD.test(lines[0].text) && lines.every((l) => l.parts.quote !== '')
+    const off = isCalloutHeader(lines[0].text) && lines.every((l) => l.parts.quote !== '')
     return (_p, i, text) => {
-      if (off) return i === 0 ? text.replace(CALLOUT_HEAD, '') : text.replace(/^[ \t]{0,3}>[ \t]?/, '')
+      if (off) return i === 0 ? stripCalloutHeader(text) : text.replace(/^[ \t]{0,3}>[ \t]?/, '')
       if (i === 0) return `> [!note] ${text}`
       return text.trim() === '' ? '>' : `> ${text}`
     }

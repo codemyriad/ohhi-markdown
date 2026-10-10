@@ -14,6 +14,15 @@ const common = {
   cancel: 'Cancel',
   close: 'Close',
   working: 'Working…',
+  /** The top of the vault where a folder is named: the link popover's create row, a move's destination list. */
+  vault_root: 'Vault root',
+  /** Key glyphs drawn in a `<kbd>` (the pane mode's keys, the link popover's footer). */
+  keys: {
+    enter: '↵',
+    tab: 'Tab',
+    escape: 'Esc',
+    help: '?',
+  },
 }
 
 const en = {

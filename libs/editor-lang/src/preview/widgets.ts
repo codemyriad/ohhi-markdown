@@ -11,22 +11,66 @@
  * - `eq` compares the values the DOM is made of, so CM6 keeps the existing
  *   element across rebuilds — without it an embed would re-read its file, and a
  *   checkbox would flicker, on every arrow key.
- * - `ignoreEvent` lets mousedown/click through to the editor so the view-level
- *   handlers in clicks.ts see them; everything else stays inside the widget.
+ * - `ignoreEvent` (`ReadWidget`'s) lets mousedown/click through to the editor
+ *   so the view-level handlers in clicks.ts see them; everything else stays
+ *   inside the widget. A button the widget owns is `claim`ed and named in its
+ *   `ignoreEvent` through `ownsEvent`, so its press never reaches the editor.
  * - No colour and no layout here: every class is styled in libs/editor/theme.ts
  *   through --ed-* tokens (golden rule 7).
  */
 import { WidgetType } from '@codemirror/view'
 import type { ReadHost, ReadLabels } from '../read-host.js'
 import { renderInline, tagChip, type InlinePiece } from './inline-dom.js'
+import type { Align } from './table-ops.js'
 
-function interactive(event: Event): boolean {
-  return event.type === 'mousedown' || event.type === 'click'
+/** Did the event happen inside one of the widget's own controls (`selector`)? */
+export function ownsEvent(event: Event, selector: string): boolean {
+  return !!(event.target as Element | null)?.closest?.(selector)
 }
 
-abstract class ReadWidget extends WidgetType {
+/** Every widget here: mousedown and click go to the editor (clicks.ts), all else stays in the widget. */
+export abstract class ReadWidget extends WidgetType {
   override ignoreEvent(event: Event): boolean {
-    return !interactive(event)
+    return !(event.type === 'mousedown' || event.type === 'click')
+  }
+}
+
+/**
+ * A button the widget owns: its press never moves the caret or the focus (so
+ * the widget is not torn down under the pointer), and its click — which a
+ * keyboard Enter/Space fires too — runs `run`.
+ */
+export function claim(button: HTMLElement, run: () => void): void {
+  button.addEventListener('mousedown', (e) => e.preventDefault())
+  button.addEventListener('click', (e) => {
+    e.preventDefault()
+    run()
+  })
+}
+
+/**
+ * A widget that draws a picture from a `blob:` URL: the URL is revoked when
+ * the widget goes, and `dead` tells an answer that arrives later (the adapter
+ * read, a remote fetch) that there is no DOM left to fill.
+ */
+export abstract class BlobWidget extends ReadWidget {
+  private url: string | null = null
+  protected dead = false
+
+  /** An `<img>` over the blob, its URL owned by this widget. */
+  protected image(blob: Blob, alt: string): HTMLImageElement {
+    if (this.url) URL.revokeObjectURL(this.url)
+    this.url = URL.createObjectURL(blob)
+    const img = document.createElement('img')
+    img.src = this.url
+    img.alt = alt
+    return img
+  }
+
+  override destroy(): void {
+    this.dead = true
+    if (this.url) URL.revokeObjectURL(this.url)
+    this.url = null
   }
 }
 
@@ -101,18 +145,12 @@ export class RuleWidget extends ReadWidget {
   }
 }
 
-/** A fence's opening line (header bar) or closing line (cap): code-widgets.ts (E3). */
-export { FenceWidget } from './code-widgets.js'
-
 /**
  * `![[picture.png]]`. The bytes come from the host's adapter — binaries live on
  * disk and never in a Y.Text, so a device that has not got the file says so
  * rather than drawing a broken image (D2f stays in Later).
  */
-export class EmbedWidget extends ReadWidget {
-  private url: string | null = null
-  private dead = false
-
+export class EmbedWidget extends BlobWidget {
   constructor(
     readonly name: string,
     readonly block: boolean,
@@ -146,11 +184,7 @@ export class EmbedWidget extends ReadWidget {
         // The view may have moved on while the adapter was reading.
         if (this.dead) return
         if (!blob) return missing()
-        this.url = URL.createObjectURL(blob)
-        const img = document.createElement('img')
-        img.src = this.url
-        img.alt = this.alt ?? this.name
-        wrap.appendChild(img)
+        wrap.appendChild(this.image(blob, this.alt ?? this.name))
       },
       // A host that rejects has not got the file either: same answer, and never
       // an unhandled rejection out of a decoration rebuild.
@@ -159,12 +193,6 @@ export class EmbedWidget extends ReadWidget {
       }
     )
     return wrap
-  }
-
-  override destroy(): void {
-    this.dead = true
-    if (this.url) URL.revokeObjectURL(this.url)
-    this.url = null
   }
 }
 
@@ -222,9 +250,6 @@ export interface TableRowData {
   cells: InlinePiece[][]
 }
 
-/** A column's alignment, from the delimiter row's colons. */
-export type TableAlign = 'none' | 'left' | 'center' | 'right'
-
 /**
  * A GFM table drawn as a grid: in Reading, and in Live while the selection is
  * outside it (E4, fork B2 — the caret entering it shows the source). The
@@ -241,7 +266,7 @@ export class TableWidget extends ReadWidget {
     readonly rows: TableRowData[],
     /** The block's source text: cheap, exact identity for `eq`. */
     readonly source: string,
-    readonly aligns: readonly TableAlign[] = [],
+    readonly aligns: readonly Align[] = [],
     readonly editable = false
   ) {
     super()

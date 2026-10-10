@@ -46,6 +46,7 @@ import type {
 } from '@ohhi/vault'
 import { DOC_CHANGE_WINDOW_MS, RelayRefusedError, type Actor, type AppEvent, type EventInput, type EventScope } from './events.js'
 import { RoomEventLog } from './event-store.js'
+import { numberedName, splitName } from './attachments.js'
 import { attributeUpdate, relayHost } from './attribution.js'
 import {
   BlobDocStore,
@@ -696,16 +697,13 @@ export class MountSession {
       const map = this.folderDoc.getMap()
       const cut = clean.lastIndexOf('/')
       const dir = cut === -1 ? '' : clean.slice(0, cut)
-      const name = clean.slice(cut + 1)
-      const dot = name.lastIndexOf('.')
-      const stem = dot > 0 ? name.slice(0, dot) : name
-      const ext = dot > 0 ? name.slice(dot) : ''
+      const [stem, ext] = splitName(clean.slice(cut + 1))
       const taken = async (p: string): Promise<boolean> => {
         const entry = map.get(p)
         if (entry && !entry.deleted) return true
         return (await this.adapter.read(p)) !== null
       }
-      const nameFor = (n: number): string => (n === 0 ? clean : `${dir ? `${dir}/` : ''}${stem} ${n}${ext}`)
+      const nameFor = (n: number): string => `${dir ? `${dir}/` : ''}${numberedName(stem, ext, n)}`
       let target = ''
       for (let n = 0; ; n++) {
         const candidate = nameFor(n)

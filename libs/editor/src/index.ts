@@ -57,8 +57,6 @@ export {
   attachmentHost,
   attachmentMarkup,
   insertAttachments,
-  isAttachment,
-  isAttachmentType,
   pastedAttachments,
   type AttachmentGesture,
   type AttachmentHost,

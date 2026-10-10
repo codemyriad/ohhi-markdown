@@ -12,26 +12,29 @@ export { Highlight, highlightTag } from './highlight.js'
 export { Tag, tagTag } from './tag.js'
 export { splitWikiLink, WikiLink, wikiLinkMarkTag, wikiLinkTag, type WikiLinkParts } from './wikilink.js'
 export { wikiLinkExtensions, wikiLinkHost, type WikiLinkHost } from './wikilink-view.js'
-export {
-  FALLBACK_LINK_LABELS,
-  type LinkContext,
-  type LinkPopoverLabels,
-} from './link-completion-view.js'
-export type { LinkHeading, LinkMount } from './link-completion.js'
-export {
-  FALLBACK_REMOTE_IMAGE_LABELS,
-  type RemoteImageLabels,
-} from './read-host.js'
-export { imageSource, type ImageSource } from './preview/image.js'
+export type { LinkContext } from './link-completion-view.js'
+export { mountOf, shareName, type LinkHeading, type LinkMount } from './link-completion.js'
+export { cleanImageSrc, IMAGE_FILE, imageSource, type ImageSource } from './preview/image.js'
+export { isCalloutHeader, parseCalloutHeader, stripCalloutHeader } from './preview/callout.js'
+export { ancestorNamed, PARSE_BUDGET_MS, treeAt } from './tree.js'
 export { fenceLanguageCompletions, fenceLanguages } from './preview/fence-edit.js'
 export type { FenceLanguage } from './preview/fence.js'
 export { PROSE_BRACKETS, proseEditing, WRAP_CHARS, wrapSelection } from './editing.js'
 export {
+  FALLBACK_CALLOUT_LABELS,
+  FALLBACK_CODE_LABELS,
+  FALLBACK_LINK_LABELS,
+  FALLBACK_REMOTE_IMAGE_LABELS,
+  FALLBACK_TABLE_LABELS,
   previewMode,
   readHost,
+  type CalloutLabels,
+  type CodeLabels,
   type FrontmatterView,
+  type LinkPopoverLabels,
   type ReadHost,
   type ReadLabels,
+  type RemoteImageLabels,
   type TableLabels,
   type ViewMode,
 } from './read-host.js'

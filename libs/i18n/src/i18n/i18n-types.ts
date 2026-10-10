@@ -33,6 +33,28 @@ type RootTranslation = {
 		 * W​o​r​k​i​n​g​…
 		 */
 		working: string
+		/**
+		 * V​a​u​l​t​ ​r​o​o​t
+		 */
+		vault_root: string
+		keys: {
+			/**
+			 * ↵
+			 */
+			enter: string
+			/**
+			 * T​a​b
+			 */
+			tab: string
+			/**
+			 * E​s​c
+			 */
+			escape: string
+			/**
+			 * ?
+			 */
+			help: string
+		}
 	}
 }
 
@@ -911,10 +933,6 @@ export type NamespaceWebTranslation = {
 			group: string
 		}
 		/**
-		 * E​s​c
-		 */
-		escape: string
-		/**
 		 * l​e​a​v​e
 		 */
 		leave: string
@@ -923,14 +941,6 @@ export type NamespaceWebTranslation = {
 		 */
 		done: string
 		cue: {
-			/**
-			 * P​a​n​e​ ​m​o​d​e​ ​k​e​y​s
-			 */
-			label: string
-			/**
-			 * ?
-			 */
-			more_key: string
 			/**
 			 * k​e​y​s
 			 */
@@ -1067,10 +1077,6 @@ export type NamespaceWebTranslation = {
 			 */
 			create: RequiredParams<'query'>
 			/**
-			 * V​a​u​l​t​ ​r​o​o​t
-			 */
-			vault_root: string
-			/**
 			 * l​i​n​k
 			 */
 			hint_link: string
@@ -1082,18 +1088,6 @@ export type NamespaceWebTranslation = {
 			 * a​l​i​a​s
 			 */
 			hint_alias: string
-			/**
-			 * ↵
-			 */
-			key_enter: string
-			/**
-			 * T​a​b
-			 */
-			key_tab: string
-			/**
-			 * E​s​c
-			 */
-			key_escape: string
 		}
 		commands: {
 			/**
@@ -1410,10 +1404,6 @@ export type NamespaceWebTranslation = {
 		 * D​e​s​t​i​n​a​t​i​o​n
 		 */
 		destination: string
-		/**
-		 * (​v​a​u​l​t​ ​r​o​o​t​)
-		 */
-		vault_root: string
 		/**
 		 * E​v​e​r​y​t​h​i​n​g​ ​i​n​s​i​d​e​ ​i​s​ ​r​e​m​o​v​e​d​ ​f​o​r​ ​y​o​u​ ​a​n​d​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​i​t​.​ ​P​r​e​-​i​m​a​g​e​s​ ​a​r​e​ ​j​o​u​r​n​a​l​e​d​ ​a​n​d​ ​f​i​l​e​s​ ​c​a​n​ ​b​e​ ​r​e​s​t​o​r​e​d​.
 		 */
@@ -6370,6 +6360,28 @@ export type TranslationFunctions = {
 		 * Working…
 		 */
 		working: () => LocalizedString
+		/**
+		 * Vault root
+		 */
+		vault_root: () => LocalizedString
+		keys: {
+			/**
+			 * ↵
+			 */
+			enter: () => LocalizedString
+			/**
+			 * Tab
+			 */
+			tab: () => LocalizedString
+			/**
+			 * Esc
+			 */
+			escape: () => LocalizedString
+			/**
+			 * ?
+			 */
+			help: () => LocalizedString
+		}
 	}
 	web: {
 		shell: {
@@ -7190,10 +7202,6 @@ export type TranslationFunctions = {
 				group: () => LocalizedString
 			}
 			/**
-			 * Esc
-			 */
-			escape: () => LocalizedString
-			/**
 			 * leave
 			 */
 			leave: () => LocalizedString
@@ -7202,14 +7210,6 @@ export type TranslationFunctions = {
 			 */
 			done: () => LocalizedString
 			cue: {
-				/**
-				 * Pane mode keys
-				 */
-				label: () => LocalizedString
-				/**
-				 * ?
-				 */
-				more_key: () => LocalizedString
 				/**
 				 * keys
 				 */
@@ -7339,10 +7339,6 @@ export type TranslationFunctions = {
 				 */
 				create: (arg: { query: string }) => LocalizedString
 				/**
-				 * Vault root
-				 */
-				vault_root: () => LocalizedString
-				/**
 				 * link
 				 */
 				hint_link: () => LocalizedString
@@ -7354,18 +7350,6 @@ export type TranslationFunctions = {
 				 * alias
 				 */
 				hint_alias: () => LocalizedString
-				/**
-				 * ↵
-				 */
-				key_enter: () => LocalizedString
-				/**
-				 * Tab
-				 */
-				key_tab: () => LocalizedString
-				/**
-				 * Esc
-				 */
-				key_escape: () => LocalizedString
 			}
 			commands: {
 				/**
@@ -7665,10 +7649,6 @@ export type TranslationFunctions = {
 			 * Destination
 			 */
 			destination: () => LocalizedString
-			/**
-			 * (vault root)
-			 */
-			vault_root: () => LocalizedString
 			/**
 			 * Everything inside is removed for you and for everyone sharing it. Pre-images are journaled and files can be restored.
 			 */

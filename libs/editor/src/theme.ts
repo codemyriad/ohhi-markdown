@@ -96,11 +96,11 @@ const editorBaseTheme = EditorView.theme({
     backgroundColor: 'var(--ed-popover-bg)',
     color: 'var(--ed-popover-ink)',
     border: '1px solid var(--ed-popover-border)',
-    borderRadius: '8px',
+    borderRadius: 'var(--ed-card-radius)',
     boxShadow: 'var(--ed-popover-shadow)',
   },
   // --- the completion popover (editor-usability E1) -----------------------
-  // Dressed as the shell's Popover (8px radius, a base-300 hairline, base-100,
+  // Dressed as the shell's Popover (the card radius, a base-300 hairline, base-100,
   // shadow-xl) through --ed-popover-*, for `[[` links and `#` tags alike.
   // Compact rows: ~22px, icon · name (match bold in primary) · folder dim and
   // right-aligned on the same line. The link popover adds one-line group
@@ -109,7 +109,7 @@ const editorBaseTheme = EditorView.theme({
     backgroundColor: 'var(--ed-popover-bg)',
     color: 'var(--ed-popover-ink)',
     border: '1px solid var(--ed-popover-border)',
-    borderRadius: '8px',
+    borderRadius: 'var(--ed-card-radius)',
     boxShadow: 'var(--ed-popover-shadow)',
     overflow: 'hidden',
     fontFamily: 'var(--ed-font-ui)',
@@ -173,6 +173,7 @@ const editorBaseTheme = EditorView.theme({
     height: '13px',
     color: 'var(--ed-popover-faint)',
   },
+  '.cm-link-icon .cm-icon': { width: '100%', height: '100%' },
   '.cm-link-create .cm-link-icon, .cm-link-create .cm-completionLabel': {
     color: 'var(--ed-popover-match)',
   },
@@ -263,7 +264,7 @@ const editorBaseTheme = EditorView.theme({
 
   // --- code card and callouts (editor-usability E3) ------------------------
   // A fence is ONE card: every line carries the background and the side
-  // hairlines, the edges the top/bottom hairline and the 8px radius — on the
+  // hairlines, the edges the top/bottom hairline and the card radius — on the
   // header bar and the cap when they are drawn, on the fence line itself
   // (`cm-code-first` / `cm-code-last`) when the caret has made it text. Lines
   // and block widgets touch, so there is no seam between them.
@@ -277,13 +278,13 @@ const editorBaseTheme = EditorView.theme({
   },
   '.cm-code-first': {
     borderTop: '1px solid var(--ed-code-border)',
-    borderTopLeftRadius: '8px',
-    borderTopRightRadius: '8px',
+    borderTopLeftRadius: 'var(--ed-card-radius)',
+    borderTopRightRadius: 'var(--ed-card-radius)',
   },
   '.cm-code-last': {
     borderBottom: '1px solid var(--ed-code-border)',
-    borderBottomLeftRadius: '8px',
-    borderBottomRightRadius: '8px',
+    borderBottomLeftRadius: 'var(--ed-card-radius)',
+    borderBottomRightRadius: 'var(--ed-card-radius)',
   },
   '.cm-fence-line': {
     backgroundColor: 'var(--ed-code-block-bg)',
@@ -297,15 +298,15 @@ const editorBaseTheme = EditorView.theme({
     gap: '0.5rem',
     padding: '0.25rem 0.5rem 0.1rem 0.75rem',
     borderTop: '1px solid var(--ed-code-border)',
-    borderTopLeftRadius: '8px',
-    borderTopRightRadius: '8px',
+    borderTopLeftRadius: 'var(--ed-card-radius)',
+    borderTopRightRadius: 'var(--ed-card-radius)',
     fontFamily: 'var(--ed-font-ui)',
   },
   '.cm-fence-cap': {
     height: '0.5rem',
     borderBottom: '1px solid var(--ed-code-border)',
-    borderBottomLeftRadius: '8px',
-    borderBottomRightRadius: '8px',
+    borderBottomLeftRadius: 'var(--ed-card-radius)',
+    borderBottomRightRadius: 'var(--ed-card-radius)',
   },
   '.cm-fence-chip, .cm-fence-copy': {
     appearance: 'none',
@@ -326,11 +327,13 @@ const editorBaseTheme = EditorView.theme({
     backgroundColor: 'var(--ed-code-bg)',
     color: 'var(--ed-ink)',
   },
-  '.cm-fence-chip:focus-visible, .cm-fence-copy:focus-visible, .cm-callout-fold:focus-visible': {
-    outline: '2px solid var(--ed-caret)',
-    outlineOffset: '1px',
-  },
-  '.cm-fence-copied': { color: 'var(--ed-callout-success)' },
+  // The one focus ring of the buttons a widget owns (widgets.ts `claim`).
+  '.cm-fence-chip:focus-visible, .cm-fence-copy:focus-visible, .cm-callout-fold:focus-visible, .cm-embed-remote-load:focus-visible':
+    {
+      outline: '2px solid var(--ed-focus-ring)',
+      outlineOffset: '1px',
+    },
+  '.cm-fence-copied': { color: 'var(--ed-code-copied)' },
   '.cm-fence-lang': { textTransform: 'lowercase' },
   '.cm-fence-line .cm-icon, .cm-callout .cm-icon': {
     width: '1em',
@@ -342,11 +345,13 @@ const editorBaseTheme = EditorView.theme({
   // title row in the type's colour. `--cm-callout` is set per type and read
   // by the box, the border and the title alike, so a theme repaints a type
   // through its one `--ed-callout-*` token.
+  // Every callout line carries a `.cm-callout-type-*` class (an unknown type
+  // reads as note), so `--cm-callout` has no default here.
   '.cm-callout': {
-    '--cm-callout': 'var(--ed-callout-note)',
+    '--cm-callout-line': 'color-mix(in srgb, var(--cm-callout) 26%, transparent)',
     backgroundColor: 'color-mix(in srgb, var(--cm-callout) 9%, transparent)',
-    borderLeft: '1px solid color-mix(in srgb, var(--cm-callout) 26%, transparent)',
-    borderRight: '1px solid color-mix(in srgb, var(--cm-callout) 26%, transparent)',
+    borderLeft: '1px solid var(--cm-callout-line)',
+    borderRight: '1px solid var(--cm-callout-line)',
     color: 'var(--ed-ink)',
     // The body is a quote to the highlighter, which paints quote text muted;
     // a callout's body is normal ink, so the token is restated in the box.
@@ -366,15 +371,15 @@ const editorBaseTheme = EditorView.theme({
   '.cm-callout-type-example': { '--cm-callout': 'var(--ed-callout-example)' },
   '.cm-callout-type-quote': { '--cm-callout': 'var(--ed-callout-quote)' },
   '.cm-callout-first': {
-    borderTop: '1px solid color-mix(in srgb, var(--cm-callout) 26%, transparent)',
-    borderTopLeftRadius: '8px',
-    borderTopRightRadius: '8px',
+    borderTop: '1px solid var(--cm-callout-line)',
+    borderTopLeftRadius: 'var(--ed-card-radius)',
+    borderTopRightRadius: 'var(--ed-card-radius)',
     paddingTop: '0.3em',
   },
   '.cm-callout-last': {
-    borderBottom: '1px solid color-mix(in srgb, var(--cm-callout) 26%, transparent)',
-    borderBottomLeftRadius: '8px',
-    borderBottomRightRadius: '8px',
+    borderBottom: '1px solid var(--cm-callout-line)',
+    borderBottomLeftRadius: 'var(--ed-card-radius)',
+    borderBottomRightRadius: 'var(--ed-card-radius)',
     paddingBottom: '0.3em',
   },
   '.cm-callout-head': { color: 'var(--cm-callout)', fontWeight: '600', '--ed-quote-fg': 'var(--cm-callout)' },
@@ -479,16 +484,10 @@ const editorBaseTheme = EditorView.theme({
     '--ed-heading-weight': 'normal',
   },
   '.cm-list-num': { color: 'var(--ed-bullet)' },
-  // The task box (Chris's screenshot: WebKitGTK's native box, measured) — a
-  // 0.9em square (13px at 14.5px), 1px border, ~2px radius, no fill, its
-  // bottom ON the baseline (an inline-block with no text aligns its bottom
-  // edge there) and 0.5em to the text. Still a real <input type=checkbox>
-  // (its name, its role, the click code), drawn with `appearance: none` so it
-  // is the same box in every engine and in every theme's tokens. It takes the
-  // bullet's column: the negative lead pulls it left by what box + gap exceed
-  // the column, so a task's text starts where a sibling bullet's does. The
-  // right margin is 0.5em less the space after `]`, which stays text (0.243em
-  // in Public Sans, as `.cm-bullet-open`).
+  // The task box: a real <input type=checkbox> drawn with `appearance: none`
+  // (the same 0.9em square in every engine), its bottom on the baseline, in
+  // the bullet's column — the negative lead lines a task's text up with a
+  // sibling bullet's; the right margin is 0.5em less the space after `]`.
   '.cm-task': {
     appearance: 'none',
     WebkitAppearance: 'none',
@@ -590,7 +589,6 @@ const editorBaseTheme = EditorView.theme({
     padding: '0.1em 0.5em',
     cursor: 'pointer',
   },
-  '.cm-embed-remote-load:focus-visible': { outline: '2px solid var(--ed-drop-border)', outlineOffset: '1px' },
   '.cm-drop-overlay': {
     position: 'absolute',
     inset: '6px',
@@ -602,7 +600,7 @@ const editorBaseTheme = EditorView.theme({
     gap: '0.25em',
     border: '2px dashed var(--ed-drop-border)',
     backgroundColor: 'var(--ed-drop-bg)',
-    borderRadius: 'var(--ed-drop-radius)',
+    borderRadius: 'var(--ed-card-radius)',
     color: 'var(--ed-drop-ink)',
     fontFamily: 'var(--ed-font-ui)',
     pointerEvents: 'none',

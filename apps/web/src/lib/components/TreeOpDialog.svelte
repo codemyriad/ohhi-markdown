@@ -83,7 +83,7 @@
           class="mt-1 w-full rounded border border-base-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
         >
           {#each targets as d (d)}
-            <option value={d}>{d === '' ? t.vault_root() : d}</option>
+            <option value={d}>{d === '' ? $LL.common.vault_root() : d}</option>
           {/each}
         </select>
       </label>

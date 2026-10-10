@@ -153,8 +153,9 @@ is data**: `RAIL_SECTIONS` (`lib/layout.ts`, `links`,
 `DockPanel`. Agent-facing reference: `docs/customising.md`.
 **The tab strip's end buttons are data too**: `bars.tabs` (command ids;
 default `workspace.split-right`, `workspace.split-down`) drawn by
-`StripCommands.svelte` from the registry, an icon per id in `STRIP_ICONS`
-(an id without one is skipped with one warning) — faint until hovered or
+`StripCommands.svelte` from the registry, an icon per id in `COMMAND_ICONS`
+(`lib/command-icons.ts`, the one icon table the format bar, its Settings
+picker and the strip all read; an id without one is skipped with one warning) — faint until hovered or
 focused, hidden in a strip under 36rem (a container query on the strip). **The
 format bar is one row that never wraps** (`FormatBar.svelte`): it scrolls
 sideways with a mask fade at whichever end has more, the wheel mapped to
@@ -542,20 +543,36 @@ manager, the remote carets and `git diff` never see it
 - **Class names are `cm-*`, and every colour is a token.** The rules live in
   `libs/editor/src/theme.ts` and read `--ed-*` only — `docs/theming.md` lists
   the `(V2e)` entries and what reads each. A new construct usually needs no
-  new token; if it does, the contract file and its test come first.
+  new token; if it does, the contract file and its test come first. A token
+  whose value derives from DaisyUI's colours (`--ed-popover-*`, `--ed-drop-*`,
+  `--ed-task-done-*`) lives **only in `_contract.css`** — a built-in theme
+  restates a token only when its value differs (Nord's done-task grey). Every
+  card the editor draws (code card, callout, popover, table hint, drop
+  target) takes `--ed-card-radius`; every button a widget owns takes the one
+  `--ed-focus-ring` rule; a state gets a semantic token (`--ed-code-copied`)
+  rather than borrowing another construct's.
 - **A button inside a widget owns its press** (the fence's language chip and
   *Copy*, the callout fold, a remote image's *Load image*): `mousedown`
   `preventDefault()`s so the caret does not move — a moved caret changes the
   active region and tears the widget down under the pointer — and `click`
-  (Enter / Space too, it is a real `<button>`) runs the action; the widget's
-  `ignoreEvent` returns true for events from inside a `button` and lets the
-  rest through, so a press elsewhere on the widget still puts the caret there.
-  `claim(button, run)` in `preview/code-widgets.ts` is the pattern (the
-  other widgets restate it today; one shared helper is the fix-round plan).
+  (Enter / Space too, it is a real `<button>`) runs the action — that is
+  `claim(button, run)`, exported once from `preview/widgets.ts` and used by
+  the code card, callouts, the table hint and the remote image. Every widget
+  extends `ReadWidget` (mousedown and click reach the editor, nothing else);
+  one with its own buttons answers `ownsEvent(event, selector) ||
+  super.ignoreEvent(event)`, so a press elsewhere on it still puts the caret
+  there. A picture drawn from a `blob:` URL extends `BlobWidget`, which
+  revokes the URL when the widget goes.
 - **Icons in decorations come from `preview/icons.ts`**: lucide's own node
   lists restated as data (decoration code runs outside Svelte, so no
-  `@lucide/svelte`), `aria-hidden`, `currentColor`. Add an icon there, never
-  an inline SVG path in a widget.
+  `@lucide/svelte`), `aria-hidden`, `currentColor` — the widgets' and the link
+  popover's rows alike. Add an icon there, never an inline SVG path in a
+  widget.
+- **Widget copy travels as nested label groups** on `ReadHost.labels`
+  (`code`, `callout`, `table`, `remoteImage`, `linkPopover`), each optional
+  with an English `FALLBACK_*` exported from `@ohhi/editor-lang`. The shell
+  builds them in ONE place, `editorLabels()` in `lib/read.svelte.ts`, which
+  `Pane.svelte` hands to both hosts (`wikiLinkHost` takes `.linkPopover`).
 - **The link popover is a CM6 autocomplete tooltip, not a `ui/` overlay** —
   the one exception to "overlays come from `apps/web/src/lib/ui/`". Its rules
   (scope per fork A2, ranking, what a pick writes and where the caret lands,
@@ -566,8 +583,9 @@ manager, the remote carets and `git diff` never see it
   `ui/Popover`). Every completion source registers in the single `override`
   array in `wikilink-view.ts`.
 - **Paste and drop of pictures go through the `attachmentHost` Facet**
-  (`libs/editor/src/attachments.ts`): the editor notices image / PDF files,
-  hands them to the host, and inserts what it answers (`![[x.png]]`,
+  (`libs/editor/src/attachments.ts`): the editor notices the files the host
+  `accepts` (libs/workspace's `isAttachmentFile` — the editor keeps no type
+  table of its own), hands them to the host, and inserts what it answers (`![[x.png]]`,
   `[[x.pdf]]`) in one transaction; without a host, CM6's own paste and drop
   run. Placement and naming are pure in `libs/workspace/src/attachments.ts`
   (Obsidian's `attachmentFolderPath`, the share keeps its pictures), the write

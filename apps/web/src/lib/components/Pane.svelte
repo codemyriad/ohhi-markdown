@@ -24,17 +24,15 @@
     wikiLinkHost,
     type LinkHeading,
     type LinkMount,
-    type LinkPopoverLabels,
     type WikiLinkHost,
   } from '@ohhi/editor-lang'
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { getLL } from '@ohhi/i18n'
   import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
   import { activeTab, panes as panesOf, type Group, type Pane, type Tab, type ViewMode } from '../panes.js'
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
-  import { loadRemoteImage, openExternal, readLabels } from '../read.svelte.js'
+  import { editorLabels, loadRemoteImage, openExternal } from '../read.svelte.js'
   import { createAttachmentHost } from '../attachment-host.js'
   import { noteStatus } from '../readout-state.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
@@ -134,23 +132,6 @@
    * change, which is an infinite loop. The facet keeps host behaviour out of
    * the props for the same reason; this keeps it out of the dependencies.
    */
-  /** The link popover's copy (E1): CM6 has no `$LL`, so the host hands it down. */
-  function linkPopoverLabels(): LinkPopoverLabels {
-    const t = getLL().web.read.link_popover
-    return {
-      scope: (mount) => t.scope({ mount }),
-      others: t.others(),
-      othersTitle: t.others_title(),
-      create: (query) => t.create({ query }),
-      vaultRoot: t.vault_root(),
-      hintLink: t.hint_link(),
-      hintHeading: t.hint_heading(),
-      hintAlias: t.hint_alias(),
-      keyEnter: t.key_enter(),
-      keyTab: t.key_tab(),
-      keyEscape: t.key_escape(),
-    }
-  }
   const linkHost: WikiLinkHost = {
     resolve: (target) => untrack(() => resolveLink(target, path ?? undefined)),
     // Following a link is the ONE in-place navigation (B5): it stays in this
@@ -163,9 +144,9 @@
     context: () =>
       untrack(() => ({ path: path ?? null, ...(linkContext?.() ?? { mounts: [], recents: [] }) })),
     headings: (target) => untrack(() => linkHeadings?.(target) ?? Promise.resolve([])),
-    // A getter, as `readLabels` is: a locale switch reaches the popover.
+    // A getter, as the note host's is: a locale switch reaches the popover.
     get labels() {
-      return untrack(linkPopoverLabels)
+      return untrack(editorLabels).linkPopover
     },
   }
   /**
@@ -183,9 +164,9 @@
     searchTag: (tag: string) => untrack(() => searchTag(tag)),
     tags: () => untrack(() => tags()),
     // A getter, not a value: the copy is read when a decoration is built, so a
-    // locale switch reaches the widgets (see `readLabels`).
+    // locale switch reaches the widgets (see `editorLabels`).
     get labels() {
-      return untrack(readLabels)
+      return untrack(editorLabels)
     },
     // The strip's reader: the same parser the index and the CLI use, so the
     // chips at the top of a note agree with `tag:#x` search by construction.

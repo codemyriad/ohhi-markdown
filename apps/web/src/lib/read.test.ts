@@ -15,7 +15,7 @@ import {
   imageCandidates,
   openExternal,
   readCommands,
-  readLabels,
+  editorLabels,
   readState,
   setDefaultMode,
   tagQuery,
@@ -263,15 +263,18 @@ describe('imageCandidates — `![alt](src)` (E5)', () => {
   })
 })
 
-describe('readLabels (what CM6 prints)', () => {
+describe('editorLabels (what CM6 prints)', () => {
   it('is the dictionary, not English in the decoration code', () => {
-    const labels = readLabels()
+    const labels = editorLabels()
     expect(labels.missingAttachment).toBe(LL.web.read.missing_attachment())
     expect(labels.task).toBe(LL.web.read.task())
     expect(labels.frontmatterUnsupported).toBe(LL.web.read.frontmatter_unsupported())
     // The plural is the host's, because CM6 cannot reach a formatter.
     expect(labels.properties(1)).toBe(LL.web.read.properties({ count: 1 }))
     expect(labels.properties(4)).toBe(LL.web.read.properties({ count: 4 }))
+    expect(labels.code?.copy).toBe(LL.web.read.code_block.copy())
+    expect(labels.linkPopover.vaultRoot).toBe(LL.common.vault_root())
+    expect(labels.linkPopover.keyEscape).toBe(LL.common.keys.escape())
   })
 })
 

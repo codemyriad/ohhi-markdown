@@ -13,7 +13,8 @@ import { Facet, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { tagCompletions } from './preview/completion.js'
 import { fenceLanguageCompletions } from './preview/fence-edit.js'
-import { linkCompletions, linkPopover, type LinkContext, type LinkPopoverLabels } from './link-completion-view.js'
+import { linkCompletions, linkPopover, type LinkContext } from './link-completion-view.js'
+import type { LinkPopoverLabels } from './read-host.js'
 import type { LinkHeading } from './link-completion.js'
 
 /** What the host lets the editor do with a link target. */

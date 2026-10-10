@@ -24,11 +24,11 @@
    * Every `toolbar:format.*`, `toolbar-format*` and `toolbar-menu:*` testid
    * is the toolbar's, kept; the pill is `format-bar`, with `data-position`.
    */
-  import { ChevronDown, Heading, Type, type LucideIcon } from '@lucide/svelte'
+  import { ChevronDown, Type, type LucideIcon } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { TOOLBAR_ITEM_IDS } from '../command-ids.js'
-  import { FORMAT_ICONS } from '../format-icons.js'
+  import { COMMAND_ICONS, PARAGRAPH_STYLE_ICON } from '../command-icons.js'
   import type { CommandRegistry } from '../commands.js'
   import { SEPARATOR } from '../layout-spec.js'
   import { focusedOf } from '../readout-state.js'
@@ -51,9 +51,6 @@
 
   let { ids, edge, ctx, registry }: Props = $props()
 
-  /** The icon each format command is drawn with. A command id with none here is not a format button. */
-  const ICONS = FORMAT_ICONS
-
   /** The one grouped entry (Fork 4's "paragraph style"): a menu of the block styles. */
   const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
   const STYLE_IDS = ['format.paragraph', 'format.heading-1', 'format.heading-2', 'format.heading-3', 'format.quote']
@@ -65,7 +62,7 @@
 
   function commandEntry(id: string, key: string): Extract<Entry, { kind: 'command' }> | null {
     const command = registry.get(id)
-    const icon = ICONS[id]
+    const icon = COMMAND_ICONS[id]
     if (!command || !icon) return null
     return { kind: 'command', key, id, title: command.title, binding: registry.binding(id), icon }
   }
@@ -254,7 +251,7 @@
         onmousedown={keepEditorFocus}
         class="flex items-center rounded p-1 text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
       >
-        <Heading size={16} strokeWidth={1.75} aria-hidden="true" />
+        <PARAGRAPH_STYLE_ICON size={16} strokeWidth={1.75} aria-hidden="true" />
         <ChevronDown size={12} aria-hidden="true" />
       </button>
     {/snippet}

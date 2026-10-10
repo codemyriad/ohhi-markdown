@@ -19,7 +19,8 @@
   import { melt } from '@melt-ui/svelte'
   import { Undo2 } from '@lucide/svelte'
   import type { CommandRegistry } from '../commands.js'
-  import { FORMAT_ICONS, PARAGRAPH_STYLE_ICON } from '../format-icons.js'
+  import { COMMAND_ICONS, PARAGRAPH_STYLE_ICON } from '../command-icons.js'
+  import { TOOLBAR_ITEM_IDS } from '../command-ids.js'
   import {
     barOverridden,
     hideAt,
@@ -49,15 +50,18 @@
   const shownKeys = $derived(pillKeys(rows.shown))
   const overridden = $derived(barOverridden(layout.overrides))
 
+  /** The one grouped entry (`TOOLBAR_ITEM_IDS`): the paragraph-style menu. */
+  const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
+
   /** A pill's name: the dictionary's command title, the registry's for anything else. */
   function nameOf(id: string): string {
     if (id === SEPARATOR) return t.separator()
-    if (id === 'format.paragraph-style') return $LL.web.toolbar.paragraph_style()
+    if (id === PARAGRAPH_STYLE) return $LL.web.toolbar.paragraph_style()
     const words = $LL.web.commands.format as unknown as Record<string, (() => string) | undefined>
     return words[id.slice('format.'.length).replace(/-/g, '_')]?.() ?? registry?.get(id)?.title ?? id
   }
   const iconOf = (id: string): LucideIcon | null =>
-    id === 'format.paragraph-style' ? PARAGRAPH_STYLE_ICON : (FORMAT_ICONS[id] ?? null)
+    id === PARAGRAPH_STYLE ? PARAGRAPH_STYLE_ICON : (COMMAND_ICONS[id] ?? null)
 
   /** What a screen reader hears after a change made from a pill's menu. */
   let announce = $state('')

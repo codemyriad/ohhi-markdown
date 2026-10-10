@@ -23,7 +23,14 @@ import type { EditorState, Line, Range } from '@codemirror/state'
 import { Decoration, type DecorationSet, type WidgetType } from '@codemirror/view'
 import type { SyntaxNode, SyntaxNodeRef, Tree } from '@lezer/common'
 import { FM_CLOSE, FM_MAX_LINES, FM_OPEN } from '../frontmatter-block.js'
-import { previewMode, readHost, type ReadHost, type ViewMode } from '../read-host.js'
+import {
+  FALLBACK_CALLOUT_LABELS,
+  FALLBACK_CODE_LABELS,
+  previewMode,
+  readHost,
+  type ReadHost,
+  type ViewMode,
+} from '../read-host.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { activeSpans, inActiveRegion, markerSelected, type Span } from './active-lines.js'
 import * as cls from './classes.js'
@@ -31,14 +38,14 @@ import { extractInline } from './inline-dom.js'
 import { calloutCollapsed, parseCalloutHeader, type CalloutType } from './callout.js'
 import { calloutFolds } from './callout-fold.js'
 import { calloutClass, CalloutFoldedWidget, CalloutHeaderWidget } from './callout-widgets.js'
-import { imageParts, imageSource, notLoadedTitle, RemoteImageWidget } from './image.js'
+import { FenceWidget } from './code-widgets.js'
+import { IMAGE_FILE, imageParts, imageSource, notLoadedTitle, RemoteImageWidget } from './image.js'
 import { alignOf, splitRow } from './table-ops.js'
 import { provisionalBullet, SETEXT_PROVISIONAL } from './setext.js'
 import {
   BulletWidget,
   CheckboxWidget,
   EmbedWidget,
-  FenceWidget,
   FrontmatterStripWidget,
   RuleWidget,
   TableWidget,
@@ -110,8 +117,6 @@ const EMPHASIS = new Set(['StrongEmphasis', 'Emphasis', 'Strikethrough', 'Highli
 const HTML = new Set(['HTMLBlock', 'HTMLTag', 'Comment', 'CommentBlock', 'ProcessingInstruction'])
 /** `^abc123` at the end of a block. Dim, never resolved (D8). */
 const BLOCK_ID_RE = /(?:^|\s)(\^[A-Za-z0-9-]+)[ \t]*$/
-/** Embeddable pictures — the set `attachmentType` in apps/web can name. */
-const IMAGE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
 
 /**
  * Every decoration for the whole document. The one-shot form: what the tests
@@ -398,14 +403,10 @@ class Builder {
   }
 
   /**
-   * Off the caret's line the `> ` is hidden; on it, it is text again — and
-   * text in the flow would push the line's words right by its width. So a
-   * revealed run of markers at the start of a line is marked to HANG: the
-   * theme takes it out of the flow and sets it left of where the text starts,
-   * so the words stay put and the caret mapping is the plain text's (it is
-   * still the document's own characters, not a widget). Only in Live, only at
-   * the line's start (a `>` after a list marker stays in the flow), and only
-   * with text after it: a line that is nothing but `>` keeps its height.
+   * Off the caret's line the `> ` is hidden. On it, a revealed run at the
+   * line's start is marked to HANG (theme.ts sets it out of the flow, left of
+   * the text), so the words do not move. Live only, and only with text after
+   * it: a line that is nothing but `>` keeps its height.
    */
   private quoteMark(node: SyntaxNodeRef): void {
     const l = this.doc.lineAt(node.from)
@@ -449,7 +450,7 @@ class Builder {
         first,
         new FenceWidget(
           info ? this.doc.sliceString(info.from, info.to) : '',
-          this.host.labels,
+          this.host.labels.code ?? FALLBACK_CODE_LABELS,
           this.mode !== 'reading'
         )
       )
@@ -507,7 +508,7 @@ class Builder {
           header.title,
           header.fold === null ? null : folded,
           closesAtHead,
-          this.host.labels
+          this.host.labels.callout ?? FALLBACK_CALLOUT_LABELS
         )
       )
     }
@@ -728,7 +729,7 @@ class Builder {
     // placeholder over a file that is right there is a lie. Both stay as the
     // text they are. (The vault's 14 embeds are all .png; the media types for
     // the same set live in apps/web's `attachmentType`.)
-    if (!IMAGE.test(name)) return this.rawWikiLink(node)
+    if (!IMAGE_FILE.test(name)) return this.rawWikiLink(node)
     const l = this.doc.lineAt(node.from)
     // An embed on a line of its own becomes a block; one inside a sentence
     // stays in the sentence, because a block widget may not split a line.

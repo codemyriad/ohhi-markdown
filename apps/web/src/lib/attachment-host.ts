@@ -15,11 +15,14 @@
  * implies the collaborators have it.
  */
 import type { AttachmentGesture, AttachmentHost, SavedAttachment } from '@ohhi/editor'
+import { mountOf, shareName } from '@ohhi/editor-lang'
 import { getLL } from '@ohhi/i18n'
 import {
   attachmentFolder,
   attachmentLinkText,
+  extensionForType,
   extensionOf,
+  isAttachmentFile,
   isImageExtension,
   placeAttachment,
 } from '@ohhi/workspace'
@@ -47,16 +50,6 @@ export async function loadAttachmentFolderSetting(
   }
 }
 
-/** The shared folder (mount root) a path is inside, deepest first; '' when none. */
-export function mountOf(path: string, mounts: readonly { path: string }[]): string {
-  let best = ''
-  for (const { path: root } of mounts) {
-    if (!root) continue
-    if ((path === root || path.startsWith(`${root}/`)) && root.length > best.length) best = root
-  }
-  return best
-}
-
 export interface AttachmentHostDeps {
   workspace(): Workspace | null
   /** The pane's note right now (the tab can change under a live view). */
@@ -75,10 +68,14 @@ export function createAttachmentHost(deps: AttachmentHostDeps): AttachmentHost {
 
   const scope = (ws: Workspace, note: string) => ({
     notePath: note,
-    mountPath: mountOf(note, ws.ui.mounts),
+    mountPath: mountOf(note, ws.ui.mounts)?.path ?? '',
   })
 
   return {
+    // libs/workspace's rule, the one `writeAttachment` holds the bytes to.
+    accepts: (file) => isAttachmentFile(file.name, file.type),
+    acceptsType: (type) => extensionForType(type) !== '',
+
     dropLabels(count) {
       const t = getLL().web.attachments
       const ws = deps.workspace()
@@ -128,8 +125,7 @@ export function createAttachmentHost(deps: AttachmentHostDeps): AttachmentHost {
       if (!ws || !note || saved.length === 0) return
       const mount = mountOf(note, ws.ui.mounts)
       if (!mount) return
-      const share = mount.slice(mount.lastIndexOf('/') + 1)
-      ws.flash({ level: 'info', text: getLL().web.attachments.shared_notice({ share }), path: note })
+      ws.flash({ level: 'info', text: getLL().web.attachments.shared_notice({ share: shareName(mount.path) }), path: note })
     },
   }
 }

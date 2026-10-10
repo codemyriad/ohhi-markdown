@@ -63,14 +63,7 @@
     --ed-bold: #0d1117;
     --ed-italic: #333c47;
 
-    /* --- tasks (editor-usability E2): the checked box fills with the box's
-     * own colour; a done task's text is the faint ink, lightly struck. */
-    --ed-task-done-fg: var(--ed-ink-faint);
-    --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
-
-    /* --- callouts (editor-usability E3): this theme's nine type colours;
-     * info / todo / abstract / failure follow note / tip / danger through
-     * the contract. */
+    /* --- callouts (E3): the nine type colours (see the contract) --- */
     --ed-callout-note: #1d7f9c;
     --ed-callout-tip: #0f6e63;
     --ed-callout-success: #4a7a2e;

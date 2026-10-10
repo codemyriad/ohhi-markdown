@@ -214,7 +214,7 @@ interface AppConfigV2 {
    */
   drawerSeen?: Record<string, number>
   /**
-   * How the pane mode shows its keys (E6, Settings › Layout › Hints):
+   * How the pane mode shows its keys (E6, Settings › Layout › Pane keys):
    * `subtle` (the default) — one quiet line in the focused pane's corner,
    * above the word count; `full` — the whole key bar along the bottom;
    * `off` — the mode's badge alone. Device-level: it is about this screen.

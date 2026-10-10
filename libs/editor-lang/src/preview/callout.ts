@@ -135,6 +135,19 @@ export function parseCalloutHeader(line: string): CalloutHeader | null {
   }
 }
 
+/** Does this line open a callout? */
+export function isCalloutHeader(line: string): boolean {
+  return HEADER.test(line)
+}
+
+/** The markup before a callout's title: the quote marker, `[!type]`, the fold sign and one space. */
+const HEADER_MARKUP = /^[ \t]*>[ \t]?\[![A-Za-z0-9_-]+\][-+]?[ \t]?/
+
+/** A callout's header line with its markup taken off — what is left is its title (or nothing). */
+export function stripCalloutHeader(line: string): string {
+  return isCalloutHeader(line) ? line.replace(HEADER_MARKUP, '') : line
+}
+
 /**
  * Is a foldable callout collapsed? The view's own choice wins (the chevron),
  * then the marker: `-` starts collapsed, `+` and no marker start open.

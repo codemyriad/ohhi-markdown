@@ -118,8 +118,11 @@ export {
   extensionOf,
   isAttachmentFile,
   isImageExtension,
+  normalizePath,
+  numberedName,
   pasteStamp,
   placeAttachment,
+  splitName,
   type AttachmentPlacement,
   type AttachmentPlacementInput,
 } from './attachments.js'

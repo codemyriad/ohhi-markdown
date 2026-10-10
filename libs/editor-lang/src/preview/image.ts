@@ -8,11 +8,16 @@
  * tooltip says the picture was not loaded.
  */
 import type { SyntaxNode } from '@lezer/common'
-import { WidgetType } from '@codemirror/view'
 import { FALLBACK_REMOTE_IMAGE_LABELS, type ReadHost } from '../read-host.js'
+import { BlobWidget, claim, ownsEvent } from './widgets.js'
 
-/** Embeddable pictures — the set `attachmentType` in apps/web can name. */
-const IMAGE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
+/** Embeddable pictures, by file name — `![[x.png]]` and `![](x.png)` alike. */
+export const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
+
+/** A `src` as written, without its whitespace or the `<…>` a path with spaces may wear. */
+export function cleanImageSrc(src: string): string {
+  return src.trim().replace(/^<(.*)>$/, '$1')
+}
 
 /** What an image's `src` is to the renderer. */
 export type ImageSource =
@@ -25,19 +30,19 @@ export type ImageSource =
 
 /** Classify a `src` as written in the note. Pure. */
 export function imageSource(src: string): ImageSource {
-  const url = src.trim().replace(/^<(.*)>$/, '$1')
+  const url = cleanImageSrc(src)
   if (!url) return 'none'
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url)?.[1]?.toLowerCase()
   if (scheme === 'http' || scheme === 'https') return 'remote'
   if (scheme || url.startsWith('//')) return 'none'
   const path = url.split('?')[0]!.split('#')[0]!
-  return IMAGE.test(path) ? 'local' : 'none'
+  return IMAGE_FILE.test(path) ? 'local' : 'none'
 }
 
 /** The host part of a remote `src`, for the placeholder ('' if it does not parse). */
 export function imageHost(src: string): string {
   try {
-    return new URL(src.trim().replace(/^<(.*)>$/, '$1')).host
+    return new URL(cleanImageSrc(src)).host
   } catch {
     return ''
   }
@@ -80,10 +85,7 @@ export function imageParts(node: SyntaxNode, slice: (from: number, to: number) =
  * fetches them within the app's own policy and answers null when refused — and
  * a refusal says so, in place, rather than drawing a broken image.
  */
-export class RemoteImageWidget extends WidgetType {
-  private url: string | null = null
-  private dead = false
-
+export class RemoteImageWidget extends BlobWidget {
   constructor(
     readonly src: string,
     readonly alt: string,
@@ -109,8 +111,7 @@ export class RemoteImageWidget extends WidgetType {
     button.type = 'button'
     button.className = 'cm-embed-remote-load'
     button.textContent = labels.load
-    button.addEventListener('click', (event) => {
-      event.preventDefault()
+    claim(button, () => {
       button.disabled = true
       const refused = (): void => {
         if (this.dead) return
@@ -122,10 +123,7 @@ export class RemoteImageWidget extends WidgetType {
       void load(this.src).then((blob) => {
         if (this.dead) return
         if (!blob) return refused()
-        this.url = URL.createObjectURL(blob)
-        const img = document.createElement('img')
-        img.src = this.url
-        img.alt = this.alt
+        const img = this.image(blob, this.alt)
         img.addEventListener('error', refused)
         wrap.replaceChildren(img)
         wrap.classList.remove('cm-embed-remote')
@@ -137,14 +135,6 @@ export class RemoteImageWidget extends WidgetType {
 
   /** The button is the widget's own; every other event belongs to the editor (clicks.ts). */
   override ignoreEvent(event: Event): boolean {
-    const target = event.target as HTMLElement | null
-    if (target?.closest?.('.cm-embed-remote-load')) return true
-    return !(event.type === 'mousedown' || event.type === 'click')
-  }
-
-  override destroy(): void {
-    this.dead = true
-    if (this.url) URL.revokeObjectURL(this.url)
-    this.url = null
+    return ownsEvent(event, '.cm-embed-remote-load') || super.ignoreEvent(event)
   }
 }

@@ -14,6 +14,7 @@
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { paneHints } from '../pane-hints.svelte.js'
+  import { KBD } from '../ui/styles.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
   interface Props {
@@ -43,16 +44,12 @@
     </span>
     {#each panes.hints() as hint (hint.key)}
       <span class="inline-flex items-center gap-1.5 whitespace-nowrap {hint.sub ? 'text-base-content' : ''}">
-        <kbd class="rounded border border-base-300 border-b-2 bg-base-200 px-1.5 font-ed-mono text-[10px]">
-          {hint.key}
-        </kbd>
+        <kbd class={KBD}>{hint.key}</kbd>
         {hint.label}
       </span>
     {/each}
     <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <kbd class="rounded border border-base-300 border-b-2 bg-base-200 px-1.5 font-ed-mono text-[10px]">
-        {t.escape()}
-      </kbd>
+      <kbd class={KBD}>{$LL.common.keys.escape()}</kbd>
       {panes.escapeLabel()}
     </span>
   </div>

@@ -11,8 +11,9 @@
  * one module owns the preference, Settings writes through it, and nothing
  * else reads config for it.
  */
-import type { ReadLabels } from '@ohhi/editor-lang'
+import { cleanImageSrc, type ReadLabels } from '@ohhi/editor-lang'
 import { getLL } from '@ohhi/i18n'
+import { ATTACHMENT_EXTENSIONS, normalizePath } from '@ohhi/workspace'
 import type { Command } from './commands.js'
 import { readPrefs, setReadPrefs } from './config.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'
@@ -110,29 +111,30 @@ export function readCommands(a: ReadActions): Command[] {
 // ---- the host services (B2.2, B2.3, B5) ----
 
 /**
- * The strings CM6's widgets print: decoration code has no `$LL`, so the copy
- * travels down with the rest of the host (the `ReadHost` contract). Read at
- * the point of use, so a locale switch reaches the next decoration build.
+ * The strings CM6 prints — the widgets' and the link popover's: decoration
+ * code has no `$LL`, so the copy travels down with the hosts (`readHost`'s
+ * labels; `wikiLinkHost` takes the `linkPopover` group). Read at the point of
+ * use, so a locale switch reaches the next decoration build.
  */
-export function readLabels(): ReadLabels {
-  const t = getLL().web.read
-  const a = getLL().web.attachments
+export function editorLabels(): ReadLabels & { linkPopover: NonNullable<ReadLabels['linkPopover']> } {
+  const LL = getLL()
+  const t = LL.web.read
+  const a = LL.web.attachments
+  const keys = LL.common.keys
   return {
     missingAttachment: t.missing_attachment(),
     task: t.task(),
     properties: (count) => t.properties({ count }),
     frontmatterUnsupported: t.frontmatter_unsupported(),
-    remoteImage: {
-      from: (host) => a.remote_from({ host }),
-      load: a.remote_load(),
-      failed: (host) => a.remote_failed({ host }),
-      notLoaded: a.remote_not_loaded(),
+    code: {
+      copy: t.code_block.copy(),
+      copied: t.code_block.copied(),
+      language: (lang) => t.code_block.language({ lang }),
+      plain: t.code_block.plain(),
     },
-    copyCode: t.code_block.copy(),
-    codeCopied: t.code_block.copied(),
-    codeLanguage: (lang) => t.code_block.language({ lang }),
-    codePlain: t.code_block.plain(),
-    toggleCallout: (title) => t.callout.toggle({ title }),
+    callout: {
+      toggle: (title) => t.callout.toggle({ title }),
+    },
     table: {
       toolbar: t.table_hint.toolbar(),
       nextCell: t.table_hint.next_cell(),
@@ -141,6 +143,25 @@ export function readLabels(): ReadLabels {
       addRow: t.table_hint.add_row(),
       addColumn: t.table_hint.add_column(),
       align: t.table_hint.align(),
+    },
+    remoteImage: {
+      from: (host) => a.remote_from({ host }),
+      load: a.remote_load(),
+      failed: (host) => a.remote_failed({ host }),
+      notLoaded: a.remote_not_loaded(),
+    },
+    linkPopover: {
+      scope: (mount) => t.link_popover.scope({ mount }),
+      others: t.link_popover.others(),
+      othersTitle: t.link_popover.others_title(),
+      create: (query) => t.link_popover.create({ query }),
+      vaultRoot: LL.common.vault_root(),
+      hintLink: t.link_popover.hint_link(),
+      hintHeading: t.link_popover.hint_heading(),
+      hintAlias: t.link_popover.hint_alias(),
+      keyEnter: keys.enter(),
+      keyTab: keys.tab(),
+      keyEscape: keys.escape(),
     },
   }
 }
@@ -244,7 +265,7 @@ export function imageCandidates(
   fromPath?: string | null,
   known: readonly string[] = []
 ): string[] {
-  let path = src.trim().replace(/^<(.*)>$/, '$1')
+  let path = cleanImageSrc(src)
   if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('//')) return []
   try {
     path = decodeURI(path)
@@ -256,15 +277,8 @@ export function imageCandidates(
   if (!segs.includes('..')) return attachmentCandidates(path, fromPath, known)
   if (path.startsWith('/') || path.includes('\\')) return []
   const cut = fromPath ? fromPath.lastIndexOf('/') : -1
-  const out = cut > 0 ? fromPath!.slice(0, cut).split('/') : []
-  for (const seg of segs) {
-    if (seg === '' || seg === '.') continue
-    if (seg === '..') {
-      if (out.length === 0) return []
-      out.pop()
-    } else out.push(seg)
-  }
-  return out.length ? [out.join('/')] : []
+  const resolved = normalizePath(cut > 0 ? `${fromPath!.slice(0, cut)}/${path}` : path)
+  return resolved ? [resolved] : []
 }
 
 /**
@@ -296,20 +310,10 @@ export async function loadRemoteImage(url: string): Promise<Blob | null> {
 /**
  * The media type for a Blob built from an attachment's bytes. The adapter
  * reads bytes and knows nothing about them; `<img src>` needs the type, and a
- * wrong one shows a broken image rather than a picture.
+ * wrong one shows a broken image rather than a picture. libs/workspace's
+ * table, the one a paste or drop writes by.
  */
-const MEDIA_TYPES: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  avif: 'image/avif',
-  bmp: 'image/bmp',
-  svg: 'image/svg+xml',
-}
-
 export function attachmentType(path: string): string {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  return MEDIA_TYPES[ext] ?? ''
+  return Object.hasOwn(ATTACHMENT_EXTENSIONS, ext) ? ATTACHMENT_EXTENSIONS[ext]! : ''
 }

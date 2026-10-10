@@ -35,7 +35,10 @@ export interface FrontmatterView {
 
 /**
  * Copy a widget cannot reach through $LL: CM6 runs outside Svelte, so the
- * shell hands the rendered strings down with the rest of the host.
+ * shell hands the rendered strings down with the rest of the host. The
+ * constructs the editor usability pass added each have a group of their own,
+ * optional, with an English `FALLBACK_*` beside its interface — a developer
+ * fallback for a host that passes none, never shipped copy.
  */
 export interface ReadLabels {
   /** Placeholder under an embed whose file this device does not hold. */
@@ -46,23 +49,45 @@ export interface ReadLabels {
   properties(count: number): string
   /** Badge in place of chips when the YAML is not in the patchable subset. */
   frontmatterUnsupported: string
-  // --- code cards and callouts (editor-usability E3) ---
-  /** The code card's copy button. */
-  copyCode: string
-  /** The copy button's name for a moment after it has copied. */
-  codeCopied: string
-  /** The language chip's accessible name: it names the language and opens the list. */
-  codeLanguage(lang: string): string
-  /** The chip's text for a fence with no language. */
-  codePlain: string
-  /** A foldable callout's chevron (with `aria-expanded` beside it). */
-  toggleCallout(title: string): string
-  // --- tables (editor-usability E4) ---
-  /** The hint toolbar over a table the caret is in; absent ⇒ the English fallback. */
+  /** The code card's header (E3). */
+  code?: CodeLabels
+  /** A callout's title row (E3). */
+  callout?: CalloutLabels
+  /** The hint toolbar over a table the caret is in (E4). */
   table?: TableLabels
-  // --- images (editor-usability E5) ---
-  /** `![alt](https://…)`'s placeholder; absent ⇒ the English fallback. */
+  /** `![alt](https://…)`'s placeholder (E5). */
   remoteImage?: RemoteImageLabels
+  /** The `[[` link popover (E1); the shell hands the same group to `wikiLinkHost`. */
+  linkPopover?: LinkPopoverLabels
+}
+
+/** The code card's copy (E3): its copy button and its language chip. */
+export interface CodeLabels {
+  /** The copy button. */
+  copy: string
+  /** The copy button's name for a moment after it has copied. */
+  copied: string
+  /** The language chip's accessible name: it names the language and opens the list. */
+  language(lang: string): string
+  /** The chip's text for a fence with no language. */
+  plain: string
+}
+
+export const FALLBACK_CODE_LABELS: CodeLabels = {
+  copy: 'Copy code',
+  copied: 'Copied',
+  language: (lang) => `Language: ${lang}`,
+  plain: 'plain text',
+}
+
+/** A callout's copy (E3). */
+export interface CalloutLabels {
+  /** A foldable callout's chevron (with `aria-expanded` beside it). */
+  toggle(title: string): string
+}
+
+export const FALLBACK_CALLOUT_LABELS: CalloutLabels = {
+  toggle: (title) => `Fold ${title}`,
 }
 
 /** The copy around a remote image that is not loaded until it is asked for (E5). */
@@ -77,7 +102,6 @@ export interface RemoteImageLabels {
   notLoaded: string
 }
 
-/** The developer fallback for a host that passes no image labels. */
 export const FALLBACK_REMOTE_IMAGE_LABELS: RemoteImageLabels = {
   from: (host) => `Image from ${host}`,
   load: 'Load image',
@@ -103,7 +127,6 @@ export interface TableLabels {
   align: string
 }
 
-/** The developer fallback for a host that passes no table labels. */
 export const FALLBACK_TABLE_LABELS: TableLabels = {
   toolbar: 'Table',
   nextCell: 'Tab next cell',
@@ -112,6 +135,41 @@ export const FALLBACK_TABLE_LABELS: TableLabels = {
   addRow: '+ row',
   addColumn: '+ column',
   align: 'Align',
+}
+
+/** The link popover's copy (E1): its group headers, its create row and its footer of key hints. */
+export interface LinkPopoverLabels {
+  /** The share's own group: `In {mount}`. */
+  scope(mount: string): string
+  /** The group below the divider, one line: `Only you · not in this share`. */
+  others: string
+  /** Its tooltip: why those notes are set apart. */
+  othersTitle: string
+  /** The last row when nothing matches exactly: `Create “{query}”`. */
+  create(query: string): string
+  /** The folder a note at the vault root is created in (shown dim on the create row). */
+  vaultRoot: string
+  /** The footer's words, after their keys: `↵ Tab link · # heading · | alias · Esc`. */
+  hintLink: string
+  hintHeading: string
+  hintAlias: string
+  keyEnter: string
+  keyTab: string
+  keyEscape: string
+}
+
+export const FALLBACK_LINK_LABELS: LinkPopoverLabels = {
+  scope: (mount) => `In ${mount}`,
+  others: 'Only you · not in this share',
+  othersTitle: "Collaborators can't open these",
+  create: (query) => `Create “${query}”`,
+  vaultRoot: '/',
+  hintLink: 'link',
+  hintHeading: 'heading',
+  hintAlias: 'alias',
+  keyEnter: '↵',
+  keyTab: 'Tab',
+  keyEscape: 'Esc',
 }
 
 /** What a rendered note can ask its host for. Every method is optional to call from a widget; none may throw. */
@@ -151,8 +209,9 @@ export interface ReadHost {
 
 /**
  * The default host: everything a widget asks for is absent, nothing throws.
- * The labels are the only English in this package — they are a developer
- * fallback for a view mounted before `readHost.of(...)`, never shipped copy.
+ * The labels (and the `FALLBACK_*` groups above) are the only English in
+ * this package — a developer fallback for a view mounted before
+ * `readHost.of(...)`, never shipped copy.
  */
 const NOOP_HOST: ReadHost = {
   readAttachment: async () => null,
@@ -164,11 +223,6 @@ const NOOP_HOST: ReadHost = {
     task: 'Task',
     properties: (count) => `${count} properties`,
     frontmatterUnsupported: 'Frontmatter does not parse',
-    copyCode: 'Copy code',
-    codeCopied: 'Copied',
-    codeLanguage: (lang) => `Language: ${lang}`,
-    codePlain: 'plain text',
-    toggleCallout: (title) => `Fold ${title}`,
   },
 }
 

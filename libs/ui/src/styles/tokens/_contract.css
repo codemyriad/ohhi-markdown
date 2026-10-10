@@ -223,6 +223,14 @@
     --ed-tab-active-bg: var(--ed-surface);
     --ed-tab-live: var(--color-primary);
 
+    /* --- the editor's cards and controls (editor-usability) ---------------
+     * One radius for every card the editor draws — the code card, a
+     * callout's box, the link popover and table hint, the drop target — and
+     * one focus ring for the buttons its widgets own (the code card's chip
+     * and Copy, a callout's chevron, *Load image*). */
+    --ed-card-radius: 8px;
+    --ed-focus-ring: var(--ed-caret);
+
     /* --- link popover (editor-usability E1) ------------------------------
      * The `[[` completion tooltip, drawn by CM6 but dressed as the shell's
      * Popover (ui/Popover.svelte: rounded-lg, a base-300 hairline, base-100,
@@ -242,15 +250,20 @@
 
     /* --- images: the drop overlay and the remote placeholder (editor-usability E5)
      * The dashed target drawn over the editor while image files are dragged
-     * onto it (primary 60% border, primary 7% tint, 8px radius), and the
-     * quiet box a remote `![alt](https://…)` waits in until it is loaded.
-     * Derived from the DaisyUI colours every theme sets, so the four themes
-     * need not restate the group (the popover precedent). */
+     * onto it (primary 60% border, primary 7% tint, the card radius), and
+     * the quiet box a remote `![alt](https://…)` waits in until it is
+     * loaded. Its two inks are the popover's, so the editor's overlays read
+     * alike; derived from the DaisyUI colours every theme sets, so the four
+     * themes need not restate the group (the popover precedent). */
     --ed-drop-border: color-mix(in oklab, var(--color-primary) 60%, transparent);
     --ed-drop-bg: color-mix(in oklab, var(--color-primary) 7%, transparent);
-    --ed-drop-ink: var(--color-base-content);
-    --ed-drop-muted: color-mix(in oklab, var(--color-base-content) 75%, var(--color-base-100));
-    --ed-drop-radius: 8px;
+    --ed-drop-ink: var(--ed-popover-ink);
+    --ed-drop-muted: var(--ed-popover-muted);
+
+    /* --- code card (editor-usability E3): *Copied*, flashed on its button
+     * for a moment — the success colour of the callouts unless a theme
+     * says otherwise. */
+    --ed-code-copied: var(--ed-callout-success);
 
     /* --- callouts (editor-usability E3) ----------------------------------
      * `> [!type]` boxes: each type's colour tints the box (9%), draws its

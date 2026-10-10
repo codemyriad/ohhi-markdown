@@ -16,21 +16,19 @@
  * continuation prefix.
  */
 import { completionStatus } from '@codemirror/autocomplete'
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import { Prec, type EditorState, type Extension, type Line } from '@codemirror/state'
 import { keymap, type Command, type EditorView } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 import { previewMode } from '../read-host.js'
+import { ancestorNamed, treeAt } from '../tree.js'
 import { applyTableOp, locate, offsetIn, splitRow, type TableOp } from './table-ops.js'
 
-/** How long a command may spend finishing the parse around the caret. */
-const PARSE_BUDGET_MS = 50
-
 const CONTINUATION = /^(?:[ \t]*>)*[ \t]*/
+const TABLE = new Set(['Table'])
 
 /** The `Table` node the position is in, or null. */
 export function tableNodeAt(state: EditorState, pos: number): SyntaxNode | null {
-  const tree = ensureSyntaxTree(state, Math.min(state.doc.length, pos + 1), PARSE_BUDGET_MS) ?? syntaxTree(state)
+  const tree = treeAt(state, pos)
   const line = state.doc.lineAt(pos)
   // The caret at a line's very end, or in the indent before its first pipe,
   // is still on the table's line: try the caret, then the line's content.
@@ -40,9 +38,8 @@ export function tableNodeAt(state: EditorState, pos: number): SyntaxNode | null 
     [pos, -1],
     [firstText, 1],
   ] as const) {
-    for (let node: SyntaxNode | null = tree.resolveInner(at, side); node; node = node.parent) {
-      if (node.name === 'Table') return node
-    }
+    const node = ancestorNamed(state, at, TABLE, side, tree)
+    if (node) return node
   }
   return null
 }

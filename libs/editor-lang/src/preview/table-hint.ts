@@ -13,6 +13,7 @@ import { StateField, type EditorState } from '@codemirror/state'
 import { showTooltip, type EditorView, type Tooltip } from '@codemirror/view'
 import { FALLBACK_TABLE_LABELS, previewMode, readHost } from '../read-host.js'
 import { runTableCommand, tableNodeAt, type TableCommandId } from './table-commands.js'
+import { claim } from './widgets.js'
 
 /** Where the hint sits: the start of the table the caret is in, or null. */
 function hintAt(state: EditorState): number | null {
@@ -42,10 +43,8 @@ function createHint(view: EditorView): { dom: HTMLElement } {
     b.type = 'button'
     b.className = 'cm-table-hint-button'
     b.textContent = text
-    // Keep the editor's focus and selection: the command acts at the caret.
-    b.addEventListener('mousedown', (e) => e.preventDefault())
-    b.addEventListener('click', (e) => {
-      e.preventDefault()
+    // Claimed: the editor keeps its focus and selection, and the command acts at the caret.
+    claim(b, () => {
       runTableCommand(view, id)
       view.focus()
     })

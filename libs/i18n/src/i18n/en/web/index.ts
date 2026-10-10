@@ -309,16 +309,14 @@ const mode = {
     tab: 'tab…',
     group: 'group…',
   },
-  escape: 'Esc',
   leave: 'leave',
   done: 'done',
   /**
    * E6: the corner cue (Settings › Layout › Pane keys: Subtle / Off) — the
-   * badge and two verbs above the word count; `?` opens every key.
+   * badge and two verbs above the word count; `?` (`common.keys.help`) opens
+   * every key. Its region is named `bar`, as the full bar is.
    */
   cue: {
-    label: 'Pane mode keys',
-    more_key: '?',
     more: 'keys',
     less: 'fewer',
     all: 'Every key in this mode',
@@ -385,14 +383,10 @@ const read = {
     /** That header's tooltip. */
     others_title: "Collaborators can't open these",
     create: 'Create “{query:string}”',
-    /** The create row's folder when the note would land at the vault root. */
-    vault_root: 'Vault root',
+    /** The footer's words, after their keys (`common.keys`). */
     hint_link: 'link',
     hint_heading: 'heading',
     hint_alias: 'alias',
-    key_enter: '↵',
-    key_tab: 'Tab',
-    key_escape: 'Esc',
   },
   commands: {
     toggle_reading: 'Toggle reading view',
@@ -497,7 +491,6 @@ const tree_op = {
   new_name: 'New name',
   folder_name: 'Folder name',
   destination: 'Destination',
-  vault_root: '(vault root)',
   delete_folder_body:
     'Everything inside is removed for you and for everyone sharing it. Pre-images are journaled and files can be restored.',
   delete_file_body: 'Removed for you and for everyone sharing it. The pre-image is journaled.',
@@ -2190,7 +2183,10 @@ const attachments = {
   saved_in: 'Saved in {folder:string}',
   /** The same, for several files at once. */
   saved_in_many: '{count:number} files, saved in {folder:string}',
-  /** The folder name for the top of the vault. */
+  /**
+   * The folder name for the top of the vault, inside the sentence above —
+   * `common.vault_root` is the label form.
+   */
   vault_root: 'the vault root',
   /** Toasted after a picture goes into a note inside a shared folder. */
   shared_notice:

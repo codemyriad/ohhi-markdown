@@ -3,11 +3,12 @@
  * rules as widgets.ts: DOM in `toDOM` only, `eq` over what the DOM is made of,
  * no colour here — `.cm-callout-type-*` picks the type's token in theme.ts.
  */
-import { WidgetType, type EditorView } from '@codemirror/view'
-import type { ReadLabels } from '../read-host.js'
+import type { EditorView } from '@codemirror/view'
+import type { CalloutLabels } from '../read-host.js'
 import { CALLOUT_ICONS, type CalloutType } from './callout.js'
 import { setCalloutFold } from './callout-fold.js'
 import { icon } from './icons.js'
+import { claim, ownsEvent, ReadWidget } from './widgets.js'
 
 /** The classes every line of one callout shares: the box, and the type's colour. */
 export function calloutClass(type: CalloutType): string {
@@ -20,7 +21,7 @@ export function calloutClass(type: CalloutType): string {
  * the chevron goes to the editor, which puts the caret on the line — and the
  * line goes back to its text, so the title is edited as text.
  */
-export class CalloutHeaderWidget extends WidgetType {
+export class CalloutHeaderWidget extends ReadWidget {
   constructor(
     readonly type: CalloutType,
     readonly title: string,
@@ -28,7 +29,7 @@ export class CalloutHeaderWidget extends WidgetType {
     readonly collapsed: boolean | null,
     /** Nothing below it in the box (an empty or a collapsed body): it takes the bottom radius. */
     readonly last: boolean,
-    readonly labels: ReadLabels
+    readonly labels: CalloutLabels
   ) {
     super()
   }
@@ -60,14 +61,11 @@ export class CalloutHeaderWidget extends WidgetType {
       toggle.type = 'button'
       toggle.className = 'cm-callout-fold'
       toggle.setAttribute('aria-expanded', String(!collapsed))
-      toggle.setAttribute('aria-label', this.labels.toggleCallout(this.title))
+      toggle.setAttribute('aria-label', this.labels.toggle(this.title))
       toggle.appendChild(icon('chevron-down'))
-      // Claim the press so the caret does not move onto the header (which
-      // would turn it back into text under the pointer); act on click, which
-      // a keyboard Enter/Space also fires.
-      toggle.addEventListener('mousedown', (e) => e.preventDefault())
-      toggle.addEventListener('click', (e) => {
-        e.preventDefault()
+      // Claimed: the caret moving onto the header would turn it back into
+      // text under the pointer.
+      claim(toggle, () => {
         const at = view.state.doc.lineAt(view.posAtDOM(wrap)).from
         view.dispatch({ effects: setCalloutFold.of({ at, collapsed: !collapsed }) })
       })
@@ -79,13 +77,12 @@ export class CalloutHeaderWidget extends WidgetType {
   override ignoreEvent(event: Event): boolean {
     // The chevron is the widget's own; everything else is the editor's (a
     // press on the title places the caret on the line).
-    if ((event.target as Element | null)?.closest?.('.cm-callout-fold')) return true
-    return !(event.type === 'mousedown' || event.type === 'click')
+    return ownsEvent(event, '.cm-callout-fold') || super.ignoreEvent(event)
   }
 }
 
 /** A collapsed body: nothing drawn, the box closes under the title row. */
-export class CalloutFoldedWidget extends WidgetType {
+export class CalloutFoldedWidget extends ReadWidget {
   override eq(): boolean {
     return true
   }

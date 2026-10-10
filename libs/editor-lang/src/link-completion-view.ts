@@ -33,50 +33,9 @@ import {
   type LinkHeading,
   type LinkMount,
 } from './link-completion.js'
+import { icon as lucide } from './preview/icons.js'
+import { FALLBACK_LINK_LABELS, type LinkPopoverLabels } from './read-host.js'
 import type { WikiLinkHost } from './wikilink-view.js'
-
-/**
- * Copy the popover cannot reach through $LL: CM6 runs outside Svelte, so the
- * shell hands the rendered strings down with the rest of the link host — the
- * `ReadLabels` precedent.
- */
-export interface LinkPopoverLabels {
-  /** The share's own group: `In {mount}`. */
-  scope(mount: string): string
-  /** The group below the divider, one line: `Only you · not in this share`. */
-  others: string
-  /** Its tooltip: why those notes are set apart. */
-  othersTitle: string
-  /** The last row when nothing matches exactly: `Create “{query}”`. */
-  create(query: string): string
-  /** The folder a note at the vault root is created in (shown dim on the create row). */
-  vaultRoot: string
-  /** The footer's words, after their keys: `↵ Tab link · # heading · | alias · Esc`. */
-  hintLink: string
-  hintHeading: string
-  hintAlias: string
-  keyEnter: string
-  keyTab: string
-  keyEscape: string
-}
-
-/**
- * The developer fallback for a view mounted before a host hands real copy
- * down — never shipped copy (the shell always passes its own).
- */
-export const FALLBACK_LINK_LABELS: LinkPopoverLabels = {
-  scope: (mount) => `In ${mount}`,
-  others: 'Only you · not in this share',
-  othersTitle: "Collaborators can't open these",
-  create: (query) => `Create “${query}”`,
-  vaultRoot: '/',
-  hintLink: 'link',
-  hintHeading: 'heading',
-  hintAlias: 'alias',
-  keyEnter: '↵',
-  keyTab: 'Tab',
-  keyEscape: 'Esc',
-}
 
 /** What the link host knows about where the caret's note sits (fork A2). */
 export interface LinkContext {
@@ -247,22 +206,14 @@ function headingCompletions(
 }
 
 // ---- the rows ------------------------------------------------------------------
-// lucide's `file`, `file-plus` and `hash`, inline: CM6 builds these rows
-// outside Svelte, so @lucide/svelte cannot draw them.
 
-const FILE = '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'
-const ICONS: Record<RowKind, string> = {
-  note: FILE,
-  create: `${FILE}<path d="M9 15h6"/><path d="M12 18v-6"/>`,
-  heading:
-    '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
-}
+const ROW_ICONS = { note: 'file', create: 'file-plus', heading: 'hash' } as const satisfies Record<RowKind, string>
 
 function icon(kind: RowKind): HTMLElement {
   const span = document.createElement('span')
   span.className = 'cm-link-icon'
   span.setAttribute('aria-hidden', 'true')
-  span.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind]}</svg>`
+  span.appendChild(lucide(ROW_ICONS[kind]))
   return span
 }
 

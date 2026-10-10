@@ -9,8 +9,6 @@ import {
   attachmentFiles,
   attachmentMarkup,
   insertAttachments,
-  isAttachment,
-  isAttachmentType,
   mapPending,
   pastedAttachments,
   pendingTarget,
@@ -18,6 +16,9 @@ import {
 } from '../src/attachments.js'
 
 const file = (name: string, type: string): File => ({ name, type }) as File
+
+/** The host decides which files a note takes (the shell's rule is libs/workspace's `isAttachmentFile`). */
+const host = { accepts: (f: { name: string }) => /\.(png|pdf)$/i.test(f.name) }
 
 /** Enough of a DataTransfer for the paste rule. */
 function clipboard(files: File[], text = ''): DataTransfer {
@@ -28,22 +29,10 @@ function clipboard(files: File[], text = ''): DataTransfer {
 }
 
 describe('which files a note takes', () => {
-  it('takes the pictures and PDFs, by name first and then by type', () => {
-    for (const n of ['a.png', 'a.JPG', 'a.jpeg', 'a.gif', 'a.webp', 'a.avif', 'a.svg', 'a.bmp', 'a.pdf']) {
-      expect(isAttachment(file(n, ''))).toBe(true)
-    }
-    expect(isAttachment(file('image.png', 'image/png'))).toBe(true)
-    expect(isAttachment(file('', 'image/png'))).toBe(true)
-    expect(isAttachment(file('notes.txt', 'text/plain'))).toBe(false)
-    expect(isAttachment(file('a.zip', 'image/png'))).toBe(false)
-    expect(isAttachmentType('image/webp')).toBe(true)
-    expect(isAttachmentType('text/html')).toBe(false)
-  })
-
-  it('keeps the order and drops the rest', () => {
+  it('takes what the host accepts, keeps the order and drops the rest', () => {
     const list = [file('a.png', 'image/png'), file('b.txt', 'text/plain'), file('c.pdf', 'application/pdf')]
-    expect(attachmentFiles(list).map((f) => f.name)).toEqual(['a.png', 'c.pdf'])
-    expect(attachmentFiles(null)).toEqual([])
+    expect(attachmentFiles(list, host).map((f) => f.name)).toEqual(['a.png', 'c.pdf'])
+    expect(attachmentFiles(null, host)).toEqual([])
   })
 })
 
@@ -74,16 +63,16 @@ describe('what goes in the note', () => {
 
 describe('when a paste is a picture paste', () => {
   it('is one when the clipboard holds a picture and no text', () => {
-    expect(pastedAttachments(clipboard([file('image.png', 'image/png')])).length).toBe(1)
+    expect(pastedAttachments(clipboard([file('image.png', 'image/png')]), host).length).toBe(1)
   })
 
   it('is not one when there is text too — a word processor puts a picture of the words beside them', () => {
-    expect(pastedAttachments(clipboard([file('image.png', 'image/png')], 'the words'))).toEqual([])
+    expect(pastedAttachments(clipboard([file('image.png', 'image/png')], 'the words'), host)).toEqual([])
   })
 
   it('is not one for a file a note does not take, or for no clipboard', () => {
-    expect(pastedAttachments(clipboard([file('a.zip', 'application/zip')]))).toEqual([])
-    expect(pastedAttachments(null)).toEqual([])
+    expect(pastedAttachments(clipboard([file('a.zip', 'application/zip')]), host)).toEqual([])
+    expect(pastedAttachments(null, host)).toEqual([])
   })
 })
 

@@ -1,7 +1,7 @@
 /**
- * E2 at the decoration level: the provisional bullet on a lone `-` setext
- * underline (fork D1), the hanging `> ` on a quote's caret line, and a done
- * task's muted, struck text (fork C1).
+ * Quotes, setext and tasks at the decoration level (E2): the provisional
+ * bullet on a lone `-` setext underline (fork D1), the hanging `> ` on a
+ * quote's caret line, and a done task's muted, struck text (fork C1).
  */
 import { describe, expect, it } from 'vitest'
 import { provisionalBullet, SETEXT_PROVISIONAL } from '../src/preview/setext.js'

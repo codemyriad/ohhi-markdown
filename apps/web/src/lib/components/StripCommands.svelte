@@ -1,18 +1,5 @@
 <script lang="ts" module>
-  import { Columns2, Maximize2, Rows2, SquareSplitHorizontal, X, type LucideIcon } from '@lucide/svelte'
-
-  /**
-   * The icon each command a tab strip's end may show (`bars.tabs`). A command
-   * id with none here is not a strip button: said once, then skipped.
-   */
-  export const STRIP_ICONS: Readonly<Record<string, LucideIcon>> = {
-    'workspace.split-right': Columns2,
-    'workspace.split-down': Rows2,
-    'workspace.split-auto': SquareSplitHorizontal,
-    'workspace.zoom': Maximize2,
-    'workspace.close-pane': X,
-  }
-
+  // A command id with no icon (`COMMAND_ICONS`) is not a strip button: said once, then skipped.
   const warned = new Set<string>()
   function warnOnce(id: string): void {
     if (warned.has(id)) return
@@ -33,7 +20,9 @@
    * press focuses this strip's pane first (a pointer already does, through
    * the pane's capture handler; the keyboard does not).
    */
+  import type { LucideIcon } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { COMMAND_ICONS } from '../command-icons.js'
   import type { CommandRegistry } from '../commands.js'
   import IconButton from '../ui/IconButton.svelte'
 
@@ -55,7 +44,7 @@
     for (const id of ids) {
       if (id === '|') continue
       const command = registry.get(id)
-      const icon = STRIP_ICONS[id]
+      const icon = COMMAND_ICONS[id]
       if (!command || !icon) {
         warnOnce(id)
         continue

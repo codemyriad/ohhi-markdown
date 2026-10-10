@@ -1,6 +1,6 @@
 /**
  * The handful of lucide icons the CM6 widgets draw (callout titles, the code
- * card's header). The shell draws lucide through `@lucide/svelte`; decoration
+ * card's header, the link popover's rows). The shell draws lucide through `@lucide/svelte`; decoration
  * code runs outside Svelte, so the same geometry is restated here as data —
  * lucide's own node lists (v1.44, ISC licence), never hand-drawn paths.
  *
@@ -10,11 +10,15 @@
  */
 import type { CalloutIcon } from './callout.js'
 
-export type IconName = CalloutIcon | 'chevron-down' | 'chevron-right' | 'copy' | 'check'
+export type IconName = CalloutIcon | 'chevron-down' | 'copy' | 'check' | 'file' | 'file-plus' | 'hash'
 
-type IconNode = readonly [tag: 'path' | 'circle' | 'rect', attrs: Readonly<Record<string, string>>]
+type IconNode = readonly [tag: 'path' | 'circle' | 'rect' | 'line', attrs: Readonly<Record<string, string>>]
 
 const CIRCLE: IconNode = ['circle', { cx: '12', cy: '12', r: '10' }]
+const FILE: readonly IconNode[] = [
+  ['path', { d: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z' }],
+  ['path', { d: 'M14 2v4a2 2 0 0 0 2 2h4' }],
+]
 
 const ICONS: Readonly<Record<IconName, readonly IconNode[]>> = {
   info: [CIRCLE, ['path', { d: 'M12 16v-4' }], ['path', { d: 'M12 8h.01' }]],
@@ -79,12 +83,19 @@ const ICONS: Readonly<Record<IconName, readonly IconNode[]>> = {
     ['path', { d: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' }],
   ],
   'chevron-down': [['path', { d: 'm6 9 6 6 6-6' }]],
-  'chevron-right': [['path', { d: 'm9 18 6-6-6-6' }]],
   copy: [
     ['rect', { width: '14', height: '14', x: '8', y: '8', rx: '2', ry: '2' }],
     ['path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }],
   ],
   check: [['path', { d: 'M20 6 9 17l-5-5' }]],
+  file: FILE,
+  'file-plus': [...FILE, ['path', { d: 'M9 15h6' }], ['path', { d: 'M12 18v-6' }]],
+  hash: [
+    ['line', { x1: '4', x2: '20', y1: '9', y2: '9' }],
+    ['line', { x1: '4', x2: '20', y1: '15', y2: '15' }],
+    ['line', { x1: '10', x2: '8', y1: '3', y2: '21' }],
+    ['line', { x1: '16', x2: '14', y1: '3', y2: '21' }],
+  ],
 }
 
 const SVG = 'http://www.w3.org/2000/svg'

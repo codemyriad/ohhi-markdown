@@ -24,3 +24,11 @@ export const CARD = 'rounded-lg border border-base-300 bg-base-100'
 /** The non-accent verb — one accent per surface, so the rest are outlines. */
 export const OUTLINE_BUTTON =
   'rounded border border-base-300 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
+
+/**
+ * A key glyph in a `<kbd>`: the same chip the editor's link popover footer
+ * draws (`.cm-link-footer kbd` in libs/editor's theme.ts), so a key looks
+ * like one key wherever the app names it.
+ */
+export const KBD =
+  'inline-block min-w-[14px] rounded-[3px] border border-base-300 bg-base-100 px-1 text-center font-ed-ui text-[10px] leading-[14px] text-base-content'

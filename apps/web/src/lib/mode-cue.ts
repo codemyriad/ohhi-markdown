@@ -1,5 +1,5 @@
 /**
- * The pane mode's corner cue (E6, Settings › Layout › Hints): which of a
+ * The pane mode's corner cue (E6, Settings › Layout › Pane keys): which of a
  * live mode's hint rows the *Subtle* line shows. Pure — the rows are
  * `mode.ts`'s `hints()`, already translated and filtered to what runs.
  *

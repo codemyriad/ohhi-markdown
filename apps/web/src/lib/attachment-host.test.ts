@@ -7,12 +7,7 @@
  */
 import { i18nObject } from '@ohhi/i18n/i18n-util'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createAttachmentHost,
-  loadAttachmentFolderSetting,
-  mountOf,
-  OBSIDIAN_APP_CONFIG,
-} from './attachment-host.js'
+import { createAttachmentHost, loadAttachmentFolderSetting, OBSIDIAN_APP_CONFIG } from './attachment-host.js'
 import type { Workspace } from './workspace.svelte.js'
 
 const LL = i18nObject('en')
@@ -51,12 +46,14 @@ describe('loadAttachmentFolderSetting', () => {
   })
 })
 
-describe('mountOf', () => {
-  it('is the deepest shared folder holding the path, else the vault', () => {
-    const mounts = [{ path: '' }, { path: 'Team' }, { path: 'Team/Design' }]
-    expect(mountOf('Team/Design/a.md', mounts)).toBe('Team/Design')
-    expect(mountOf('Team/a.md', mounts)).toBe('Team')
-    expect(mountOf('Teammates/a.md', mounts)).toBe('')
+describe('which files it takes', () => {
+  it('is libs/workspace’s rule: pictures and PDFs, by name and then by type', () => {
+    const host = createAttachmentHost({ workspace: () => null, notePath: () => null, now: () => AT })
+    expect(host.accepts({ name: 'a.PNG', type: '' })).toBe(true)
+    expect(host.accepts({ name: '', type: 'image/png' })).toBe(true)
+    expect(host.accepts({ name: 'a.zip', type: 'image/png' })).toBe(false)
+    expect(host.acceptsType('application/pdf')).toBe(true)
+    expect(host.acceptsType('text/html')).toBe(false)
   })
 })
 

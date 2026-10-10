@@ -1,10 +1,12 @@
 /**
  * Pasting and dropping pictures (editor-usability E5).
  *
- * The editor stays host-neutral: it notices image (and PDF) files on a paste
- * or a drop, hands them to the host through the `attachmentHost` facet, and
- * inserts what the host answers — `![[name.png]]` for a picture, `[[file.pdf]]`
- * for a PDF — in ONE transaction at the caret or where the files were dropped.
+ * The editor stays host-neutral: it notices the files on a paste or a drop
+ * that the host accepts (pictures and PDFs — the rule is the host's,
+ * libs/workspace's `isAttachmentFile`), hands them to the host through the
+ * `attachmentHost` facet, and inserts what the host answers — `![[name.png]]`
+ * for a picture, `[[file.pdf]]` for a PDF — in ONE transaction at the caret
+ * or where the files were dropped.
  * Where the file is written, what it is called and what the link says are the
  * host's business (apps/web's `attachment-host.ts`, over libs/workspace's
  * placement rules): a view does not know the vault.
@@ -24,6 +26,10 @@ export interface SavedAttachment {
 }
 
 export interface AttachmentHost {
+  /** Is this file one a note can take (by name, then by media type)? */
+  accepts(file: { name: string; type: string }): boolean
+  /** Is this media type — all a drag exposes before the drop — one a note can take? */
+  acceptsType(type: string): boolean
   /**
    * Save the files (bytes to disk, journaled — the host's write path), in
    * order. Answers one entry per file: what to link it by, or null for a file
@@ -47,47 +53,20 @@ export const attachmentHost = Facet.define<AttachmentHost, AttachmentHost | null
 
 // ---- the pure parts ----
 
-/** The media types a paste or drop may add; the extension decides when a type is missing. */
-const TYPES: Readonly<Record<string, string>> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-  'image/svg+xml': 'svg',
-  'image/bmp': 'bmp',
-  'application/pdf': 'pdf',
-}
-const EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'bmp', 'pdf'])
-
-const extOf = (name: string): string => {
-  const dot = name.lastIndexOf('.')
-  return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
-}
-
-/** Is this file one a note can take — a picture or a PDF, by name and then by type? */
-export function isAttachment(file: { name: string; type: string }): boolean {
-  const ext = extOf(file.name)
-  if (ext) return EXTENSIONS.has(ext)
-  return file.type.toLowerCase() in TYPES
-}
-
-/** Is this media type (all a drag exposes before the drop) one a note can take? */
-export function isAttachmentType(type: string): boolean {
-  return type.toLowerCase() in TYPES
-}
-
-/** The files a note can take out of a FileList, in order. */
-export function attachmentFiles(list: ArrayLike<File> | null | undefined): File[] {
+/** The files out of a FileList the host accepts, in order. */
+export function attachmentFiles(
+  list: ArrayLike<File> | null | undefined,
+  host: Pick<AttachmentHost, 'accepts'>
+): File[] {
   if (!list) return []
   const out: File[] = []
-  for (let i = 0; i < list.length; i++) if (isAttachment(list[i]!)) out.push(list[i]!)
+  for (let i = 0; i < list.length; i++) if (host.accepts(list[i]!)) out.push(list[i]!)
   return out
 }
 
 /** `![[shot.png]]` for a picture, `[[paper.pdf]]` for a PDF — Obsidian's forms. */
 export function attachmentMarkup(link: string): string {
-  return extOf(link) === 'pdf' ? `[[${link}]]` : `![[${link}]]`
+  return /\.pdf$/i.test(link) ? `[[${link}]]` : `![[${link}]]`
 }
 
 /**
@@ -113,9 +92,9 @@ export function insertAttachments(
  * passage out of a word processor puts a rendered image of it on the clipboard
  * too, and the person wanted the words.
  */
-export function pastedAttachments(data: DataTransfer | null): File[] {
+export function pastedAttachments(data: DataTransfer | null, host: Pick<AttachmentHost, 'accepts'>): File[] {
   if (!data) return []
-  const files = attachmentFiles(data.files)
+  const files = attachmentFiles(data.files, host)
   if (files.length === 0) return []
   if ((data.getData('text/plain') ?? '').trim() !== '') return []
   return files
@@ -227,14 +206,14 @@ async function saveAndInsert(
 
 // ---- the drop overlay ----
 
-/** The media types of the files in a drag (names stay private until the drop). */
-function draggedTypes(data: DataTransfer | null): string[] | null {
+/** The accepted media types of the files in a drag (names stay private until the drop). */
+function draggedTypes(data: DataTransfer | null, host: AttachmentHost): string[] | null {
   if (!data || !Array.from(data.types).includes('Files')) return null
   const types: string[] = []
   for (const item of Array.from(data.items ?? [])) {
-    if (item.kind === 'file') types.push(item.type)
+    if (item.kind === 'file' && host.acceptsType(item.type)) types.push(item.type)
   }
-  return types.some(isAttachmentType) ? types.filter(isAttachmentType) : null
+  return types.length > 0 ? types : null
 }
 
 class DropOverlay implements PluginValue {
@@ -273,7 +252,7 @@ const handlers = EditorView.domEventHandlers({
   paste(event, view) {
     const host = view.state.facet(attachmentHost)
     if (!host || view.state.readOnly) return false
-    const files = pastedAttachments(event.clipboardData)
+    const files = pastedAttachments(event.clipboardData, host)
     if (files.length === 0) return false
     event.preventDefault()
     const { from, to } = view.state.selection.main
@@ -284,7 +263,7 @@ const handlers = EditorView.domEventHandlers({
   dragover(event, view) {
     const host = view.state.facet(attachmentHost)
     if (!host) return false
-    const types = draggedTypes(event.dataTransfer)
+    const types = draggedTypes(event.dataTransfer, host)
     if (!types) return false
     // Claiming the dragover is what makes this a drop target at all — and a
     // file let fall in Reading must not navigate the window to it either.
@@ -314,7 +293,7 @@ const handlers = EditorView.domEventHandlers({
     const host = view.state.facet(attachmentHost)
     view.plugin(overlay)?.hide()
     if (!host) return false
-    const files = attachmentFiles(event.dataTransfer?.files)
+    const files = attachmentFiles(event.dataTransfer?.files, host)
     if (files.length === 0) return false
     event.preventDefault()
     if (view.state.readOnly) return true

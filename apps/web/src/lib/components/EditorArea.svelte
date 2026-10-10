@@ -23,6 +23,7 @@
    * strip and bottom status bar.
    */
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
+  import { shareName } from '@ohhi/editor-lang'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { GroupShell } from '../group-ui.svelte.js'
   import type { Navigation } from '../navigation.svelte.js'
@@ -242,7 +243,7 @@
     linkContext: () => ({
       mounts: workspace.ui.mounts
         .filter((m) => m.path !== '')
-        .map((m) => ({ path: m.path, name: m.path.slice(m.path.lastIndexOf('/') + 1) })),
+        .map((m) => ({ path: m.path, name: shareName(m.path) })),
       recents: recentPaths(workspace.room),
     }),
     linkHeadings: async (path) => {

@@ -20,6 +20,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { cueHints } from '../mode-cue.js'
   import { paneHints } from '../pane-hints.svelte.js'
+  import { CARD, KBD } from '../ui/styles.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
 
   interface Props {
@@ -33,8 +34,6 @@
   const shown = $derived(panes.mode !== null && level !== 'full')
   const rows = $derived(panes.mode ? panes.hints() : [])
   const verbs = $derived(panes.mode && level === 'subtle' ? cueHints(panes.mode, rows) : [])
-
-  const kbd = 'rounded border border-base-300 border-b-2 bg-base-200 px-1 font-ed-mono text-[10px] text-base-content'
 </script>
 
 {#if shown}
@@ -46,21 +45,20 @@
         role="status"
         aria-label={t.cue.all()}
         data-testid="mode-cue-all"
-        class="absolute right-0 bottom-full mb-1 grid w-max max-w-[min(28rem,90vw)] grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-xs text-base-content/70 shadow-sm"
+        class="{CARD} absolute right-0 bottom-full mb-1 grid w-max max-w-[min(28rem,90vw)] grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 px-3 py-2 text-xs text-base-content/70 shadow-sm"
       >
         {#each rows as hint (hint.key)}
-          <kbd class="{kbd} justify-self-end">{hint.key}</kbd>
+          <kbd class="{KBD} justify-self-end">{hint.key}</kbd>
           <span class="whitespace-nowrap {hint.sub ? 'text-base-content' : ''}">{hint.label}</span>
         {/each}
-        <kbd class="{kbd} justify-self-end">{t.escape()}</kbd>
+        <kbd class="{KBD} justify-self-end">{$LL.common.keys.escape()}</kbd>
         <span class="whitespace-nowrap">{panes.escapeLabel()}</span>
       </div>
     {/if}
-    <!-- role=status: entering a mode changes what every key does, which a
-         screen-reader user must hear without being moved there. -->
+    <!-- role=status, as ModeBar's. -->
     <div
       role="status"
-      aria-label={t.cue.label()}
+      aria-label={t.bar()}
       data-testid="mode-cue-line"
       data-mode={panes.mode}
       class="flex items-center gap-2 whitespace-nowrap rounded-md bg-base-100/85 px-1.5 py-0.5 text-[11px] text-base-content/70"
@@ -72,11 +70,11 @@
         {panes.modeBadge()}
       </span>
       {#each verbs as hint (hint.key)}
-        <span class="inline-flex items-center gap-1"><kbd class={kbd}>{hint.key}</kbd>{hint.label}</span>
+        <span class="inline-flex items-center gap-1"><kbd class={KBD}>{hint.key}</kbd>{hint.label}</span>
       {/each}
       {#if level === 'subtle'}
         <span class="inline-flex items-center gap-1">
-          <kbd class={kbd}>{t.cue.more_key()}</kbd>
+          <kbd class={KBD}>{$LL.common.keys.help()}</kbd>
           <!-- Both labels hold the cell; the hidden one only keeps its width. -->
           <span class="grid">
             <span class="col-start-1 row-start-1 {panes.modeKeysOpen ? 'invisible' : ''}">{t.cue.more()}</span>

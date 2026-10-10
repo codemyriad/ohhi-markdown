@@ -13,10 +13,9 @@
  *   typed character replaces the selection as anywhere else.
  */
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
-import { syntaxTree } from '@codemirror/language'
 import { EditorSelection, EditorState, Prec, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
-import type { SyntaxNode } from '@lezer/common'
+import { ancestorNamed } from './tree.js'
 
 /** What `closeBrackets` pairs in a note (and in a fence with no language data). */
 export const PROSE_BRACKETS: readonly string[] = ['(', '[', '{', '`']
@@ -26,12 +25,7 @@ export const WRAP_CHARS = '*_=~'
 
 const CODE = new Set(['FencedCode', 'CodeBlock', 'InlineCode', 'CodeText'])
 
-function inCode(state: EditorState, pos: number): boolean {
-  for (let n: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) {
-    if (CODE.has(n.name)) return true
-  }
-  return false
-}
+const inCode = (state: EditorState, pos: number): boolean => ancestorNamed(state, pos, CODE) !== null
 
 /**
  * The transaction typing `ch` over the selection should be, when it wraps:
