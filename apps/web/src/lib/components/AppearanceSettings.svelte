@@ -2,6 +2,8 @@
   /**
    * Settings › Appearance: the theme (applies at once) and a custom theme
    * from the vault's `.ohhi/themes/<name>/theme.css`, loaded by *Use custom*.
+   * It opens with the theme's one source line (settings-shaping Fork 4):
+   * the theme in use and where it came from — built in, or this vault.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { BUILTIN_THEMES, THEME_LABELS } from '@ohhi/ui/tokens'
@@ -9,6 +11,7 @@
   import { escapeHtml } from '../html.js'
   import { applyTheme, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
   import { HEADING } from '../ui/styles.js'
+  import ResourceSource from './ResourceSource.svelte'
 
   interface Props {
     /** Reads the vault's `.ohhi/`; absent with no vault open (no custom theme then). */
@@ -31,12 +34,27 @@
     customError = (await useCustomTheme(customName, readAppFile)) ?? ''
   }
 
+  /** The theme in use as a source line: a vault folder, or built in. */
+  const source = $derived.by(() => {
+    const custom = themeState.pref.startsWith('custom:') ? themeState.pref.slice('custom:'.length) : null
+    return custom
+      ? { name: custom, root: 'vault' as const, path: themePath(custom), shadows: [], fellBackFrom: null }
+      : {
+          name: (THEME_LABELS as Record<string, string>)[themeState.name] ?? themeState.name,
+          root: 'builtin' as const,
+          path: null,
+          shadows: [],
+          fellBackFrom: null,
+        }
+  })
+
   const options = $derived([
     { value: 'system' as ThemePref, label: t.system() },
     ...BUILTIN_THEMES.map((th) => ({ value: th as ThemePref, label: THEME_LABELS[th] })),
   ])
 </script>
 
+<ResourceSource label={$LL.web.settings.customise.source.theme()} testid="theme-source" {source} />
 <fieldset>
   <legend class={HEADING}>{t.theme()}</legend>
   <div class="mt-2 flex flex-wrap gap-2" data-testid="theme-picker">

@@ -34,16 +34,16 @@ export interface SettingsVault {
 
 /** The layout surface Settings › Layout and › Editor edit (this device's overrides, live). */
 export type SettingsLayout = Pick<ShellLayout, 'fileSpec' | 'ownSpec' | 'overrides' | 'setOverrides' | 'resetOverrides'> &
-  Partial<Pick<ShellLayout, 'pins' | 'unpin'>>
+  Partial<Pick<ShellLayout, 'pins' | 'unpin' | 'active' | 'source' | 'specError'>>
 
 export interface SettingsHost {
   /** The shell's one command registry (tab-groups R1.3): Keys is a view of it. */
   registry: CommandRegistry
   /** This device's layout overrides (device config: present with or without a vault). */
   layout?: SettingsLayout
-  resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps'>>
+  resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps' | 'read' | 'overview' | 'onChange'>>
   /** The active keymap (quiet-shell F10). */
-  keymap?: Pick<Keymap, 'active' | 'resolved' | 'legacy' | 'setActive' | 'save'>
+  keymap?: Pick<Keymap, 'active' | 'resolved' | 'legacy' | 'setActive' | 'save' | 'restore'>
   /** Reads the vault's `.ohhi/`; absent with no vault open. */
   readAppFile?: (path: string) => Promise<string | null>
   /** The open vault; null with none. */

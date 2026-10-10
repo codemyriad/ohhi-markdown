@@ -7,8 +7,8 @@
    *
    * One save model (R3): every control applies as it changes; a text field
    * that needs validation (the name, the relay) commits on Enter or when it
-   * is left. There is no Save button and no close guard. (Keys still keeps a
-   * draft with Save / Save as until ST3 makes it write through.)
+   * is left; Keys writes each change through, with Undo (ST3). There is no
+   * Save button and no close guard.
    *
    * Sections are their own components, each handed the props it needs; what
    * a section may ask about where it is drawn (vault open, desktop, the host,
@@ -20,7 +20,6 @@
   import type { Clock } from '@ohhi/vault'
   import { untrack } from 'svelte'
   import { hotkeys } from '../config.js'
-  import { createHotkeyDraft } from '../hotkey-draft.svelte.js'
   import { overridesToBindings } from '../keymap-spec.js'
   import { isTauri } from '../platform.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
@@ -128,39 +127,6 @@
       if (picked !== section) onSection(picked)
     })
   })
-
-  // ---- Keys (tab-groups R1.3; quiet-shell F10) ----
-  /**
-   * The edit to the ACTIVE keymap file. Owned here, not by the section, so an
-   * unsaved edit survives moving between sections while Settings is open.
-   * ST3 replaces the draft with write-through and Undo.
-   */
-  const noKeymap = {
-    active: 'default' as const,
-    resolved: null,
-    legacy: true,
-    save: () => Promise.reject(new Error('no keymap')),
-  }
-  const hotkeyDraft = createHotkeyDraft({
-    get registry() {
-      return registry
-    },
-    get keymap() {
-      return keymap ?? noKeymap
-    },
-    legacy: () => overridesToBindings(hotkeys()),
-    canSave: () => keymap !== undefined && readAppFile !== undefined,
-  })
-  // A file that changed on disk (or a different keymap chosen) re-seeds the
-  // draft — unless it holds an edit to keep.
-  $effect(() => {
-    void keymap?.resolved
-    void keymap?.legacy
-    untrack(() => hotkeyDraft.sync())
-  })
-  let recording = $state<string | null>(null)
-  // Settings can go away mid-recording (the tab closed): never leave the registry suspended.
-  $effect(() => () => registry.setSuspended(false))
 </script>
 
 <div data-testid="settings" data-section={section} class="h-full min-h-0">
@@ -200,11 +166,10 @@
         {:else if sid === 'keys'}
           <HotkeySettings
             {registry}
-            draft={hotkeyDraft}
             {keymap}
             {resources}
             canSave={keymap !== undefined && readAppFile !== undefined}
-            bind:recording
+            legacy={() => overridesToBindings(hotkeys())}
           />
         {:else if sid === 'sync'}
           <SyncSettings
@@ -222,7 +187,7 @@
             {secretHint}
           />
         {:else if sid === 'customise'}
-          <CustomiseSettings />
+          <CustomiseSettings {registry} {resources} {layout} {keymap} />
         {:else if sid === 'agents'}
           <AgentSettings />
         {:else if sid === 'developer'}

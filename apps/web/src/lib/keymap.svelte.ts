@@ -37,7 +37,8 @@ import type { ResolvedKeymap, Resources } from './resources.svelte.js'
 import type { EditorKeyId, FormatBindings } from '@ohhi/editor'
 
 export interface KeymapHost {
-  resources: Pick<Resources, 'resolveKeymap' | 'saveKeymap' | 'list' | 'read'>
+  resources: Pick<Resources, 'resolveKeymap' | 'saveKeymap' | 'list' | 'read'> &
+    Partial<Pick<Resources, 'restoreKeymap'>>
   /** True while a vault is open — somewhere a keymap file can be written. */
   hasVault(): boolean
   /** `config.hotkeys`, normalised. */
@@ -159,6 +160,17 @@ export function createKeymap(host: KeymapHost) {
     return path
   }
 
+  /**
+   * Undo a `save` (Settings › Keys, settings-shaping ST3): put the file back
+   * to the bytes it replaced (`null` = the save created it: remove it), then
+   * make `choice` — the keymap active before — active again.
+   */
+  async function restore(name: string, text: string | null, choice: KeymapChoice): Promise<void> {
+    if (!host.resources.restoreKeymap) throw new Error('restoring a keymap is not available here')
+    await host.resources.restoreKeymap(name, text)
+    await setActive(choice)
+  }
+
   return {
     get active() {
       return active
@@ -173,6 +185,7 @@ export function createKeymap(host: KeymapHost) {
     reload,
     setActive,
     save,
+    restore,
   }
 }
 

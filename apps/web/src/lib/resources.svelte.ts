@@ -63,6 +63,12 @@ export type RootId = 'vault' | 'user' | 'builtin'
 /** One root's view of the resource tree: basenames in, text out. */
 export interface ResourceRoot {
   id: RootId
+  /**
+   * The root's own folder, as a person would type it (Settings › Customise's
+   * roots strip): `.ohhi` for the vault, the absolute `<config>/ohhi` for the
+   * user root; absent for the built-in root, which is no folder.
+   */
+  base?: string
   /** Where a kind lives in this root, as a person would type it (shown in Settings). */
   location(kind: ResourceKind): string
   /** File basenames (with extension) directly in this root's `<kind>/`. */
@@ -98,6 +104,29 @@ export interface ResourceEntry {
   shadows: RootId[]
 }
 
+/** A file a kind could not use, as Settings › Customise lists it until it is fixed (F16). */
+export interface ResourceProblem {
+  kind: ResourceKind
+  /** The name it is chosen by. */
+  name: string
+  /** The root its winning file is in. */
+  root: RootId
+  /** The winning file: `.ohhi/layouts/focus.json`. */
+  path: string
+  /** Why it cannot be used — the same sentence the fallback notice carries, without the path. */
+  message: string
+}
+
+/** Every kind across the roots at once, for Settings › Customise (settings-shaping ST4, F16). */
+export interface ResourceOverview {
+  /** The roots in precedence order, as read now (the user root only on desktop, and only when it answers). */
+  roots: { id: RootId; base: string | null }[]
+  /** Every name of every kind, winners only, each with what it shadows. */
+  entries: Record<ResourceKind, ResourceEntry[]>
+  /** The names whose winning file (or its `extends` chain) cannot be used. */
+  problems: ResourceProblem[]
+}
+
 export interface ResourcesHost {
   /** The open vault's app files; null between vaults. */
   vault(): VaultAppFiles | null
@@ -112,6 +141,7 @@ export function vaultRoot(files: VaultAppFiles): ResourceRoot {
   const dir = (kind: ResourceKind): string => `.ohhi/${kind}`
   return {
     id: 'vault',
+    base: '.ohhi',
     location: dir,
     list: async (kind) =>
       (await files.listAppDir(dir(kind)).catch(() => [] as string[])).map((p) => p.slice(p.lastIndexOf('/') + 1)),
@@ -445,6 +475,23 @@ export function createResources(host: ResourcesHost) {
     return path
   }
 
+  /**
+   * Put `.ohhi/keymaps/<name>.json` back to `text` — the exact bytes a
+   * Settings › Keys write replaced — or remove it when `text` is null (the
+   * write created it). Settings › Keys' Undo (settings-shaping ST3). Both go
+   * through the workspace's journaled calls, so the bytes Undo replaces are
+   * journaled in their turn; nothing is re-serialised.
+   */
+  async function restoreKeymap(name: string, text: string | null): Promise<string> {
+    const vault = writableVault(KEYMAPS, name)
+    const path = `.ohhi/keymaps/${name}${KIND_EXT.keymaps}`
+    if (text !== null) await vault.writeAppFile(path, text)
+    else if (vault.deleteAppFile) await vault.deleteAppFile(path)
+    else throw new KeymapError(`${path}: this vault cannot remove a file`)
+    await refreshKeymaps()
+    return path
+  }
+
   /** The text of one template (F11) from the first root that has it, or null. */
   async function readTemplate(name: string): Promise<{ text: string; entry: ResourceEntry } | null> {
     const found = await read('templates', name)
@@ -466,6 +513,42 @@ export function createResources(host: ResourcesHost) {
       if (text !== null) out.push({ text, entry })
     }
     return out
+  }
+
+  /**
+   * Every kind across the roots, and every name that cannot be used — read
+   * fresh on each call, so a broken file stays listed until it is fixed
+   * (settings-shaping ST4). A layout or keymap name is a problem when its
+   * winning file, or a file its `extends` chain reads, does not parse or
+   * validate — whether or not anything uses it. Templates are markdown and
+   * never refused, so they are never a problem here. Nothing is warned:
+   * the active file's fallback notice stays `resolveLayout`'s.
+   */
+  async function overview(): Promise<ResourceOverview> {
+    const all = await roots()
+    const entries = {} as Record<ResourceKind, ResourceEntry[]>
+    for (const kind of RESOURCE_KINDS) entries[kind] = await list(kind, all)
+    const problems: ResourceProblem[] = []
+    const check = async (kind: 'layouts' | 'keymaps', resolve: (name: string) => Promise<unknown>) => {
+      for (const entry of entries[kind]) {
+        try {
+          await resolve(entry.name)
+        } catch (err) {
+          const raw = err instanceof Error ? err.message : String(err)
+          const own = `${entry.path}: `
+          problems.push({
+            kind,
+            name: entry.name,
+            root: entry.root,
+            path: entry.path,
+            message: raw.startsWith(own) ? raw.slice(own.length) : raw,
+          })
+        }
+      }
+    }
+    await check('layouts', resolveLayoutName)
+    await check('keymaps', resolveKeymapName)
+    return { roots: all.map((r) => ({ id: r.id, base: r.base ?? null })), entries, problems }
   }
 
   /** Re-list the layouts every root offers (the palette's *Use layout file…*, a reload, a vault switch). */
@@ -516,8 +599,10 @@ export function createResources(host: ResourcesHost) {
     resolveKeymap: resolveKeymapChoice,
     refreshKeymaps,
     saveKeymap,
+    restoreKeymap,
     readTemplate,
     readAll,
+    overview,
     onChange,
     /** `app.reload-resources` (quiet-shell F9): every kind re-reads, the layout re-seeding its columns. */
     reloadAll: (): void => emit(RESOURCE_KINDS, 'reload'),

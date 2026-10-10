@@ -3359,82 +3359,92 @@ export type NamespaceWebTranslation = {
 			 */
 			reset_editor: string
 		}
-		hotkeys: {
+		keys: {
 			/**
-			 * E​v​e​r​y​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​k​e​y​ ​t​h​a​t​ ​r​u​n​s​ ​i​t​,​ ​f​r​o​m​ ​t​h​e​ ​k​e​y​m​a​p​ ​i​n​ ​u​s​e​.​ ​S​a​v​e​ ​w​r​i​t​e​s​ ​t​h​e​ ​k​e​y​m​a​p​ ​f​i​l​e​,​ ​s​o​ ​y​o​u​r​ ​k​e​y​s​ ​t​r​a​v​e​l​ ​w​i​t​h​ ​t​h​e​ ​v​a​u​l​t​.
+			 * E​v​e​r​y​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​k​e​y​s​ ​t​h​a​t​ ​r​u​n​ ​i​t​.​ ​C​l​i​c​k​ ​a​ ​k​e​y​ ​t​o​ ​r​e​c​o​r​d​ ​a​ ​n​e​w​ ​o​n​e​;​ ​e​a​c​h​ ​c​h​a​n​g​e​ ​i​s​ ​s​a​v​e​d​ ​a​s​ ​y​o​u​ ​m​a​k​e​ ​i​t​.
 			 */
 			intro: string
-			/**
-			 * T​y​p​e​ ​a​ ​s​h​o​r​t​c​u​t​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​,​ ​o​r​ ​p​r​e​s​s​ ​R​e​c​o​r​d​ ​a​n​d​ ​h​i​t​ ​t​h​e​ ​k​e​y​s​.​ ​{​m​o​d​}​ ​i​s​ ​C​m​d​ ​o​n​ ​a​ ​M​a​c​ ​a​n​d​ ​C​t​r​l​ ​e​v​e​r​y​w​h​e​r​e​ ​e​l​s​e​;​ ​s​e​p​a​r​a​t​e​ ​s​e​v​e​r​a​l​ ​s​h​o​r​t​c​u​t​s​ ​w​i​t​h​ ​a​ ​c​o​m​m​a​,​ ​a​n​d​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​ ​e​m​p​t​y​ ​t​o​ ​r​e​m​o​v​e​ ​t​h​e​ ​s​h​o​r​t​c​u​t​.
-			 * @param {string} example
-			 * @param {string} mod
-			 */
-			syntax: RequiredParams<'example' | 'mod'>
 			/**
 			 * K​e​y​m​a​p
 			 */
 			keymap: string
 			/**
-			 * B​u​i​l​t​ ​i​n​ ​·​ ​r​e​a​d​-​o​n​l​y​ ​—​ ​c​h​a​n​g​e​ ​a​ ​s​h​o​r​t​c​u​t​,​ ​t​h​e​n​ ​S​a​v​e​ ​a​s​ ​t​o​ ​w​r​i​t​e​ ​y​o​u​r​ ​o​w​n
+			 * U​s​e​ ​k​e​y​m​a​p
 			 */
-			from_builtin: string
+			pick: string
 			/**
-			 * T​h​i​s​ ​v​a​u​l​t​ ​·​ ​{​p​a​t​h​}
-			 * @param {string} path
+			 * E​x​t​e​n​d​s​ ​{​n​a​m​e​}​.
+			 * @param {string} name
 			 */
-			from_vault: RequiredParams<'path'>
+			'extends': RequiredParams<'name'>
 			/**
-			 * Y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​ ​·​ ​{​p​a​t​h​}​ ​·​ ​r​e​a​d​-​o​n​l​y​ ​h​e​r​e​ ​—​ ​S​a​v​e​ ​a​s​ ​w​r​i​t​e​s​ ​a​ ​c​o​p​y​ ​i​n​t​o​ ​t​h​e​ ​v​a​u​l​t
-			 * @param {string} path
+			 * R​e​a​d​-​o​n​l​y​ ​h​e​r​e​:​ ​y​o​u​r​ ​f​i​r​s​t​ ​c​h​a​n​g​e​ ​c​r​e​a​t​e​s​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​t​h​a​t​ ​e​x​t​e​n​d​s​ ​i​t​.
 			 */
-			from_user: RequiredParams<'path'>
+			read_only_hint: string
 			/**
-			 * S​h​o​r​t​c​u​t​s​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​—​ ​o​p​e​n​ ​a​ ​v​a​u​l​t​ ​a​n​d​ ​t​h​e​y​ ​m​o​v​e​ ​i​n​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​t​h​e​r​e​.
+			 * N​a​m​e​d​ ​l​i​k​e​ ​a​ ​b​u​i​l​t​-​i​n​,​ ​s​o​ ​i​t​ ​i​s​ ​r​e​a​d​ ​h​e​r​e​ ​b​u​t​ ​n​e​v​e​r​ ​w​r​i​t​t​e​n​.
+			 */
+			shadows_builtin: string
+			/**
+			 * K​e​y​s​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​O​p​e​n​ ​a​ ​v​a​u​l​t​ ​a​n​d​ ​t​h​e​y​ ​m​o​v​e​ ​i​n​t​o​ ​a​ ​k​e​y​m​a​p​ ​f​i​l​e​ ​t​h​e​r​e​.
 			 */
 			legacy: string
 			/**
-			 * T​h​e​ ​k​e​y​m​a​p​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​d​e​f​a​u​l​t​ ​k​e​y​s​ ​a​r​e​ ​i​n​ ​f​o​r​c​e​:​ ​{​e​r​r​o​r​}
-			 * @param {string} error
+			 * N​o​t​h​i​n​g​ ​c​a​n​ ​b​e​ ​c​h​a​n​g​e​d​ ​o​v​e​r​ ​a​ ​k​e​y​m​a​p​ ​t​h​a​t​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​.​ ​F​i​x​ ​i​t​s​ ​f​i​l​e​,​ ​o​r​ ​p​i​c​k​ ​a​n​o​t​h​e​r​ ​k​e​y​m​a​p​.
 			 */
-			fallback: RequiredParams<'error'>
+			cannot_write: string
 			/**
-			 * N​o​t​h​i​n​g​ ​c​a​n​ ​b​e​ ​s​a​v​e​d​ ​o​v​e​r​ ​a​ ​k​e​y​m​a​p​ ​t​h​a​t​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​s​e​d​ ​—​ ​f​i​x​ ​i​t​s​ ​f​i​l​e​,​ ​o​r​ ​p​i​c​k​ ​a​n​o​t​h​e​r​ ​k​e​y​m​a​p​ ​f​i​r​s​t​.
+			 * S​e​a​r​c​h​ ​c​o​m​m​a​n​d​s
 			 */
-			cannot_save_fallback: string
+			search: string
 			/**
-			 * T​h​i​s​ ​v​a​u​l​t​ ​f​i​l​e​ ​i​s​ ​n​a​m​e​d​ ​l​i​k​e​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​“​{​n​a​m​e​}​”​,​ ​s​o​ ​i​t​ ​i​s​ ​r​e​a​d​ ​h​e​r​e​ ​b​u​t​ ​n​e​v​e​r​ ​w​r​i​t​t​e​n​ ​—​ ​S​a​v​e​ ​a​s​ ​u​n​d​e​r​ ​a​n​o​t​h​e​r​ ​n​a​m​e​.
-			 * @param {string} name
+			 * S​e​a​r​c​h​ ​{​c​o​u​n​t​}​ ​c​o​m​m​a​n​d​s​ ​b​y​ ​n​a​m​e​,​ ​i​d​ ​o​r​ ​k​e​y
+			 * @param {number} count
 			 */
-			builtin_name: RequiredParams<'name'>
+			search_placeholder: RequiredParams<'count'>
 			/**
-			 * S​a​v​e
+			 * P​r​e​s​s​ ​k​e​y​s
 			 */
-			save: string
+			press_keys: string
 			/**
-			 * S​a​v​e​ ​a​s
+			 * F​i​n​d​ ​a​ ​c​o​m​m​a​n​d​ ​b​y​ ​p​r​e​s​s​i​n​g​ ​i​t​s​ ​k​e​y​s
 			 */
-			save_as: string
+			press_keys_label: string
 			/**
-			 * m​i​n​e
+			 * P​r​e​s​s​ ​t​h​e​ ​k​e​y​s​ ​t​o​ ​s​e​e​ ​w​h​a​t​ ​t​h​e​y​ ​r​u​n​…
 			 */
-			name_placeholder: string
+			press_keys_placeholder: string
 			/**
-			 * W​r​o​t​e​ ​{​p​a​t​h​}
-			 * @param {string} path
+			 * C​l​e​a​r
 			 */
-			saved: RequiredParams<'path'>
+			clear: string
 			/**
-			 * U​n​s​a​v​e​d​ ​c​h​a​n​g​e​s
+			 * S​h​o​w
 			 */
-			unsaved: string
+			filters: string
+			filter: {
+				/**
+				 * A​l​l
+				 */
+				all: string
+				/**
+				 * C​h​a​n​g​e​d
+				 */
+				changed: string
+				/**
+				 * C​l​a​s​h​e​s
+				 */
+				clashes: string
+				/**
+				 * N​o​ ​k​e​y
+				 */
+				unbound: string
+			}
 			/**
-			 * D​i​s​c​a​r​d
+			 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​d
+			 * @param {number} count
 			 */
-			discard: string
-			/**
-			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​s​a​v​e​ ​a​ ​k​e​y​m​a​p​ ​—​ ​i​t​ ​i​s​ ​a​ ​f​i​l​e​ ​i​n​s​i​d​e​ ​i​t​.
-			 */
-			needs_vault: string
+			group_changed: RequiredParams<'count'>
 			/**
 			 * O​t​h​e​r
 			 */
@@ -3444,68 +3454,89 @@ export type NamespaceWebTranslation = {
 			 */
 			none: string
 			/**
-			 * N​o​ ​s​h​o​r​t​c​u​t
+			 * N​o​ ​c​o​m​m​a​n​d​ ​m​a​t​c​h​e​s​.
+			 */
+			no_match: string
+			/**
+			 * N​o​ ​k​e​y
 			 */
 			unbound: string
 			/**
-			 * S​h​o​r​t​c​u​t​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
+			 * C​h​a​n​g​e​ ​{​b​i​n​d​i​n​g​}​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} binding
 			 * @param {string} command
 			 */
-			shortcut_for: RequiredParams<'command'>
+			change_chip: RequiredParams<'binding' | 'command'>
 			/**
-			 * M​o​d​+​S​h​i​f​t​+​P
+			 * R​e​m​o​v​e​ ​{​b​i​n​d​i​n​g​}​ ​f​r​o​m​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} binding
+			 * @param {string} command
 			 */
-			placeholder: string
+			remove_chip: RequiredParams<'binding' | 'command'>
 			/**
-			 * N​o​t​ ​a​ ​s​h​o​r​t​c​u​t​ ​—​ ​u​s​e​ ​m​o​d​i​f​i​e​r​s​ ​a​n​d​ ​o​n​e​ ​k​e​y​,​ ​l​i​k​e​ ​{​e​x​a​m​p​l​e​}​.
-			 * @param {string} example
+			 * A​d​d​ ​a​ ​k​e​y​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
+			 * @param {string} command
 			 */
-			invalid: RequiredParams<'example'>
+			add_for: RequiredParams<'command'>
+			/**
+			 * P​r​e​s​s​ ​t​h​e​ ​k​e​y​s​…​ ​E​s​c​ ​c​a​n​c​e​l​s
+			 */
+			recording: string
+			/**
+			 * R​e​c​o​r​d​i​n​g​ ​a​ ​k​e​y​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}​:​ ​p​r​e​s​s​ ​t​h​e​ ​k​e​y​s​,​ ​E​s​c​a​p​e​ ​c​a​n​c​e​l​s
+			 * @param {string} command
+			 */
+			recording_for: RequiredParams<'command'>
 			/**
 			 * D​e​f​a​u​l​t​:​ ​{​b​i​n​d​i​n​g​}
 			 * @param {string} binding
 			 */
 			default_is: RequiredParams<'binding'>
 			/**
-			 * N​o​ ​d​e​f​a​u​l​t​ ​s​h​o​r​t​c​u​t
+			 * D​e​f​a​u​l​t​:​ ​n​o​ ​k​e​y
 			 */
 			default_none: string
-			/**
-			 * R​e​c​o​r​d
-			 */
-			record: string
-			/**
-			 * R​e​c​o​r​d​ ​a​ ​s​h​o​r​t​c​u​t​ ​f​o​r​ ​{​c​o​m​m​a​n​d​}
-			 * @param {string} command
-			 */
-			record_for: RequiredParams<'command'>
-			/**
-			 * P​r​e​s​s​ ​t​h​e​ ​k​e​y​s​…
-			 */
-			recording: string
-			/**
-			 * S​t​o​p​ ​r​e​c​o​r​d​i​n​g​ ​{​c​o​m​m​a​n​d​}
-			 * @param {string} command
-			 */
-			stop_recording: RequiredParams<'command'>
 			/**
 			 * R​e​s​e​t
 			 */
 			reset: string
 			/**
-			 * R​e​s​e​t​ ​{​c​o​m​m​a​n​d​}​ ​t​o​ ​i​t​s​ ​d​e​f​a​u​l​t​ ​s​h​o​r​t​c​u​t
+			 * R​e​s​e​t​ ​{​c​o​m​m​a​n​d​}​ ​t​o​ ​i​t​s​ ​d​e​f​a​u​l​t​ ​k​e​y​s
 			 * @param {string} command
 			 */
 			reset_for: RequiredParams<'command'>
 			/**
-			 * A​l​s​o​ ​r​u​n​s​ ​{​c​o​m​m​a​n​d​s​}​ ​—​ ​o​n​l​y​ ​t​h​e​ ​l​a​s​t​ ​o​n​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​n​s​.
+			 * A​l​s​o​ ​r​u​n​s​ ​{​c​o​m​m​a​n​d​s​}​:​ ​o​n​l​y​ ​t​h​e​ ​l​a​s​t​ ​o​n​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​n​s​.
 			 * @param {string} commands
 			 */
 			conflict: RequiredParams<'commands'>
 			/**
-			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​s​h​o​r​t​c​u​t​ ​b​e​f​o​r​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​c​a​n​ ​s​e​e​ ​i​t​.
+			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​k​e​y​ ​b​e​f​o​r​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​c​a​n​ ​s​e​e​ ​i​t​.
 			 */
 			reserved: string
+			/**
+			 * Y​o​u​r​ ​c​h​a​n​g​e​s​ ​a​r​e​ ​s​a​v​e​d​ ​i​n​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			created: RequiredParams<'path'>
+			/**
+			 * S​a​v​e​d​ ​t​o​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			saved: RequiredParams<'path'>
+			/**
+			 * U​n​d​o
+			 */
+			undo: string
+			/**
+			 * U​n​d​o​n​e​.
+			 */
+			undone: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​s​a​v​e​ ​t​h​e​ ​c​h​a​n​g​e​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			error: RequiredParams<'error'>
 		}
 		sync: {
 			/**
@@ -3575,12 +3606,394 @@ export type NamespaceWebTranslation = {
 			 * L​a​y​o​u​t​s​,​ ​k​e​y​m​a​p​s​,​ ​t​e​m​p​l​a​t​e​s​ ​a​n​d​ ​t​h​e​m​e​s​ ​a​r​e​ ​f​i​l​e​s​:​ ​y​o​u​,​ ​a​n​ ​a​g​e​n​t​ ​o​r​ ​a​ ​t​e​a​m​m​a​t​e​ ​c​a​n​ ​c​h​a​n​g​e​ ​t​h​e​m​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​c​h​a​n​g​e​ ​u​p​.
 			 */
 			intro: string
+			/**
+			 * W​h​e​r​e​ ​f​i​l​e​s​ ​a​r​e​ ​r​e​a​d​ ​f​r​o​m
+			 */
+			roots: string
+			/**
+			 * E​a​c​h​ ​n​a​m​e​ ​i​s​ ​r​e​a​d​ ​f​r​o​m​ ​t​h​e​ ​f​i​r​s​t​ ​o​f​ ​t​h​e​s​e​ ​t​h​a​t​ ​h​a​s​ ​i​t​:​ ​t​h​i​s​ ​v​a​u​l​t​ ​w​i​n​s​ ​o​v​e​r​ ​y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r​,​ ​w​h​i​c​h​ ​w​i​n​s​ ​o​v​e​r​ ​b​u​i​l​t​ ​i​n​.
+			 */
+			roots_rule: string
+			root: {
+				/**
+				 * T​h​i​s​ ​v​a​u​l​t
+				 */
+				vault: string
+				/**
+				 * Y​o​u​r​ ​c​o​n​f​i​g​ ​f​o​l​d​e​r
+				 */
+				user: string
+				/**
+				 * B​u​i​l​t​ ​i​n
+				 */
+				builtin: string
+			}
+			detail: {
+				/**
+				 * A​ ​f​o​l​d​e​r​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r
+				 */
+				disk: string
+				/**
+				 * {​n​a​m​e​}​ ​·​ ​.​o​h​h​i​,​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+				 * @param {string} name
+				 */
+				browser: RequiredParams<'name'>
+				/**
+				 * N​o​ ​v​a​u​l​t​ ​o​p​e​n​:​ ​t​h​i​s​ ​c​o​m​e​s​ ​w​i​t​h​ ​o​n​e
+				 */
+				no_vault: string
+				/**
+				 * R​e​a​d​-​o​n​l​y​ ​h​e​r​e​:​ ​t​h​e​ ​a​p​p​ ​r​e​a​d​s​ ​i​t​,​ ​y​o​u​ ​o​r​ ​a​n​ ​a​g​e​n​t​ ​w​r​i​t​e​ ​i​t
+				 */
+				read_only: string
+				/**
+				 * C​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​a​d​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r
+				 */
+				unreadable: string
+				/**
+				 * D​e​s​k​t​o​p​ ​a​p​p​ ​o​n​l​y
+				 */
+				desktop_only: string
+				/**
+				 * S​h​i​p​s​ ​w​i​t​h​ ​t​h​e​ ​a​p​p
+				 */
+				ships: string
+			}
+			/**
+			 * C​o​p​y​ ​p​a​t​h
+			 */
+			copy_path: string
+			/**
+			 * C​o​p​y​ ​t​h​e​ ​p​a​t​h​ ​o​f​ ​{​w​h​a​t​}
+			 * @param {string} what
+			 */
+			copy_path_label: RequiredParams<'what'>
+			/**
+			 * T​h​e​ ​a​p​p​ ​c​a​n​n​o​t​ ​o​p​e​n​ ​a​ ​f​o​l​d​e​r​ ​f​o​r​ ​y​o​u​ ​y​e​t​:​ ​c​o​p​y​ ​t​h​e​ ​p​a​t​h​ ​a​n​d​ ​o​p​e​n​ ​i​t​ ​i​n​ ​y​o​u​r​ ​f​i​l​e​ ​m​a​n​a​g​e​r​.
+			 */
+			no_reveal: string
+			/**
+			 * W​h​a​t​ ​i​s​ ​i​n​ ​u​s​e
+			 */
+			kinds: string
+			/**
+			 * K​i​n​d
+			 */
+			col_kind: string
+			/**
+			 * I​n​ ​u​s​e
+			 */
+			col_in_use: string
+			/**
+			 * A​l​s​o​ ​h​e​r​e
+			 */
+			col_also: string
+			kind: {
+				/**
+				 * L​a​y​o​u​t
+				 */
+				layouts: string
+				/**
+				 * K​e​y​m​a​p
+				 */
+				keymaps: string
+				/**
+				 * T​e​m​p​l​a​t​e​s
+				 */
+				templates: string
+				/**
+				 * T​h​e​m​e
+				 */
+				themes: string
+			}
+			from: {
+				/**
+				 * t​h​i​s​ ​v​a​u​l​t
+				 */
+				vault: string
+				/**
+				 * c​o​n​f​i​g​ ​f​o​l​d​e​r
+				 */
+				user: string
+				/**
+				 * b​u​i​l​t​ ​i​n
+				 */
+				builtin: string
+			}
+			/**
+			 * s​h​a​d​o​w​s​ ​{​r​o​o​t​s​}
+			 * @param {string} roots
+			 */
+			shadows: RequiredParams<'roots'>
+			/**
+			 * p​l​u​s​ ​t​h​i​s​ ​d​e​v​i​c​e​’​s​ ​c​h​a​n​g​e​s
+			 */
+			device_changes: string
+			/**
+			 * {​n​a​m​e​}​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​d​e​f​a​u​l​t​ ​s​t​a​n​d​s​ ​i​n
+			 * @param {string} name
+			 */
+			fell_back: RequiredParams<'name'>
+			/**
+			 * c​a​n​’​t​ ​b​e​ ​u​s​e​d
+			 */
+			cant_use: string
+			/**
+			 * n​o​t​h​i​n​g​ ​e​l​s​e
+			 */
+			nothing_else: string
+			/**
+			 * {​c​o​u​n​t​}​ ​t​e​m​p​l​a​t​e​{​{​s​}​}
+			 * @param {number} count
+			 */
+			templates_count: RequiredParams<'count'>
+			/**
+			 * I​n​s​e​r​t​ ​o​n​e​ ​w​i​t​h​ ​I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.
+			 */
+			templates_how: string
+			/**
+			 * A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​u​s​e​ ​o​n​e​ ​b​y​ ​n​a​m​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.​ ​T​h​e​m​e​ ​f​o​l​d​e​r​s​ ​a​r​e​ ​n​o​t​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​y​e​t​.
+			 */
+			themes_how: string
+			/**
+			 * C​o​p​y​ ​a​s​ ​J​S​O​N
+			 */
+			copy_json: string
+			/**
+			 * C​o​p​y​ ​t​h​e​ ​{​k​i​n​d​}​ ​i​n​ ​u​s​e​ ​a​s​ ​J​S​O​N
+			 * @param {string} kind
+			 */
+			copy_json_label: RequiredParams<'kind'>
+			/**
+			 * C​o​p​i​e​d
+			 */
+			copied: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​c​o​p​y
+			 */
+			copy_failed: string
+			/**
+			 * P​r​o​b​l​e​m​s
+			 */
+			problems: string
+			/**
+			 * E​v​e​r​y​ ​f​i​l​e​ ​c​a​n​ ​b​e​ ​u​s​e​d​.
+			 */
+			problems_none: string
+			/**
+			 * {​c​o​u​n​t​}​ ​f​i​l​e​{​{​s​}​}​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d​.​ ​E​a​c​h​ ​s​t​a​y​s​ ​l​i​s​t​e​d​ ​u​n​t​i​l​ ​i​t​ ​i​s​ ​f​i​x​e​d​.
+			 * @param {number} count
+			 */
+			problems_count: RequiredParams<'count'>
+			/**
+			 * I​n​ ​u​s​e​,​ ​s​o​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​d​e​f​a​u​l​t​ ​s​t​a​n​d​s​ ​i​n​.
+			 */
+			problem_in_use: string
+			/**
+			 * N​o​t​h​i​n​g​ ​u​s​e​s​ ​i​t​,​ ​s​o​ ​n​o​t​h​i​n​g​ ​f​e​l​l​ ​b​a​c​k​.
+			 */
+			problem_unused: string
+			/**
+			 * C​o​p​y​ ​e​r​r​o​r
+			 */
+			copy_error: string
+			/**
+			 * R​e​l​o​a​d​ ​f​i​l​e​s
+			 */
+			reload: string
+			/**
+			 * T​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​ ​r​e​l​o​a​d​s​ ​a​ ​f​i​l​e​ ​w​h​e​n​ ​i​t​ ​c​h​a​n​g​e​s​ ​o​n​ ​d​i​s​k​.​ ​R​e​l​o​a​d​ ​r​e​a​d​s​ ​e​v​e​r​y​ ​r​o​o​t​ ​a​g​a​i​n​,​ ​h​e​r​e​ ​a​n​d​ ​i​n​ ​t​h​e​ ​s​h​e​l​l​.
+			 */
+			reload_hint: string
+			/**
+			 * A​s​k​ ​a​n​ ​a​g​e​n​t​ ​t​o​ ​m​a​k​e​ ​o​n​e
+			 */
+			agent: string
+			/**
+			 * I​n​ ​t​h​e​ ​O​h​ ​h​i​ ​v​a​u​l​t​ ​a​t​ ​"​{​v​a​u​l​t​}​"​,​ ​w​r​i​t​e​ ​.​o​h​h​i​/​l​a​y​o​u​t​s​/​<​n​a​m​e​>​.​j​s​o​n​ ​e​x​t​e​n​d​i​n​g​ ​"​d​e​f​a​u​l​t​"​.​ ​V​a​l​i​d​a​t​e​ ​i​t​ ​a​g​a​i​n​s​t​ ​s​p​e​c​/​o​h​h​i​.​l​a​y​o​u​t​.​v​1​.​s​c​h​e​m​a​.​j​s​o​n​;​ ​t​h​e​ ​r​e​a​d​o​u​t​,​ ​b​a​r​ ​a​n​d​ ​c​o​m​m​a​n​d​ ​i​d​s​ ​a​r​e​ ​i​n​ ​d​o​c​s​/​c​u​s​t​o​m​i​s​i​n​g​.​m​d​.​ ​T​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​f​i​l​e​ ​u​p​ ​w​h​e​n​ ​i​t​ ​l​a​n​d​s​,​ ​o​r​ ​o​n​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e​.
+			 * @param {string} vault
+			 */
+			agent_prompt: RequiredParams<'vault'>
+			/**
+			 * A​g​e​n​t​s​ ​r​e​a​c​h​ ​f​o​l​d​e​r​s​ ​o​n​ ​d​i​s​k​.​ ​T​h​i​s​ ​v​a​u​l​t​ ​l​i​v​e​s​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​,​ ​s​o​ ​i​t​s​ ​.​o​h​h​i​ ​i​s​ ​r​e​a​c​h​a​b​l​e​ ​o​n​l​y​ ​f​r​o​m​ ​h​e​r​e​.
+			 */
+			agent_browser: string
+			/**
+			 * C​o​p​y​ ​p​r​o​m​p​t
+			 */
+			copy_prompt: string
+			/**
+			 * T​h​e​ ​f​u​l​l​ ​r​e​f​e​r​e​n​c​e​ ​—​ ​k​i​n​d​s​,​ ​p​r​e​c​e​d​e​n​c​e​,​ ​t​h​e​ ​d​e​l​t​a​ ​g​r​a​m​m​a​r​ ​a​n​d​ ​e​v​e​r​y​ ​i​d​ ​—​ ​i​s​ ​{​d​o​c​}​.
+			 * @param {string} doc
+			 */
+			reference: RequiredParams<'doc'>
+			source: {
+				/**
+				 * L​a​y​o​u​t​ ​f​i​l​e
+				 */
+				layout: string
+				/**
+				 * T​h​e​m​e​ ​i​n​ ​u​s​e
+				 */
+				theme: string
+				/**
+				 * T​h​e​ ​s​e​t​t​i​n​g​s​ ​b​e​l​o​w​ ​a​r​e​ ​t​h​i​s​ ​d​e​v​i​c​e​’​s​ ​c​h​a​n​g​e​s​ ​o​n​ ​t​o​p​ ​o​f​ ​i​t​.​ ​C​h​o​o​s​e​ ​a​n​o​t​h​e​r​ ​f​i​l​e​ ​w​i​t​h​ ​U​s​e​ ​l​a​y​o​u​t​ ​f​i​l​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.
+				 */
+				layout_overrides: string
+				/**
+				 * C​u​s​t​o​m​i​s​e
+				 */
+				overview: string
+				/**
+				 * O​p​e​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e
+				 */
+				overview_label: string
+			}
 		}
 		agents: {
 			/**
 			 * A​g​e​n​t​s​ ​w​o​r​k​ ​o​n​ ​a​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​:​ ​r​a​n​k​e​d​ ​s​e​a​r​c​h​,​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​a​t​ ​a​ ​t​i​m​e​,​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​j​o​u​r​n​a​l​e​d​ ​w​r​i​t​e​s​ ​y​o​u​ ​c​a​n​ ​r​e​s​t​o​r​e​.
 			 */
 			intro: string
+			/**
+			 * W​h​a​t​ ​a​n​ ​a​g​e​n​t​ ​c​a​n​ ​d​o​ ​h​e​r​e
+			 */
+			can_do: string
+			cap: {
+				/**
+				 * F​i​n​d​ ​n​o​t​e​s​:​ ​r​a​n​k​e​d​ ​s​e​a​r​c​h​ ​t​h​a​t​ ​r​e​t​u​r​n​s​ ​r​e​f​e​r​e​n​c​e​s​,​ ​n​e​v​e​r​ ​w​h​o​l​e​ ​n​o​t​e​s
+				 */
+				find: string
+				/**
+				 * R​e​a​d​ ​a​ ​n​o​t​e​’​s​ ​o​u​t​l​i​n​e​,​ ​t​h​e​n​ ​j​u​s​t​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​o​r​ ​a​ ​f​e​w​ ​l​i​n​e​s
+				 */
+				read: string
+				/**
+				 * F​o​l​l​o​w​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​l​i​s​t​ ​l​i​n​k​s​ ​w​h​o​s​e​ ​n​o​t​e​ ​d​o​e​s​ ​n​o​t​ ​e​x​i​s​t​ ​y​e​t
+				 */
+				links: string
+				/**
+				 * S​e​e​ ​w​h​a​t​ ​c​h​a​n​g​e​d​ ​s​i​n​c​e​ ​a​ ​t​i​m​e
+				 */
+				changes: string
+				/**
+				 * W​r​i​t​e​,​ ​p​a​t​c​h​ ​a​n​d​ ​a​p​p​e​n​d​,​ ​e​a​c​h​ ​w​r​i​t​e​ ​j​o​u​r​n​a​l​e​d​ ​f​i​r​s​t​ ​a​n​d​ ​m​a​d​e​ ​a​t​o​m​i​c​a​l​l​y
+				 */
+				write: string
+				/**
+				 * M​o​v​e​ ​a​n​d​ ​r​e​n​a​m​e​,​ ​s​e​n​d​ ​t​o​ ​t​h​e​ ​t​r​a​s​h​ ​i​n​s​t​e​a​d​ ​o​f​ ​d​e​l​e​t​i​n​g​,​ ​a​n​d​ ​r​e​s​t​o​r​e​ ​a​n​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n
+				 */
+				move: string
+			}
+			/**
+			 * T​h​r​o​u​g​h​ ​M​C​P​ ​e​a​c​h​ ​o​n​e​ ​i​s​ ​a​ ​t​o​o​l​ ​o​f​ ​t​h​e​ ​s​a​m​e​ ​n​a​m​e​,​ ​p​r​e​f​i​x​e​d​ ​o​h​h​i​_​ ​(​o​h​h​i​_​s​e​a​r​c​h​)​.
+			 */
+			mcp_tools: string
+			/**
+			 * C​o​n​n​e​c​t​ ​a​n​ ​a​g​e​n​t
+			 */
+			connect: string
+			/**
+			 * H​o​w​ ​t​o​ ​c​o​n​n​e​c​t
+			 */
+			routes: string
+			/**
+			 * C​l​a​u​d​e​ ​C​o​d​e
+			 */
+			route_claude: string
+			/**
+			 * O​t​h​e​r​ ​M​C​P​ ​c​l​i​e​n​t
+			 */
+			route_mcp: string
+			/**
+			 * T​e​r​m​i​n​a​l
+			 */
+			route_terminal: string
+			/**
+			 * N​o​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​,​ ​s​o​ ​t​h​e​ ​l​i​n​e​s​ ​b​e​l​o​w​ ​s​h​o​w​ ​a​ ​p​l​a​c​e​h​o​l​d​e​r​ ​p​a​t​h​.​ ​P​u​t​ ​y​o​u​r​ ​v​a​u​l​t​’​s​ ​f​o​l​d​e​r​ ​i​n​ ​i​t​s​ ​p​l​a​c​e​.
+			 */
+			placeholder: string
+			/**
+			 * V​a​u​l​t​s​ ​k​e​p​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​ ​c​a​n​’​t​ ​b​e​ ​r​e​a​c​h​e​d​ ​b​y​ ​a​n​ ​a​g​e​n​t​:​ ​i​t​ ​n​e​e​d​s​ ​a​ ​v​a​u​l​t​ ​i​n​ ​a​ ​f​o​l​d​e​r​ ​o​n​ ​d​i​s​k​,​ ​i​n​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.
+			 */
+			placeholder_browser: string
+			/**
+			 * T​h​e​ ​c​o​m​m​a​n​d​ ​i​s​n​’​t​ ​b​u​n​d​l​e​d​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​ ​y​e​t​.​ ​T​o​d​a​y​ ​i​t​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​a​ ​c​h​e​c​k​o​u​t​ ​o​f​ ​t​h​e​ ​O​h​ ​h​i​ ​r​e​p​o​s​i​t​o​r​y​:​ ​e​a​c​h​ ​s​c​r​i​p​t​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​ ​a​n​d​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
+			 */
+			get_body: string
+			/**
+			 * I​n​s​t​a​l​l​ ​t​h​e​ ​c​o​m​m​a​n​d
+			 */
+			step_install: string
+			/**
+			 * I​n​s​t​a​l​l​ ​t​h​e​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​s​k​i​l​l
+			 */
+			step_install_both: string
+			/**
+			 * S​t​a​r​t​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​w​i​t​h​ ​t​h​i​s​ ​v​a​u​l​t​ ​n​a​m​e​d
+			 */
+			claude_start: string
+			/**
+			 * O​r​ ​g​i​v​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​t​h​e​ ​c​o​m​m​a​n​d​s​ ​a​s​ ​M​C​P​ ​t​o​o​l​s​ ​i​n​s​t​e​a​d
+			 */
+			claude_mcp: string
+			/**
+			 * T​h​e​ ​s​k​i​l​l​ ​i​s​ ​t​h​e​ ​r​e​c​o​m​m​e​n​d​e​d​ ​r​o​u​t​e​:​ ​n​o​ ​t​o​o​l​s​ ​s​t​a​y​ ​l​o​a​d​e​d​,​ ​a​n​d​ ​i​t​ ​c​a​r​r​i​e​s​ ​t​h​e​ ​h​a​b​i​t​s​ ​t​h​a​t​ ​k​e​e​p​ ​a​n​ ​a​g​e​n​t​’​s​ ​r​e​a​d​s​ ​s​m​a​l​l​.
+			 */
+			claude_note: string
+			/**
+			 * A​d​d​ ​t​h​i​s​ ​s​e​r​v​e​r​ ​t​o​ ​t​h​e​ ​c​l​i​e​n​t​’​s​ ​M​C​P​ ​s​e​t​t​i​n​g​s
+			 */
+			mcp_config: string
+			/**
+			 * I​f​ ​t​h​e​ ​c​l​i​e​n​t​ ​c​a​n​’​t​ ​f​i​n​d​ ​o​h​h​i​,​ ​p​u​t​ ​i​t​s​ ​f​u​l​l​ ​p​a​t​h​ ​i​n​ ​"​c​o​m​m​a​n​d​"​ ​(​t​h​e​ ​i​n​s​t​a​l​l​ ​s​c​r​i​p​t​ ​l​i​n​k​s​ ​i​t​ ​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​)​.
+			 */
+			mcp_note: string
+			/**
+			 * C​h​e​c​k​ ​i​t​ ​s​e​e​s​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​s​e​a​r​c​h​ ​i​t​,​ ​a​n​d​ ​l​i​s​t​ ​e​v​e​r​y​ ​c​o​m​m​a​n​d
+			 */
+			terminal_try: string
+			/**
+			 * A​g​e​n​t​s​ ​w​o​r​k​ ​o​n​ ​f​o​l​d​e​r​s​ ​o​n​ ​d​i​s​k
+			 */
+			browser_title: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​ ​i​s​ ​s​t​o​r​e​d​ ​i​n​ ​t​h​e​ ​a​p​p​’​s​ ​o​w​n​ ​b​r​o​w​s​e​r​ ​s​t​o​r​a​g​e​,​ ​w​h​e​r​e​ ​n​o​ ​a​g​e​n​t​ ​c​a​n​ ​r​e​a​c​h​ ​i​t​.​ ​T​o​ ​w​o​r​k​ ​o​n​ ​i​t​ ​w​i​t​h​ ​a​n​ ​a​g​e​n​t​,​ ​g​i​v​e​ ​i​t​ ​a​ ​f​o​l​d​e​r​ ​o​n​ ​d​i​s​k​:
+			 */
+			browser_body: string
+			/**
+			 * I​n​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​,​ ​o​p​e​n​ ​o​r​ ​c​r​e​a​t​e​ ​a​ ​v​a​u​l​t​ ​i​n​ ​a​ ​f​o​l​d​e​r​.
+			 */
+			browser_desktop: string
+			/**
+			 * O​r​ ​l​i​n​k​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​ ​f​r​o​m​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​.​ ​I​t​ ​k​e​e​p​s​ ​a​ ​c​o​p​y​ ​o​f​ ​t​h​e​ ​v​a​u​l​t​ ​a​s​ ​f​i​l​e​s​ ​i​n​ ​a​ ​f​o​l​d​e​r​ ​y​o​u​ ​c​h​o​o​s​e​.
+			 */
+			browser_link: string
+			/**
+			 * O​p​e​n​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s
+			 */
+			open_sync: string
+			/**
+			 * T​h​e​ ​f​u​l​l​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​d​o​c​s​/​a​g​e​n​t​-​a​c​c​e​s​s​.​m​d​ ​i​n​ ​t​h​e​ ​O​h​ ​h​i​ ​r​e​p​o​s​i​t​o​r​y​.
+			 */
+			guide: string
+			/**
+			 * C​o​p​y
+			 */
+			copy: string
+			/**
+			 * C​o​p​y​:​ ​{​w​h​a​t​}
+			 * @param {string} what
+			 */
+			copy_what: RequiredParams<'what'>
+			/**
+			 * C​o​p​i​e​d
+			 */
+			copied: string
+			/**
+			 * C​o​u​l​d​n​’​t​ ​c​o​p​y​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​t​e​x​t​ ​a​n​d​ ​c​o​p​y​ ​i​t​.
+			 */
+			copy_failed: string
 		}
 		about: {
 			/**
@@ -8551,75 +8964,89 @@ export type TranslationFunctions = {
 				 */
 				reset_editor: () => LocalizedString
 			}
-			hotkeys: {
+			keys: {
 				/**
-				 * Every command and the key that runs it, from the keymap in use. Save writes the keymap file, so your keys travel with the vault.
+				 * Every command and the keys that run it. Click a key to record a new one; each change is saved as you make it.
 				 */
 				intro: () => LocalizedString
-				/**
-				 * Type a shortcut like {example}, or press Record and hit the keys. {mod} is Cmd on a Mac and Ctrl everywhere else; separate several shortcuts with a comma, and leave the field empty to remove the shortcut.
-				 */
-				syntax: (arg: { example: string, mod: string }) => LocalizedString
 				/**
 				 * Keymap
 				 */
 				keymap: () => LocalizedString
 				/**
-				 * Built in · read-only — change a shortcut, then Save as to write your own
+				 * Use keymap
 				 */
-				from_builtin: () => LocalizedString
+				pick: () => LocalizedString
 				/**
-				 * This vault · {path}
+				 * Extends {name}.
 				 */
-				from_vault: (arg: { path: string }) => LocalizedString
+				'extends': (arg: { name: string }) => LocalizedString
 				/**
-				 * Your config folder · {path} · read-only here — Save as writes a copy into the vault
+				 * Read-only here: your first change creates a keymap file in this vault that extends it.
 				 */
-				from_user: (arg: { path: string }) => LocalizedString
+				read_only_hint: () => LocalizedString
 				/**
-				 * Shortcuts kept on this device — open a vault and they move into a keymap file there.
+				 * Named like a built-in, so it is read here but never written.
+				 */
+				shadows_builtin: () => LocalizedString
+				/**
+				 * Keys kept on this device. Open a vault and they move into a keymap file there.
 				 */
 				legacy: () => LocalizedString
 				/**
-				 * The keymap could not be used, so the default keys are in force: {error}
+				 * Nothing can be changed over a keymap that could not be used. Fix its file, or pick another keymap.
 				 */
-				fallback: (arg: { error: string }) => LocalizedString
+				cannot_write: () => LocalizedString
 				/**
-				 * Nothing can be saved over a keymap that could not be used — fix its file, or pick another keymap first.
+				 * Search commands
 				 */
-				cannot_save_fallback: () => LocalizedString
+				search: () => LocalizedString
 				/**
-				 * This vault file is named like the built-in “{name}”, so it is read here but never written — Save as under another name.
+				 * Search {count} commands by name, id or key
 				 */
-				builtin_name: (arg: { name: string }) => LocalizedString
+				search_placeholder: (arg: { count: number }) => LocalizedString
 				/**
-				 * Save
+				 * Press keys
 				 */
-				save: () => LocalizedString
+				press_keys: () => LocalizedString
 				/**
-				 * Save as
+				 * Find a command by pressing its keys
 				 */
-				save_as: () => LocalizedString
+				press_keys_label: () => LocalizedString
 				/**
-				 * mine
+				 * Press the keys to see what they run…
 				 */
-				name_placeholder: () => LocalizedString
+				press_keys_placeholder: () => LocalizedString
 				/**
-				 * Wrote {path}
+				 * Clear
 				 */
-				saved: (arg: { path: string }) => LocalizedString
+				clear: () => LocalizedString
 				/**
-				 * Unsaved changes
+				 * Show
 				 */
-				unsaved: () => LocalizedString
+				filters: () => LocalizedString
+				filter: {
+					/**
+					 * All
+					 */
+					all: () => LocalizedString
+					/**
+					 * Changed
+					 */
+					changed: () => LocalizedString
+					/**
+					 * Clashes
+					 */
+					clashes: () => LocalizedString
+					/**
+					 * No key
+					 */
+					unbound: () => LocalizedString
+				}
 				/**
-				 * Discard
+				 * {count} changed
 				 */
-				discard: () => LocalizedString
-				/**
-				 * Open a vault to save a keymap — it is a file inside it.
-				 */
-				needs_vault: () => LocalizedString
+				group_changed: (arg: { count: number }) => LocalizedString
 				/**
 				 * Other
 				 */
@@ -8629,61 +9056,77 @@ export type TranslationFunctions = {
 				 */
 				none: () => LocalizedString
 				/**
-				 * No shortcut
+				 * No command matches.
+				 */
+				no_match: () => LocalizedString
+				/**
+				 * No key
 				 */
 				unbound: () => LocalizedString
 				/**
-				 * Shortcut for {command}
+				 * Change {binding} for {command}
 				 */
-				shortcut_for: (arg: { command: string }) => LocalizedString
+				change_chip: (arg: { binding: string, command: string }) => LocalizedString
 				/**
-				 * Mod+Shift+P
+				 * Remove {binding} from {command}
 				 */
-				placeholder: () => LocalizedString
+				remove_chip: (arg: { binding: string, command: string }) => LocalizedString
 				/**
-				 * Not a shortcut — use modifiers and one key, like {example}.
+				 * Add a key for {command}
 				 */
-				invalid: (arg: { example: string }) => LocalizedString
+				add_for: (arg: { command: string }) => LocalizedString
+				/**
+				 * Press the keys… Esc cancels
+				 */
+				recording: () => LocalizedString
+				/**
+				 * Recording a key for {command}: press the keys, Escape cancels
+				 */
+				recording_for: (arg: { command: string }) => LocalizedString
 				/**
 				 * Default: {binding}
 				 */
 				default_is: (arg: { binding: string }) => LocalizedString
 				/**
-				 * No default shortcut
+				 * Default: no key
 				 */
 				default_none: () => LocalizedString
-				/**
-				 * Record
-				 */
-				record: () => LocalizedString
-				/**
-				 * Record a shortcut for {command}
-				 */
-				record_for: (arg: { command: string }) => LocalizedString
-				/**
-				 * Press the keys…
-				 */
-				recording: () => LocalizedString
-				/**
-				 * Stop recording {command}
-				 */
-				stop_recording: (arg: { command: string }) => LocalizedString
 				/**
 				 * Reset
 				 */
 				reset: () => LocalizedString
 				/**
-				 * Reset {command} to its default shortcut
+				 * Reset {command} to its default keys
 				 */
 				reset_for: (arg: { command: string }) => LocalizedString
 				/**
-				 * Also runs {commands} — only the last one registered wins.
+				 * Also runs {commands}: only the last one registered wins.
 				 */
 				conflict: (arg: { commands: string }) => LocalizedString
 				/**
-				 * Your desktop takes this shortcut before Oh hi markdown can see it.
+				 * Your desktop takes this key before Oh hi markdown can see it.
 				 */
 				reserved: () => LocalizedString
+				/**
+				 * Your changes are saved in {path}.
+				 */
+				created: (arg: { path: string }) => LocalizedString
+				/**
+				 * Saved to {path}.
+				 */
+				saved: (arg: { path: string }) => LocalizedString
+				/**
+				 * Undo
+				 */
+				undo: () => LocalizedString
+				/**
+				 * Undone.
+				 */
+				undone: () => LocalizedString
+				/**
+				 * Could not save the change: {error}
+				 */
+				error: (arg: { error: string }) => LocalizedString
 			}
 			sync: {
 				/**
@@ -8752,12 +9195,384 @@ export type TranslationFunctions = {
 				 * Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.
 				 */
 				intro: () => LocalizedString
+				/**
+				 * Where files are read from
+				 */
+				roots: () => LocalizedString
+				/**
+				 * Each name is read from the first of these that has it: this vault wins over your config folder, which wins over built in.
+				 */
+				roots_rule: () => LocalizedString
+				root: {
+					/**
+					 * This vault
+					 */
+					vault: () => LocalizedString
+					/**
+					 * Your config folder
+					 */
+					user: () => LocalizedString
+					/**
+					 * Built in
+					 */
+					builtin: () => LocalizedString
+				}
+				detail: {
+					/**
+					 * A folder on this computer
+					 */
+					disk: () => LocalizedString
+					/**
+					 * {name} · .ohhi, in this browser
+					 */
+					browser: (arg: { name: string }) => LocalizedString
+					/**
+					 * No vault open: this comes with one
+					 */
+					no_vault: () => LocalizedString
+					/**
+					 * Read-only here: the app reads it, you or an agent write it
+					 */
+					read_only: () => LocalizedString
+					/**
+					 * Could not be read on this computer
+					 */
+					unreadable: () => LocalizedString
+					/**
+					 * Desktop app only
+					 */
+					desktop_only: () => LocalizedString
+					/**
+					 * Ships with the app
+					 */
+					ships: () => LocalizedString
+				}
+				/**
+				 * Copy path
+				 */
+				copy_path: () => LocalizedString
+				/**
+				 * Copy the path of {what}
+				 */
+				copy_path_label: (arg: { what: string }) => LocalizedString
+				/**
+				 * The app cannot open a folder for you yet: copy the path and open it in your file manager.
+				 */
+				no_reveal: () => LocalizedString
+				/**
+				 * What is in use
+				 */
+				kinds: () => LocalizedString
+				/**
+				 * Kind
+				 */
+				col_kind: () => LocalizedString
+				/**
+				 * In use
+				 */
+				col_in_use: () => LocalizedString
+				/**
+				 * Also here
+				 */
+				col_also: () => LocalizedString
+				kind: {
+					/**
+					 * Layout
+					 */
+					layouts: () => LocalizedString
+					/**
+					 * Keymap
+					 */
+					keymaps: () => LocalizedString
+					/**
+					 * Templates
+					 */
+					templates: () => LocalizedString
+					/**
+					 * Theme
+					 */
+					themes: () => LocalizedString
+				}
+				from: {
+					/**
+					 * this vault
+					 */
+					vault: () => LocalizedString
+					/**
+					 * config folder
+					 */
+					user: () => LocalizedString
+					/**
+					 * built in
+					 */
+					builtin: () => LocalizedString
+				}
+				/**
+				 * shadows {roots}
+				 */
+				shadows: (arg: { roots: string }) => LocalizedString
+				/**
+				 * plus this device’s changes
+				 */
+				device_changes: () => LocalizedString
+				/**
+				 * {name} can’t be used, so the built-in default stands in
+				 */
+				fell_back: (arg: { name: string }) => LocalizedString
+				/**
+				 * can’t be used
+				 */
+				cant_use: () => LocalizedString
+				/**
+				 * nothing else
+				 */
+				nothing_else: () => LocalizedString
+				/**
+				 * {count} template{{s}}
+				 */
+				templates_count: (arg: { count: number }) => LocalizedString
+				/**
+				 * Insert one with Insert template… in the palette.
+				 */
+				templates_how: () => LocalizedString
+				/**
+				 * A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.
+				 */
+				themes_how: () => LocalizedString
+				/**
+				 * Copy as JSON
+				 */
+				copy_json: () => LocalizedString
+				/**
+				 * Copy the {kind} in use as JSON
+				 */
+				copy_json_label: (arg: { kind: string }) => LocalizedString
+				/**
+				 * Copied
+				 */
+				copied: () => LocalizedString
+				/**
+				 * Could not copy
+				 */
+				copy_failed: () => LocalizedString
+				/**
+				 * Problems
+				 */
+				problems: () => LocalizedString
+				/**
+				 * Every file can be used.
+				 */
+				problems_none: () => LocalizedString
+				/**
+				 * {count} file{{s}} can’t be used. Each stays listed until it is fixed.
+				 */
+				problems_count: (arg: { count: number }) => LocalizedString
+				/**
+				 * In use, so the built-in default stands in.
+				 */
+				problem_in_use: () => LocalizedString
+				/**
+				 * Nothing uses it, so nothing fell back.
+				 */
+				problem_unused: () => LocalizedString
+				/**
+				 * Copy error
+				 */
+				copy_error: () => LocalizedString
+				/**
+				 * Reload files
+				 */
+				reload: () => LocalizedString
+				/**
+				 * The desktop app reloads a file when it changes on disk. Reload reads every root again, here and in the shell.
+				 */
+				reload_hint: () => LocalizedString
+				/**
+				 * Ask an agent to make one
+				 */
+				agent: () => LocalizedString
+				/**
+				 * In the Oh hi vault at "{vault}", write .ohhi/layouts/<name>.json extending "default". Validate it against spec/ohhi.layout.v1.schema.json; the readout, bar and command ids are in docs/customising.md. The app picks the file up when it lands, or on Reload files in Settings › Customise.
+				 */
+				agent_prompt: (arg: { vault: string }) => LocalizedString
+				/**
+				 * Agents reach folders on disk. This vault lives in this browser, so its .ohhi is reachable only from here.
+				 */
+				agent_browser: () => LocalizedString
+				/**
+				 * Copy prompt
+				 */
+				copy_prompt: () => LocalizedString
+				/**
+				 * The full reference — kinds, precedence, the delta grammar and every id — is {doc}.
+				 */
+				reference: (arg: { doc: string }) => LocalizedString
+				source: {
+					/**
+					 * Layout file
+					 */
+					layout: () => LocalizedString
+					/**
+					 * Theme in use
+					 */
+					theme: () => LocalizedString
+					/**
+					 * The settings below are this device’s changes on top of it. Choose another file with Use layout file… in the palette.
+					 */
+					layout_overrides: () => LocalizedString
+					/**
+					 * Customise
+					 */
+					overview: () => LocalizedString
+					/**
+					 * Open Settings › Customise
+					 */
+					overview_label: () => LocalizedString
+				}
 			}
 			agents: {
 				/**
 				 * Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.
 				 */
 				intro: () => LocalizedString
+				/**
+				 * What an agent can do here
+				 */
+				can_do: () => LocalizedString
+				cap: {
+					/**
+					 * Find notes: ranked search that returns references, never whole notes
+					 */
+					find: () => LocalizedString
+					/**
+					 * Read a note’s outline, then just one section or a few lines
+					 */
+					read: () => LocalizedString
+					/**
+					 * Follow links and backlinks, and list links whose note does not exist yet
+					 */
+					links: () => LocalizedString
+					/**
+					 * See what changed since a time
+					 */
+					changes: () => LocalizedString
+					/**
+					 * Write, patch and append, each write journaled first and made atomically
+					 */
+					write: () => LocalizedString
+					/**
+					 * Move and rename, send to the trash instead of deleting, and restore an earlier version
+					 */
+					move: () => LocalizedString
+				}
+				/**
+				 * Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).
+				 */
+				mcp_tools: () => LocalizedString
+				/**
+				 * Connect an agent
+				 */
+				connect: () => LocalizedString
+				/**
+				 * How to connect
+				 */
+				routes: () => LocalizedString
+				/**
+				 * Claude Code
+				 */
+				route_claude: () => LocalizedString
+				/**
+				 * Other MCP client
+				 */
+				route_mcp: () => LocalizedString
+				/**
+				 * Terminal
+				 */
+				route_terminal: () => LocalizedString
+				/**
+				 * No vault is open, so the lines below show a placeholder path. Put your vault’s folder in its place.
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * Vaults kept in this browser can’t be reached by an agent: it needs a vault in a folder on disk, in the desktop app.
+				 */
+				placeholder_browser: () => LocalizedString
+				/**
+				 * The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi repository: each script makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.
+				 */
+				get_body: () => LocalizedString
+				/**
+				 * Install the command
+				 */
+				step_install: () => LocalizedString
+				/**
+				 * Install the command and the skill
+				 */
+				step_install_both: () => LocalizedString
+				/**
+				 * Start Claude Code with this vault named
+				 */
+				claude_start: () => LocalizedString
+				/**
+				 * Or give Claude Code the commands as MCP tools instead
+				 */
+				claude_mcp: () => LocalizedString
+				/**
+				 * The skill is the recommended route: no tools stay loaded, and it carries the habits that keep an agent’s reads small.
+				 */
+				claude_note: () => LocalizedString
+				/**
+				 * Add this server to the client’s MCP settings
+				 */
+				mcp_config: () => LocalizedString
+				/**
+				 * If the client can’t find ohhi, put its full path in "command" (the install script links it in ~/.local/bin).
+				 */
+				mcp_note: () => LocalizedString
+				/**
+				 * Check it sees this vault, search it, and list every command
+				 */
+				terminal_try: () => LocalizedString
+				/**
+				 * Agents work on folders on disk
+				 */
+				browser_title: () => LocalizedString
+				/**
+				 * This vault is stored in the app’s own browser storage, where no agent can reach it. To work on it with an agent, give it a folder on disk:
+				 */
+				browser_body: () => LocalizedString
+				/**
+				 * In the desktop app, open or create a vault in a folder.
+				 */
+				browser_desktop: () => LocalizedString
+				/**
+				 * Or link the desktop app to this vault from Sync & devices. It keeps a copy of the vault as files in a folder you choose.
+				 */
+				browser_link: () => LocalizedString
+				/**
+				 * Open Sync & devices
+				 */
+				open_sync: () => LocalizedString
+				/**
+				 * The full reference is docs/agent-access.md in the Oh hi repository.
+				 */
+				guide: () => LocalizedString
+				/**
+				 * Copy
+				 */
+				copy: () => LocalizedString
+				/**
+				 * Copy: {what}
+				 */
+				copy_what: (arg: { what: string }) => LocalizedString
+				/**
+				 * Copied
+				 */
+				copied: () => LocalizedString
+				/**
+				 * Couldn’t copy. Select the text and copy it.
+				 */
+				copy_failed: () => LocalizedString
 			}
 			about: {
 				/**

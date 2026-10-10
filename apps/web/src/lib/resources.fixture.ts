@@ -40,6 +40,7 @@ export function fakeVault(files: Record<string, unknown> = {}) {
 export function fakeUserRoot(files: Record<string, unknown>): ResourceRoot {
   return {
     id: 'user',
+    base: '~/.config/ohhi',
     location: (kind) => `~/.config/ohhi/${kind}`,
     list: async (kind) => Object.keys(files).filter((f) => kind === 'layouts' && f.endsWith('.json')),
     read: async (kind, file) => (kind === 'layouts' && file in files ? JSON.stringify(files[file]) : null),

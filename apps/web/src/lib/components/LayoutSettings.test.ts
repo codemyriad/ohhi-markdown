@@ -155,3 +155,56 @@ describe('Settings › Layout (round 3, Q6)', () => {
     expect(layout.overrides).toEqual({ $schema, regions: { navigator: 'drawer' } })
   })
 })
+
+describe('Settings › Layout names its file (settings-shaping Fork 4, quiet-shell Fork 8)', () => {
+  const c = getLL().web.settings.customise
+  const withSource = (extra: object): void => {
+    const layout = {
+      fileSpec: PRESETS.default,
+      ownSpec: PRESETS.default,
+      overrides: NO_OVERRIDES,
+      setOverrides: vi.fn(),
+      resetOverrides: vi.fn(),
+      ...extra,
+    }
+    render(LayoutSettings, { layout, part: 'shell' })
+  }
+
+  it('one line: the layout file in use, its root, what it shadows, and that the form is device changes on top', () => {
+    withSource({
+      active: 'custom:dense',
+      source: { name: 'dense', root: 'vault', path: '.ohhi/layouts/dense.json', shadows: ['user'] },
+      specError: null,
+    })
+    const line = screen.getByTestId('layout-source')
+    expect(screen.getByTestId('layout-source-name')).toHaveTextContent('dense')
+    expect(line).toHaveTextContent(c.from.vault())
+    expect(line).toHaveTextContent(c.shadows({ roots: c.from.user() }))
+    expect(line).toHaveTextContent('.ohhi/layouts/dense.json')
+    expect(line).toHaveTextContent(c.source.layout_overrides())
+    expect(screen.getByTestId('layout-source-copy')).toBeVisible()
+  })
+
+  it('a chosen file that cannot be used says the built-in default stands in', () => {
+    withSource({ active: 'custom:focus', source: null, specError: 'not JSON' })
+    expect(screen.getByTestId('layout-source-name')).toHaveTextContent('default')
+    expect(screen.getByTestId('layout-source')).toHaveTextContent(c.from.builtin())
+    expect(screen.getByTestId('layout-source-fallback')).toHaveTextContent(c.fell_back({ name: 'focus' }))
+    expect(screen.queryByTestId('layout-source-copy')).toBeNull()
+  })
+
+  it('the Editor part has no source line', () => {
+    const layout = {
+      fileSpec: PRESETS.default,
+      ownSpec: PRESETS.default,
+      overrides: NO_OVERRIDES,
+      setOverrides: vi.fn(),
+      resetOverrides: vi.fn(),
+      active: 'default' as const,
+      source: null,
+      specError: null,
+    }
+    render(LayoutSettings, { layout, part: 'editor' })
+    expect(screen.queryByTestId('layout-source')).toBeNull()
+  })
+})

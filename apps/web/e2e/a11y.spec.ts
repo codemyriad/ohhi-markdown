@@ -316,7 +316,7 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
 
   // Settings is a view tab (settings-shaping ST1). Only the open section is
   // in the DOM, so every section is opened to be scanned — Keys above all
-  // (a field, a toggle and a reset for every command).
+  // (a chip, a remove and an add for every command).
   await page.getByTestId('open-settings').click()
   await expect(settingsView(page)).toBeVisible()
   await expectAccessible(page, 'settings view')

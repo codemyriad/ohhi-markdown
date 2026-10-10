@@ -1170,44 +1170,54 @@ const settings = {
    * in force, and a field to change it. "Mod" is spelled out wherever the
    * user has to type it — it is the one piece of syntax the field requires.
    */
-  hotkeys: {
-    intro:
-      'Every command and the key that runs it, from the keymap in use. Save writes the keymap file, so your keys travel with the vault.',
-    syntax: 'Type a shortcut like {example:string}, or press Record and hit the keys. {mod:string} is Cmd on a Mac and Ctrl everywhere else; separate several shortcuts with a comma, and leave the field empty to remove the shortcut.',
-    /** The active keymap file (quiet-shell F10) and how it is saved. */
+  /** Settings › Keys (settings-shaping ST3, K1): the chips are the control, changes write through. */
+  keys: {
+    intro: 'Every command and the keys that run it. Click a key to record a new one; each change is saved as you make it.',
+    /** The source line: the keymap in use, where it lives, what it extends. */
     keymap: 'Keymap',
-    from_builtin: 'Built in · read-only — change a shortcut, then Save as to write your own',
-    from_vault: 'This vault · {path:string}',
-    from_user: 'Your config folder · {path:string} · read-only here — Save as writes a copy into the vault',
-    legacy: 'Shortcuts kept on this device — open a vault and they move into a keymap file there.',
-    fallback: 'The keymap could not be used, so the default keys are in force: {error:string}',
-    cannot_save_fallback:
-      'Nothing can be saved over a keymap that could not be used — fix its file, or pick another keymap first.',
-    builtin_name:
-      'This vault file is named like the built-in “{name:string}”, so it is read here but never written — Save as under another name.',
-    save: 'Save',
-    save_as: 'Save as',
-    name_placeholder: 'mine',
-    saved: 'Wrote {path:string}',
-    unsaved: 'Unsaved changes',
-    discard: 'Discard',
-    needs_vault: 'Open a vault to save a keymap — it is a file inside it.',
+    pick: 'Use keymap',
+    extends: 'Extends {name:string}.',
+    read_only_hint: 'Read-only here: your first change creates a keymap file in this vault that extends it.',
+    shadows_builtin: 'Named like a built-in, so it is read here but never written.',
+    legacy: 'Keys kept on this device. Open a vault and they move into a keymap file there.',
+    cannot_write: 'Nothing can be changed over a keymap that could not be used. Fix its file, or pick another keymap.',
+    /** The toolbar. */
+    search: 'Search commands',
+    search_placeholder: 'Search {count:number} commands by name, id or key',
+    press_keys: 'Press keys',
+    press_keys_label: 'Find a command by pressing its keys',
+    press_keys_placeholder: 'Press the keys to see what they run…',
+    clear: 'Clear',
+    filters: 'Show',
+    filter: {
+      all: 'All',
+      changed: 'Changed',
+      clashes: 'Clashes',
+      unbound: 'No key',
+    },
+    group_changed: '{count:number} changed',
     ungrouped: 'Other',
     none: 'No commands are registered yet.',
-    unbound: 'No shortcut',
-    shortcut_for: 'Shortcut for {command:string}',
-    placeholder: 'Mod+Shift+P',
-    invalid: 'Not a shortcut — use modifiers and one key, like {example:string}.',
+    no_match: 'No command matches.',
+    /** A row. */
+    unbound: 'No key',
+    change_chip: 'Change {binding:string} for {command:string}',
+    remove_chip: 'Remove {binding:string} from {command:string}',
+    add_for: 'Add a key for {command:string}',
+    recording: 'Press the keys… Esc cancels',
+    recording_for: 'Recording a key for {command:string}: press the keys, Escape cancels',
     default_is: 'Default: {binding:string}',
-    default_none: 'No default shortcut',
-    record: 'Record',
-    record_for: 'Record a shortcut for {command:string}',
-    recording: 'Press the keys…',
-    stop_recording: 'Stop recording {command:string}',
+    default_none: 'Default: no key',
     reset: 'Reset',
-    reset_for: 'Reset {command:string} to its default shortcut',
-    conflict: 'Also runs {commands:string} — only the last one registered wins.',
-    reserved: 'Your desktop takes this shortcut before Oh hi markdown can see it.',
+    reset_for: 'Reset {command:string} to its default keys',
+    conflict: 'Also runs {commands:string}: only the last one registered wins.',
+    reserved: 'Your desktop takes this key before Oh hi markdown can see it.',
+    /** After a change. */
+    created: 'Your changes are saved in {path:string}.',
+    saved: 'Saved to {path:string}.',
+    undo: 'Undo',
+    undone: 'Undone.',
+    error: 'Could not save the change: {error:string}',
   },
   sync: {
     relay: 'Default relay',
@@ -1234,11 +1244,125 @@ const settings = {
   customise: {
     intro:
       'Layouts, keymaps, templates and themes are files: you, an agent or a teammate can change them, and the app picks the change up.',
+    roots: 'Where files are read from',
+    roots_rule: 'Each name is read from the first of these that has it: this vault wins over your config folder, which wins over built in.',
+    root: {
+      vault: 'This vault',
+      user: 'Your config folder',
+      builtin: 'Built in',
+    },
+    detail: {
+      disk: 'A folder on this computer',
+      browser: '{name:string} · .ohhi, in this browser',
+      no_vault: 'No vault open: this comes with one',
+      read_only: 'Read-only here: the app reads it, you or an agent write it',
+      unreadable: 'Could not be read on this computer',
+      desktop_only: 'Desktop app only',
+      ships: 'Ships with the app',
+    },
+    copy_path: 'Copy path',
+    copy_path_label: 'Copy the path of {what:string}',
+    /** The desktop app has no opener: *Show file* copies the path. */
+    no_reveal: 'The app cannot open a folder for you yet: copy the path and open it in your file manager.',
+    kinds: 'What is in use',
+    col_kind: 'Kind',
+    col_in_use: 'In use',
+    col_also: 'Also here',
+    kind: {
+      layouts: 'Layout',
+      keymaps: 'Keymap',
+      templates: 'Templates',
+      themes: 'Theme',
+    },
+    /** The source pill: which root a name came from. */
+    from: {
+      vault: 'this vault',
+      user: 'config folder',
+      builtin: 'built in',
+    },
+    shadows: 'shadows {roots:string}',
+    device_changes: 'plus this device’s changes',
+    fell_back: '{name:string} can’t be used, so the built-in default stands in',
+    cant_use: 'can’t be used',
+    nothing_else: 'nothing else',
+    templates_count: '{count:number} template{{s}}',
+    templates_how: 'Insert one with Insert template… in the palette.',
+    themes_how:
+      'A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.',
+    copy_json: 'Copy as JSON',
+    copy_json_label: 'Copy the {kind:string} in use as JSON',
+    copied: 'Copied',
+    copy_failed: 'Could not copy',
+    problems: 'Problems',
+    problems_none: 'Every file can be used.',
+    problems_count: '{count:number} file{{s}} can’t be used. Each stays listed until it is fixed.',
+    problem_in_use: 'In use, so the built-in default stands in.',
+    problem_unused: 'Nothing uses it, so nothing fell back.',
+    copy_error: 'Copy error',
+    reload: 'Reload files',
+    reload_hint:
+      'The desktop app reloads a file when it changes on disk. Reload reads every root again, here and in the shell.',
+    agent: 'Ask an agent to make one',
+    agent_prompt:
+      'In the Oh hi vault at "{vault:string}", write .ohhi/layouts/<name>.json extending "default". Validate it against spec/ohhi.layout.v1.schema.json; the readout, bar and command ids are in docs/customising.md. The app picks the file up when it lands, or on Reload files in Settings › Customise.',
+    agent_browser:
+      'Agents reach folders on disk. This vault lives in this browser, so its .ohhi is reachable only from here.',
+    copy_prompt: 'Copy prompt',
+    reference: 'The full reference — kinds, precedence, the delta grammar and every id — is {doc:string}.',
+    /** The one-line source on a file-backed section (Fork 4): which file, from where. */
+    source: {
+      layout: 'Layout file',
+      theme: 'Theme in use',
+      layout_overrides:
+        'The settings below are this device’s changes on top of it. Choose another file with Use layout file… in the palette.',
+      overview: 'Customise',
+      overview_label: 'Open Settings › Customise',
+    },
   },
   /** Settings › Agents (settings-shaping ST5 fills it). */
   agents: {
     intro:
       'Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.',
+    can_do: 'What an agent can do here',
+    /** One line per group of `ohhi` ops (`agent-setup.ts` AGENT_CAPABILITIES); the op names are drawn beside it. */
+    cap: {
+      find: 'Find notes: ranked search that returns references, never whole notes',
+      read: 'Read a note’s outline, then just one section or a few lines',
+      links: 'Follow links and backlinks, and list links whose note does not exist yet',
+      changes: 'See what changed since a time',
+      write: 'Write, patch and append, each write journaled first and made atomically',
+      move: 'Move and rename, send to the trash instead of deleting, and restore an earlier version',
+    },
+    mcp_tools: 'Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).',
+    connect: 'Connect an agent',
+    routes: 'How to connect',
+    route_claude: 'Claude Code',
+    route_mcp: 'Other MCP client',
+    route_terminal: 'Terminal',
+    placeholder:
+      'No vault is open, so the lines below show a placeholder path. Put your vault’s folder in its place.',
+    placeholder_browser: 'Vaults kept in this browser can’t be reached by an agent: it needs a vault in a folder on disk, in the desktop app.',
+    get_body:
+      'The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi repository: each script makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.',
+    step_install: 'Install the command',
+    step_install_both: 'Install the command and the skill',
+    claude_start: 'Start Claude Code with this vault named',
+    claude_mcp: 'Or give Claude Code the commands as MCP tools instead',
+    claude_note: 'The skill is the recommended route: no tools stay loaded, and it carries the habits that keep an agent’s reads small.',
+    mcp_config: 'Add this server to the client’s MCP settings',
+    mcp_note: 'If the client can’t find ohhi, put its full path in "command" (the install script links it in ~/.local/bin).',
+    terminal_try: 'Check it sees this vault, search it, and list every command',
+    browser_title: 'Agents work on folders on disk',
+    browser_body: 'This vault is stored in the app’s own browser storage, where no agent can reach it. To work on it with an agent, give it a folder on disk:',
+    browser_desktop: 'In the desktop app, open or create a vault in a folder.',
+    browser_link: 'Or link the desktop app to this vault from Sync & devices. It keeps a copy of the vault as files in a folder you choose.',
+    open_sync: 'Open Sync & devices',
+    guide: 'The full reference is docs/agent-access.md in the Oh hi repository.',
+    copy: 'Copy',
+    /** The copy button's accessible name: what it copies. */
+    copy_what: 'Copy: {what:string}',
+    copied: 'Copied',
+    copy_failed: 'Couldn’t copy. Select the text and copy it.',
   },
   /** Settings › About: the running build, the updater's last outcome, the guides. */
   about: {

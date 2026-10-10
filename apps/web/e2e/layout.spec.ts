@@ -152,10 +152,12 @@ test('the palette’s Use layout file… lists a vault file beside Default and a
   await rows.nth(1).click()
   await expect(page.getByTestId('navigator')).toBeVisible()
 
-  // Settings never names the file: its form edits the overrides over whichever is in use.
+  // Settings names the file in one source line (settings-shaping Fork 4, quiet-shell Fork 8);
+  // its form edits this device's overrides over whichever is in use.
   await openLayoutSettings(page)
   await expect(page.getByTestId('layout-field:files')).toHaveValue('column')
-  await expect(page.getByTestId('settings-layout')).not.toContainText('columns')
+  await expect(page.getByTestId('layout-source-name')).toHaveText('columns')
+  await expect(page.getByTestId('layout-source')).toContainText('.ohhi/layouts/columns.json')
 })
 
 test('the navigator’s pin lives in a header row the tab strip’s height, in the drawer and as a column (Chris, 2026-10-06)', async ({

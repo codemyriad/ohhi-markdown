@@ -20,10 +20,20 @@ tools — this page is everything it needs. Ground truth for the decisions:
 
 | Kind | File | Schema | Chosen in |
 |---|---|---|---|
-| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | Settings › Layout |
+| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Layout names the file in use and edits this device's overrides on top |
 | Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
-| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance (by name; the folder is not listed) |
+
+**Settings › Customise** is the overview of all four: the roots below in
+order, each kind's file in use with the root it came from and what it
+shadows, every other name with its root, and **Problems** — every layout or
+keymap file that does not parse or validate, listed with its file, root and
+message until it is fixed (read from the files on each change and on
+*Reload files*, which runs `app.reload-resources`). Its verbs are read-only:
+*Copy path* (the desktop app cannot open a folder for you yet) and *Copy as
+JSON* (the resolved file in use). Settings › Layout and › Appearance each
+carry one line naming their file and its root.
 
 Each kind is read from **ordered roots**; the first root that has a name wins:
 
@@ -38,8 +48,9 @@ Each kind is read from **ordered roots**; the first root that has a name wins:
    into `.ohhi/layouts/` to use it
 
 **The vault wins.** A shared vault's `.ohhi/keymaps/default.json` shadows the
-built-in `default` for everyone who opens it; the pickers show which root
-each name came from, so a clash is visible. The *device* stores only which
+built-in `default` for everyone who opens it; Settings › Customise shows
+which root each name came from and what it shadows (the palette's *Use
+layout file…* rows show each file's path), so a clash is visible. The *device* stores only which
 one is active (`default` or `custom:<name>`), never the file.
 
 **Layouts on a device, in three layers.** What the shell draws is the active
@@ -72,8 +83,8 @@ is the layout `writing`.
 ### Applying a change
 
 Settings applies its changes as you make them: there is no Save button and
-nothing to confirm on leaving (Keys keeps a draft with *Save* / *Save as*
-for now). A file written by anything else — an
+nothing to confirm on leaving. Keys writes each change to its keymap file at
+once, with an *Undo*. A file written by anything else — an
 agent, your editor, `git pull` — is picked up by the desktop app's watcher;
 when that cannot run (the browser, or a watcher that failed to start), run
 **Reload layouts and resources** (`app.reload-resources`) from the command
@@ -183,9 +194,15 @@ none.
   the desktop's workspace switcher).
 - `extends` layers keymaps: the parent's bindings first, this file's over them,
   per command id. Cycles are refused.
-- Settings › Keys edits **the active keymap file**. On the read-only
-  built-in `default` (or a file in your user folder) it offers *Save as*, which
-  writes a new vault file that `extends` it and holds only what changed.
+- Settings › Keys edits **the active keymap file**, writing each change as
+  you make it (journaled, like every app write). When the keymap in use is
+  read-only — the built-in `default`, a file in your user folder, or a vault
+  file named like a built-in — the first change creates
+  `.ohhi/keymaps/mine.json` (`mine-2.json` if that name is taken) that
+  `extends` it and holds only what changed, and makes it the keymap in use.
+  *Undo* puts back what the last change replaced (removing `mine.json` again
+  if that change created it). Search finds a command by name, id or key, and
+  *Press keys* finds what a chord runs.
 - Shortcuts saved on a device before keymaps were files move into
   `.ohhi/keymaps/device.json` (`device-2.json` if that name is taken) the
   first time a vault is open, and that keymap becomes active.

@@ -17,6 +17,7 @@ export async function createTauriUserRoot(): Promise<ResourceRoot> {
   const base = await join(await configDir(), 'ohhi')
   return {
     id: 'user',
+    base,
     location: (kind) => `${base}/${kind}`,
     list: async (kind) => {
       const dir = await join(base, kind)

@@ -13,16 +13,21 @@
    *
    * What is stored is the minimal delta over the active file
    * (`overridesFor` — a field set back to the file's value stops being an
-   * override); choosing a FILE is the palette's *Use layout file…*.
+   * override); choosing a FILE is the palette's *Use layout file…*. The
+   * Layout part opens with the file's one source line (settings-shaping
+   * Fork 4, quiet-shell Fork 8): which layout file is in use, its root, and
+   * that this form is the device's changes on top of it.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { hasOverrides, overridesFor, type ShellSpec } from '../layout-spec.js'
+  import { sourceOf } from '../customise-overview.js'
+  import { layoutName } from '../layout.js'
   import type { PinSide } from '../pin-layout.js'
-  import type { ShellLayout } from '../shell-layout.svelte.js'
+  import type { SettingsLayout } from '../settings-host.js'
+  import ResourceSource from './ResourceSource.svelte'
 
   interface Props {
-    layout: Pick<ShellLayout, 'fileSpec' | 'ownSpec' | 'overrides' | 'setOverrides' | 'resetOverrides'> &
-      Partial<Pick<ShellLayout, 'pins' | 'unpin'>>
+    layout: SettingsLayout
     /** Which fields: Layout's (`shell`) or Editor's (`editor`). */
     part?: 'shell' | 'editor'
   }
@@ -112,6 +117,19 @@
 </script>
 
 <section data-testid={part === 'shell' ? 'settings-layout' : 'settings-editor-layout'}>
+  {#if part === 'shell' && layout.active !== undefined}
+    <ResourceSource
+      label={$LL.web.settings.customise.source.layout()}
+      testid="layout-source"
+      source={sourceOf({
+        chosen: layoutName(layout.active),
+        entry: layout.source ?? null,
+        error: layout.specError ?? null,
+      })}
+    >
+      {$LL.web.settings.customise.source.layout_overrides()}
+    </ResourceSource>
+  {/if}
   {#if part === 'shell'}<p class="text-xs text-base-content/70">{t.intro()}</p>{/if}
 
   <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">

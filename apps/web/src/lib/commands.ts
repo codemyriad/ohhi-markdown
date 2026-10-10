@@ -340,6 +340,11 @@ export class CommandRegistry {
     return bindingFromEvent(e, this.mac)
   }
 
+  /** One chord as it is pressed on THIS registry's platform (`⌘⇧P` / `Ctrl+Shift+P`) — Settings' chips and chord search. */
+  format(keys: string): string {
+    return formatBinding(keys, this.mac)
+  }
+
   /**
    * Every registered command as a Settings row, in registration order —
    * INCLUDING commands whose `when` guard is currently false and commands
