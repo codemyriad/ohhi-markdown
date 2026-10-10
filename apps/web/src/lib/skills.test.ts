@@ -333,6 +333,19 @@ describe('ai.run-skill', () => {
     expect(store.markUsed).toHaveBeenCalledWith('line-edit')
   })
 
+  it('a kind’s landing rules ride on the skill body, and the finished run is handed to the router', async () => {
+    const check: SkillMeta = { ...meta('proofread', 'note'), kind: 'check' }
+    const handle = { sessionId: 's', runId: 'r', done: new Promise<never>(() => {}) }
+    const startRun = vi.fn(async () => handle)
+    const route = vi.fn(async () => undefined)
+    const target = { path: 'n.md', selection: null }
+    await runSkillCommand({ startRun, route, pick: async (x) => x[0], skills: () => fakeStore([check]), target: async () => target }).run()
+    const body = (startRun.mock.calls[0] as unknown as [{ skill: { body: string } }])[0].skill.body
+    expect(body).toMatch(/^body of proofread\n\n## Where your answer lands/)
+    expect(body).toContain('```ohhi-findings')
+    expect(route).toHaveBeenCalledWith({ meta: check, handle, target })
+  })
+
   it('says why when nothing fits, no note is open, or runs are not wired', async () => {
     const flash = vi.fn()
     const store = fakeStore([meta('summarise', 'note')])

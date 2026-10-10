@@ -147,6 +147,7 @@
     --ed-suggest-stale: #a3abba;
     --ed-comment-bg: #b48ead40;
     --ed-comment-resolved-bg: #d8dee91f;
+    --ed-agent-working-bg: #88c0d038;
 
     --ed-presence-1: #88c0d0;
     /* Slots 2 and 4 are NOT Nord's green and yellow: those ARE this theme's

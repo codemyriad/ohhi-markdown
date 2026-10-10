@@ -5,31 +5,43 @@
    *
    * - **new** — a textarea, *Comment*, and *Send to agent*, which is the one
    *   AI-gated thing here: shown only when `ai` (a provider exists, R1). It
-   *   sets `to: ['agent']` on the comment and nothing more — F starts the
-   *   run and appends the reply.
-   * - **thread** — its comments in order, *Reply*, *Resolve* / *Reopen*.
+   *   sets `to: ['agent']` on the comment and asks the agent; the reply
+   *   lands in the thread.
+   * - **thread** — its comments in order, *Reply*, *Resolve* / *Reopen*,
+   *   and any edit the agent proposed answering it (a suggestion carrying
+   *   the thread's id) with *Accept* / *Reject*.
+   *
+   * *Send to agent* starts the run from here — the gesture, never a store
+   * change, so a synced copy of the comment does not start a second one
+   * (`thread-agent.ts`).
    *
    * Comments themselves are not an AI feature and work with no provider.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import type { ThreadRecord } from '@ohhi/workspace'
+  import type { SuggestionRecord, ThreadRecord } from '@ohhi/workspace'
   import CheckControl from '../ui/CheckControl.svelte'
   import Field from '../ui/Field.svelte'
   import Popover from '../ui/Popover.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
   import { liveThreads, type BubbleRequest } from '../threads.svelte.js'
+  import { sendThreadToAgent } from '../thread-agent.js'
   import type { Workspace } from '../workspace.svelte.js'
+
+  type SuggestionVerbs = 'suggestionsFor' | 'acceptSuggestion' | 'rejectSuggestion' | 'subscribeSuggestions' | 'flash'
 
   interface Props {
     request: BubbleRequest
-    workspace: Pick<Workspace, 'threadsFor' | 'addThread' | 'reply' | 'resolveThread'>
+    workspace: Pick<Workspace, 'threadsFor' | 'addThread' | 'reply' | 'resolveThread'> & Partial<Pick<Workspace, SuggestionVerbs>>
     /** A provider exists: offer *Send to agent*. */
     ai: boolean
     onClose: () => void
+    /** Ask the agent about a new thread; the app's run door (`thread-agent.ts`) unless a test hands one in. */
+    onSendToAgent?: (path: string, threadId: string) => void
   }
 
-  let { request, workspace, ai, onClose }: Props = $props()
+  let { request, workspace, ai, onClose, onSendToAgent }: Props = $props()
+  const w = $derived($LL.web.ai.wiring)
 
   const t = $derived($LL.web.ai.comments)
   const live = liveThreads(() => workspace.threadsFor(request.path))
@@ -38,6 +50,23 @@
   )
   /** Where the thread's passage is now; null = the text is gone. */
   const range = $derived(thread && live.store ? live.store.rangeOf(thread) : null)
+
+  /** Bumped on every suggestion change in the note, so the list below re-reads. */
+  let suggestionTick = $state(0)
+  $effect(() => workspace.subscribeSuggestions?.(request.path, () => suggestionTick++))
+  /** The agent's open proposals answering this thread (B8: shown in the bubble with accept/reject). */
+  const proposals = $derived.by((): SuggestionRecord[] => {
+    void suggestionTick
+    if (!thread || !workspace.suggestionsFor) return []
+    return workspace
+      .suggestionsFor(request.path)
+      .filter((sg) => sg.threadId === thread.id && (sg.status === 'pending' || sg.status === 'stale'))
+  })
+  function decide(sg: SuggestionRecord, accept: boolean): void {
+    if (accept) workspace.acceptSuggestion?.(request.path, sg.id)
+    else workspace.rejectSuggestion?.(request.path, sg.id)
+    suggestionTick++
+  }
 
   let body = $state('')
   let sendToAgent = $state(false)
@@ -50,12 +79,17 @@
     const text = body.trim()
     if (!text) return
     if (request.kind === 'new') {
-      workspace.addThread(request.path, {
+      const asking = ai && sendToAgent
+      const added = workspace.addThread(request.path, {
         from: request.from,
         to: request.to,
         body: text,
-        ...(ai && sendToAgent ? { sendTo: ['agent'] as 'agent'[] } : {}),
+        ...(asking ? { sendTo: ['agent'] as 'agent'[] } : {}),
       })
+      if (added && asking) {
+        if (onSendToAgent) onSendToAgent(request.path, added.id)
+        else void sendThreadToAgent(workspace, request.path, added.id, workspace.flash)
+      }
       onClose()
     } else if (thread) {
       workspace.reply(request.path, thread.id, { body: text })
@@ -100,6 +134,34 @@
             </li>
           {/each}
         </ol>
+        {#if proposals.length}
+          <ul class="m-0 flex list-none flex-col gap-2 p-0">
+            {#each proposals as sg (sg.id)}
+              <li class="flex flex-col gap-1 rounded border border-base-300 p-2 text-xs" data-testid="comment-suggestion">
+                <span class="font-semibold">{w.thread_suggestion()}</span>
+                {#if sg.baseText}
+                  <del class="whitespace-pre-wrap text-base-content/70">{sg.baseText}</del>
+                {/if}
+                {#if sg.proposedText}
+                  <ins class="whitespace-pre-wrap no-underline">{sg.proposedText}</ins>
+                {/if}
+                {#if sg.status === 'stale'}
+                  <span class="text-base-content/70">{w.thread_suggestion_stale()}</span>
+                {/if}
+                <span class="flex justify-end gap-2">
+                  <button type="button" class={outline} data-testid="comment-suggestion-reject" onclick={() => decide(sg, false)}
+                    >{w.reject()}</button
+                  >
+                  {#if sg.status === 'pending'}
+                    <button type="button" class={primary} data-testid="comment-suggestion-accept" onclick={() => decide(sg, true)}
+                      >{w.accept()}</button
+                    >
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
         {#if thread.resolved}
           <p class="text-xs text-base-content/70">{t.resolved()}</p>
         {/if}

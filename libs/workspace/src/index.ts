@@ -28,6 +28,7 @@ export {
   MountSession,
   PEER_SETTLE_MS,
   RELAY_OFFLINE_MS,
+  type AgentEditInput,
   type DetachOptions,
   type DocInspection,
   type MountInspection,
@@ -166,6 +167,21 @@ export {
   type TextRange,
 } from './anchors.js'
 export { AgentRuns, isAgentOrigin, type AgentOrigin } from './agent-origin.js'
+export { AgentThrottle, AGENT_OPS_PER_WINDOW, AGENT_WINDOW_MS, type ThrottleOptions } from './agent-throttle.js'
+export {
+  AGENT_AWARENESS_ORIGIN,
+  AGENT_PRESENCE_COALESCE_MS,
+  AGENT_PRESENCE_RENEW_MS,
+  DEFAULT_AGENT_STYLE,
+  DocAgentPresence,
+  isAgentAwareness,
+  routeAgentPresence,
+  type AgentAwarenessState,
+  type AgentPresenceSink,
+  type AgentPresenceState,
+  type AgentPresenceStyle,
+  type AwarenessRange,
+} from './agent-presence.js'
 export {
   memoryRecordMap,
   resolveRange,

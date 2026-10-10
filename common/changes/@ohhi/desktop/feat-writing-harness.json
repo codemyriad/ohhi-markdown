@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The desktop app may read and write the vault's `.agents` and `.claude` folders (skills and the Claude Code farm).",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

@@ -74,6 +74,45 @@ export interface RunRegistry {
   active(): string[]
   /** Cancel everything (the vault closed). */
   stopAll(): void
+  /**
+   * A finished run's answer: the text of the agent's last step (what a
+   * comment thread gets as its reply, what a skill's findings are parsed
+   * from). Null for a run this registry did not see finish with a message.
+   */
+  reply(runId: string): string | null
+}
+
+/**
+ * The words an agent message ends on: the text after its last tool call (the
+ * answer, not the "let me search" before it); every text part when the last
+ * step said nothing.
+ */
+export function finalText(message: Pick<UIMessage, 'parts'>): string {
+  let tail: string[] = []
+  const all: string[] = []
+  for (const part of message.parts) {
+    if (part.type === 'text') {
+      tail.push(part.text)
+      all.push(part.text)
+    } else if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
+      tail = []
+    }
+  }
+  return (tail.join('').trim() || all.join('').trim())
+}
+
+/** The host, with every suggestion its `proposeEdit` lands reported to `onSuggestion`. */
+export function recordingSuggestions(host: AgentHost, onSuggestion: (id: string) => void): AgentHost {
+  const propose = host.proposeEdit
+  if (!propose) return host
+  return {
+    ...host,
+    proposeEdit: async (input) => {
+      const record = await propose(input)
+      onSuggestion(record.id)
+      return record
+    },
+  }
 }
 
 const LIVE: ReadonlySet<RunRecord['status']> = new Set(['scheduled', 'running'])
@@ -99,6 +138,8 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
   /** The turn each session is on, keyed by session id (= the chat id). */
   const pending = new Map<string, Pending>()
   const runs = $state<Record<string, RunRecord>>({})
+  /** Each finished run's answer, by run id (`reply`). */
+  const replies = new Map<string, string>()
 
   const record = async (sessionId: string, run: RunRecord): Promise<void> => {
     runs[sessionId] = run
@@ -120,6 +161,7 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
     }
     // The agent's reply, as far as it got (a cancelled turn keeps its partial text).
     const reply = message && message.role === 'assistant' && message.parts.length > 0 ? message : null
+    if (reply) replies.set(run.runId, finalText(reply))
     runs[sessionId] = run
     await deps.store.append(sessionId, [
       ...(reply ? [{ type: 'message' as const, message: { ...(reply as unknown as UIMessageJson), metadata: { runId: run.runId } } }] : []),
@@ -150,7 +192,12 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
         refs: p.input.refs ?? [],
         ...(p.input.skill ? { skill: p.input.skill } : {}),
         origin: p.origin,
-        host: deps.host(p.origin),
+        host: recordingSuggestions(deps.host(p.origin), (id) => {
+          // The run's record names every suggestion it produced (B7): the
+          // transcript's card and *Undo agent edit* find them from here.
+          p.run = { ...p.run, suggestions: [...(p.run.suggestions ?? []), id] }
+          if (runs[sessionId]?.runId === p.run.runId) runs[sessionId] = p.run
+        }),
         onAgent: (agent) => (p.agent = agent),
       }
     },
@@ -258,5 +305,6 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
     stopAll() {
       for (const id of [...pending.keys()]) this.stop(id)
     },
+    reply: (runId) => replies.get(runId) ?? null,
   }
 }

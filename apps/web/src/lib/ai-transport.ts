@@ -19,12 +19,15 @@ import {
   type AgentOrigin,
   type HarnessAgent,
   type Mention,
+  type ProposeEditInput,
   type ProviderConfig,
   type SkillMeta,
   type SkillSource,
+  type SuggestionRecord,
   type UIMessageJson,
 } from '@ohhi/harness'
 import type { Clock } from '@ohhi/vault'
+import { withPresence } from './agent-presence.js'
 import type { VaultBackend } from './agent-backend.js'
 
 /** One turn, as the registry prepared it. */
@@ -43,19 +46,45 @@ export type AgentFactory = typeof createHarnessAgent
 /** No skills until builder C's source lands (`skills.svelte.ts`). */
 export const NO_SKILLS: SkillSource = { list: async () => [], body: async () => null }
 
-/** The host the agent runs over: the live workspace's backend, the shell's clock, the network. */
+/** What a proposal lands on: the workspace's suggestions (D's facade). */
+export interface ProposalSink {
+  proposeEdit(input: ProposeEditInput): Promise<SuggestionRecord>
+  acceptSuggestion(path: string, id: string): SuggestionRecord | null
+}
+
+/**
+ * The host the agent runs over: the live workspace's backend, the shell's
+ * clock, the network. With `proposals`, the agent's `write`/`patch`/`append`
+ * land as suggestions in the note (B7, Fork 4-B); `direct()` true (Fork 4-A,
+ * `aiConfig().directEdit`) accepts each one the moment it lands — the same
+ * record, applied with the run's origin, so *Undo agent edit* still takes it
+ * back as a unit.
+ */
 export function appAgentHost(opts: {
   backend: VaultBackend
   clock: Clock
   skills?: SkillSource
   fetch?: typeof fetch
+  proposals?: ProposalSink
+  direct?: () => boolean
+  presence?: AgentHost['presence'] // the agent as a peer in shared notes (B10, G)
 }): AgentHost {
+  const sink = opts.proposals
   return {
     backend: opts.backend,
     clock: opts.clock,
     fetch: opts.fetch ?? ((input, init) => globalThis.fetch(input, init)),
     skills: opts.skills ?? NO_SKILLS,
-    // proposeEdit: F wires `workspace.proposeEdit` (H3). Absent → the agent is read-only.
+    ...(opts.presence ? { presence: opts.presence } : {}),
+    ...(sink
+      ? {
+          proposeEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => {
+            const record = await sink.proposeEdit(input)
+            if (!opts.direct?.()) return record
+            return sink.acceptSuggestion(input.path, record.id) ?? record
+          },
+        }
+      : {}),
   }
 }
 
@@ -72,12 +101,14 @@ export function createHarnessTransport(opts: {
       const agent = factory(turn.host, {
         provider: turn.provider,
         refs: turn.refs,
-        mutates: false, // writes are proposals, and proposals are H3 (F)
+        // Writes are proposals when the host can take them (B7); without a
+        // `proposeEdit` the agent stays read-only.
+        mutates: turn.host.proposeEdit !== undefined,
         origin: turn.origin,
         ...(turn.skill ? { skill: turn.skill } : {}),
       })
       turn.onAgent(agent)
-      return agent.stream(messages as unknown as UIMessageJson[], abortSignal ? { signal: abortSignal } : {})
+      return withPresence(turn, await agent.stream(messages as unknown as UIMessageJson[], abortSignal ? { signal: abortSignal } : {}))
     },
     reconnectToStream: async () => null,
   }

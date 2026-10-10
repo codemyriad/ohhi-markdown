@@ -40,7 +40,7 @@ export interface HarnessShell {
   clock: Clock
   /** Open (or focus) a Session tab. */
   openView(id: 'session', arg?: string): void
-  /** C's trusted+enabled skills; absent → none. TODO(C/F): pass `skills.source()`. */
+  /** C's trusted+enabled skills (`currentSkills()?.source()`); absent → none. */
   skills?(): SkillSource
   /** Injected for the tests; `createHarnessAgent` otherwise. */
   agentFactory?: AgentFactory
@@ -124,7 +124,17 @@ function vault(): VaultHarness | null {
     store,
     clock,
     provider: resolveProvider,
-    host: () => appAgentHost({ backend, clock, skills: skillSource() }),
+    host: () =>
+      appAgentHost({
+        backend,
+        clock,
+        skills: skillSource(),
+        // The agent's edits land as suggestions in the note (B7); direct mode
+        // (Fork 4-A) is re-read per proposal, so a settings change applies mid-run.
+        proposals: { proposeEdit: (input) => ws.proposeEdit(input), acceptSuggestion: (path, id) => ws.acceptSuggestion(path, id) },
+        direct: () => aiConfig().directEdit === true,
+        presence: ws.agentPresence?.(), // the agent as a peer (B10); absent on a test's partial workspace
+      }),
     ...(shell.agentFactory ? { agentFactory: shell.agentFactory } : {}),
   })
   const unsubscribe = ws.onAppFileChange(`${SESSIONS_DIR}/`, () => {
@@ -273,6 +283,16 @@ export async function startRun(input: StartRunInput): Promise<RunHandle | null> 
   void refreshSessions()
   void handle?.done.then(() => refreshSessions())
   return handle
+}
+
+/** A finished run's answer (the agent's last words) — send-to-agent's reply, a skill's findings. */
+export function runReply(handle: Pick<RunHandle, 'runId'>): string | null {
+  return built()?.registry.reply(handle.runId) ?? null
+}
+
+/** The open vault's workspace, as the harness holds it (a run's landing: threads, notes). */
+export function harnessWorkspace(): Workspace | null {
+  return vault()?.workspace ?? null
 }
 
 /** Stop a session's run (default: the current session's, else any running one). */

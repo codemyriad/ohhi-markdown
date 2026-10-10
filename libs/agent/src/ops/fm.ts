@@ -1,5 +1,5 @@
 import { OP_SCHEMAS, schemaName } from '../contract.js'
-import { openForRead } from '../backend.js'
+import { openForRead } from '../read.js'
 import type { OpDef } from '../op.js'
 import { readFrontmatter } from '../frontmatter-read.js'
 

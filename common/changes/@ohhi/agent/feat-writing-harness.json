@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/agent",
+      "comment": "Two new contract ops, `skills` and `skill`, list and read the vault's `.agents/skills/`; a browser-safe `./core` entry (and `./skills`) lets the app use the contract without Node.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/agent"
+}

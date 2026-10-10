@@ -5,10 +5,10 @@
  * @ohhi/index, journals every write. No relay, no CRDT, no second
  * reconciler — a running app ingests this tool's writes through its own
  * disk path.
+ *
+ * Node-only. A browser host imports `@ohhi/agent/core` (the contract, the
+ * ops, the backend seam) and `@ohhi/agent/skills` (the loader) instead.
  */
-export * from './contract.js'
-export { createFilesBackend, readNote, type FilesBackendOptions, type VaultBackend, type VaultFile } from './backend.js'
+export * from './core.js'
+export { createFilesBackend, type FilesBackendOptions } from './backend.js'
 export { resolveDataDir, resolveVault, vaultId, type SelectVaultOptions, type VaultSelection } from './select-vault.js'
-export { isOpName, OPS, runOp } from './ops/index.js'
-export type { OpDef } from './op.js'
-export { readFrontmatter, type FrontmatterRead } from './frontmatter-read.js'

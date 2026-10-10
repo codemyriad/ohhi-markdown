@@ -62,6 +62,15 @@ describe('createHarnessAgent over the fixture vault', () => {
     expect(system).toContain('### Areas/CS/JSON.md (3–3)')
   })
 
+  it('a turn a comment thread asked carries the thread rule; any other turn does not', async () => {
+    const mock = mockLlmFetch([{ text: 'one' }, { text: 'two' }])
+    await drain(await createHarnessAgent(hostOf(h, mock), { ...base, provider: providerOf('openai') }).stream(ask('Hi'), {}))
+    const threaded = createHarnessAgent(hostOf(h, mock), { ...base, provider: providerOf('openai'), origin: { ...ORIGIN, threadId: 't-1' } })
+    await drain(await threaded.stream(ask('Is this clear?'), {}))
+    expect(mock.requests[0].system).not.toContain('## A comment asked')
+    expect(mock.requests[1].system).toContain('## A comment asked')
+  })
+
   it('a provider error is the stream’s error part, with the provider’s message, and leaves no usage', async () => {
     const mock = mockLlmFetch([{ error: { status: 401, message: 'invalid x-api-key' } }])
     const agent = createHarnessAgent(hostOf(h, mock), { ...base, provider: providerOf('anthropic') })

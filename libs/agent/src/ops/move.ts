@@ -1,6 +1,6 @@
 /** Shared by `mv` and `rm`: what is at a path, how big it is, and the breaker. */
 import { OpError } from '../contract.js'
-import type { VaultBackend } from '../backend.js'
+import type { VaultBackend } from '../read.js'
 import { isUnder } from '../paths.js'
 
 /**

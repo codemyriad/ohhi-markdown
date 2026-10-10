@@ -109,6 +109,27 @@ describe('ohhi ask', () => {
     expect(server!.requests[0].system).toContain('One line. No preamble.')
   })
 
+  it('honours the app’s .ohhi/skills.json: an untrusted skill is neither cataloged nor runnable', async () => {
+    const env = await configured([{ text: 'ok' }])
+    const v = await fixture()
+    for (const name of ['terse', 'wild']) {
+      await mkdir(join(v.root, `.agents/skills/${name}`), { recursive: true })
+      await writeFile(join(v.root, `.agents/skills/${name}/SKILL.md`), `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\nBody.\n`)
+    }
+    await mkdir(join(v.root, '.ohhi'), { recursive: true })
+    await writeFile(
+      join(v.root, '.ohhi/skills.json'),
+      JSON.stringify({ terse: { enabled: true, trusted: true, installedAt: 1 }, wild: { enabled: true, trusted: false, installedAt: 1 } }),
+    )
+    const ok = await ohhi(inVault(v, ['ask', 'hi']), { env })
+    expect(ok.code).toBe(0)
+    expect(server!.requests[0].system).toContain('<name>terse</name>')
+    expect(server!.requests[0].system).not.toContain('<name>wild</name>')
+    const refused = await ohhi(inVault(v, ['ask', 'hi', '--skill', 'wild']), { env })
+    expect(refused.code).toBe(1)
+    expect(refused.err).toMatch(/not trusted and enabled/)
+  })
+
   it('a provider error is exit 1 with the provider’s message', async () => {
     const env = await configured([{ error: { status: 401, message: 'bad key' } }])
     const v = await fixture()
@@ -142,6 +163,7 @@ describe('ohhi ask', () => {
     expect(OP_NAMES as readonly string[]).not.toContain('ask')
     const help = await ohhi(['help'])
     expect(help.out).toContain('ohhi ask "<prompt>"')
+    expect(help.out).toContain('ohhi skills export [--dry-run]')
   })
 })
 

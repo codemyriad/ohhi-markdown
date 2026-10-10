@@ -97,6 +97,31 @@ rushx test -- fuzz-crashers/0042-rename-x-rename.spec.ts
 
 Do not add more per-PR Playwright specs for collab paths — push the scenario down to L0/L1 instead. The **nightly cron** runs the smoke at **100× depth on a real tmpdir** (real filesystem, real watcher), which is where browser-level flake and FS edge cases are allowed to cost time.
 
+### The writing harness: the mock LLM and the agent-speed case
+
+- **The mock LLM** (`libs/testkit/src/mock-llm.ts`) answers the Anthropic and
+  OpenAI wires from a script of turns — `{ text?, toolCall?: { name, args },
+  error?, usage? }`, one turn per request (`GET /models` is free) — and records
+  every request (`.requests`). In-process tests inject `mockLlmFetch(script)`
+  as the host's `fetch`; the CLI tests and the e2e start the HTTP server
+  (`startMockLlm` from `@ohhi/testkit/src/node`; in `e2e/` import it by
+  relative path, Playwright does not transpile TS under `node_modules`) and
+  point a provider at `${url}/v1` (`seedProvider` in `e2e/fixtures.ts`
+  writes a valid v2 config — an invalid one is replaced on read and the
+  provider silently dropped).
+- **The agent-speed writer** (`libs/workspace/test/agent-speed-writer.test.ts`,
+  R8, blocking): a 4k-wpm bursty agent on device A (direct-mode writes, and
+  proposals the person on B accepts) while B types into the same note, over
+  `bootDuo`'s `RoomNet` on `SimClock`s. Asserts no human character lost and
+  in order, every agent word exactly once, the token bucket's bound on A's
+  agent transactions (≤ 2 × 10 in any 100 ms), convergence, both disks, and
+  `checkInvariants`. An agent edit that waits for a token keeps its offsets
+  pinned (relative positions), so the case is deterministic.
+- **The L2 peer case** (`e2e/collab.spec.ts`, *the agent as a peer*): A runs
+  a scripted `ohhi_patch` turn; B sees `<name> (agent)` in the presence stack,
+  its caret tag, and the suggestion. The full harness journey is
+  `e2e/harness.spec.ts`.
+
 ---
 
 ## CI budget and deferred lanes

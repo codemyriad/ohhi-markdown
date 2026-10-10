@@ -19,17 +19,17 @@
  *    so the two guid-keyed queries (`outgoing`, `headings`) are translated
  *    path → guid on the way in. Nothing is rebuilt.
  *
- * **Reads only, this wave.** Every write path — the adapter's writers and the
- * journal's `record`/`rename` — throws `refused` ("proposals land in H3"):
- * F routes `write`/`patch`/`append` through `proposeEdit` instead (the
- * harness's proposing tools override the adapter's `writeAtomic` and the
- * journal's `record`, so they never reach these refusals).
+ * **Reads only.** Every write path — the adapter's writers and the journal's
+ * `record`/`rename` — throws the contract's `OpError('refused')`: the agent's
+ * `write`/`patch`/`append` go through `proposeEdit` instead (the harness's
+ * proposing tools override the adapter's `writeAtomic` and the journal's
+ * `record`, so they never reach these refusals).
  *
  * Known gaps, each honest rather than invented: `mtime` is null (the
  * workspace keeps none, so `changes` sees the journal only); `journal` is the
  * ROOT mount's (a shared folder's pre-images are its own mount's).
  */
-import type { AgentHost } from '@ohhi/harness'
+import { OpError, type AgentHost } from '@ohhi/harness'
 import type { IndexDoc, VaultIndex } from '@ohhi/index'
 import {
   decodeFile,
@@ -48,22 +48,15 @@ type VaultFile = Awaited<ReturnType<VaultBackend['files']>> extends ReadonlyMap<
 type Coverage = Awaited<ReturnType<VaultBackend['coverage']>>
 
 /**
- * A write this backend will not do. Shaped like `@ohhi/agent`'s `OpError`
- * (`code` + a `refused: …` message — what the harness's tools show the model
- * for an `OpError`), because `apps/web` cannot import the class itself:
- * `@ohhi/agent` is not one of its dependencies.
- * TODO(F): use `OpError('refused', …)` once the harness re-exports it.
+ * Every write this backend is asked for directly is refused with the
+ * contract's own `OpError('refused')` — the code the harness's tools show
+ * the model. A note edit never gets here: the harness runs
+ * `write`/`patch`/`append` over a capturing writer and lands the change as
+ * a suggestion (`proposeEdit`, B7). What is left (`fm set`, a journal
+ * record) is not something the in-app agent does.
  */
-export class RefusedError extends Error {
-  readonly code = 'refused' as const
-  constructor(message: string) {
-    super(`refused: ${message}`)
-    this.name = 'OpError'
-  }
-}
-
 const refuse = (): never => {
-  throw new RefusedError('proposals land in H3 — this agent cannot write yet')
+  throw new OpError('refused', 'the app’s agent proposes note edits as suggestions; it does not write files directly')
 }
 
 /** What the backend needs from the shell — narrow, so a test can hand in a fake. */

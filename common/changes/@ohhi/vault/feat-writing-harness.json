@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "`.claude` joins the ignored folders: Claude Code's skill farm is never synced or indexed.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

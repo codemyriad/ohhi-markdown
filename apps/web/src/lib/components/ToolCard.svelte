@@ -56,12 +56,18 @@
       ? (output.hits as { path: string; line: number | null }[])
       : []
   )
-  const proposal = $derived(output?.schema === 'ohhi.proposal.v1' ? (output as { path: string; proposed: boolean }) : null)
+  const proposal = $derived(
+    output?.schema === 'ohhi.proposal.v1' ? (output as { path: string; proposed: boolean; applied?: boolean }) : null
+  )
+  const w = $derived($LL.web.ai.wiring)
 
   const summary = $derived.by((): string => {
     if (failed) return t.failed({ name, message: part.errorText ?? '' })
     if (!done) return t.running()
-    if (proposal) return t.proposed({ path: proposal.path })
+    if (proposal) {
+      if (!proposal.proposed) return w.proposal_none({ path: proposal.path })
+      return proposal.applied ? w.proposal_applied({ path: proposal.path }) : t.proposed({ path: proposal.path })
+    }
     if (name === 'ohhi_search') return t.search({ query: String(input.query ?? '') })
     if (name === 'ohhi_read' && output) {
       const path = String(output.path ?? input.path ?? '')
@@ -99,7 +105,7 @@
     {#if hits.length}
       <span class="text-base-content/70">· {t.results({ count: hits.length })}</span>
     {/if}
-    {#if proposal && shell}
+    {#if proposal?.proposed && shell}
       <button type="button" class={link} data-testid="tool-open" onclick={() => shell.openPath(proposal.path)}>{t.open()}</button>
     {/if}
   </p>

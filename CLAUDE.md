@@ -38,7 +38,10 @@ index), `libs/editor-lang` (V2c — wikilink grammar), `libs/frontmatter` (V2e �
 the flat-subset YAML reader and one-line-range patcher every frontmatter
 writer goes through), `libs/agent` (G1 — the host-neutral command core behind
 the agent surface) and `apps/cli` (G1 — the `ohhi` binary, bin name `ohhi`,
-plus `ohhi mcp`), `libs/i18n` (the dictionaries + typesafe-i18n wiring,
+plus `ohhi mcp`), `libs/harness` (H1 — the writing harness: providers over
+the Vercel AI SDK, the tool loop over the `libs/agent` contract, the prompt,
+and the seams every harness builder shares in `src/types.ts`; see
+`docs/writing-harness.md`), `libs/i18n` (the dictionaries + typesafe-i18n wiring,
 laid out as Edible's `@edible/shared/i18n`;
 every user-facing string in `apps/web` is a `$LL.…()` / `getLL()` key — see
 `.claude/skills/ui-development`). The shell's component
@@ -56,6 +59,15 @@ a file — the app never writes a layout file; an agent does). `.ohhi/` is ignor
 app's writes there go through the journal. See `plans/quiet-shell-shaping.md`
 and `docs/customising.md`.
 
+**Skills live in the vault's `.agents/skills/<name>/SKILL.md`** (the Agent
+Skills format every harness reads), never under `.ohhi/`. Trust is
+device-local in `.ohhi/skills.json`; Claude Code's `.claude/skills/` is only a
+farm of links the app or `ohhi skills export` makes, and `.claude` is in
+`IGNORED_DIRS` (never synced, never indexed). **Every harness command is a
+registry id** (`ai.*` in `command-ids.ts`, gated `when: aiEnabled` — nothing
+AI-shaped renders without a provider), like every other command (golden rule
+7). See `docs/writing-harness.md`.
+
 Toolchain: Rush 5.153.0, pnpm 10.17.0, Node 22.12 (`.nvmrc`). Use `rush install` / `rushx <script>`; see `.claude/skills/monorepo-rush`.
 
 ## Golden rules (from shaping — do not violate without updating plans/shaping.md)
@@ -64,7 +76,7 @@ Toolchain: Rush 5.153.0, pnpm 10.17.0, Node 22.12 (`.nvmrc`). Use `rush install`
 2. **Never reserialize what you didn't change.** Frontmatter edits are surgical byte-preserving patches (parse-only YAML); untouched bytes stay untouched — no spurious git diffs.
 3. **Always-on CRDT for enrolled docs; no CRDT at all for tracked (never-shared) files.** There is no "dormant" mode — that was adversarially proven to lose data (see Decision log, Offline/collab seam).
 4. **Sync state never lies.** The pill is a pure `f(syncRecord)`; green requires durable (fsynced) relay ack — that is the target (`shaping.md` D4a); **today green means the relay has received every edit** (`apps/web/src/lib/pill-status.ts`), and every surface words it that way ("in sync with the relay", never "durable"). Tested under partition in the harness.
-5. **Injected clock/scheduler in all Editor-owned sync, reconciler and index code** (lint-enforced across `libs/sync`, `libs/vault`, `libs/index`, `libs/agent` and `libs/workspace` — the event log included; a documented `clock-exempt` marker covers diagnostics that schedule nothing) — deterministic simulation is the foundation of the test harness.
+5. **Injected clock/scheduler in all Editor-owned sync, reconciler and index code** (lint-enforced across `libs/sync`, `libs/vault`, `libs/index`, `libs/agent`, `libs/harness` and `libs/workspace` — the event log included; a documented `clock-exempt` marker covers diagnostics that schedule nothing) — deterministic simulation is the foundation of the test harness.
 6. **Collab correctness is tested, not hoped:** L0 fast-check model tests, L1 reconciler fuzz (memfs, `fuzz-crashers/` corpus), L2 two-context Playwright smoke. See `.claude/skills/testing`.
 7. **The UI renders through design tokens, never raw palette utilities.** One token layer drives the Svelte chrome and the CodeMirror surface alike; the sync-honesty tokens are unlayered so no user theme can repaint the pill (golden rule 4, expressed in the cascade). `scripts/check-design-tokens.sh` is a build gate, and `apps/web/e2e/a11y.spec.ts` (axe over every shell surface) gates accessibility the same way — no overlay, menu or icon control outside `apps/web/src/lib/ui/`. **The shell's bars are data, too: every toolbar and format-bar item is a registry command id; every bar readout is a catalogue id** (`READOUT_IDS` / `READOUTS`, drawn through one `BarItems.svelte`) — never a button written into a host, and the layout schema refuses a spec that would hide the `sync` readout (the open note's sync state; `note.pill` is its old alias). See `docs/theming.md` and `.claude/skills/ui-development`.
 8. **The index is derived, never a system of record.** Droppable by construction: losing it costs a rebuild, never data. One writer path, and every query is Promise-returning + paged so the SQLite backend behind `v2-shaping.md` Fork 1's trigger stays a swap.

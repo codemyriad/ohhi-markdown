@@ -96,3 +96,11 @@ export {
   type CommentRange,
   type CommentsHost,
 } from './comments.js'
+export {
+  setWorking,
+  workingField,
+  workingHighlight,
+  workingRanges,
+  type WorkingHost,
+  type WorkingRange,
+} from './working-highlight.js'

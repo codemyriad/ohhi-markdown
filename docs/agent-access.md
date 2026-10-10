@@ -13,6 +13,12 @@ forks 1–4) and its build brief
 [`plans/agent-surface-build.md`](../plans/agent-surface-build.md); this doc is
 the operating reference over those decisions.
 
+The agent *inside* the app — the Session view, suggestions in the text,
+comments sent to the agent, skills in `.agents/skills/` — is the **writing
+harness**, documented in [writing-harness.md](writing-harness.md). It calls
+the same contract ops as its tools; `ohhi ask` (§10) is that harness from a
+terminal.
+
 The operating manual an *agent* reads is the skill,
 [`.claude/skills/ohhi-vault/SKILL.md`](../.claude/skills/ohhi-vault/SKILL.md).
 This doc is for the human who has to know what the skill is talking about.

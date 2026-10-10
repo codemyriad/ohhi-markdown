@@ -1,6 +1,6 @@
 import { OP_SCHEMAS, schemaName } from '../contract.js'
-import type { VaultBackend } from '../backend.js'
-import { readNote } from '../backend.js'
+import type { VaultBackend } from '../read.js'
+import { readNote } from '../read.js'
 import type { OpDef } from '../op.js'
 import { paginate } from '../paging.js'
 import { loadSkills, SKILLS_DIR, type SkillFs } from '../skills.js'

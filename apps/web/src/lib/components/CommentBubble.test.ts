@@ -9,6 +9,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createThreadRegistry, type BubbleRequest } from '../threads.svelte.js'
+import type { SuggestionRecord } from '@ohhi/workspace'
 import type { Workspace } from '../workspace.svelte.js'
 import CommentBubble from './CommentBubble.svelte'
 
@@ -59,16 +60,65 @@ describe('CommentBubble', () => {
     expect(t.comments[0].to).toBeUndefined()
   })
 
-  it("offers Send to agent with a provider; ticking it sets to: ['agent'] and nothing more", async () => {
+  it("offers Send to agent with a provider; ticking it sets to: ['agent'] and asks the agent about that thread", async () => {
     const user = userEvent.setup()
     const { ws, store } = fakeWorkspace()
-    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {} })
+    const onSendToAgent = vi.fn()
+    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
     const box = await screen.findByTestId('comment-send-agent')
     await user.type(screen.getByTestId('comment-body'), 'Rewrite this')
     await user.click(box)
     await user.click(screen.getByTestId('comment-submit'))
     expect(ws.addThread).toHaveBeenCalledWith(PATH, { from: 4, to: 8, body: 'Rewrite this', sendTo: ['agent'] })
-    expect(store().threads()[0].comments[0].to).toEqual(['agent'])
+    const [thread] = store().threads()
+    expect(thread.comments[0].to).toEqual(['agent'])
+    expect(onSendToAgent).toHaveBeenCalledWith(PATH, thread.id)
+  })
+
+  it('a plain comment asks no one', async () => {
+    const user = userEvent.setup()
+    const { ws } = fakeWorkspace()
+    const onSendToAgent = vi.fn()
+    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
+    await user.type(await screen.findByTestId('comment-body'), 'Just a note')
+    await user.click(screen.getByTestId('comment-submit'))
+    expect(onSendToAgent).not.toHaveBeenCalled()
+  })
+
+  it('shows the agent’s proposal answering the thread, with Accept and Reject', async () => {
+    const user = userEvent.setup()
+    const { ws, store } = fakeWorkspace()
+    const t = store().add({ from: 4, to: 8, author: 'Ana', body: 'Say when', sendTo: ['agent'] })
+    const origin = { kind: 'agent' as const, runId: 'r1', sessionId: 's1', name: 'Agent', threadId: t.id }
+    const records: SuggestionRecord[] = [
+      { id: 'sg-1', path: PATH, origin, at: 0, range: { from: 21, to: 29 }, baseText: 'in March', proposedText: 'on 3 March', status: 'pending', threadId: t.id },
+      { id: 'sg-2', path: PATH, origin: { ...origin, threadId: 'other' }, at: 0, range: { from: 0, to: 3 }, baseText: 'The', proposedText: 'Our', status: 'pending', threadId: 'other' },
+    ]
+    const listeners = new Set<() => void>()
+    const full = {
+      ...ws,
+      suggestionsFor: () => records,
+      subscribeSuggestions: (_p: string, cb: () => void) => (listeners.add(cb), () => listeners.delete(cb)),
+      acceptSuggestion: vi.fn((_p: string, id: string) => {
+        const r = records.find((x) => x.id === id)!
+        r.status = 'accepted'
+        return r
+      }),
+      rejectSuggestion: vi.fn(() => true),
+    }
+    render(CommentBubble, {
+      request: { kind: 'thread', paneId: 'p1', path: PATH, threadId: t.id, anchor: null },
+      workspace: full,
+      ai: true,
+      onClose: () => {},
+    })
+    const card = await screen.findByTestId('comment-suggestion')
+    expect(screen.getAllByTestId('comment-suggestion')).toHaveLength(1)
+    expect(card).toHaveTextContent('in March')
+    expect(card).toHaveTextContent('on 3 March')
+    await user.click(screen.getByTestId('comment-suggestion-accept'))
+    expect(full.acceptSuggestion).toHaveBeenCalledWith(PATH, 'sg-1')
+    await waitFor(() => expect(screen.queryByTestId('comment-suggestion')).toBeNull())
   })
 
   it('shows a thread, takes a reply, and resolves (closing)', async () => {

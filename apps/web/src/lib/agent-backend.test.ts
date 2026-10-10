@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { MemoryIndex } from '@ohhi/index'
 import { decodeFile, MemJournal } from '@ohhi/vault'
-import { createAppBackend, RefusedError, type AppBackendHost } from './agent-backend.js'
+import { OpError } from '@ohhi/harness'
+import { createAppBackend, type AppBackendHost } from './agent-backend.js'
 import type { FileRow } from './workspace.svelte.js'
 
 const enc = new TextEncoder()
@@ -87,6 +88,17 @@ describe('createAppBackend', () => {
     expect(coverage.ignored).toContain('.ohhi')
   })
 
+  it('a live note ahead of a CRLF + BOM disk copy decodes to exactly its Y.Text (the offsets a proposal pins)', async () => {
+    const { backend, disk, live } = setup()
+    disk.set('notes/crlf.md', enc.encode('\uFEFFone\r\ntwo\r\n'))
+    live.set('notes/crlf.md', 'one\ntwo, edited\nthree\n')
+    const bytes = await backend.adapter.read('notes/crlf.md')
+    const decoded = decodeFile(bytes!)
+    expect(decoded.text).toBe('one\ntwo, edited\nthree\n')
+    expect(decoded.eol).toBe('crlf')
+    expect(decoded.bom).toBe(true)
+  })
+
   it('answers the guid-keyed index queries by path', async () => {
     const { backend } = setup()
     const index = await backend.index()
@@ -96,12 +108,12 @@ describe('createAppBackend', () => {
     expect(back.items.map((l) => l.path)).toEqual(['local.md'])
   })
 
-  it('refuses every write this wave, and journals nothing', async () => {
+  it('refuses every direct write with the contract’s OpError, and journals nothing', async () => {
     const { backend, journal } = setup()
-    await expect(backend.adapter.writeAtomic('notes/plan.md', enc.encode('x'))).rejects.toBeInstanceOf(RefusedError)
-    await expect(backend.adapter.rename('a', 'b')).rejects.toThrow(/^refused: /)
-    await expect(backend.adapter.remove('a')).rejects.toThrow(RefusedError)
-    await expect(backend.journal.record('notes/plan.md', enc.encode('pre'))).rejects.toThrow(RefusedError)
+    await expect(backend.adapter.writeAtomic('notes/plan.md', enc.encode('x'))).rejects.toBeInstanceOf(OpError)
+    await expect(backend.adapter.rename('a', 'b')).rejects.toMatchObject({ code: 'refused' })
+    await expect(backend.adapter.remove('a')).rejects.toThrow(OpError)
+    await expect(backend.journal.record('notes/plan.md', enc.encode('pre'))).rejects.toThrow(OpError)
     expect(await journal.list()).toEqual([])
   })
 

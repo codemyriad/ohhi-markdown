@@ -7,6 +7,7 @@
  *
  * Keep it short: every line is paid for on every turn.
  */
+import { skillsCatalog } from '@ohhi/agent/skills'
 import type { Mention, SkillMeta } from './types.js'
 
 const DISCIPLINE = `You are the writing assistant inside Oh hi markdown, working in the person's vault of plain markdown notes. The notes are theirs: they are small, many, and the canonical copy lives on disk.
@@ -32,19 +33,13 @@ Your tools are the vault's own commands, named ohhi_<command>. Narrow before you
 - In the app your edits arrive as suggestions the person accepts or rejects. Say in one line what you proposed and where.
 - A question gets an answer. A requested change gets the change (proposed) plus a one-line reply. Do not change what was not asked for.`
 
-/** The escape the catalog needs: skill names and descriptions are the vault's text. */
-const xml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/** The send-to-agent rule (B8): the reply lands in the thread, so it is short, and a change is a proposal. */
+const THREAD = `## A comment asked
 
-/** The Agent Skills `<available_skills>` block: name, description, location of each valid skill. */
-export function skillsCatalog(skills: SkillMeta[]): string {
-  const valid = skills.filter((s) => s.problems.length === 0)
-  if (valid.length === 0) return ''
-  const rows = valid.map(
-    (s) =>
-      `  <skill>\n    <name>${xml(s.name)}</name>\n    <description>${xml(s.description)}</description>\n    <location>${xml(`${s.dir}/SKILL.md`)}</location>\n  </skill>`,
-  )
-  return `<available_skills>\n${rows.join('\n')}\n</available_skills>`
-}
+The person's message is a comment on the passage under References, and your final text is posted as the reply in that comment thread.
+
+- A question: answer it in the reply, briefly. Change nothing.
+- A requested change: propose the edit (ohhi_patch on that passage), then reply in one line saying what you proposed.`
 
 /** A fence longer than any backtick run inside `text`, so a quoted note can never close it early. */
 function fenceFor(text: string): string {
@@ -92,6 +87,8 @@ export function systemPrompt(input: {
   skills: SkillMeta[]
   skill?: { meta: SkillMeta; body: string }
   refs: Mention[]
+  /** The turn answers a comment thread (send to agent, B8): its final text is posted as the reply. */
+  thread?: boolean
 }): string {
   const parts = [DISCIPLINE]
   const catalog = skillsCatalog(input.skills)
@@ -103,6 +100,7 @@ export function systemPrompt(input: {
   if (input.skill) {
     parts.push(`## Active skill: ${input.skill.meta.name}\n\nThe person ran this skill. Follow it.\n\n${input.skill.body.trim()}`)
   }
+  if (input.thread) parts.push(THREAD)
   if (input.refs.length > 0) {
     parts.push(`## References\n\nWhat the person attached to this message, as it was when they attached it.\n\n${renderRefs(input.refs)}`)
   }

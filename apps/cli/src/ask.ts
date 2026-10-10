@@ -18,6 +18,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { OpError, runOp, type VaultBackend } from '@ohhi/agent'
+import { parseSkillsState, SKILLS_STATE_PATH, usableSkills, type SkillsState } from '@ohhi/agent/skills'
 import {
   createHarnessAgent,
   PROVIDER_KINDS,
@@ -148,15 +149,27 @@ async function mentionOf(backend: VaultBackend, raw: string, index: number): Pro
 
 // ---- skills, through the contract's own ops ----
 
-function skillSource(backend: VaultBackend): SkillSource {
+/**
+ * The vault's `.ohhi/skills.json` (the app's trust and enabled state), or
+ * null when the app never wrote one — then every valid skill is usable (C's
+ * `usableSkills` rule). A skill the app lists untrusted or disabled is never
+ * offered here either: one gate, both hosts.
+ */
+async function skillsState(backend: VaultBackend): Promise<SkillsState | null> {
+  const bytes = await backend.adapter.read(SKILLS_STATE_PATH).catch(() => null)
+  return parseSkillsState(bytes ? new TextDecoder().decode(bytes) : null)
+}
+
+function skillSource(backend: VaultBackend, state: SkillsState | null): SkillSource {
   return {
     list: async () => {
       const out = await runOp(backend, 'skills', { limit: 1000 })
-      return out.skills.map((s): SkillMeta => ({ ...s, metadata: {} }))
+      return usableSkills(out.skills, state).map((s): SkillMeta => ({ ...s, metadata: {} }))
     },
     body: async (name) => {
       try {
-        return (await runOp(backend, 'skill', { name })).body
+        const found = await runOp(backend, 'skill', { name })
+        return usableSkills([found.meta], state).length > 0 ? found.body : null
       } catch (err) {
         if (err instanceof OpError && err.code === 'not_found') return null
         throw err
@@ -182,13 +195,19 @@ export async function runAsk(command: AskCommand, io: Io, sink: Sink): Promise<n
   const config = await loadProviders(io.env)
   const provider = chooseProvider(config, command, io.env)
   const backend = await openVault(command.globals, io)
-  const skills = skillSource(backend)
+  const state = await skillsState(backend)
+  const skills = skillSource(backend, state)
 
   let skill: { meta: SkillMeta; body: string } | undefined
   if (command.skill) {
     const found = await runOp(backend, 'skill', { name: command.skill })
     if (found.meta.problems.length > 0) {
       throw new OpError('refused', `skill ${command.skill} has problems: ${found.meta.problems.join(', ')}`, { skill: command.skill })
+    }
+    if (usableSkills([found.meta], state).length === 0) {
+      throw new OpError('refused', `skill ${command.skill} is not trusted and enabled in ${SKILLS_STATE_PATH}; review it in the app first`, {
+        skill: command.skill,
+      })
     }
     skill = { meta: found.meta, body: found.body }
   }

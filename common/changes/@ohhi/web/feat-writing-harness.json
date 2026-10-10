@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The writing harness in the app: add a provider in Settings › AI and a Session view, `@` references, suggestions in the note (accept, reject, direct mode, Undo agent edit), comment threads with Send to agent, skills with a trust review, and the agent shown as a peer in shared notes — its name in the presence stack, its caret and a working highlight. Nothing AI-shaped appears without a provider.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

@@ -140,6 +140,7 @@
     --ed-suggest-stale: #6b7690;
     --ed-comment-bg: #b48ead38;
     --ed-comment-resolved-bg: #4c566a1f;
+    --ed-agent-working-bg: #2b8a9a2e;
 
     --ed-presence-1: #2b7f8a;
     /* Slots 2 and 4 are not the ported green and amber: #4d7c2f is this

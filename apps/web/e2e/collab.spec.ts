@@ -4,8 +4,9 @@
  * sync-pill honesty (+ binary badge). Two browser contexts share one relay.
  */
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { startMockLlm } from '../../../libs/testkit/src/node.js'
 import { encodeDeviceLink } from '../src/lib/share-link.js'
-import { MANAGER_URL, RELAY, appUrl as url, paneContent, severableRelay } from './fixtures.js'
+import { MANAGER_URL, RELAY, appUrl as url, paneContent, runCommand, seedProvider, severableRelay } from './fixtures.js'
 
 const ROOM = 'e2eroom'
 const TOKEN = 'e2e-token'
@@ -331,4 +332,55 @@ test('the drawer names the peer for every edit, Backspace included, grouped per 
 
   await alice.context.close()
   await bob.context.close()
+})
+
+/**
+ * The agent as a peer (writing-harness B10, H6): Alice runs the in-app agent
+ * on a shared note — the mock LLM scripts one `ohhi_patch` turn — and Bob,
+ * with the note open, sees the agent arrive in the note's presence (a
+ * presence slot, labelled `<name> (agent)`), its caret tag in his editor,
+ * and its proposal land in his editor as a suggestion.
+ */
+test('the agent as a peer: B sees A’s agent in the note and its suggestion arrive', async ({ browser }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await startMockLlm({
+    script: [{ toolCall: { name: 'ohhi_patch', args: { path: FILE, old: OLD, new: NEW } } }, { text: 'Proposed the comma.' }],
+  })
+  try {
+    // Alice has a provider: the mock, over the OpenAI-compatible wire. She
+    // seeds the room (the sample vault), so the case also runs on its own.
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await seedProvider(page, `${mock.url}/v1`)
+    await page.goto(appUrl('seed', 'Alice'))
+    await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 15_000 })
+    await openFile(page)
+
+    const bob = await openPeer(browser, 'join', 'Bob')
+    await openFile(bob.page)
+    await expect(paneContent(bob.page)).toContainText(OLD, { timeout: 10_000 })
+
+    await runCommand(page, 'New AI session')
+    const input = page.getByTestId('session-composer-input')
+    await expect(input).toBeVisible()
+    await input.click()
+    await page.keyboard.type('Add a comma before honestly.')
+    await page.getByTestId('session-send').click()
+
+    // Bob: the agent in the note's presence, in a presence slot, named as an agent …
+    const agentPeer = bob.page.locator(`[data-testid="tab-presence:${FILE}"] [data-peer$="(agent)"]`)
+    await expect(agentPeer).toBeVisible({ timeout: 15_000 })
+    await expect(agentPeer).toHaveAttribute('style', /--ed-presence-\d/)
+    // … its caret tag in his editor, drawn by the collab binding like any peer's …
+    await expect(bob.page.locator('.cm-ySelectionInfo', { hasText: '(agent)' }).first()).toBeAttached()
+    // … and the proposal, a suggestion in his editor — drawn, not applied.
+    await expect(bob.page.locator('.ed-suggest-add, .ed-suggest-del').first()).toBeVisible({ timeout: 15_000 })
+    expect(mock.requests.filter((r) => r.wire === 'openai')).toHaveLength(2)
+
+    await context.close()
+    await bob.context.close()
+  } finally {
+    await mock.close()
+  }
 })

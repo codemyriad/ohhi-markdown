@@ -14,7 +14,7 @@
  */
 import { tool, type ToolSet } from 'ai'
 import type { ZodType } from 'zod'
-import { OP_NAMES, OP_SCHEMAS, OpError, runOp, type OpName, type VaultBackend } from '@ohhi/agent'
+import { OP_NAMES, OP_SCHEMAS, OpError, runOp, type OpName, type VaultBackend } from '@ohhi/agent/core'
 import { decodeFile, type PreImageJournal, type VaultAdapter } from '@ohhi/vault'
 import { editSpan } from './edit-span.js'
 import type { AgentHost, AgentOrigin } from './types.js'
@@ -34,6 +34,8 @@ export interface ProposalResult {
   /** False when the edit would change nothing. */
   proposed: boolean
   suggestionId?: string
+  /** True when the host applied it as it landed (direct mode, Fork 4-A). */
+  applied?: boolean
   from?: number
   to?: number
   message: string
@@ -95,9 +97,14 @@ async function propose(
     path: output.path,
     proposed: true,
     suggestionId: record.id,
+    ...(record.status === 'accepted' ? { applied: true } : {}),
     from: span.from,
     to: span.to,
-    message: 'Proposed as a suggestion. It awaits the person’s review; the note is unchanged until they accept it.',
+    // Direct mode (Fork 4-A): the host accepted it as it landed.
+    message:
+      record.status === 'accepted'
+        ? 'Applied directly (the person allows direct edits); they can undo it as one step.'
+        : 'Proposed as a suggestion. It awaits the person’s review; the note is unchanged until they accept it.',
   } satisfies ProposalResult
 }
 

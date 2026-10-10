@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "Tokens for the agent's suggestions, comment threads and working range (`--ed-suggest-*`, `--ed-comment-*`, `--ed-agent-working-bg`) in all four themes, kept apart from the sync colours by the contract test.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/ui"
+}

@@ -4,7 +4,7 @@
  * hand-maintained list of commands anywhere in this package.
  */
 import { OP_NAMES, OP_SCHEMAS } from '@ohhi/agent'
-import { ASK_USAGE, GLOBAL_FLAGS, usageLine } from './grammar.js'
+import { ASK_USAGE, GLOBAL_FLAGS, SKILLS_EXPORT_USAGE, usageLine } from './grammar.js'
 
 const WRITE_MARK = '*'
 
@@ -47,6 +47,10 @@ export function usageText(): string {
   lines.push('')
   lines.push('  ohhi mcp [--vault PATH]   serve the same commands as MCP tools over stdio')
   lines.push('    claude mcp add ohhi -- ohhi mcp --vault <path>')
+  lines.push('')
+  lines.push(`  ohhi ${SKILLS_EXPORT_USAGE}`)
+  lines.push('    link the trusted, enabled skills in .agents/skills/ into .claude/skills/ (the farm')
+  lines.push('    Claude Code reads); --dry-run prints the plan and changes nothing.')
   lines.push('')
   lines.push(`  ohhi ${ASK_USAGE}`)
   lines.push('    ask a model about the vault: it searches and reads (never writes) through the')

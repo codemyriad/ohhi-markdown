@@ -28,9 +28,13 @@ import {
   openApp,
   openManager,
   openSettings,
+  paneContent,
+  seedProvider,
   seedReadNote,
+  selectLine,
   settingsView,
   tabNamed,
+  test as withMockLlm,
 } from './fixtures.js'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
 
@@ -530,4 +534,48 @@ test('the Help menu and the Report a problem dialog are accessible', async ({ pa
   await expectAccessible(page, 'report a problem')
   await page.getByTestId('report-cancel').click()
   await expect(page.getByTestId('report-dialog')).toHaveCount(0)
+})
+
+/**
+ * The writing harness's surfaces (writing-harness-build §Wave 2 › F): Settings
+ * › AI with both sub-tabs, a Session view with a message and a tool card in
+ * it, and an open comment bubble with *Send to agent* — a provider exists
+ * (the mock LLM), so every AI-gated control is on screen.
+ */
+withMockLlm('the writing harness — Settings › AI, a session, the comment bubble — is accessible', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_search', args: { query: 'relay', limit: 5 } } },
+    { text: 'The **welcome** note says edits sync through the relay.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'a11y-harness')
+
+  await openSettings(page, 'ai')
+  await expect(page.getByTestId('ai-providers')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › providers')
+  await page.getByTestId('ai-settings-tab:skills').click()
+  await expect(page.getByTestId('ai-skills')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › skills')
+  await closeSettings(page)
+
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await selectLine(page, 'CRDT and syncs through the relay')
+  await page.keyboard.press('ControlOrMeta+Shift+m')
+  await expect(page.getByTestId('comment-send-agent')).toBeVisible()
+  await expectAccessible(page, 'comment bubble')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('comment-bubble')).toHaveCount(0)
+
+  await paneContent(page).click()
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Open AI session')
+  await expect(page.locator('[data-testid="command-palette-row"][data-row-id="app.session"]')).toBeVisible()
+  await page.keyboard.press('Enter')
+  const input = page.getByTestId('session-composer-input')
+  await input.click()
+  await page.keyboard.type('Where does sync happen?')
+  await page.getByTestId('session-send').click()
+  await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful', { timeout: 15_000 })
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-state', 'output-available')
+  await expectAccessible(page, 'session view with a message')
 })

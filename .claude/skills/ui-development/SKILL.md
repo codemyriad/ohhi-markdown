@@ -607,6 +607,32 @@ manager, the remote carets and `git diff` never see it
 
 ---
 
+## The writing harness surfaces (writing-harness B4–B10)
+
+Nothing here renders without a provider: gate a component on `aiEnabled()`
+(`config.ts`), a command on `when: aiEnabled`, and a view on
+`ViewContext.ai()` — *Settings › AI* is the one AI surface at rest. Strings
+live under `$LL.web.ai.<area>` (one sub-object per area). Every command is a
+registry id in `command-ids.ts` (golden rule 7). Docs: `docs/writing-harness.md`.
+
+| Surface | Where | Test ids |
+|---|---|---|
+| Session view (a view tab, `app.session`) | `SessionView.svelte` + family | `session-view`, `session-empty`, `session-transcript`, `session-message` (`data-role`), `session-header`, `session-run-status` (`data-status`), `session-stop`, `session-retry`, `session-error` |
+| Composer and `@` references | `SessionComposer.svelte`, `libs/editor/src/composer.ts` | `session-composer`, `session-composer-input`, `session-send`, `mention-menu`, `mention-option` (`data-kind`), `mention-chip` |
+| Tool calls and proposals in the transcript | `ToolCard.svelte` | `tool-card` (`data-tool`, `data-state`), `tool-summary`, `tool-hits`, `tool-open` |
+| Suggestions in the note | `libs/editor/src/suggestions.ts`, `suggestions.svelte.ts` | classes `ed-suggest-del` / `ed-suggest-add` / `ed-suggest-stale` |
+| Comments | `CommentBubble.svelte`, `libs/editor/src/comments.ts`, `threads.svelte.ts` | `comment-bubble`, `comment-body`, `comment-submit`, `comment-send-agent`, `comment-resolve`, `comment-thread`, `thread-list`, `comment-marker:<id>` |
+| The agent as a peer | `libs/workspace/src/agent-presence.ts`, `agent-presence.ts`, `libs/editor/src/working-highlight.ts` | the presence stack's `[data-peer="<name> (agent)"]`; class `ed-agent-working`; y-codemirror's `.cm-ySelectionInfo` |
+
+Editor decorations follow one pattern (`comments.ts`, `suggestions.ts`,
+`working-highlight.ts`): a `StateField` the host feeds with a `StateEffect`,
+mapped through edits between sends, painted from a band-B token through
+`var()`; a host-subscribing `ViewPlugin` pushes a microtask later, never
+inside an update. Pass these as **stable** entries in `Pane.svelte`'s one
+`extensions` array, reading the pane's path and doc **untracked**.
+
+---
+
 ## Example workflow: building a new component
 
 1. Find similar components and review:

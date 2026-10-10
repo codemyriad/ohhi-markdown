@@ -6,7 +6,7 @@
  * downstream may keep its own list of ops (shaping R3).
  */
 import { OP_NAMES, OpError, type OpInput, type OpName, type OpOutput } from '../contract.js'
-import type { VaultBackend } from '../backend.js'
+import type { VaultBackend } from '../read.js'
 import type { OpDef } from '../op.js'
 import { append } from './append.js'
 import { backlinks } from './backlinks.js'

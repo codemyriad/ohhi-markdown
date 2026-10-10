@@ -9,7 +9,7 @@
  * (`--ed-presence-N`), never a hex and never a sync colour.
  */
 import * as Y from 'yjs'
-import type { DocPeer } from '@ohhi/workspace'
+import { isAgentAwareness, type DocPeer } from '@ohhi/workspace'
 import { colorSlot } from './params.js'
 
 /** One peer in one note. `color` is a presence slot, 1..8 — `var(--ed-presence-${color})`. */
@@ -118,7 +118,13 @@ export function everyone(presence: PresenceByPath): Stack {
  * by code point, so an emoji or an accent is never split in half.
  */
 export function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean)
+  // A trailing "(…)" qualifies the name, it is not part of it: an agent's
+  // "Agent (agent)" is "A", not "A(" (writing-harness B10).
+  const words = name
+    .trim()
+    .replace(/\s*\([^()]*\)$/, '')
+    .split(/\s+/)
+    .filter(Boolean)
   if (words.length === 0) return '?'
   const first = (w: string): string => Array.from(w)[0] ?? ''
   const letters = words.length > 1 ? first(words[0]!) + first(words[words.length - 1]!) : first(words[0]!)
@@ -263,4 +269,42 @@ export function whoIsWhere(
     for (const peer of idle) group.people.push({ peer, path: null })
   }
   return groups.sort((a, b) => a.mountPath.localeCompare(b.mountPath))
+}
+
+/** One range an agent's awareness says it is working on, resolved in this doc (`@ohhi/editor`'s `WorkingRange`). */
+export interface AgentWorking {
+  from: number
+  to: number
+  name: string
+}
+
+/**
+ * Every agent's `working` ranges in a doc's awareness (writing-harness B10,
+ * `@ohhi/workspace`'s `agent-presence.ts`), resolved to offsets NOW — the
+ * working highlight's input. Our own device's agent counts too: it is a
+ * second awareness client, so the person who started the run sees where it
+ * is working as well. A range that does not resolve (content this replica
+ * has not received yet) is skipped.
+ */
+export function workingRangesOf(
+  states: ReadonlyMap<number, Record<string, unknown>> | null | undefined,
+  ydoc: Y.Doc | null | undefined
+): AgentWorking[] {
+  if (!states || !ydoc) return []
+  const text = ydoc.getText(TEXT_KEY)
+  const out: AgentWorking[] = []
+  for (const state of states.values()) {
+    if (!isAgentAwareness(state) || !Array.isArray(state.working)) continue
+    for (const w of state.working) {
+      try {
+        const a = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(w.anchor), ydoc)
+        const h = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(w.head), ydoc)
+        if (!a || !h || a.type !== text || h.type !== text) continue
+        out.push({ from: Math.min(a.index, h.index), to: Math.max(a.index, h.index), name: state.user.name })
+      } catch {
+        // A malformed peer state draws nothing.
+      }
+    }
+  }
+  return out
 }

@@ -3,7 +3,7 @@ import { getLL } from '@ohhi/i18n'
 import type { HarnessAgent, ProviderConfig } from '@ohhi/harness'
 import { MemoryIndex } from '@ohhi/index'
 import { SimClock } from '@ohhi/testkit'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
+import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,6 +18,10 @@ import type { Workspace } from '../workspace.svelte.js'
 import SessionView from './SessionView.svelte'
 
 const t = getLL().web.ai.session
+
+// The transcript's first render pulls in the markdown renderer; under a full,
+// parallel suite that alone can outlast the default 1 s wait.
+configure({ asyncUtilTimeout: 5000 })
 const PROVIDER: ProviderConfig = { id: 'p1', name: 'Local', kind: 'openai-compatible', baseUrl: 'http://localhost:11434/v1', model: 'mock-model', apiKey: 'k' }
 
 /** A stub agent: plays `chunks`, and with `hold` stays open until stopped. */
@@ -126,6 +130,28 @@ describe('SessionView', () => {
     await waitFor(() => expect(card).toHaveAttribute('data-state', 'output-available'))
     expect(within(card).getByTestId('tool-summary')).toHaveTextContent(t.tool.search({ query: 'harness' }))
     await user.click(within(within(card).getByTestId('tool-hits')).getByRole('button', { name: t.tool.open() }))
+    expect(shell.openPath).toHaveBeenCalledWith('plan.md')
+  })
+
+  it('a proposal renders as “proposed an edit in <note>” whose Open opens the note; an empty one says so', async () => {
+    const proposal = (id: string, out: Record<string, unknown>): UIMessageChunk[] => [
+      { type: 'tool-input-available', toolCallId: id, toolName: 'ohhi_patch', input: { path: 'plan.md', old: 'a', new: 'b' } },
+      { type: 'tool-output-available', toolCallId: id, output: { schema: 'ohhi.proposal.v1', path: 'plan.md', message: 'm', ...out } },
+    ]
+    const chunks: UIMessageChunk[] = [
+      { type: 'start' },
+      ...proposal('c1', { proposed: true, suggestionId: 'sg-1', from: 0, to: 1 }),
+      ...proposal('c2', { proposed: false }),
+      ...say('Proposed.').slice(1),
+    ]
+    const { shell, user } = setup({ agent: agentOf(chunks) })
+    await startRun({ sessionId: 's1', instruction: 'Fix it', open: false })
+    await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
+    const [made, none] = screen.getAllByTestId('tool-card')
+    await waitFor(() => expect(within(made).getByTestId('tool-summary')).toHaveTextContent(t.tool.proposed({ path: 'plan.md' })))
+    await waitFor(() => expect(within(none).getByTestId('tool-summary')).toHaveTextContent(getLL().web.ai.wiring.proposal_none({ path: 'plan.md' })))
+    expect(within(none).queryByTestId('tool-open')).toBeNull()
+    await user.click(within(made).getByTestId('tool-open'))
     expect(shell.openPath).toHaveBeenCalledWith('plan.md')
   })
 

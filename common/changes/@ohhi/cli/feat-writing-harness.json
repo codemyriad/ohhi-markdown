@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/cli",
+      "comment": "`ohhi ask` runs the writing harness from a terminal, read-only, with `--ref`, `--skill` and `--json`; `ohhi skills export` links usable skills into `.claude/skills/` for Claude Code.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/cli"
+}

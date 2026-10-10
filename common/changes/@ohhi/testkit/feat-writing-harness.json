@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/testkit",
+      "comment": "A scripted mock LLM speaking the Anthropic and OpenAI wires, in-process (`mockLlmFetch`) and over HTTP (`startMockLlm`, from `@ohhi/testkit/src/node`).",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/testkit"
+}

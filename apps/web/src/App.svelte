@@ -57,6 +57,8 @@
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
   import { attachHarness } from './lib/sessions.svelte.js'
+  import { attachSkills, currentSkills } from './lib/skills.svelte.js'
+  import { emptySkillSource } from '@ohhi/harness/skills'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
@@ -309,7 +311,32 @@
     workspace ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays : []
   )
   // ---- the writing harness (B4): sessions and runs belong to the shell, not a view ----
-  attachHarness({ workspace: () => workspace, index: nav.index, clock: realClock, openView: (id, arg) => openView(id, arg) })
+  attachHarness({
+    workspace: () => workspace,
+    index: nav.index,
+    clock: realClock,
+    openView: (id, arg) => openView(id, arg),
+    // C's trusted + enabled skills, re-read per run (B9).
+    skills: () => currentSkills()?.source() ?? emptySkillSource,
+  })
+  // ---- skills (B9): bound to the open vault; the `.claude/skills/` farm is desktop-only ----
+  $effect(() => {
+    const ws = workspace
+    if (!ws) return
+    const journal = ws.journalFor('')
+    const adapter = ws.adapterForFarm()
+    const farm = isTauri()
+      ? {
+          read: (p: string) => adapter.read(p),
+          writeAtomic: (p: string, bytes: Uint8Array) => adapter.writeAtomic(p, bytes),
+          remove: (p: string) => adapter.remove(p),
+          removeDir: (p: string) => adapter.removeDir(p),
+          // Golden rule 1: the bytes a farm write replaces are journaled first.
+          ...(journal ? { record: (p: string, bytes: Uint8Array | null) => journal.record(p, bytes) } : {}),
+        }
+      : null
+    return attachSkills(ws, { clock: realClock, farm })
+  })
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),

@@ -49,8 +49,12 @@ import { RoomEventLog } from './event-store.js'
 import { numberedName, splitName } from './attachments.js'
 import { attributeUpdate, relayHost } from './attribution.js'
 import { AgentRuns, isAgentOrigin, type AgentOrigin } from './agent-origin.js'
+import { AgentThrottle } from './agent-throttle.js'
+import { DEFAULT_AGENT_STYLE, DocAgentPresence, type AgentPresenceStyle } from './agent-presence.js'
+import { decodeRange, encodeRange, ytextOf, type AnchorPair } from './anchors.js'
 import {
   memoryRecordMap,
+  SuggestionConflictError,
   SuggestionStore,
   yRecordMap,
   type StoredRecord,
@@ -111,6 +115,16 @@ export const RELAY_OFFLINE_MS = 30_000
  * diff runs once the window closes, against the set from before the drop.
  */
 export const PEER_SETTLE_MS = 3_000
+
+/** An agent's edit to one note (mount-relative path): `harness`'s `ProposeEditInput`. */
+export interface AgentEditInput {
+  path: string
+  from: number
+  to: number
+  baseText: string
+  proposedText: string
+  origin: AgentOrigin
+}
 
 export interface MountSessionConfig {
   engine: SyncEngine
@@ -420,6 +434,21 @@ export class MountSession {
   /** One suggestion store per doc guid, rebuilt when the guid's doc instance is. */
   private readonly suggestionStores = new Map<string, { doc: EngineDoc; store: SuggestionStore }>()
   private suggestionSeq = 0
+  /**
+   * The agent's write budget for this mount (B10): every agent transaction —
+   * a proposal pinned, a suggestion applied in direct mode — waits for a
+   * token (`agent-throttle.ts`, ~10 per 100 ms on the injected clock).
+   */
+  private readonly agentThrottle: AgentThrottle
+  /** The agent's second awareness state, per relay-connected doc (`agent-presence.ts`). */
+  private readonly agentPresences = new Map<string, DocAgentPresence>()
+  /**
+   * Docs whose `content` Y.Text changed in the transaction now being routed:
+   * set by a text observer (Yjs runs observers before it emits `update`),
+   * consumed by `routeDocUpdate`. A doc absent here changed only its side
+   * maps — comments, suggestions — and is not a text change.
+   */
+  private readonly textTouched = new Set<string>()
 
   static async create(cfg: MountSessionConfig): Promise<MountSession> {
     const session = new MountSession(cfg)
@@ -438,6 +467,7 @@ export class MountSession {
     this.engine = cfg.engine
     this.adapter = cfg.adapter
     this.clock = cfg.clock
+    this.agentThrottle = new AgentThrottle(cfg.clock)
     this.lcaStore = cfg.lcaStore
     this.journal = cfg.journal
     this.events = cfg.events ?? {}
@@ -533,18 +563,61 @@ export class MountSession {
 
   /**
    * Pin an agent's proposed edit to `path` (mount-relative) as a pending
-   * suggestion (`suggestions.ts`). Throws `SuggestionConflictError` when the
-   * text at `[from, to)` is not `baseText` — the agent read a stale copy —
-   * and a plain Error when the path has no live doc.
+   * suggestion (`suggestions.ts`), once the agent's throttle grants a token.
+   * Rejects with `SuggestionConflictError` when the text at `[from, to)` is
+   * not `baseText` — the agent read a stale copy — and with a plain Error
+   * when the path has no live doc.
    */
-  proposeEdit(input: {
-    path: string
-    from: number
-    to: number
-    baseText: string
-    proposedText: string
-    origin: AgentOrigin
-  }): SuggestionRecord {
+  proposeEdit(input: AgentEditInput): Promise<SuggestionRecord> {
+    // Through the agent's bucket (B10): the record is a Y transaction on a
+    // shared doc, and an agent can propose far faster than peers can watch.
+    return this.throttledEdit(input, 1, (at) => this.proposeNow({ ...input, ...at }))
+  }
+
+  /**
+   * Direct mode (Fork 4-B's opt-in): propose and apply at once — the same
+   * record, accepted in the same throttle slot (two transactions, two
+   * tokens), so the edit is attributed, undoable per run and rate-limited
+   * like any proposal. Rejects as `proposeEdit` does.
+   */
+  applyAgentEdit(input: AgentEditInput): Promise<SuggestionRecord> {
+    return this.throttledEdit(input, 2, (at) => {
+      const record = this.proposeNow({ ...input, ...at })
+      return this.acceptSuggestion(input.path, record.id) ?? record
+    })
+  }
+
+  /**
+   * Run an agent edit through the bucket WITHOUT letting its offsets go
+   * stale while it waits: the text is checked and the range pinned
+   * (`encodeRange`) at the call, and the pinned range is resolved again when
+   * the token is granted — so whatever a peer typed in between moves the
+   * edit with it, exactly as it moves a pending suggestion.
+   */
+  private throttledEdit(
+    input: AgentEditInput,
+    cost: number,
+    fn: (at: { from: number; to: number }) => SuggestionRecord
+  ): Promise<SuggestionRecord> {
+    let pinned: AnchorPair
+    try {
+      const doc = this.docForPath(input.path)
+      if (!doc) throw new Error(`no live doc for ${input.path}`)
+      const ytext = ytextOf(doc)
+      checkBase(ytext.toString(), input)
+      pinned = encodeRange(ytext, input.from, input.to)
+    } catch (err) {
+      return Promise.reject(err)
+    }
+    return this.agentThrottle.run(() => {
+      const doc = this.docForPath(input.path)
+      const at = doc ? decodeRange(doc, pinned) : null
+      if (!doc || !at) throw new Error(`no live doc for ${input.path}`)
+      return fn(at)
+    }, cost)
+  }
+
+  private proposeNow(input: AgentEditInput): SuggestionRecord {
     const store = this.suggestionStore(input.path)
     if (!store) throw new Error(`no live doc for ${input.path}`)
     const record = store.propose({
@@ -557,6 +630,37 @@ export class MountSession {
       origin: input.origin,
     })
     return withPath(record, input.path)
+  }
+
+  /**
+   * The agent's presence on `path` (B10): a second awareness state on the
+   * doc's awareness, coalesced and renewed on the injected clock. Null when
+   * the note has no relay connection — a never-shared note has no peers to
+   * show the agent to. `style` names and colours the agent (the shell's
+   * i18n label and presence colour); the newest caller's wins.
+   */
+  agentPresence(path: string, style?: AgentPresenceStyle): DocAgentPresence | null {
+    const guid = this.guidFor(path)
+    const conn = guid ? this.conns.get(guid) : undefined
+    const doc = guid ? this.docs.get(guid) : undefined
+    if (!guid || !conn || !doc) return null
+    let held = this.agentPresences.get(guid)
+    if (held && held.awareness !== conn.awareness) {
+      held.dispose()
+      held = undefined
+    }
+    if (!held) {
+      held = new DocAgentPresence(conn.awareness, doc, this.clock, style ?? DEFAULT_AGENT_STYLE)
+      this.agentPresences.set(guid, held)
+    } else if (style) {
+      held.style = style
+    }
+    return held
+  }
+
+  private dropAgentPresence(guid: string): void {
+    this.agentPresences.get(guid)?.dispose()
+    this.agentPresences.delete(guid)
   }
 
   /**
@@ -1099,6 +1203,7 @@ export class MountSession {
       this.debounces.get(guid)?.()
       this.debounces.delete(guid)
       if (this.conns.has(guid)) {
+        this.dropAgentPresence(guid)
         this.conns.get(guid)?.destroy()
         this.conns.delete(guid)
         this.events.onDocPresence?.(guid, [])
@@ -1414,6 +1519,7 @@ export class MountSession {
     for (const { store } of this.suggestionStores.values()) store.destroy()
     this.suggestionStores.clear()
     this.agentRuns.destroy()
+    this.agentThrottle.dispose()
     // Best-effort, like the blob tail below: the log is droppable (rule 8).
     void this.roomLog.flush().finally(() => this.roomLog.dispose())
     this.sessionRef?.dispose()
@@ -2178,8 +2284,15 @@ export class MountSession {
   }
 
   private routeDocUpdate(guid: string, update: Uint8Array, origin: unknown): void {
+    const touched = this.textTouched.delete(guid)
     const path = this.pathForGuid(guid)
     if (!path) return
+    // Only a change to the note's TEXT is a text change. A comment or a
+    // suggestion record (the doc's `comments` / `suggestions` maps — ours or
+    // a peer's) leaves the bytes on disk as they are: re-indexing, marking
+    // the note unwritten, flushing identical bytes or logging `doc.changed`
+    // for it would all be lies (writing-harness B8 › E's report).
+    if (!touched && origin !== 'seed' && origin !== 'disk') return
     // BEFORE the origin filter: a content-change listener (the index) must see
     // 'disk' ingests — Obsidian, git and Claude Code writing the same files —
     // and 'seed' restores, or it silently drifts from the vault.
@@ -2323,6 +2436,7 @@ export class MountSession {
   /** Destroy every doc connection, telling the host nobody is in them any more. */
   private destroyConns(): void {
     for (const [guid, conn] of this.conns) {
+      this.dropAgentPresence(guid)
       conn.destroy()
       this.events.onDocPresence?.(guid, [])
     }
@@ -2339,6 +2453,9 @@ export class MountSession {
     if (!doc) return
     if (!this.tracked.has(guid)) {
       this.tracked.add(guid)
+      // Observers run before `update` is emitted, in the same transaction's
+      // cleanup — so the flag is set by the time routeDocUpdate reads it.
+      ytextOf(doc).observe(() => this.textTouched.add(guid))
       this.engine.onUpdate(doc, (update, origin) => this.routeDocUpdate(guid, update, origin))
     }
     this.attachProvider(guid, path)
@@ -3142,6 +3259,13 @@ function decodeSeed(seed: string): Uint8Array | null {
 }
 
 /** A stored suggestion with the path it is read under (records are stored without one). */
+/** The agent's edit must start from the text it read (`SuggestionStore.propose` re-checks when it runs). */
+function checkBase(text: string, input: AgentEditInput): void {
+  if (input.from < 0 || input.to < input.from || input.to > text.length || text.slice(input.from, input.to) !== input.baseText) {
+    throw new SuggestionConflictError(`the text at ${input.from}–${input.to} is not the text the agent read`)
+  }
+}
+
 function withPath(record: StoredRecord, path: string): SuggestionRecord {
   return { ...record, path }
 }

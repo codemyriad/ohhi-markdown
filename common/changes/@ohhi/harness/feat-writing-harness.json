@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/harness",
+      "comment": "New package: the writing harness — the in-app agent's providers (Anthropic, OpenAI, OpenRouter, any OpenAI-compatible server), its tool loop over the vault's own commands, its prompt and skills catalog, and the seams the app and `ohhi ask` share.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/harness"
+}

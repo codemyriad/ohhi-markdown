@@ -54,6 +54,13 @@ export const SUGGEST_TOKENS = ['--ed-suggest-del', '--ed-suggest-add', '--ed-sug
 export const COMMENT_TOKENS = ['--ed-comment-bg', '--ed-comment-resolved-bg'] as const
 
 /**
+ * The agent's working range (writing-harness B10): the passage an agent's
+ * awareness says it is on. Band B (presence), painted by
+ * `libs/editor/src/working-highlight.ts` through the `ed-agent-working` mark.
+ */
+export const AGENT_WORKING_TOKEN = '--ed-agent-working-bg'
+
+/**
  * Read a custom property off an element (default: <html>), trimmed.
  * Returns '' when the property is unset or when there is no DOM.
  */

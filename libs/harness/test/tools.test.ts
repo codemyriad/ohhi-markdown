@@ -77,6 +77,14 @@ describe('toolsFromContract', () => {
       expect(await h.backend.journal.list('Projects/Editor.md')).toEqual([])
     })
 
+    it('a host that accepted the proposal as it landed (direct mode) is told so', async () => {
+      const accepting = async (input: ProposeEditInput): Promise<SuggestionRecord> => ({ ...(await proposeEdit(input)), status: 'accepted' })
+      const tools = toolsFromContract(h.backend, { mutates: true, proposeEdit: accepting, origin: ORIGIN })
+      const out = (await run(tools, 'ohhi_patch', { path: 'Projects/Editor.md', old: 'Files are canonical.', new: 'Files rule.' })) as { message: string; applied?: boolean }
+      expect(out.message).toMatch(/^Applied directly/)
+      expect(out).toMatchObject({ applied: true })
+    })
+
     it('append proposes an insertion at the section’s end, by the op’s own placement rule', async () => {
       const before = await h.text('Projects/Editor.md')
       const tools = toolsFromContract(h.backend, { mutates: true, proposeEdit, origin: ORIGIN })

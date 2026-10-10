@@ -119,8 +119,8 @@ describe('MountSession: agent writes are logged as the agent (B3/B7 event log)',
     try {
       const s = vault.root
       const origin = run('r1', 'Tighten')
-      const one = s.proposeEdit({ path: 'note.md', from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
-      const two = s.proposeEdit({ path: 'note.md', from: 0, to: 5, baseText: 'alpha', proposedText: 'Alpha', origin })
+      const one = await s.proposeEdit({ path: 'note.md', from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
+      const two = await s.proposeEdit({ path: 'note.md', from: 0, to: 5, baseText: 'alpha', proposedText: 'Alpha', origin })
       // Proposing writes no text and logs nothing.
       expect(changes(s.roomEvents())).toHaveLength(0)
       expect(s.acceptSuggestion('note.md', one.id)).toMatchObject({ status: 'accepted', path: 'note.md' })
@@ -152,12 +152,12 @@ describe('MountSession: agent writes are logged as the agent (B3/B7 event log)',
     const base = await seedAdapter({ 'note.md': 'alpha\n' })
     const vault = await bootVault(base, new MemStoreDir(), 'root-room')
     try {
-      expect(() =>
+      await expect(
         vault.root.proposeEdit({ path: 'note.md', from: 0, to: 5, baseText: 'omega', proposedText: 'x', origin: run('r1') })
-      ).toThrow(/not the text the agent read/)
-      expect(() =>
+      ).rejects.toThrow(/not the text the agent read/)
+      await expect(
         vault.root.proposeEdit({ path: 'nope.md', from: 0, to: 0, baseText: '', proposedText: 'x', origin: run('r1') })
-      ).toThrow(/no live doc/)
+      ).rejects.toThrow(/no live doc/)
       expect(vault.root.suggestionsFor('nope.md')).toEqual([])
       expect(vault.root.acceptSuggestion('note.md', 'missing')).toBeNull()
       expect(vault.root.rejectSuggestion('note.md', 'missing')).toBe(false)

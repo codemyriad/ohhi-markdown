@@ -52,6 +52,9 @@
   import CommentBubble from './CommentBubble.svelte'
   // The agent's suggestions in the note (writing-harness B7).
   import { noteSuggestions } from '../suggestions.svelte.js'
+  // The agent's working range, from the note's awareness (writing-harness B10).
+  import { workingHighlight } from '@ohhi/editor'
+  import { workingHost } from '../agent-presence.js'
 
   interface Props {
     pane: Pane
@@ -201,6 +204,12 @@
     noteSuggestions(
       () => untrack(() => workspace),
       () => untrack(() => path)
+    ),
+    workingHighlight(
+      workingHost(
+        () => untrack(() => awareness),
+        () => untrack(() => doc)
+      )
     ),
   ]
 

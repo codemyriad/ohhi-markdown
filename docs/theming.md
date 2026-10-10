@@ -324,6 +324,17 @@ match nor a state. The thread's gutter dot and the active thread's underline
 reuse `--ed-caret` (`--ed-gutter-fg` once resolved), so they need no token of
 their own.
 
+## The agent's working range (`--ed-agent-working-bg`)
+
+While an in-app agent works on a shared note (writing harness, B10), the
+passage it says it is on is shaded with `--ed-agent-working-bg` in every
+editor that has the note open — yours and your peers'. It is read by
+`libs/editor/src/working-highlight.ts` (the `ed-agent-working` mark) and
+nothing else. It is a *presence* colour: the built-ins use a cyan tint,
+which `theme-contract.test.ts` keeps away from every sync colour, the comment
+violet and the search yellow. The agent's caret and its name tag
+(`<name> (agent)`) are drawn like any peer's, from the presence slots.
+
 ## Theme switching
 
 `ThemePref = 'system' | 'editor-light' | 'editor-dark' | 'nord-light' |

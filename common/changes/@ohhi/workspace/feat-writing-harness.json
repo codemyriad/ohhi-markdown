@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Agent edits as suggestions pinned to the text, attributed and undoable per run; comment threads in the note's doc; the agent's presence as a second awareness state; a token bucket on the agent's writes; and comment or suggestion writes no longer count as text changes (no re-index, no flush, no `doc.changed`).",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}

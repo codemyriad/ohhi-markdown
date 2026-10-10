@@ -101,6 +101,7 @@ import { isForeignMount } from './share-status.js'
 import { createThreadRegistry, writeReviewCopy, type NewComment } from './threads.svelte.js'
 import type { CommentRecord, ThreadRecord, ThreadStore } from '@ohhi/workspace'
 import type { SuggestionRecord, SuggestionSpan } from '@ohhi/workspace'
+import { routeAgentPresence, type AgentPresenceSink } from '@ohhi/workspace'
 import type { ProposeEditInput } from '@ohhi/harness'
 
 export { resolveRoomRelay }
@@ -396,6 +397,13 @@ export interface Workspace {
    */
   undoAgent(runId?: string): boolean
   /**
+   * The agent as a peer (writing-harness B10): `AgentHost.presence` for one
+   * run — a second awareness state on whichever shared note the run is on
+   * (`state.path`, else `path`), coalesced and renewed on the clock. A note
+   * with no relay connection shows nothing.
+   */
+  agentPresence(path?: string): AgentPresenceSink
+  /**
    * Create a note inside `dir` ('' = vault root) and answer with its
    * workspace path. With no `name` the note is auto-named `untitled-N.md`;
    * with one it is created at that path (wikilink create-on-click, daily
@@ -552,6 +560,12 @@ export interface Workspace {
   readFileBytes(path: string): Promise<Uint8Array | null>
   /** The pre-image journal of the mount that owns `path` ('' = the root's), read-only use (B3). */
   journalFor(path: string): PreImageJournal | null
+  /**
+   * The vault's root adapter, for the one writer that lives outside every
+   * mount's reconciler: the skills farm (`.claude/skills/`, an ignored
+   * folder no mount syncs — writing-harness B9). Nothing else writes through it.
+   */
+  adapterForFarm(): VaultAdapter
   /**
    * Comment threads (writing-harness B8; `threads.svelte.ts`): the note's
    * store, or null when it has no doc. Not AI-gated — comments work with no
@@ -1896,7 +1910,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     proposeEdit: async (input) => {
       const r = registry.resolve(input.path)
       if (!r) throw new Error(getLL().web.workspace.cannot_read({ path: input.path }))
-      const record = r.session.proposeEdit({ ...input, path: r.rel })
+      const record = await r.session.proposeEdit({ ...input, path: r.rel })
       return { ...record, path: input.path }
     },
     acceptSuggestion: (path, id) => {
@@ -1930,6 +1944,16 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       agentRuns = agentRuns.filter((run) => run !== id)
       return any
     },
+    agentPresence: (path) =>
+      routeAgentPresence((target) => {
+        const r = registry.resolve(target)
+        return r
+          ? r.session.agentPresence(r.rel, {
+              label: (name) => getLL().web.ai.presence.label({ name }),
+              color: colorFor,
+            })
+          : null
+      }, path),
     createFile: async (dir = '', name, text) => {
       // Route on the FULL TARGET PATH, never on `dir` alone. A prefixed name
       // (`[[team/plan]]` → name='team/plan.md', dir='') targets a path that a
@@ -2063,6 +2087,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       return r ? (journals.get(r.session.room) ?? null) : null
     },
+    adapterForFarm: () => cfg.adapter,
     writeAttachment: async (path, bytes) => {
       const r = registry.resolve(path)
       if (!r) return null

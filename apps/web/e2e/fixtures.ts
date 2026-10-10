@@ -9,7 +9,9 @@
  * Not a `*.spec.ts`, so Playwright's `testMatch` leaves it alone.
  */
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Locator, type Page, type WebSocketRoute } from '@playwright/test'
+import { test as base, expect, type Locator, type Page, type WebSocketRoute } from '@playwright/test'
+import type { MockTurn } from '../../../libs/testkit/src/mock-llm.js'
+import { startMockLlm, type MockLlmServer } from '../../../libs/testkit/src/node.js'
 
 export const RELAY = 'ws://localhost:8799'
 
@@ -324,7 +326,68 @@ export async function closeSettings(page: Page): Promise<void> {
   // In a pane narrower than 32rem the nav is a select, the tabs hidden.
   const select = settingsView(page).getByTestId('settings-tabs-select')
   if (await select.isVisible()) await select.focus()
-  else await settingsView(page).getByRole('tab', { selected: true }).focus()
+  // The nav's own tab: a section may hold tabs of its own (Settings › AI's Providers/Skills).
+  else await settingsView(page).locator('[data-testid^="settings-tab:"][aria-selected="true"]').focus()
   await page.keyboard.press('ControlOrMeta+w')
   await expect(settingsView(page)).toHaveCount(0)
+}
+
+// ---- the writing harness: a scripted LLM and a provider pointed at it ----
+
+/**
+ * `test` with a `mockLlm` fixture: `await mockLlm(script)` starts the
+ * scripted LLM (`libs/testkit`'s server: one turn per request, `GET /models`
+ * free) on a free port and closes it when the test ends. Its `url` + `/v1`
+ * is an OpenAI-compatible base URL.
+ */
+export const test = base.extend<{
+  mockLlm: (script: MockTurn[], opts?: { models?: string[] }) => Promise<MockLlmServer>
+}>({
+  // The empty pattern is Playwright's: it reads a fixture's dependencies from it.
+  mockLlm: async ({}, use) => {
+    const started: MockLlmServer[] = []
+    await use(async (script, opts = {}) => {
+      const server = await startMockLlm({ script, ...opts })
+      started.push(server)
+      return server
+    })
+    await Promise.all(started.map((s) => s.close()))
+  },
+})
+
+/** The provider the harness specs seed: the mock, over the OpenAI-compatible wire. */
+export const MOCK_PROVIDER_ID = 'mock'
+
+/**
+ * Seed this device's config, before the app boots, with a provider pointed
+ * at `baseUrl` (and any extra config, e.g. layout overrides). The blob is a
+ * valid v2 config — an invalid one is replaced by a fresh one on read, which
+ * would silently drop the provider.
+ */
+export async function seedProvider(page: Page, baseUrl: string, extra: Record<string, unknown> = {}): Promise<void> {
+  await page.addInitScript(
+    ({ baseUrl, extra, id }) => {
+      const key = 'editor:config'
+      let config: Record<string, unknown> = {}
+      try {
+        config = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>
+      } catch {
+        config = {}
+      }
+      if (config.version !== 2) {
+        config = { version: 2, vaults: [], lastRoom: null, defaultRelay: '', operatorSecret: '', shares: [], tokensByRoom: {}, relayByRoom: {}, devtools: false }
+      }
+      config.ai = { providers: [{ id, name: 'Mock', kind: 'openai-compatible', baseUrl, model: 'mock-model' }] }
+      Object.assign(config, extra)
+      localStorage.setItem(key, JSON.stringify(config))
+    },
+    { baseUrl, extra, id: MOCK_PROVIDER_ID }
+  )
+}
+
+/** Select one whole line of the open note (the line holding `text`), as a person would. */
+export async function selectLine(page: Page, text: string): Promise<void> {
+  await paneContent(page).getByText(text).click()
+  await page.keyboard.press('Home')
+  await page.keyboard.press('Shift+End')
 }

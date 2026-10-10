@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { renderRefs, skillsCatalog, systemPrompt } from '../src/prompt.js'
+import { skillsCatalog } from '@ohhi/agent/skills'
+import { renderRefs, systemPrompt } from '../src/prompt.js'
 import type { Mention, SkillMeta } from '../src/types.js'
 
 const skill = (name: string, extra: Partial<SkillMeta> = {}): SkillMeta => ({
@@ -52,6 +53,14 @@ describe('systemPrompt', () => {
     const p = systemPrompt({ skills: [], refs: [linesRef] })
     expect(p).toContain('## References')
     expect(p).toContain('### Projects/Editor.md (14–17) · hash abc123')
+  })
+
+  it('adds the thread rule only for a turn a comment asked: answer a question, propose a change plus one line', () => {
+    expect(systemPrompt({ skills: [], refs: [] })).not.toContain('## A comment asked')
+    const p = systemPrompt({ skills: [], refs: [], thread: true })
+    expect(p).toContain('## A comment asked')
+    expect(p).toMatch(/A question: answer it/)
+    expect(p).toMatch(/propose the edit \(ohhi_patch/)
   })
 
   it('is a pure function of its inputs and stays short', () => {

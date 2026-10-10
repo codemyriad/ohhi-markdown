@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor",
+      "comment": "Suggestion marks with accept/reject keys, comment marks and gutter dots, the session composer, and the agent's working highlight.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor"
+}

@@ -48,6 +48,7 @@ import type { FlashInput } from './notices.js'
 import { mentionOf } from './references.js'
 import { captureFocusedSelection, startRun, type RunHandle, type StartRunInput } from './sessions.svelte.js'
 import { clearFarm, syncFarm, type FarmFs, type FarmResult } from './skills-farm.js'
+import { routeInApp, routeSkillRun, withLanding } from './skill-routing.js'
 import SkillPicker from './components/SkillPicker.svelte'
 import template from './skill-template.md?raw'
 import type { Workspace } from './workspace.svelte.js'
@@ -450,10 +451,11 @@ export function currentSkills(): SkillsStore | null {
  * log (changes from elsewhere drop trust). `farm` is the vault adapter on
  * desktop — the app's writes to `.claude/skills/` — and absent in the browser.
  * Returns the detach; call it when the vault closes.
+
  *
- * TODO(F): the shell calls this when a workspace opens (`App.svelte`:
- * `$effect(() => workspace && attachSkills(workspace, { clock: realClock, farm: <the TauriVaultAdapter> }))`)
- * and hands `currentSkills()?.source()` to the harness host.
+ * `App.svelte` calls it whenever the open vault changes (the farm is the
+ * root adapter on desktop, through `Workspace.adapterForFarm`) and hands
+ * `currentSkills()?.source()` to the harness host.
  */
 export function attachSkills(ws: Workspace, opts: { clock: Clock; farm?: FarmFs | null }): () => void {
   const store = createSkills(workspaceSkillsHost(ws, opts))
@@ -679,6 +681,8 @@ export interface RunSkillDeps {
   /** Injected for tests; the focused note and B's `captureFocusedSelection` otherwise. */
   target?(): Promise<SkillTarget | null>
   pick?(skills: SkillMeta[], placeholder: string): Promise<SkillMeta | null>
+  /** Injected for tests; `routeSkillRun` over the open vault otherwise (lands the answer by `meta.kind`). */
+  route?(input: { meta: SkillMeta; handle: RunHandle; target: SkillTarget }): Promise<unknown>
 }
 
 /**
@@ -717,11 +721,12 @@ export function runSkillCommand(deps: RunSkillDeps): Command {
       if (!meta) return
       const body = (await store.source().body(meta.name)) ?? ''
       const refs: Mention[] = [target.selection ?? mentionOf({ kind: 'file', path: target.path })]
-      // TODO(F): land the output by `meta.kind` (check → addThread, transform → a proposal, generate → a note, research → chat).
-      const handle = await start({ instruction: meta.description, refs, skill: { meta, body } })
+      // The kind decides where the answer lands (`skill-routing.ts`): its rules ride on the body.
+      const handle = await start({ instruction: meta.description, refs, skill: { meta, body: withLanding(meta, body) } })
       if (!handle) return say(t.skills.run.not_started({ name: meta.name }))
       say(t.skills.run.started({ name: meta.name }))
       void store.markUsed(folderOf(meta))
+      void (deps.route ?? ((input) => routeSkillRun(routeInApp(deps.flash), input)))({ meta, handle, target })
     },
   }
 }

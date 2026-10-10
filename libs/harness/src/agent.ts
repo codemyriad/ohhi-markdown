@@ -43,7 +43,12 @@ export function createHarnessAgent(
   return {
     async stream(messages, { signal }) {
       usage = undefined
-      const instructions = systemPrompt({ skills: await host.skills.list(), skill: opts.skill, refs: opts.refs })
+      const instructions = systemPrompt({
+        skills: await host.skills.list(),
+        skill: opts.skill,
+        refs: opts.refs,
+        ...(opts.origin.threadId !== undefined ? { thread: true } : {}),
+      })
       const tools = toolsFromContract(host.backend, { mutates: opts.mutates, proposeEdit: host.proposeEdit, origin: opts.origin })
       const agent = new ToolLoopAgent<never, ToolSet>({
         model: createModel(opts.provider, host.fetch),

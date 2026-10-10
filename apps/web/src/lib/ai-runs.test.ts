@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { UIMessageChunk } from 'ai'
-import type { AgentHost, HarnessAgent, ProviderConfig, RunRecord } from '@ohhi/harness'
+import type { AgentHost, HarnessAgent, ProposeEditInput, ProviderConfig, RunRecord, SuggestionRecord } from '@ohhi/harness'
 import { MemoryIndex } from '@ohhi/index'
 import { mockLlmFetch, SimClock } from '@ohhi/testkit'
 import { createAppBackend } from './agent-backend.js'
-import { createRunRegistry, type RunRegistryDeps } from './ai-runs.svelte.js'
+import { createRunRegistry, finalText, type RunRegistryDeps } from './ai-runs.svelte.js'
 import { appAgentHost, type AgentFactory } from './ai-transport.js'
 import { createSessionStore, latestRuns, type VaultAppFiles } from './session-store.js'
 
@@ -171,5 +171,83 @@ describe('run registry', () => {
     // The model was handed the search's result.
     expect(fetch.requests[1].toolResults[0].output).toContain('plan.md')
     expect(latestRuns((await store.load('s1'))!.entries).map((r) => r.status)).toEqual(['successful'])
+  })
+
+  it('the agent’s patch lands as a suggestion on the run (mutating tools, ids on the record), and the answer is its reply', async () => {
+    const { clock, store } = setup()
+    const text = '# Plan\r\n\r\nShip the harness.\r\n'
+    const live = '# Plan\n\nShip the harness soon.\n'
+    const index = new MemoryIndex()
+    index.rebuild([{ guid: 'g1', path: 'plan.md', text: live }])
+    const backend = createAppBackend({
+      root: 'v',
+      clock,
+      index,
+      files: () => [{ path: 'plan.md', guid: 'g1', kind: 'text' }],
+      liveText: () => live,
+      readFileBytes: async () => new TextEncoder().encode(text),
+      journal: () => null,
+    })
+    const proposed: ProposeEditInput[] = []
+    const record = (input: ProposeEditInput, status: SuggestionRecord['status']): SuggestionRecord => ({
+      id: `sg-${proposed.length}`, path: input.path, origin: input.origin, at: 0, range: { from: input.from, to: input.to },
+      baseText: input.baseText, proposedText: input.proposedText, status, ...(input.origin.threadId ? { threadId: input.origin.threadId } : {}),
+    })
+    const proposals = {
+      proposeEdit: async (input: ProposeEditInput) => (proposed.push(input), record(input, 'pending')),
+      acceptSuggestion: () => null,
+    }
+    const fetch = mockLlmFetch([
+      { toolCall: { name: 'ohhi_patch', args: { path: 'plan.md', old: 'soon', new: 'this week' } } },
+      { text: 'Proposed “this week”.' },
+    ])
+    const registry = createRunRegistry({ store, clock, provider: () => PROVIDER, host: () => appAgentHost({ backend, clock, fetch, proposals }) })
+    await store.create({ id: 's1' })
+
+    const run = await (await registry.start('s1', { instruction: 'Be specific', threadId: 'th-1' }))!.done
+    expect(run.status).toBe('successful')
+    expect(fetch.requests[0].tools).toContain('ohhi_patch')
+    expect(proposed).toHaveLength(1)
+    // Offsets into the LIVE text (LF), not the CRLF disk copy: the suggestion's doc is the Y.Text.
+    const p = proposed[0]
+    expect(live.slice(p.from, p.to)).toBe(p.baseText)
+    expect(live.slice(0, p.from) + p.proposedText + live.slice(p.to)).toBe('# Plan\n\nShip the harness this week.\n')
+    expect(p.origin).toMatchObject({ kind: 'agent', runId: run.runId, sessionId: 's1', threadId: 'th-1' })
+    expect(run.suggestions).toEqual(['sg-1'])
+    expect(latestRuns((await store.load('s1'))!.entries)[0].suggestions).toEqual(['sg-1'])
+    expect(registry.reply(run.runId)).toBe('Proposed “this week”.')
+  })
+
+  it('direct mode accepts each proposal as it lands; off, it stays pending', async () => {
+    const accepted: string[] = []
+    const sink = {
+      proposeEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => ({
+        id: 'sg-1', path: input.path, origin: input.origin, at: 0, range: { from: 0, to: 0 }, baseText: '', proposedText: 'x', status: 'pending',
+      }),
+      acceptSuggestion: (path: string, id: string): SuggestionRecord | null => (accepted.push(`${path}#${id}`), null),
+    }
+    let direct = false
+    const host = appAgentHost({ backend: {} as AgentHost['backend'], clock: new SimClock(), proposals: sink, direct: () => direct })
+    const input: ProposeEditInput = { path: 'a.md', from: 0, to: 0, baseText: '', proposedText: 'x', origin: { kind: 'agent', runId: 'r', sessionId: 's', name: 'A' } }
+    await host.proposeEdit!(input)
+    expect(accepted).toEqual([])
+    direct = true
+    await host.proposeEdit!(input)
+    expect(accepted).toEqual(['a.md#sg-1'])
+    expect(appAgentHost({ backend: {} as AgentHost['backend'], clock: new SimClock() }).proposeEdit).toBeUndefined()
+  })
+})
+
+describe('finalText', () => {
+  it('is the text after the last tool call; every text part when the last step said nothing', () => {
+    const parts = [
+      { type: 'step-start' },
+      { type: 'text', text: 'Let me look. ' },
+      { type: 'tool-ohhi_search', state: 'output-available' },
+      { type: 'step-start' },
+      { type: 'text', text: 'It says ship it.' },
+    ] as Parameters<typeof finalText>[0]['parts']
+    expect(finalText({ parts })).toBe('It says ship it.')
+    expect(finalText({ parts: parts.slice(0, 3) })).toBe('Let me look.')
   })
 })

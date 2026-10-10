@@ -2354,7 +2354,7 @@ const attachments = {
  * (writing-harness-build §Ground rules): each adds keys only inside its own.
  * `settings` and `commands`/`notice` are wave 0's; `providers` is A's;
  * `session`/`composer`/`refs` B's; `skills` C's; `suggest` D's; `comments`
- * E's; `presence` F's.
+ * E's; `presence` G's.
  */
 const ai = {
   settings: {
@@ -2654,7 +2654,10 @@ const ai = {
     gone: 'The text this thread was on is gone.',
     unavailable: 'Comments need the note open in an editor.',
   },
-  presence: {},
+  presence: {
+    /** The agent's name on a peer's caret and in the presence stack (B10). */
+    label: '{name:string} (agent)',
+  },
   commands: {
     new_session: 'New AI session',
     add_selection: 'Add selection to AI session',
@@ -2670,6 +2673,25 @@ const ai = {
   },
   notice: {
     not_built: 'That is not built yet.',
+  },
+  /** Wave 2 (F): proposals in the transcript, send to agent, a skill run's landing. */
+  wiring: {
+    proposal_none: 'Nothing to propose in {path:string}: it already says that',
+    proposal_applied: 'Edited {path:string} directly',
+    agent_author: 'Agent',
+    thread_not_started: 'Could not send the comment to the agent: a run is already going, or no provider is set up.',
+    thread_failed: 'The agent did not answer the comment: {error:string}',
+    thread_suggestion: 'Proposed edit',
+    thread_suggestion_stale: 'The text changed under this edit.',
+    accept: 'Accept',
+    reject: 'Reject',
+    skill_failed: '{name:string} did not finish: {error:string}',
+    skill_findings: '{name:string} left {count:number} comment{{s}}.',
+    skill_findings_skipped: '{name:string} left {count:number} comment{{s}}; {skipped:number} quote{{s}} could not be found in the note.',
+    skill_no_findings: '{name:string} found nothing to comment on.',
+    skill_created: '{name:string} wrote {path:string}.',
+    skill_no_note: '{name:string} answered without a note to write; see the session.',
+    untitled: 'Untitled',
   },
 }
 

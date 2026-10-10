@@ -153,7 +153,7 @@ describe('MountSession — a shared note: the peer sees the proposal, and its ed
   it('B sees A\'s pending suggestion; B typing inside it makes it stale on both, and A cannot apply it', async () => {
     const duo = await bootDuo({ files: { 'note.md': 'alpha beta gamma\n' } })
     try {
-      const r = duo.a.root.proposeEdit({ path: 'note.md', from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
+      const r = await duo.a.root.proposeEdit({ path: 'note.md', from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
       await duo.deliver()
       expect(duo.b.root.suggestionsFor('note.md')).toMatchObject([{ id: r.id, status: 'pending', path: 'note.md' }])
       duo.b.root.docForPath('note.md')!.transact((t) => t.insert(8, 'XX'), 'local')
@@ -172,8 +172,8 @@ describe('MountSession — a shared note: the peer sees the proposal, and its ed
   it('an accepted suggestion reaches the peer as text, and B rejecting another drops it for A', async () => {
     const duo = await bootDuo({ files: { 'note.md': 'one two three\n' } })
     try {
-      const a = duo.a.root.proposeEdit({ path: 'note.md', from: 0, to: 3, baseText: 'one', proposedText: '1', origin })
-      const b = duo.a.root.proposeEdit({ path: 'note.md', from: 8, to: 13, baseText: 'three', proposedText: '3', origin })
+      const a = await duo.a.root.proposeEdit({ path: 'note.md', from: 0, to: 3, baseText: 'one', proposedText: '1', origin })
+      const b = await duo.a.root.proposeEdit({ path: 'note.md', from: 8, to: 13, baseText: 'three', proposedText: '3', origin })
       await duo.deliver()
       expect(duo.b.root.acceptSuggestion('note.md', a.id)?.status).toBe('accepted')
       expect(duo.b.root.rejectSuggestion('note.md', b.id)).toBe(true)

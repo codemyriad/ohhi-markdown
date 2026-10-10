@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   BUILTIN_THEMES,
+  AGENT_WORKING_TOKEN,
   COMMENT_TOKENS,
   DARK_THEMES,
   GROUP_SLOTS,
@@ -658,6 +659,32 @@ describe('comment tints (band B)', () => {
         colorDistance(value(theme, '--ed-comment-bg'), value(theme, '--ed-search-match-bg')),
         theme
       ).toBeGreaterThan(60)
+    }
+  })
+})
+
+/**
+ * The agent's working tint (writing-harness B10). Presence, so it must never
+ * read as a sync state (golden rule 4 / sharing R5), and it can share a
+ * screen with a comment and a search match, so it is neither of those either.
+ */
+describe('agent working tint (band B)', () => {
+  const value = (theme: string, name: string): string =>
+    tokenValue(themeBlock(THEME_CSS[theme], theme), name) ?? tokenValue(CONTRACT, name)!
+
+  it('is declared in the contract', () => {
+    expect(declaredTokens(CONTRACT).has(AGENT_WORKING_TOKEN)).toBe(true)
+  })
+
+  it('is no sync colour, no comment and no search match in any built-in theme', () => {
+    for (const theme of BUILTIN_THEMES) {
+      const tint = value(theme, AGENT_WORKING_TOKEN)
+      const sync = themeBlock(SYNC, theme)
+      for (const state of SYNC_STATES) {
+        expect(colorDistance(tint, tokenValue(sync, `--ed-sync-${state}`)!), `${theme} vs sync ${state}`).toBeGreaterThan(60)
+      }
+      expect(colorDistance(tint, value(theme, '--ed-comment-bg')), `${theme} vs comment`).toBeGreaterThan(60)
+      expect(colorDistance(tint, value(theme, '--ed-search-match-bg')), `${theme} vs search`).toBeGreaterThan(60)
     }
   })
 })

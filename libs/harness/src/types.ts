@@ -5,7 +5,7 @@
  * Change it minimally, keep every existing field, and say so in the report —
  * every other owner imports it.
  */
-import type { VaultBackend } from '@ohhi/agent'
+import type { VaultBackend } from '@ohhi/agent/core'
 import type { Clock } from '@ohhi/testkit'
 
 // ---- providers (B1; Cassini's shape) ----

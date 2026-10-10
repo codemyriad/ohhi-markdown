@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Strings for the writing harness: Settings › AI, providers, sessions, the composer, skills, suggestions, comments and the agent's presence label.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

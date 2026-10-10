@@ -161,6 +161,10 @@
      * the search yellow or a sync colour: a comment is not a match or a state. */
     --ed-comment-bg: #7b6fd62e;
     --ed-comment-resolved-bg: #b0bac52e;
+    /* The agent's working range (writing-harness B10): the passage an agent
+     * says it is on, shaded for everyone in the note. Presence, never a sync
+     * colour, a comment or a search match (theme-contract.test.ts). */
+    --ed-agent-working-bg: #1aa3b82e;
 
     /* --- collaboration --------------------------------------------------- */
     --ed-peer-caret-width: 2px;

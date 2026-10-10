@@ -7915,6 +7915,11 @@ export type NamespaceWebTranslation = {
 			unavailable: string
 		}
 		presence: {
+			/**
+			 * {​n​a​m​e​}​ ​(​a​g​e​n​t​)
+			 * @param {string} name
+			 */
+			label: RequiredParams<'name'>
 		}
 		commands: {
 			/**
@@ -7967,6 +7972,86 @@ export type NamespaceWebTranslation = {
 			 * T​h​a​t​ ​i​s​ ​n​o​t​ ​b​u​i​l​t​ ​y​e​t​.
 			 */
 			not_built: string
+		}
+		wiring: {
+			/**
+			 * N​o​t​h​i​n​g​ ​t​o​ ​p​r​o​p​o​s​e​ ​i​n​ ​{​p​a​t​h​}​:​ ​i​t​ ​a​l​r​e​a​d​y​ ​s​a​y​s​ ​t​h​a​t
+			 * @param {string} path
+			 */
+			proposal_none: RequiredParams<'path'>
+			/**
+			 * E​d​i​t​e​d​ ​{​p​a​t​h​}​ ​d​i​r​e​c​t​l​y
+			 * @param {string} path
+			 */
+			proposal_applied: RequiredParams<'path'>
+			/**
+			 * A​g​e​n​t
+			 */
+			agent_author: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​s​e​n​d​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​t​o​ ​t​h​e​ ​a​g​e​n​t​:​ ​a​ ​r​u​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​g​o​i​n​g​,​ ​o​r​ ​n​o​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​s​e​t​ ​u​p​.
+			 */
+			thread_not_started: string
+			/**
+			 * T​h​e​ ​a​g​e​n​t​ ​d​i​d​ ​n​o​t​ ​a​n​s​w​e​r​ ​t​h​e​ ​c​o​m​m​e​n​t​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			thread_failed: RequiredParams<'error'>
+			/**
+			 * P​r​o​p​o​s​e​d​ ​e​d​i​t
+			 */
+			thread_suggestion: string
+			/**
+			 * T​h​e​ ​t​e​x​t​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​i​s​ ​e​d​i​t​.
+			 */
+			thread_suggestion_stale: string
+			/**
+			 * A​c​c​e​p​t
+			 */
+			accept: string
+			/**
+			 * R​e​j​e​c​t
+			 */
+			reject: string
+			/**
+			 * {​n​a​m​e​}​ ​d​i​d​ ​n​o​t​ ​f​i​n​i​s​h​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 * @param {string} name
+			 */
+			skill_failed: RequiredParams<'error' | 'name'>
+			/**
+			 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			skill_findings: RequiredParams<'count' | 'name'>
+			/**
+			 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​;​ ​{​s​k​i​p​p​e​d​}​ ​q​u​o​t​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​f​o​u​n​d​ ​i​n​ ​t​h​e​ ​n​o​t​e​.
+			 * @param {number} count
+			 * @param {string} name
+			 * @param {number} skipped
+			 */
+			skill_findings_skipped: RequiredParams<'count' | 'name' | 'skipped'>
+			/**
+			 * {​n​a​m​e​}​ ​f​o​u​n​d​ ​n​o​t​h​i​n​g​ ​t​o​ ​c​o​m​m​e​n​t​ ​o​n​.
+			 * @param {string} name
+			 */
+			skill_no_findings: RequiredParams<'name'>
+			/**
+			 * {​n​a​m​e​}​ ​w​r​o​t​e​ ​{​p​a​t​h​}​.
+			 * @param {string} name
+			 * @param {string} path
+			 */
+			skill_created: RequiredParams<'name' | 'path'>
+			/**
+			 * {​n​a​m​e​}​ ​a​n​s​w​e​r​e​d​ ​w​i​t​h​o​u​t​ ​a​ ​n​o​t​e​ ​t​o​ ​w​r​i​t​e​;​ ​s​e​e​ ​t​h​e​ ​s​e​s​s​i​o​n​.
+			 * @param {string} name
+			 */
+			skill_no_note: RequiredParams<'name'>
+			/**
+			 * U​n​t​i​t​l​e​d
+			 */
+			untitled: string
 		}
 	}
 }
@@ -15404,6 +15489,10 @@ export type TranslationFunctions = {
 				unavailable: () => LocalizedString
 			}
 			presence: {
+				/**
+				 * {name} (agent)
+				 */
+				label: (arg: { name: string }) => LocalizedString
 			}
 			commands: {
 				/**
@@ -15456,6 +15545,72 @@ export type TranslationFunctions = {
 				 * That is not built yet.
 				 */
 				not_built: () => LocalizedString
+			}
+			wiring: {
+				/**
+				 * Nothing to propose in {path}: it already says that
+				 */
+				proposal_none: (arg: { path: string }) => LocalizedString
+				/**
+				 * Edited {path} directly
+				 */
+				proposal_applied: (arg: { path: string }) => LocalizedString
+				/**
+				 * Agent
+				 */
+				agent_author: () => LocalizedString
+				/**
+				 * Could not send the comment to the agent: a run is already going, or no provider is set up.
+				 */
+				thread_not_started: () => LocalizedString
+				/**
+				 * The agent did not answer the comment: {error}
+				 */
+				thread_failed: (arg: { error: string }) => LocalizedString
+				/**
+				 * Proposed edit
+				 */
+				thread_suggestion: () => LocalizedString
+				/**
+				 * The text changed under this edit.
+				 */
+				thread_suggestion_stale: () => LocalizedString
+				/**
+				 * Accept
+				 */
+				accept: () => LocalizedString
+				/**
+				 * Reject
+				 */
+				reject: () => LocalizedString
+				/**
+				 * {name} did not finish: {error}
+				 */
+				skill_failed: (arg: { error: string, name: string }) => LocalizedString
+				/**
+				 * {name} left {count} comment{{s}}.
+				 */
+				skill_findings: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * {name} left {count} comment{{s}}; {skipped} quote{{s}} could not be found in the note.
+				 */
+				skill_findings_skipped: (arg: { count: number, name: string, skipped: number }) => LocalizedString
+				/**
+				 * {name} found nothing to comment on.
+				 */
+				skill_no_findings: (arg: { name: string }) => LocalizedString
+				/**
+				 * {name} wrote {path}.
+				 */
+				skill_created: (arg: { name: string, path: string }) => LocalizedString
+				/**
+				 * {name} answered without a note to write; see the session.
+				 */
+				skill_no_note: (arg: { name: string }) => LocalizedString
+				/**
+				 * Untitled
+				 */
+				untitled: () => LocalizedString
 			}
 		}
 	}
