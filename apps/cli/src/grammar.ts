@@ -24,6 +24,13 @@ type FlagKind =
   | 'const'
   /** `--columns a,b,c` → `['a', 'b', 'c']`. */
   | 'list'
+  /**
+   * A repeatable `--flag KEY=VALUE` collected into one object on `key`. With
+   * `pairs: 'typed'` the value is read as the index reads a frontmatter
+   * scalar (`true` → boolean, `8` → number, else text); with `'list'` it is
+   * split on commas into a list. Two flags may feed the same object.
+   */
+  | 'pairs'
 
 interface FlagSpec {
   /** Key in the op's input object. */
@@ -35,6 +42,10 @@ interface FlagSpec {
   value?: string
   /** The op refuses to run without it (`changes --since`). */
   required?: boolean
+  /** The flag may be given more than once (`--unset a --unset b` → a list). */
+  multiple?: boolean
+  /** For `kind: 'pairs'`: how each VALUE is read. */
+  pairs?: 'typed' | 'list'
   help: string
 }
 
@@ -153,7 +164,16 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
     },
     stdin: 'text',
   },
-  fm: { positionals: [{ key: 'path', label: 'path', required: true }], flags: {} },
+  fm: {
+    positionals: [{ key: 'path', label: 'path', required: true }],
+    flags: {
+      set: { key: 'set', kind: 'pairs', pairs: 'typed', multiple: true, arg: 'KEY=VALUE', help: 'set a key (repeatable); true/false and plain numbers are written as such' },
+      'set-list': { key: 'set', kind: 'pairs', pairs: 'list', multiple: true, arg: 'KEY=A,B', help: 'set a key to a list (repeatable)' },
+      unset: { key: 'unset', kind: 'string', multiple: true, arg: 'KEY', help: 'remove a key (repeatable)' },
+      rename: { key: 'rename', kind: 'pairs', multiple: true, arg: 'OLD=NEW', help: 'rename a key (repeatable)' },
+      ...writeFlags,
+    },
+  },
   mv: {
     positionals: [
       { key: 'from', label: 'from', required: true },
@@ -186,7 +206,7 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
 }
 
 /** Flags understood before the op name, on every op. */
-export const GLOBAL_FLAGS: Record<string, FlagSpec & { multiple?: boolean }> = {
+export const GLOBAL_FLAGS: Record<string, FlagSpec> = {
   vault: { key: 'vault', kind: 'string', arg: 'PATH', help: 'the vault root (else $OHHI_VAULT, else walk up from cwd)' },
   json: { key: 'json', kind: 'boolean', help: 'print the ohhi.<op>.v1 document and nothing else on stdout' },
   'data-dir': { key: 'dataDir', kind: 'string', arg: 'PATH', help: "the CLI's own data dir (journal); else $OHHI_DATA_DIR" },
@@ -273,7 +293,7 @@ const usageError = (message: string, details?: Record<string, unknown>): never =
 /** parseArgs options: the union of every op's flags plus the globals. */
 function parseArgsOptions(): Record<string, { type: 'string' | 'boolean'; multiple?: boolean; short?: string }> {
   const opts: Record<string, { type: 'string' | 'boolean'; multiple?: boolean; short?: string }> = {}
-  const add = (name: string, spec: FlagSpec & { multiple?: boolean }): void => {
+  const add = (name: string, spec: FlagSpec): void => {
     const type = spec.kind === 'boolean' || spec.kind === 'const' ? 'boolean' : 'string'
     const existing = opts[name]
     if (existing && existing.type !== type) {
@@ -291,6 +311,14 @@ function parseArgsOptions(): Record<string, { type: 'string' | 'boolean'; multip
 }
 
 const OPTIONS = parseArgsOptions()
+
+/** `--set key=VALUE`: the VALUE as the index would read it from the note. */
+function typedValue(raw: string): string | number | boolean {
+  const text = raw.trim()
+  if (text === 'true' || text === 'false') return text === 'true'
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text) && !Object.is(Number(text), -0)) return Number(text)
+  return raw
+}
 
 function toNumber(flag: string, raw: string): number {
   const n = Number(raw)
@@ -376,6 +404,23 @@ export function parseCommand(argv: string[]): Command {
   for (const [flag, spec] of Object.entries(grammar.flags)) {
     const raw = values[flag]
     if (raw === undefined || raw === false) continue
+    if (spec.kind === 'pairs') {
+      const pairs = (Array.isArray(raw) ? raw : [raw]) as string[]
+      const into = { ...((input[spec.key] as Record<string, unknown> | undefined) ?? {}) }
+      for (const pair of pairs) {
+        const eq = pair.indexOf('=')
+        if (eq <= 0) usageError(`--${flag} expects KEY=VALUE, got ${JSON.stringify(pair)}`, { op, flag })
+        const key = pair.slice(0, eq).trim()
+        const value = pair.slice(eq + 1)
+        into[key] = spec.pairs === 'list' ? value.split(',').map((s) => s.trim()).filter(Boolean) : spec.pairs === 'typed' ? typedValue(value) : value
+      }
+      input[spec.key] = into
+      continue
+    }
+    if (spec.multiple === true && spec.kind === 'string') {
+      input[spec.key] = (Array.isArray(raw) ? raw : [raw]) as string[]
+      continue
+    }
     switch (spec.kind) {
       case 'boolean':
         input[spec.key] = true

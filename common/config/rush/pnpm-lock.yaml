@@ -225,6 +225,9 @@ importers:
       '@ohhi/collections':
         specifier: workspace:*
         version: link:../collections
+      '@ohhi/frontmatter':
+        specifier: workspace:*
+        version: link:../frontmatter
       '@ohhi/index':
         specifier: workspace:*
         version: link:../index

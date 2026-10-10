@@ -152,8 +152,8 @@ ohhi rows --columns status,due --sort due                      # every note as r
 typed by what the note wrote: `8` is a number, `2026-06-02` a date string,
 `[[X]]` a link, a list an array. A view marked `supported: false` names in
 `reasons` the part this tool does not compute (formulas, map views); the rows
-it can compute are still there. Change a cell with the note's frontmatter —
-there is no `rows set`.
+it can compute are still there. Change a cell with `fm --set` on the
+note — there is no `rows set`.
 
 ### Resume instead of restarting
 
@@ -230,6 +230,8 @@ ohhi restore "Notes/Retro.md" --list                      # pre-images kept befo
 ohhi restore "Notes/Retro.md"                             # put the latest one back
 ohhi restore "Notes/Retro.md" --seq 41
 ohhi restore "Notes/Retro.md" --seq 41 --source app       # --seq 41 of WHICH journal
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --set score=8 --unset draft   # one value's bytes per key
+ohhi fm "Competitors/Ingredifind.md" --set-list pillars="[[Clusters]],[[Pricing]]" --expect-hash "<the hash>"
 ```
 
 The rules, and why:
@@ -248,11 +250,13 @@ The rules, and why:
   `--expect-hash` covers.)
 - **`--dry-run` when unsure.** It computes everything — the match count, the
   resulting hash, where the appended line lands — and writes nothing.
-- **Frontmatter is read-only.** `ohhi fm <path>` reads it; there is no `fm set`
-  yet, and the surgical byte-preserving patcher that will make one safe does not
-  exist. Do not edit frontmatter with `patch` or `write` to work around this —
-  reserialising YAML is exactly the spurious-diff failure the editor forbids.
-  Tell the user it is not available.
+- **Frontmatter goes through `fm`, never `patch` or `write`.** `ohhi fm <path>
+  --set key=value` moves one value's bytes and nothing else; `--unset` and
+  `--rename` likewise. `true`/`false` and plain numbers are written as such,
+  everything else as text; `--set-list key=a,b` writes a list. It refuses a
+  block outside the flat subset (nested, multi-line) — say so; do not rewrite
+  the block with `patch`, that is the spurious-diff failure the editor forbids.
+  Read first: the `hash` it prints is the `--expect-hash` for the write.
 - **Keep bursts under 20 files.** `mv`/`rm` on a directory holding more than 20
   files is refused without `--yes`, and that refusal is the **only** guard: the
   running editor's own breaker does not catch a CLI burst. If you truly need a
@@ -336,6 +340,7 @@ responses — so branch on `code`, never on the exit code alone.
 | 1 | `refused` | A path outside the vault, or a symlink leading out of it. | Stay inside the vault. This is a guard, not a bug. |
 | 2 | `usage` | `rows <path>` on a file that is not a `.base`; an unknown `--view` (`details.views` lists the real names); a `--where` outside the grammar (the message quotes the statement). | Pick a listed view; rewrite the statement with the operators and functions the recipe lists — there are no formulas. |
 | 1 | `refused` | A `.base` that is not readable YAML. | Read it with `read`; the person fixes it in the app's Source mode. Do not rewrite it. |
+| 1 | `refused` | `fm --set/--unset/--rename` on a block outside the flat subset (`details.reason`: `nested`, `multiline`, `anchor`, `duplicate-key`, `invalid`), or `--rename` of a key that is not there (`missing-key`). | Tell the user which note and why; the block is edited in the editor. Never rewrite it with `patch` or `write`. |
 | 1 | `not_found` | The note, or the `--section` heading, is not there. | For a note: `search` or `ls` for the real path. For a section: `read --outline` and use a heading it lists. |
 | 1 | `not_found` | `restore <path>` with no pre-image, or a `--seq` that is not in that journal. | Run `restore <path> --list` first. If the list is **empty** (exit 0), nothing has a version to put back — say so and stop. If it is not, take a `seq` **and its `source`** from it. |
 | 0 | — | `restore … --list` printed `entries: []`. | Not an error: nothing here has written that note. Do not retry, and do not go looking in `.trash/` unless the user asks. |

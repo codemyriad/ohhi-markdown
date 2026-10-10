@@ -37,7 +37,11 @@ export function renderRead(o: OpOutput<'read'>, sink: Sink): void {
 
 export function renderFm(o: OpOutput<'fm'>, sink: Sink): void {
   renderFrontmatterBlock(o.frontmatter, sink)
-  sink.err(kv({ path: o.path, present: o.frontmatter.present, supported: o.frontmatter.supported }))
+  sink.err(kv({ path: o.path, present: o.frontmatter.present, supported: o.frontmatter.supported, hash: o.hash }))
+  if (o.changed || o.dryRun) {
+    sink.err(kv({ changed: o.changed, journalSeq: o.journalSeq ?? 'none', dryRun: o.dryRun || undefined }))
+    if (o.changed && !o.dryRun && o.journalSeq !== null) sink.err(`undo with: ohhi restore ${o.path} --seq ${o.journalSeq}`)
+  }
 }
 
 function renderFrontmatterBlock(fm: OpOutput<'fm'>['frontmatter'] | undefined, sink: Sink): void {

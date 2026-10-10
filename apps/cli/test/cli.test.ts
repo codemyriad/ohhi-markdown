@@ -66,6 +66,18 @@ describe('flag mapping', () => {
     expect(input).toEqual({ path: 'a.md', text: 'x', createOnly: true, expectHash: 'abc', dryRun: true })
   })
 
+  it('fm collects repeatable key=value flags into typed records', () => {
+    const { input } = parse(['fm', 'a.md', '--set', 'status=done', '--set', 'score=8', '--set', 'ok=true', '--set', 'note=1e3', '--set-list', 'tags=a, b', '--unset', 'x', '--unset', 'y', '--rename', 'old=new', '--dry-run'])
+    expect(input).toEqual({
+      path: 'a.md',
+      set: { status: 'done', score: 8, ok: true, note: '1e3', tags: ['a', 'b'] },
+      unset: ['x', 'y'],
+      rename: { old: 'new' },
+      dryRun: true,
+    })
+    expect(() => parse(['fm', 'a.md', '--set', 'novalue'])).toThrow(/KEY=VALUE/)
+  })
+
   it('restore --source names which journal --seq belongs to', () => {
     // The CLI and app journals number independently (S11-Q4), so `--seq 1`
     // without `--source` is genuinely ambiguous once an --app-store is given.
@@ -173,6 +185,16 @@ describe('text rendering', () => {
     expect(lines[1]).toMatch(/^Competitors\/Ingredifind\.md\s+direct\s+2026-06-02$/)
     expect(lines).toHaveLength(3)
     expect(rows.err).toContain('view=Direct')
+  })
+
+  it('fm --set prints the block after the write and how to undo it', async () => {
+    const v = await fixture()
+    const { out, err, code } = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=done', '--set', 'retries=4']))
+    expect(code).toBe(0)
+    expect(out).toMatch(/status:\s+done\s+\(string\)/)
+    expect(out).toMatch(/retries:\s+4\s+\(number\)/)
+    expect(err).toContain('changed=true')
+    expect(err).toMatch(/undo with: ohhi restore Projects\/Editor\.md --seq \d+/)
   })
 
   it('rows --json notes a partly computed view on stderr', async () => {

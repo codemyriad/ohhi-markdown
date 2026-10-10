@@ -56,10 +56,10 @@ person runs *Reload layouts and resources*. The formats, every command,
 readout, region and view id, and worked examples:
 [`customising.md`](customising.md).
 
-**Status.** Slices G1–G4 of `plans/slices.md`, plus DB1 of the collections
-series (`collections`, `rows` — `plans/bases-shaping.md`). `fm` is read-only
-until its write half ships (DB5); the surgical patcher it will use exists
-(`libs/frontmatter`) — `ohhi` will not reserialize a YAML block (golden rule 2).
+**Status.** Slices G1–G4 of `plans/slices.md`, plus the collections series
+(`collections`, `rows`, and `fm`'s write half — `plans/bases-shaping.md`).
+`ohhi` never reserializes a YAML block: `fm --set` moves one value's bytes
+through the flat-subset patcher (golden rule 2).
 
 ---
 
@@ -661,15 +661,32 @@ heading of the same or higher level, keeping one blank line. Returns the 1-based
 
 ### `fm <path>`
 
-Read a note's frontmatter. Flat subset: `key: scalar`, `key: [a, b]`, block
-lists of scalars. Anything nested returns `supported: false` with the raw block
-and no entries, rather than a lossy parse.
+Read a note's frontmatter, or change it one key at a time. Flat subset:
+`key: scalar`, `key: [a, b]`, block lists of scalars. Anything nested returns
+`supported: false` with the raw block and no entries, rather than a lossy
+parse — and refuses a write.
 
-**There is no `fm set`.** Writing frontmatter waits for the surgical
-byte-preserving patcher (Spike S3 / read-shaping X3) — reserialising a YAML block
-would rewrite bytes nobody edited, which golden rule 2 forbids. The flat reader
-in `libs/agent/src/frontmatter-read.ts` is a stand-in that `libs/frontmatter`
-replaces; its file header says so.
+```bash
+ohhi fm "Competitors/Ingredifind.md"                                  # read; `hash` is the --expect-hash for a write
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --set score=8   # one value's bytes per key
+ohhi fm "Competitors/Ingredifind.md" --set verified=2026-06-02 --set active=true
+ohhi fm "Competitors/Ingredifind.md" --set-list pillars="[[Clusters]],[[Pricing]]"
+ohhi fm "Competitors/Ingredifind.md" --unset draft --rename threat=threat_level
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --expect-hash <hash> --dry-run
+```
+
+`--set KEY=VALUE` writes `true`/`false` as booleans and plain decimals as
+numbers, everything else as text — quoted only where a plain scalar would read
+back as something else (`"8"` when you meant the text). `--set-list KEY=A,B`
+writes a block list. Order: `--rename`, then `--unset`, then `--set`. The
+patcher moves the value's bytes and nothing else: the key's spelling, a
+trailing comment, every other line and the body stay (golden rule 2). A note
+with no block gets one; unsetting a key that is not there is a no-op; a batch
+that changes nothing writes nothing (`changed: false`). A block outside the
+flat subset (nested, multi-line, anchors, a duplicate key) is `refused` with
+`details.reason` — edit it in the note. Journaled, atomic, compare-and-swap
+like every write: `--expect-hash` · `--dry-run`; `journalSeq` is the handle
+`restore` takes.
 
 ### `mv <from> <to>`
 

@@ -516,12 +516,36 @@ export const AppendOut = z.object({
   dryRun: z.boolean(),
 })
 
-/** Read side only until `libs/frontmatter` (read-shaping X3) lands `set`/`unset`. */
-export const FmIn = z.object({ path: VaultPath })
+/**
+ * A value `fm --set` writes: a string as text (quoted where a plain scalar
+ * would read back as something else), a number or boolean plain, an array
+ * as a block list of those. The flat-subset patcher (`libs/frontmatter`)
+ * moves ONE value's bytes per key and nothing else (golden rule 2).
+ */
+const FmWriteScalar = z.union([z.string(), z.number(), z.boolean()])
+export const FmWriteValue = z.union([FmWriteScalar, z.array(FmWriteScalar)])
+
+export const FmIn = z.object({
+  path: VaultPath,
+  /** Keys to set. Applied after `rename` and `unset`. */
+  set: z.record(z.string(), FmWriteValue).optional(),
+  /** Keys to remove. Removing a key that is not there is a no-op. */
+  unset: z.array(z.string()).optional(),
+  /** Keys to rename, old → new. Applied first. */
+  rename: z.record(z.string(), z.string()).optional(),
+  ...WriteCommon,
+})
 export const FmOut = z.object({
   schema: z.literal(schemaName('fm')),
   path: VaultPath,
+  /** The block as it is now — after the write, when there was one. */
   frontmatter: Frontmatter,
+  /** True when bytes changed (false on a read, a no-op write, or a dry run that would change nothing). */
+  changed: z.boolean(),
+  /** The note's content hash now — the `expectHash` for a later write. */
+  hash: z.string(),
+  journalSeq: z.number().int().nonnegative().nullable(),
+  dryRun: z.boolean(),
 })
 
 export const MvIn = z.object({
@@ -680,7 +704,7 @@ export const OP_SCHEMAS = {
   write: { input: WriteIn, output: WriteOut, mutates: true, description: 'Create or replace a note (journaled, atomic).' },
   patch: { input: PatchIn, output: PatchOut, mutates: true, description: 'Replace one exact string in a note (journaled, atomic). Refused when the string is not unique.' },
   append: { input: AppendIn, output: AppendOut, mutates: true, description: 'Append text to a note or to one of its sections (journaled, atomic).' },
-  fm: { input: FmIn, output: FmOut, mutates: false, description: 'Read a note’s frontmatter (flat subset). Writing frontmatter is not available yet.' },
+  fm: { input: FmIn, output: FmOut, mutates: true, description: 'Read a note’s frontmatter (flat subset), or set, unset and rename keys in it — one value’s bytes per key, nothing else moves (journaled, atomic).' },
   mv: { input: MvIn, output: MvOut, mutates: true, description: 'Move or rename a note or folder.' },
   rm: { input: RmIn, output: RmOut, mutates: true, description: 'Move a note or folder to .trash/ (never deletes outright).' },
   restore: { input: RestoreIn, output: RestoreOut, mutates: true, description: 'List or restore pre-images the journal kept before earlier writes.' },

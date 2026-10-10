@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ohhi.md/schema/ohhi.fm.v1.schema.json",
   "title": "ohhi.fm.v1",
-  "description": "Read a note’s frontmatter (flat subset). Writing frontmatter is not available yet.",
+  "description": "Read a note’s frontmatter (flat subset), or set, unset and rename keys in it — one value’s bytes per key, nothing else moves (journaled, atomic).",
   "type": "object",
   "properties": {
     "schema": {
@@ -101,12 +101,37 @@
         "supported"
       ],
       "additionalProperties": false
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "hash": {
+      "type": "string"
+    },
+    "journalSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dryRun": {
+      "type": "boolean"
     }
   },
   "required": [
     "schema",
     "path",
-    "frontmatter"
+    "frontmatter",
+    "changed",
+    "hash",
+    "journalSeq",
+    "dryRun"
   ],
   "additionalProperties": false
 }
