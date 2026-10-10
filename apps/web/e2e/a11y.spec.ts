@@ -704,4 +704,16 @@ test('a collection tab is accessible', async ({ page }) => {
   await page.locator('[data-testid^="collection-cell:"][data-testid$=":status"]').first().click()
   await expect(page.locator('[data-testid$=":status:input"]')).toBeVisible()
   await expectAccessible(page, 'collection cell editor')
+  await page.keyboard.press('Escape')
+
+  // A board view (DB3): added from the menu, grouped by the first property,
+  // every card with its keyboard "Move to…".
+  await page.getByTestId('collection-add-view').click()
+  await page.getByTestId('collection-add-view:kanban').click()
+  await expect(page.getByTestId('collection-board')).toBeVisible()
+  await expectAccessible(page, 'collection board')
+  await page.getByTestId('collection-add-view').click()
+  await page.getByTestId('collection-add-view:list').click()
+  await expect(page.getByTestId('collection-list')).toBeVisible()
+  await expectAccessible(page, 'collection list')
 })

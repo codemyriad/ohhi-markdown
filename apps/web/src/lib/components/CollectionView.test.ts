@@ -44,6 +44,19 @@ views:
     order:
       - file.name
       - verified
+  - type: kanban
+    name: Board
+    groupBy:
+      property: depth
+      direction: ASC
+    order:
+      - file.name
+      - threat
+  - type: list
+    name: Quick
+    order:
+      - file.name
+      - threat
 `
 
 const NOTES: Record<string, string> = {
@@ -205,7 +218,7 @@ describe('CollectionView', () => {
     render(CollectionView, { props: { workspace, path: 'Empty.base' }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
     expect(screen.getByText(/no views yet/)).toBeInTheDocument()
     await userEvent.setup().click(screen.getByTestId('collection-add-table'))
-    expect(store.get('Empty.base')).toBe('filters: file.hasTag("x")\nviews:\n  - type: table\n    name: All\n    order:\n      - file.name\n')
+    expect(store.get('Empty.base')).toBe('filters: file.hasTag("x")\nviews:\n  - type: table\n    name: Table\n    order:\n      - file.name\n')
   })
 
   it('marks a view the subset cannot fully compute, and still draws its rows', async () => {
@@ -287,5 +300,37 @@ describe('CollectionView', () => {
     const box = screen.getByTestId('collection-cell:Nested:active') as HTMLInputElement
     await user.click(box)
     expect(box.checked).toBe(false)
+  })
+
+  it('a board view: one column per depth, and moving a card writes that note’s depth', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'Board' }))
+    await screen.findByTestId('collection-board')
+    expect(screen.getAllByTestId(/^board-column:/).map((c) => c.getAttribute('data-testid'))).toEqual([
+      'board-column:Deep',
+      'board-column:Moderate',
+      'board-column:(none)',
+    ])
+    await user.selectOptions(screen.getByTestId('board-move:Competitors/Stale.md'), 'Deep')
+    expect(store.get('Competitors/Stale.md')).toBe('---\nthreat: direct\nverified: 2026-01-10\ndepth: Deep\n---\n')
+    await user.selectOptions(screen.getByTestId('board-move:Competitors/Ingredifind.md'), '')
+    expect(store.get('Competitors/Ingredifind.md')).toContain('\ndepth:\n')
+  })
+
+  it('a list view: names with their values; the Add view menu writes a new view and opens it', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'Quick' }))
+    await screen.findByTestId('collection-list')
+    expect(screen.getByTestId('list-row:Competitors/Ingredifind.md').textContent).toContain('Threat:')
+    expect(screen.getByTestId('list-row:Competitors/Ingredifind.md').textContent).toContain('direct')
+    await user.click(screen.getByTestId('collection-add-view'))
+    await user.click(await screen.findByTestId('collection-add-view:kanban'))
+    const text = store.get('Competitors.base')!
+    expect(text).toContain('  - type: kanban\n    name: Board 2\n    groupBy:\n      property: threat\n      direction: ASC\n')
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Board 2' })).toHaveAttribute('aria-selected', 'true'))
   })
 })

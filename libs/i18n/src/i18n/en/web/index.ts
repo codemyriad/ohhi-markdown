@@ -2724,6 +2724,23 @@ const collections = {
   column_not_computed: '{name:string} is not computed here',
   no_views: 'This collection has no views yet.',
   add_table: 'Add a table view',
+  add_view: 'Add a view',
+  add_view_table: 'Table',
+  add_view_board: 'Board',
+  add_view_list: 'List',
+  /** Default names for views this app adds. */
+  view_name_table: 'Table',
+  view_name_board: 'Board',
+  view_name_list: 'List',
+  /** A board with nothing to group by: the picker that fixes it. */
+  board_needs_group: 'A board groups notes by a property. Choose one:',
+  board_column: '{group:string} — {count:number} note{{s}}',
+  board_label: 'Board of {view:string}',
+  /** The keyboard's drag: a select on every card. */
+  move_card: 'Move {name:string} to…',
+  move_card_to: 'Move to {group:string}',
+  list_label: 'List of {view:string}',
+  cards_label: 'Cards of {view:string}',
   unreadable: 'This file could not be read as a collection: {error:string}',
   unreadable_hint: 'Fix it in Source (Mod+E).',
   no_rows: 'No notes match this view.',

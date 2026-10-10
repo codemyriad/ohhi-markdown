@@ -154,12 +154,16 @@ export function patchView(text: string, index: number, patch: ViewPatch): PatchR
   return { ok: true, text: text.slice(0, from) + rendered + text.slice(to) }
 }
 
+/** What a new view is made of: its type and name, plus any of a patch's fields. */
+export type NewView = { type: string; name: string } & ViewPatch
+
 /** Append a view to `views` (creating the block when absent or empty); nothing else moves. */
-export function addView(text: string, view: { type: string; name: string; order?: string[]; filters?: FilterTree }): PatchResult {
+export function addView(text: string, view: NewView): PatchResult {
   const found = locate(text)
   if (typeof found === 'string') return { ok: false, reason: found }
   const eol = eolOf(text)
-  const body = orderKeys({ type: view.type, name: view.name, ...(view.filters ? { filters: view.filters } : {}), ...(view.order ? { order: view.order } : {}) })
+  const { type, name, ...rest } = view
+  const body = toFileForm({ type, name }, rest)
   const seqText = (column: number): string => renderNode({ views: [body] }, 0, eol).split(eol).slice(1).map((l) => ' '.repeat(column) + l).join(eol)
 
   if (!found.pair) {

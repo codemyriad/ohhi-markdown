@@ -18,7 +18,8 @@
    * bumps on every keystroke anywhere in the vault, so the re-query is
    * coalesced on the shell's clock; the first load is immediate.
    */
-  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert } from '@lucide/svelte'
+  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, LayoutGrid } from '@lucide/svelte'
+  import { melt } from '@melt-ui/svelte'
   import {
     addView,
     collectionName,
@@ -27,6 +28,7 @@
     parseCollection,
     patchView,
     type Column,
+    type NewView,
     type ViewPatch,
   } from '@ohhi/collections'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -43,13 +45,17 @@
     toggleSort,
     type CellKind,
   } from '../collection-cells.js'
+  import DropdownMenu from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
+  import MenuItem from '../ui/MenuItem.svelte'
   import Popover from '../ui/Popover.svelte'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
   import Tabs from '../ui/Tabs.svelte'
   import { getViewShell, shellClock } from '../views.js'
   import type { Workspace } from '../workspace.svelte.js'
+  import CollectionBoard from './CollectionBoard.svelte'
   import CollectionCell from './CollectionCell.svelte'
+  import CollectionList from './CollectionList.svelte'
 
   interface Props {
     workspace: Workspace
@@ -222,14 +228,39 @@
     if (created) shell?.openPath(created)
   }
 
-  function addTable(): void {
+  /** The property a new board groups by: the current view's first property column, else the first key the vault has. */
+  function firstProperty(): string | null {
+    const fromView = dataColumns.find((c) => c.key && 'prop' in c.key)
+    if (fromView) return fromView.id
+    return knownKeys[0] ?? null
+  }
+
+  function addNewView(type: 'table' | 'kanban' | 'list'): void {
     const doc = workspace.docForPath(path)
     if (!doc) return
-    const result = addView(doc.getText(), { type: 'table', name: 'All', order: ['file.name'] })
+    const names = { table: t.view_name_table(), kanban: t.view_name_board(), list: t.view_name_list() }
+    const taken = new Set(spec.views.map((v) => v.name))
+    let name: string = names[type]
+    for (let n = 2; taken.has(name); n++) name = `${names[type]} ${n}`
+    const order = view ? view.order : ['file.name']
+    const groupBy = type === 'kanban' ? firstProperty() : null
+    const next: NewView = { type, name, order, ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}) }
+    // The new view's index, read before the file changes under the derived chain.
+    const index = spec.views.length
+    const result = addView(doc.getText(), next)
     if (result.ok) {
       replaceDocText(doc, result.text)
       selfRevision++
+      activeValue = String(index)
     }
+  }
+
+  /** A board's drag or its "Move to…": the grouping property set to the column's value. */
+  function onMove(row: Row, group: string): void {
+    const by = compiled?.groupBy
+    if (!by || !('prop' in by.key)) return
+    // The grouping property need not be one of the view's columns.
+    onCell(row, columns.find((c) => c.id === by.id) ?? { id: by.id, label: by.id, key: by.key }, group)
   }
 
   // ---- the columns popover, and the "partly shown" detail ----
@@ -237,8 +268,9 @@
   let columnsOpen = $state(false)
   let partlyOpen = $state(false)
   let knownKeys = $state.raw<string[]>([])
+  const boardNeedsGroup = $derived(view?.type === 'kanban' && !compiled?.groupBy)
   $effect(() => {
-    if (!columnsOpen || !shell) return
+    if ((!columnsOpen && !boardNeedsGroup) || !shell) return
     let live = true
     void shell
       .index()
@@ -279,7 +311,7 @@
   {:else if !view}
     <div class="m-4 text-sm">
       <p>{t.no_views()}</p>
-      <button type="button" class="{OUTLINE_BUTTON} mt-2 px-2 py-1 text-xs" data-testid="collection-add-table" onclick={addTable}>
+      <button type="button" class="{OUTLINE_BUTTON} mt-2 px-2 py-1 text-xs" data-testid="collection-add-table" onclick={() => addNewView('table')}>
         {t.add_table()}
       </button>
     </div>
@@ -320,9 +352,29 @@
             {/each}
           </select>
         </label>
-        <span bind:this={columnsAnchor}>
-          <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" onclick={() => (columnsOpen = !columnsOpen)} />
-        </span>
+        <DropdownMenu placement="bottom-end" testid="collection-add-view-menu">
+          {#snippet trigger(attrs)}
+            <button
+              use:melt={attrs}
+              type="button"
+              aria-label={t.add_view()}
+              data-testid="collection-add-view"
+              class="rounded p-1 text-base-content/70 hover:bg-base-300 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <LayoutGrid size={14} aria-hidden="true" />
+            </button>
+          {/snippet}
+          {#snippet children(attrs)}
+            <MenuItem item={attrs.item} testid="collection-add-view:table" onSelect={() => addNewView('table')}>{t.add_view_table()}</MenuItem>
+            <MenuItem item={attrs.item} testid="collection-add-view:kanban" onSelect={() => addNewView('kanban')}>{t.add_view_board()}</MenuItem>
+            <MenuItem item={attrs.item} testid="collection-add-view:list" onSelect={() => addNewView('list')}>{t.add_view_list()}</MenuItem>
+          {/snippet}
+        </DropdownMenu>
+        {#if view.type === 'table'}
+          <span bind:this={columnsAnchor}>
+            <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" onclick={() => (columnsOpen = !columnsOpen)} />
+          </span>
+        {/if}
         <button
           type="button"
           class="{OUTLINE_BUTTON} flex items-center gap-1 px-2 py-0.5 text-xs"
@@ -341,10 +393,26 @@
             {t.partly_detail({ reasons: compiled.reasons.join('; ') })}
           </p>
         {/if}
+        {#if boardNeedsGroup}
+          <div class="m-4 text-sm" data-testid="board-needs-group">
+            <label class="flex items-center gap-2">
+              <span>{t.board_needs_group()}</span>
+              <select class="dui-select dui-select-xs" data-testid="board-group-pick" value="" onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}>
+                <option value="">—</option>
+                {#each [...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys])] as id (id)}
+                  <option value={id}>{id}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
+        {:else if rows.length === 0}
+          <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
+        {:else if view.type === 'kanban'}
+          <CollectionBoard {groups} {columns} groupId={compiled?.groupBy?.id ?? ''} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} {onMove} />
+        {:else if view.type === 'list' || view.type === 'cards'}
+          <CollectionList {groups} {columns} cards={view.type === 'cards'} grouped={!!compiled?.groupBy} viewName={view.name} onOpen={(p, o) => shell?.openPath(p, o)} />
+        {:else}
         <div class="h-full min-h-0 overflow-auto">
-          {#if rows.length === 0}
-            <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
-          {:else}
             <table class="w-full border-collapse text-xs" data-testid="collection-table">
               <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
               <thead class="sticky top-0 z-[1] bg-base-100">
@@ -432,8 +500,8 @@
                 </tbody>
               {/each}
             </table>
-          {/if}
         </div>
+        {/if}
       {/snippet}
     </Tabs>
 
