@@ -10,7 +10,7 @@
  */
 import { getLL } from '@ohhi/i18n'
 import type { Command, CommandRegistry } from './commands.js'
-import { aiEnabled } from './config.js'
+import { aiEnabled } from './ai-config.svelte.js'
 import type { DailyShell } from './daily.svelte.js'
 import type { FileActions } from './file-actions.svelte.js'
 import type { GroupShell } from './group-ui.svelte.js'
@@ -23,7 +23,7 @@ import type { ShareActions } from './share-actions.svelte.js'
 import type { ShellLayout } from './shell-layout.svelte.js'
 import { canComment, commentOnSelection } from './threads.svelte.js'
 import { suggestionCommands } from './suggestions.svelte.js'
-import { runSkillCommand } from './skills.svelte.js'
+import { runSkillCommand } from './skill-routing.js'
 import { captureFocusedSelection, harness, newSessionId, queueMention, stopRun } from './sessions.svelte.js'
 import { containingDir } from './tree-model.js'
 import { railForm } from './layout.js'
@@ -79,7 +79,7 @@ export interface ShellCommandDeps {
    * without the `help` readout) there is nothing for it to open.
    */
   help?: { run(id: HelpCommandId): void; menuMounted(): boolean }
-  /** Feedback to a gesture (`workspace.flash`): the harness stubs say they are not built. */
+  /** Feedback to a gesture (`workspace.flash`): a command that cannot act says why. */
   flash?(input: FlashInput): void
 }
 
@@ -269,7 +269,7 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
     })
     registry.addProvider(() => templates.commands())
   }
-  // The writing harness's commands (writing-harness-build W0 §6).
+  // The writing harness's commands (`harnessCommands`).
   registry.register(...harnessCommands(deps))
   // Every `workspace.*` and `tab.*` row of the command table (B7). Registered
   // after the defaults so a later rebind of a shared key wins, as the registry
@@ -336,17 +336,17 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
 }
 
 /**
- * The writing harness's `ai.*` / `note.comment` rows (writing-harness-build
- * W0 §6). STUBS: each is listed only while a provider exists (R1 — never
- * `when: () => false`, so the table and `COMMAND_IDS` agree) and says it is
- * not built. Builders B–E replace their rows here with the real ones.
+ * The writing harness's `ai.*` rows and `note.comment`. Every `ai.*` row is
+ * listed only while a provider exists (`when: aiEnabled` — never
+ * `when: () => false`, so the table and `COMMAND_IDS` agree); comments are
+ * not AI and are offered whenever a note is open in an editor.
  */
 export function harnessCommands(
   deps: Pick<ShellCommandDeps, 'flash'> & Partial<Pick<ShellCommandDeps, 'selectedPath' | 'openView'>>
 ): Command[] {
   const t = getLL().web.ai.commands
   const group = getLL().web.commands.groups.ai()
-  // The Session view's commands (B): a session from the focused selection,
+  // The Session view's commands: a session from the focused selection,
   // the selection into the current session, stop. `ai.new-session` ships
   // unbound — `Mod+L` is `edit.toggle-checkbox` (Obsidian's key), which is
   // registered later and would win it; `Mod+Shift+L` starts a session too
@@ -398,11 +398,11 @@ export function harnessCommands(
   ]
   return [
     ...sessionRows,
-    // Skills (C): a picker of the trusted skills that fit the selection or the note → B's `startRun`.
+    // A picker of the usable skills that fit the selection or the note → `startRun`.
     runSkillCommand({ flash: deps.flash, selectedPath: deps.selectedPath }),
-    // Suggestions in the document (D): accept/reject at the caret or in the note, undo the agent.
+    // Suggestions in the note: accept/reject at the caret or in the note, undo the agent.
     ...suggestionCommands(deps.flash),
-    // Comments are NOT an AI feature (B8): offered whenever a note is open in
+    // Comments are NOT an AI feature: offered whenever a note is open in
     // an editor, provider or not; only the bubble's *Send to agent* is gated.
     {
       id: 'note.comment',

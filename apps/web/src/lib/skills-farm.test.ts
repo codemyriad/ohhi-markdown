@@ -1,11 +1,11 @@
 /**
- * The app's `.claude/skills/` copy farm (writing-harness B9): copies the
+ * The app's `.claude/skills/` copy farm: copies the
  * wanted skills, re-copies on change, removes only what it made, and shares
  * one manifest with `ohhi skills export`.
  */
 import { describe, expect, it } from 'vitest'
 import { MemVaultAdapter } from '@ohhi/vault'
-import { adapterSkillFs, FARM_MANIFEST, parseFarmManifest } from '@ohhi/harness/skills'
+import { FARM_MANIFEST, parseFarmManifest, type SkillFs } from '@ohhi/harness/skills'
 import { clearFarm, syncFarm } from './skills-farm.js'
 
 const enc = new TextEncoder()
@@ -20,6 +20,14 @@ const text = async (a: MemVaultAdapter, p: string): Promise<string | null> => {
   const b = await a.read(p)
   return b ? dec.decode(b) : null
 }
+/** The loader's view of the same adapter. */
+const adapterSkillFs = (a: MemVaultAdapter): SkillFs => ({
+  list: async (dir) => (await a.list()).map((f) => f.path).filter((p) => p.startsWith(`${dir}/`)).sort(),
+  read: async (p) => {
+    const b = await a.read(p)
+    return b ? dec.decode(b) : null
+  },
+})
 const manifest = async (a: MemVaultAdapter) => parseFarmManifest(await text(a, FARM_MANIFEST))
 
 const SKILLS = {

@@ -1,5 +1,5 @@
 /**
- * References (writing-harness-shaping B5): what a chip in the composer points
+ * References: what a chip in the composer points
  * at, captured Zed's way — a `lines` mention SNAPSHOTS its text at insert, and
  * `file` / `folder` / `section` resolve lazily, by the agent, at send.
  *
@@ -19,7 +19,9 @@
  * module stays pure.
  */
 import { getLL } from '@ohhi/i18n'
-import type { Mention, VaultRef } from '@ohhi/harness'
+import { sliceLines, type Mention, type VaultRef } from '@ohhi/harness'
+
+export { sliceLines }
 import { lineAt, lineStartsOf } from '@ohhi/index'
 
 /** The last segment of a path, extension kept: `notes/plan.md` → `plan.md`. */
@@ -55,16 +57,6 @@ export function mentionOf(ref: VaultRef, hash?: string): Mention {
   return { id: mentionId(), ref, label: mentionLabel(ref), ...(hash ? { hash } : {}) }
 }
 
-/** Lines `from..to` (1-based, inclusive, clamped) of `text`, terminators kept. */
-export function sliceLines(text: string, from: number, to: number): { text: string; from: number; to: number } {
-  const starts = lineStartsOf(text)
-  // A trailing newline does not start a final empty line (as `ohhi read`).
-  const count = text.endsWith('\n') && starts.length > 1 ? starts.length - 1 : starts.length
-  const a = Math.max(1, Math.min(from, count))
-  const b = Math.max(a, Math.min(to, count))
-  return { text: text.slice(starts[a - 1], starts[b] ?? text.length), from: a, to: b }
-}
-
 /** The 1-based lines a character range covers. A range ending at a line's start does not take that line. */
 export function linesOfRange(text: string, from: number, to: number): { from: number; to: number } {
   const starts = lineStartsOf(text)
@@ -72,6 +64,14 @@ export function linesOfRange(text: string, from: number, to: number): { from: nu
   let hi = Math.max(from, to)
   if (hi > lo && text[hi - 1] === '\n') hi--
   return { from: lineAt(starts, lo), to: lineAt(starts, hi) }
+}
+
+/** The character range of 1-based lines `[from, to]` in `text` (the last line's terminator left out). */
+export function rangeOfLines(text: string, lines: { from: number; to: number }): { from: number; to: number } {
+  const starts = lineStartsOf(text)
+  const from = starts[Math.max(0, lines.from - 1)] ?? text.length
+  const next = starts[lines.to]
+  return { from, to: next === undefined ? text.length : Math.max(from, next - 1) }
 }
 
 /** What a selection capture needs: the note, its text right now, the range, its hash. */

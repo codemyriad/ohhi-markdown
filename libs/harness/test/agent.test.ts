@@ -79,6 +79,15 @@ describe('createHarnessAgent over the fixture vault', () => {
     expect(agent.lastUsage()).toBeUndefined()
   })
 
+  it.each(KINDS)('%s: a provider error that echoes the key carries it redacted', async (kind) => {
+    const key = 'sk-live-SECRET123456'
+    const mock = mockLlmFetch([{ error: { status: 401, message: `Incorrect API key provided: ${key}; got Bearer ${key}` } }])
+    const agent = createHarnessAgent(hostOf(h, mock), { ...base, provider: providerOf(kind, { apiKey: key }) })
+    const out = await drain(await agent.stream(ask('hi'), {}))
+    expect(out.errors.join(' ')).toMatch(/Incorrect API key/)
+    expect(out.errors.join(' ')).not.toContain('SECRET123456')
+  })
+
   it('a proposal from the loop lands through host.proposeEdit, never on disk', async () => {
     const before = await h.text('Areas/CS/JSON.md')
     const proposed: string[] = []

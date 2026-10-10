@@ -1,7 +1,9 @@
 /**
  * R6: a cold `ohhi` invocation on the real vault stays under ~500 ms. The
  * bundle is what makes that possible — `rushx build` esbuilds `src/main.ts`
- * into one `dist/ohhi.mjs`, so start-up is not Rush's TypeScript loader.
+ * into `dist/ohhi.mjs`, so start-up is not Rush's TypeScript loader — and
+ * code splitting keeps `ask` (the AI SDK) and `mcp` (the MCP SDK) in
+ * `dist/chunks/`, loaded only by the commands that need them.
  *
  * Skipped when `dist/` is absent (a plain `rushx test` on a fresh clone);
  * CI runs `rushx build` first. Under `EDITOR_BENCH_VAULT` it measures the

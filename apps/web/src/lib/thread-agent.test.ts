@@ -5,28 +5,19 @@
  */
 import { getLL } from '@ohhi/i18n'
 import type { RunRecord } from '@ohhi/harness'
-import { createYjsEngine } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
 import { describe, expect, it, vi } from 'vitest'
 import { mentionOf } from './references.js'
 import type { RunHandle, StartRunInput } from './sessions.svelte.js'
 import { askAgent, type AskAgentDeps } from './thread-agent.js'
-import { createThreadRegistry } from './threads.svelte.js'
+
+import { threadsFixture } from './harness.fixture.js'
 
 const TEXT = 'The plan is to ship in March.'
 const PATH = 'plan.md'
 
 function setup(run: Partial<RunRecord> = {}, opts: { busy?: string } = {}) {
-  const doc = createYjsEngine().createDoc('g1')
-  doc.transact((t) => t.insert(0, TEXT), 'local')
-  const files = new Map<string, string>()
-  const registry = createThreadRegistry({
-    clock: new SimClock(),
-    docForPath: (p) => (p === PATH ? doc : null),
-    guidFor: (p) => (p === PATH ? 'g1' : null),
-    pathFor: () => PATH,
-    files: { read: async (p) => files.get(p) ?? null, write: async (p, t) => void files.set(p, t) },
-  })
+  const { registry, doc: held } = threadsFixture({ text: TEXT, path: PATH })
+  const doc = held.current!
   const store = registry.storeFor(PATH)!
   const started: StartRunInput[] = []
   const deps: AskAgentDeps = {
@@ -63,7 +54,7 @@ describe('askAgent', () => {
     const thread = store.get(t.id)!
     expect(thread.comments).toHaveLength(2)
     expect(thread.comments[0].answered).toBe(true)
-    expect(thread.comments[1]).toMatchObject({ author: getLL().web.ai.wiring.agent_author(), body: 'In March means the 3rd.', answering: thread.comments[0].id })
+    expect(thread.comments[1]).toMatchObject({ author: getLL().web.ai.session.agent(), body: 'In March means the 3rd.', answering: thread.comments[0].id })
   })
 
   it('a busy current session hands the run to a new one', async () => {
@@ -79,7 +70,7 @@ describe('askAgent', () => {
     await askAgent(deps, PATH, t.id)
     expect(store.get(t.id)!.comments).toHaveLength(1)
     expect(store.get(t.id)!.comments[0].answered).toBeFalsy()
-    expect(deps.flash).toHaveBeenCalledWith({ level: 'warn', text: getLL().web.ai.wiring.thread_failed({ error: 'bad key' }) })
+    expect(deps.flash).toHaveBeenCalledWith({ level: 'warn', text: getLL().web.ai.comments.thread_failed({ error: 'bad key' }) })
   })
 
   it('a thread with nothing addressed to the agent starts nothing', async () => {

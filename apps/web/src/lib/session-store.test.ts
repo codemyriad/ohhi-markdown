@@ -1,22 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RunRecord } from '@ohhi/harness'
-import { createSessionStore, latestRuns, parseSession, sessionPath, type VaultAppFiles } from './session-store.js'
-
-/** The app-file seam over a Map, as `.ohhi/` would hold it. */
-function memAppFiles(seed: Record<string, string> = {}): VaultAppFiles & { files: Map<string, string>; writes: string[] } {
-  const files = new Map(Object.entries(seed))
-  const writes: string[] = []
-  return {
-    files,
-    writes,
-    readAppFile: async (path) => files.get(path) ?? null,
-    writeAppFile: async (path, text) => {
-      writes.push(path)
-      files.set(path, text)
-    },
-    listAppDir: async (dir) => [...files.keys()].filter((p) => p.startsWith(`${dir}/`) && !p.slice(dir.length + 1).includes('/')),
-  }
-}
+import { createSessionStore, latestRuns, parseSession, sessionPath } from './session-store.js'
+import { memAppFiles } from './harness.fixture.js'
 
 function setup(seed?: Record<string, string>) {
   let now = 1_000

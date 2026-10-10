@@ -6,8 +6,7 @@
  *    there is one), that note's headings, notes by the quick-open matcher
  *    (`index.quickOpen`: the one fuzzy ranking in the app, recency included),
  *    and folders. A query starting `#` narrows to headings.
- *  - `/` — skills, by name (`host.skills.list()`; builder C's source — empty
- *    until it lands).
+ *  - `/` — skills, by name (`host.skills.list()`: the usable skills).
  *
  * Each option carries the match spans `highlight.ts` draws, as the palette's
  * rows do, and what picking it inserts: a `VaultRef` (resolved lazily by the
@@ -35,7 +34,7 @@ export interface MentionSources {
   headings(path: string): Promise<{ text: string; level: number }[]>
   /** The live selection in that note, as lines, when there is one. */
   selection(): { path: string; lines: { from: number; to: number } } | null
-  /** The trusted, enabled skills (C's `SkillSource`). */
+  /** The usable skills (the harness's `SkillSource`). */
   skills(): Promise<SkillMeta[]>
 }
 

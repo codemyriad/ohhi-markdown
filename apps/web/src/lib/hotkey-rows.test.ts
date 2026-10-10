@@ -15,6 +15,7 @@ import {
   takesTypingKey,
   withChord,
   withoutChord,
+  offeredRows,
 } from './hotkey-rows.js'
 
 function world(keymap: Record<string, string[]> = {}) {
@@ -108,5 +109,19 @@ describe('takesTypingKey (review M5)', () => {
     for (const b of ['Mod+q', 'Ctrl+Enter', 'Alt+ ', 'Mod++', 'F2', 'Shift+F5', 'Escape', 'ArrowLeft', 'Ctrl+Mod+Backspace']) {
       expect(takesTypingKey(b), b).toBe(false)
     }
+  })
+})
+
+describe('offeredRows (writing harness: the quiet default)', () => {
+  const row = (id: string): CommandBinding =>
+    ({ id, title: id, group: '', defaultKeys: '', defaultDisplay: '', keys: '', chords: [], display: '', overridden: false, conflicts: [], reserved: false }) as CommandBinding
+  const rows = [row('app.palette'), row('ai.new-session'), row('note.comment'), row('ai.stop-run')]
+
+  it('lists no ai.* command while no provider exists; note.comment stays', () => {
+    expect(offeredRows(rows, false).map((r) => r.id)).toEqual(['app.palette', 'note.comment'])
+  })
+
+  it('lists every command once one does', () => {
+    expect(offeredRows(rows, true)).toEqual(rows)
   })
 })

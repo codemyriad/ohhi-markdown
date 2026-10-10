@@ -9,6 +9,8 @@ export const skill: OpDef<'skill'> = {
   async run(backend, input) {
     const found = await loadSkill(skillFsOf(backend), input.name)
     if (!found) throw new OpError('not_found', `no such skill: ${input.name} (looked for ${SKILLS_DIR}/${input.name}/SKILL.md)`, { name: input.name })
-    return { schema: schemaName('skill'), meta: found.meta, body: found.body }
+    // The folder hash is the loader's (trust is checked against it), not the contract's.
+    const { hash: _hash, ...meta } = found.meta
+    return { schema: schemaName('skill'), meta, body: found.body }
   },
 }

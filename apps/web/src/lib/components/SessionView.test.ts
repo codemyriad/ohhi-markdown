@@ -7,7 +7,8 @@ import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '
 import userEvent from '@testing-library/user-event'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setAiConfig } from '../config.js'
+import { setAiConfig } from '../ai-config.svelte.js'
+import { memAppFiles } from '../harness.fixture.js'
 import type { Tab } from '../panes.js'
 import { fakeViewShell } from '../readouts.fixture.js'
 import { mentionOf } from '../references.js'
@@ -50,16 +51,17 @@ const say = (text: string): UIMessageChunk[] => [
 ]
 
 function setup(opts: { agent?: AgentFactory; files?: Record<string, string>; viewArg?: string } = {}) {
-  const files = new Map(Object.entries(opts.files ?? {}))
+  const app = memAppFiles(opts.files)
+  const files = app.files
   const workspace = {
     room: 'room-1',
     ui: { files: [{ path: 'plan.md', guid: 'g1', kind: 'text' }], selectedPath: null },
     docForPath: () => ({ getText: () => '# Plan\n' }),
     readFileBytes: async () => null,
     journalFor: () => null,
-    readAppFile: async (p: string) => files.get(p) ?? null,
-    writeAppFile: async (p: string, text: string) => void files.set(p, text),
-    listAppDir: async (d: string) => [...files.keys()].filter((p) => p.startsWith(`${d}/`)),
+    readAppFile: app.readAppFile,
+    writeAppFile: app.writeAppFile,
+    listAppDir: app.listAppDir,
     onAppFileChange: () => () => {},
     flash: vi.fn(),
   } as unknown as Workspace
@@ -149,7 +151,7 @@ describe('SessionView', () => {
     await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
     const [made, none] = screen.getAllByTestId('tool-card')
     await waitFor(() => expect(within(made).getByTestId('tool-summary')).toHaveTextContent(t.tool.proposed({ path: 'plan.md' })))
-    await waitFor(() => expect(within(none).getByTestId('tool-summary')).toHaveTextContent(getLL().web.ai.wiring.proposal_none({ path: 'plan.md' })))
+    await waitFor(() => expect(within(none).getByTestId('tool-summary')).toHaveTextContent(getLL().web.ai.session.tool.proposal_none({ path: 'plan.md' })))
     expect(within(none).queryByTestId('tool-open')).toBeNull()
     await user.click(within(made).getByTestId('tool-open'))
     expect(shell.openPath).toHaveBeenCalledWith('plan.md')

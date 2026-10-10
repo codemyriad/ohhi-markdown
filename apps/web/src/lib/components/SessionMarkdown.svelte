@@ -16,8 +16,7 @@
 
 <script lang="ts">
   /**
-   * The ONE markdown renderer in the shell (writing-harness-build §Ground
-   * rules › Duplication): an agent's text in the Session transcript, through
+   * The ONE markdown renderer in the shell (no second one anywhere): an agent's text in the Session transcript, through
    * `@humanspeak/svelte-markdown` — marked + htmlparser2, re-lexing only the
    * open block while it streams, sanitising by default (event handlers and
    * `srcdoc` stripped, a protocol allowlist).

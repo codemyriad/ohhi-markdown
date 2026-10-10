@@ -26,6 +26,7 @@ import {
   type SuggestionRecord,
   type UIMessageJson,
 } from '@ohhi/harness'
+import { emptySkillSource } from '@ohhi/harness/skills'
 import type { Clock } from '@ohhi/vault'
 import { withPresence } from './agent-presence.js'
 import type { VaultBackend } from './agent-backend.js'
@@ -43,22 +44,21 @@ export interface PreparedTurn {
 
 export type AgentFactory = typeof createHarnessAgent
 
-/** No skills until builder C's source lands (`skills.svelte.ts`). */
-export const NO_SKILLS: SkillSource = { list: async () => [], body: async () => null }
-
-/** What a proposal lands on: the workspace's suggestions (D's facade). */
+/** What an agent edit lands on: the workspace facade's suggestions. */
 export interface ProposalSink {
+  /** Pin it as a pending suggestion the person reviews. */
   proposeEdit(input: ProposeEditInput): Promise<SuggestionRecord>
-  acceptSuggestion(path: string, id: string): SuggestionRecord | null
+  /** Direct mode: propose and apply at once, through the agent's throttle. */
+  applyAgentEdit(input: ProposeEditInput): Promise<SuggestionRecord>
 }
 
 /**
  * The host the agent runs over: the live workspace's backend, the shell's
  * clock, the network. With `proposals`, the agent's `write`/`patch`/`append`
- * land as suggestions in the note (B7, Fork 4-B); `direct()` true (Fork 4-A,
- * `aiConfig().directEdit`) accepts each one the moment it lands — the same
- * record, applied with the run's origin, so *Undo agent edit* still takes it
- * back as a unit.
+ * land as suggestions in the note; `direct()` true (`aiConfig().directEdit`)
+ * applies each one as it lands instead (`applyAgentEdit`: the same record,
+ * accepted with the run's origin in one throttled slot), so *Undo agent
+ * edit* still takes it back as a unit.
  */
 export function appAgentHost(opts: {
   backend: VaultBackend
@@ -74,15 +74,12 @@ export function appAgentHost(opts: {
     backend: opts.backend,
     clock: opts.clock,
     fetch: opts.fetch ?? ((input, init) => globalThis.fetch(input, init)),
-    skills: opts.skills ?? NO_SKILLS,
+    skills: opts.skills ?? emptySkillSource,
     ...(opts.presence ? { presence: opts.presence } : {}),
     ...(sink
       ? {
-          proposeEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => {
-            const record = await sink.proposeEdit(input)
-            if (!opts.direct?.()) return record
-            return sink.acceptSuggestion(input.path, record.id) ?? record
-          },
+          proposeEdit: (input: ProposeEditInput): Promise<SuggestionRecord> =>
+            opts.direct?.() ? sink.applyAgentEdit(input) : sink.proposeEdit(input),
         }
       : {}),
   }

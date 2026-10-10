@@ -56,9 +56,7 @@
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
-  import { attachHarness } from './lib/sessions.svelte.js'
-  import { attachSkills, currentSkills } from './lib/skills.svelte.js'
-  import { emptySkillSource } from '@ohhi/harness/skills'
+  import { attachWritingHarness } from './lib/skills.svelte.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
 
@@ -310,32 +308,15 @@
   const settingsRelays = $derived(
     workspace ? sharedSnapshot(snapshotInput(workspace, { inSyncByRoom: sharedFeed.inSyncByRoom })).relays : []
   )
-  // ---- the writing harness (B4): sessions and runs belong to the shell, not a view ----
-  attachHarness({
+  // ---- the writing harness: sessions, runs and skills belong to the shell, not a view ----
+  attachWritingHarness({
     workspace: () => workspace,
     index: nav.index,
     clock: realClock,
     openView: (id, arg) => openView(id, arg),
-    // C's trusted + enabled skills, re-read per run (B9).
-    skills: () => currentSkills()?.source() ?? emptySkillSource,
-  })
-  // ---- skills (B9): bound to the open vault; the `.claude/skills/` farm is desktop-only ----
-  $effect(() => {
-    const ws = workspace
-    if (!ws) return
-    const journal = ws.journalFor('')
-    const adapter = ws.adapterForFarm()
-    const farm = isTauri()
-      ? {
-          read: (p: string) => adapter.read(p),
-          writeAtomic: (p: string, bytes: Uint8Array) => adapter.writeAtomic(p, bytes),
-          remove: (p: string) => adapter.remove(p),
-          removeDir: (p: string) => adapter.removeDir(p),
-          // Golden rule 1: the bytes a farm write replaces are journaled first.
-          ...(journal ? { record: (p: string, bytes: Uint8Array | null) => journal.record(p, bytes) } : {}),
-        }
-      : null
-    return attachSkills(ws, { clock: realClock, farm })
+    flash: (input) => workspace?.flash(input),
+    // The `.claude/skills/` farm: only where another app reads the disk.
+    desktop: isTauri(),
   })
   setViewShell({
     clock: realClock,

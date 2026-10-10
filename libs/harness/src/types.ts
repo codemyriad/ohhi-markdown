@@ -1,12 +1,30 @@
 /**
- * The writing harness's seams (plans/writing-harness-build.md §The seams).
+ * The writing harness's seam types: everything a host and the runtime pass
+ * each other.
  *
- * Every record and interface two builders touch is declared here, once.
- * Change it minimally, keep every existing field, and say so in the report —
- * every other owner imports it.
+ * One home per type. The records the workspace stores (suggestions, comment
+ * threads, the agent's origin and presence, the edit input) are declared in
+ * `@ohhi/workspace`; the skill's shape in `@ohhi/agent/skills` (the loader).
+ * This file re-exports both, type-only — the harness's main entry stays
+ * browser-safe and pulls in no workspace or loader code — and declares only
+ * what is the harness's own: providers, references, sessions, the host.
  */
 import type { VaultBackend } from '@ohhi/agent/core'
+import type { SkillMeta } from '@ohhi/agent/skills'
+import type { AgentPresenceState, ProposeEditInput, SuggestionRecord } from '@ohhi/workspace'
 import type { Clock } from '@ohhi/testkit'
+
+export type {
+  AgentOrigin,
+  AgentPresenceState,
+  CommentRecord,
+  ProposeEditInput,
+  SuggestionRange,
+  SuggestionRecord,
+  SuggestionStatus,
+  ThreadRecord,
+} from '@ohhi/workspace'
+export type { SkillInput, SkillKind, SkillMeta, SkillOutput } from '@ohhi/agent/skills'
 
 // ---- providers (B1; Cassini's shape) ----
 export type ProviderKind = 'anthropic' | 'openai' | 'openrouter' | 'openai-compatible'
@@ -44,6 +62,7 @@ export interface RunRecord {
   startedAt?: number; endedAt?: number
   input: { refs: Mention[]; skill?: string; instruction: string }
   provider: string; model: string
+  host?: string              // the provider's host (`providerHost`), as the run reached it
   usage?: { input: number; output: number }
   error?: string
   suggestions?: string[]     // SuggestionRecord ids this run produced
@@ -59,39 +78,11 @@ export type SessionEntry = { id: string; parentId: string | null; at: number } &
 )
 export type UIMessageJson = { id: string; role: 'user' | 'assistant' | 'system'; parts: unknown[]; metadata?: unknown }
 
-// ---- agent writes (B3/B7) ----
-export interface AgentOrigin { kind: 'agent'; runId: string; sessionId: string; name: string; threadId?: string }
-export type SuggestionRange = { yjs: [unknown, unknown] } | { from: number; to: number }  // relative positions (enrolled) or char offsets (tracked)
-export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'stale'
-export interface SuggestionRecord {
-  id: string; path: string; origin: AgentOrigin; at: number
-  range: SuggestionRange; baseText: string; proposedText: string
-  status: SuggestionStatus; threadId?: string
-}
-export interface ProposeEditInput { path: string; from: number; to: number; baseText: string; proposedText: string; origin: AgentOrigin }
-
-// ---- comments (B8) ----
-export interface ThreadRecord {
-  id: string; path: string; author: string; created: number; resolved: boolean
-  anchor: { live?: [unknown, unknown]; quote: { exact: string; prefix: string; suffix: string } }
-  comments: CommentRecord[]
-}
-export interface CommentRecord { id: string; author: string; at: number; body: string; to?: 'agent'[]; answered?: boolean; answering?: string }
-
 // ---- skills (B9) ----
-export type SkillKind = 'check' | 'transform' | 'generate' | 'research'
-export type SkillInput = 'selection' | 'section' | 'note' | 'folder'
-export type SkillOutput = 'replace' | 'insert' | 'annotate' | 'new-note'
-export interface SkillMeta {
-  name: string; description: string; dir: string            // dir = vault-relative folder
-  license?: string; compatibility?: string; metadata: Record<string, string>
-  kind?: SkillKind; input?: SkillInput; output?: SkillOutput  // from metadata.ohhi-*
-  hasScripts: boolean; problems: string[]                     // validation findings (empty = valid)
-}
+/** What a host offers the model: only the skills it may use (trusted and enabled in the app). */
 export interface SkillSource { list(): Promise<SkillMeta[]>; body(name: string): Promise<string | null> }
 
 // ---- the host seam (B2) ----
-export interface AgentPresenceState { name: string; status: 'thinking' | 'composing' | 'idle'; path?: string; working?: { from: number; to: number }[] }
 /** What the runtime is given: the in-app host (B3/B4) and the Node host (`ohhi ask`) are two implementations. */
 export interface AgentHost {
   backend: VaultBackend                  // @ohhi/agent — files (CLI) or the live workspace (app)

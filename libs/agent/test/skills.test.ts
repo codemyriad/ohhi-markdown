@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { OP_SCHEMAS, runOp } from '../src/index.js'
 import {
+  FARM_MANIFEST,
+  hashSkillFolder,
+  isFarmFileOf,
+  isValidSkillName,
   loadSkill,
   loadSkills,
   parseFarmManifest,
+  readFarmManifest,
+  removeFarmEntry,
+  renderSkillsState,
+  usableBy,
+  writeFarmManifest,
+  type FarmFs,
   parseSkill,
   parseSkillsState,
   planFarm,
@@ -208,11 +218,28 @@ describe('skills.json and the farm plan', () => {
       ok: { enabled: true, trusted: true, installedAt: 0 },
       off: { enabled: false, trusted: true, installedAt: 0 },
     }
-    expect(usableSkills(metas, state).map((m) => m.name)).toEqual(['ok'])
+    // Trust is given to a folder hash: a row with none, or a meta loaded without one, is untrusted.
+    expect(usableSkills(metas, state).map((m) => m.name)).toEqual([])
+    const hashed = metas.map((m) => ({ ...m, hash: `h-${m.name}` }))
+    const withHash = { ok: { ...state.ok, hash: 'h-ok' }, off: { ...state.off, hash: 'h-off' } }
+    expect(usableSkills(hashed, withHash).map((m) => m.name)).toEqual(['ok'])
+    // The folder changed since it was trusted: no longer usable.
+    expect(usableSkills([{ ...hashed[0], hash: 'h-changed' }], withHash)).toEqual([])
+    expect(usableBy(withHash)(hashed[0])).toBe(true)
+    expect(usableBy(withHash)({ ...hashed[0], hash: undefined })).toBe(false)
+    expect(usableBy(null)(metas[0])).toBe(true)
+  })
+
+  it('renders skills.json as every writer does', () => {
+    expect(renderSkillsState({ a: { enabled: true, trusted: false, installedAt: 1 } })).toBe(
+      '{\n  "a": {\n    "enabled": true,\n    "trusted": false,\n    "installedAt": 1\n  }\n}\n'
+    )
   })
 
   it('never touches a folder the manifest does not record; removes only its own', () => {
-    const manifest = parseFarmManifest(JSON.stringify({ version: 1, skills: { old: { by: 'cli', kind: 'symlink' }, keep: { by: 'app', kind: 'copy', files: ['x'] } } }))
+    const manifest = parseFarmManifest(
+      JSON.stringify({ version: 1, skills: { old: { by: 'cli', kind: 'symlink' }, keep: { by: 'app', kind: 'copy', files: ['.claude/skills/keep/SKILL.md'] } } })
+    )
     expect(planFarm({ wanted: ['keep', 'mine', 'theirs'], manifest, present: ['old', 'keep', 'theirs'] })).toEqual({
       write: ['keep', 'mine'],
       remove: ['old'],
@@ -248,11 +275,123 @@ describe('the skills and skill ops over the fixture vault', () => {
   it('skill returns meta and body; an unknown name is not_found', async () => {
     const { backend } = await h()
     const out = await runOp(backend, 'skill', { name: 'line-edit' })
+    expect(out.meta).not.toHaveProperty('hash')
     expect(OP_SCHEMAS.skill.output.safeParse(out).success).toBe(true)
     expect(out.meta).toMatchObject({ name: 'line-edit', kind: 'transform', license: 'MIT', problems: [] })
     expect(out.meta.description).toBe('Tighten prose for rhythm and word choice without changing meaning. Use when asked to polish a paragraph or selection.')
     expect(out.body).toBe('# Line edit\n\nShorten long sentences. Prefer concrete verbs.\n')
     await expect(runOp(backend, 'skill', { name: 'nope' })).rejects.toMatchObject({ code: 'not_found' })
     await expect(runOp(backend, 'skill', {})).rejects.toMatchObject({ code: 'usage' })
+  })
+})
+
+describe('skill names', () => {
+  it('isValidSkillName: format, length and the reserved words', () => {
+    expect(isValidSkillName('line-edit')).toBe(true)
+    for (const bad of ['Line-Edit', 'a--b', '-a', 'a/b', '../x', '', 'claude-notes', 'my-anthropic', 'synced', 'x'.repeat(65)]) {
+      expect(isValidSkillName(bad), bad).toBe(false)
+    }
+  })
+})
+
+describe('the farm manifest is a vault file anyone can edit', () => {
+  it('drops an entry whose name is invalid or whose files reach outside its own folder', () => {
+    const manifest = parseFarmManifest(
+      JSON.stringify({
+        version: 1,
+        skills: {
+          ok: { by: 'app', kind: 'copy', files: ['.claude/skills/ok/SKILL.md', '.claude/skills/ok/scripts/a.py'] },
+          climb: { by: 'app', kind: 'copy', files: ['.claude/skills/climb/../../../.bashrc'] },
+          other: { by: 'app', kind: 'copy', files: ['.claude/skills/ok/SKILL.md'] },
+          abs: { by: 'app', kind: 'copy', files: ['/etc/passwd'] },
+          '../x': { by: 'cli', kind: 'symlink' },
+          'claude-notes': { by: 'cli', kind: 'symlink' },
+          odd: { by: 'app', kind: 'copy', files: 'nope' },
+        },
+      })
+    )
+    expect(Object.keys(manifest.skills)).toEqual(['ok'])
+    expect(isFarmFileOf('ok', '.claude/skills/ok/a/./b')).toBe(false)
+    expect(isFarmFileOf('ok', '.claude/skills/ok/a\\b')).toBe(false)
+    expect(isFarmFileOf('ok', '.claude/skills/ok/')).toBe(false)
+  })
+})
+
+/** An in-memory `FarmFs` that remembers what was recorded and removed. */
+function memFarm(initial: Record<string, string>) {
+  const files = new Map<string, Uint8Array>(Object.entries(initial).map(([p, t]) => [p, new TextEncoder().encode(t)]))
+  const recorded: Array<[string, string | null]> = []
+  const removed: string[] = []
+  const fs: FarmFs = {
+    read: async (p) => files.get(p) ?? null,
+    writeAtomic: async (p, b) => void files.set(p, b),
+    remove: async (p) => {
+      removed.push(p)
+      files.delete(p)
+    },
+    removeDir: async (d) => {
+      if ([...files.keys()].some((p) => p.startsWith(`${d}/`))) throw new Error('not empty')
+      removed.push(`${d}/`)
+    },
+    record: async (p, b) => void recorded.push([p, b ? new TextDecoder().decode(b) : null]),
+  }
+  return { fs, files, recorded, removed }
+}
+
+describe('removeFarmEntry / the manifest’s read and write', () => {
+  it('a copy loses exactly its listed files, each journaled first, then its empty folders', async () => {
+    const m = memFarm({ '.claude/skills/ok/SKILL.md': 'skill', '.claude/skills/ok/scripts/a.py': 'py', '.claude/skills/ok/mine.txt': 'theirs' })
+    const ok = await removeFarmEntry(m.fs, 'ok', { by: 'app', kind: 'copy', files: ['.claude/skills/ok/SKILL.md', '.claude/skills/ok/scripts/a.py'] })
+    expect(ok).toBe(true)
+    expect(m.recorded).toEqual([
+      ['.claude/skills/ok/SKILL.md', 'skill'],
+      ['.claude/skills/ok/scripts/a.py', 'py'],
+    ])
+    expect([...m.files.keys()]).toEqual(['.claude/skills/ok/mine.txt'])
+    expect(m.removed).toContain('.claude/skills/ok/scripts/')
+    expect(m.removed).not.toContain('.claude/skills/ok/')
+  })
+
+  it('refuses an entry it could not have made, and removes a link without following it', async () => {
+    const m = memFarm({ '.bashrc': 'x' })
+    expect(await removeFarmEntry(m.fs, '../x', { by: 'cli', kind: 'symlink' })).toBe(false)
+    expect(await removeFarmEntry(m.fs, 'ok', { by: 'app', kind: 'copy', files: ['.claude/skills/ok/../../../.bashrc'] })).toBe(false)
+    expect(m.files.has('.bashrc')).toBe(true)
+    const linked = memFarm({})
+    linked.fs.isLink = async (p) => p === '.claude/skills/ok'
+    expect(await removeFarmEntry(linked.fs, 'ok', { by: 'app', kind: 'copy', files: ['.claude/skills/ok/SKILL.md'] })).toBe(true)
+    expect(linked.removed).toEqual(['.claude/skills/ok'])
+    expect(linked.recorded).toEqual([])
+  })
+
+  it('reads and writes the manifest, journaled, only when it changed', async () => {
+    const m = memFarm({})
+    const first = await readFarmManifest(m.fs)
+    expect(first).toEqual({ manifest: { version: 1, skills: {} }, text: null })
+    const next = { version: 1 as const, skills: { ok: { by: 'cli' as const, kind: 'symlink' as const } } }
+    await writeFarmManifest(m.fs, next, first.text)
+    expect(m.recorded).toEqual([[FARM_MANIFEST, null]])
+    const again = await readFarmManifest(m.fs)
+    expect(again.manifest).toEqual(next)
+    await writeFarmManifest(m.fs, next, again.text)
+    expect(m.recorded).toHaveLength(1)
+  })
+})
+
+describe('hashSkillFolder', () => {
+  it('covers every file in the folder, not only SKILL.md; BOM and CRLF do not count', async () => {
+    const base = { '.agents/skills/a/SKILL.md': 'md', '.agents/skills/a/scripts/run.py': 'print(1)\n', '.agents/skills/b/SKILL.md': 'other' }
+    const h0 = await hashSkillFolder(memFs(base), '.agents/skills/a')
+    expect(await hashSkillFolder(memFs({ ...base, '.agents/skills/b/SKILL.md': 'changed' }), '.agents/skills/a')).toBe(h0)
+    expect(await hashSkillFolder(memFs({ ...base, '.agents/skills/a/scripts/run.py': 'rm -rf /\n' }), '.agents/skills/a')).not.toBe(h0)
+    expect(await hashSkillFolder(memFs({ ...base, '.agents/skills/a/extra.md': '' }), '.agents/skills/a')).not.toBe(h0)
+    expect(await hashSkillFolder(memFs({ ...base, '.agents/skills/a/scripts/run.py': '\uFEFFprint(1)\r\n' }), '.agents/skills/a')).toBe(h0)
+  })
+
+  it('the loaders stamp it on every meta; the skill op leaves it out of the contract', async () => {
+    const files = { '.agents/skills/a-skill/SKILL.md': '---\nname: a-skill\ndescription: d\n---\nDo.\n' }
+    const [meta] = await loadSkills(memFs(files))
+    expect(meta.hash).toBe(await hashSkillFolder(memFs(files), '.agents/skills/a-skill'))
+    expect((await loadSkill(memFs(files), 'a-skill'))?.meta.hash).toBe(meta.hash)
   })
 })

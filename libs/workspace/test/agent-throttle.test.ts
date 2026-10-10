@@ -54,13 +54,14 @@ describe('AgentThrottle — the token bucket on the injected clock', () => {
     await expect(c).resolves.toBe('c')
   })
 
-  it('dispose drops the queue and the wake-up', () => {
+  it('dispose drops the queue and the wake-up, and settles every waiting promise', async () => {
     const clock = new SimClock()
     const t = new AgentThrottle(clock, { capacity: 1 })
     const ran: number[] = []
     void t.run(() => ran.push(1))
-    void t.run(() => ran.push(2))
+    const waiting = t.run(() => ran.push(2))
     t.dispose()
+    await expect(waiting).rejects.toThrow('disposed')
     clock.advance(1_000)
     expect(ran).toEqual([1])
     return expect(t.run(() => 3)).rejects.toThrow('disposed')

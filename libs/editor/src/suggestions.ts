@@ -28,7 +28,8 @@
  */
 import { presentableDiff } from '@codemirror/merge'
 import { Compartment, Facet, Prec, StateEffect, StateField, type EditorState, type Extension, type Range } from '@codemirror/state'
-import { Decoration, EditorView, keymap, ViewPlugin, WidgetType, type Command, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { Decoration, EditorView, keymap, WidgetType, type Command, type DecorationSet } from '@codemirror/view'
+import { hostPush } from './host-push.js'
 
 /** One suggestion as the editor draws it: a record resolved against the text now. */
 export interface EditorSuggestion {
@@ -50,13 +51,6 @@ export interface SuggestionsHost {
   subscribe(onChange: () => void): () => void
   accept(id: string): void
   reject(id: string): void
-  /**
-   * This view took the focus — the one a shell command (`ai.accept-all`)
-   * acts on. Called once at creation with `focused` false, then on each focus.
-   */
-  focus?(view: EditorView, focused: boolean): void
-  /** This view is going away. */
-  detach?(view: EditorView): void
 }
 
 /** Replace the view's suggestions (the host's push). */
@@ -191,33 +185,8 @@ export const acceptSuggestionAtCaret: Command = atCaret('accept')
 /** `Mod-Backspace`: reject the suggestion under the caret (false when none). */
 export const rejectSuggestionAtCaret: Command = atCaret('reject')
 
-/** Subscribes the view to its host and pushes each change a microtask later. */
-const pushPlugin = ViewPlugin.define((view) => {
-  const host = view.state.facet(hostFacet)
-  let dead = false
-  let queued = false
-  const push = (): void => {
-    if (queued || dead) return
-    queued = true
-    queueMicrotask(() => {
-      queued = false
-      if (dead || !host) return
-      view.dispatch({ effects: setSuggestions.of(host.current()) })
-    })
-  }
-  const off = host?.subscribe(push) ?? (() => {})
-  host?.focus?.(view, false)
-  return {
-    update(u: ViewUpdate) {
-      if (u.focusChanged && u.view.hasFocus) host?.focus?.(u.view, true)
-    },
-    destroy() {
-      dead = true
-      off()
-      host?.detach?.(view)
-    },
-  }
-})
+/** Keeps the field current: the host's suggestions, pushed a microtask after each change. */
+const pushPlugin = hostPush((view) => view.state.facet(hostFacet), setSuggestions)
 
 const suggestionsTheme = EditorView.theme({
   '.ed-suggest-del': {

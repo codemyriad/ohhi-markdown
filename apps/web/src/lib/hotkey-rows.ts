@@ -7,6 +7,15 @@
  */
 import type { CommandBinding } from './commands.js'
 
+/**
+ * The rows Settings › Keys lists: every command, except the `ai.*` ones
+ * while no provider exists — the quiet default, where nothing AI-shaped is
+ * on screen (writing harness). `note.comment` is not AI, and stays.
+ */
+export function offeredRows(rows: CommandBinding[], ai: boolean): CommandBinding[] {
+  return ai ? rows : rows.filter((r) => !r.id.startsWith('ai.'))
+}
+
 /** The filter chips, in order. */
 export const HOTKEY_FILTERS = ['all', 'changed', 'clashes', 'unbound'] as const
 export type HotkeyFilter = (typeof HOTKEY_FILTERS)[number]

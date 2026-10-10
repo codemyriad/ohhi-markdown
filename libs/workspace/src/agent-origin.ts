@@ -25,9 +25,8 @@
 import * as Y from 'yjs'
 
 /**
- * Who wrote, structurally identical to `@ohhi/harness`'s `AgentOrigin` (the
- * seam in `libs/harness/src/types.ts`; `libs/workspace` cannot depend on the
- * harness, so the shape is mirrored here and asserted equal in apps/web).
+ * Who wrote: the transaction origin of every agent write. The seam's one
+ * home — `@ohhi/harness` re-exports it (libs/harness/src/types.ts).
  */
 export interface AgentOrigin {
   kind: 'agent'
@@ -108,6 +107,24 @@ export class AgentRuns {
     }
     if (any) this.order = this.order.filter((id) => id !== runId)
     return any
+  }
+
+  /** The newest undo step run `runId` holds over `ytext` (an opaque handle), or null. */
+  lastStep(runId: string, ytext: Y.Text): unknown {
+    const um = this.managers.get(runId)?.get(ytext)
+    return um && um.undoStack.length > 0 ? um.undoStack[um.undoStack.length - 1] : null
+  }
+
+  /**
+   * Forget one undo step (a handle from `lastStep`) without undoing it: the
+   * change it recorded was taken back another way, and undoing it later
+   * would redo what a peer already did.
+   */
+  dropStep(runId: string, ytext: Y.Text, step: unknown): void {
+    const um = this.managers.get(runId)?.get(ytext)
+    if (!um || step === null) return
+    const i = um.undoStack.indexOf(step as (typeof um.undoStack)[number])
+    if (i !== -1) um.undoStack.splice(i, 1)
   }
 
   /** The run that wrote most recently and has something left to undo, or null. */

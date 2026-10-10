@@ -1535,9 +1535,13 @@ function normalizeWaypoint(raw: unknown): Waypoint | null {
   return { path: r.path, cursor: readCursor(r.cursor), scroll: Math.max(0, num(r.scroll, 0)) }
 }
 
-function normalizeTab(raw: unknown, ids: () => string, used: Set<string>): Tab | null {
+/** Which view kinds a restored layout keeps (absent → all): a view not offered now is dropped. */
+export type ViewFilter = (view: TabView) => boolean
+
+function normalizeTab(raw: unknown, ids: () => string, used: Set<string>, views?: ViewFilter): Tab | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
+  if (views && isViewKind(r.view) && !views(r.view)) return null
   const history = Array.isArray(r.history)
     ? r.history.map(normalizeWaypoint).filter((w): w is Waypoint => w !== null)
     : []
@@ -1586,7 +1590,7 @@ function normalizeGroup(
   }
 }
 
-function normalizeNode(raw: unknown, ids: () => string, used: Set<string>): Node | null {
+function normalizeNode(raw: unknown, ids: () => string, used: Set<string>, views?: ViewFilter): Node | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   if (r.kind === 'pane') {
@@ -1595,7 +1599,7 @@ function normalizeNode(raw: unknown, ids: () => string, used: Set<string>): Node
     const remap = new Map<string, string>()
     const tabs: Tab[] = []
     for (const rawTab of Array.isArray(r.tabs) ? r.tabs : []) {
-      const t = normalizeTab(rawTab, ids, used)
+      const t = normalizeTab(rawTab, ids, used, views)
       if (!t) continue
       const stored = (rawTab as Record<string, unknown>).id
       if (typeof stored === 'string' && stored) remap.set(stored, t.id)
@@ -1612,7 +1616,7 @@ function normalizeNode(raw: unknown, ids: () => string, used: Set<string>): Node
   }
   if (r.kind === 'split') {
     const children = Array.isArray(r.children)
-      ? r.children.map((c) => normalizeNode(c, ids, used)).filter((c): c is Node => c !== null)
+      ? r.children.map((c) => normalizeNode(c, ids, used, views)).filter((c): c is Node => c !== null)
       : []
     if (!children.length) return null
     if (children.length === 1) return children[0]
@@ -1630,13 +1634,14 @@ function normalizeNode(raw: unknown, ids: () => string, used: Set<string>): Node
 /**
  * Tolerant read of whatever the device store holds. Anything that is not this
  * version's shape answers null so the caller can start fresh — a layout is a
- * device convenience, never data (R4.3).
+ * device convenience, never data (R4.3). `views` drops the tabs of a view
+ * that is not offered now (a Session tab with no provider: the quiet default).
  */
-export function normalize(raw: unknown, ids: () => string = nextId): Layout | null {
+export function normalize(raw: unknown, ids: () => string = nextId, views?: ViewFilter): Layout | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   if (r.version !== LAYOUT_VERSION) return null
-  const tree = normalizeNode(r.tree, ids, new Set<string>())
+  const tree = normalizeNode(r.tree, ids, new Set<string>(), views)
   if (!tree) return null
   // A one-per-window view stored twice (an older build, a hand-edited blob)
   // keeps its first tab; a later twin reads as an empty tab.

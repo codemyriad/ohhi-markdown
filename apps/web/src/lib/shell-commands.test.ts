@@ -4,14 +4,16 @@
  * on screen, a pane mode that owns the keys, and a dialog that must not let
  * a workspace command through (M4).
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CommandRegistry, type Command } from './commands.js'
 import { PRESETS } from './layout-spec.js'
-import { installShellCommands, layoutFileSource, type ShellCommandDeps } from './shell-commands.js'
+import { harnessCommands, installShellCommands, layoutFileSource, type ShellCommandDeps } from './shell-commands.js'
+import { bindEditor, resetEditors, type EditorView } from './focused-editor.svelte.js'
+import { harness } from './sessions.svelte.js'
 import { VIEW_KINDS } from './panes.js'
 import { VIEWS } from './views.js'
 import { getLL } from '@ohhi/i18n'
-import { setAiConfig } from './config.js'
+import { setAiConfig } from './ai-config.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
 
 function key(k: string, mods: Partial<KeyboardEvent> = {}): KeyboardEvent {
@@ -170,7 +172,7 @@ describe('installShellCommands', () => {
       const row = registry.get(VIEWS[id].command.id)
       expect(row, id).toBeDefined()
       void row!.run()
-      // A session opens on one: the current session, else a fresh id (B).
+      // A session opens on one: the current session, else a fresh id.
       expect(deps.openView).toHaveBeenLastCalledWith(id, id === 'session' ? expect.any(String) : undefined)
     }
     // The inspector keeps its id and is listed only while developer tools are on.
@@ -417,5 +419,31 @@ describe('Use layout file… (round 3, Q6)', () => {
       ['custom:focus', 'vault', [], true],
       ['custom:writing', 'user', ['builtin'], false],
     ])
+  })
+})
+
+describe('ai.add-selection in a split', () => {
+  /** A view's state as the capture reads it: the note's text and its main selection. */
+  const viewOver = (text: string, from: number, to: number) =>
+    ({ state: { doc: { toString: () => text }, selection: { main: { from, to } } } }) as unknown as EditorView
+
+  afterEach(() => {
+    resetEditors()
+    harness.inbox = {}
+    harness.current = null
+  })
+
+  it('captures the focused pane’s selection, not the first editor on screen', async () => {
+    const left = 'Left note.\nNothing here.\n'
+    const right = 'Right note.\nPick this line.\nAnd not this.\n'
+    bindEditor({ paneId: 'p1', path: 'left.md', view: viewOver(left, 0, 4), focused: false })
+    bindEditor({ paneId: 'p2', path: 'right.md', view: viewOver(right, right.indexOf('Pick'), right.indexOf('Pick') + 4), focused: true })
+    const openView = vi.fn()
+    const rows = harnessCommands({ flash: vi.fn(), selectedPath: () => 'right.md', openView })
+    await rows.find((r) => r.id === 'ai.add-selection')!.run()
+    const [mention] = Object.values(harness.inbox)[0]
+    expect(mention.ref).toEqual({ kind: 'lines', path: 'right.md', lines: { from: 2, to: 2 } })
+    expect(mention.snapshot).toBe('Pick this line.\n')
+    expect(openView).toHaveBeenCalledWith('session', expect.any(String))
   })
 })

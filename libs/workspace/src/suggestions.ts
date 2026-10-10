@@ -21,6 +21,17 @@
  *    then replaces it in ONE transaction carrying the run's agent origin
  *    (attributed, undoable per run — `agent-origin.ts`), flipping the status
  *    in that same transaction on a shared doc.
+ *  - **two peers accept one shared record at once**: both replace the same
+ *    range, so the merged text would hold the proposal twice. Each accept
+ *    stamps `acceptedBy` (its Y.Doc client id) in the record, in the accept's
+ *    own transaction. The Y.Map keeps exactly one of the concurrent writes,
+ *    and every replica agrees which; a replica that accepted locally and then
+ *    sees another client's `acceptedBy` deletes ITS OWN inserted copy (pinned
+ *    at accept time) — only while that copy is still exactly `proposedText`,
+ *    so a character someone typed into it is never lost — and drops that
+ *    accept from its run's undo stack (undoing it would restore the base text
+ *    the winner already replaced). The base text was deleted by both: one
+ *    deletion, idempotent.
  *  - **reject** drops the record. The text is never touched.
  *  - An insert at either edge of the range lands outside it (`encodeRange`),
  *    so a peer typing right up against a suggestion does not stale it.
@@ -33,7 +44,7 @@ import { decodeRange, encodeRange, ydocOf, ytextOf, type TextRange } from './anc
 import { AgentRuns, type AgentOrigin } from './agent-origin.js'
 import type { EngineDoc } from '@ohhi/sync'
 
-/** Mirrors `@ohhi/harness`'s seam types (libs/harness/src/types.ts); asserted equal in apps/web. */
+/** The seam's home: `@ohhi/harness` re-exports these (libs/harness/src/types.ts). */
 export type SuggestionRange = { yjs: [unknown, unknown] } | { from: number; to: number }
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'stale'
 export interface SuggestionRecord {
@@ -46,6 +57,8 @@ export interface SuggestionRecord {
   proposedText: string
   status: SuggestionStatus
   threadId?: string
+  /** The Y.Doc client id that applied it (shared records): settles two concurrent accepts. */
+  acceptedBy?: number
 }
 
 /** A record resolved against the text as it is now: what the editor draws. */
@@ -149,7 +162,10 @@ export class SuggestionStore {
   private readonly records: RecordMap
   private readonly runs: AgentRuns
   private readonly listeners = new Set<() => void>()
+  /** Shared records this replica applied: who it was, and where its inserted copy is. */
+  private readonly localAccepts = new Map<string, { by: number; inserted: [unknown, unknown]; runId: string; step: unknown }>()
   private readonly onUpdate = (): void => {
+    this.settleConcurrentAccepts()
     this.checkStale()
     this.emit()
   }
@@ -195,7 +211,8 @@ export class SuggestionStore {
     const at = this.current(record)
     if (!at) return this.flipStale(record)
     const origin = this.runs.track(record.origin, this.ytext)
-    const accepted: StoredRecord = { ...record, status: 'accepted' }
+    const by = this.ydoc.clientID
+    const accepted: StoredRecord = { ...record, status: 'accepted', ...(this.records.shared ? { acceptedBy: by } : {}) }
     this.ydoc.transact(() => {
       if (at.to > at.from) this.ytext.delete(at.from, at.to - at.from)
       if (record.proposedText) this.ytext.insert(at.from, record.proposedText)
@@ -204,6 +221,14 @@ export class SuggestionStore {
       // replaced text and call the proposal stale.
       this.records.set(id, accepted)
     }, origin)
+    if (this.records.shared && record.proposedText) {
+      this.localAccepts.set(id, {
+        by,
+        inserted: encodeRange(this.ytext, at.from, at.from + record.proposedText.length),
+        runId: origin.runId,
+        step: this.runs.lastStep(origin.runId, this.ytext),
+      })
+    }
     // An in-memory record change fires no update of its own.
     if (!this.records.shared) this.emit()
     return accepted
@@ -243,6 +268,28 @@ export class SuggestionStore {
   }
 
   /**
+   * Two replicas accepted one shared record concurrently (see the file
+   * comment): the one whose `acceptedBy` the merged record does not carry
+   * takes back its own inserted copy. Runs after every doc update.
+   */
+  private settleConcurrentAccepts(): void {
+    if (this.localAccepts.size === 0) return
+    for (const [id, mine] of [...this.localAccepts]) {
+      const record = this.records.get(id)
+      if (!record) {
+        this.localAccepts.delete(id)
+        continue
+      }
+      if (record.status !== 'accepted' || record.acceptedBy === undefined || record.acceptedBy === mine.by) continue
+      this.localAccepts.delete(id)
+      const at = decodeRange(this.ydoc, mine.inserted)
+      if (!at || this.ytext.toString().slice(at.from, at.to) !== record.proposedText) continue
+      this.ydoc.transact(() => this.ytext.delete(at.from, at.to - at.from), SUGGESTIONS_ORIGIN)
+      this.runs.dropStep(mine.runId, this.ytext, mine.step)
+    }
+  }
+
+  /**
    * Flip every pending record whose range no longer holds `baseText` to
    * `stale`. Runs after every doc update; cheap when nothing is pending.
    */
@@ -269,6 +316,7 @@ export class SuggestionStore {
   destroy(): void {
     this.ydoc.off('update', this.onUpdate)
     this.listeners.clear()
+    this.localAccepts.clear()
   }
 
   /** The record's range if its text is still `baseText`, else null. */

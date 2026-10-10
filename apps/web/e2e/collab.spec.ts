@@ -335,7 +335,7 @@ test('the drawer names the peer for every edit, Backspace included, grouped per 
 })
 
 /**
- * The agent as a peer (writing-harness B10, H6): Alice runs the in-app agent
+ * The agent as a peer: Alice runs the in-app agent
  * on a shared note — the mock LLM scripts one `ohhi_patch` turn — and Bob,
  * with the note open, sees the agent arrive in the note's presence (a
  * presence slot, labelled `<name> (agent)`), its caret tag in his editor,
@@ -349,15 +349,25 @@ test('the agent as a peer: B sees A’s agent in the note and its suggestion arr
   })
   try {
     // Alice has a provider: the mock, over the OpenAI-compatible wire. She
-    // seeds the room (the sample vault), so the case also runs on its own.
+    // seeds the room (the sample vault).
     const context = await browser.newContext()
     const page = await context.newPage()
+    // A room of its own: the shared room carries the earlier cases' state,
+    // and a re-seed over it leaves the patched sentence in the note twice —
+    // an `ohhi_patch` the op refuses as ambiguous. Bob joins once Alice's
+    // note is green: the relay holds the seed.
+    const room = 'agent-peer'
+    const token = 'agent-peer-token'
     await seedProvider(page, `${mock.url}/v1`)
-    await page.goto(appUrl('seed', 'Alice'))
+    await page.goto(url({ room, role: 'seed', token, user: 'Alice' }))
     await expect(page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 15_000 })
     await openFile(page)
+    await expect(page.getByTestId('sync-pill-note')).toHaveAttribute('data-status', 'green', { timeout: 15_000 })
 
-    const bob = await openPeer(browser, 'join', 'Bob')
+    const bobContext = await browser.newContext()
+    const bob = { context: bobContext, page: await bobContext.newPage() }
+    await bob.page.goto(url({ room, role: 'join', token, user: 'Bob' }))
+    await expect(bob.page.getByTestId(`file-item:${FILE}`)).toBeVisible({ timeout: 15_000 })
     await openFile(bob.page)
     await expect(paneContent(bob.page)).toContainText(OLD, { timeout: 10_000 })
 
@@ -372,10 +382,13 @@ test('the agent as a peer: B sees A’s agent in the note and its suggestion arr
     const agentPeer = bob.page.locator(`[data-testid="tab-presence:${FILE}"] [data-peer$="(agent)"]`)
     await expect(agentPeer).toBeVisible({ timeout: 15_000 })
     await expect(agentPeer).toHaveAttribute('style', /--ed-presence-\d/)
-    // … its caret tag in his editor, drawn by the collab binding like any peer's …
-    await expect(bob.page.locator('.cm-ySelectionInfo', { hasText: '(agent)' }).first()).toBeAttached()
-    // … and the proposal, a suggestion in his editor — drawn, not applied.
-    await expect(bob.page.locator('.ed-suggest-add, .ed-suggest-del').first()).toBeVisible({ timeout: 15_000 })
+    // … the proposal, a suggestion in his editor — drawn, not applied …
+    await expect(bob.page.locator('.ed-suggest-add, .ed-suggest-del').first()).toBeVisible({ timeout: 30_000 })
+    // … and its caret tag there, drawn by the collab binding like any peer's.
+    // The tag needs the agent's cursor, which comes with its working range —
+    // the proposal's — so it is awaited after the suggestion, not on a bare
+    // default wait that a loaded machine outruns.
+    await expect(bob.page.locator('.cm-ySelectionInfo', { hasText: '(agent)' }).first()).toBeAttached({ timeout: 15_000 })
     expect(mock.requests.filter((r) => r.wire === 'openai')).toHaveLength(2)
 
     await context.close()

@@ -4,8 +4,8 @@ import * as Y from 'yjs'
 import { Awareness } from 'y-protocols/awareness'
 import { SimClock } from '@ohhi/testkit'
 import { DocAgentPresence, type AgentPresenceState } from '@ohhi/workspace'
-import { AGENT_LINGER_MS, presenceStream, resetAgentPresence, workingHost } from './agent-presence.js'
-import { initialsOf, workingRangesOf } from './presence.js'
+import { AGENT_LINGER_MS, presenceStream, resetAgentPresence, workingHost, workingRangesOf } from './agent-presence.js'
+import { initialsOf } from './presence.js'
 
 afterEach(() => resetAgentPresence())
 

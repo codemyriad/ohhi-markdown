@@ -45,7 +45,7 @@ import type { EngineDoc } from '@ohhi/sync'
 import type { Clock } from '@ohhi/vault'
 import { encodeRange, ytextOf, type RelativePositionJSON } from './anchors.js'
 
-/** Mirrors `@ohhi/harness`'s `AgentPresenceState` (libs/harness/src/types.ts) — workspace cannot depend on the harness. */
+/** What an agent is doing, as a host reports it. The seam's one home: `@ohhi/harness` re-exports it. */
 export interface AgentPresenceState {
   name: string
   status: 'thinking' | 'composing' | 'idle'

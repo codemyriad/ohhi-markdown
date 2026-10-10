@@ -1,13 +1,14 @@
 /**
- * Where a skill run lands (writing-harness-shaping B9 *Invocation*):
- * `metadata.ohhi-kind` decides, and this module is the one place that knows
- * how.
+ * Running a skill and where its answer lands. `ai.run-skill` picks a skill
+ * that fits the selection or the note and starts the turn; then
+ * `metadata.ohhi-kind` decides where the answer lands, and this module is the
+ * one place that knows how.
  *
  *  - `check` → each finding a comment thread on the passage it quotes,
  *    authored by the skill. The model ends with an `ohhi-findings` block (a
  *    JSON list of `{quote, comment}`), parsed leniently.
  *  - `transform` → a suggestion: the model patches the passage with
- *    `ohhi_patch`, which the harness turns into a proposal (B7). Nothing to
+ *    `ohhi_patch`, which the harness turns into a proposal. Nothing to
  *    do after the run.
  *  - `generate` → a new note (`createFile`) from the model's one fenced
  *    markdown block — or, with `ohhi-output: insert`, an insert proposal
@@ -18,10 +19,16 @@
  * reach the system prompt, not the person's turn in the transcript), and
  * `routeSkillRun` lands the finished run's answer.
  */
+import { mount, unmount } from 'svelte'
 import { getLL } from '@ohhi/i18n'
-import type { Mention, RunRecord, SkillMeta } from '@ohhi/harness'
+import type { Mention, RunRecord, SkillInput, SkillMeta } from '@ohhi/harness'
+import { aiEnabled } from './ai-config.svelte.js'
+import type { Command } from './commands.js'
 import type { FlashInput } from './notices.js'
-import { harnessWorkspace, runReply, type RunHandle } from './sessions.svelte.js'
+import { mentionOf, rangeOfLines } from './references.js'
+import { captureFocusedSelection, harnessWorkspace, runReply, startRun, type RunHandle, type StartRunInput } from './sessions.svelte.js'
+import { currentSkills, type SkillsStore } from './skills.svelte.js'
+import SkillPicker from './components/SkillPicker.svelte'
 import type { Workspace } from './workspace.svelte.js'
 
 /** The info string of the fenced block a `check` skill's findings come in. */
@@ -137,15 +144,6 @@ export function parseFindings(text: string): Finding[] {
   return []
 }
 
-/** The character range of 1-based lines `[from, to]` in `text`. */
-export function rangeOfLines(text: string, lines: { from: number; to: number }): { from: number; to: number } {
-  const starts = [0]
-  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1)
-  const from = starts[Math.max(0, lines.from - 1)] ?? text.length
-  const next = starts[lines.to]
-  return { from, to: next === undefined ? text.length : Math.max(from, next - 1) }
-}
-
 /**
  * Where a quote sits in the note: inside `within` first (the passage the
  * skill ran on), else anywhere; exact, then ignoring case. Null when absent.
@@ -172,7 +170,7 @@ export function newNoteOf(text: string): { title: string; body: string } | null 
   if (!body) return null
   const heading = /^#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(body)
   const title = (heading?.[1] ?? body.split('\n')[0] ?? '').replace(/[\\/:*?"<>|#^[\]]/g, '').trim().slice(0, 80)
-  return { title: title || getLL().web.ai.wiring.untitled(), body: `${body}\n` }
+  return { title: title || getLL().web.ai.skills.run.untitled(), body: `${body}\n` }
 }
 
 // ---- landing it -----------------------------------------------------------------
@@ -213,10 +211,10 @@ export async function routeSkillRun(
   input: { meta: Pick<SkillMeta, 'name' | 'kind' | 'output'>; handle: RunHandle; target: RouteTarget }
 ): Promise<SkillLanding> {
   const { meta, handle, target } = input
-  const w = getLL().web.ai.wiring
+  const w = getLL().web.ai.skills.run
   const run = await handle.done
   if (run.status !== 'successful') {
-    if (run.status === 'failed') deps.flash?.({ level: 'warn', text: w.skill_failed({ name: meta.name, error: run.error ?? '' }) })
+    if (run.status === 'failed') deps.flash?.({ level: 'warn', text: w.failed({ name: meta.name, error: run.error ?? '' }) })
     return { kind: 'none', status: run.status }
   }
   const ws = deps.workspace
@@ -236,10 +234,10 @@ export async function routeSkillRun(
     }
     const say =
       findings.length === 0
-        ? w.skill_no_findings({ name: meta.name })
+        ? w.no_findings({ name: meta.name })
         : skipped
-          ? w.skill_findings_skipped({ name: meta.name, count: added, skipped })
-          : w.skill_findings({ name: meta.name, count: added })
+          ? w.findings_skipped({ name: meta.name, count: added, skipped })
+          : w.findings({ name: meta.name, count: added })
     deps.flash?.({ level: 'info', text: say })
     return { kind: 'comments', added, skipped }
   }
@@ -247,13 +245,13 @@ export async function routeSkillRun(
   if (meta.kind === 'generate' && meta.output !== 'insert' && ws) {
     const note = newNoteOf(answer)
     if (!note) {
-      deps.flash?.({ level: 'info', text: w.skill_no_note({ name: meta.name }) })
+      deps.flash?.({ level: 'info', text: w.answered_no_note({ name: meta.name }) })
       return { kind: 'chat' }
     }
     const dir = dirOf(target.path)
     const path = await ws.createFile(dir, freeName(ws, dir, note.title), note.body)
     if (!path) return { kind: 'chat' }
-    deps.flash?.({ level: 'info', text: w.skill_created({ name: meta.name, path }) })
+    deps.flash?.({ level: 'info', text: w.created({ name: meta.name, path }) })
     return { kind: 'note', path }
   }
 
@@ -262,7 +260,94 @@ export async function routeSkillRun(
   return { kind: 'chat' }
 }
 
-/** The app's wiring: the open vault's workspace and B's run replies. */
+/** In the app: the open vault's workspace and the registry's run replies. */
 export function routeInApp(flash?: (input: FlashInput) => void): RouteDeps {
   return { workspace: harnessWorkspace(), reply: runReply, ...(flash ? { flash } : {}) }
+}
+
+// ---- ai.run-skill ------------------------------------------------------------------
+
+/** What `ai.run-skill` runs on: the focused note, and its selection as a `lines` mention when there is one. */
+export interface SkillTarget {
+  path: string
+  selection: Mention | null
+}
+
+/** Which skills fit a target: by `ohhi-input` (a skill that does not say fits anything). */
+export function fitsTarget(input: SkillInput | undefined, hasSelection: boolean): boolean {
+  if (input === undefined) return true
+  return hasSelection ? input === 'selection' || input === 'section' : input !== 'selection'
+}
+
+/** A palette over the skills; resolves with the pick, or null when dismissed. */
+export function pickSkill(skills: SkillMeta[], placeholder: string): Promise<SkillMeta | null> {
+  return new Promise((resolve) => {
+    let instance: ReturnType<typeof mount> | null = null
+    const done = (meta: SkillMeta | null): void => {
+      if (instance) void unmount(instance)
+      instance = null
+      resolve(meta)
+    }
+    instance = mount(SkillPicker, { target: document.body, props: { skills, placeholder, onPick: (m: SkillMeta) => done(m), onClose: () => done(null) } })
+  })
+}
+
+export interface RunSkillDeps {
+  flash?(input: FlashInput): void
+  selectedPath?(): string | null
+  /** Injected for tests; `startRun` (`sessions.svelte.ts`, the one run door) otherwise. */
+  startRun?(input: StartRunInput): Promise<RunHandle | null>
+  /** Injected for tests; `currentSkills` otherwise. */
+  skills?(): SkillsStore | null
+  /** Injected for tests; the focused note and `captureFocusedSelection` otherwise. */
+  target?(): Promise<SkillTarget | null>
+  pick?(skills: SkillMeta[], placeholder: string): Promise<SkillMeta | null>
+  /** Injected for tests; `routeSkillRun` over the open vault otherwise (lands the answer by `meta.kind`). */
+  route?(input: { meta: SkillMeta; handle: RunHandle; target: SkillTarget }): Promise<unknown>
+}
+
+/**
+ * `ai.run-skill`: on the selection or the focused note, a picker of the
+ * usable skills whose `ohhi-input` fits, then a turn through `startRun`
+ * with that skill and the target as its reference — in a new
+ * session, opened beside the note.
+ */
+export function runSkillCommand(deps: RunSkillDeps): Command {
+  const t = getLL().web.ai
+  const skillsOf = deps.skills ?? currentSkills
+  const targetOf =
+    deps.target ??
+    (async (): Promise<SkillTarget | null> => {
+      const path = deps.selectedPath?.() ?? null
+      return path ? { path, selection: await captureFocusedSelection(path) } : null
+    })
+  const pick = deps.pick ?? pickSkill
+  const start = deps.startRun ?? startRun
+  const say = (text: string): void => deps.flash?.({ level: 'info', text })
+  return {
+    id: 'ai.run-skill',
+    title: t.commands.run_skill(),
+    group: getLL().web.commands.groups.ai(),
+    when: () => aiEnabled(),
+    run: async () => {
+      const store = skillsOf()
+      if (!store) return say(t.skills.run.no_vault())
+      const target = await targetOf()
+      if (!target) return say(t.skills.run.no_note())
+      const hasSelection = target.selection !== null
+      const what = hasSelection ? t.skills.run.target_selection() : t.skills.run.target_note()
+      const offered = (await store.source().list()).filter((m) => fitsTarget(m.input, hasSelection))
+      if (offered.length === 0) return say(t.skills.run.none({ target: what }))
+      const meta = await pick(offered, t.skills.run.placeholder({ target: what }))
+      if (!meta) return
+      const body = (await store.source().body(meta.name)) ?? ''
+      const refs: Mention[] = [target.selection ?? mentionOf({ kind: 'file', path: target.path })]
+      // The kind decides where the answer lands (`skill-routing.ts`): its rules ride on the body.
+      const handle = await start({ instruction: meta.description, refs, skill: { meta, body: withLanding(meta, body) } })
+      if (!handle) return say(t.skills.run.not_started({ name: meta.name }))
+      say(t.skills.run.started({ name: meta.name }))
+      void store.markUsed(meta.dir.slice(meta.dir.lastIndexOf('/') + 1))
+      void (deps.route ?? ((input) => routeSkillRun(routeInApp(deps.flash), input)))({ meta, handle, target })
+    },
+  }
 }

@@ -40,7 +40,7 @@ writer goes through), `libs/agent` (G1 — the host-neutral command core behind
 the agent surface) and `apps/cli` (G1 — the `ohhi` binary, bin name `ohhi`,
 plus `ohhi mcp`), `libs/harness` (H1 — the writing harness: providers over
 the Vercel AI SDK, the tool loop over the `libs/agent` contract, the prompt,
-and the seams every harness builder shares in `src/types.ts`; see
+and the seams every harness host shares in `src/types.ts`; see
 `docs/writing-harness.md`), `libs/i18n` (the dictionaries + typesafe-i18n wiring,
 laid out as Edible's `@edible/shared/i18n`;
 every user-facing string in `apps/web` is a `$LL.…()` / `getLL()` key — see

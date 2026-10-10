@@ -3,7 +3,7 @@
  * `.ohhi/sessions/<id>.jsonl` per session, pi's shape — a header line
  * (`SessionHeader`) then one `SessionEntry` per line, each chained to the one
  * before it by `parentId` (the last entry is the leaf; a branch is a
- * different `parentId`, with no UI this wave).
+ * different `parentId`; nothing in the app makes one yet).
  *
  * Pure over the app-file seam (`readAppFile` / `writeAppFile` / `listAppDir`),
  * so it is journaled for free (golden rule 1) and device-local by

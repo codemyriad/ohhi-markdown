@@ -13,8 +13,9 @@
  * window's refill), and over a long run the rate is `capacity / windowMs`.
  *
  * Time is the injected clock (golden rule 5): `SimClock` drives every test.
- * Nothing is ever dropped — a queued op runs late, never not at all — and an
- * op that throws rejects its own promise without stalling the queue.
+ * Nothing is ever dropped while the throttle lives — a queued op runs late,
+ * never not at all; `dispose` rejects what is still waiting — and an op that
+ * throws rejects its own promise without stalling the queue.
  */
 import type { Clock } from '@ohhi/vault'
 
@@ -31,6 +32,7 @@ export const AGENT_WINDOW_MS = 100
 interface Task {
   cost: number
   run: () => void
+  cancel: (err: Error) => void
 }
 
 export class AgentThrottle {
@@ -75,15 +77,17 @@ export class AgentThrottle {
             reject(err)
           }
         },
+        cancel: reject,
       })
       this.drain()
     })
   }
 
-  /** Drop the queue (its promises never settle) and the wake-up. */
+  /** Drop the queue — every waiting op's promise rejects, none runs — and the wake-up. */
   dispose(): void {
     this.disposed = true
-    this.queue.length = 0
+    const dropped = this.queue.splice(0)
+    for (const task of dropped) task.cancel(new Error('agent throttle disposed: the edit was not applied'))
     this.cancelWake?.()
     this.cancelWake = null
   }

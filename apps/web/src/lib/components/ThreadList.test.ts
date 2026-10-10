@@ -4,31 +4,23 @@
  * open / resolved filter, resolve from the row, open the bubble, and the
  * CriticMarkup export to a copy.
  */
-import { createYjsEngine } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createThreadRegistry, writeReviewCopy } from '../threads.svelte.js'
+import { writeReviewCopy } from '../threads.svelte.js'
 import type { Workspace } from '../workspace.svelte.js'
 import ThreadList from './ThreadList.svelte'
 
 afterEach(cleanup)
 
+import { threadsFixture } from '../harness.fixture.js'
+
 const TEXT = 'The plan is to ship in March. Then rest.'
 const PATH = 'notes/plan.md'
 
 function fakeWorkspace() {
-  const doc = createYjsEngine().createDoc('g1')
-  doc.transact((t) => t.insert(0, TEXT), 'local')
-  const files = new Map<string, string>()
-  const registry = createThreadRegistry({
-    clock: new SimClock(),
-    docForPath: (p) => (p === PATH ? doc : null),
-    guidFor: (p) => (p === PATH ? 'g1' : null),
-    pathFor: () => PATH,
-    files: { read: async (p) => files.get(p) ?? null, write: async (p, t) => void files.set(p, t) },
-  })
+  const { registry, doc: held } = threadsFixture({ text: TEXT, path: PATH })
+  const doc = held.current!
   const created: Record<string, string> = {}
   const ws: Pick<Workspace, 'threadsFor' | 'resolveThread' | 'exportCriticMarkup'> = {
     threadsFor: (p) => registry.storeFor(p),

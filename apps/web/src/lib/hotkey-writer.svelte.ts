@@ -39,7 +39,9 @@
  * is kept, not overwritten.
  */
 import { getLL } from '@ohhi/i18n'
+import { aiEnabled } from './ai-config.svelte.js'
 import type { CommandBinding, CommandRegistry } from './commands.js'
+import { offeredRows } from './hotkey-rows.js'
 import {
   BUILTIN_KEYMAPS,
   keymapFile,
@@ -200,7 +202,7 @@ export function createHotkeyWriter(host: HotkeyWriterHost) {
   return {
     /** The rows under the keymap in force. */
     rows(): CommandBinding[] {
-      return host.registry.bindings(inForce)
+      return offeredRows(host.registry.bindings(inForce), aiEnabled())
     },
     get inForce() {
       return inForce

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * Import a skill, or review one that arrived by sync (writing-harness B9,
-   * research note harness-skills §4 — show before enable). Nothing is written
+   * Import a skill, or review one that arrived by sync (show before enable:
+   * research note harness-skills §4). Nothing is written
    * and nothing is trusted until *Trust and enable*: the review pane shows
    * SKILL.md verbatim, every file, the pre-approved tools, every link, the
    * scripts warning and the loader's problems, because a skill is
@@ -21,20 +21,13 @@
   import TextControl from '../ui/TextControl.svelte'
   import { createForm } from '../ui/form.svelte.js'
   import { CARD, FACT, OUTLINE_BUTTON } from '../ui/styles.js'
-  import {
-    fetchGithubSkill,
-    importErrorText,
-    parseGithubSource,
-    problemText,
-    reviewOf,
-    type ImportCandidate,
-    type SkillsStore,
-  } from '../skills.svelte.js'
+  import { problemText, type SkillsStore } from '../skills.svelte.js'
+  import { fetchGithubSkill, importErrorText, parseGithubSource, reviewOf, type ImportCandidate } from '../skill-import.js'
 
   interface Props {
     store: Pick<SkillsStore, 'rows' | 'install' | 'trust'>
     /** A skill already in the vault: review it, then trust it in place. */
-    review?: ImportCandidate | null
+    review?: (ImportCandidate & { hash?: string }) | null
     /** Desktop: pick a local folder. Absent in the browser. */
     pickFolder?: (() => Promise<ImportCandidate | null>) | null
     /** Injected for tests; the global `fetch` otherwise. */
@@ -93,7 +86,8 @@
     error = ''
     busy = true
     try {
-      if (review) await store.trust(candidate.name)
+      // Trust exactly the folder that was reviewed; a change since is refused.
+      if (review) await store.trust(candidate.name, review.hash)
       else await store.install(candidate)
       onDone?.(t.imported({ name: candidate.name }))
       onClose()
@@ -201,7 +195,7 @@
           {/each}
         </ul>
         {#if reviewing.binaryCount > 0}
-          <p class="m-0 mt-1 text-xs text-base-content/80">{t.binary_skipped({ count: reviewing.binaryCount })}</p>
+          <p class="m-0 mt-1 text-xs text-base-content/80">{t.binary_listed({ count: reviewing.binaryCount })}</p>
         {/if}
       </section>
 

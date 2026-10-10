@@ -14,7 +14,7 @@
  * `--ed-comment-resolved-bg` (libs/ui, docs/theming.md), read through
  * `var()` — never a literal in a CM6 theme object.
  */
-import { RangeSet, StateEffect, StateField, type EditorState, type Extension, type Range } from '@codemirror/state'
+import { Compartment, EditorState, Facet, RangeSet, StateEffect, StateField, type Extension, type Range } from '@codemirror/state'
 import { Decoration, EditorView, GutterMarker, gutter, type DecorationSet } from '@codemirror/view'
 
 /** One thread's passage, as the host resolved it. */
@@ -177,13 +177,37 @@ const commentsTheme = EditorView.baseTheme({
  * The extension: the field, the marks, the gutter and the theme. Install it
  * once per view (a stable value in the host's extension array); feed it with
  * `setThreads` / `setActiveThread`.
+ *
+ * The gutter exists only while the note has threads: an empty gutter would
+ * still add a `.cm-gutters` column and shift every line of a note with no
+ * comments. A `setThreads` that crosses between none and some reconfigures it
+ * in the same transaction (a transaction extender — never a second dispatch).
  */
+/** Set while the comment gutter is installed (what `hasCommentGutter` reads). */
+const gutterShown = Facet.define<boolean, boolean>({ combine: (v) => v.some(Boolean) })
+
+/** Is the comment gutter installed (the note has threads)? */
+export const hasCommentGutter = (state: EditorState): boolean => state.facet(gutterShown)
+
 export function commentsExtension(host: CommentsHost | null = null): Extension {
-  return [
-    commentsField,
+  const slot = new Compartment()
+  const shown = [
+    gutterShown.of(true),
     gutter({
       class: 'ed-comment-gutter',
       markers: (view) => markersOf(view.state, host),
+    }),
+  ]
+  return [
+    commentsField,
+    slot.of([]),
+    EditorState.transactionExtender.of((tr) => {
+      let next: CommentRange[] | null = null
+      for (const e of tr.effects) if (e.is(setThreads)) next = e.value
+      if (next === null) return null
+      const had = (tr.startState.field(commentsField, false)?.ranges.length ?? 0) > 0
+      const has = next.length > 0
+      return had === has ? null : { effects: slot.reconfigure(has ? shown : []) }
     }),
     commentsTheme,
   ]

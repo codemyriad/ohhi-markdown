@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
-   * The Session view (writing-harness-shaping B4): a view tab whose argument
-   * is the session id — header, transcript, composer. Listed only while a
-   * provider exists (`ViewContext.ai()`, R1); if the last provider goes while
-   * it is open, it says where to add one instead of offering a composer.
+   * The Session view: a view tab whose argument is the session id — header,
+   * transcript, composer. Listed only while a provider exists
+   * (`ViewContext.ai()`), and a stored Session tab is not restored without
+   * one; if the last provider goes while it is open, it says where to add one
+   * instead of offering a composer.
    *
    * It holds nothing that must outlive it: the transcript is the run
    * registry's `Chat` and the turn is the registry's run
@@ -13,11 +14,12 @@
    */
   import type { UIMessage } from 'ai'
   import type { Chat } from '@ai-sdk/svelte'
-  import { selectionIn } from '@ohhi/editor/src/composer.js'
+  import { anySelection } from '../focused-editor.svelte.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Mention } from '@ohhi/harness'
   import type { Clock } from '@ohhi/vault'
-  import { aiConfig, aiEnabled, providerView } from '../config.js'
+  import { providerView } from '../config.js'
+  import { aiConfig, aiEnabled } from '../ai-config.svelte.js'
   import type { MentionSources } from '../composer-mentions.js'
   import { linesOfRange } from '../references.js'
   import { relativeTime, clockTick } from '../relative-time.js'
@@ -35,6 +37,7 @@
     openSession,
     renameSession,
     resolveProvider,
+    retryInput,
     runFor,
     sessionTitle,
     skillSource,
@@ -90,7 +93,10 @@
   const enabled = $derived(aiEnabled())
   const providers = $derived(enabled ? aiConfig().providers.map(providerView) : [])
   let chosenProvider = $state<string | null>(null)
-  const providerId = $derived(chosenProvider ?? run?.provider ?? resolveProvider()?.id ?? '')
+  // A chosen provider stays chosen (a send on a deleted one says so); the last
+  // run's provider is only a default while it still exists.
+  const lastProvider = $derived(run?.provider && providers.some((p) => p.id === run.provider) ? run.provider : null)
+  const providerId = $derived(chosenProvider ?? lastProvider ?? resolveProvider()?.id ?? '')
   const others = $derived(harness.list.filter((s) => s.id !== sessionId))
 
   /** The note the person was last in: this tab's own pane has none. */
@@ -99,19 +105,6 @@
     const p = workspace.ui.selectedPath
     if (p) lastNote = p
   })
-
-  /** A live selection in a note on screen (another pane), with that note's path. */
-  function noteSelection(): { path: string; text: string; from: number; to: number } | null {
-    for (const pane of document.querySelectorAll<HTMLElement>('[data-pane-id]')) {
-      const editor = pane.querySelector<HTMLElement>('[data-testid^="editor-pane"]')
-      const sel = selectionIn(editor)
-      if (!sel) continue
-      const path = pane.querySelector<HTMLElement>('[data-path]:has([role="tab"][aria-selected="true"])')?.dataset.path
-      const known = path ?? lastNote
-      if (known) return { path: known, ...sel }
-    }
-    return null
-  }
 
   const sources: MentionSources = {
     quickOpen: async (q) => {
@@ -128,14 +121,14 @@
       return guid && index ? index.headings(guid) : []
     },
     selection: () => {
-      const sel = noteSelection()
+      const sel = anySelection()
       return sel ? { path: sel.path, lines: linesOfRange(sel.text, sel.from, sel.to) } : null
     },
     skills: () => skillSource().list(),
   }
 
   async function captureLines(): Promise<Mention | null> {
-    const sel = noteSelection()
+    const sel = anySelection()
     return sel ? captureNoteSelection(sel) : null
   }
 
@@ -152,10 +145,11 @@
     return handle !== null
   }
 
-  function retry(): void {
+  /** The last turn again: its instruction, references, skill and thread, on the chosen provider. */
+  async function retry(): Promise<void> {
     const last = run
     if (!last) return
-    void startRun({ sessionId, instruction: last.input.instruction, refs: last.input.refs, providerId, open: false })
+    void startRun({ sessionId, ...(await retryInput(last)), ...(providerId ? { providerId } : {}), open: false })
   }
 
   const incoming = $derived(harness.inbox[sessionId] ?? [])
@@ -194,7 +188,7 @@
       onPick={(id) => openSession(id)}
       onArchive={() => void archiveSession(sessionId)}
       onStop={() => stopRun(sessionId)}
-      onRetry={retry}
+      onRetry={() => void retry()}
     />
     <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
       {#if messages.length === 0}

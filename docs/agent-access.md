@@ -487,21 +487,50 @@ instructions a model is given when the skill runs. The text view prints the
 body on stdout and the facts on stderr. `not_found` (exit 1) when there is no
 `.agents/skills/<name>/SKILL.md`.
 
-### `skills export` (not an op)
+### `skills export` (not an op) — the skills farm
 
-Claude Code reads `.claude/skills/`, not `.agents/skills/`. `ohhi skills export`
-links each **usable** skill there — `.claude/skills/<name>` →
-`../../.agents/skills/<name>` — where usable is valid *and*, when the app has
-written `.ohhi/skills.json`, trusted and enabled in it (no file: every valid
-skill). Links it made before that are no longer wanted are removed (a disabled
-skill must not keep a link — every harness treats presence as enabled).
-`.claude/skills/.ohhi-farm.json` records what the farm wrote, shared with the
-desktop app's copy farm, so neither ever deletes a folder it did not make: a
-name already in `.claude/skills/` that the manifest does not record is
-reported `blocked` and left alone. `--dry-run` reports without writing;
-`--json` prints `ohhi.skills-export.v1` `{dir, linked, removed, blocked,
-dryRun}` (a host command like `ohhi mcp`: no MCP tool, no `spec/` schema).
-`.claude` is in the ignored set, so the links are never indexed twice.
+This is the one full account of the **skills farm**; the code and the other
+docs point here.
+
+**Why it exists.** Claude Code reads `.claude/skills/`, not `.agents/skills/`.
+The farm puts each **usable** skill there. Usable is valid *and*, once the app
+has written `.ohhi/skills.json`, trusted and enabled in it **and** unchanged
+since it was trusted — the folder's whole-content hash (every file, not just
+`SKILL.md`) must still equal the hash recorded at review. No state file at all
+(a vault the app never opened): every valid skill is usable — the person put
+it there.
+
+**Two writers, one manifest.**
+
+- `ohhi skills export` **links**: `.claude/skills/<name>` →
+  `../../.agents/skills/<name>`.
+- The desktop app **copies** (Settings › AI › Skills › *Export for Claude
+  Code*; the Tauri fs plugin cannot make links), every file of the skill,
+  re-copied when it changes. In the browser there is no farm: no other app
+  reads OPFS.
+- Both record what they made in `.claude/skills/.ohhi-farm.json`:
+  `{ version: 1, skills: { <name>: { by: cli|app, kind: symlink|copy, files? } } }`
+  — for a copy, every file it wrote. A CLI link is left as it is while the
+  skill is wanted by the app (it already shows the skill).
+
+**What it never touches.** A name in `.claude/skills/` the manifest does not
+record is someone's own skill: reported `blocked` and left alone. The manifest
+is a file in the vault, so it is read as untrusted input: an entry whose name
+is not a valid skill name, or whose `files` reach outside its own
+`.claude/skills/<name>/` (`..`, an absolute path, a backslash), is dropped
+whole — that folder is then treated as someone else's.
+
+**Removing.** A skill no longer wanted (disabled, untrusted, deleted, changed
+since review) loses its farm entry — every harness treats presence as enabled.
+A link is removed, never followed; a copy loses exactly the files the manifest
+lists, each one's bytes recorded in the pre-image journal first (golden
+rule 1), then the folders it leaves empty. A folder someone added a file to
+stays. Turning the app's farm off removes the app's copies, never a CLI link.
+
+**The command.** `--dry-run` reports without writing; `--json` prints
+`ohhi.skills-export.v1` `{dir, linked, removed, blocked, dryRun}` (a host
+command like `ohhi mcp`: no MCP tool, no `spec/` schema). `.claude` is in the
+ignored set, so the farm is never synced or indexed twice.
 
 ---
 

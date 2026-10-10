@@ -1,12 +1,11 @@
 /**
- * A comment or a suggestion record is not a text change (writing-harness B8,
- * E's report): the doc's `comments` / `suggestions` maps ride the note's
- * Y.Doc, so every write to them is a doc update — and `routeDocUpdate` used
- * to treat each one as an edit: re-index, mark the note not yet written,
- * flush identical bytes, and (for a peer's resolve) log `doc.changed`.
+ * A comment or a suggestion record is not a text change: the doc's
+ * `comments` / `suggestions` maps ride the note's Y.Doc, so every write to
+ * them is a doc update, and none of them may re-index the note, mark it
+ * unwritten, flush identical bytes or log `doc.changed`.
  *
- * The rule now: an update that does not touch the note's `content` Y.Text
- * leaves the text path alone — whoever wrote it, locally or a peer.
+ * The rule: an update that does not touch the note's `content` Y.Text leaves
+ * the text path alone — whoever wrote it, locally or a peer.
  */
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'

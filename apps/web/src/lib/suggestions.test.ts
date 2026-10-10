@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * The agent's suggestions in the shell (writing-harness B7) over a real CM6
+ * The agent's suggestions in the shell over a real CM6
  * view bound to a real Y.Text: what the note shows, the five commands, and
  * spike S14 Q1 as the editor sees it — an agent transaction leaves the
  * human's caret where it belongs and their undo stack alone.
@@ -18,16 +18,10 @@ import {
 } from '@ohhi/workspace'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event } from './readouts.fixture.js'
-import {
-  lastAgentWrite,
-  noteSuggestions,
-  resetSuggestionEditors,
-  suggestionCommands,
-  SUGGESTIONS_AGREE,
-  type SuggestionWorkspace,
-} from './suggestions.svelte.js'
+import { bindEditor, resetEditors } from './focused-editor.svelte.js'
+import { lastAgentWrite, noteSuggestions, suggestionCommands, type SuggestionWorkspace } from './suggestions.svelte.js'
 
-vi.mock('./config.js', async (orig) => ({ ...(await orig<typeof import('./config.js')>()), aiEnabled: () => true }))
+vi.mock('./ai-config.svelte.js', async (orig) => ({ ...(await orig<typeof import('./ai-config.svelte.js')>()), aiEnabled: () => true }))
 
 // jsdom has no layout: CM6 measures text through Range rects.
 const emptyRects = (): DOMRectList => Object.assign([], { item: () => null }) as unknown as DOMRectList
@@ -80,26 +74,22 @@ function editorOver(f: ReturnType<typeof fixture>) {
     extensions: [noteSuggestions(() => f.ws, () => PATH)],
   })
   views.push(handle)
+  // What the pane does: its editor is the focused one.
+  bindEditor({ paneId: 'p1', path: PATH, view: handle.view, focused: true })
   return { handle, view: handle.view, parent, undoManager }
 }
 
 const flushPush = (): Promise<void> => new Promise((r) => queueMicrotask(r))
 
-function commands(flash: (i: unknown) => void) {
-  const rows = suggestionCommands(flash)
+function commands(f: ReturnType<typeof fixture>) {
+  const rows = suggestionCommands(f.flash, () => f.ws)
   return (id: string) => rows.find((r) => r.id === id)!.run()
 }
 
-beforeEach(() => resetSuggestionEditors())
+beforeEach(() => resetEditors())
 afterEach(() => {
   for (const h of views.splice(0)) h.destroy()
   document.body.replaceChildren()
-})
-
-describe('the seam', () => {
-  it("the workspace's records are the harness's (compile time)", () => {
-    expect(SUGGESTIONS_AGREE).toBe(true)
-  })
 })
 
 describe('suggestions in the note', () => {
@@ -123,7 +113,7 @@ describe('suggestions in the note', () => {
     await flushPush()
     expect(parent.querySelector('.ed-suggest-stale')).not.toBeNull()
     view.dispatch({ selection: { anchor: 5 } })
-    await commands(f.flash)('ai.accept-suggestion')
+    await commands(f)('ai.accept-suggestion')
     expect(f.flash).toHaveBeenCalledWith({ level: 'info', text: t.stale() })
     expect(f.doc.getText()).toBe('The plXan is to ship in March.\n')
   })
@@ -151,7 +141,7 @@ describe('spike S14 Q1 — the agent writes beside a human with yCollab bound', 
     expect(f.doc.getText()).toBe('The roadmap is to ship in March.\n')
     // …and *Undo the agent's edit* takes the agent's, and nothing of the human's.
     view.dispatch({ changes: { from: 0, insert: '# ' }, userEvent: 'input.type' })
-    await commands(f.flash)('ai.undo-agent')
+    await commands(f)('ai.undo-agent')
     expect(f.doc.getText()).toBe('# The plan is to ship in March.\n')
     expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.undone() })
   })
@@ -161,7 +151,7 @@ describe('the five commands', () => {
   it('accept/reject at the caret, and say so when the caret is in none', async () => {
     const f = fixture()
     const { view } = editorOver(f)
-    const run = commands(f.flash)
+    const run = commands(f)
     const a = f.propose(4, 8, 'roadmap')
     const b = f.propose(15, 19, 'land')
     await flushPush()
@@ -182,7 +172,7 @@ describe('the five commands', () => {
   it('accept-all applies the pending ones and counts the stale; reject-all clears the note', async () => {
     const f = fixture()
     const { view } = editorOver(f)
-    const run = commands(f.flash)
+    const run = commands(f)
     f.propose(4, 8, 'roadmap')
     f.propose(15, 19, 'land')
     f.propose(23, 29, 'May.')
@@ -205,9 +195,9 @@ describe('the five commands', () => {
   it('undo-agent with nothing to undo says so; every row is gated on a provider', async () => {
     const f = fixture()
     editorOver(f)
-    await commands(f.flash)('ai.undo-agent')
+    await commands(f)('ai.undo-agent')
     expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.nothing_to_undo() })
-    const rows = suggestionCommands()
+    const rows = suggestionCommands(undefined, () => null)
     expect(rows.map((r) => r.id)).toEqual(['ai.accept-suggestion', 'ai.reject-suggestion', 'ai.accept-all', 'ai.reject-all', 'ai.undo-agent'])
     expect(rows.every((r) => r.when?.() === true)).toBe(true)
   })

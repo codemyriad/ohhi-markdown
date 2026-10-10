@@ -94,7 +94,7 @@ export function systemPrompt(input: {
   const catalog = skillsCatalog(input.skills)
   if (catalog) {
     parts.push(
-      `## Skills\n\nSkills are folders of instructions in the vault. When a task matches one, load it with ohhi_skill (by name) before you start, and follow it.\n\n${catalog}`,
+      `## Skills\n\nSkills are folders of instructions in the vault. When a task matches one, load it with ohhi_skill (by name) before you start, and follow it. ohhi_skill is the only way to load one: do not read a skill's files with ohhi_read, and do not load a skill this list does not name.\n\n${catalog}`,
     )
   }
   if (input.skill) {

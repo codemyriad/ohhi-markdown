@@ -19,7 +19,7 @@
  */
 
 /** The contract's ops, grouped the way a person thinks of them. */
-export type AgentCapability = 'find' | 'read' | 'links' | 'changes' | 'write' | 'move'
+export type AgentCapability = 'find' | 'read' | 'links' | 'changes' | 'write' | 'move' | 'skills'
 
 export const AGENT_CAPABILITIES: readonly { id: AgentCapability; ops: readonly string[] }[] = [
   { id: 'find', ops: ['search', 'ls', 'tags', 'stats'] },
@@ -28,6 +28,8 @@ export const AGENT_CAPABILITIES: readonly { id: AgentCapability; ops: readonly s
   { id: 'changes', ops: ['changes'] },
   { id: 'write', ops: ['write', 'patch', 'append'] },
   { id: 'move', ops: ['mv', 'rm', 'restore'] },
+  // The writing harness's skills (B9): read-only, from `.agents/skills/`.
+  { id: 'skills', ops: ['skills', 'skill'] },
 ]
 
 /** Stands in for the vault's folder where none is known (the manager's page, no vault open). */

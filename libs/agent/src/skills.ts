@@ -26,9 +26,19 @@
  * so it can be fixed — but it is never offered to a model or exported.
  */
 import type { z } from 'zod'
+import { hashText } from '@ohhi/vault'
 import type { SkillMeta as SkillMetaSchema } from './contract.js'
 
-export type SkillMeta = z.infer<typeof SkillMetaSchema>
+/**
+ * A skill as the loader reads it: the contract's `SkillMeta` plus `hash`,
+ * the whole folder's content hash (`hashSkillFolder`). The hash is the
+ * loader's, not the contract's — the `skill` op leaves it out — because trust
+ * (`usableSkills`) is checked against it.
+ */
+export type SkillMeta = z.infer<typeof SkillMetaSchema> & {
+  /** `hashSkillFolder` of the skill's folder when it was loaded; absent from `parseSkill` alone. */
+  hash?: string
+}
 export type SkillKind = NonNullable<SkillMeta['kind']>
 export type SkillInput = NonNullable<SkillMeta['input']>
 export type SkillOutput = NonNullable<SkillMeta['output']>
@@ -79,7 +89,8 @@ export const SKILL_PROBLEMS = [
 export type SkillProblem = (typeof SKILL_PROBLEMS)[number]
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const MAX_NAME = 64
+export const MAX_SKILL_NAME = 64
+const MAX_NAME = MAX_SKILL_NAME
 const MAX_DESCRIPTION = 1024
 const MAX_COMPATIBILITY = 500
 const MAX_BODY_LINES = 500
@@ -195,6 +206,18 @@ export function readSkillFrontmatter(text: string): FmRead | null {
 
 // ---- parse + validate ---------------------------------------------------------
 
+/** The spec's name rule, as problem codes: lowercase words joined by `-`, ≤ 64, never reserved. */
+export function skillNameProblems(name: string): SkillProblem[] {
+  const problems: SkillProblem[] = []
+  if (!NAME.test(name)) problems.push('name-format')
+  if (name.length > MAX_NAME) problems.push('name-length')
+  if (/anthropic|claude/.test(name) || name === 'synced') problems.push('name-reserved')
+  return problems
+}
+
+/** A name a skill may have (and a folder under `.agents/skills/` or `.claude/skills/` may be called). */
+export const isValidSkillName = (name: string): boolean => skillNameProblems(name).length === 0
+
 const asString = (v: FmValue | undefined): string | undefined =>
   typeof v === 'string' ? v : Array.isArray(v) ? v.join(' ') : undefined
 
@@ -218,10 +241,10 @@ export function parseSkill(dir: string, text: string, files: readonly string[] =
   const name = asString(fields.get('name'))?.trim() ?? ''
   if (name === '') problems.push('name-missing')
   else {
-    if (!NAME.test(name)) problems.push('name-format')
-    if (name.length > MAX_NAME) problems.push('name-length')
+    const nameProblems = skillNameProblems(name)
+    problems.push(...nameProblems.filter((p) => p !== 'name-reserved'))
     if (name !== folder) problems.push('name-mismatch')
-    if (/anthropic|claude/.test(name) || name === 'synced') problems.push('name-reserved')
+    if (nameProblems.includes('name-reserved')) problems.push('name-reserved')
   }
 
   const description = asString(fields.get('description'))?.trim() ?? ''
@@ -276,6 +299,23 @@ function skillDirs(root: string, files: readonly string[]): string[] {
   return [...dirs].sort()
 }
 
+/**
+ * The content hash of a whole skill folder: every file below `dir`, sorted
+ * by path, as `relative path NUL text NUL`, sha-256. A BOM and CRLF line ends
+ * are normalised away, so two hosts reading the same folder agree. Trust is
+ * given to this hash: a script or reference that changes after review drops
+ * it exactly as a SKILL.md change does.
+ */
+export async function hashSkillFolder(fs: SkillFs, dir: string, files?: readonly string[]): Promise<string> {
+  const inside = (files ?? (await fs.list(dir))).filter((f) => f.startsWith(`${dir}/`)).sort()
+  let joined = ''
+  for (const file of inside) {
+    const text = ((await fs.read(file)) ?? '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n')
+    joined += `${file.slice(dir.length + 1)}\0${text}\0`
+  }
+  return hashText(joined)
+}
+
 /** Every skill under `root` (default `.agents/skills`), sorted by folder. Invalid ones included, with problems. */
 export async function loadSkills(fs: SkillFs, root: string = SKILLS_DIR): Promise<SkillMeta[]> {
   const files = await fs.list(root)
@@ -283,7 +323,8 @@ export async function loadSkills(fs: SkillFs, root: string = SKILLS_DIR): Promis
   for (const dir of skillDirs(root, files)) {
     const text = await fs.read(`${dir}/SKILL.md`)
     if (text === null) continue
-    out.push(parseSkill(dir, text, files).meta)
+    const { meta } = parseSkill(dir, text, files)
+    out.push({ ...meta, hash: await hashSkillFolder(fs, dir, files) })
   }
   return out
 }
@@ -298,7 +339,9 @@ export async function loadSkill(
   const dir = `${root}/${name}`
   const text = await fs.read(`${dir}/SKILL.md`)
   if (text === null) return null
-  return parseSkill(dir, text, await fs.list(dir))
+  const files = await fs.list(dir)
+  const found = parseSkill(dir, text, files)
+  return { meta: { ...found.meta, hash: await hashSkillFolder(fs, dir, files) }, body: found.body }
 }
 
 export const isValidSkill = (meta: Pick<SkillMeta, 'problems'>): boolean => meta.problems.length === 0
@@ -332,7 +375,7 @@ export interface SkillState {
   source?: string
   /** The commit an import was pinned to. */
   sha?: string
-  /** SKILL.md's content hash when it was last trusted; a change from elsewhere drops trust. */
+  /** The folder's `hashSkillFolder` when it was last trusted: trust holds only while the folder still hashes to it. */
   hash?: string
   installedAt: number
   /** When the person last reviewed and trusted it; changes from elsewhere after this drop trust. */
@@ -340,6 +383,9 @@ export interface SkillState {
   lastUsed?: number
 }
 export type SkillsState = Record<string, SkillState>
+
+/** `.ohhi/skills.json`'s text for a state (the one rendering every writer uses). */
+export const renderSkillsState = (state: SkillsState): string => `${JSON.stringify(state, null, 2)}\n`
 
 /** `.ohhi/skills.json`'s text → the state; malformed rows are dropped, a malformed file is `{}`. */
 export function parseSkillsState(text: string | null): SkillsState | null {
@@ -372,12 +418,26 @@ export function parseSkillsState(text: string | null): SkillsState | null {
 
 /**
  * The skills a model or another harness may see: valid, and trusted and
- * enabled in `state`. With no state file at all (a vault the app never
- * opened — the CLI's case) every valid skill is in: the person put it there.
+ * enabled in `state` — and the folder must still hash to what was trusted
+ * (`meta.hash === state[name].hash`; a row with no hash, or a meta loaded
+ * without one, is untrusted). With no state file at all (a vault the app
+ * never opened — the CLI's case) every valid skill is in: the person put it
+ * there.
  */
-export function usableSkills<M extends Pick<SkillMeta, 'name' | 'problems'>>(metas: readonly M[], state: SkillsState | null): M[] {
-  return metas.filter((m) => isValidSkill(m) && (state === null || (state[m.name]?.trusted === true && state[m.name]?.enabled === true)))
+export function usableSkills<M extends Pick<SkillMeta, 'name' | 'problems' | 'hash'>>(metas: readonly M[], state: SkillsState | null): M[] {
+  return metas.filter((m) => {
+    if (!isValidSkill(m)) return false
+    if (state === null) return true
+    const row = state[m.name]
+    return row?.trusted === true && row.enabled === true && row.hash !== undefined && row.hash === m.hash
+  })
 }
+
+/** `usableSkills` as one meta's predicate — the `allow` a `createSkillSource` takes. */
+export const usableBy =
+  (state: SkillsState | null) =>
+  (meta: Pick<SkillMeta, 'name' | 'problems' | 'hash'>): boolean =>
+    usableSkills([meta], state).length > 0
 
 /** What the farm's manifest records per entry: who made it and how. */
 export interface FarmEntry {
@@ -391,6 +451,25 @@ export interface FarmManifest {
   skills: Record<string, FarmEntry>
 }
 
+/**
+ * A file a farm entry may own: vault-relative, strictly inside
+ * `.claude/skills/<name>/`, no `.`/`..`/empty segment, no backslash.
+ */
+export function isFarmFileOf(name: string, file: string): boolean {
+  const prefix = `${FARM_DIR}/${name}/`
+  if (!file.startsWith(prefix) || file.includes('\\')) return false
+  return file
+    .slice(prefix.length)
+    .split('/')
+    .every((seg) => seg !== '' && seg !== '.' && seg !== '..')
+}
+
+/**
+ * The manifest's text → the manifest. It is a file in the vault, so anyone
+ * can edit it: an entry whose name is not a valid skill name, or whose files
+ * reach outside its own `.claude/skills/<name>/`, is dropped whole — the farm
+ * then treats that folder as someone else's and never deletes from it.
+ */
 export function parseFarmManifest(text: string | null): FarmManifest {
   const empty: FarmManifest = { version: 1, skills: {} }
   if (text === null) return empty
@@ -399,8 +478,12 @@ export function parseFarmManifest(text: string | null): FarmManifest {
     if (raw?.version !== 1 || !raw.skills || typeof raw.skills !== 'object') return empty
     const skills: Record<string, FarmEntry> = {}
     for (const [name, e] of Object.entries(raw.skills)) {
+      if (!isValidSkillName(name)) continue
       if (!e || (e.by !== 'cli' && e.by !== 'app') || (e.kind !== 'symlink' && e.kind !== 'copy')) continue
-      skills[name] = { by: e.by, kind: e.kind, ...(Array.isArray(e.files) ? { files: e.files.filter((f) => typeof f === 'string') } : {}) }
+      if (e.files !== undefined && !Array.isArray(e.files)) continue
+      const files = e.files ?? []
+      if (!files.every((f) => typeof f === 'string' && isFarmFileOf(name, f))) continue
+      skills[name] = { by: e.by, kind: e.kind, ...(e.files ? { files: [...files] } : {}) }
     }
     return { version: 1, skills }
   } catch {
@@ -432,4 +515,81 @@ export function planFarm(input: {
   }
   const remove = [...ours].filter((name) => !wanted.has(name)).sort()
   return { write, remove, blocked }
+}
+
+// ---- the farm's file side (one home for the CLI and the app) ----------------
+
+/**
+ * What the farm writes through: a vault adapter's read and write side. The
+ * CLI hands in a Node one, the app its vault adapter.
+ */
+export interface FarmFs {
+  read(path: string): Promise<Uint8Array | null>
+  writeAtomic(path: string, bytes: Uint8Array): Promise<void>
+  /** Remove one file (or a link). A path that is already gone is not an error. */
+  remove(path: string): Promise<void>
+  /** Remove an EMPTY folder; refuses (throws) a non-empty one. */
+  removeDir(path: string): Promise<void>
+  /** Golden rule 1, when the host has a journal: the bytes a write or removal replaces, first. */
+  record?(path: string, bytes: Uint8Array | null): Promise<void>
+  /** Is `path` a symbolic link? (A host without links leaves it out.) */
+  isLink?(path: string): Promise<boolean>
+}
+
+const sameBytes = (a: Uint8Array | null, b: Uint8Array): boolean =>
+  a !== null && a.length === b.length && a.every((v, i) => v === b[i])
+
+/** Write one farm file: unchanged bytes are left alone; otherwise the pre-image is recorded first. */
+export async function writeFarmFile(fs: FarmFs, path: string, bytes: Uint8Array): Promise<void> {
+  const before = await fs.read(path)
+  if (sameBytes(before, bytes)) return
+  await fs.record?.(path, before)
+  await fs.writeAtomic(path, bytes)
+}
+
+/** The manifest as it is now, with its text (`null`: no manifest yet) for `writeFarmManifest`. */
+export async function readFarmManifest(fs: Pick<FarmFs, 'read'>): Promise<{ manifest: FarmManifest; text: string | null }> {
+  const bytes = await fs.read(FARM_MANIFEST)
+  const text = bytes ? new TextDecoder().decode(bytes) : null
+  return { manifest: parseFarmManifest(text), text }
+}
+
+/** Write the manifest when it changed from `before` (its text as read), journaled. */
+export async function writeFarmManifest(fs: FarmFs, next: FarmManifest, before: string | null): Promise<void> {
+  const text = renderFarmManifest(next)
+  if (text !== before) await writeFarmFile(fs, FARM_MANIFEST, new TextEncoder().encode(text))
+}
+
+/**
+ * Take away one entry the farm made: a link is removed (never followed); a
+ * copy loses exactly the files the manifest lists — each one's bytes recorded
+ * first — then the folders it leaves empty, deepest first. A folder someone
+ * added a file to stays (`removeDir` refuses it). False when the platform
+ * refused a removal, or the entry is not one the farm could have made.
+ */
+export async function removeFarmEntry(fs: FarmFs, name: string, entry: FarmEntry): Promise<boolean> {
+  if (!isValidSkillName(name)) return false
+  const root = `${FARM_DIR}/${name}`
+  try {
+    if (entry.kind === 'symlink' || (await fs.isLink?.(root))) {
+      await fs.remove(root)
+      return true
+    }
+    const files = entry.files ?? []
+    if (!files.every((f) => isFarmFileOf(name, f))) return false
+    for (const file of files) {
+      const bytes = await fs.read(file)
+      if (bytes === null) continue
+      await fs.record?.(file, bytes)
+      await fs.remove(file)
+    }
+    const dirs = new Set<string>()
+    for (const file of files) {
+      for (let d = file.slice(0, file.lastIndexOf('/')); d === root || d.startsWith(`${root}/`); d = d.slice(0, d.lastIndexOf('/'))) dirs.add(d)
+    }
+    for (const d of [...dirs].sort((a, b) => b.length - a.length)) await fs.removeDir(d).catch(() => undefined)
+    return true
+  } catch {
+    return false
+  }
 }

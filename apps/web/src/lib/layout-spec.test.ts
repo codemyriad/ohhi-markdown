@@ -99,7 +99,9 @@ describe('the built-in and the example', () => {
     // …and the inspector's door right of the bell (drawn only with devtools on),
     // then Help at the far end (first-run E1).
     expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector', 'help'])
-    // …the words and characters ride the corner.
+    // …the words and characters ride the corner. (`last-agent-write` is a
+    // catalogue readout a layout opts into: the corner's " · " join is drawn
+    // between ids, so a readout that draws nothing would leave a stray dot.)
     expect(d.bars.status).toEqual(['words', 'chars'])
     expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(18)
     // E6: the tab strip's end carries the two split commands.
@@ -120,7 +122,7 @@ describe('the built-in and the example', () => {
     expect(READOUT_IDS).toContain('inspector')
     expect(READOUT_IDS).toContain('help')
     expect(READOUT_IDS).toContain('last-agent-write')
-    expect(READOUT_IDS).toHaveLength(17)
+    expect(READOUT_IDS).toHaveLength(18)
     expect(REGION_IDS).toContain('format')
     expect(REGION_IDS).toContain('status')
   })

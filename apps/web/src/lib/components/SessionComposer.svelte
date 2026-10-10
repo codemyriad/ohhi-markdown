@@ -37,18 +37,18 @@
 
 <script lang="ts">
   /**
-   * The composer (writing-harness-shaping B4): a second CM6 instance from
+   * The composer: a second CM6 instance from
    * `libs/editor`'s `createComposer` — plain text, Enter sends, Shift+Enter
    * is a newline — with references as atomic chips.
    *
    * `@` opens the mention menu (`composer-mentions.ts`: the selection you came
    * from, that note's headings, notes by the quick-open ranking, folders); `/`
-   * at a line start opens the skills. The menu is a `listbox` this component
-   * renders, driven from the composer's keys (arrows, Enter/Tab picks, Escape
-   * closes) and wired to the content with `aria-controls` /
-   * `aria-activedescendant`. It is deliberately NOT CodeMirror's autocomplete
-   * tooltip: that would be an overlay outside `lib/ui` (the a11y gate's
-   * concern) and `@codemirror/autocomplete` is not a dependency of the shell.
+   * at a line start opens the skills. The menu is the `ui/Listbox` primitive,
+   * driven from the composer's keys (arrows, Enter/Tab picks, Escape closes)
+   * and wired to the content with `aria-controls` / `aria-activedescendant`.
+   * It is deliberately NOT CodeMirror's autocomplete tooltip: that would be an
+   * overlay outside `lib/ui` and `@codemirror/autocomplete` is not a
+   * dependency of the shell.
    *
    * A picked reference becomes a `Mention` held here by chip id; a `lines`
    * pick captures the selection NOW (snapshot + hash). The draft (text,
@@ -63,6 +63,7 @@
   import { segments } from '../highlight.js'
   import { mentionOf } from '../references.js'
   import IconButton from '../ui/IconButton.svelte'
+  import Listbox, { optionId } from '../ui/Listbox.svelte'
   import { renderMentionChip } from './MentionChip.js'
 
   interface Props {
@@ -199,7 +200,7 @@
   // open — never a dangling IDREF.
   $effect(() => {
     const attrs: Record<string, string> = menuOpen
-      ? { 'aria-controls': listId, ...(options.length ? { 'aria-activedescendant': `${uid}-opt-${activeIndex}` } : {}) }
+      ? { 'aria-controls': listId, ...(options.length ? { 'aria-activedescendant': optionId(listId, activeIndex) } : {}) }
       : {}
     composer?.setContentAttributes(attrs)
   })
@@ -266,43 +267,29 @@
 
 <div data-testid="session-composer" class="flex flex-col gap-1 border-t border-base-200 px-3 pt-2 pb-2">
   {#if menuOpen}
-    <ul
+    <Listbox
       id={listId}
-      role="listbox"
-      aria-label={t.menu()}
-      data-testid="mention-menu"
-      class="m-0 max-h-56 list-none overflow-y-auto rounded-lg border border-base-300 bg-base-100 p-1 shadow-lg"
+      {options}
+      active={activeIndex}
+      label={t.menu()}
+      testid="mention-menu"
+      key={(o) => o.id}
+      empty={t.no_matches()}
+      optionAttrs={(o) => ({ 'data-testid': 'mention-option', 'data-kind': o.kind })}
+      onPick={(o) => void pick(o)}
     >
-      {#each options as option, i (option.id)}
-        <!-- svelte-ignore a11y_click_events_have_key_events -- the keyboard
-             drives this listbox from the composer (arrows, Enter/Tab, Escape)
-             through aria-activedescendant; the click is the pointer's path -->
-        <li
-          id="{uid}-opt-{i}"
-          role="option"
-          aria-selected={i === activeIndex}
-          data-testid="mention-option"
-          data-kind={option.kind}
-          class="flex cursor-pointer items-baseline gap-2 rounded px-2 py-1 text-xs {i === activeIndex
-            ? 'bg-base-200 text-base-content'
-            : 'text-base-content/80'}"
-          onmousedown={(e) => e.preventDefault()}
-          onclick={() => void pick(option)}
-        >
-          <span class="shrink-0 text-[10px] tracking-wide text-base-content/70 uppercase">{t.kind[option.kind]()}</span>
-          <span class="min-w-0 truncate">
-            {#each segments(option.title, option.spans) as seg, k (k)}
-              {#if seg.hit}<mark class="bg-transparent font-semibold text-base-content">{seg.text}</mark>{:else}{seg.text}{/if}
-            {/each}
-          </span>
-          {#if option.subtitle}
-            <span class="ml-auto min-w-0 shrink truncate text-[11px] text-base-content/70">{option.subtitle}</span>
-          {/if}
-        </li>
-      {:else}
-        <li role="option" aria-selected="false" aria-disabled="true" class="px-2 py-1 text-xs text-base-content/70">{t.no_matches()}</li>
-      {/each}
-    </ul>
+      {#snippet option(o)}
+        <span class="shrink-0 text-[10px] tracking-wide text-base-content/70 uppercase">{t.kind[o.kind]()}</span>
+        <span class="min-w-0 truncate">
+          {#each segments(o.title, o.spans) as seg, k (k)}
+            {#if seg.hit}<mark class="bg-transparent font-semibold text-base-content">{seg.text}</mark>{:else}{seg.text}{/if}
+          {/each}
+        </span>
+        {#if o.subtitle}
+          <span class="ml-auto min-w-0 shrink truncate text-[11px] text-base-content/70">{o.subtitle}</span>
+        {/if}
+      {/snippet}
+    </Listbox>
   {/if}
   <div class="flex items-end gap-1 rounded-lg border border-base-300 bg-base-100 focus-within:border-primary">
     <div bind:this={host} class="min-w-0 flex-1"></div>

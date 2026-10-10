@@ -6,9 +6,8 @@
  */
 import { commentRanges, commentsExtension, createMarkdownEditor, type MarkdownEditorHandle } from '@ohhi/editor'
 import { getLL } from '@ohhi/i18n'
-import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
-import { THREAD_WRITE_DEBOUNCE_MS, type ThreadFiles } from '@ohhi/workspace'
+import type { EngineDoc } from '@ohhi/sync'
+import { THREAD_WRITE_DEBOUNCE_MS } from '@ohhi/workspace'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   bindThreads,
@@ -17,36 +16,17 @@ import {
   commentOnSelection,
   createThreadRegistry,
   openThread,
-  RECORDS_AGREE,
   resetCommentEditors,
-  threadLinesRef,
   writeReviewCopy,
+  type ThreadRegistry,
 } from './threads.svelte.js'
+import { bindEditor } from './focused-editor.svelte.js'
+import { docWith, threadsFixture } from './harness.fixture.js'
 
 const TEXT = '# Plan\n\nThe plan is to ship in March.\nThen rest.\n'
 const PLAN = TEXT.indexOf('plan')
 
-function memFiles(): ThreadFiles & { store: Map<string, string> } {
-  const store = new Map<string, string>()
-  return { store, read: async (p) => store.get(p) ?? null, write: async (p, t) => void store.set(p, t) }
-}
-
-function docWith(text: string): EngineDoc {
-  const doc = createYjsEngine().createDoc('g1')
-  doc.transact((t) => t.insert(0, text), 'local')
-  return doc
-}
-
-function registryOver(doc: { current: EngineDoc | null }, files = memFiles(), clock = new SimClock()) {
-  const registry = createThreadRegistry({
-    clock,
-    docForPath: (p) => (p === 'notes/plan.md' ? doc.current : null),
-    guidFor: (p) => (p === 'notes/plan.md' ? 'g1' : null),
-    pathFor: () => 'notes/plan.md',
-    files,
-  })
-  return { registry, files, clock }
-}
+const fixture = () => threadsFixture({ text: TEXT, path: 'notes/plan.md' })
 
 afterEach(() => resetCommentEditors())
 
@@ -56,13 +36,8 @@ Range.prototype.getClientRects ??= emptyRects
 Range.prototype.getBoundingClientRect ??= () => new DOMRect()
 
 describe('the thread registry', () => {
-  it('agrees with the harness seam (compile time)', () => {
-    expect(RECORDS_AGREE).toBe(true)
-  })
-
   it('hands out one store per note, none for a path without a doc', () => {
-    const doc = { current: docWith(TEXT) as EngineDoc | null }
-    const { registry } = registryOver(doc)
+    const { registry } = fixture()
     const store = registry.storeFor('notes/plan.md')
     expect(store).not.toBeNull()
     expect(registry.storeFor('notes/plan.md')).toBe(store)
@@ -70,8 +45,7 @@ describe('the thread registry', () => {
   })
 
   it('starts over from the JSON when the doc is rebuilt, re-anchoring by quote', async () => {
-    const doc = { current: docWith(TEXT) as EngineDoc | null }
-    const { registry, clock } = registryOver(doc)
+    const { registry, clock, doc } = fixture()
     const store = registry.storeFor('notes/plan.md')!
     const t = store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'vague' })
     clock.advance(THREAD_WRITE_DEBOUNCE_MS)
@@ -88,8 +62,8 @@ describe('the thread registry', () => {
 
 describe('writeReviewCopy', () => {
   it('writes the open threads as CriticMarkup into a copy beside the note, never the note', async () => {
-    const doc = docWith(TEXT)
-    const { registry } = registryOver({ current: doc })
+    const { registry, doc: held } = fixture()
+    const doc = held.current!
     const store = registry.storeFor('notes/plan.md')!
     store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'vague', at: Date.parse('2026-10-10T09:00:00.000Z') })
     const gone = store.add({ from: 0, to: 6, author: 'Ben', body: 'old' })
@@ -108,23 +82,11 @@ describe('writeReviewCopy', () => {
   })
 
   it('writes nothing when no thread is open', async () => {
-    const { registry } = registryOver({ current: docWith(TEXT) })
+    const { registry } = fixture()
     const createFile = vi.fn()
     const out = await writeReviewCopy(registry.storeFor('notes/plan.md')!, 'notes/plan.md', { exists: () => false, createFile })
     expect(out).toEqual({ path: null, written: 0, skipped: 0 })
     expect(createFile).not.toHaveBeenCalled()
-  })
-})
-
-describe('threadLinesRef', () => {
-  it("is the thread's passage as a 1-based lines reference, null once it is gone", () => {
-    const doc = docWith(TEXT)
-    const { registry } = registryOver({ current: doc })
-    const store = registry.storeFor('notes/plan.md')!
-    const t = store.add({ from: PLAN, to: TEXT.indexOf('rest'), author: 'Ana', body: 'x' })
-    expect(threadLinesRef(store, t)).toEqual({ kind: 'lines', path: 'notes/plan.md', lines: { from: 3, to: 4 } })
-    doc.transact((x) => x.delete(PLAN - 4, TEXT.length - PLAN + 4), 'local')
-    expect(threadLinesRef(store, t)).toBeNull()
   })
 })
 
@@ -134,6 +96,16 @@ describe('note.comment over an editor', () => {
     handle?.destroy()
     handle = null
   })
+
+  /** What the pane does: bind its editor once, then feed its marks. */
+  function bound(paneId: string, view: MarkdownEditorHandle['view'], focused: boolean, registry: ThreadRegistry): () => void {
+    const unbind = bindEditor({ paneId, path: 'notes/plan.md', view, focused })
+    const off = bindThreads({ path: 'notes/plan.md', view, storeFor: (p) => registry.storeFor(p) })
+    return () => {
+      off?.()
+      unbind()
+    }
+  }
 
   function mountEditor(doc: EngineDoc): MarkdownEditorHandle {
     const parent = document.createElement('div')
@@ -148,11 +120,11 @@ describe('note.comment over an editor', () => {
   }
 
   it('opens a new-comment bubble on the selection, not AI-gated', () => {
-    const doc = docWith(TEXT)
-    const { registry } = registryOver({ current: doc })
+    const { registry, doc: held } = fixture()
+    const doc = held.current!
     const ed = mountEditor(doc)
     expect(canComment()).toBe(false)
-    const off = bindThreads({ paneId: 'p1', path: 'notes/plan.md', view: ed.view, focused: true, storeFor: (p) => registry.storeFor(p) })
+    const off = bound('p1', ed.view, true, registry)
     expect(canComment()).toBe(true)
 
     ed.view.dispatch({ selection: { anchor: PLAN, head: PLAN + 4 } })
@@ -162,17 +134,19 @@ describe('note.comment over an editor', () => {
     expect(canComment()).toBe(false)
   })
 
-  it('draws the note threads as marks, opens a thread under a bare caret, and asks for a selection otherwise', () => {
-    const doc = docWith(TEXT)
-    const { registry } = registryOver({ current: doc })
+  it('draws the note threads as marks, opens a thread under a bare caret, and asks for a selection otherwise', async () => {
+    const { registry, doc: held } = fixture()
+    const doc = held.current!
     const store = registry.storeFor('notes/plan.md')!
     const t = store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'x' })
     const ed = mountEditor(doc)
-    bindThreads({ paneId: 'p1', path: 'notes/plan.md', view: ed.view, focused: true, storeFor: (p) => registry.storeFor(p) })
+    bound('p1', ed.view, true, registry)
     expect(commentRanges(ed.view.state)).toEqual([{ id: t.id, from: PLAN, to: PLAN + 4, resolved: false }])
 
     // A new thread arrives (a peer's, or this one) → the marks follow.
+    // The push waits a microtask: a store change can land inside another view update.
     const u = store.add({ from: 0, to: 6, author: 'Ben', body: 'y' })
+    await Promise.resolve()
     expect(commentRanges(ed.view.state).map((r) => r.id)).toEqual([u.id, t.id])
 
     ed.view.dispatch({ selection: { anchor: PLAN + 2 } })
@@ -185,13 +159,30 @@ describe('note.comment over an editor', () => {
     expect(flash).toHaveBeenCalledWith({ level: 'info', text: getLL().web.ai.comments.select_first() })
   })
 
+  it('pushes a store change after the current update, never inside it', async () => {
+    const { registry, doc: held } = fixture()
+    const doc = held.current!
+    const store = registry.storeFor('notes/plan.md')!
+    const view = { dispatch: vi.fn() } as unknown as MarkdownEditorHandle['view']
+    const off = bindThreads({ path: 'notes/plan.md', view, storeFor: (p) => registry.storeFor(p) })
+    expect(view.dispatch).toHaveBeenCalledTimes(1) // the first paint, at bind
+    store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'x' })
+    expect(view.dispatch).toHaveBeenCalledTimes(1)
+    await Promise.resolve()
+    expect(view.dispatch).toHaveBeenCalledTimes(2)
+    off?.()
+    store.add({ from: 0, to: 6, author: 'Ben', body: 'y' })
+    await Promise.resolve()
+    expect(view.dispatch).toHaveBeenCalledTimes(2)
+  })
+
   it('opens a thread from the list in the editor showing its note', () => {
-    const doc = docWith(TEXT)
-    const { registry } = registryOver({ current: doc })
+    const { registry, doc: held } = fixture()
+    const doc = held.current!
     const t = registry.storeFor('notes/plan.md')!.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'x' })
     const ed = mountEditor(doc)
     expect(openThread('notes/plan.md', t.id)).toBe(false)
-    bindThreads({ paneId: 'p2', path: 'notes/plan.md', view: ed.view, focused: false, storeFor: (p) => registry.storeFor(p) })
+    bound('p2', ed.view, false, registry)
     expect(openThread('notes/plan.md', t.id)).toBe(true)
     expect(commentBubble.current).toMatchObject({ kind: 'thread', paneId: 'p2', threadId: t.id })
     expect(ed.view.state.selection.main.head).toBe(PLAN)

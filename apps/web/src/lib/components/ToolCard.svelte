@@ -18,13 +18,13 @@
 
 <script lang="ts">
   /**
-   * One tool call in the transcript (writing-harness-shaping B4), keyed on
+   * One tool call in the transcript, keyed on
    * `part.state`: working while the input streams, then a one-line account
    * of what the agent did — never the raw payload up front.
    *
    *  - `ohhi_search` → "Searched for “q”", its hits as references with *Open*
    *  - `ohhi_read` → "Read §Decisions of plan.md (1.2 kB)"
-   *  - a proposal (`ohhi.proposal.v1`, F) → "Proposed an edit in plan.md",
+   *  - a proposal (`ohhi.proposal.v1`) → "Proposed an edit in plan.md",
    *    linking to the note — the suggestion is reviewed THERE, never applied
    *    from the chat
    *  - anything else → "Used ohhi_links"
@@ -33,6 +33,7 @@
    * is the shell's verb (`ViewShell.openPath`); with no shell it is text.
    */
   import { FileText } from '@lucide/svelte'
+  import { isProposalResult } from '@ohhi/harness'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { formatBytes } from '../storage-persistence.js'
   import { getViewShell } from '../views.js'
@@ -56,17 +57,14 @@
       ? (output.hits as { path: string; line: number | null }[])
       : []
   )
-  const proposal = $derived(
-    output?.schema === 'ohhi.proposal.v1' ? (output as { path: string; proposed: boolean; applied?: boolean }) : null
-  )
-  const w = $derived($LL.web.ai.wiring)
+  const proposal = $derived(isProposalResult(part.output) ? part.output : null)
 
   const summary = $derived.by((): string => {
     if (failed) return t.failed({ name, message: part.errorText ?? '' })
     if (!done) return t.running()
     if (proposal) {
-      if (!proposal.proposed) return w.proposal_none({ path: proposal.path })
-      return proposal.applied ? w.proposal_applied({ path: proposal.path }) : t.proposed({ path: proposal.path })
+      if (!proposal.proposed) return t.proposal_none({ path: proposal.path })
+      return proposal.applied ? t.proposal_applied({ path: proposal.path }) : t.proposed({ path: proposal.path })
     }
     if (name === 'ohhi_search') return t.search({ query: String(input.query ?? '') })
     if (name === 'ohhi_read' && output) {

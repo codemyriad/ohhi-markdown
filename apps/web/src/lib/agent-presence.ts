@@ -1,5 +1,6 @@
 /**
- * The agent as a peer, in the shell (writing-harness-shaping B10).
+ * The agent as a peer, in the shell (writing-harness-shaping B10). Also the
+ * one reader of agents' `working` ranges off an awareness (`workingRangesOf`).
  *
  * Two adapters between the harness and `@ohhi/workspace`'s
  * `agent-presence.ts`:
@@ -18,12 +19,12 @@
  */
 import type { UIMessageChunk } from 'ai'
 import type { WorkingHost } from '@ohhi/editor'
-import type { AgentPresenceSink, AgentPresenceState } from '@ohhi/workspace'
+import { isProposalResult } from '@ohhi/harness'
+import { decodeRange, isAgentAwareness, ydocOf, type AgentPresenceSink, type AgentPresenceState } from '@ohhi/workspace'
 import type { Clock } from '@ohhi/vault'
 import type { EngineDoc } from '@ohhi/sync'
 import type { Awareness } from 'y-protocols/awareness'
 import type * as Y from 'yjs'
-import { workingRangesOf } from './presence.js'
 
 /** How long an agent that finished stays on the page (`idle`) before it leaves. */
 export const AGENT_LINGER_MS = 15_000
@@ -31,12 +32,42 @@ export const AGENT_LINGER_MS = 15_000
 /** The newest run's pending "leave", cancelled when another run starts. */
 let cancelLinger: (() => void) | null = null
 
-/** A proposal's tool output (`@ohhi/harness`'s `ProposalResult`), loosely. */
+/** Where a proposing tool's output says the agent proposed, or null for any other output. */
 function proposalOf(output: unknown): { path: string; from: number; to: number } | null {
-  const o = output as { schema?: unknown; path?: unknown; proposed?: unknown; from?: unknown; to?: unknown } | null
-  if (!o || o.schema !== 'ohhi.proposal.v1' || o.proposed !== true || typeof o.path !== 'string') return null
-  if (typeof o.from !== 'number' || typeof o.to !== 'number') return null
-  return { path: o.path, from: o.from, to: o.to }
+  if (!isProposalResult(output) || !output.proposed) return null
+  if (typeof output.from !== 'number' || typeof output.to !== 'number') return null
+  return { path: output.path, from: output.from, to: output.to }
+}
+
+/** One range an agent's awareness says it is working on, resolved in this doc (`@ohhi/editor`'s `WorkingRange`). */
+export interface AgentWorking {
+  from: number
+  to: number
+  name: string
+}
+
+/**
+ * Every agent's `working` ranges in a doc's awareness (`@ohhi/workspace`'s
+ * `agent-presence.ts` publishes them), resolved to offsets NOW — the working
+ * highlight's input. Our own device's agent counts too: it is a second
+ * awareness client, so the person who started the run sees where it is
+ * working as well. A range that does not resolve (content this replica has
+ * not received yet, a malformed peer state) is skipped.
+ */
+export function workingRangesOf(
+  states: ReadonlyMap<number, Record<string, unknown>> | null | undefined,
+  doc: Y.Doc | EngineDoc | null | undefined
+): AgentWorking[] {
+  if (!states || !doc) return []
+  const out: AgentWorking[] = []
+  for (const state of states.values()) {
+    if (!isAgentAwareness(state) || !Array.isArray(state.working)) continue
+    for (const w of state.working) {
+      const at = decodeRange(doc, [w?.anchor, w?.head])
+      if (at) out.push({ ...at, name: state.user.name })
+    }
+  }
+  return out
 }
 
 /**
@@ -105,7 +136,7 @@ export function presenceStream(
 export function workingHost(awareness: () => Awareness | null, doc: () => Y.Doc | EngineDoc | null): WorkingHost {
   const ydoc = (): Y.Doc | null => {
     const d = doc()
-    return d && 'raw' in d && typeof d.raw === 'function' ? (d.raw() as Y.Doc) : (d as Y.Doc | null)
+    return d ? ydocOf(d) : null
   }
   return {
     current: () => workingRangesOf(awareness()?.getStates() as Map<number, Record<string, unknown>> | undefined, ydoc()),

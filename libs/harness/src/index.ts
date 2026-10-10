@@ -11,22 +11,23 @@
  * (Settings › AI › Providers).
  */
 export type * from './types.js'
+export { AiConfigSchema, DEFAULT_BASE_URLS, kindNeedsKey, normalizeAiConfig, PROVIDER_KINDS, ProviderConfigSchema } from './config.js'
 export {
   callSettings,
   createModel,
-  DEFAULT_BASE_URLS,
-  PROVIDER_KINDS,
   ProviderConfigError,
   providerHost,
   resolveBaseUrl,
   testConnection,
 } from './model.js'
-export { toolName, toolsFromContract, type ProposalResult } from './tools.js'
+export { isProposalResult, toolName, toolsFromContract, type ProposalResult } from './tools.js'
 export { renderRefs, systemPrompt } from './prompt.js'
 /** The catalog's one home is the skills loader (`@ohhi/agent/skills`); re-exported for the hosts. */
 export { skillsCatalog } from '@ohhi/agent/skills'
 /** The contract's error, for a host's backend that refuses a write the way the files backend does. */
 export { OpError } from '@ohhi/agent/core'
+/** Line maths' one home (`libs/agent/src/text.ts`): a 1-based inclusive line slice, as `read --lines` answers. */
+export { sliceLines } from '@ohhi/agent/core'
 export { createHarnessAgent, errorText, MAX_STEPS, type HarnessAgent } from './agent.js'
 export { editSpan, type EditSpan } from './edit-span.js'
 export { HarnessTimeoutError, withTimeout } from './timeout.js'

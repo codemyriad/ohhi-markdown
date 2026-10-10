@@ -45,14 +45,15 @@
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
-  // Comment threads (writing-harness B8) — not AI-gated; only *Send to agent* is.
+  // Comment threads — not AI-gated; only *Send to agent* is.
   import { commentsExtension } from '@ohhi/editor'
-  import { aiEnabled } from '../config.js'
+  import { bindEditor, focusEditor } from '../focused-editor.svelte.js'
+  import { aiEnabled } from '../ai-config.svelte.js'
   import { bindThreads, commentBubble, commentsHostFor, showActiveThread } from '../threads.svelte.js'
   import CommentBubble from './CommentBubble.svelte'
-  // The agent's suggestions in the note (writing-harness B7).
+  // The agent's suggestions in the note.
   import { noteSuggestions } from '../suggestions.svelte.js'
-  // The agent's working range, from the note's awareness (writing-harness B10).
+  // The agent's working range, from the note's awareness.
   import { workingHighlight } from '@ohhi/editor'
   import { workingHost } from '../agent-presence.js'
 
@@ -290,11 +291,19 @@
     return () => panes.registerEditor(id, null)
   })
 
-  // Comment threads (writing-harness B8): this view's marks follow its
-  // note's threads, and the open bubble's thread is drawn active.
-  $effect(() =>
-    bindThreads({ paneId: pane.id, path, view: handle?.view ?? null, focused, storeFor: (p) => workspace.threadsFor(p) })
-  )
+  // This pane's editor is what note-acting commands reach (`focused-editor`):
+  // bound while it shows a note, and the focused one while its pane is.
+  $effect(() => {
+    const view = handle?.view
+    if (!view || !path) return
+    return bindEditor({ paneId: pane.id, path, view, focused: untrack(() => focused) })
+  })
+  $effect(() => {
+    if (focused && handle) focusEditor(pane.id)
+  })
+  // Comment threads: this view's marks follow its note's threads, and the
+  // open bubble's thread is drawn active.
+  $effect(() => bindThreads({ path, view: handle?.view ?? null, storeFor: (p) => workspace.threadsFor(p) }))
   $effect(() => showActiveThread(pane.id, handle?.view ?? null))
 
   /**

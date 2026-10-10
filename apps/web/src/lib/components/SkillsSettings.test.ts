@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Settings › AI › Skills (writing-harness B9): the list with its trust gate,
+ * Settings › AI › Skills: the list with its trust gate,
  * review-before-trust, *New skill…*, the GitHub import, *Open*, and the farm
  * setting's two platforms.
  */
@@ -12,7 +12,8 @@ import { SimClock } from '@ohhi/testkit'
 import { MemVaultAdapter } from '@ohhi/vault'
 import { SKILLS_STATE_PATH } from '@ohhi/harness/skills'
 import { fakeViewShell } from '../readouts.fixture.js'
-import { createSkills, pickSkill, type SkillsHost } from '../skills.svelte.js'
+import { createSkills, type SkillsHost } from '../skills.svelte.js'
+import { pickSkill } from '../skill-routing.js'
 import { viewShellContext } from '../views.js'
 import SkillsSettings from './SkillsSettings.svelte'
 
@@ -35,6 +36,10 @@ function store(files: Record<string, string>, opts: { farm?: boolean } = {}) {
     createFile: async (dir, name, text) => {
       vault.set(`${dir}/${name}`, text)
       return `${dir}/${name}`
+    },
+    writeBytes: async (path, bytes) => {
+      if (vault.has(path)) throw new Error('exists')
+      vault.set(path, new TextDecoder().decode(bytes))
     },
     clock,
     ...(opts.farm ? { farm: { fs: new MemVaultAdapter(), enabled: () => true, setEnabled: () => {} } } : {}),

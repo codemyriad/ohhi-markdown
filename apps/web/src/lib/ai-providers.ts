@@ -1,6 +1,6 @@
 /**
- * Settings › AI › Providers, as pure functions over `config.ts`
- * (writing-harness-shaping B1): the list as every view sees it (the key
+ * Settings › AI › Providers, as pure functions over the stored AI config
+ * (`ai-config.svelte.ts`): the list as every view sees it (the key
  * replaced by whether one is set), the add/edit form's schema and draft,
  * saving with the write-only key rule, delete, the default, and *Test
  * connection* through the harness's provider layer.
@@ -10,11 +10,12 @@
  */
 import { z } from 'zod'
 import { getLL } from '@ohhi/i18n'
-import { DEFAULT_BASE_URLS, PROVIDER_KINDS, providerHost, testConnection } from '@ohhi/harness/model'
+import { DEFAULT_BASE_URLS, PROVIDER_KINDS } from '@ohhi/harness/config'
+import { providerHost, resolveBaseUrl, testConnection } from '@ohhi/harness/model'
 import type { AiConfig, ProviderConfig, ProviderKind, ProviderView } from '@ohhi/harness'
-import { aiConfig, providerView, setAiConfig } from './config.js'
+import { providerView } from './config.js'
+import { aiConfig, setAiConfig } from './ai-config.svelte.js'
 
-export { DEFAULT_BASE_URLS, PROVIDER_KINDS }
 
 /** A row of the list: what may be shown, plus where the text goes. */
 export interface ProviderRow extends ProviderView {
@@ -101,8 +102,24 @@ export function providerId(name: string, taken: readonly string[]): string {
 }
 
 /**
+ * The stored key may stand in for an empty key field only while it would go
+ * where it went before: the same kind at the same resolved base URL. An edit
+ * that points the provider somewhere else needs the key typed again — a
+ * stored key is never sent to a host it was not entered for.
+ */
+export function keepsStoredKey(draft: Pick<ProviderDraft, 'kind' | 'baseUrl'>, existing: Pick<ProviderConfig, 'kind' | 'baseUrl'>): boolean {
+  if (draft.kind !== existing.kind) return false
+  try {
+    return resolveBaseUrl({ kind: draft.kind, baseUrl: draft.baseUrl.trim() }) === resolveBaseUrl(existing)
+  } catch {
+    return false
+  }
+}
+
+/**
  * A draft as a stored provider. `existing` is the provider being edited: an
- * empty key field keeps its key (the key is write-only — the form never had it).
+ * empty key field keeps its key (the key is write-only — the form never had
+ * it) unless the edit moved the provider (`keepsStoredKey`).
  */
 export function providerFrom(draft: ProviderDraft, id: string, existing?: ProviderConfig): ProviderConfig {
   const out: ProviderConfig = {
@@ -112,7 +129,7 @@ export function providerFrom(draft: ProviderDraft, id: string, existing?: Provid
     baseUrl: draft.baseUrl.trim(),
     model: draft.model.trim(),
   }
-  const key = draft.apiKey.trim() || existing?.apiKey
+  const key = draft.apiKey.trim() || (existing && keepsStoredKey(draft, existing) ? existing.apiKey : undefined)
   if (key) out.apiKey = key
   if (draft.timeoutSec.trim()) out.timeoutSec = Number(draft.timeoutSec)
   if (draft.maxTokens.trim()) out.maxTokens = Number(draft.maxTokens)

@@ -16,7 +16,8 @@
  * docs/theming.md) — presence, never a sync colour.
  */
 import { StateEffect, StateField, type EditorState, type Extension, type Range } from '@codemirror/state'
-import { Decoration, EditorView, ViewPlugin, type DecorationSet } from '@codemirror/view'
+import { Decoration, EditorView, type DecorationSet } from '@codemirror/view'
+import { hostPush, type PushSource } from './host-push.js'
 
 /** One range an agent is working on, resolved to offsets in this doc. */
 export interface WorkingRange {
@@ -27,7 +28,7 @@ export interface WorkingRange {
 }
 
 /** Where the ranges come from: read on every push, re-pushed on `subscribe`'s signal. */
-export interface WorkingHost {
+export interface WorkingHost extends PushSource<WorkingRange[]> {
   current(): WorkingRange[]
   /** Called whenever the ranges may have changed (an awareness change); returns an unsubscribe. */
   subscribe(onChange: () => void): () => void
@@ -91,36 +92,11 @@ const workingTheme = EditorView.baseTheme({
   '.ed-agent-working': { backgroundColor: 'var(--ed-agent-working-bg)', borderRadius: '2px' },
 })
 
-/** Subscribes the view to its host and pushes each change a microtask later (never inside an update). */
-function pushPlugin(host: WorkingHost): Extension {
-  return ViewPlugin.define((view) => {
-    let dead = false
-    let queued = false
-    const push = (): void => {
-      if (queued || dead) return
-      queued = true
-      queueMicrotask(() => {
-        queued = false
-        if (dead) return
-        view.dispatch({ effects: setWorking.of(host.current()) })
-      })
-    }
-    const off = host.subscribe(push)
-    push()
-    return {
-      destroy() {
-        dead = true
-        off()
-      },
-    }
-  })
-}
-
 /**
  * The extension: the field, its marks and the theme — plus, with a `host`,
  * a plugin that keeps the ranges current. Install once per view (a stable
  * value in the host's extension array); without a host, feed it `setWorking`.
  */
 export function workingHighlight(host: WorkingHost | null = null): Extension {
-  return [workingField, workingTheme, ...(host ? [pushPlugin(host)] : [])]
+  return [workingField, workingTheme, ...(host ? [hostPush(host, setWorking, { initial: true })] : [])]
 }

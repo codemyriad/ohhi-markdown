@@ -146,6 +146,26 @@ describe('ThreadStore on an enrolled doc', () => {
     ])
   })
 
+  it('a write that fails is tried again on the next debounce, not forgotten', async () => {
+    const { store, files, clock } = enrolled()
+    const write = files.write
+    let fail = true
+    files.write = async (p, text) => {
+      if (fail) throw new Error('disk full')
+      return write(p, text)
+    }
+    store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'one' })
+    clock.advance(THREAD_WRITE_DEBOUNCE_MS)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(files.writes).toBe(0)
+    fail = false
+    clock.advance(THREAD_WRITE_DEBOUNCE_MS)
+    await Promise.resolve()
+    expect(files.writes).toBe(1)
+    expect(parseThreadsFile(files.store.get(`${COMMENTS_DIR}g1.json`) ?? '')?.threads).toHaveLength(1)
+  })
+
   it('never touches the text: the markdown bytes are the same after every thread operation', () => {
     const { doc, store } = enrolled()
     const t = store.add({ from: PLAN, to: PLAN + 4, author: 'Ana', body: 'x' })

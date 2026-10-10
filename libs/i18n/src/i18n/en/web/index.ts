@@ -1491,6 +1491,7 @@ const settings = {
       changes: 'See what changed since a time',
       write: 'Write, patch and append, each write journaled first and made atomically',
       move: 'Move and rename, send to the trash instead of deleting, and restore an earlier version',
+      skills: 'List the vault’s skills in .agents/skills/ and read one',
     },
     mcp_tools: 'Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).',
     connect: 'Connect an agent',
@@ -2350,15 +2351,14 @@ const attachments = {
 }
 
 /**
- * The writing harness (writing-harness-shaping). One sub-object per builder
- * (writing-harness-build §Ground rules): each adds keys only inside its own.
- * `settings` and `commands`/`notice` are wave 0's; `providers` is A's;
- * `session`/`composer`/`refs` B's; `skills` C's; `suggest` D's; `comments`
- * E's; `presence` G's.
+ * The writing harness, one sub-object per surface: `settings` and
+ * `providers` (Settings › AI), `session` / `composer` / `refs` (the Session
+ * view and its turns), `skills` (Settings › AI › Skills and `ai.run-skill`),
+ * `suggest` (the agent's suggestions in a note), `comments` (threads, and a
+ * comment sent to the agent), `presence` (the agent as a peer), `commands`.
  */
 const ai = {
   settings: {
-    title: 'AI',
     egress:
       'Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.',
     sections: 'AI settings',
@@ -2385,7 +2385,6 @@ const ai = {
     default: 'Default',
     default_label: 'Use {name:string} by default',
     key_configured: 'Key configured',
-    key_missing: 'No key',
     egress: 'Text you reference is sent to {name:string} at {host:string}',
     kinds: {
       anthropic: 'Anthropic',
@@ -2449,6 +2448,7 @@ const ai = {
     stop: 'Stop',
     retry: 'Retry',
     nothing_running: 'No AI run is in progress.',
+    provider_gone: 'The provider this session was using is gone. Pick another in the session’s header.',
     failed: 'The run failed: {message:string}',
     run: '{status:string} · {elapsed:string}',
     elapsed_seconds: '{n:number}s',
@@ -2469,6 +2469,8 @@ const ai = {
       read_section: '§{section:string} of {path:string}',
       read_lines: 'lines {from:number}–{to:number} of {path:string}',
       proposed: 'Proposed an edit in {path:string}',
+      proposal_none: 'Nothing to propose in {path:string}: it already says that',
+      proposal_applied: 'Edited {path:string} directly',
       used: 'Used {name:string}',
       failed: '{name:string} failed: {message:string}',
       details: 'Details',
@@ -2498,7 +2500,6 @@ const ai = {
     chip: 'Reference: {label:string}',
     chip_changed: 'Reference: {label:string} (changed since you referenced it)',
     skill_chip: 'Skill: {label:string}',
-    changed: 'Changed since you referenced it',
     no_selection: 'Select some text in a note first.',
   },
   skills: {
@@ -2581,7 +2582,7 @@ const ai = {
       urls_none: 'No links.',
       allowed_tools: 'Pre-approved tools: {tools:string}',
       pinned: 'Pinned to commit {sha:string}',
-      binary_skipped: '{count:number} binary file{{s}} will not be imported.',
+      binary_listed: '{count:number} binary file{{s}}, listed above: imported as {{it is|they are}}, not shown here.',
       scripts: 'It ships scripts. Oh hi never runs them, but read them before you trust it: an agent on your computer might.',
       problems: 'Problems',
       exists: 'A skill named {name:string} is already in this vault.',
@@ -2594,6 +2595,8 @@ const ai = {
       network: 'Could not reach GitHub: {message:string}',
       folder_failed: 'Could not read that folder: {message:string}',
       write_failed: 'Could not write the skill: {message:string}',
+      bad_path: 'The skill has a file outside its own folder ({path:string}), so it is not imported.',
+      changed: '{name:string} changed since you reviewed it. Review it again.',
       imported: '{name:string} is trusted and enabled.',
     },
     run: {
@@ -2605,6 +2608,13 @@ const ai = {
       no_vault: 'Open a vault first.',
       started: 'Running {name:string}…',
       not_started: 'Could not start {name:string}: a run is already going, or no provider is set up.',
+      failed: '{name:string} did not finish: {error:string}',
+      findings: '{name:string} left {count:number} comment{{s}}.',
+      findings_skipped: '{name:string} left {count:number} comment{{s}}; {skipped:number} quote{{s}} could not be found in the note.',
+      no_findings: '{name:string} found nothing to comment on.',
+      created: '{name:string} wrote {path:string}.',
+      answered_no_note: '{name:string} answered without a note to write; see the session.',
+      untitled: 'Untitled',
     },
   },
   suggest: {
@@ -2653,9 +2663,15 @@ const ai = {
     select_first: 'Select the text to comment on first.',
     gone: 'The text this thread was on is gone.',
     unavailable: 'Comments need the note open in an editor.',
+    thread_not_started: 'Could not send the comment to the agent: a run is already going, or no provider is set up.',
+    thread_failed: 'The agent did not answer the comment: {error:string}',
+    thread_suggestion: 'Proposed edit',
+    thread_suggestion_stale: 'The text changed under this edit.',
+    accept: 'Accept',
+    reject: 'Reject',
   },
   presence: {
-    /** The agent's name on a peer's caret and in the presence stack (B10). */
+    /** The agent's name on a peer's caret and in the presence stack. */
     label: '{name:string} (agent)',
   },
   commands: {
@@ -2670,28 +2686,6 @@ const ai = {
     undo_agent: 'Undo the agent’s last edit',
     comment: 'Comment on selection',
     session: 'Open AI session',
-  },
-  notice: {
-    not_built: 'That is not built yet.',
-  },
-  /** Wave 2 (F): proposals in the transcript, send to agent, a skill run's landing. */
-  wiring: {
-    proposal_none: 'Nothing to propose in {path:string}: it already says that',
-    proposal_applied: 'Edited {path:string} directly',
-    agent_author: 'Agent',
-    thread_not_started: 'Could not send the comment to the agent: a run is already going, or no provider is set up.',
-    thread_failed: 'The agent did not answer the comment: {error:string}',
-    thread_suggestion: 'Proposed edit',
-    thread_suggestion_stale: 'The text changed under this edit.',
-    accept: 'Accept',
-    reject: 'Reject',
-    skill_failed: '{name:string} did not finish: {error:string}',
-    skill_findings: '{name:string} left {count:number} comment{{s}}.',
-    skill_findings_skipped: '{name:string} left {count:number} comment{{s}}; {skipped:number} quote{{s}} could not be found in the note.',
-    skill_no_findings: '{name:string} found nothing to comment on.',
-    skill_created: '{name:string} wrote {path:string}.',
-    skill_no_note: '{name:string} answered without a note to write; see the session.',
-    untitled: 'Untitled',
   },
 }
 

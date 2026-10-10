@@ -506,7 +506,7 @@ test('settings is a view tab: grouped sections, the keyboard between them, field
   await expect(page.locator('[aria-modal="true"]')).toHaveCount(0)
   await expect(view.getByRole('tab', { name: 'You', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(view.getByRole('tab')).toHaveText([
-    'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'Developer', 'About',
+    'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'AI', 'Developer', 'About',
   ])
 
   // Arrow keys move between sections (vertical list → down).

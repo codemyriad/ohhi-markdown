@@ -12,3 +12,7 @@ export { isOpName, OPS, runOp } from './ops/index.js'
 export type { OpDef } from './op.js'
 export { readFrontmatter, type FrontmatterRead } from './frontmatter-read.js'
 export { fromIndexPage, paginate, type PageIn, type PageResult } from './paging.js'
+/** The loader's two calls over a backend (what the `skills`/`skill` ops read through). */
+export { skillFsOf } from './ops/skills.js'
+/** Line maths' one home: a 1-based inclusive line slice, as `read --lines` answers it. */
+export { sliceLines } from './text.js'

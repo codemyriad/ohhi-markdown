@@ -1,15 +1,13 @@
 /**
- * The agent's suggestions in the shell (writing-harness B7, Fork 4-B): the
- * `@ohhi/editor` suggestions extension on every open editor, fed with its
- * note's records from the workspace facade (`MountSession` holds them), and
- * the five commands that act on them — `ai.accept-suggestion` /
- * `ai.reject-suggestion` (the one under the caret), `ai.accept-all` /
- * `ai.reject-all` (the note) and `ai.undo-agent` (the agent's last run).
+ * The agent's suggestions in the shell: the `@ohhi/editor` suggestions
+ * extension on every open editor, fed with its note's records from the
+ * workspace facade (`MountSession` holds them), and the five commands that
+ * act on them — `ai.accept-suggestion` / `ai.reject-suggestion` (the one
+ * under the caret), `ai.accept-all` / `ai.reject-all` (the note) and
+ * `ai.undo-agent` (the agent's last run).
  *
- * Which editor a command means: the one that last had the focus (a palette
- * row takes the focus to run, so "currently focused" would be nobody). The
- * extension reports focus and teardown through its host, so there is no
- * second registry of views to keep in step with the pane tree.
+ * Which editor a command means is `focused-editor.svelte.ts`'s answer: the
+ * one whose pane last had the focus.
  *
  * `Mod-Enter` / `Mod-Backspace` are the editor's own keymap (they fall
  * through when the caret is in no suggestion); the commands are the same
@@ -21,18 +19,17 @@ import {
   suggestionsCompartment,
   suggestionsIn,
   type EditorSuggestion,
-  type MarkdownEditorHandle,
   type SuggestionsHost,
 } from '@ohhi/editor'
-import type { SuggestionRecord as HarnessRecord } from '@ohhi/harness'
 import { getLL } from '@ohhi/i18n'
 import type { AppEvent, SuggestionRecord } from '@ohhi/workspace'
 import type { Command } from './commands.js'
-import { aiEnabled } from './config.js'
+import { aiEnabled } from './ai-config.svelte.js'
+import { focusedEditor } from './focused-editor.svelte.js'
 import type { FlashInput } from './notices.js'
+import { harnessWorkspace } from './sessions.svelte.js'
 import type { Workspace } from './workspace.svelte.js'
 
-type EditorView = MarkdownEditorHandle['view']
 /** A CM6 extension (`@codemirror/state` is libs/editor's dependency, not the shell's). */
 type Extension = ReturnType<typeof suggestions>
 
@@ -49,20 +46,6 @@ export interface NoteSuggestionsHost extends SuggestionsHost {
   acceptAll(): { accepted: number; stale: number }
   /** Reject every suggestion in the note (pending or stale); how many. */
   rejectAll(): number
-}
-
-/**
- * The editor that last had the focus, and its host — what the commands act
- * on. Plain module state on purpose: CM6 reports to it, nothing renders it.
- */
-let active: { view: EditorView; host: NoteSuggestionsHost } | null = null
-/** The workspace of the newest host, so `ai.undo-agent` works with no editor focused. */
-let lastWorkspace: (() => SuggestionWorkspace | null) | null = null
-
-/** Forget the focused editor (tests). */
-export function resetSuggestionEditors(): void {
-  active = null
-  lastWorkspace = null
 }
 
 /**
@@ -123,13 +106,6 @@ export function noteSuggestionsHost(
       for (const s of host.current()) if (at.w.rejectSuggestion(at.p, s.id)) n++
       return n
     },
-    focus(view, focused) {
-      lastWorkspace = workspace
-      if (focused || !active) active = { view, host }
-    },
-    detach(view) {
-      if (active?.view === view) active = null
-    },
   }
   return host
 }
@@ -142,18 +118,29 @@ export function noteSuggestions(workspace: () => SuggestionWorkspace | null, pat
   return suggestionsCompartment.of(suggestions(noteSuggestionsHost(workspace, path)))
 }
 
-/** The five `ai.*` suggestion rows (writing-harness-build D §6). */
-export function suggestionCommands(flash?: (input: FlashInput) => void): Command[] {
+/**
+ * The five `ai.*` suggestion rows, over the focused editor's note.
+ * `workspace` is the open vault's facade (the harness's by default).
+ */
+export function suggestionCommands(
+  flash?: (input: FlashInput) => void,
+  workspace: () => SuggestionWorkspace | null = harnessWorkspace
+): Command[] {
   const t = getLL().web.ai.commands
   const s = getLL().web.ai.suggest
   const group = getLL().web.commands.groups.ai()
   const say = (text: string): void => flash?.({ level: 'info', text })
+  /** The focused editor and the acts on its note. */
+  const target = () => {
+    const e = focusedEditor()
+    return e ? { view: e.view, host: noteSuggestionsHost(workspace, () => e.path) } : null
+  }
   const atCaret = (act: 'accept' | 'reject'): void => {
-    const target = active
-    const hit = target ? suggestionAt(target.view.state, target.view.state.selection.main.head) : null
-    if (!target || !hit) return say(s.none_at_caret())
-    if (act === 'accept') target.host.accept(hit.id)
-    else target.host.reject(hit.id)
+    const at = target()
+    const hit = at ? suggestionAt(at.view.state, at.view.state.selection.main.head) : null
+    if (!at || !hit) return say(s.none_at_caret())
+    if (act === 'accept') at.host.accept(hit.id)
+    else at.host.reject(hit.id)
   }
   return [
     { id: 'ai.accept-suggestion', title: t.accept_suggestion(), group, when: aiEnabled, run: () => atCaret('accept') },
@@ -164,8 +151,9 @@ export function suggestionCommands(flash?: (input: FlashInput) => void): Command
       group,
       when: aiEnabled,
       run: () => {
-        if (!active || suggestionsIn(active.view.state).length === 0) return say(s.none_in_note())
-        const { accepted, stale } = active.host.acceptAll()
+        const at = target()
+        if (!at || suggestionsIn(at.view.state).length === 0) return say(s.none_in_note())
+        const { accepted, stale } = at.host.acceptAll()
         if (accepted === 0 && stale === 0) return say(s.none_in_note())
         say(stale ? s.accepted_some({ count: accepted, stale }) : s.accepted_all({ count: accepted }))
       },
@@ -176,7 +164,7 @@ export function suggestionCommands(flash?: (input: FlashInput) => void): Command
       group,
       when: aiEnabled,
       run: () => {
-        const n = active?.host.rejectAll() ?? 0
+        const n = target()?.host.rejectAll() ?? 0
         say(n ? s.rejected_all({ count: n }) : s.none_in_note())
       },
     },
@@ -186,7 +174,7 @@ export function suggestionCommands(flash?: (input: FlashInput) => void): Command
       group,
       when: aiEnabled,
       run: () => {
-        const done = lastWorkspace?.()?.undoAgent() ?? false
+        const done = workspace()?.undoAgent() ?? false
         say(done ? s.undone() : s.nothing_to_undo())
       },
     },
@@ -206,11 +194,3 @@ export function lastAgentWrite(events: readonly AppEvent[]): { name: string; pat
   }
   return null
 }
-
-/**
- * The workspace's records and the harness seam's are one shape: `libs/workspace`
- * cannot import `@ohhi/harness`, so it mirrors the types, and this is where a
- * drift fails to compile.
- */
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
-export const SUGGESTIONS_AGREE: Same<SuggestionRecord, HarnessRecord> = true

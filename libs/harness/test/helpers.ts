@@ -4,12 +4,14 @@
  * drains a UI message stream into what a test asserts on.
  */
 import type { UIMessageChunk } from 'ai'
-import type { AgentHost, AgentOrigin, ProviderConfig, ProviderKind, SkillSource } from '../src/index.js'
+import type { AgentHost, AgentOrigin, ProviderConfig, ProviderKind } from '../src/index.js'
+import { PROVIDER_KINDS } from '../src/config.js'
+import { emptySkillSource } from '../src/skills/index.js'
 import { harness, type Harness } from '../../agent/test/harness.js'
 
 export { harness, type Harness }
 
-export const KINDS: ProviderKind[] = ['anthropic', 'openai', 'openrouter', 'openai-compatible']
+export const KINDS: readonly ProviderKind[] = PROVIDER_KINDS
 
 /** A provider of `kind` whose endpoint the mock answers (any host works: the mock routes by path). */
 export function providerOf(kind: ProviderKind, extra: Partial<ProviderConfig> = {}): ProviderConfig {
@@ -26,10 +28,8 @@ export function providerOf(kind: ProviderKind, extra: Partial<ProviderConfig> = 
 
 export const ORIGIN: AgentOrigin = { kind: 'agent', runId: 'run-1', sessionId: 'sess-1', name: 'Assistant' }
 
-export const NO_SKILLS: SkillSource = { list: async () => [], body: async () => null }
-
 export function hostOf(h: Harness, fetchImpl: typeof fetch, extra: Partial<AgentHost> = {}): AgentHost {
-  return { backend: h.backend, clock: h.clock, fetch: fetchImpl, skills: NO_SKILLS, ...extra }
+  return { backend: h.backend, clock: h.clock, fetch: fetchImpl, skills: emptySkillSource, ...extra }
 }
 
 export interface Drained {

@@ -116,8 +116,8 @@ export const RELAY_OFFLINE_MS = 30_000
  */
 export const PEER_SETTLE_MS = 3_000
 
-/** An agent's edit to one note (mount-relative path): `harness`'s `ProposeEditInput`. */
-export interface AgentEditInput {
+/** An agent's edit to one note (mount-relative path). The seam's one home: `@ohhi/harness` re-exports it. */
+export interface ProposeEditInput {
   path: string
   from: number
   to: number
@@ -568,7 +568,7 @@ export class MountSession {
    * not `baseText` — the agent read a stale copy — and with a plain Error
    * when the path has no live doc.
    */
-  proposeEdit(input: AgentEditInput): Promise<SuggestionRecord> {
+  proposeEdit(input: ProposeEditInput): Promise<SuggestionRecord> {
     // Through the agent's bucket (B10): the record is a Y transaction on a
     // shared doc, and an agent can propose far faster than peers can watch.
     return this.throttledEdit(input, 1, (at) => this.proposeNow({ ...input, ...at }))
@@ -580,7 +580,7 @@ export class MountSession {
    * tokens), so the edit is attributed, undoable per run and rate-limited
    * like any proposal. Rejects as `proposeEdit` does.
    */
-  applyAgentEdit(input: AgentEditInput): Promise<SuggestionRecord> {
+  applyAgentEdit(input: ProposeEditInput): Promise<SuggestionRecord> {
     return this.throttledEdit(input, 2, (at) => {
       const record = this.proposeNow({ ...input, ...at })
       return this.acceptSuggestion(input.path, record.id) ?? record
@@ -595,7 +595,7 @@ export class MountSession {
    * edit with it, exactly as it moves a pending suggestion.
    */
   private throttledEdit(
-    input: AgentEditInput,
+    input: ProposeEditInput,
     cost: number,
     fn: (at: { from: number; to: number }) => SuggestionRecord
   ): Promise<SuggestionRecord> {
@@ -617,7 +617,7 @@ export class MountSession {
     }, cost)
   }
 
-  private proposeNow(input: AgentEditInput): SuggestionRecord {
+  private proposeNow(input: ProposeEditInput): SuggestionRecord {
     const store = this.suggestionStore(input.path)
     if (!store) throw new Error(`no live doc for ${input.path}`)
     const record = store.propose({
@@ -2291,7 +2291,7 @@ export class MountSession {
     // suggestion record (the doc's `comments` / `suggestions` maps — ours or
     // a peer's) leaves the bytes on disk as they are: re-indexing, marking
     // the note unwritten, flushing identical bytes or logging `doc.changed`
-    // for it would all be lies (writing-harness B8 › E's report).
+    // for it would all be lies.
     if (!touched && origin !== 'seed' && origin !== 'disk') return
     // BEFORE the origin filter: a content-change listener (the index) must see
     // 'disk' ingests — Obsidian, git and Claude Code writing the same files —
@@ -3260,7 +3260,7 @@ function decodeSeed(seed: string): Uint8Array | null {
 
 /** A stored suggestion with the path it is read under (records are stored without one). */
 /** The agent's edit must start from the text it read (`SuggestionStore.propose` re-checks when it runs). */
-function checkBase(text: string, input: AgentEditInput): void {
+function checkBase(text: string, input: ProposeEditInput): void {
   if (input.from < 0 || input.to < input.from || input.to > text.length || text.slice(input.from, input.to) !== input.baseText) {
     throw new SuggestionConflictError(`the text at ${input.from}–${input.to} is not the text the agent read`)
   }

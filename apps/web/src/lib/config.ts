@@ -18,7 +18,8 @@ import { normalizeOverrides as normalizeLayoutOverrides, type LayoutFile } from 
 import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
 import type { BuiltinTheme } from '@ohhi/ui/tokens'
-import type { AiConfig, ProviderConfig, ProviderKind, ProviderView } from '@ohhi/harness'
+import type { AiConfig, ProviderConfig, ProviderView } from '@ohhi/harness'
+import { normalizeAiConfig } from '@ohhi/harness/config'
 
 /** How to (re)build the VaultAdapter for a session. */
 export type VaultSourceDesc =
@@ -565,39 +566,9 @@ export function devtoolsEnabled(): boolean {
 
 // ---- AI providers (writing-harness-shaping B1) ----
 
-const PROVIDER_KINDS: readonly ProviderKind[] = ['anthropic', 'openai', 'openrouter', 'openai-compatible']
-
-/** One stored provider, or null when it is not one. Garbage in one entry never costs the others. */
-function normalizeProvider(raw: unknown): ProviderConfig | null {
-  if (!raw || typeof raw !== 'object') return null
-  const p = raw as Record<string, unknown>
-  if (typeof p.id !== 'string' || !p.id || typeof p.name !== 'string') return null
-  if (!PROVIDER_KINDS.includes(p.kind as ProviderKind)) return null
-  const out: ProviderConfig = {
-    id: p.id,
-    name: p.name,
-    kind: p.kind as ProviderKind,
-    baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl : '',
-    model: typeof p.model === 'string' ? p.model : '',
-  }
-  if (typeof p.apiKey === 'string' && p.apiKey) out.apiKey = p.apiKey
-  if (typeof p.timeoutSec === 'number' && p.timeoutSec > 0) out.timeoutSec = p.timeoutSec
-  if (typeof p.maxTokens === 'number' && p.maxTokens > 0) out.maxTokens = p.maxTokens
-  return out
-}
-
-/** The stored AI config, normalized; an empty provider list when none is stored. */
+/** The stored AI config, read tolerantly (`normalizeAiConfig`); an empty provider list when none is stored. */
 export function aiConfig(): AiConfig {
-  const raw = loadConfig().ai as Partial<AiConfig> | undefined
-  const providers = Array.isArray(raw?.providers)
-    ? raw.providers.map(normalizeProvider).filter((p): p is ProviderConfig => p !== null)
-    : []
-  const out: AiConfig = { providers }
-  if (typeof raw?.defaultProvider === 'string' && providers.some((p) => p.id === raw.defaultProvider)) {
-    out.defaultProvider = raw.defaultProvider
-  }
-  if (raw?.directEdit === true) out.directEdit = true
-  return out
+  return normalizeAiConfig(loadConfig().ai)
 }
 
 export function setAiConfig(ai: AiConfig): void {

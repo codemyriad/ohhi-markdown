@@ -13,17 +13,10 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, type LanguageModel } from 'ai'
-import type { ProviderConfig, ProviderKind } from './types.js'
+import { DEFAULT_BASE_URLS, redactSecrets } from './config.js'
+import type { ProviderConfig } from './types.js'
 
-/** What `baseUrl: ''` means per kind — and what Settings prefills. */
-export const DEFAULT_BASE_URLS: Readonly<Record<ProviderKind, string>> = {
-  anthropic: 'https://api.anthropic.com',
-  openai: 'https://api.openai.com/v1',
-  openrouter: 'https://openrouter.ai/api/v1',
-  'openai-compatible': '',
-}
-
-export const PROVIDER_KINDS: readonly ProviderKind[] = ['anthropic', 'openai', 'openrouter', 'openai-compatible']
+export { DEFAULT_BASE_URLS, PROVIDER_KINDS } from './config.js'
 
 /** Thrown for a provider that cannot be built (no endpoint for `openai-compatible`). */
 export class ProviderConfigError extends Error {
@@ -100,13 +93,27 @@ export function callSettings(provider: ProviderConfig): { maxOutputTokens?: numb
  * *Test connection* (B1): the model names the endpoint lists (`GET /models`
  * for the OpenAI-shaped kinds), or for Anthropic a one-token `generateText`
  * through `createModel` — the configured model is the answer when it works.
- * Throws with the endpoint's own message when it does not.
+ * Throws with the endpoint's own message when it does not — the key (and
+ * any bearer token) redacted out of it.
  */
 export async function testConnection(
   provider: ProviderConfig,
   fetchImpl: typeof fetch,
   opts: { signal?: AbortSignal } = {},
 ): Promise<{ models: string[] }> {
+  try {
+    return await listModels(provider, fetchImpl, opts)
+  } catch (err) {
+    if (!(err instanceof Error)) throw err
+    const message = redactSecrets(err.message, provider.apiKey)
+    if (message === err.message) throw err
+    const clean = new Error(message)
+    clean.name = err.name
+    throw clean
+  }
+}
+
+async function listModels(provider: ProviderConfig, fetchImpl: typeof fetch, opts: { signal?: AbortSignal }): Promise<{ models: string[] }> {
   if (provider.kind === 'anthropic') {
     await generateText({
       model: createModel(provider, fetchImpl),

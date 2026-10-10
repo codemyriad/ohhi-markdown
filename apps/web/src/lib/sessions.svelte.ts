@@ -1,8 +1,8 @@
 /**
- * The harness's shell-owned state (writing-harness-shaping B4/B6): the open
- * vault's sessions, the run registry, and `startRun` — the ONE door every
- * caller starts a turn through (the composer, `ai.add-selection`, C's
- * `ai.run-skill`, F's send-to-agent).
+ * The harness's shell-owned state: the open vault's sessions, the run
+ * registry, and `startRun` — the ONE door every caller starts a turn
+ * through (the composer, `ai.add-selection`, `ai.run-skill`, a comment's
+ * *Send to agent*).
  *
  * Owned by the shell, never by a view: `App.svelte` attaches it once with
  * what only the composition root holds (the workspace, the app's index, the
@@ -21,12 +21,15 @@ import type { VaultIndex } from '@ohhi/index'
 import { decodeFile, hashBytes, type Clock } from '@ohhi/vault'
 import { createAppBackend, workspaceBackendHost, type VaultBackend } from './agent-backend.js'
 import { createRunRegistry, isLive, type RunHandle, type RunInput, type RunRegistry } from './ai-runs.svelte.js'
-import { appAgentHost, NO_SKILLS, type AgentFactory } from './ai-transport.js'
-import { aiConfig } from './config.js'
-import { selectionIn } from '@ohhi/editor/src/composer.js'
-import { decodeRange, encodeRange, ytextOf } from '@ohhi/workspace'
+import { appAgentHost, type AgentFactory } from './ai-transport.js'
+import { emptySkillSource } from '@ohhi/harness/skills'
+import { aiConfig } from './ai-config.svelte.js'
+import { editorFor, selectionOf } from './focused-editor.svelte.js'
+import { decodeRange, encodeRange, ytextOf, type AgentPresenceSink } from '@ohhi/workspace'
+import { getLL } from '@ohhi/i18n'
 import { captureSelection, resolveMention } from './references.js'
 import { createSessionStore, mintId, SESSIONS_DIR, type SessionStore, type SessionSummary } from './session-store.js'
+import type { FlashInput } from './notices.js'
 import type { Workspace } from './workspace.svelte.js'
 
 export type { RunHandle, RunInput } from './ai-runs.svelte.js'
@@ -40,8 +43,10 @@ export interface HarnessShell {
   clock: Clock
   /** Open (or focus) a Session tab. */
   openView(id: 'session', arg?: string): void
-  /** C's trusted+enabled skills (`currentSkills()?.source()`); absent → none. */
+  /** The trusted, enabled skills (`currentSkills()?.source()`); absent → none. */
   skills?(): SkillSource
+  /** Feedback when a run cannot start (`workspace.flash`). */
+  flash?(input: FlashInput): void
   /** Injected for the tests; `createHarnessAgent` otherwise. */
   agentFactory?: AgentFactory
 }
@@ -59,6 +64,8 @@ interface VaultHarness {
   store: SessionStore
   registry: RunRegistry
   backend: VaultBackend
+  /** Runs telling presence, per note path (`countedPresence`). */
+  presence: Map<string, number>
   unsubscribe(): void
 }
 
@@ -119,6 +126,7 @@ function vault(): VaultHarness | null {
   }
   const { clock, index } = shell
   const store = createSessionStore(ws, { clock, vault: ws.room })
+  const presence = new Map<string, number>()
   const backend = createAppBackend(workspaceBackendHost(ws, index, clock))
   const registry = createRunRegistry({
     store,
@@ -129,11 +137,12 @@ function vault(): VaultHarness | null {
         backend,
         clock,
         skills: skillSource(),
-        // The agent's edits land as suggestions in the note (B7); direct mode
-        // (Fork 4-A) is re-read per proposal, so a settings change applies mid-run.
-        proposals: { proposeEdit: (input) => ws.proposeEdit(input), acceptSuggestion: (path, id) => ws.acceptSuggestion(path, id) },
+        // The agent's edits land as suggestions in the note; direct mode is
+        // re-read per proposal, so a settings change applies mid-run.
+        proposals: { proposeEdit: (input) => ws.proposeEdit(input), applyAgentEdit: (input) => ws.applyAgentEdit(input) },
         direct: () => aiConfig().directEdit === true,
-        presence: ws.agentPresence?.(), // the agent as a peer (B10); absent on a test's partial workspace
+        // The agent as a peer; absent on a test's partial workspace.
+        ...(ws.agentPresence ? { presence: countedPresence(ws.agentPresence(), presence) } : {}),
       }),
     ...(shell.agentFactory ? { agentFactory: shell.agentFactory } : {}),
   })
@@ -141,14 +150,52 @@ function vault(): VaultHarness | null {
     store.invalidate()
     void refreshSessions()
   })
-  active = { workspace: ws, store, registry, backend, unsubscribe }
+  active = { workspace: ws, store, registry, backend, presence, unsubscribe }
   void refreshSessions()
   return active
 }
 
-/** The skills the agent and the `/` menu see (C's trusted + enabled set). */
+/**
+ * One run's presence, counted per note: while another run is still working
+ * on the same note, this run finishing (`idle`, then the linger's leave)
+ * tells nothing — the last run on a note is the one that clears it. `live`
+ * is the vault's count, shared by its runs.
+ */
+export function countedPresence(sink: AgentPresenceSink, live: Map<string, number>): AgentPresenceSink {
+  /** The note this run is counted on, while it is working; and the last one it was on. */
+  let at: string | null = null
+  let last = ''
+  const leave = (): void => {
+    if (at === null) return
+    last = at
+    const n = (live.get(at) ?? 1) - 1
+    if (n > 0) live.set(at, n)
+    else live.delete(at)
+    at = null
+  }
+  return {
+    set(state) {
+      if (state && state.status !== 'idle') {
+        const path = state.path ?? ''
+        if (at !== path) {
+          leave()
+          at = path
+          live.set(path, (live.get(path) ?? 0) + 1)
+        }
+        sink.set(state)
+        return
+      }
+      const path = at ?? state?.path ?? last
+      leave()
+      if ((live.get(path) ?? 0) > 0) return
+      sink.set(state)
+    },
+  }
+}
+
+/** The skills the agent and the `/` menu see (the trusted, enabled set). */
 export function skillSource(): SkillSource {
-  return shell?.skills?.() ?? NO_SKILLS
+  return shell?.skills?.() ?? emptySkillSource
 }
 
 /** The app's index, for the `@` menu's ranking. Null before `attachHarness`. */
@@ -161,11 +208,33 @@ export function harnessClock(): Clock | null {
   return shell?.clock ?? null
 }
 
-/** The provider a run uses: the asked-for one, else the default, else the first. Re-read every run. */
+/**
+ * The provider a run uses, re-read every run: the asked-for one — null when
+ * it no longer exists, never a silent switch to another host — else the
+ * default, else the first.
+ */
 export function resolveProvider(id?: string): ProviderConfig | null {
   const cfg = aiConfig()
-  const pick = (want?: string): ProviderConfig | undefined => (want ? cfg.providers.find((p) => p.id === want) : undefined)
-  return pick(id) ?? pick(cfg.defaultProvider) ?? cfg.providers[0] ?? null
+  if (id) return cfg.providers.find((p) => p.id === id) ?? null
+  return cfg.providers.find((p) => p.id === cfg.defaultProvider) ?? cfg.providers[0] ?? null
+}
+
+/**
+ * What a Retry of `run` sends: its instruction and references, its skill
+ * (re-read by name — a skill no longer trusted or enabled is left out, never
+ * run unreviewed) and the comment thread it answered.
+ */
+export async function retryInput(run: Pick<RunRecord, 'input' | 'threadId'>): Promise<RunInput> {
+  const source = skillSource()
+  const name = run.input.skill
+  const meta = name ? (await source.list()).find((m) => m.name === name) : undefined
+  const body = meta ? await source.body(meta.name) : null
+  return {
+    instruction: run.input.instruction,
+    refs: run.input.refs,
+    ...(meta && body !== null ? { skill: { meta, body } } : {}),
+    ...(run.threadId ? { threadId: run.threadId } : {}),
+  }
 }
 
 /** Re-derive the list from the files. */
@@ -264,15 +333,19 @@ export function titleFrom(instruction: string): string | undefined {
 }
 
 /**
- * Start a turn — THE entry point (C's `ai.run-skill`, F's send-to-agent, the
+ * Start a turn — THE entry point (`ai.run-skill`, *Send to agent*, the
  * composer). Creates the session when it does not exist, resolves the
  * references, opens the tab (unless `open: false`) and returns the handle;
- * null when no vault is open, no provider exists, or the session already has
- * a turn in flight.
+ * null when no vault is open, no provider exists, the asked-for provider is
+ * gone (said in a flash), or the session already has a turn in flight.
  */
 export async function startRun(input: StartRunInput): Promise<RunHandle | null> {
   const v = vault()
-  if (!v || !resolveProvider(input.providerId)) return null
+  if (!v) return null
+  if (!resolveProvider(input.providerId)) {
+    if (input.providerId) shell?.flash?.({ level: 'error', text: getLL().web.ai.session.provider_gone() })
+    return null
+  }
   const sessionId = input.sessionId ?? newSessionId()
   if (isLive(v.registry.current(sessionId))) return null
   await ensureSession(v, sessionId, titleFrom(input.instruction))
@@ -301,11 +374,6 @@ export function stopRun(sessionId?: string): boolean {
   if (!v) return false
   const id = sessionId ?? (harness.current && isLive(v.registry.current(harness.current)) ? harness.current : v.registry.active()[0])
   return id ? v.registry.stop(id) : false
-}
-
-/** Any run in flight in this vault. */
-export function anyRunning(): boolean {
-  return (vault()?.registry.active().length ?? 0) > 0
 }
 
 export async function renameSession(id: string, title: string): Promise<void> {
@@ -343,15 +411,14 @@ export function openSession(id: string): void {
 }
 
 /**
- * The selection in the FOCUSED note editor as a `lines` mention — what
- * `ai.new-session` / `ai.add-selection` capture. Null when the focused pane
- * shows no note or nothing is selected.
+ * The selection in the editor showing `path` (the focused one when it does)
+ * as a `lines` mention — what `ai.new-session` / `ai.add-selection` /
+ * `ai.run-skill` capture. Null when no editor shows it or nothing is selected.
  */
 export async function captureFocusedSelection(path: string | null): Promise<Mention | null> {
-  if (!path || typeof document === 'undefined') return null
-  const sel = selectionIn(document.querySelector('[data-testid="editor-pane"]'))
-  if (!sel) return null
-  return captureNoteSelection({ path, ...sel })
+  const editor = path ? editorFor(path) : null
+  const sel = editor ? selectionOf(editor) : null
+  return sel ? captureNoteSelection(sel) : null
 }
 
 /**

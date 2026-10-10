@@ -18,6 +18,7 @@ import {
   type UIMessage,
   type UIMessageChunk,
 } from 'ai'
+import { redactSecrets } from './config.js'
 import { callSettings, createModel } from './model.js'
 import { systemPrompt } from './prompt.js'
 import { HarnessTimeoutError, withTimeout } from './timeout.js'
@@ -49,7 +50,7 @@ export function createHarnessAgent(
         refs: opts.refs,
         ...(opts.origin.threadId !== undefined ? { thread: true } : {}),
       })
-      const tools = toolsFromContract(host.backend, { mutates: opts.mutates, proposeEdit: host.proposeEdit, origin: opts.origin })
+      const tools = toolsFromContract(host.backend, { mutates: opts.mutates, proposeEdit: host.proposeEdit, origin: opts.origin, skills: host.skills })
       const agent = new ToolLoopAgent<never, ToolSet>({
         model: createModel(opts.provider, host.fetch),
         instructions,
@@ -78,7 +79,7 @@ export function createHarnessAgent(
         timer.done()
         throw err
       }
-      const chunks = toUIMessageStream({ stream: result.stream, tools, onError: errorText })
+      const chunks = toUIMessageStream({ stream: result.stream, tools, onError: (e) => errorText(e, opts.provider) })
       // Release the timeout however the stream ends — finished, errored or cancelled.
       return chunks.pipeThrough(
         new TransformStream<UIMessageChunk, UIMessageChunk>({
@@ -103,9 +104,10 @@ export function createHarnessAgent(
 /**
  * The words an error chunk carries. The SDK's default is a generic "An
  * error occurred." — the person needs the provider's own message (a bad key,
- * an unknown model, a refused origin) to fix it.
+ * an unknown model, a refused origin) to fix it — with the provider's key
+ * (and any bearer token) taken out, since a provider may echo it back.
  */
-export function errorText(error: unknown): string {
-  if (error instanceof Error) return error.message || error.name
-  return typeof error === 'string' ? error : JSON.stringify(error)
+export function errorText(error: unknown, provider?: Pick<ProviderConfig, 'apiKey'>): string {
+  const raw = error instanceof Error ? error.message || error.name : typeof error === 'string' ? error : JSON.stringify(error)
+  return redactSecrets(raw ?? String(error), provider?.apiKey)
 }

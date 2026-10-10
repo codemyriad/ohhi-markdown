@@ -16,9 +16,9 @@
   import TextControl from '../ui/TextControl.svelte'
   import { createForm } from '../ui/form.svelte.js'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
-  import { aiConfig } from '../config.js'
+  import { aiConfig } from '../ai-config.svelte.js'
+  import { PROVIDER_KINDS } from '@ohhi/harness/config'
   import {
-    PROVIDER_KINDS,
     baseUrlForKind,
     connectionText,
     deleteProvider,

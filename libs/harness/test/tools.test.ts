@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ToolExecutionOptions } from 'ai'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { SuggestionConflictError } from '@ohhi/workspace'
 import { toolsFromContract } from '../src/tools.js'
 import type { ProposeEditInput, SuggestionRecord } from '../src/types.js'
 import { harness, ORIGIN, type Harness } from './helpers.js'
@@ -30,6 +33,17 @@ describe('toolsFromContract', () => {
     const names = Object.keys(toolsFromContract(h.backend, { mutates: true }))
     expect(names).toEqual(expect.arrayContaining(['ohhi_write', 'ohhi_patch', 'ohhi_append']))
     for (const never of ['ohhi_mv', 'ohhi_rm', 'ohhi_restore']) expect(names).not.toContain(never)
+  })
+
+  it('never exposes the skills/skill ops (they see untrusted skills); ohhi_skill reads through the host’s source', async () => {
+    expect(Object.keys(toolsFromContract(h.backend, { mutates: true }))).not.toContain('ohhi_skills')
+    expect(Object.keys(toolsFromContract(h.backend, { mutates: true }))).not.toContain('ohhi_skill')
+    const skills = { list: async () => [], body: async (name: string) => (name === 'line-edit' ? 'Tighten.' : null) }
+    const tools = toolsFromContract(h.backend, { mutates: false, skills })
+    expect(Object.keys(tools)).not.toContain('ohhi_skills')
+    expect(await run(tools, 'ohhi_skill', { name: 'line-edit' })).toEqual({ name: 'line-edit', body: 'Tighten.' })
+    // `fact-check` is a valid skill in the fixture vault, but the host does not offer it.
+    await expect(run(tools, 'ohhi_skill', { name: 'fact-check' })).rejects.toThrow(/^not_found: /)
   })
 
   it('a tool runs the op over the backend', async () => {
@@ -114,6 +128,38 @@ describe('toolsFromContract', () => {
       const out = await run(tools, 'ohhi_patch', { path: 'Areas/CS/JSON.md', old: 'tiny', new: 'tiny' })
       expect(out).toMatchObject({ proposed: false })
       expect(proposals).toHaveLength(0)
+    })
+
+    it('typing between the op’s read and the proposal is a conflict, never folded into the base (and so reverted)', async () => {
+      const path = 'Projects/Editor.md'
+      const original = await h.text(path)
+      const typed = original.replace('Files are canonical.', 'Files are very canonical.')
+      // The person types right after the op read the note — before the proposal lands.
+      let reads = 0
+      const adapter = new Proxy(h.backend.adapter, {
+        get(t, key) {
+          if (key === 'read') {
+            return async (p: string) => {
+              const bytes = await t.read(p)
+              if (p === path && ++reads === 1) await writeFile(join(h.root, path), typed)
+              return bytes
+            }
+          }
+          const v = Reflect.get(t, key, t)
+          return typeof v === 'function' ? v.bind(t) : v
+        },
+      })
+      const backend = new Proxy(h.backend, { get: (t, key) => (key === 'adapter' ? adapter : Reflect.get(t, key, t)) })
+      // The store's own rule (`SuggestionStore.propose`): the base must be what is at the range NOW.
+      const strict = async (input: ProposeEditInput): Promise<SuggestionRecord> => {
+        const now = await h.text(input.path)
+        if (now.slice(input.from, input.to) !== input.baseText) throw new SuggestionConflictError('moved')
+        return proposeEdit(input)
+      }
+      const tools = toolsFromContract(backend, { mutates: true, proposeEdit: strict, origin: ORIGIN })
+      await expect(run(tools, 'ohhi_patch', { path, old: 'Files are canonical.', new: 'Files are the source of truth.' })).rejects.toThrow(SuggestionConflictError)
+      expect(proposals).toHaveLength(0)
+      expect(await h.text(path)).toBe(typed)
     })
 
     it('read tools are untouched by proposeEdit', async () => {

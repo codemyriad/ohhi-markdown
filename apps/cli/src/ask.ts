@@ -12,23 +12,18 @@
  *
  * Providers come from `$XDG_CONFIG_HOME/ohhi/providers.json` (else
  * `~/.config/ohhi/providers.json`) in the app's `AiConfig` shape;
- * `OHHI_API_KEY` overrides the chosen provider's key.
+ * `OHHI_API_KEY` supplies the chosen provider's key — only for a kind that
+ * takes one, never to a keyless local server.
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { OpError, runOp, type VaultBackend } from '@ohhi/agent'
-import { parseSkillsState, SKILLS_STATE_PATH, usableSkills, type SkillsState } from '@ohhi/agent/skills'
-import {
-  createHarnessAgent,
-  PROVIDER_KINDS,
-  type AiConfig,
-  type Mention,
-  type ProviderConfig,
-  type SkillMeta,
-  type SkillSource,
-  type VaultRef,
-} from '@ohhi/harness'
+import { skillFsOf } from '@ohhi/agent/core'
+import { loadSkill, parseSkillsState, SKILLS_STATE_PATH, usableBy, type SkillsState } from '@ohhi/agent/skills'
+import { createHarnessAgent, type AiConfig, type Mention, type ProviderConfig, type SkillMeta, type VaultRef } from '@ohhi/harness'
+import { AiConfigSchema, kindNeedsKey } from '@ohhi/harness/config'
+import { createSkillSource } from '@ohhi/harness/skills'
 import { openVault } from './backend.js'
 import { RealClock } from './clock.js'
 import type { AskCommand } from './grammar.js'
@@ -49,22 +44,8 @@ export type AskOut = z.infer<typeof AskOut>
 
 // ---- providers.json ----
 
-const ProvidersFile = z.object({
-  providers: z.array(
-    z.object({
-      id: z.string().min(1),
-      name: z.string().default(''),
-      kind: z.enum(PROVIDER_KINDS as unknown as [ProviderConfig['kind'], ...ProviderConfig['kind'][]]),
-      baseUrl: z.string().default(''),
-      apiKey: z.string().optional(),
-      model: z.string().min(1),
-      timeoutSec: z.number().positive().optional(),
-      maxTokens: z.number().int().positive().optional(),
-    }),
-  ),
-  defaultProvider: z.string().optional(),
-  directEdit: z.boolean().optional(),
-})
+/** The file is the app's `AiConfig`, checked strictly (a person writes it). */
+const ProvidersFile = AiConfigSchema
 
 /** `$XDG_CONFIG_HOME/ohhi/providers.json`, else `~/.config/ohhi/providers.json`. */
 export function providersPath(env: Io['env']): string {
@@ -98,7 +79,11 @@ async function loadProviders(env: Io['env']): Promise<AiConfig> {
   return result.data
 }
 
-/** `--provider`, else the file's `defaultProvider`, else the first; `--model` and `$OHHI_API_KEY` laid over it. */
+/**
+ * `--provider`, else the file's `defaultProvider`, else the first; `--model`
+ * laid over it, and `$OHHI_API_KEY` too when the kind takes a key — a local
+ * OpenAI-compatible server is never handed a key meant for a cloud provider.
+ */
 export function chooseProvider(config: AiConfig, command: Pick<AskCommand, 'provider' | 'model'>, env: Io['env']): ProviderConfig {
   const id = command.provider ?? config.defaultProvider
   const chosen = id === undefined ? config.providers[0] : config.providers.find((p) => p.id === id)
@@ -108,7 +93,7 @@ export function chooseProvider(config: AiConfig, command: Pick<AskCommand, 'prov
   }
   const out: ProviderConfig = { ...chosen }
   if (command.model) out.model = command.model
-  if (env.OHHI_API_KEY) out.apiKey = env.OHHI_API_KEY
+  if (env.OHHI_API_KEY && kindNeedsKey(out.kind)) out.apiKey = env.OHHI_API_KEY
   return out
 }
 
@@ -147,35 +132,18 @@ async function mentionOf(backend: VaultBackend, raw: string, index: number): Pro
     : { id, ref: normalized, label, hash: read.hash, snapshot: read.text }
 }
 
-// ---- skills, through the contract's own ops ----
+// ---- skills ----
 
 /**
  * The vault's `.ohhi/skills.json` (the app's trust and enabled state), or
- * null when the app never wrote one — then every valid skill is usable (C's
- * `usableSkills` rule). A skill the app lists untrusted or disabled is never
- * offered here either: one gate, both hosts.
+ * null when the app never wrote one — then every valid skill is usable
+ * (`usableSkills`). A skill the app lists untrusted or disabled, or whose
+ * folder changed since it was trusted, is never offered here either: one
+ * gate, both hosts.
  */
 async function skillsState(backend: VaultBackend): Promise<SkillsState | null> {
   const bytes = await backend.adapter.read(SKILLS_STATE_PATH).catch(() => null)
   return parseSkillsState(bytes ? new TextDecoder().decode(bytes) : null)
-}
-
-function skillSource(backend: VaultBackend, state: SkillsState | null): SkillSource {
-  return {
-    list: async () => {
-      const out = await runOp(backend, 'skills', { limit: 1000 })
-      return usableSkills(out.skills, state).map((s): SkillMeta => ({ ...s, metadata: {} }))
-    },
-    body: async (name) => {
-      try {
-        const found = await runOp(backend, 'skill', { name })
-        return usableSkills([found.meta], state).length > 0 ? found.body : null
-      } catch (err) {
-        if (err instanceof OpError && err.code === 'not_found') return null
-        throw err
-      }
-    },
-  }
 }
 
 // ---- the run ----
@@ -196,16 +164,19 @@ export async function runAsk(command: AskCommand, io: Io, sink: Sink): Promise<n
   const provider = chooseProvider(config, command, io.env)
   const backend = await openVault(command.globals, io)
   const state = await skillsState(backend)
-  const skills = skillSource(backend, state)
+  const skillFs = skillFsOf(backend)
+  const usable = usableBy(state)
+  const skills = createSkillSource(skillFs, usable)
 
   let skill: { meta: SkillMeta; body: string } | undefined
   if (command.skill) {
-    const found = await runOp(backend, 'skill', { name: command.skill })
+    const found = await loadSkill(skillFs, command.skill)
+    if (!found) throw new OpError('not_found', `no such skill: ${command.skill}`, { name: command.skill })
     if (found.meta.problems.length > 0) {
       throw new OpError('refused', `skill ${command.skill} has problems: ${found.meta.problems.join(', ')}`, { skill: command.skill })
     }
-    if (usableSkills([found.meta], state).length === 0) {
-      throw new OpError('refused', `skill ${command.skill} is not trusted and enabled in ${SKILLS_STATE_PATH}; review it in the app first`, {
+    if (!usable(found.meta)) {
+      throw new OpError('refused', `skill ${command.skill} is not trusted and enabled in ${SKILLS_STATE_PATH} (or changed since it was reviewed); review it in the app first`, {
         skill: command.skill,
       })
     }

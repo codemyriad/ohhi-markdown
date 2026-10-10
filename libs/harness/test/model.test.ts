@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { describe, expect, it } from 'vitest'
 import { mockLlmFetch } from '@ohhi/testkit'
+import { redactSecrets } from '../src/config.js'
 import { createModel, providerHost, resolveBaseUrl, testConnection } from '../src/model.js'
 import { KINDS, providerOf } from './helpers.js'
 
@@ -73,5 +74,26 @@ describe('testConnection', () => {
     await expect(testConnection(providerOf('openai'), refusing)).rejects.toThrow('401 Unauthorized: invalid api key')
     const mock = mockLlmFetch([{ error: { status: 401, message: 'invalid x-api-key' } }])
     await expect(testConnection(providerOf('anthropic'), mock)).rejects.toThrow(/invalid x-api-key/)
+  })
+})
+
+describe('the key never leaves in an error', () => {
+  const echoing = (async () =>
+    new Response(JSON.stringify({ error: { message: 'Incorrect API key provided: sk-live-SECRET123456. Header was Bearer sk-live-SECRET123456' } }), {
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch
+
+  it.each(KINDS)('%s: testConnection redacts the key a provider echoes back', async (kind) => {
+    const err = await testConnection(providerOf(kind, { apiKey: 'sk-live-SECRET123456' }), echoing).catch((e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).not.toContain('SECRET123456')
+  })
+
+  it('redactSecrets: the configured key, a Bearer token, an sk- token', () => {
+    expect(redactSecrets('key mykey-1234 and Bearer abc.def-ghi and sk-proj-abcdefgh', 'mykey-1234')).toBe(
+      'key [redacted] and Bearer [redacted] and sk-[redacted]',
+    )
   })
 })

@@ -537,7 +537,7 @@ test('the Help menu and the Report a problem dialog are accessible', async ({ pa
 })
 
 /**
- * The writing harness's surfaces (writing-harness-build §Wave 2 › F): Settings
+ * The writing harness's surfaces: Settings
  * › AI with both sub-tabs, a Session view with a message and a tool card in
  * it, and an open comment bubble with *Send to agent* — a provider exists
  * (the mock LLM), so every AI-gated control is on screen.
@@ -578,4 +578,103 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful', { timeout: 15_000 })
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-state', 'output-available')
   await expectAccessible(page, 'session view with a message')
+})
+
+/**
+ * The rest of the writing harness's surfaces, each scanned where a person
+ * meets it: the skill import dialog, the `ai.run-skill` picker, the dock's
+ * Comments tab, the session menu, the composer's open `@` listbox, a note
+ * with a pending suggestion in it, and the `last-agent-write` readout once
+ * that suggestion is accepted.
+ */
+withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments tab, the readout — is accessible', async ({ page, mockLlm }) => {
+  const NOTE = 'notes/welcome.md'
+  const OLD = 'the pill goes offline honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: 'the pill goes offline, honestly' } } },
+    { text: 'Proposed a comma.' },
+  ])
+  // The readout in the status bar (a device override, as Settings › Layout writes).
+  await seedProvider(page, `${mock.url}/v1`, {
+    layout: { overrides: { bars: { statusbar: ['pane.lead', '|', 'words', 'last-agent-write', 'sync'] } } },
+  })
+  await openApp(page, 'a11y-harness-more')
+
+  // Settings › AI › Skills: the import dialog, then a skill of our own for the picker.
+  await openSettings(page, 'ai')
+  await page.getByTestId('ai-settings-tab:skills').click()
+  await page.getByTestId('ai-skills-import').click()
+  await expect(page.getByTestId('skill-import-dialog')).toBeVisible()
+  await expectAccessible(page, 'skill import dialog')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('skill-import-dialog')).toHaveCount(0)
+  await page.getByTestId('ai-skills-new').click()
+  await page.getByTestId('ai-skills-create-name').fill('tighten')
+  await page.getByTestId('ai-skills-create-submit').click()
+  // The new SKILL.md opens in the pane, over the Settings tab (a view tab
+  // since settings-shaping ST1); back in Settings › AI › Skills it is trusted.
+  await expect(settingsView(page)).toBeHidden()
+  await openSettings(page, 'ai')
+  await page.getByTestId('ai-settings-tab:skills').click()
+  await expect(page.getByTestId('ai-skill-trust:tighten')).toHaveAttribute('data-trusted', 'true')
+  await closeSettings(page)
+
+  // The skill picker, over a selection (the template takes one).
+  await page.getByTestId(`file-item:${NOTE}`).click()
+  await selectLine(page, 'CRDT and syncs through the relay')
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Run a skill')
+  await expect(page.locator('[data-testid="command-palette-row"][data-row-id="ai.run-skill"]')).toBeVisible()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('skill-picker')).toBeVisible()
+  await expectAccessible(page, 'skill picker')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('skill-picker')).toHaveCount(0)
+
+  // The dock's Comments tab, on the open note.
+  await page.getByTestId('rail-tab:comments').click()
+  await expect(page.getByTestId('thread-list')).toBeVisible()
+  await expectAccessible(page, 'comments dock tab')
+
+  // A session: its menu, and the composer's `@` listbox open.
+  await paneContent(page).click()
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Open AI session')
+  await expect(page.locator('[data-testid="command-palette-row"][data-row-id="app.session"]')).toBeVisible()
+  await page.keyboard.press('Enter')
+  await page.getByTestId('session-menu-trigger').click()
+  await expect(page.getByTestId('session-new')).toBeVisible()
+  await expectAccessible(page, 'session menu')
+  await page.keyboard.press('Escape')
+  const input = page.getByTestId('session-composer-input')
+  await input.click()
+  await page.keyboard.type('@wel')
+  await expect(page.getByTestId('mention-menu')).toBeVisible()
+  await expectAccessible(page, 'mention listbox')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('mention-menu')).toHaveCount(0)
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.type('Add a comma before honestly.')
+  await page.getByTestId('session-send').click()
+
+  // The proposal, pending in the note.
+  const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
+  await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  await card.getByTestId('tool-open').click()
+  const added = page.locator('[data-testid="editor-pane"] .ed-suggest-add')
+  await expect(added.first()).toBeVisible()
+  await expectAccessible(page, 'note with a pending suggestion')
+
+  // Accepted: the readout names the agent's edit.
+  await paneContent(page).evaluate((el, text) => {
+    type View = { state: { doc: { toString(): string } }; dispatch(tr: unknown): void; focus(): void }
+    const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+    if (!view) throw new Error('no CodeMirror view')
+    view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf(text) + text.length } })
+    view.focus()
+  }, 'the pill goes offline')
+  await page.keyboard.press('ControlOrMeta+Enter')
+  await expect(added).toHaveCount(0)
+  await expect(page.getByTestId('last-agent-write')).toBeVisible()
+  await expectAccessible(page, 'last-agent-write readout')
 })

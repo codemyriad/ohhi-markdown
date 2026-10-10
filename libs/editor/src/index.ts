@@ -86,7 +86,6 @@ export {
 } from './typewriter.js'
 export type { ViewMode } from '@ohhi/editor-lang'
 export {
-  activeThread,
   commentRanges,
   commentsExtension,
   commentsField,
@@ -100,7 +99,8 @@ export {
   setWorking,
   workingField,
   workingHighlight,
-  workingRanges,
   type WorkingHost,
   type WorkingRange,
 } from './working-highlight.js'
+/** A host's data into a view, a microtask after each change — never inside an update. */
+export { hostPush, type PushSource } from './host-push.js'

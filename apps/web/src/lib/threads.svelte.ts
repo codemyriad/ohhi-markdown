@@ -14,15 +14,14 @@
  *   comment on a selection, or a thread. The pane that owns the view draws
  *   it (`CommentBubble.svelte`, `ui/Popover`).
  * - **The editor binding** (`bindThreads`) — feeds a view's marks from its
- *   note's store, and records which editor `note.comment` acts on.
+ *   note's store. Which editor `note.comment` acts on is
+ *   `focused-editor.svelte.ts`'s.
  */
-import type { CommentRecord as HarnessComment, ThreadRecord as HarnessThread, VaultRef } from '@ohhi/harness'
 import { getLL } from '@ohhi/i18n'
 import {
   exportCriticMarkup as encodeReview,
   reviewCopyName,
   ThreadStore,
-  type CommentRecord,
   type ThreadFiles,
   type ThreadRecord,
 } from '@ohhi/workspace'
@@ -32,21 +31,12 @@ import {
   setThreads,
   threadAt,
   type CommentsHost,
-  type MarkdownEditorHandle,
 } from '@ohhi/editor'
 import type { EngineDoc } from '@ohhi/sync'
 import type { Clock } from '@ohhi/vault'
 import { untrack } from 'svelte'
-import { linesOfRange } from './references.js'
+import { editorFor, editorInPane, focusedEditor, resetEditors, type EditorView } from './focused-editor.svelte.js'
 import type { FlashInput } from './notices.js'
-
-/** CM6's view, through the editor package (the app takes no CodeMirror dependency of its own). */
-type EditorView = MarkdownEditorHandle['view']
-
-// The records are `@ohhi/harness`'s seam, restated in `@ohhi/workspace`
-// (which cannot depend on the harness): fail the build if they drift apart.
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
-export const RECORDS_AGREE: Same<ThreadRecord, HarnessThread> & Same<CommentRecord, HarnessComment> = true
 
 // ---- the registry -----------------------------------------------------------
 
@@ -138,16 +128,6 @@ export async function writeReviewCopy(
 }
 
 /**
- * A thread's passage as a `lines` reference (F: the agent's mention for a
- * comment sent to it), or null when the passage is gone.
- */
-export function threadLinesRef(store: ThreadStore, thread: Pick<ThreadRecord, 'anchor' | 'path'>): VaultRef | null {
-  const range = store.rangeOf(thread)
-  if (!range) return null
-  return { kind: 'lines', path: thread.path, lines: linesOfRange(store.text(), range.from, range.to) }
-}
-
-/**
  * A component's live view of a note's threads: re-read on every change to
  * the store (a local write, a peer's, a load). Call during component init.
  */
@@ -200,16 +180,6 @@ export const commentBubble = new CommentBubbleState()
 
 // ---- the editor binding -----------------------------------------------------
 
-interface BoundEditor {
-  paneId: string
-  path: string
-  view: EditorView
-}
-
-/** Every editor showing a note, by pane; and which one has the focus. */
-const editors = new Map<string, BoundEditor>()
-let focusedPane: string | null = null
-
 /** A selection's anchor point for the bubble: under its end, at its start's x. */
 function selectionPoint(view: EditorView, from: number, to: number): { x: number; y: number } | null {
   const a = view.coordsAtPos(from)
@@ -226,7 +196,7 @@ export function commentsHostFor(paneId: () => string, path: () => string | null)
     },
     label: (range) => {
       const t = getLL().web.ai.comments
-      const view = untrack(() => editors.get(untrack(paneId))?.view)
+      const view = untrack(() => editorInPane(untrack(paneId))?.view)
       const quote = view ? view.state.doc.sliceString(range.from, Math.min(range.to, range.from + 40)) : ''
       return quote ? t.marker({ quote }) : t.marker_point()
     },
@@ -234,24 +204,26 @@ export function commentsHostFor(paneId: () => string, path: () => string | null)
 }
 
 /**
- * Feed one pane's view from its note's threads, and keep the marks current
- * as the records change; draw the bubble's thread as active. Returns the
- * cleanup. Called from the pane's own `$effect`.
+ * Feed one view's marks from its note's threads, and keep them current as
+ * the records change. Returns the cleanup; called from the pane's own
+ * `$effect` (the pane binds the editor itself — `focused-editor.svelte.ts`).
+ *
+ * A store change can arrive inside another view update (a local add is
+ * written from a transaction's listener), and CM6 refuses a dispatch there:
+ * the push after a change waits a microtask.
  */
 export function bindThreads(input: {
-  paneId: string
   path: string | null
   view: EditorView | null
-  focused: boolean
   storeFor: (path: string) => ThreadStore | null
 }): (() => void) | undefined {
-  const { paneId, path, view, focused } = input
+  const { path, view } = input
   if (!view || !path) return
-  editors.set(paneId, { paneId, path, view })
-  if (focused) focusedPane = paneId
   const store = untrack(() => input.storeFor(path))
+  if (!store) return
+  let live = true
   const push = (): void => {
-    if (!store) return
+    if (!live) return
     const ranges = store
       .threads()
       .map((t) => ({ t, r: store.rangeOf(t) }))
@@ -260,11 +232,10 @@ export function bindThreads(input: {
     view.dispatch({ effects: setThreads.of(ranges) })
   }
   push()
-  const off = store?.onChange(push)
+  const off = store.onChange(() => queueMicrotask(push))
   return () => {
-    off?.()
-    if (editors.get(paneId)?.view === view) editors.delete(paneId)
-    if (focusedPane === paneId && !editors.has(paneId)) focusedPane = null
+    live = false
+    off()
   }
 }
 
@@ -276,15 +247,9 @@ export function showActiveThread(paneId: string, view: EditorView | null): void 
   view.dispatch({ effects: setActiveThread.of(active) })
 }
 
-/** The editor `note.comment` acts on: the focused pane's, else the only one. */
-function commentTarget(): BoundEditor | null {
-  if (focusedPane && editors.has(focusedPane)) return editors.get(focusedPane) ?? null
-  return editors.size === 1 ? ([...editors.values()][0] ?? null) : null
-}
-
 /** True while a note is open in an editor (`note.comment`'s `when`). */
 export function canComment(): boolean {
-  return commentTarget() !== null
+  return focusedEditor() !== null
 }
 
 /**
@@ -294,7 +259,7 @@ export function canComment(): boolean {
 export function commentOnSelection(flash?: (input: FlashInput) => void): boolean {
   // Typing in the bubble itself must not open another one over it.
   if (typeof document !== 'undefined' && document.activeElement?.closest('[role="dialog"]')) return false
-  const target = commentTarget()
+  const target = focusedEditor()
   if (!target) {
     flash?.({ level: 'info', text: getLL().web.ai.comments.unavailable() })
     return false
@@ -316,9 +281,7 @@ export function commentOnSelection(flash?: (input: FlashInput) => void): boolean
 
 /** Open a thread's bubble from the list: in an editor showing its note, scrolled to it. */
 export function openThread(path: string, threadId: string): boolean {
-  const pick =
-    (focusedPane && editors.get(focusedPane)?.path === path ? editors.get(focusedPane) : undefined) ??
-    [...editors.values()].find((e) => e.path === path)
+  const pick = editorFor(path)
   if (!pick) return false
   const range = commentRanges(pick.view.state).find((r) => r.id === threadId)
   if (range) {
@@ -334,9 +297,8 @@ export function openThread(path: string, threadId: string): boolean {
   return true
 }
 
-/** Test seam: forget every bound editor. */
+/** Test seam: forget every bound editor and close the bubble. */
 export function resetCommentEditors(): void {
-  editors.clear()
-  focusedPane = null
+  resetEditors()
   commentBubble.close()
 }

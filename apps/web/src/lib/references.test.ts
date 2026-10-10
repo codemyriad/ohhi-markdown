@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 import { decodeRange, encodeRange } from '@ohhi/workspace'
-import { captureSelection, linesOfRange, mentionLabel, mentionOf, resolveMention, sliceLines } from './references.js'
+import { captureSelection, linesOfRange, mentionLabel, mentionOf, rangeOfLines, resolveMention, sliceLines } from './references.js'
 
 const NOTE = '# Plan\n\nalpha\nbeta\ngamma\n\n## Decisions\nship it\n'
 
@@ -17,7 +17,14 @@ describe('references', () => {
   it('slices whole lines, 1-based and clamped, as `ohhi read --lines`', () => {
     expect(sliceLines(NOTE, 3, 4)).toEqual({ text: 'alpha\nbeta\n', from: 3, to: 4 })
     expect(sliceLines(NOTE, 8, 99)).toEqual({ text: 'ship it\n', from: 8, to: 8 })
-    expect(sliceLines('no newline', 1, 1).text).toBe('no newline')
+    // The agent's slice (`ohhi read --lines`) ends every line it returns with a newline.
+    expect(sliceLines('no newline', 1, 1).text).toBe('no newline\n')
+  })
+
+  it('maps 1-based lines to their character range, the last terminator left out', () => {
+    const r = rangeOfLines(NOTE, { from: 3, to: 4 })
+    expect(NOTE.slice(r.from, r.to)).toBe('alpha\nbeta')
+    expect(rangeOfLines('one', { from: 1, to: 9 })).toEqual({ from: 0, to: 3 })
   })
 
   it('a range ending at a line start does not take that line', () => {
@@ -77,7 +84,7 @@ describe('references', () => {
     expect(resolveMention(mentionOf({ kind: 'folder', path: 'notes' }), null).changed).toBe(false)
   })
 
-  it('an anchored mention follows its text through an edit above it (D’s anchors)', () => {
+  it('an anchored mention follows its text through an edit above it (the workspace anchors)', () => {
     const doc = new Y.Doc()
     const ytext = doc.getText('content')
     ytext.insert(0, NOTE)

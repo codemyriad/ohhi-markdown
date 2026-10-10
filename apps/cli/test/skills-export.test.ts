@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { lstat, mkdir, readFile, readlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, readdir, readFile, readlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hashSkillFolder, type SkillFs } from '@ohhi/agent/skills'
 import { parseCommand } from '../src/grammar.js'
 import { fixture, inVault, ohhi } from './helpers.js'
 
 const exists = async (p: string): Promise<boolean> => lstat(p).then(() => true, () => false)
+
+/** The loader's calls over a real folder, for computing the hash trust is given to. */
+const diskFs = (root: string): SkillFs => ({
+  list: async (dir) =>
+    (await readdir(join(root, dir), { recursive: true, withFileTypes: true }))
+      .filter((e) => e.isFile())
+      .map((e) => `${dir}/${join(e.parentPath, e.name).slice(join(root, dir).length + 1)}`)
+      .sort(),
+  read: (path) => readFile(join(root, path), 'utf8').catch(() => null),
+})
+const hashOf = (root: string, name: string): Promise<string> => hashSkillFolder(diskFs(root), `.agents/skills/${name}`)
 
 describe('ohhi skills / skill (text)', () => {
   it('lists every skill with its shape and problems', async () => {
@@ -66,13 +78,39 @@ describe('ohhi skills export', () => {
     await mkdir(join(v.root, '.ohhi'), { recursive: true })
     await writeFile(
       join(v.root, '.ohhi/skills.json'),
-      JSON.stringify({ 'line-edit': { enabled: false, trusted: true, installedAt: 1 }, 'fact-check': { enabled: true, trusted: true, installedAt: 1 } })
+      JSON.stringify({
+        'line-edit': { enabled: false, trusted: true, installedAt: 1, hash: await hashOf(v.root, 'line-edit') },
+        'fact-check': { enabled: true, trusted: true, installedAt: 1, hash: await hashOf(v.root, 'fact-check') },
+      })
     )
     const { out, code } = await ohhi(inVault(v, ['skills', 'export', '--json']))
     expect(code).toBe(0)
     expect(JSON.parse(out)).toMatchObject({ linked: ['fact-check'], removed: ['line-edit'] })
     expect(await exists(join(v.root, '.claude/skills/line-edit'))).toBe(false)
     expect(await exists(join(v.root, '.agents/skills/line-edit/SKILL.md'))).toBe(true)
+  })
+
+  it('a trusted skill whose folder changed since review (a script, not only SKILL.md) loses its link', async () => {
+    const v = await fixture()
+    await mkdir(join(v.root, '.ohhi'), { recursive: true })
+    const trusted = { enabled: true, trusted: true, installedAt: 1, hash: await hashOf(v.root, 'fact-check') }
+    await writeFile(join(v.root, '.ohhi/skills.json'), JSON.stringify({ 'fact-check': trusted }))
+    expect(JSON.parse((await ohhi(inVault(v, ['skills', 'export', '--json']))).out)).toMatchObject({ linked: ['fact-check'] })
+    const scripts = (await readdir(join(v.root, '.agents/skills/fact-check/scripts')))[0]
+    await writeFile(join(v.root, '.agents/skills/fact-check/scripts', scripts), 'echo changed\n')
+    expect(JSON.parse((await ohhi(inVault(v, ['skills', 'export', '--json']))).out)).toMatchObject({ linked: [], removed: ['fact-check'] })
+  })
+
+  it('a manifest edited to point outside its folder deletes nothing there', async () => {
+    const v = await fixture()
+    await mkdir(join(v.root, '.claude/skills'), { recursive: true })
+    await writeFile(join(v.root, 'Precious.md'), 'keep me')
+    await writeFile(
+      join(v.root, '.claude/skills/.ohhi-farm.json'),
+      JSON.stringify({ version: 1, skills: { gone: { by: 'app', kind: 'copy', files: ['.claude/skills/gone/../../../Precious.md'] } } })
+    )
+    expect((await ohhi(inVault(v, ['skills', 'export']))).code).toBe(0)
+    expect(await readFile(join(v.root, 'Precious.md'), 'utf8')).toBe('keep me')
   })
 
   it('never touches a real folder it did not make', async () => {

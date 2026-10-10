@@ -1,6 +1,5 @@
 /**
- * The run registry (writing-harness-shaping B4 *Run status*, Fork 7-A): the
- * shell's — not a view's — record of every turn in flight, so closing the
+ * The run registry: the shell's — not a view's — record of every turn in flight, so closing the
  * Session tab does not stop a run, and `ai.stop-run` can stop one from
  * anywhere.
  *
@@ -18,17 +17,18 @@ import { Chat } from '@ai-sdk/svelte'
 import type { UIMessage } from 'ai'
 import type { AgentHost, AgentOrigin, HarnessAgent, Mention, ProviderConfig, RunRecord, SkillMeta, UIMessageJson } from '@ohhi/harness'
 import type { Clock } from '@ohhi/vault'
+import { providerHost } from '@ohhi/harness/model'
 import { createHarnessTransport, type AgentFactory } from './ai-transport.js'
 import { mintId, type SessionStore } from './session-store.js'
 
-/** What a caller asks for: one turn in a session (C's `ai.run-skill`, F's send-to-agent, the composer). */
+/** What a caller asks for: one turn in a session (`ai.run-skill`, *Send to agent*, the composer). */
 export interface RunInput {
   instruction: string
   refs?: Mention[]
   skill?: { meta: SkillMeta; body: string }
   /** The provider to run on; absent → the default (re-resolved from settings at run time). */
   providerId?: string
-  /** When a comment thread asked (F). */
+  /** When a comment thread asked. */
   threadId?: string
 }
 
@@ -193,7 +193,7 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
         ...(p.input.skill ? { skill: p.input.skill } : {}),
         origin: p.origin,
         host: recordingSuggestions(deps.host(p.origin), (id) => {
-          // The run's record names every suggestion it produced (B7): the
+          // The run's record names every suggestion it produced: the
           // transcript's card and *Undo agent edit* find them from here.
           p.run = { ...p.run, suggestions: [...(p.run.suggestions ?? []), id] }
           if (runs[sessionId]?.runId === p.run.runId) runs[sessionId] = p.run
@@ -254,6 +254,8 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
       const c = await chat(sessionId)
       if (pending.has(sessionId)) return null
       const runId = mintId(deps.clock.now())
+      // The record says where the text went (the provider's host), and keeps
+      // the skill and the thread so a Retry runs the same turn.
       const run: RunRecord = {
         runId,
         status: 'scheduled',
@@ -264,6 +266,7 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
         },
         provider: provider.id,
         model: provider.model,
+        host: providerHost(provider),
         ...(input.threadId ? { threadId: input.threadId } : {}),
       }
       const origin: AgentOrigin = {
@@ -277,7 +280,14 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
       const done = new Promise<RunRecord>((r) => (resolve = r))
       const p: Pending = { run, input, provider, origin, settled: false, resolve }
       pending.set(sessionId, p)
-      await record(sessionId, run)
+      try {
+        await record(sessionId, run)
+      } catch (err) {
+        // The session file refused the run: nothing started, and the session stays free.
+        pending.delete(sessionId)
+        runs[sessionId] = { ...run, status: 'failed', endedAt: deps.clock.now(), error: err instanceof Error ? err.message : String(err) }
+        return null
+      }
       const metadata: TurnMetadata = { runId, ...(input.refs?.length ? { refs: input.refs } : {}) }
       // `sendMessage` resolves when the turn is over; `onFinish` has settled it
       // by then — unless the transport threw before a response existed.

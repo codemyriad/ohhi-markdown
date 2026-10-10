@@ -15,7 +15,7 @@ import {
   testDraft,
   type ProviderDraft,
 } from './ai-providers.js'
-import { aiConfig, aiEnabled } from './config.js'
+import { aiConfig, aiEnabled } from './ai-config.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
 
 beforeEach(() => {
@@ -50,6 +50,27 @@ describe('ai-providers', () => {
     expect(aiConfig().providers[0]).toMatchObject({ model: 'claude-y', apiKey: 'sk-secret' })
     saveProvider({ ...edit, apiKey: 'sk-new' }, 'claude')
     expect(aiConfig().providers[0].apiKey).toBe('sk-new')
+  })
+
+  it('the stored key never follows an edit to another host or kind', () => {
+    saveProvider(draft())
+    const edit = draftOf(aiConfig().providers[0])
+    // The same endpoint written differently (the default, or with /v1) is still the same host.
+    saveProvider({ ...edit, baseUrl: 'https://api.anthropic.com/v1/' }, 'claude')
+    expect(aiConfig().providers[0].apiKey).toBe('sk-secret')
+    saveProvider({ ...edit, baseUrl: 'https://gateway.example/v1' }, 'claude')
+    expect(aiConfig().providers[0].apiKey).toBeUndefined()
+    saveProvider({ ...edit, apiKey: 'sk-again' }, 'claude')
+    saveProvider({ ...draftOf(aiConfig().providers[0]), kind: 'openrouter', baseUrl: '' }, 'claude')
+    expect(aiConfig().providers[0].apiKey).toBeUndefined()
+  })
+
+  it('test connection on an edit pointed elsewhere sends no stored key', async () => {
+    saveProvider(draft())
+    const mock = mockLlmFetch([], { models: ['a'] })
+    await testDraft({ ...draftOf(aiConfig().providers[0]), kind: 'openai-compatible', baseUrl: 'http://evil.example/v1' }, { editingId: 'claude', fetch: mock })
+    expect(mock.requests[0].headers.authorization ?? '').not.toContain('sk-secret')
+    expect(JSON.stringify(mock.requests[0].headers)).not.toContain('sk-secret')
   })
 
   it('ids are slugs, unique', () => {

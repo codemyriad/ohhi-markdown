@@ -52,7 +52,7 @@ file in the vault, never synced). The key is write-only: no view shows it.
 
 **Talking to a provider from a browser needs CORS** — the request comes from
 the app's origin, not from a server. What each needs (documented by the
-providers; **not yet verified on every platform's build of this app**):
+providers; **not yet verified on real hardware with any build of this app**):
 
 - **Ollama**: start it with `OLLAMA_ORIGINS` set to the app's origin (the
   provider form names it).
@@ -112,9 +112,15 @@ The model is told it proposed (`ohhi.proposal.v1`), not that it wrote.
 - On a shared note the records live in the note's Y.Doc, so every peer sees
   the proposal and can accept or reject it. On a never-shared note they live
   in memory for the open note and are lost on reload.
-- **Direct mode** (`ai.directEdit` in the device's config) accepts each
-  proposal the moment it lands — the same record, the same origin, so it is
-  still attributed and undoable.
+- **Direct mode** (`ai.directEdit` in the device's config) applies each edit
+  the moment it lands — the same record, the same origin, so it is still
+  attributed and undoable. It is a device setting only: there is no
+  per-session toggle yet.
+- **A proposal needs the note open.** The suggestion lives on the note's live
+  document, so the agent can propose only in a note that is open in this app
+  (in any pane). A write to a closed note, or to a path that does not exist
+  yet, is refused with an error the agent sees — it never lands on disk
+  behind your back.
 - **Undo agent edit** (`ai.undo-agent`) takes back everything the agent's last
   run applied, and only that: your own `Ctrl+Z` never undoes the agent, and
   undoing the agent never undoes what you typed inside its text.
@@ -166,16 +172,22 @@ optional `metadata`). The app reads the same folders every other harness does.
 *Run a skill…* lands its result: comments, a suggestion, a new note or a
 suggestion to insert, or the chat.
 
-- **Trust.** A skill you made here or reviewed is trusted; one that arrived by
-  sync, or that something else wrote, is listed untrusted and **not offered to
-  the agent** until you review it. A trusted skill changed by someone else
-  loses its trust. The state is `.ohhi/skills.json`, device-local — every
-  person reviews for themselves. A skill's `scripts/` never run in the app.
-- **The farm.** Claude Code reads `.claude/skills/` only. *Settings › AI ›
-  Skills* (on desktop) or `ohhi skills export` links each usable skill there
-  (`.claude/skills/<name>` → `../../.agents/skills/<name>`) and records what it
-  made in `.claude/skills/.ohhi-farm.json`, so it never removes a skill it did
-  not make. `.claude` is ignored by sync and the index.
+- **Trust.** A skill you made here or reviewed is trusted, pinned to the
+  hash of its **whole folder** as you reviewed it (scripts, references and
+  assets included); one that arrived by sync, or that something else wrote,
+  is listed untrusted and **not offered to the agent** until you review it. A
+  trusted skill changed by someone else loses its trust, and any skill whose
+  folder no longer hashes to what was trusted is not offered. *Trust* refuses
+  a folder that changed since you opened its review. The state is
+  `.ohhi/skills.json`, device-local — every person reviews for themselves. A
+  skill's `scripts/` never run in the app.
+- **Import.** From GitHub (pinned to a commit) or, on desktop, a local
+  folder. Every file is written as its bytes — scripts, images, a `LICENSE` —
+  through the journal; binaries are listed in the review, not shown. An
+  import never lands over an existing folder, and fails whole if any file
+  cannot be written.
+- **The farm** puts usable skills in `.claude/skills/` for Claude Code — see
+  [agent-access.md § the skills farm](agent-access.md#skills-export-not-an-op--the-skills-farm).
 - The agent sees the usable skills' names and descriptions in its prompt and
   reads a body with `ohhi_skill` when one applies.
 
@@ -196,8 +208,19 @@ Not built, on purpose, with where each would go:
 - **The relay as a host** — the loop running beside the relay (an agent
   that edits while nobody's app is open), shape C in the shaping doc.
 - **Attribution on a peer.** The agent's edits reach other devices as the
-  starting person's Yjs client, so a peer's Changes feed names the person,
-  not the agent; the starting device's own log names the agent.
+  starting person's Yjs client, so **a peer's Changes feed names the person,
+  not the agent**; only the starting device's own log names the agent.
+- **Proposals in a closed note or a new path** — materialising the note's
+  document for the proposal, so the agent can suggest in a note nobody has
+  open, or propose a new note.
+- **A per-session direct-mode toggle** in the Session header; today direct
+  mode is the device setting only.
+- **Importing CriticMarkup into threads.** The reader exists
+  (`importCriticMarkup` in `libs/workspace/src/criticmarkup.ts`), but wiring
+  it to an action means mapping each comment from the de-marked text back
+  into the note that still carries the markup, and deciding whether the
+  markup is then removed (a note edit) or left; until that is shaped, threads
+  go out as CriticMarkup (*Export*) and do not come back in.
 
 ## Where the code is
 
@@ -208,5 +231,5 @@ Not built, on purpose, with where each would go:
 | Suggestions, the agent origin, the throttle | `libs/workspace/src/suggestions.ts`, `agent-origin.ts`, `agent-throttle.ts`; drawn by `libs/editor/src/suggestions.ts` |
 | The agent's presence | `libs/workspace/src/agent-presence.ts`; `apps/web/src/lib/agent-presence.ts`; `libs/editor/src/working-highlight.ts` |
 | Comments | `libs/workspace/src/threads.ts`, `apps/web/src/lib/threads.svelte.ts`, `libs/editor/src/comments.ts` |
-| Skills | `libs/agent/src/skills.ts` (the one loader), `apps/web/src/lib/skills.svelte.ts`, `apps/cli/src/skills-export.ts` |
+| Skills | `libs/agent/src/skills.ts` (the one loader, the trust rule, the farm helpers), `apps/web/src/lib/skills.svelte.ts` (trust state), `skill-import.ts` (review and import), `skill-routing.ts` (`ai.run-skill` and where a run lands), `skills-farm.ts`; `apps/cli/src/skills-export.ts` |
 | The mock LLM (tests) | `libs/testkit/src/mock-llm.ts`, `mock-llm-server.ts` (`@ohhi/testkit/src/node`) |

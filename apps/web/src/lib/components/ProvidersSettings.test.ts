@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Settings › AI › Providers (writing-harness-build A6): add → it appears with
+ * Settings › AI › Providers: add → it appears with
  * its egress line and no key on screen; edit never echoes the key; test
  * connection through the injected (mock) fetch; default; delete with confirm.
  */
@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getLL } from '@ohhi/i18n'
 import { mockLlmFetch } from '@ohhi/testkit'
-import { aiConfig, aiEnabled } from '../config.js'
+import { aiConfig, aiEnabled } from '../ai-config.svelte.js'
 import ProvidersSettings from './ProvidersSettings.svelte'
 
 afterEach(cleanup)

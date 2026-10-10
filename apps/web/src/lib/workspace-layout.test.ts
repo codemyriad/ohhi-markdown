@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { SavedGroup } from './groups.js'
-import { openPath, serialize, split, type Layout } from './panes.js'
+import { openPath, openView, serialize, split, type Layout } from './panes.js'
+import { aiConfigChanged, setAiConfig } from './ai-config.svelte.js'
 import { ids, paneAt, strip } from './panes.fixture.js'
 import { dropStorage, seedStored as seed, useMemStorage } from './storage.fixture.js'
 import {
@@ -29,6 +30,18 @@ describe('the device-local workspace store', () => {
   it('starts empty and says so', () => {
     expect(loadLayout('room-a', ids())).toBeNull()
     expect(loadSavedGroups('room-a')).toEqual([])
+  })
+
+  it('drops a Session tab on restore while no provider exists, and keeps it once one does', () => {
+    const { l, gen } = strip('a.md')
+    const withSession = openView(l, 'session', { arg: 's1' }, gen)
+    saveWorkspace('room-a', withSession, [])
+    aiConfigChanged()
+    const quiet = loadLayout('room-a', ids('q'))!
+    expect(JSON.stringify(serialize(quiet))).not.toContain('"session"')
+    expect(JSON.stringify(serialize(quiet))).toContain('a.md')
+    setAiConfig({ providers: [{ id: 'p', name: 'P', kind: 'anthropic', baseUrl: '', model: 'm', apiKey: 'k' }] })
+    expect(JSON.stringify(serialize(loadLayout('room-a', ids('r'))!))).toContain('"session"')
   })
 
   it('round-trips a layout through localStorage under one key per vault', () => {

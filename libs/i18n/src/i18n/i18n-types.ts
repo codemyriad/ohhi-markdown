@@ -4315,6 +4315,10 @@ export type NamespaceWebTranslation = {
 				 * M​o​v​e​ ​a​n​d​ ​r​e​n​a​m​e​,​ ​s​e​n​d​ ​t​o​ ​t​h​e​ ​t​r​a​s​h​ ​i​n​s​t​e​a​d​ ​o​f​ ​d​e​l​e​t​i​n​g​,​ ​a​n​d​ ​r​e​s​t​o​r​e​ ​a​n​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n
 				 */
 				move: string
+				/**
+				 * L​i​s​t​ ​t​h​e​ ​v​a​u​l​t​’​s​ ​s​k​i​l​l​s​ ​i​n​ ​.​a​g​e​n​t​s​/​s​k​i​l​l​s​/​ ​a​n​d​ ​r​e​a​d​ ​o​n​e
+				 */
+				skills: string
 			}
 			/**
 			 * T​h​r​o​u​g​h​ ​M​C​P​ ​e​a​c​h​ ​o​n​e​ ​i​s​ ​a​ ​t​o​o​l​ ​o​f​ ​t​h​e​ ​s​a​m​e​ ​n​a​m​e​,​ ​p​r​e​f​i​x​e​d​ ​o​h​h​i​_​ ​(​o​h​h​i​_​s​e​a​r​c​h​)​.
@@ -6747,10 +6751,6 @@ export type NamespaceWebTranslation = {
 	ai: {
 		settings: {
 			/**
-			 * A​I
-			 */
-			title: string
-			/**
 			 * N​o​t​h​i​n​g​ ​l​e​a​v​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​u​n​t​i​l​ ​y​o​u​ ​a​d​d​ ​a​ ​p​r​o​v​i​d​e​r​.​ ​W​i​t​h​ ​o​n​e​,​ ​t​h​e​ ​t​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​t​h​a​t​ ​e​n​d​p​o​i​n​t​,​ ​a​n​d​ ​n​o​w​h​e​r​e​ ​e​l​s​e​.
 			 */
 			egress: string
@@ -6839,10 +6839,6 @@ export type NamespaceWebTranslation = {
 			 * K​e​y​ ​c​o​n​f​i​g​u​r​e​d
 			 */
 			key_configured: string
-			/**
-			 * N​o​ ​k​e​y
-			 */
-			key_missing: string
 			/**
 			 * T​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​{​n​a​m​e​}​ ​a​t​ ​{​h​o​s​t​}
 			 * @param {string} host
@@ -7077,6 +7073,10 @@ export type NamespaceWebTranslation = {
 			 */
 			nothing_running: string
 			/**
+			 * T​h​e​ ​p​r​o​v​i​d​e​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​w​a​s​ ​u​s​i​n​g​ ​i​s​ ​g​o​n​e​.​ ​P​i​c​k​ ​a​n​o​t​h​e​r​ ​i​n​ ​t​h​e​ ​s​e​s​s​i​o​n​’​s​ ​h​e​a​d​e​r​.
+			 */
+			provider_gone: string
+			/**
 			 * T​h​e​ ​r​u​n​ ​f​a​i​l​e​d​:​ ​{​m​e​s​s​a​g​e​}
 			 * @param {string} message
 			 */
@@ -7163,6 +7163,16 @@ export type NamespaceWebTranslation = {
 				 * @param {string} path
 				 */
 				proposed: RequiredParams<'path'>
+				/**
+				 * N​o​t​h​i​n​g​ ​t​o​ ​p​r​o​p​o​s​e​ ​i​n​ ​{​p​a​t​h​}​:​ ​i​t​ ​a​l​r​e​a​d​y​ ​s​a​y​s​ ​t​h​a​t
+				 * @param {string} path
+				 */
+				proposal_none: RequiredParams<'path'>
+				/**
+				 * E​d​i​t​e​d​ ​{​p​a​t​h​}​ ​d​i​r​e​c​t​l​y
+				 * @param {string} path
+				 */
+				proposal_applied: RequiredParams<'path'>
 				/**
 				 * U​s​e​d​ ​{​n​a​m​e​}
 				 * @param {string} name
@@ -7273,10 +7283,6 @@ export type NamespaceWebTranslation = {
 			 * @param {string} label
 			 */
 			skill_chip: RequiredParams<'label'>
-			/**
-			 * C​h​a​n​g​e​d​ ​s​i​n​c​e​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​d​ ​i​t
-			 */
-			changed: string
 			/**
 			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​i​n​ ​a​ ​n​o​t​e​ ​f​i​r​s​t​.
 			 */
@@ -7625,10 +7631,10 @@ export type NamespaceWebTranslation = {
 				 */
 				pinned: RequiredParams<'sha'>
 				/**
-				 * {​c​o​u​n​t​}​ ​b​i​n​a​r​y​ ​f​i​l​e​{​{​s​}​}​ ​w​i​l​l​ ​n​o​t​ ​b​e​ ​i​m​p​o​r​t​e​d​.
+				 * {​c​o​u​n​t​}​ ​b​i​n​a​r​y​ ​f​i​l​e​{​{​s​}​}​,​ ​l​i​s​t​e​d​ ​a​b​o​v​e​:​ ​i​m​p​o​r​t​e​d​ ​a​s​ ​{​{​i​t​ ​i​s​|​t​h​e​y​ ​a​r​e​}​}​,​ ​n​o​t​ ​s​h​o​w​n​ ​h​e​r​e​.
 				 * @param {number} count
 				 */
-				binary_skipped: RequiredParams<'count'>
+				binary_listed: RequiredParams<'count'>
 				/**
 				 * I​t​ ​s​h​i​p​s​ ​s​c​r​i​p​t​s​.​ ​O​h​ ​h​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​t​h​e​m​,​ ​b​u​t​ ​r​e​a​d​ ​t​h​e​m​ ​b​e​f​o​r​e​ ​y​o​u​ ​t​r​u​s​t​ ​i​t​:​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​ ​m​i​g​h​t​.
 				 */
@@ -7686,6 +7692,16 @@ export type NamespaceWebTranslation = {
 				 */
 				write_failed: RequiredParams<'message'>
 				/**
+				 * T​h​e​ ​s​k​i​l​l​ ​h​a​s​ ​a​ ​f​i​l​e​ ​o​u​t​s​i​d​e​ ​i​t​s​ ​o​w​n​ ​f​o​l​d​e​r​ ​(​{​p​a​t​h​}​)​,​ ​s​o​ ​i​t​ ​i​s​ ​n​o​t​ ​i​m​p​o​r​t​e​d​.
+				 * @param {string} path
+				 */
+				bad_path: RequiredParams<'path'>
+				/**
+				 * {​n​a​m​e​}​ ​c​h​a​n​g​e​d​ ​s​i​n​c​e​ ​y​o​u​ ​r​e​v​i​e​w​e​d​ ​i​t​.​ ​R​e​v​i​e​w​ ​i​t​ ​a​g​a​i​n​.
+				 * @param {string} name
+				 */
+				changed: RequiredParams<'name'>
+				/**
 				 * {​n​a​m​e​}​ ​i​s​ ​t​r​u​s​t​e​d​ ​a​n​d​ ​e​n​a​b​l​e​d​.
 				 * @param {string} name
 				 */
@@ -7728,6 +7744,45 @@ export type NamespaceWebTranslation = {
 				 * @param {string} name
 				 */
 				not_started: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​d​i​d​ ​n​o​t​ ​f​i​n​i​s​h​:​ ​{​e​r​r​o​r​}
+				 * @param {string} error
+				 * @param {string} name
+				 */
+				failed: RequiredParams<'error' | 'name'>
+				/**
+				 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​.
+				 * @param {number} count
+				 * @param {string} name
+				 */
+				findings: RequiredParams<'count' | 'name'>
+				/**
+				 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​;​ ​{​s​k​i​p​p​e​d​}​ ​q​u​o​t​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​f​o​u​n​d​ ​i​n​ ​t​h​e​ ​n​o​t​e​.
+				 * @param {number} count
+				 * @param {string} name
+				 * @param {number} skipped
+				 */
+				findings_skipped: RequiredParams<'count' | 'name' | 'skipped'>
+				/**
+				 * {​n​a​m​e​}​ ​f​o​u​n​d​ ​n​o​t​h​i​n​g​ ​t​o​ ​c​o​m​m​e​n​t​ ​o​n​.
+				 * @param {string} name
+				 */
+				no_findings: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​w​r​o​t​e​ ​{​p​a​t​h​}​.
+				 * @param {string} name
+				 * @param {string} path
+				 */
+				created: RequiredParams<'name' | 'path'>
+				/**
+				 * {​n​a​m​e​}​ ​a​n​s​w​e​r​e​d​ ​w​i​t​h​o​u​t​ ​a​ ​n​o​t​e​ ​t​o​ ​w​r​i​t​e​;​ ​s​e​e​ ​t​h​e​ ​s​e​s​s​i​o​n​.
+				 * @param {string} name
+				 */
+				answered_no_note: RequiredParams<'name'>
+				/**
+				 * U​n​t​i​t​l​e​d
+				 */
+				untitled: string
 			}
 		}
 		suggest: {
@@ -7913,6 +7968,31 @@ export type NamespaceWebTranslation = {
 			 * C​o​m​m​e​n​t​s​ ​n​e​e​d​ ​t​h​e​ ​n​o​t​e​ ​o​p​e​n​ ​i​n​ ​a​n​ ​e​d​i​t​o​r​.
 			 */
 			unavailable: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​s​e​n​d​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​t​o​ ​t​h​e​ ​a​g​e​n​t​:​ ​a​ ​r​u​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​g​o​i​n​g​,​ ​o​r​ ​n​o​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​s​e​t​ ​u​p​.
+			 */
+			thread_not_started: string
+			/**
+			 * T​h​e​ ​a​g​e​n​t​ ​d​i​d​ ​n​o​t​ ​a​n​s​w​e​r​ ​t​h​e​ ​c​o​m​m​e​n​t​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			thread_failed: RequiredParams<'error'>
+			/**
+			 * P​r​o​p​o​s​e​d​ ​e​d​i​t
+			 */
+			thread_suggestion: string
+			/**
+			 * T​h​e​ ​t​e​x​t​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​i​s​ ​e​d​i​t​.
+			 */
+			thread_suggestion_stale: string
+			/**
+			 * A​c​c​e​p​t
+			 */
+			accept: string
+			/**
+			 * R​e​j​e​c​t
+			 */
+			reject: string
 		}
 		presence: {
 			/**
@@ -7966,92 +8046,6 @@ export type NamespaceWebTranslation = {
 			 * O​p​e​n​ ​A​I​ ​s​e​s​s​i​o​n
 			 */
 			session: string
-		}
-		notice: {
-			/**
-			 * T​h​a​t​ ​i​s​ ​n​o​t​ ​b​u​i​l​t​ ​y​e​t​.
-			 */
-			not_built: string
-		}
-		wiring: {
-			/**
-			 * N​o​t​h​i​n​g​ ​t​o​ ​p​r​o​p​o​s​e​ ​i​n​ ​{​p​a​t​h​}​:​ ​i​t​ ​a​l​r​e​a​d​y​ ​s​a​y​s​ ​t​h​a​t
-			 * @param {string} path
-			 */
-			proposal_none: RequiredParams<'path'>
-			/**
-			 * E​d​i​t​e​d​ ​{​p​a​t​h​}​ ​d​i​r​e​c​t​l​y
-			 * @param {string} path
-			 */
-			proposal_applied: RequiredParams<'path'>
-			/**
-			 * A​g​e​n​t
-			 */
-			agent_author: string
-			/**
-			 * C​o​u​l​d​ ​n​o​t​ ​s​e​n​d​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​t​o​ ​t​h​e​ ​a​g​e​n​t​:​ ​a​ ​r​u​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​g​o​i​n​g​,​ ​o​r​ ​n​o​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​s​e​t​ ​u​p​.
-			 */
-			thread_not_started: string
-			/**
-			 * T​h​e​ ​a​g​e​n​t​ ​d​i​d​ ​n​o​t​ ​a​n​s​w​e​r​ ​t​h​e​ ​c​o​m​m​e​n​t​:​ ​{​e​r​r​o​r​}
-			 * @param {string} error
-			 */
-			thread_failed: RequiredParams<'error'>
-			/**
-			 * P​r​o​p​o​s​e​d​ ​e​d​i​t
-			 */
-			thread_suggestion: string
-			/**
-			 * T​h​e​ ​t​e​x​t​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​i​s​ ​e​d​i​t​.
-			 */
-			thread_suggestion_stale: string
-			/**
-			 * A​c​c​e​p​t
-			 */
-			accept: string
-			/**
-			 * R​e​j​e​c​t
-			 */
-			reject: string
-			/**
-			 * {​n​a​m​e​}​ ​d​i​d​ ​n​o​t​ ​f​i​n​i​s​h​:​ ​{​e​r​r​o​r​}
-			 * @param {string} error
-			 * @param {string} name
-			 */
-			skill_failed: RequiredParams<'error' | 'name'>
-			/**
-			 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​.
-			 * @param {number} count
-			 * @param {string} name
-			 */
-			skill_findings: RequiredParams<'count' | 'name'>
-			/**
-			 * {​n​a​m​e​}​ ​l​e​f​t​ ​{​c​o​u​n​t​}​ ​c​o​m​m​e​n​t​{​{​s​}​}​;​ ​{​s​k​i​p​p​e​d​}​ ​q​u​o​t​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​f​o​u​n​d​ ​i​n​ ​t​h​e​ ​n​o​t​e​.
-			 * @param {number} count
-			 * @param {string} name
-			 * @param {number} skipped
-			 */
-			skill_findings_skipped: RequiredParams<'count' | 'name' | 'skipped'>
-			/**
-			 * {​n​a​m​e​}​ ​f​o​u​n​d​ ​n​o​t​h​i​n​g​ ​t​o​ ​c​o​m​m​e​n​t​ ​o​n​.
-			 * @param {string} name
-			 */
-			skill_no_findings: RequiredParams<'name'>
-			/**
-			 * {​n​a​m​e​}​ ​w​r​o​t​e​ ​{​p​a​t​h​}​.
-			 * @param {string} name
-			 * @param {string} path
-			 */
-			skill_created: RequiredParams<'name' | 'path'>
-			/**
-			 * {​n​a​m​e​}​ ​a​n​s​w​e​r​e​d​ ​w​i​t​h​o​u​t​ ​a​ ​n​o​t​e​ ​t​o​ ​w​r​i​t​e​;​ ​s​e​e​ ​t​h​e​ ​s​e​s​s​i​o​n​.
-			 * @param {string} name
-			 */
-			skill_no_note: RequiredParams<'name'>
-			/**
-			 * U​n​t​i​t​l​e​d
-			 */
-			untitled: string
 		}
 	}
 }
@@ -12130,6 +12124,10 @@ export type TranslationFunctions = {
 					 * Move and rename, send to the trash instead of deleting, and restore an earlier version
 					 */
 					move: () => LocalizedString
+					/**
+					 * List the vault’s skills in .agents/skills/ and read one
+					 */
+					skills: () => LocalizedString
 				}
 				/**
 				 * Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).
@@ -14404,10 +14402,6 @@ export type TranslationFunctions = {
 		ai: {
 			settings: {
 				/**
-				 * AI
-				 */
-				title: () => LocalizedString
-				/**
 				 * Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.
 				 */
 				egress: () => LocalizedString
@@ -14491,10 +14485,6 @@ export type TranslationFunctions = {
 				 * Key configured
 				 */
 				key_configured: () => LocalizedString
-				/**
-				 * No key
-				 */
-				key_missing: () => LocalizedString
 				/**
 				 * Text you reference is sent to {name} at {host}
 				 */
@@ -14720,6 +14710,10 @@ export type TranslationFunctions = {
 				 */
 				nothing_running: () => LocalizedString
 				/**
+				 * The provider this session was using is gone. Pick another in the session’s header.
+				 */
+				provider_gone: () => LocalizedString
+				/**
 				 * The run failed: {message}
 				 */
 				failed: (arg: { message: string }) => LocalizedString
@@ -14790,6 +14784,14 @@ export type TranslationFunctions = {
 					 * Proposed an edit in {path}
 					 */
 					proposed: (arg: { path: string }) => LocalizedString
+					/**
+					 * Nothing to propose in {path}: it already says that
+					 */
+					proposal_none: (arg: { path: string }) => LocalizedString
+					/**
+					 * Edited {path} directly
+					 */
+					proposal_applied: (arg: { path: string }) => LocalizedString
 					/**
 					 * Used {name}
 					 */
@@ -14885,10 +14887,6 @@ export type TranslationFunctions = {
 				 * Skill: {label}
 				 */
 				skill_chip: (arg: { label: string }) => LocalizedString
-				/**
-				 * Changed since you referenced it
-				 */
-				changed: () => LocalizedString
 				/**
 				 * Select some text in a note first.
 				 */
@@ -15225,9 +15223,9 @@ export type TranslationFunctions = {
 					 */
 					pinned: (arg: { sha: string }) => LocalizedString
 					/**
-					 * {count} binary file{{s}} will not be imported.
+					 * {count} binary file{{s}}, listed above: imported as {{it is|they are}}, not shown here.
 					 */
-					binary_skipped: (arg: { count: number }) => LocalizedString
+					binary_listed: (arg: { count: number }) => LocalizedString
 					/**
 					 * It ships scripts. Oh hi never runs them, but read them before you trust it: an agent on your computer might.
 					 */
@@ -15277,6 +15275,14 @@ export type TranslationFunctions = {
 					 */
 					write_failed: (arg: { message: string }) => LocalizedString
 					/**
+					 * The skill has a file outside its own folder ({path}), so it is not imported.
+					 */
+					bad_path: (arg: { path: string }) => LocalizedString
+					/**
+					 * {name} changed since you reviewed it. Review it again.
+					 */
+					changed: (arg: { name: string }) => LocalizedString
+					/**
 					 * {name} is trusted and enabled.
 					 */
 					imported: (arg: { name: string }) => LocalizedString
@@ -15314,6 +15320,34 @@ export type TranslationFunctions = {
 					 * Could not start {name}: a run is already going, or no provider is set up.
 					 */
 					not_started: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} did not finish: {error}
+					 */
+					failed: (arg: { error: string, name: string }) => LocalizedString
+					/**
+					 * {name} left {count} comment{{s}}.
+					 */
+					findings: (arg: { count: number, name: string }) => LocalizedString
+					/**
+					 * {name} left {count} comment{{s}}; {skipped} quote{{s}} could not be found in the note.
+					 */
+					findings_skipped: (arg: { count: number, name: string, skipped: number }) => LocalizedString
+					/**
+					 * {name} found nothing to comment on.
+					 */
+					no_findings: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} wrote {path}.
+					 */
+					created: (arg: { name: string, path: string }) => LocalizedString
+					/**
+					 * {name} answered without a note to write; see the session.
+					 */
+					answered_no_note: (arg: { name: string }) => LocalizedString
+					/**
+					 * Untitled
+					 */
+					untitled: () => LocalizedString
 				}
 			}
 			suggest: {
@@ -15487,6 +15521,30 @@ export type TranslationFunctions = {
 				 * Comments need the note open in an editor.
 				 */
 				unavailable: () => LocalizedString
+				/**
+				 * Could not send the comment to the agent: a run is already going, or no provider is set up.
+				 */
+				thread_not_started: () => LocalizedString
+				/**
+				 * The agent did not answer the comment: {error}
+				 */
+				thread_failed: (arg: { error: string }) => LocalizedString
+				/**
+				 * Proposed edit
+				 */
+				thread_suggestion: () => LocalizedString
+				/**
+				 * The text changed under this edit.
+				 */
+				thread_suggestion_stale: () => LocalizedString
+				/**
+				 * Accept
+				 */
+				accept: () => LocalizedString
+				/**
+				 * Reject
+				 */
+				reject: () => LocalizedString
 			}
 			presence: {
 				/**
@@ -15539,78 +15597,6 @@ export type TranslationFunctions = {
 				 * Open AI session
 				 */
 				session: () => LocalizedString
-			}
-			notice: {
-				/**
-				 * That is not built yet.
-				 */
-				not_built: () => LocalizedString
-			}
-			wiring: {
-				/**
-				 * Nothing to propose in {path}: it already says that
-				 */
-				proposal_none: (arg: { path: string }) => LocalizedString
-				/**
-				 * Edited {path} directly
-				 */
-				proposal_applied: (arg: { path: string }) => LocalizedString
-				/**
-				 * Agent
-				 */
-				agent_author: () => LocalizedString
-				/**
-				 * Could not send the comment to the agent: a run is already going, or no provider is set up.
-				 */
-				thread_not_started: () => LocalizedString
-				/**
-				 * The agent did not answer the comment: {error}
-				 */
-				thread_failed: (arg: { error: string }) => LocalizedString
-				/**
-				 * Proposed edit
-				 */
-				thread_suggestion: () => LocalizedString
-				/**
-				 * The text changed under this edit.
-				 */
-				thread_suggestion_stale: () => LocalizedString
-				/**
-				 * Accept
-				 */
-				accept: () => LocalizedString
-				/**
-				 * Reject
-				 */
-				reject: () => LocalizedString
-				/**
-				 * {name} did not finish: {error}
-				 */
-				skill_failed: (arg: { error: string, name: string }) => LocalizedString
-				/**
-				 * {name} left {count} comment{{s}}.
-				 */
-				skill_findings: (arg: { count: number, name: string }) => LocalizedString
-				/**
-				 * {name} left {count} comment{{s}}; {skipped} quote{{s}} could not be found in the note.
-				 */
-				skill_findings_skipped: (arg: { count: number, name: string, skipped: number }) => LocalizedString
-				/**
-				 * {name} found nothing to comment on.
-				 */
-				skill_no_findings: (arg: { name: string }) => LocalizedString
-				/**
-				 * {name} wrote {path}.
-				 */
-				skill_created: (arg: { name: string, path: string }) => LocalizedString
-				/**
-				 * {name} answered without a note to write; see the session.
-				 */
-				skill_no_note: (arg: { name: string }) => LocalizedString
-				/**
-				 * Untitled
-				 */
-				untitled: () => LocalizedString
 			}
 		}
 	}

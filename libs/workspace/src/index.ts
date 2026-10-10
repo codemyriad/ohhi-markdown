@@ -28,7 +28,7 @@ export {
   MountSession,
   PEER_SETTLE_MS,
   RELAY_OFFLINE_MS,
-  type AgentEditInput,
+  type ProposeEditInput,
   type DetachOptions,
   type DocInspection,
   type MountInspection,

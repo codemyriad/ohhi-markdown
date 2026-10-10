@@ -6,16 +6,8 @@ import { mockLlmFetch, SimClock } from '@ohhi/testkit'
 import { createAppBackend } from './agent-backend.js'
 import { createRunRegistry, finalText, type RunRegistryDeps } from './ai-runs.svelte.js'
 import { appAgentHost, type AgentFactory } from './ai-transport.js'
-import { createSessionStore, latestRuns, type VaultAppFiles } from './session-store.js'
-
-function memAppFiles(): VaultAppFiles {
-  const files = new Map<string, string>()
-  return {
-    readAppFile: async (p) => files.get(p) ?? null,
-    writeAppFile: async (p, t) => void files.set(p, t),
-    listAppDir: async (d) => [...files.keys()].filter((p) => p.startsWith(`${d}/`)),
-  }
-}
+import { createSessionStore, latestRuns } from './session-store.js'
+import { memAppFiles } from './harness.fixture.js'
 
 const PROVIDER: ProviderConfig = { id: 'p1', name: 'Local', kind: 'openai-compatible', baseUrl: 'http://localhost:11434/v1', model: 'mock-model', apiKey: 'k' }
 
@@ -69,7 +61,7 @@ describe('run registry', () => {
     expect(handle.sessionId).toBe('s1')
 
     const done = await handle.done
-    expect(done).toMatchObject({ status: 'successful', usage: { input: 10, output: 2 }, provider: 'p1', model: 'mock-model' })
+    expect(done).toMatchObject({ status: 'successful', usage: { input: 10, output: 2 }, provider: 'p1', model: 'mock-model', host: 'localhost:11434' })
     expect(await statuses(store, 's1')).toEqual(['scheduled', 'running', 'successful'])
 
     const chat = registry.loaded('s1')!
@@ -81,6 +73,20 @@ describe('run registry', () => {
     // The file holds the turn: the person's message, then the agent's.
     const roles = (await store.load('s1'))!.entries.flatMap((e) => (e.type === 'message' ? [e.message.role] : []))
     expect(roles).toEqual(['user', 'assistant'])
+  })
+
+  it('a session file that refuses the first write starts nothing and leaves the session free', async () => {
+    const { store, registry, files } = setup()
+    await store.create({ id: 's1' })
+    const write = files.writeAppFile
+    files.writeAppFile = async () => {
+      throw new Error('disk full')
+    }
+    expect(await registry.start('s1', { instruction: 'x' })).toBeNull()
+    expect(registry.active()).toEqual([])
+    expect(registry.current('s1')).toMatchObject({ status: 'failed', error: 'disk full' })
+    files.writeAppFile = write
+    expect((await (await registry.start('s1', { instruction: 'y' }))!.done).status).toBe('successful')
   })
 
   it('stamps start and end on the injected clock', async () => {
@@ -195,7 +201,7 @@ describe('run registry', () => {
     })
     const proposals = {
       proposeEdit: async (input: ProposeEditInput) => (proposed.push(input), record(input, 'pending')),
-      acceptSuggestion: () => null,
+      applyAgentEdit: async (input: ProposeEditInput) => record(input, 'accepted'),
     }
     const fetch = mockLlmFetch([
       { toolCall: { name: 'ohhi_patch', args: { path: 'plan.md', old: 'soon', new: 'this week' } } },
@@ -218,22 +224,22 @@ describe('run registry', () => {
     expect(registry.reply(run.runId)).toBe('Proposed “this week”.')
   })
 
-  it('direct mode accepts each proposal as it lands; off, it stays pending', async () => {
-    const accepted: string[] = []
+  it('direct mode applies each edit as it lands; off, it is proposed and stays pending', async () => {
+    const calls: string[] = []
+    const rec = (input: ProposeEditInput, status: SuggestionRecord['status']): SuggestionRecord => ({
+      id: 'sg-1', path: input.path, origin: input.origin, at: 0, range: { from: 0, to: 0 }, baseText: '', proposedText: 'x', status,
+    })
     const sink = {
-      proposeEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => ({
-        id: 'sg-1', path: input.path, origin: input.origin, at: 0, range: { from: 0, to: 0 }, baseText: '', proposedText: 'x', status: 'pending',
-      }),
-      acceptSuggestion: (path: string, id: string): SuggestionRecord | null => (accepted.push(`${path}#${id}`), null),
+      proposeEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => (calls.push(`propose ${input.path}`), rec(input, 'pending')),
+      applyAgentEdit: async (input: ProposeEditInput): Promise<SuggestionRecord> => (calls.push(`apply ${input.path}`), rec(input, 'accepted')),
     }
     let direct = false
     const host = appAgentHost({ backend: {} as AgentHost['backend'], clock: new SimClock(), proposals: sink, direct: () => direct })
     const input: ProposeEditInput = { path: 'a.md', from: 0, to: 0, baseText: '', proposedText: 'x', origin: { kind: 'agent', runId: 'r', sessionId: 's', name: 'A' } }
-    await host.proposeEdit!(input)
-    expect(accepted).toEqual([])
+    expect((await host.proposeEdit!(input)).status).toBe('pending')
     direct = true
-    await host.proposeEdit!(input)
-    expect(accepted).toEqual(['a.md#sg-1'])
+    expect((await host.proposeEdit!(input)).status).toBe('accepted')
+    expect(calls).toEqual(['propose a.md', 'apply a.md'])
     expect(appAgentHost({ backend: {} as AgentHost['backend'], clock: new SimClock() }).proposeEdit).toBeUndefined()
   })
 })

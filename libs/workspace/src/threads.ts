@@ -36,10 +36,8 @@ import { decodeRange, encodeRange, ydocOf, ytextOf } from './anchors.js'
 // ---- records ---------------------------------------------------------------
 
 /**
- * The thread and comment records. Structurally `ThreadRecord` /
- * `CommentRecord` of `@ohhi/harness`'s `types.ts` (the seam) — restated here
- * because `libs/workspace` cannot depend on the harness; `apps/web`'s
- * `threads.svelte.ts` asserts at compile time that the two agree.
+ * The thread and comment records — the seam's one home: `@ohhi/harness`
+ * re-exports them (libs/harness/src/types.ts).
  */
 export interface CommentRecord {
   id: string
@@ -236,6 +234,8 @@ export class ThreadStore {
   private readonly listeners = new Set<() => void>()
   private cancelWrite: (() => void) | null = null
   private lastWritten: string | null = null
+  /** The text of the write in flight, so a second schedule does not repeat it. */
+  private writing: string | null = null
   private readonly off: (() => void) | null = null
   private disposed = false
 
@@ -424,6 +424,10 @@ export class ThreadStore {
   private changed(): void {
     if (this.disposed) return
     this.notify()
+    this.scheduleWrite()
+  }
+
+  private scheduleWrite(): void {
     this.cancelWrite ??= this.opts.clock.schedule(() => {
       this.cancelWrite = null
       void this.write()
@@ -442,9 +446,17 @@ export class ThreadStore {
       threads: this.threads(),
     }
     const text = `${JSON.stringify(file, null, 2)}\n`
-    if (text === this.lastWritten) return
-    this.lastWritten = text
-    await this.opts.files.write(commentsFile(this.opts.key), text)
+    if (text === this.lastWritten || text === this.writing) return
+    this.writing = text
+    try {
+      await this.opts.files.write(commentsFile(this.opts.key), text)
+      // Only a write that landed counts: a failed one is tried again.
+      this.lastWritten = text
+    } catch {
+      if (!this.disposed) this.scheduleWrite()
+    } finally {
+      if (this.writing === text) this.writing = null
+    }
   }
 }
 

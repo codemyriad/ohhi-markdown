@@ -25,15 +25,9 @@
   import { CARD, FACT, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import { isTauri } from '../platform.js'
   import { getViewShell } from '../views.js'
-  import {
-    currentSkills,
-    pickLocalSkillFolder,
-    problemText,
-    validSkillName,
-    type ImportCandidate,
-    type SkillRow,
-    type SkillsStore,
-  } from '../skills.svelte.js'
+  import { isValidSkillName } from '@ohhi/harness/skills'
+  import { currentSkills, problemText, type SkillRow, type SkillsStore } from '../skills.svelte.js'
+  import { pickLocalSkillFolder, type ImportCandidate } from '../skill-import.js'
   import SkillImportDialog from './SkillImportDialog.svelte'
 
   interface Props {
@@ -56,7 +50,7 @@
 
   let creating = $state(false)
   let importing = $state(false)
-  let reviewing = $state<ImportCandidate | null>(null)
+  let reviewing = $state<(ImportCandidate & { hash?: string }) | null>(null)
   let status = $state('')
 
   $effect(() => {
@@ -68,7 +62,7 @@
     name: z
       .string()
       .trim()
-      .refine(validSkillName, $LL.web.ai.skills.create.name_invalid())
+      .refine(isValidSkillName, $LL.web.ai.skills.create.name_invalid())
       .refine((n) => !store?.rows.some((r) => r.id === n), $LL.web.ai.skills.create.name_taken()),
   })
   const form = createForm(schema, { name: '' })

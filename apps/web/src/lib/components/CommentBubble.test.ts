@@ -3,32 +3,24 @@
  * The comment bubble (writing-harness B8): a new comment on a selection, the
  * AI-gated *Send to agent* box, and a thread's reply / resolve.
  */
-import { createYjsEngine } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createThreadRegistry, type BubbleRequest } from '../threads.svelte.js'
+import { type BubbleRequest } from '../threads.svelte.js'
 import type { SuggestionRecord } from '@ohhi/workspace'
 import type { Workspace } from '../workspace.svelte.js'
 import CommentBubble from './CommentBubble.svelte'
 
 afterEach(cleanup)
 
+import { threadsFixture } from '../harness.fixture.js'
+
 const TEXT = 'The plan is to ship in March.'
 const PATH = 'plan.md'
 
 function fakeWorkspace() {
-  const doc = createYjsEngine().createDoc('g1')
-  doc.transact((t) => t.insert(0, TEXT), 'local')
-  const store = new Map<string, string>()
-  const registry = createThreadRegistry({
-    clock: new SimClock(),
-    docForPath: (p) => (p === PATH ? doc : null),
-    guidFor: (p) => (p === PATH ? 'g1' : null),
-    pathFor: () => PATH,
-    files: { read: async (p) => store.get(p) ?? null, write: async (p, t) => void store.set(p, t) },
-  })
+  const { registry, doc: held } = threadsFixture({ text: TEXT, path: PATH })
+  const doc = held.current!
   const ws: Pick<Workspace, 'threadsFor' | 'addThread' | 'reply' | 'resolveThread'> = {
     threadsFor: (p) => registry.storeFor(p),
     addThread: vi.fn((p, { author, ...rest }) => registry.storeFor(p)?.add({ ...rest, author: author ?? 'Ana' }) ?? null),

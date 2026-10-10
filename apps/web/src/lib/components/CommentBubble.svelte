@@ -41,7 +41,6 @@
   }
 
   let { request, workspace, ai, onClose, onSendToAgent }: Props = $props()
-  const w = $derived($LL.web.ai.wiring)
 
   const t = $derived($LL.web.ai.comments)
   const live = liveThreads(() => workspace.threadsFor(request.path))
@@ -138,7 +137,7 @@
           <ul class="m-0 flex list-none flex-col gap-2 p-0">
             {#each proposals as sg (sg.id)}
               <li class="flex flex-col gap-1 rounded border border-base-300 p-2 text-xs" data-testid="comment-suggestion">
-                <span class="font-semibold">{w.thread_suggestion()}</span>
+                <span class="font-semibold">{t.thread_suggestion()}</span>
                 {#if sg.baseText}
                   <del class="whitespace-pre-wrap text-base-content/70">{sg.baseText}</del>
                 {/if}
@@ -146,15 +145,15 @@
                   <ins class="whitespace-pre-wrap no-underline">{sg.proposedText}</ins>
                 {/if}
                 {#if sg.status === 'stale'}
-                  <span class="text-base-content/70">{w.thread_suggestion_stale()}</span>
+                  <span class="text-base-content/70">{t.thread_suggestion_stale()}</span>
                 {/if}
                 <span class="flex justify-end gap-2">
                   <button type="button" class={outline} data-testid="comment-suggestion-reject" onclick={() => decide(sg, false)}
-                    >{w.reject()}</button
+                    >{t.reject()}</button
                   >
                   {#if sg.status === 'pending'}
                     <button type="button" class={primary} data-testid="comment-suggestion-accept" onclick={() => decide(sg, true)}
-                      >{w.accept()}</button
+                      >{t.accept()}</button
                     >
                   {/if}
                 </span>

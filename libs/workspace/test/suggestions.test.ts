@@ -309,3 +309,68 @@ describe('L0 property: suggestion ⊕ concurrent peer edit (spike S14 Q3)', () =
     )
   })
 })
+
+// ---- L0: two peers accept one shared suggestion at once (R1#2) ----
+
+describe('L0 property: concurrent accepts of one shared suggestion', () => {
+  it('the merged text holds the proposal exactly once, on both replicas', () => {
+    fc.assert(
+      fc.property(BASE, fc.nat(), fc.nat(), PROPOSED, fc.boolean(), (base, r1, r2, proposed, bFirst) => {
+        const n = base.length
+        const from = Math.min(r1 % (n + 1), r2 % (n + 1))
+        const to = Math.max(r1 % (n + 1), r2 % (n + 1))
+        const { net, a, b, sa, sb } = pair(base)
+        const rec = sa.propose({ id: 's1', at: 1, from, to, baseText: base.slice(from, to), proposedText: proposed, origin })
+        net.deliverAll()
+        // Neither has heard of the other's accept.
+        const [first, second] = bFirst ? [sb, sa] : [sa, sb]
+        expect(first.accept(rec.id)?.status).toBe('accepted')
+        expect(second.accept(rec.id)?.status).toBe('accepted')
+        net.deliverAll()
+        net.deliverAll()
+        const want = base.slice(0, from) + proposed + base.slice(to)
+        const c = JSON.stringify({ base, from, to, proposed })
+        expect(a.getText(), c).toBe(want)
+        expect(b.getText(), c).toBe(want)
+        expect(sa.list()[0]).toEqual(sb.list()[0])
+        expect(sa.list()[0]?.status).toBe('accepted')
+      }),
+      { numRuns: 300 }
+    )
+  })
+
+  it('the replica that gave way keeps no undo step that would restore the base; the other undoes cleanly', () => {
+    const { net, a, b, sa, sb } = pair('alpha beta gamma')
+    const rec = sa.propose({ id: 's1', at: 1, from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
+    net.deliverAll()
+    sa.accept(rec.id)
+    sb.accept(rec.id)
+    net.deliverAll()
+    net.deliverAll()
+    expect(a.getText()).toBe('alpha BETA gamma')
+    const winner = sa.list()[0]!.acceptedBy === ytextOf(a).doc!.clientID ? 'a' : 'b'
+    const runs = (s: SuggestionStore) => (s as unknown as { runs: AgentRuns }).runs
+    // The one that gave way has nothing left to undo for this run…
+    expect(runs(winner === 'a' ? sb : sa).undo(origin.runId)).toBe(false)
+    // …and the one whose accept stands takes it back to the base text, once.
+    expect(runs(winner === 'a' ? sa : sb).undo(origin.runId)).toBe(true)
+    net.deliverAll()
+    expect(a.getText()).toBe('alpha beta gamma')
+    expect(b.getText()).toBe('alpha beta gamma')
+  })
+
+  it('a character typed into the copy before the merge is never lost', () => {
+    const { net, a, b, sa, sb } = pair('alpha beta gamma')
+    const rec = sa.propose({ id: 's1', at: 1, from: 6, to: 10, baseText: 'beta', proposedText: 'BETA', origin })
+    net.deliverAll()
+    sa.accept(rec.id)
+    sb.accept(rec.id)
+    a.transact((t) => t.insert(8, '!'), 'local')
+    b.transact((t) => t.insert(8, '?'), 'local')
+    net.deliverAll()
+    net.deliverAll()
+    expect(a.getText()).toBe(b.getText())
+    expect(a.getText()).toContain('!')
+    expect(a.getText()).toContain('?')
+  })
+})

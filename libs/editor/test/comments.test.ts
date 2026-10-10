@@ -10,6 +10,7 @@ import {
   commentsExtension,
   commentsField,
   setActiveThread,
+  hasCommentGutter,
   setThreads,
   threadAt,
 } from '../src/comments.js'
@@ -93,5 +94,19 @@ describe('comments extension', () => {
     const bare = EditorState.create({ doc: TEXT })
     expect(commentRanges(bare)).toEqual([])
     expect(activeThread(bare)).toBeNull()
+  })
+})
+
+describe('the comment gutter takes no room on a note without threads', () => {
+  it('is installed with the first thread and removed with the last, in the same transaction', () => {
+    let s = state()
+    expect(hasCommentGutter(s)).toBe(false)
+    s = s.update({ effects: setThreads.of([{ id: 'a', from: 4, to: 8, resolved: false }]) }).state
+    expect(hasCommentGutter(s)).toBe(true)
+    s = s.update({ effects: setThreads.of([{ id: 'a', from: 4, to: 8, resolved: true }]) }).state
+    expect(hasCommentGutter(s)).toBe(true)
+    s = s.update({ effects: setThreads.of([]) }).state
+    expect(hasCommentGutter(s)).toBe(false)
+    expect(commentRanges(s)).toEqual([])
   })
 })

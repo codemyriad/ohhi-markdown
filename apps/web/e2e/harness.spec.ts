@@ -1,5 +1,5 @@
 /**
- * The writing harness end to end (writing-harness-build §Wave 2 › F), over
+ * The writing harness end to end, over
  * the scripted LLM (`libs/testkit`'s mock server, one turn per request):
  *
  *  - quiet by default: no provider → no `ai.*` command, no Session view;

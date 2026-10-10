@@ -381,6 +381,12 @@ export interface Workspace {
    * path has no live doc.
    */
   proposeEdit(input: ProposeEditInput): Promise<SuggestionRecord>
+  /**
+   * Direct mode: propose and apply at once, through the agent's throttle (two
+   * tokens) — attributed and undoable per run like an accepted proposal.
+   * Rejects as `proposeEdit` does.
+   */
+  applyAgentEdit(input: ProposeEditInput): Promise<SuggestionRecord>
   /** Apply a pending suggestion (`accepted`, or `stale` when its text moved); null when there is none. */
   acceptSuggestion(path: string, id: string): SuggestionRecord | null
   /** Drop a suggestion; the text is never touched. */
@@ -558,6 +564,13 @@ export interface Workspace {
   writeAttachment(path: string, bytes: Uint8Array): Promise<string | null>
   /** A file's bytes from the mount that owns it, or null (writing-harness B3: the agent's reads). */
   readFileBytes(path: string): Promise<Uint8Array | null>
+  /**
+   * Write a NEW file's bytes exactly as given (a skill import's scripts,
+   * images, LICENSE), journaled and atomic through the owning mount; rejects
+   * when the path already exists — an import never adopts a file it did not
+   * write.
+   */
+  importFileBytes(path: string, bytes: Uint8Array): Promise<void>
   /** The pre-image journal of the mount that owns `path` ('' = the root's), read-only use (B3). */
   journalFor(path: string): PreImageJournal | null
   /**
@@ -717,6 +730,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const registry = new MountRegistry()
   /** Agent runs whose suggestions were accepted this session, newest last (`undoAgent()`'s default). */
   let agentRuns: string[] = []
+  /** An accepted suggestion (by the person, or as it landed in direct mode) makes its run the newest. */
+  const noteAccepted = (record: { status: string; origin: { runId: string } }): void => {
+    if (record.status === 'accepted') agentRuns = [...agentRuns.filter((run) => run !== record.origin.runId), record.origin.runId]
+  }
   const appFiles = createAppFiles(cfg.adapter, cfg.storeDir, cfg.room)
   /**
    * The root mount. Declared here, before anything derived from it: the ignore
@@ -1913,10 +1930,17 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const record = await r.session.proposeEdit({ ...input, path: r.rel })
       return { ...record, path: input.path }
     },
+    applyAgentEdit: async (input) => {
+      const r = registry.resolve(input.path)
+      if (!r) throw new Error(getLL().web.workspace.cannot_read({ path: input.path }))
+      const record = await r.session.applyAgentEdit({ ...input, path: r.rel })
+      noteAccepted(record)
+      return { ...record, path: input.path }
+    },
     acceptSuggestion: (path, id) => {
       const r = registry.resolve(path)
       const record = r ? r.session.acceptSuggestion(r.rel, id) : null
-      if (record?.status === 'accepted') agentRuns = [...agentRuns.filter((run) => run !== record.origin.runId), record.origin.runId]
+      if (record) noteAccepted(record)
       return record ? { ...record, path } : null
     },
     rejectSuggestion: (path, id) => {
@@ -2082,6 +2106,11 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     readFileBytes: async (path) => {
       const r = registry.resolve(path)
       return r ? r.session.readFileBytes(r.rel) : null
+    },
+    importFileBytes: async (path, bytes) => {
+      const r = registry.resolve(path)
+      if (!r) throw new Error(`no mount owns '${path}'`)
+      await r.session.importFile(r.rel, bytes)
     },
     journalFor: (path) => {
       const r = registry.resolve(path)

@@ -1,37 +1,19 @@
-/**
- * `ohhi skills export` — the `.claude/skills/` farm for Claude Code
- * (writing-harness B9, Fork 6-A; research note harness-skills §2/§6).
- *
- * `.agents/skills/<name>/` is canonical and read natively by most harnesses;
- * Claude Code reads only `.claude/skills/`. This links each USABLE skill —
- * valid, and trusted + enabled in `.ohhi/skills.json` (no file: every valid
- * skill, the person put it there) — as `.claude/skills/<name>` →
- * `../../.agents/skills/<name>`, and takes away links it made earlier that are
- * no longer wanted (a disabled skill must not keep a link: every harness
- * treats presence as enabled).
- *
- * `.claude/skills/.ohhi-farm.json` records what the farm wrote — this command
- * and the app's copy farm share it — so neither ever deletes a folder it did
- * not make: a name present in `.claude/skills/` that the manifest does not
- * record is someone's real skill, reported `blocked` and left alone.
- *
- * Node-only, and not a contract op (it writes links, not notes). The list is
- * the `skills` op's own answer, so the farm and `ohhi skills` never disagree.
- */
+/** `ohhi skills export` — the `.claude/skills/` farm for Claude Code; see docs/agent-access.md › Skills. */
 import { lstat, mkdir, readdir, readlink, rmdir, symlink, unlink } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { runOp, type OpOutput } from '@ohhi/agent'
+import { join } from 'node:path'
+import { skillFsOf } from '@ohhi/agent/core'
 import {
   FARM_DIR,
-  FARM_MANIFEST,
-  parseFarmManifest,
+  loadSkills,
   parseSkillsState,
   planFarm,
-  renderFarmManifest,
+  readFarmManifest,
+  removeFarmEntry,
   SKILLS_DIR,
   SKILLS_STATE_PATH,
   usableSkills,
-  type FarmEntry,
+  writeFarmManifest,
+  type FarmFs,
   type FarmManifest,
 } from '@ohhi/agent/skills'
 import { openVault, type Backend } from './backend.js'
@@ -51,20 +33,30 @@ export interface SkillsExportOut {
   dryRun: boolean
 }
 
-type SkillRow = OpOutput<'skills'>['skills'][number]
-
-async function allSkills(backend: Backend): Promise<SkillRow[]> {
-  const out: SkillRow[] = []
-  let cursor: string | undefined
-  do {
-    const page = await runOp(backend, 'skills', { limit: 1000, ...(cursor ? { cursor } : {}) })
-    out.push(...page.skills)
-    cursor = page.nextCursor ?? undefined
-  } while (cursor)
-  return out
-}
-
 const decode = (bytes: Uint8Array | null): string | null => (bytes ? new TextDecoder().decode(bytes) : null)
+
+const isMissing = (err: unknown): boolean => (err as NodeJS.ErrnoException)?.code === 'ENOENT'
+
+/**
+ * The farm's `FarmFs` on disk: reads and writes through the vault adapter
+ * (atomic), removals as plain unlink/rmdir, every replaced or removed file's
+ * bytes recorded in the vault's journal first (golden rule 1).
+ */
+function nodeFarmFs(backend: Backend): FarmFs {
+  const abs = (path: string): string => join(backend.root, path)
+  return {
+    read: (path) => backend.adapter.read(path),
+    writeAtomic: (path, bytes) => backend.adapter.writeAtomic(path, bytes),
+    remove: async (path) => {
+      await unlink(abs(path)).catch((err: unknown) => {
+        if (!isMissing(err)) throw err
+      })
+    },
+    removeDir: (path) => rmdir(abs(path)),
+    record: (path, bytes) => backend.journal.record(path, bytes),
+    isLink: async (path) => (await lstat(abs(path)).catch(() => null))?.isSymbolicLink() === true,
+  }
+}
 
 /** What is in `.claude/skills/` now (names only; the manifest itself excluded). */
 async function presentNames(farm: string): Promise<string[]> {
@@ -75,37 +67,8 @@ async function presentNames(farm: string): Promise<string[]> {
   }
 }
 
-/**
- * Take away one entry the farm made. A link is unlinked; a copy loses exactly
- * the files the manifest lists, then its now-empty folders. Anything left
- * (a file someone added) keeps the folder — reported, never forced.
- */
-async function removeOwned(root: string, name: string, entry: FarmEntry): Promise<boolean> {
-  const at = join(root, FARM_DIR, name)
-  let stats
-  try {
-    stats = await lstat(at)
-  } catch {
-    return true // already gone
-  }
-  if (stats.isSymbolicLink()) {
-    await unlink(at)
-    return true
-  }
-  if (entry.kind !== 'copy' || !stats.isDirectory()) return false
-  for (const file of entry.files ?? []) await unlink(join(root, file)).catch(() => undefined)
-  const dirs = new Set<string>()
-  for (const file of entry.files ?? []) {
-    for (let d = dirname(join(root, file)); d.startsWith(at); d = dirname(d)) dirs.add(d)
-  }
-  for (const d of [...dirs].sort((a, b) => b.length - a.length)) await rmdir(d).catch(() => undefined)
-  try {
-    await lstat(at)
-    return false
-  } catch {
-    return true
-  }
-}
+/** Is the entry gone from disk (a removal may leave a folder someone added a file to)? */
+const gone = async (at: string): Promise<boolean> => (await lstat(at).catch(() => null)) === null
 
 async function isOurLink(at: string, target: string): Promise<boolean> {
   try {
@@ -121,9 +84,10 @@ export async function skillsExport(command: SkillsExportCommand, io: Io, sink: S
   const farm = join(root, FARM_DIR)
 
   const state = parseSkillsState(decode(await backend.adapter.read(SKILLS_STATE_PATH)))
-  const wanted = usableSkills(await allSkills(backend), state).map((s) => s.name)
-  const manifestBefore = await backend.adapter.read(FARM_MANIFEST)
-  const manifest = parseFarmManifest(decode(manifestBefore))
+  // The loader's own list (with each folder's hash, which trust is checked against).
+  const wanted = usableSkills(await loadSkills(skillFsOf(backend)), state).map((s) => s.name)
+  const fs = nodeFarmFs(backend)
+  const { manifest, text: manifestBefore } = await readFarmManifest(fs)
   const plan = planFarm({ wanted, manifest, present: await presentNames(farm) })
 
   const next: FarmManifest = { version: 1, skills: { ...manifest.skills } }
@@ -137,7 +101,7 @@ export async function skillsExport(command: SkillsExportCommand, io: Io, sink: S
       const target = `../../${SKILLS_DIR}/${name}`
       if (!(await isOurLink(at, target))) {
         const prior = manifest.skills[name]
-        if (prior && !(await removeOwned(root, name, prior))) {
+        if (prior && !((await removeFarmEntry(fs, name, prior)) && (await gone(at)))) {
           blocked.push(name)
           continue
         }
@@ -146,19 +110,14 @@ export async function skillsExport(command: SkillsExportCommand, io: Io, sink: S
       next.skills[name] = { by: 'cli', kind: 'symlink' }
     }
     for (const name of plan.remove) {
-      if (await removeOwned(root, name, manifest.skills[name])) {
+      if ((await removeFarmEntry(fs, name, manifest.skills[name])) && (await gone(join(farm, name)))) {
         delete next.skills[name]
         removed.push(name)
       } else {
         blocked.push(name)
       }
     }
-    const text = renderFarmManifest(next)
-    if (decode(manifestBefore) !== text) {
-      // Golden rule 1: the pre-image first, then the atomic write.
-      await backend.journal.record(FARM_MANIFEST, manifestBefore)
-      await backend.adapter.writeAtomic(FARM_MANIFEST, new TextEncoder().encode(text))
-    }
+    await writeFarmManifest(fs, next, manifestBefore)
   } else {
     removed.push(...plan.remove)
   }

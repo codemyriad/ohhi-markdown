@@ -16,6 +16,7 @@
  * So the store takes both halves at once, from memory, and the caller
  * debounces the one write.
  */
+import { aiEnabled } from './ai-config.svelte.js'
 import { readJson, writeJson } from './config.js'
 import type { SavedGroup } from './groups.js'
 import { normalize, normalizeSavedGroups, serialize, type Layout } from './panes.js'
@@ -46,10 +47,14 @@ function read(vaultKey: string): StoredWorkspace | null {
   return raw
 }
 
-/** The stored tree, or null when there is nothing usable to restore. */
+/**
+ * The stored tree, or null when there is nothing usable to restore. A
+ * Session tab comes back only while a provider exists (the quiet default).
+ */
 export function loadLayout(vaultKey: string, ids: () => string): Layout | null {
   const stored = read(vaultKey)
-  return stored ? normalize(stored.layout, ids) : null
+  const ai = aiEnabled()
+  return stored ? normalize(stored.layout, ids, (view) => view !== 'session' || ai) : null
 }
 
 /**

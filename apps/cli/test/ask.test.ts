@@ -3,11 +3,12 @@
  * the fixture vault, against the scripted LLM behind a real socket — the
  * CLI's real `fetch`, nothing stubbed between the flag and the wire.
  */
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OP_NAMES } from '@ohhi/agent'
+import { hashSkillFolder, type SkillFs } from '@ohhi/agent/skills'
 import { startMockLlm, type MockLlmServer } from '../../../libs/testkit/src/node.js'
 import type { MockTurn } from '../../../libs/testkit/src/mock-llm.js'
 import { AskOut, chooseProvider, parseRef, providersPath, toolLine } from '../src/ask.js'
@@ -112,6 +113,10 @@ describe('ohhi ask', () => {
   it('honours the app’s .ohhi/skills.json: an untrusted skill is neither cataloged nor runnable', async () => {
     const env = await configured([{ text: 'ok' }])
     const v = await fixture()
+    const fs: SkillFs = {
+      list: async (dir) => [`${dir}/SKILL.md`],
+      read: (path) => readFile(join(v.root, path), 'utf8'),
+    }
     for (const name of ['terse', 'wild']) {
       await mkdir(join(v.root, `.agents/skills/${name}`), { recursive: true })
       await writeFile(join(v.root, `.agents/skills/${name}/SKILL.md`), `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\nBody.\n`)
@@ -119,7 +124,10 @@ describe('ohhi ask', () => {
     await mkdir(join(v.root, '.ohhi'), { recursive: true })
     await writeFile(
       join(v.root, '.ohhi/skills.json'),
-      JSON.stringify({ terse: { enabled: true, trusted: true, installedAt: 1 }, wild: { enabled: true, trusted: false, installedAt: 1 } }),
+      JSON.stringify({
+        terse: { enabled: true, trusted: true, installedAt: 1, hash: await hashSkillFolder(fs, '.agents/skills/terse') },
+        wild: { enabled: true, trusted: false, installedAt: 1 },
+      }),
     )
     const ok = await ohhi(inVault(v, ['ask', 'hi']), { env })
     expect(ok.code).toBe(0)
@@ -195,6 +203,18 @@ describe('ask parts', () => {
     }
     expect(chooseProvider(cfg, {}, {}).id).toBe('a')
     expect(chooseProvider({ ...cfg, defaultProvider: 'b' }, {}, {}).apiKey).toBe('k')
+  })
+
+  it('$OHHI_API_KEY reaches a kind that takes a key, never a keyless local server', () => {
+    const cfg = {
+      providers: [
+        { id: 'cloud', name: 'C', kind: 'anthropic' as const, baseUrl: '', model: 'm' },
+        { id: 'local', name: 'L', kind: 'openai-compatible' as const, baseUrl: 'http://localhost:11434/v1', model: 'llama' },
+      ],
+    }
+    const env = { OHHI_API_KEY: 'sk-cloud-secret' }
+    expect(chooseProvider(cfg, { provider: 'cloud' }, env).apiKey).toBe('sk-cloud-secret')
+    expect(chooseProvider(cfg, { provider: 'local' }, env).apiKey).toBeUndefined()
   })
 
   it('prints a tool call as one line', () => {

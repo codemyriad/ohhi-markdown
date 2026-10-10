@@ -4,10 +4,8 @@
  */
 import { getLL } from '@ohhi/i18n'
 import type { RunRecord, SkillMeta } from '@ohhi/harness'
-import { createYjsEngine } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
 import { describe, expect, it, vi } from 'vitest'
-import { captureSelection } from './references.js'
+import { captureSelection, rangeOfLines } from './references.js'
 import type { RunHandle } from './sessions.svelte.js'
 import {
   FINDINGS_FENCE,
@@ -15,14 +13,14 @@ import {
   locateQuote,
   newNoteOf,
   parseFindings,
-  rangeOfLines,
   routeSkillRun,
   withLanding,
   type RouteDeps,
 } from './skill-routing.js'
-import { createThreadRegistry } from './threads.svelte.js'
 
-const w = getLL().web.ai.wiring
+const w = getLL().web.ai.skills.run
+import { threadsFixture } from './harness.fixture.js'
+
 const TEXT = 'Intro line.\nThe the cat sat.\nIt was very very nice.\nThe the end.\n'
 const PATH = 'notes/story.md'
 
@@ -32,16 +30,8 @@ function handleOf(status: RunRecord['status'] = 'successful', error?: string): R
 }
 
 function setup(answer: string) {
-  const doc = createYjsEngine().createDoc('g1')
-  doc.transact((t) => t.insert(0, TEXT), 'local')
-  const files = new Map<string, string>()
-  const registry = createThreadRegistry({
-    clock: new SimClock(),
-    docForPath: (p) => (p === PATH ? doc : null),
-    guidFor: (p) => (p === PATH ? 'g1' : null),
-    pathFor: () => PATH,
-    files: { read: async (p) => files.get(p) ?? null, write: async (p, t) => void files.set(p, t) },
-  })
+  const { registry, doc: held } = threadsFixture({ text: TEXT, path: PATH })
+  const doc = held.current!
   const created: { dir: string; name: string; text: string }[] = []
   const deps: RouteDeps = {
     workspace: {
@@ -125,14 +115,14 @@ describe('routeSkillRun', () => {
     // Inside the selection (the last line), not the first match in the note.
     const doubled = threads.find((t) => t.anchor.quote.exact === 'The the')!
     expect(store().rangeOf(doubled)!.from).toBe(TEXT.lastIndexOf('The the'))
-    expect(deps.flash).toHaveBeenCalledWith({ level: 'info', text: w.skill_findings_skipped({ name: 'proofread', count: 2, skipped: 1 }) })
+    expect(deps.flash).toHaveBeenCalledWith({ level: 'info', text: w.findings_skipped({ name: 'proofread', count: 2, skipped: 1 }) })
   })
 
   it('check with nothing found says so', async () => {
     const { deps, store } = setup('Looks clean.\n\n```ohhi-findings\n[]\n```')
     expect(await routeSkillRun(deps, { meta: meta('check'), handle: handleOf(), target: { path: PATH, selection: null } })).toEqual({ kind: 'comments', added: 0, skipped: 0 })
     expect(store().threads()).toEqual([])
-    expect(deps.flash).toHaveBeenCalledWith({ level: 'info', text: w.skill_no_findings({ name: 'proofread' }) })
+    expect(deps.flash).toHaveBeenCalledWith({ level: 'info', text: w.no_findings({ name: 'proofread' }) })
   })
 
   it('generate: a new note beside the target, never over an existing one', async () => {
@@ -154,7 +144,7 @@ describe('routeSkillRun', () => {
   it('a failed run lands nothing and says why; a cancelled one is quiet', async () => {
     const { deps, store } = setup('[{"quote":"The the","comment":"x"}]')
     expect(await routeSkillRun(deps, { meta: meta('check'), handle: handleOf('failed', 'bad key'), target: { path: PATH, selection: null } })).toEqual({ kind: 'none', status: 'failed' })
-    expect(deps.flash).toHaveBeenCalledWith({ level: 'warn', text: w.skill_failed({ name: 'proofread', error: 'bad key' }) })
+    expect(deps.flash).toHaveBeenCalledWith({ level: 'warn', text: w.failed({ name: 'proofread', error: 'bad key' }) })
     await routeSkillRun(deps, { meta: meta('check'), handle: handleOf('cancelled'), target: { path: PATH, selection: null } })
     expect(deps.flash).toHaveBeenCalledTimes(1)
     expect(store().threads()).toEqual([])

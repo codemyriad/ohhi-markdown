@@ -40,7 +40,7 @@ export interface AskAgentDeps {
  * null when there was nothing to answer or no run could start.
  */
 export async function askAgent(deps: AskAgentDeps, path: string, threadId: string): Promise<RunRecord | null> {
-  const w = getLL().web.ai.wiring
+  const w = getLL().web.ai.comments
   const store = deps.workspace.threadsFor(path)
   const thread = store?.threads().find((t) => t.id === threadId)
   const comment = thread ? [...thread.comments].reverse().find((c) => c.to?.includes('agent') && !c.answered) : undefined
@@ -59,7 +59,7 @@ export async function askAgent(deps: AskAgentDeps, path: string, threadId: strin
   const run = await handle.done
   const answer = run.status === 'successful' ? deps.reply(handle) : null
   if (answer) {
-    deps.workspace.reply(path, threadId, { author: w.agent_author(), body: answer, answering: comment.id })
+    deps.workspace.reply(path, threadId, { author: getLL().web.ai.session.agent(), body: answer, answering: comment.id })
     deps.workspace.threadsFor(path)?.markAnswered(threadId, comment.id)
   } else if (run.status === 'failed') {
     deps.flash?.({ level: 'warn', text: w.thread_failed({ error: run.error ?? '' }) })
@@ -67,7 +67,7 @@ export async function askAgent(deps: AskAgentDeps, path: string, threadId: strin
   return run
 }
 
-/** The app's wiring: B's `startRun`, the session last focused, the selection capture. */
+/** In the app: `startRun`, the session last focused, the selection capture. */
 export function sendThreadToAgent(
   workspace: AskAgentDeps['workspace'],
   path: string,
