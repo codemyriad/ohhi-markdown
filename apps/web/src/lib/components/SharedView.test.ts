@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { MemoryIndex } from '@ohhi/index'
 import { getLL } from '@ohhi/i18n'
 import type { AppEvent } from '@ohhi/workspace'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
@@ -65,6 +66,8 @@ function setup(over: {
         }
       },
     },
+    index: () => new MemoryIndex(),
+    indexRevision: () => 0,
     openPath: vi.fn(),
     openView: vi.fn(),
     createFromLink: vi.fn(),

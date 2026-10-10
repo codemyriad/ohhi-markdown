@@ -101,6 +101,9 @@ importers:
       '@melt-ui/svelte':
         specifier: ~0.86.6
         version: 0.86.6(svelte@5.56.3)
+      '@ohhi/collections':
+        specifier: workspace:*
+        version: link:../../libs/collections
       '@ohhi/editor':
         specifier: workspace:*
         version: link:../../libs/editor

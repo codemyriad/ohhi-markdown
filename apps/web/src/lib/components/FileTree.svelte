@@ -276,6 +276,9 @@
       case 'new-folder':
         onOp({ type: 'new-folder', dir: path })
         break
+      case 'new-collection':
+        onOp({ type: 'new-collection', dir: path })
+        break
       case 'add-share':
         onOp({ type: 'add-share', dir: path })
         break

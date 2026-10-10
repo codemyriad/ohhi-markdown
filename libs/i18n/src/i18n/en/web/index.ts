@@ -456,6 +456,7 @@ const tree = {
   menu: {
     new_file: 'New file',
     new_folder: 'New folder',
+    new_collection: 'New collection',
     rename: 'Rename…',
     move: 'Move…',
     delete: 'Delete…',
@@ -602,6 +603,7 @@ const commands = {
   search: 'Search in vault',
   new_note: 'New note',
   new_folder: 'New folder',
+  new_collection: 'New collection',
   delete_note: 'Delete current note…',
   move_note: 'Move current note…',
   share_folder: 'Share this folder…',
@@ -2689,6 +2691,56 @@ const ai = {
   },
 }
 
+/**
+ * Collections (bases-shaping A3/A4, DB2): a `.base` file opened as a tab —
+ * its saved views, the table, the cell editors and the toolbar's verbs.
+ */
+const collections = {
+  /** The tab body's accessible name: "Competitors (collection)". */
+  label: '{name:string} (collection)',
+  views: 'Views of {name:string}',
+  table_caption: '{view:string} — {count:number} row{{s}}',
+  count: '{count:number} row{{s}}',
+  count_of: '{shown:number} of {total:number} rows',
+  new_row: 'New',
+  new_row_in: 'New note in {dir:string}',
+  columns: 'Columns',
+  columns_title: 'Columns of {view:string}',
+  column_label: 'Show {name:string}',
+  group_by: 'Group by',
+  group_none: 'No grouping',
+  group_empty: 'No value',
+  sort_asc: 'Sorted ascending',
+  sort_desc: 'Sorted descending',
+  sort_by: 'Sort by {name:string}',
+  filters: 'Filters',
+  filter_edit_hint: 'Edit filters in Source (Mod+E).',
+  open_note: 'Open {name:string}',
+  edit_cell: 'Edit {column:string} of {name:string}',
+  edit_cell_bool: '{column:string} of {name:string}',
+  empty_cell: 'empty',
+  /** A part of the view this app does not compute (formulas, map views). */
+  partly: 'Partly shown',
+  partly_detail: 'Not computed here: {reasons:string}',
+  no_views: 'This collection has no views yet.',
+  add_table: 'Add a table view',
+  unreadable: 'This file could not be read as a collection: {error:string}',
+  unreadable_hint: 'Fix it in Source (Mod+E).',
+  no_rows: 'No notes match this view.',
+  not_a_note: "'{path:string}' is not a note.",
+  /** The frontmatter patcher refused the note (nested YAML, a multi-line value). */
+  not_patched: "'{name:string}' was not changed: its properties are {reason:string} and are edited in the note itself.",
+  reason: {
+    nested: 'nested',
+    multiline: 'multi-line',
+    anchor: 'using anchors',
+    invalid: 'invalid YAML',
+    'duplicate-key': 'using a duplicate key',
+    unsupported: 'outside the flat subset',
+  },
+  mtime_unknown: '—',
+}
+
 const web = {
   shell,
   notices,
@@ -2740,6 +2792,7 @@ const web = {
   toolbar,
   attachments,
   ai,
+  collections,
 } satisfies BaseTranslation
 
 export default web

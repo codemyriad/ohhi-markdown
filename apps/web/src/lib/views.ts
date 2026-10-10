@@ -13,6 +13,7 @@
  */
 import { MessageSquareText, RadioTower, ScanSearch, ScrollText, Settings as SettingsIcon, type LucideIcon } from '@lucide/svelte'
 import { getLL, type TranslationFunctions } from '@ohhi/i18n'
+import type { VaultIndex } from '@ohhi/index'
 import type { Clock } from '@ohhi/vault'
 import type { InSyncSpan } from '@ohhi/workspace'
 import { getContext, hasContext, setContext, type Component } from 'svelte'
@@ -94,6 +95,14 @@ export interface ViewShell {
   revision(): number
   /** Per room, its rollup's last green span — relay receipt, not durability (`shared.svelte.ts`). */
   inSyncByRoom(): Record<string, InSyncSpan>
+  /**
+   * The app's derived index (navigation's `MemoryIndex`), for a view that
+   * queries notes — the collection tab's rows (bases-shaping A3). Read it
+   * fresh on every `indexRevision()` change: the index itself is a plain
+   * structure, and the revision counter is its whole subscription.
+   */
+  index(): VaultIndex
+  indexRevision(): number
 }
 
 const VIEW_SHELL = Symbol('view-shell')

@@ -335,6 +335,8 @@
     relayKnown: () => manager.relayKnown,
     revision: () => sharing.revision,
     inSyncByRoom: () => sharedFeed.inSyncByRoom,
+    index: () => nav.index,
+    indexRevision: () => nav.revision,
   })
   // ---- the readouts' context (readouts.ts): the toolbar's, and every per-pane status bar's ----
   const readoutCtx: ReadoutContext = {

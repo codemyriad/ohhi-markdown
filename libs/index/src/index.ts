@@ -41,6 +41,7 @@ export { parseMarkdown, type ParsedDoc, type RawHeading, type RawLink, type RawP
 export { basename, normalizeTarget, PathResolver } from './resolve.js'
 export {
   compareRows,
+  keyValue,
   matchesFilter,
   propText,
   scalarText,

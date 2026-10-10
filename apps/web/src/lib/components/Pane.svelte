@@ -26,6 +26,7 @@
     type LinkMount,
     type WikiLinkHost,
   } from '@ohhi/editor-lang'
+  import { isCollectionPath } from '@ohhi/collections'
   import { parseFrontmatter } from '@ohhi/frontmatter'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { mount, tick, unmount, untrack, type Snippet } from 'svelte'
@@ -38,6 +39,7 @@
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
+  import CollectionView from './CollectionView.svelte'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
   import { getViewShell, shellClock, viewDef } from '../views.js'
   import { isTauri } from '../platform.js'
@@ -495,7 +497,10 @@
       data-testid={focused ? 'editor-pane' : `editor-pane:${pane.id}`}
       class="min-h-0 flex-1 overflow-hidden bg-ed-surface"
     >
-      {#if doc && path}
+      {#if doc && path && isCollectionPath(path) && mode !== 'source'}
+        <!-- A collection (bases-shaping A3): the table over its views; Source shows the YAML in CM6. -->
+        <CollectionView {workspace} {path} {tab} />
+      {:else if doc && path}
         {#key `${pane.id}:${path}`}
           {@const held = tab.id}
           <MarkdownEditor

@@ -35,7 +35,7 @@ function shellRegistry(mac = false): CommandRegistry {
     },
     groups: { commands: () => groupCommands(noop), savedCommands: () => [] },
     daily: { openToday: vi.fn(async () => {}), step: vi.fn(), steps: { prev: null, next: null } },
-    fileOps: { createNote: vi.fn(async () => {}), op: null },
+    fileOps: { createNote: vi.fn(async () => {}), createCollection: vi.fn(async () => {}), op: null },
     sharing: { addShareOpen: null, folderSharePath: null },
     mounts: () => [],
     layout: { treeOpen: true, railOpen: false, spec: PRESETS.default },

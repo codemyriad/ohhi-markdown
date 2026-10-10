@@ -48,9 +48,17 @@ export interface Frontmatter {
   aliases: string[]
 }
 
+/**
+ * A value the patcher writes. A STRING is written as text — quoted where a
+ * plain scalar would read back as something else (`"true"`, `"8"`). A
+ * NUMBER or BOOLEAN is written plain, so a cell editor can set `score: 8`
+ * and `done: true` and the note means what the table showed.
+ */
+export type FmScalar = string | number | boolean
+
 export type FmOp =
   /** scalar or list; a list is written as a block list */
-  | { op: 'set'; key: string; value: string | string[] }
+  | { op: 'set'; key: string; value: FmScalar | FmScalar[] }
   | { op: 'remove'; key: string }
   | { op: 'rename'; key: string; to: string }
 

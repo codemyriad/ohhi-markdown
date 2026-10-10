@@ -13,5 +13,6 @@ export type {
   FmOp,
   FmPatchResult,
   FmReason,
+  FmScalar,
   Frontmatter,
 } from './types.js'

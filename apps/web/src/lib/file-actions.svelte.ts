@@ -9,6 +9,8 @@
  * lives here too because every "make a note and show it" — the tree, the
  * command, an unresolved wikilink — lands in the same two lines.
  */
+import { COLLECTION_EXTENSION, newCollectionText } from '@ohhi/collections'
+import { uniqueName } from './collection-cells.js'
 import { getLL } from '@ohhi/i18n'
 import type { ShareActions } from './share-actions.svelte.js'
 import type { TreeOp } from './tree-model.js'
@@ -49,6 +51,11 @@ export interface FileActions {
   cancel(): void
   /** Create an auto-named note in `dir` and open it. */
   createNote(dir: string): Promise<void>
+  /**
+   * Create a collection over `dir` — a `.base` file beside its notes, one
+   * table view, named `Collection.base` or the next free number — and open it.
+   */
+  createCollection(dir: string): Promise<void>
   /**
    * Create the note an unresolved link points at, in the linking note's own
    * folder — matching where the link's author was working, which is what
@@ -106,6 +113,15 @@ export function createFileActions(host: FileHost): FileActions {
     if (created) host.open(created)
   }
 
+  async function createCollection(dir: string): Promise<void> {
+    const ws = host.workspace()
+    if (!ws) return
+    const taken = new Set(ws.ui.files.map((f) => f.path))
+    const name = uniqueName(taken, dir, 'Collection', COLLECTION_EXTENSION)
+    const created = await ws.createFile(dir, name, newCollectionText({ folder: dir }))
+    if (created) host.open(created)
+  }
+
   async function createFromLink(target: string): Promise<void> {
     const ws = host.workspace()
     if (!ws) return
@@ -127,6 +143,9 @@ export function createFileActions(host: FileHost): FileActions {
     switch (next.type) {
       case 'new-file':
         void createNote(next.dir) // auto-named untitled-N; rename after
+        return
+      case 'new-collection':
+        void createCollection(next.dir)
         return
       case 'share-folder':
         host.share.folderSharePath = next.path
@@ -230,6 +249,7 @@ export function createFileActions(host: FileHost): FileActions {
       op = null
     },
     createNote,
+    createCollection,
     createFromLink,
     renameNote,
   }

@@ -304,6 +304,7 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `nav.search`
 - `file.new`
 - `file.new-folder`
+- `file.new-collection`
 - `file.delete`
 - `file.move`
 - `share.folder`
