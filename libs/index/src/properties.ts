@@ -31,7 +31,10 @@ export function typeScalar(raw: string): PropScalar {
   if (text === 'true' || text === 'false') return { kind: 'boolean', value: text === 'true' }
   if (NUMBER.test(text)) return { kind: 'number', value: Number(text) }
   if (DATE.test(text)) {
-    const ms = Date.parse(text.replace(' ', 'T'))
+    // A zoneless date-time is read as UTC, like a date-only value, so the
+    // two orders consistently; a zone written in the value is honoured.
+    const iso = text.replace(' ', 'T')
+    const ms = Date.parse(/[T]\d{2}:\d{2}/.test(iso) && !/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? `${iso}Z` : iso)
     if (Number.isFinite(ms)) return { kind: 'date', value: text, ms }
   }
   const link = LINK.exec(text)
@@ -70,12 +73,21 @@ export function propText(v: PropValue | undefined): string {
   return v.kind === 'list' ? v.items.map(scalarText).join(', ') : scalarText(v)
 }
 
-/** What evaluation needs from the index: the instant, and link resolution. */
+/** What evaluation needs from the index: the instant, the zone, and link resolution. */
 export interface FilterContext {
   /** Epoch ms for `now()` / `today()`. */
   now: number
+  /** Minutes east of UTC; `today()` is the calendar day in this zone. Default 0. */
+  tzOffsetMinutes?: number
   /** A wikilink target → a vault path, or null. */
   resolve(target: string): string | null
+}
+
+const DAY = 86_400_000
+
+/** The UTC midnight of the calendar day `now` falls on in the caller's zone. */
+export function todayOf(now: number, tzOffsetMinutes = 0): number {
+  return Math.floor((now + tzOffsetMinutes * 60_000) / DAY) * DAY
 }
 
 // ---- evaluation ------------------------------------------------------------
@@ -119,6 +131,23 @@ function literal(lit: RowLiteral): PropScalar {
 
 /** Duration units Obsidian's grammar accepts: `7d`, `1 day`, `2 weeks`, `1M`. */
 const DURATION = /(-?\d+(?:\.\d+)?)\s*(years?|y|months?|M|weeks?|w|days?|d|hours?|h|minutes?|m|seconds?|s)\b/g
+const DURATION_WHOLE = /^(?:\s*-?\d+(?:\.\d+)?\s*(?:years?|y|months?|M|weeks?|w|days?|d|hours?|h|minutes?|m|seconds?|s)\b\s*,?)+\s*$/
+
+/** Is `text` entirely durations this grammar reads? A compiler refuses the rest. */
+export function isDurationText(text: string): boolean {
+  return DURATION_WHOLE.test(text)
+}
+
+/** Months and years add on the calendar, clamped: Jan 31 + 1M is Feb 28. */
+function addMonths(date: Date, n: number): Date {
+  const day = date.getUTCDate()
+  const moved = new Date(date.getTime())
+  moved.setUTCDate(1)
+  moved.setUTCMonth(moved.getUTCMonth() + n)
+  const last = new Date(Date.UTC(moved.getUTCFullYear(), moved.getUTCMonth() + 1, 0)).getUTCDate()
+  moved.setUTCDate(Math.min(day, last))
+  return moved
+}
 
 function addDuration(ms: number, duration: string, sign: 1 | -1): number | null {
   DURATION.lastIndex = 0
@@ -128,8 +157,8 @@ function addDuration(ms: number, duration: string, sign: 1 | -1): number | null 
     any = true
     const n = Number(m[1]) * sign
     const unit = m[2]
-    if (unit === 'y' || unit.startsWith('year')) out = new Date(out.setUTCFullYear(out.getUTCFullYear() + n))
-    else if (unit === 'M' || unit.startsWith('month')) out = new Date(out.setUTCMonth(out.getUTCMonth() + n))
+    if (unit === 'y' || unit.startsWith('year')) out = addMonths(out, 12 * n)
+    else if (unit === 'M' || unit.startsWith('month')) out = addMonths(out, n)
     else if (unit === 'w' || unit.startsWith('week')) out = new Date(out.getTime() + n * 7 * 86_400_000)
     else if (unit === 'd' || unit.startsWith('day')) out = new Date(out.getTime() + n * 86_400_000)
     else if (unit === 'h' || unit.startsWith('hour')) out = new Date(out.getTime() + n * 3_600_000)
@@ -143,7 +172,7 @@ function evalExpr(row: Row, expr: RowExpr, ctx: FilterContext): Val {
   if ('key' in expr) return keyValue(row, expr.key)
   if ('lit' in expr) return literal(expr.lit)
   if ('now' in expr) {
-    const ms = expr.now === 'today' ? Math.floor(ctx.now / 86_400_000) * 86_400_000 : ctx.now
+    const ms = expr.now === 'today' ? todayOf(ctx.now, ctx.tzOffsetMinutes) : ctx.now
     return { kind: 'date', value: new Date(ms).toISOString(), ms }
   }
   const base = asDate(evalExpr(row, expr.dateAdd, ctx))
@@ -195,7 +224,14 @@ function compareScalars(a: PropScalar, b: PropScalar, ctx: FilterContext): numbe
   if (a.kind === 'date' && b.kind === 'date') return a.ms - b.ms
   if (a.kind === 'boolean' && b.kind === 'boolean') return Number(a.value) - Number(b.value)
   if (a.kind === 'link' || b.kind === 'link') {
-    if (a.kind === 'link' && b.kind === 'link') return a.target === b.target ? 0 : a.target < b.target ? -1 : 1
+    if (a.kind === 'link' && b.kind === 'link') {
+      // Two links are the same link when they point at the same note,
+      // however each was spelled (`[[Clusters]]`, `[[Pillars/Clusters]]`).
+      const ra = a.resolved ?? ctx.resolve(a.target)
+      const rb = b.resolved ?? ctx.resolve(b.target)
+      if (ra !== null && rb !== null) return ra === rb ? 0 : ra < rb ? -1 : 1
+      return a.target === b.target ? 0 : a.target < b.target ? -1 : 1
+    }
     const link = a.kind === 'link' ? a : (b as Extract<PropScalar, { kind: 'link' }>)
     const other = scalarText(a.kind === 'link' ? b : a)
     const resolved = link.resolved ?? ctx.resolve(link.target)

@@ -51,8 +51,8 @@ export interface OpGrammar {
   stdin?: string
 }
 
-const limit = (max: string): Record<string, FlagSpec> => ({
-  limit: { key: 'limit', kind: 'number', arg: 'N', help: `max results (default 10, cap ${max})` },
+const limit = (max: string, def = '10'): Record<string, FlagSpec> => ({
+  limit: { key: 'limit', kind: 'number', arg: 'N', help: `max results (default ${def}, cap ${max})` },
   cursor: { key: 'cursor', kind: 'string', arg: 'C', help: 'continue from a previous nextCursor' },
 })
 
@@ -114,7 +114,7 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
   skill: { positionals: [{ key: 'name', label: 'name', required: true }], flags: {} },
   collections: {
     positionals: [{ key: 'dir', label: 'dir', required: false }],
-    flags: { ...limit('1000') },
+    flags: { ...limit('1000', '50') },
   },
   rows: {
     positionals: [{ key: 'collection', label: 'collection', required: false }],
@@ -123,7 +123,7 @@ export const GRAMMAR: Record<OpName, OpGrammar> = {
       where: { key: 'where', kind: 'string', arg: 'STATEMENT', help: 'an extra filter in the file’s own grammar, e.g. \'depth == "Deep"\'' },
       columns: { key: 'columns', kind: 'list', arg: 'A,B', help: 'properties to return (default: the view’s columns)' },
       sort: { key: 'sort', kind: 'string', arg: 'PROP[:desc]', help: "replace the view's sort" },
-      ...limit('1000'),
+      ...limit('1000', '50'),
     },
   },
   write: {

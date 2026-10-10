@@ -29,6 +29,7 @@ import {
   openManager,
   openSettings,
   paneContent,
+  runCommand,
   seedProvider,
   seedReadNote,
   selectLine,
@@ -677,4 +678,30 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   await expect(added).toHaveCount(0)
   await expect(page.getByTestId('last-agent-write')).toBeVisible()
   await expectAccessible(page, 'last-agent-write readout')
+})
+
+test('a collection tab is accessible', async ({ page }) => {
+  // A collection over the vault root, created the way a person creates one
+  // (bases-shaping DB2): every note is a row, the one table view is open.
+  // The welcome note gets a property first, so the table has a cell to edit.
+  await seedReadNote(page, 'a11y-collection', '---\nstatus: draft\n---\n\n# Welcome\n')
+  await runCommand(page, 'New collection')
+  await expect(page.getByTestId('collection-view')).toBeVisible()
+  await expect(page.getByTestId('collection-table')).toBeVisible()
+  await expectAccessible(page, 'collection tab')
+
+  // The columns popover: a checkbox list anchored to its button. Adding a
+  // column writes the view's node in the file; the table follows.
+  await page.getByTestId('collection-columns').click()
+  await expect(page.getByTestId('collection-columns-popover')).toBeVisible()
+  await expectAccessible(page, 'collection columns popover')
+  await page.getByTestId('collection-column:status').check()
+  await expect(page.getByTestId('collection-header:status')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('collection-columns-popover')).toHaveCount(0)
+
+  // A cell in edit: the text field with its suggestions.
+  await page.locator('[data-testid^="collection-cell:"][data-testid$=":status"]').first().click()
+  await expect(page.locator('[data-testid$=":status:input"]')).toBeVisible()
+  await expectAccessible(page, 'collection cell editor')
 })

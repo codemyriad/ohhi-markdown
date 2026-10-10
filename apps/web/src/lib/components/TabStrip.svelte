@@ -34,7 +34,7 @@
   } from '@lucide/svelte'
   import type { Snippet } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { basename } from '@ohhi/index'
+  import { displayName } from '../collection-cells.js'
   import { groupLabel } from '../group-ui.svelte.js'
   import {
     activeTab,
@@ -163,7 +163,7 @@
   const tabDomId = (id: string): string => `${uid}-tab-${id}`
   const panelDomId = (id: string): string => `${uid}-panel-${id}`
   const nameOf = (tab: Tab): string =>
-    tab.path ? basename(tab.path) : tab.view ? viewDef(tab.view).title($LL, tab.viewArg) : t.untitled()
+    tab.path ? displayName(tab.path) : tab.view ? viewDef(tab.view).title($LL, tab.viewArg) : t.untitled()
   const dragging = $derived(new Set(panes.drag?.payload.tabIds ?? []))
 
   /** Right-clicked tab and where, or null; one menu per strip, not per tab. */

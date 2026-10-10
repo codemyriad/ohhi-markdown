@@ -216,7 +216,9 @@ export function createFileActions(host: FileHost): FileActions {
     if (!ws) return null
     const slash = path.lastIndexOf('/')
     const base = path.slice(slash + 1)
-    const ext = base.toLowerCase().endsWith('.md') ? base.slice(-3) : ''
+    // The extension is kept whatever it is: a collection renamed from its
+    // title stays a `.base`, a note stays a `.md`.
+    const ext = /\.[^./]+$/.exec(base)?.[0] ?? ''
     const name = newName.trim()
     if (!name) return null
     const next = `${name}${ext}`

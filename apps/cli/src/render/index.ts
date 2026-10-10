@@ -44,8 +44,15 @@ export const RENDERERS: { [N in OpName]: Renderer<N> } = {
  * otherwise never see.
  */
 export function jsonModeNotes(out: unknown, sink: Sink): void {
-  const doc = out as { coverage?: { skippedBinary: number }; truncated?: boolean; nextLine?: number; nextCursor?: string | null }
+  const doc = out as {
+    coverage?: { skippedBinary: number }
+    truncated?: boolean
+    nextLine?: number
+    nextCursor?: string | null
+    supported?: boolean
+  }
   if (doc.coverage && doc.coverage.skippedBinary > 0) sink.err(`note: ${doc.coverage.skippedBinary} binaries skipped`)
+  if (doc.supported === false) sink.err('note: partly computed — see reasons')
   if (doc.truncated === true) sink.err(`note: truncated at line ${doc.nextLine ?? '?'}`)
   if (doc.nextCursor) sink.err('note: more results — pass nextCursor back as --cursor')
 }

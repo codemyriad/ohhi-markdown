@@ -150,7 +150,7 @@ async function walkVault(adapter: VaultAdapter, root: string): Promise<Walk> {
       if (!bytes) continue
       const binary = looksBinary(entry.path, bytes)
       if (binary) skippedBinary++
-      else docs.set(entry.path, { guid: entry.path, path: entry.path, text: decodeFile(bytes).text })
+      else docs.set(entry.path, { guid: entry.path, path: entry.path, text: decodeFile(bytes).text, ...(mtime === null ? {} : { mtime }) })
       files.set(entry.path, { path: entry.path, size: entry.size, mtime, kind: binary ? 'binary' : 'text' })
     }
   }

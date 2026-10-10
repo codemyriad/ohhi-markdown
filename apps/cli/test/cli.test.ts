@@ -161,6 +161,26 @@ describe('text rendering', () => {
     expect(out).not.toContain('Open questions')
   })
 
+  it('collections prints each file with its views and counts; rows prints the path first, then the columns', async () => {
+    const v = await fixture()
+    const list = await ohhi(inVault(v, ['collections']))
+    expect(list.out).toContain('Competitors.base')
+    expect(list.out).toMatch(/All\s+table\s+3 rows/)
+    expect(list.err).toContain('returned=1')
+    const rows = await ohhi(inVault(v, ['rows', 'Competitors.base', '--view', 'Direct', '--columns', 'threat,verified']))
+    const lines = rows.out.trimEnd().split('\n')
+    expect(lines[0]).toMatch(/^path\s+threat\s+verified$/)
+    expect(lines[1]).toMatch(/^Competitors\/Ingredifind\.md\s+direct\s+2026-06-02$/)
+    expect(lines).toHaveLength(3)
+    expect(rows.err).toContain('view=Direct')
+  })
+
+  it('rows --json notes a partly computed view on stderr', async () => {
+    const v = await fixture()
+    const { err } = await ohhi(inVault(v, ['rows', 'Competitors.base', '--columns', 'formula.age', '--json']))
+    expect(err).toContain('partly computed')
+  })
+
   it('stats prints the vault root and the coverage counters', async () => {
     const v = await fixture()
     const { out, err } = await ohhi(inVault(v, ['stats']))

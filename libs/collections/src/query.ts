@@ -6,7 +6,7 @@
  */
 import type { RowFilter, RowKey, RowSort } from '@ohhi/index'
 import { compileStatement, UnsupportedFilter, type FilterScope } from './filter.js'
-import type { CollectionSpec, Column, FilterTree, ViewQuery, ViewSpec } from './types.js'
+import { VIEW_TYPES, type CollectionSpec, type Column, type FilterTree, type ViewQuery, type ViewSpec } from './types.js'
 
 /** `file.name` → the index key; `status` / `note.status` → a property; `formula.x` → null. */
 export function keyFor(property: string): RowKey | null {
@@ -42,8 +42,8 @@ export function labelFor(property: string, spec: Pick<CollectionSpec, 'propertie
   return bare.replace(/[_-]+/g, ' ').replace(/^./, (c) => c.toUpperCase())
 }
 
-/** The rows of a collection are NOTES: the implicit `file.ext == "md"`. */
-const NOTES_ONLY: RowFilter = { op: 'cmp', cmp: '==', left: { key: { file: 'ext' } }, right: { lit: 'md' } }
+/** The rows of a collection are NOTES: the implicit `file.ext == "md"` every compiled view carries. */
+export const NOTES_ONLY: RowFilter = { op: 'cmp', cmp: '==', left: { key: { file: 'ext' } }, right: { lit: 'md' } }
 
 function compileTree(tree: FilterTree, scope: FilterScope, reasons: string[]): RowFilter | null {
   if (typeof tree === 'string') {
@@ -79,7 +79,8 @@ export function compileView(spec: CollectionSpec, view: ViewSpec, scope: FilterS
     if (key) sort.push({ key, direction: s.direction })
     else reasons.push(`sorting by \`${s.property}\` is not computed here`)
   }
-  const columns: Column[] = view.order.map((id) => {
+  // A property listed twice shows once (first occurrence): the table keys on the id.
+  const columns: Column[] = [...new Set(view.order)].map((id) => {
     const key = keyFor(id)
     if (!key) reasons.push(`\`${id}\` is not computed here`)
     return { id, label: labelFor(id, spec), key }
@@ -90,7 +91,7 @@ export function compileView(spec: CollectionSpec, view: ViewSpec, scope: FilterS
     if (key) groupBy = { key, direction: view.groupBy.direction, id: view.groupBy.property }
     else reasons.push(`grouping by \`${view.groupBy.property}\` is not computed here`)
   }
-  if (!['table', 'list', 'kanban', 'cards'].includes(view.type)) reasons.push(`\`${view.type}\` views are not drawn here`)
+  if (!(VIEW_TYPES as readonly string[]).includes(view.type)) reasons.push(`\`${view.type}\` views are not drawn here`)
   return {
     view,
     query: { filter: { op: 'and', args: parts }, sort },
@@ -100,11 +101,6 @@ export function compileView(spec: CollectionSpec, view: ViewSpec, scope: FilterS
     supported: reasons.length === 0,
     reasons,
   }
-}
-
-/** Compile one ad-hoc statement (the CLI's `--where`) with the notes-only rule. */
-export function compileWhere(statement: string, scope: FilterScope = {}): RowFilter {
-  return { op: 'and', args: [NOTES_ONLY, compileStatement(statement, scope)] }
 }
 
 /** The first `file.inFolder("…")` a tree names — where "+ New" puts a note. */

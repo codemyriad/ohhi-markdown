@@ -10,7 +10,6 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryIndex, type IndexDoc } from '@ohhi/index'
 import type { EngineDoc } from '@ohhi/sync'
-import type { Tab } from '../panes.js'
 import { fakeViewShell } from '../readouts.fixture.js'
 import { viewShellContext } from '../views.js'
 import type { Workspace } from '../workspace.svelte.js'
@@ -36,6 +35,7 @@ views:
       - depth
       - verified
       - active
+      - score
   - type: table
     name: Direct
     filters:
@@ -48,10 +48,11 @@ views:
 
 const NOTES: Record<string, string> = {
   'Competitors.base': BASE,
-  'Competitors/Ingredifind.md': '---\nthreat: direct\ndepth: Deep\nverified: 2026-06-02\nactive: true\n---\n\n# Ingredifind\n',
+  'Competitors/Ingredifind.md': '---\nthreat: direct\ndepth: Deep\nverified: 2026-06-02\nactive: true\nscore: 8\n---\n\n# Ingredifind\n',
   'Competitors/Quiteful.md': '---\nthreat: adjacent\ndepth: Moderate\nverified: 2026-03-14\nactive: false\n---\n',
   'Competitors/Stale.md': '---\nthreat: direct\nverified: 2026-01-10\n---\n',
   'Meetings/Weekly.md': '---\nstatus: done\n---\n',
+  'Competitors/Nested.md': '---\nmeta:\n  deep: true\nthreat: direct\n---\n',
 }
 
 /** A live doc in miniature, feeding the index on every transaction as the sink would. */
@@ -103,9 +104,8 @@ function setup() {
   } as unknown as Workspace
   const openPath = vi.fn()
   const shell = fakeViewShell(Date.UTC(2026, 6, 1), { index: () => index, openPath })
-  const tab: Tab = { id: 't1', path: 'Competitors.base', pinned: false, cursor: null, scroll: 0, history: [], historyAt: -1 }
   render(CollectionView, {
-    props: { workspace, path: 'Competitors.base', tab },
+    props: { workspace, path: 'Competitors.base' },
     context: viewShellContext(shell),
   })
   return { store, index, createFile, flash, openPath }
@@ -123,9 +123,9 @@ describe('CollectionView', () => {
     expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Direct' })).toBeInTheDocument()
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim())
-    expect(headers).toEqual(['Name', 'Threat', 'Depth', 'Verified', 'Active'])
-    expect(rowNames()).toEqual(['Ingredifind', 'Quiteful', 'Stale'])
-    expect(screen.getByTestId('collection-count').textContent).toContain('3 rows')
+    expect(headers).toEqual(['Name', 'Threat', 'Depth', 'Verified', 'Active', 'Score'])
+    expect(rowNames()).toEqual(['Ingredifind', 'Nested', 'Quiteful', 'Stale'])
+    expect(screen.getByTestId('collection-count').textContent).toContain('4 rows')
     expect(screen.getByTestId('collection-cell:Ingredifind:depth').textContent?.trim()).toBe('Deep')
     expect(screen.getByTestId('collection-cell:Stale:depth').textContent?.trim()).toBe('empty')
     // A boolean is its checkbox.
@@ -138,7 +138,7 @@ describe('CollectionView', () => {
     const user = userEvent.setup()
     await screen.findByTestId('collection-table')
     await user.click(screen.getByRole('tab', { name: 'Direct' }))
-    await waitFor(() => expect(rowNames()).toEqual(['Ingredifind', 'Stale']))
+    await waitFor(() => expect(rowNames()).toEqual(['Ingredifind', 'Nested', 'Stale']))
     expect(screen.getAllByRole('columnheader').map((h) => h.textContent?.trim())).toEqual(['Name', 'Verified'])
     await user.click(screen.getByTestId('collection-row:Competitors/Stale.md'))
     expect(openPath).toHaveBeenCalledWith('Competitors/Stale.md', { background: false })
@@ -165,7 +165,7 @@ describe('CollectionView', () => {
     await user.clear(input)
     await user.type(input, 'Shallow{Enter}')
     expect(store.get('Competitors/Ingredifind.md')).toBe(
-      '---\nthreat: direct\ndepth: Shallow\nverified: 2026-06-02\nactive: true\n---\n\n# Ingredifind\n'
+      '---\nthreat: direct\ndepth: Shallow\nverified: 2026-06-02\nactive: true\nscore: 8\n---\n\n# Ingredifind\n'
     )
     // The checkbox writes true/false on the same path.
     await user.click(screen.getByTestId('collection-cell:Quiteful:active'))
@@ -181,7 +181,7 @@ describe('CollectionView', () => {
     const user = userEvent.setup()
     await screen.findByTestId('collection-table')
     await user.click(screen.getByTestId('collection-new'))
-    expect(createFile).toHaveBeenCalledWith('Competitors', undefined, '---\nthreat:\ndepth:\nverified:\nactive:\n---\n\n')
+    expect(createFile).toHaveBeenCalledWith('Competitors', undefined, '---\nthreat:\ndepth:\nverified:\nactive:\nscore:\n---\n\n')
     await waitFor(() => expect(openPath).toHaveBeenCalledWith('Competitors/untitled-1.md'))
   })
 
@@ -202,8 +202,7 @@ describe('CollectionView', () => {
       createFile: vi.fn(),
       flash: vi.fn(),
     } as unknown as Workspace
-    const tab: Tab = { id: 't1', path: 'Empty.base', pinned: false, cursor: null, scroll: 0, history: [], historyAt: -1 }
-    render(CollectionView, { props: { workspace, path: 'Empty.base', tab }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
+    render(CollectionView, { props: { workspace, path: 'Empty.base' }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
     expect(screen.getByText(/no views yet/)).toBeInTheDocument()
     await userEvent.setup().click(screen.getByTestId('collection-add-table'))
     expect(store.get('Empty.base')).toBe('filters: file.hasTag("x")\nviews:\n  - type: table\n    name: All\n    order:\n      - file.name\n')
@@ -220,14 +219,73 @@ describe('CollectionView', () => {
       createFile: vi.fn(),
       flash: vi.fn(),
     } as unknown as Workspace
-    const tab: Tab = { id: 't1', path: 'Competitors.base', pinned: false, cursor: null, scroll: 0, history: [], historyAt: -1 }
-    render(CollectionView, { props: { workspace, path: 'Competitors.base', tab }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
+    render(CollectionView, { props: { workspace, path: 'Competitors.base' }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
     const user = userEvent.setup()
     await screen.findByTestId('collection-table')
     await user.click(screen.getByRole('tab', { name: 'Aged' }))
     await screen.findByTestId('collection-partly')
-    expect(screen.getByTestId('collection-partly')).toHaveAttribute('title', expect.stringContaining('formula.age'))
-    expect(within(screen.getByTestId('collection-table')).getAllByTestId(/^collection-row:/)).toHaveLength(3)
+    await user.click(screen.getByTestId('collection-partly'))
+    expect(screen.getByTestId('collection-partly-detail').textContent).toContain('formula.age')
+    expect(within(screen.getByTestId('collection-table')).getAllByTestId(/^collection-row:/)).toHaveLength(4)
     expect(screen.getByTestId('collection-cell:Ingredifind:formula.age').textContent?.trim()).toBe('—')
+  })
+
+  it('the view strip is one tab stop: arrows move between views', async () => {
+    setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    screen.getByRole('tab', { name: 'All' }).focus()
+    await user.keyboard('{ArrowRight}')
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Direct' })).toHaveAttribute('aria-selected', 'true'))
+    await waitFor(() => expect(rowNames()).toEqual(['Ingredifind', 'Nested', 'Stale']))
+    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('a number cell cleared writes an empty value, never "null"; a number typed stays a number', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByTestId('collection-cell:Ingredifind:score'))
+    const input = screen.getByTestId('collection-cell:Ingredifind:score:input') as HTMLInputElement
+    expect(input.type).toBe('number')
+    await user.clear(input)
+    await user.keyboard('{Enter}')
+    expect(store.get('Competitors/Ingredifind.md')).toContain('\nscore:\n')
+    // Focus is back on the cell, so the next edit is one Enter away.
+    expect(document.activeElement).toBe(screen.getByTestId('collection-cell:Ingredifind:score'))
+    await user.keyboard('{Enter}')
+    const again = screen.getByTestId('collection-cell:Ingredifind:score:input')
+    await user.clear(again)
+    await user.type(again, '9{Enter}')
+    expect(store.get('Competitors/Ingredifind.md')).toContain('\nscore: 9\n')
+  })
+
+  it('a header click cycles the sort: ascending, descending, none', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    const header = () => screen.getByTestId('collection-header:threat')
+    await user.click(header())
+    expect(store.get('Competitors.base')).toContain('direction: ASC')
+    expect(header().closest('th')).toHaveAttribute('aria-sort', 'ascending')
+    await user.click(header())
+    expect(store.get('Competitors.base')).toContain('direction: DESC')
+    await user.click(header())
+    expect(store.get('Competitors.base')).not.toContain('sort:')
+    expect(header().closest('th')).not.toHaveAttribute('aria-sort')
+  })
+
+  it('a refused write says so and leaves the note and the cell as they were', async () => {
+    const { store, flash } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByTestId('collection-cell:Nested:depth'))
+    await user.type(screen.getByTestId('collection-cell:Nested:depth:input'), 'Deep{Enter}')
+    expect(store.get('Competitors/Nested.md')).toBe(NOTES['Competitors/Nested.md'])
+    expect(flash).toHaveBeenCalledWith(expect.objectContaining({ level: 'warn', text: expect.stringContaining('nested') }))
+    // The checkbox of a refused note springs back.
+    const box = screen.getByTestId('collection-cell:Nested:active') as HTMLInputElement
+    await user.click(box)
+    expect(box.checked).toBe(false)
   })
 })

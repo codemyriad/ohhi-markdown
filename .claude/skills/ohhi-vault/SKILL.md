@@ -1,6 +1,6 @@
 ---
 name: ohhi-vault
-description: Search, read and edit a markdown vault — Oh hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", or asks you to add to, patch, rename, move or restore a note.
+description: Search, read and edit a markdown vault — Oh hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, collections (`.base` files: saved views over notes whose frontmatter properties are the columns — list them, query a view, filter by a property), what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", "which notes have status X", a table, database, collection or base of notes, or asks you to add to, patch, rename, move or restore a note.
 ---
 
 # Read and edit a markdown vault with `ohhi`
@@ -143,6 +143,7 @@ ohhi rows Competitors.base                                   # the first view: i
 ohhi rows Competitors.base --view "Threat Watch" --json      # a view by name
 ohhi rows Competitors.base --where 'verified < today() - "30d"' --columns verified,threat
 ohhi rows --where 'file.hasTag("meeting") && status != "done"'   # the whole vault, no collection
+ohhi rows --columns status,due --sort due                      # every note as records, no filter
 ```
 
 `--where` is one statement in the file's own grammar (comparisons, `&&` `||`
@@ -333,6 +334,8 @@ responses — so branch on `code`, never on the exit code alone.
 | 1 | `refused` | More than 20 files without `--yes`. | Confirm with the user, then pass `--yes` — or do it in smaller runs. |
 | 1 | `refused` | Target is not a `.md` note, is binary, or the destination of a `mv` exists. | Pick a different path. |
 | 1 | `refused` | A path outside the vault, or a symlink leading out of it. | Stay inside the vault. This is a guard, not a bug. |
+| 2 | `usage` | `rows <path>` on a file that is not a `.base`; an unknown `--view` (`details.views` lists the real names); a `--where` outside the grammar (the message quotes the statement). | Pick a listed view; rewrite the statement with the operators and functions the recipe lists — there are no formulas. |
+| 1 | `refused` | A `.base` that is not readable YAML. | Read it with `read`; the person fixes it in the app's Source mode. Do not rewrite it. |
 | 1 | `not_found` | The note, or the `--section` heading, is not there. | For a note: `search` or `ls` for the real path. For a section: `read --outline` and use a heading it lists. |
 | 1 | `not_found` | `restore <path>` with no pre-image, or a `--seq` that is not in that journal. | Run `restore <path> --list` first. If the list is **empty** (exit 0), nothing has a version to put back — say so and stop. If it is not, take a `seq` **and its `source`** from it. |
 | 0 | — | `restore … --list` printed `entries: []`. | Not an error: nothing here has written that note. Do not retry, and do not go looking in `.trash/` unless the user asks. |

@@ -4,8 +4,10 @@
    * showing the value until it is activated, then the one editor its kind
    * takes — a text field with the column's known values as suggestions, a
    * number, a date, a checkbox, a comma list, a link target. Enter or blur
-   * commits, Escape cancels; the commit hands ONE value up and the view
-   * turns it into the one `FmOp` (collection-cells.ts).
+   * commits, Escape cancels, and focus returns to the cell either way; the
+   * commit hands ONE value up and the view turns it into the one `FmOp`
+   * (collection-cells.ts). A refused write (`onCommit` false) leaves the
+   * cell showing what the note still says.
    *
    * A boolean is its checkbox directly: a click is the edit.
    */
@@ -24,7 +26,8 @@
     /** Suggestions for a text cell: the values this property holds elsewhere. */
     options?: readonly string[]
     testid?: string
-    onCommit: (raw: string | boolean) => void
+    /** True when the note took the edit; false when it was refused (the cell shows the old value). */
+    onCommit: (raw: string | boolean) => boolean
   }
 
   let { value, kind, column, row, options = [], testid, onCommit }: Props = $props()
@@ -34,6 +37,7 @@
   let editing = $state(false)
   let draft = $state('')
   let input = $state<HTMLInputElement>()
+  let button = $state<HTMLButtonElement>()
   const text = $derived(cellText(value))
   const checked = $derived(value?.kind === 'boolean' && value.value)
 
@@ -45,14 +49,20 @@
     input?.select()
   }
 
-  function commit(): void {
-    if (!editing) return
+  /** Leave the editor and put focus back on the cell, so a keyboard user keeps their place. */
+  async function close(): Promise<void> {
     editing = false
-    if (draft !== cellDraft(value)) onCommit(draft)
+    await tick()
+    button?.focus()
   }
 
-  function cancel(): void {
-    editing = false
+  function commit(): void {
+    if (!editing) return
+    // The field's own text, not a coerced binding: a cleared number field
+    // is '' here, never null.
+    const next = input?.value ?? draft
+    void close()
+    if (next !== cellDraft(value)) onCommit(next)
   }
 
   function onKey(e: KeyboardEvent): void {
@@ -61,11 +71,19 @@
       commit()
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      cancel()
+      void close()
     }
   }
 
-  const inputType = $derived(kind === 'number' ? 'number' : kind === 'date' ? 'date' : 'text')
+  function onCheck(e: Event): void {
+    const box = e.currentTarget as HTMLInputElement
+    const ok = onCommit(box.checked)
+    // A refused write: the note did not change, so neither does the box.
+    if (!ok) box.checked = checked
+  }
+
+  /** A date that carries a time is edited as text: a date field would drop the time. */
+  const inputType = $derived(kind === 'number' ? 'number' : kind === 'date' && !/[T ]\d/.test(cellDraft(value)) ? 'date' : 'text')
   const field = 'w-full rounded border border-base-300 bg-base-100 px-1.5 py-0.5 text-xs text-base-content focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
@@ -76,12 +94,12 @@
     {checked}
     aria-label={t.edit_cell_bool({ column, name: row })}
     data-testid={testid}
-    onchange={(e) => onCommit((e.currentTarget as HTMLInputElement).checked)}
+    onchange={onCheck}
   />
 {:else if editing}
   <input
     bind:this={input}
-    bind:value={draft}
+    value={draft}
     type={inputType}
     step={kind === 'number' ? 'any' : undefined}
     list={kind === 'text' && options.length ? `${uid}-options` : undefined}
@@ -100,6 +118,7 @@
   {/if}
 {:else}
   <button
+    bind:this={button}
     type="button"
     class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary {text ? 'text-base-content' : 'text-base-content/70'}"
     aria-label={t.edit_cell({ column, name: row })}

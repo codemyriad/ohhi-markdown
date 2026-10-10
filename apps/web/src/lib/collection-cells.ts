@@ -78,18 +78,47 @@ export function cellDraft(value: PropValue | undefined): string {
  *  - list: comma-separated → a block list; empty → `[]`
  *  - link: `[[x]]` unless already written as one; empty keeps the key
  */
-export function opFor(key: string, kind: CellKind, raw: string | boolean | string[]): FmOp {
+export function opFor(key: string, kind: CellKind, raw: string | boolean | string[] | null | undefined): FmOp {
   if (kind === 'boolean') return { op: 'set', key, value: raw === true || raw === 'true' }
   if (kind === 'list') {
-    const items = Array.isArray(raw) ? raw : String(raw).split(',')
+    const items = Array.isArray(raw) ? raw : splitList(raw ?? '')
     return { op: 'set', key, value: items.map((s) => s.trim()).filter(Boolean) }
   }
-  const text = Array.isArray(raw) ? raw.join(', ') : String(raw).trim()
-  // A number is written as one, so `score: 8` stays a number in the note;
-  // anything the number field cannot parse is kept as the text typed.
-  if (kind === 'number' && text !== '' && Number.isFinite(Number(text))) return { op: 'set', key, value: Number(text) }
+  const text = Array.isArray(raw) ? raw.join(', ') : String(raw ?? '').trim()
+  // A plain decimal is written as a number, so `score: 8` stays a number in
+  // the note; what was typed is kept as text otherwise — never rewritten
+  // (`1e3`, `0x10`, `-0` are text, as the index would read them).
+  if (kind === 'number' && /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text) && !Object.is(Number(text), -0)) {
+    return { op: 'set', key, value: Number(text) }
+  }
   if (kind === 'link' && text && !/^\[\[.*\]\]$/.test(text)) return { op: 'set', key, value: `[[${text}]]` }
   return { op: 'set', key, value: text }
+}
+
+/**
+ * `a, "b, c", d` → `a` · `b, c` · `d`: a comma inside quotes is part of the
+ * item, and the quotes come off. What a list cell's field means.
+ */
+export function splitList(raw: string | boolean): string[] {
+  const text = String(raw)
+  const out: string[] = []
+  let item = ''
+  let quote: string | null = null
+  for (const ch of text) {
+    if (quote) {
+      if (ch === quote) quote = null
+      else item += ch
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+    } else if (ch === ',') {
+      out.push(item)
+      item = ''
+    } else {
+      item += ch
+    }
+  }
+  out.push(item)
+  return out.map((s) => s.trim())
 }
 
 /**
@@ -175,6 +204,12 @@ export function groupRows(rows: readonly Row[], groupBy: { key: RowKey; directio
 export function newRowText(propertyKeys: readonly string[]): string {
   if (propertyKeys.length === 0) return ''
   return `---\n${propertyKeys.map((k) => `${k}:\n`).join('')}---\n\n`
+}
+
+/** What a tab, a title or a crumb calls a file: the basename without `.md` or `.base`. */
+export function displayName(path: string): string {
+  const slash = path.lastIndexOf('/')
+  return (slash === -1 ? path : path.slice(slash + 1)).replace(/\.(md|base)$/i, '')
 }
 
 /** `Collection.base`, then `Collection 2.base`, … — the first name not taken in `dir`. */

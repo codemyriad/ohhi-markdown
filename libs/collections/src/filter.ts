@@ -19,7 +19,7 @@
  *              .startsWith(x) .endsWith(x)
  *   file fns   file.hasTag(…) file.hasLink(x) file.inFolder(x) file.hasProperty(x)
  */
-import type { RowExpr, RowFilter, RowKey, RowLiteral } from '@ohhi/index'
+import { isDurationText, type RowExpr, type RowFilter, type RowKey, type RowLiteral } from '@ohhi/index'
 
 export class UnsupportedFilter extends Error {
   constructor(
@@ -62,7 +62,8 @@ function tokenize(src: string, statement: string): Tok[] {
       let v = ''
       while (j < src.length && src[j] !== c) {
         if (src[j] === '\\' && j + 1 < src.length) {
-          v += src[j + 1]
+          const e = src[j + 1]
+          v += e === 'n' ? '\n' : e === 't' ? '\t' : e === 'r' ? '\r' : e
           j += 2
         } else {
           v += src[j++]
@@ -161,39 +162,49 @@ class Parser {
   }
 
   private and(): Operand {
-    let left = this.not()
+    let left = this.comparison()
     while (this.take('&&')) {
-      const right = this.not()
+      const right = this.comparison()
       left = { kind: 'filter', filter: { op: 'and', args: [this.condition(left), this.condition(right)] } }
     }
     return left
   }
 
-  private not(): Operand {
-    if (this.take('!')) return { kind: 'filter', filter: { op: 'not', arg: this.condition(this.not()) } }
-    return this.comparison()
-  }
-
   private comparison(): Operand {
-    const left = this.additive()
+    const left = this.not()
     for (const cmp of ['==', '!=', '<=', '>=', '<', '>'] as const) {
       if (this.take(cmp)) {
-        const right = this.additive()
+        const right = this.not()
+        // `x.isEmpty() == false`: a condition against a boolean literal.
+        if ((left.kind === 'filter' || right.kind === 'filter') && (cmp === '==' || cmp === '!=')) {
+          const [cond, lit] = left.kind === 'filter' ? [left, right] : [right, left]
+          if (lit.kind === 'expr' && 'lit' in lit.expr && typeof lit.expr.lit === 'boolean') {
+            const want = lit.expr.lit === (cmp === '==')
+            return want ? cond : { kind: 'filter', filter: { op: 'not', arg: this.condition(cond) } }
+          }
+        }
         return { kind: 'filter', filter: { op: 'cmp', cmp, left: this.value(left), right: this.value(right) } }
       }
     }
     return left
   }
 
+  /** `!` binds tighter than a comparison, as in JavaScript: `!a == "b"` is `(!a) == "b"`, refused. */
+  private not(): Operand {
+    if (this.take('!')) return { kind: 'filter', filter: { op: 'not', arg: this.condition(this.not()) } }
+    return this.additive()
+  }
+
   /** Only a date plus or minus a duration string is arithmetic this subset knows. */
   private additive(): Operand {
     let left = this.postfix()
     while (this.isOp('+') || this.isOp('-')) {
-      const sign = this.next().t === 'op' && this.toks[this.at - 1] && (this.toks[this.at - 1] as { v: string }).v === '+' ? 1 : -1
+      const sign: 1 | -1 = (this.next() as { v: string }).v === '+' ? 1 : -1
       const right = this.postfix()
       if (right.kind !== 'expr' || !('lit' in right.expr) || typeof right.expr.lit !== 'string') {
         this.fail('arithmetic other than date ± "duration"')
       }
+      if (!isDurationText(right.expr.lit)) this.fail(`the duration \`${right.expr.lit}\``)
       left = { kind: 'expr', expr: { dateAdd: this.value(left), duration: right.expr.lit, sign } }
     }
     return left

@@ -1,4 +1,4 @@
-import { compileView, isCollectionPath, parseCollection } from '@ohhi/collections'
+import { collectionName, compileView, isCollectionPath, parseCollection } from '@ohhi/collections'
 import { OP_SCHEMAS, schemaName, type OpOutput } from '../contract.js'
 import { readNote } from '../backend.js'
 import type { OpDef } from '../op.js'
@@ -19,6 +19,8 @@ export const collections: OpDef<'collections'> = {
     const [files, index] = await Promise.all([backend.files(), backend.index()])
     const paths = [...files.keys()].filter((p) => isCollectionPath(p) && isUnder(dir, p)).sort()
     const now = backend.clock.now()
+    // The reader's zone, so `today()` is their calendar day (a zone is not a clock — golden rule 5 is about scheduling). clock-exempt
+    const tzOffsetMinutes = -new Date().getTimezoneOffset() // clock-exempt
     const items: Item[] = []
     for (const path of paths) {
       const note = await readNote(backend, path)
@@ -27,7 +29,7 @@ export const collections: OpDef<'collections'> = {
       const views: Item['views'] = []
       for (const view of spec.views) {
         const compiled = compileView(spec, view, { thisPath: path })
-        const page = await index.rows({ ...compiled.query, now }, { limit: 1 })
+        const page = await index.rows({ ...compiled.query, now, tzOffsetMinutes }, { limit: 1 })
         const total = page.total ?? page.items.length
         views.push({
           name: view.name,
@@ -37,10 +39,9 @@ export const collections: OpDef<'collections'> = {
           reasons: compiled.reasons,
         })
       }
-      const slash = path.lastIndexOf('/')
       items.push({
         path,
-        name: path.slice(slash + 1).replace(/\.base$/i, ''),
+        name: collectionName(path),
         views,
         issues: spec.issues,
         error: spec.error,

@@ -269,17 +269,18 @@ function readFrontmatter(text: string): {
     frontmatterTags.push({ tag: `#${raw}`, offset: at >= 0 && at < fm.end ? at : 0 })
   }
 
-  // Cells only from a block the patcher could write back to (R3): a nested
-  // or multi-line block reads as keys for `frontmatterKeys()` and nothing
-  // more, which is what the editor's strip and the CLI's `fm` do with it.
+  // Cells from every entry the patcher could write back to (R3): an entry
+  // the flat subset refuses (a nested map, a block scalar, a duplicate)
+  // reads as a key for `frontmatterKeys()` and nothing more, while its
+  // neighbours stay cells — the one folded `description:` in a note must
+  // not hide its `status:` from a collection.
   const properties: RawProperty[] = []
   const propertyLinks: RawLink[] = []
-  if (fm.supported) {
-    const starts = lineStartsOf(text)
-    const seen = new Set<string>()
+  if (fm.entries.length) {
+    // Line starts up to the block's end are all the entries need.
+    const starts = lineStartsOf(text.slice(0, fm.end))
     for (const e of fm.entries) {
-      if (seen.has(e.key)) continue
-      seen.add(e.key)
+      if (e.reason) continue
       const offset = starts[e.lines[0]] ?? 0
       const limit = e.lines[1] + 1 < starts.length ? starts[e.lines[1] + 1] : fm.end
       properties.push({ key: e.key, value: e.value, kind: e.kind, offset })

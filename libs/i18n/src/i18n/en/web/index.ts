@@ -2710,11 +2710,9 @@ const collections = {
   group_by: 'Group by',
   group_none: 'No grouping',
   group_empty: 'No value',
-  sort_asc: 'Sorted ascending',
-  sort_desc: 'Sorted descending',
   sort_by: 'Sort by {name:string}',
-  filters: 'Filters',
-  filter_edit_hint: 'Edit filters in Source (Mod+E).',
+  /** The first column, when the file gives `file.name` no display name. */
+  name_column: 'Name',
   open_note: 'Open {name:string}',
   edit_cell: 'Edit {column:string} of {name:string}',
   edit_cell_bool: '{column:string} of {name:string}',
@@ -2722,6 +2720,8 @@ const collections = {
   /** A part of the view this app does not compute (formulas, map views). */
   partly: 'Partly shown',
   partly_detail: 'Not computed here: {reasons:string}',
+  /** A column the view names that this app cannot compute (`formula.x`). */
+  column_not_computed: '{name:string} is not computed here',
   no_views: 'This collection has no views yet.',
   add_table: 'Add a table view',
   unreadable: 'This file could not be read as a collection: {error:string}',

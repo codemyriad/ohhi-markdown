@@ -56,9 +56,10 @@ person runs *Reload layouts and resources*. The formats, every command,
 readout, region and view id, and worked examples:
 [`customising.md`](customising.md).
 
-**Status.** Slices G1–G4 of `plans/slices.md`. `fm` is read-only until the
-surgical frontmatter patcher (`v2-shaping.md` Spike S3 / read-shaping X3)
-exists — `ohhi` will not reserialize a YAML block (golden rule 2).
+**Status.** Slices G1–G4 of `plans/slices.md`, plus DB1 of the collections
+series (`collections`, `rows` — `plans/bases-shaping.md`). `fm` is read-only
+until its write half ships (DB5); the surgical patcher it will use exists
+(`libs/frontmatter`) — `ohhi` will not reserialize a YAML block (golden rule 2).
 
 ---
 
@@ -540,13 +541,16 @@ each shows right now:
 
 ```text
 $ ohhi collections
-Competitors.base
+Competitors.base                                          # stdout
     All                      table       3 rows
-    Threat Watch             table       1 rows
-    Needs formulas           table       3 rows  (partly: `formula.age` is not computed here)
-returned=1 total=1
-coverage: searched 14 notes; 1 binaries skipped; …
+    Direct                   table       2 rows
+    Latest two               table       2 rows
+returned=1 total=1                                        # stderr
+coverage: searched 16 notes; 1 binaries skipped; ignored .editor,.editor-cache,…
 ```
+
+A view with a formula column prints `(partly: \`formula.age\` is not computed
+here)` after its row count.
 
 A view is `supported: false` with `reasons` when a part of the file is outside
 the subset this tool reads — a formula column, a `map` view, a function the
@@ -572,6 +576,10 @@ ohhi rows Competitors.base --columns threat,verified --sort verified:desc
 ohhi rows --where 'file.hasTag("meeting") && status != "done"'    # no collection: every note in the vault
 ```
 
+With no collection and no `--where`, every note in the vault is a row, and the
+columns are the name plus every property those notes carry. A collection
+with no `views:` still applies its global filters.
+
 `--where` takes one statement in the file's own filter grammar, ANDed with
 the view's filters: comparisons (`==` `!=` `<` `<=` `>` `>=`), `&&` `||` `!`,
 `file.hasTag(…)`, `file.hasLink(…)`, `file.inFolder(…)`,
@@ -584,7 +592,13 @@ here. `--columns` are property ids as the file writes them (`file.name`,
 the name plus every property the rows carry. A view's `limit` caps the rows
 returned. `--limit` · `--cursor`
 
-Rows are references on purpose: `read` the ones that matter.
+Rows are references on purpose: `read` the ones that matter. The text
+renderer prints the path first for the same reason.
+
+Errors: a path that is not a `.base` → `usage`; an unknown `--view` → `usage`
+with `details.views` naming the ones there are; a `--where` the grammar
+refuses → `usage` naming the statement; a `.base` that is not readable YAML →
+`refused`.
 
 ---
 

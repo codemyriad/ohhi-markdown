@@ -8,7 +8,7 @@
  * mode, and the view asks on every change. Invalid YAML → `error` set,
  * `views` empty, and the tab shows the words.
  */
-import { isMap, isSeq, parseDocument } from 'yaml'
+import { parseDocument } from 'yaml'
 import type { CollectionSpec, FilterTree, PropertyConfig, SortDirection, ViewSort, ViewSpec } from './types.js'
 
 const VIEW_KEYS = new Set(['type', 'name', 'filters', 'order', 'sort', 'groupBy', 'limit', 'columnSize'])
@@ -52,7 +52,7 @@ export function parseCollection(text: string): CollectionSpec {
       }
       views.push(readView(v, index, issues))
     })
-  } else if (raw.views !== undefined) {
+  } else if (raw.views !== undefined && raw.views !== null) {
     issues.push('`views` is not a list')
   }
   return { filters, properties, views, issues, error: null }
@@ -119,6 +119,3 @@ function direction(raw: unknown): SortDirection {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
-
-/** `isMap`/`isSeq` re-exported for the patcher's node walk. */
-export { isMap, isSeq }

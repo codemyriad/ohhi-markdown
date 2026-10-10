@@ -301,10 +301,16 @@ export interface RowQuery {
   sort?: RowSort[]
   /**
    * Evaluation instant for `now()`/`today()`, epoch ms. The index has no
-   * clock of its own (golden rule 5): a caller that uses a relative date
-   * passes the time it means.
+   * clock of its own (golden rule 5): every caller passes the time it means.
    */
-  now?: number
+  now: number
+  /**
+   * The caller's zone, minutes east of UTC (`-new Date().getTimezoneOffset()`),
+   * so `today()` is the LOCAL calendar day: a date-only value (`2026-06-02`)
+   * is that day's UTC midnight, and so is `today()` for whoever reads it at
+   * 23:30 in UTC-4. Absent → UTC.
+   */
+  tzOffsetMinutes?: number
 }
 
 /** A distinct value seen under a property key, with the notes carrying it. */

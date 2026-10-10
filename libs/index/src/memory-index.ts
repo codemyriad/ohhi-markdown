@@ -567,7 +567,8 @@ export class MemoryIndex implements WritableIndex {
   rows(query: RowQuery, opts?: PageOptions): Promise<Page<Row>> {
     this.refreshLinks()
     const ctx: FilterContext = {
-      now: query.now ?? 0,
+      now: query.now,
+      ...(query.tzOffsetMinutes === undefined ? {} : { tzOffsetMinutes: query.tzOffsetMinutes }),
       resolve: (target) => this.resolver.resolve(target),
     }
     const rows: Row[] = []

@@ -3,6 +3,7 @@ import {
   compileView,
   isCollectionPath,
   keyFor,
+  NOTES_ONLY,
   parseCollection,
   UnsupportedFilter,
   type CollectionSpec,
@@ -12,24 +13,33 @@ import type { PropScalar, PropValue, Row, RowFilter, RowKey, RowQuery, RowSort }
 import { OP_SCHEMAS, OpError, schemaName, type OpOutput } from '../contract.js'
 import { openForRead } from '../backend.js'
 import type { OpDef } from '../op.js'
-import { fromIndexPage } from '../paging.js'
+import { fromIndexPage, paginate, type PageResult } from '../paging.js'
 
 type Cell = OpOutput<'rows'>['rows'][number]['values'][string]
 
-/** The rows of a collection are notes: the rule `compileView` applies. */
-const NOTES_ONLY: RowFilter = { op: 'cmp', cmp: '==', left: { key: { file: 'ext' } }, right: { lit: 'md' } }
+/**
+ * A collection with no `views:` is still a query: its global filters apply
+ * through this empty view, so `rows NoViews.base` never widens to the vault.
+ */
+const EMPTY_VIEW: ViewSpec = { index: -1, type: 'table', name: '', filters: null, order: [], sort: [], groupBy: null, limit: null, columnSize: {}, extra: {} }
+
+/** The index caps a page at this; a view's `limit` beyond it is read in full by paging. */
+const INDEX_MAX = 1000
 
 /**
  * `rows` — a collection view as records: each note as a reference plus the
  * columns asked for, filtered further by `--where` in the file's own
  * grammar. Values are what the note says (bases-shaping A1): a date as
- * written, a link as `[[target]]`, a list as an array.
+ * written, a link as `[[target]]`, a list as an array. With no collection
+ * at all, every note in the vault is a row (`--where` narrows it).
  */
 export const rows: OpDef<'rows'> = {
   ...OP_SCHEMAS.rows,
   async run(backend, input) {
     const index = await backend.index()
     const now = backend.clock.now()
+    // The reader's zone, so `today()` is their calendar day (a zone is not a clock — golden rule 5 is about scheduling). clock-exempt
+    const tzOffsetMinutes = -new Date().getTimezoneOffset() // clock-exempt
 
     let spec: CollectionSpec | null = null
     let view: ViewSpec | null = null
@@ -55,7 +65,7 @@ export const rows: OpDef<'rows'> = {
     }
 
     const scope = collection === null ? {} : { thisPath: collection }
-    const compiled = spec && view ? compileView(spec, view, scope) : null
+    const compiled = spec ? compileView(spec, view ?? EMPTY_VIEW, scope) : null
     const parts: RowFilter[] = compiled ? [compiled.query.filter!] : [NOTES_ONLY]
     if (input.where !== undefined) {
       try {
@@ -66,23 +76,30 @@ export const rows: OpDef<'rows'> = {
       }
     }
     const sort: RowSort[] = input.sort === undefined ? (compiled?.query.sort ?? []) : [parseSort(input.sort)]
-    const query: RowQuery = { filter: { op: 'and', args: parts }, sort, now }
+    const query: RowQuery = { filter: { op: 'and', args: parts }, sort, now, tzOffsetMinutes }
 
-    // A view's `limit` caps what it shows; a page never reaches past it.
+    // A view's `limit` caps what it shows. The capped set is read once and
+    // paged HERE, with this package's own cursor — the index's cursor is
+    // opaque to every caller, this op included.
     const limit = compiled?.limit ?? null
-    const page = await index.rows(query, input)
-    let items = page.items
-    let total = page.total
-    let nextCursor = page.nextCursor
-    if (limit !== null) {
-      const start = cursorOffset(input.cursor)
-      items = items.slice(0, Math.max(0, limit - start))
-      total = total === null ? null : Math.min(total, limit)
-      if (start + items.length >= limit) nextCursor = null
+    let page: PageResult<Row>
+    if (limit === null) {
+      page = fromIndexPage(await index.rows(query, input), (row) => row)
+    } else {
+      const capped: Row[] = []
+      let cursor: string | undefined
+      while (capped.length < limit) {
+        const chunk = await index.rows(query, { limit: Math.min(limit - capped.length, INDEX_MAX), cursor })
+        capped.push(...chunk.items)
+        if (!chunk.nextCursor || chunk.items.length === 0) break
+        cursor = chunk.nextCursor
+      }
+      page = paginate(capped, input)
     }
 
-    const columns = input.columns ?? compiled?.columns.map((c) => c.id) ?? defaultColumns(items)
-    const out = fromIndexPage({ items, total, nextCursor }, (row) => ({
+    const columns =
+      input.columns?.length ? input.columns : compiled?.columns.length ? compiled.columns.map((c) => c.id) : defaultColumns(page.items)
+    const out = page.items.map((row) => ({
       path: row.path,
       name: row.name,
       values: Object.fromEntries(columns.map((id) => [id, cellOf(row, keyFor(id))])),
@@ -94,12 +111,12 @@ export const rows: OpDef<'rows'> = {
       collection,
       view: view?.name ?? null,
       columns,
-      rows: out.items,
+      rows: out,
       supported: reasons.length === 0,
       reasons,
-      returned: out.returned,
-      total: out.total,
-      nextCursor: out.nextCursor,
+      returned: out.length,
+      total: page.total,
+      nextCursor: page.nextCursor,
       coverage: await backend.coverage(),
     }
   },
@@ -114,14 +131,7 @@ function parseSort(raw: string): RowSort {
   return { key, direction: m?.[2]?.toLowerCase() === 'desc' ? 'desc' : 'asc' }
 }
 
-/** The index's cursor is `o<offset>`; a view limit needs the offset to cap honestly. */
-function cursorOffset(cursor: string | undefined): number {
-  if (!cursor || !cursor.startsWith('o')) return 0
-  const n = Number.parseInt(cursor.slice(1), 10)
-  return Number.isFinite(n) && n >= 0 ? n : 0
-}
-
-/** With no view and no `--columns`: the name plus every property the page's rows carry. */
+/** With no view columns and no `--columns`: the name plus every property the page's rows carry. */
 function defaultColumns(items: Row[]): string[] {
   const keys = new Set<string>()
   for (const row of items) for (const key of Object.keys(row.props)) keys.add(key)

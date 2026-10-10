@@ -41,10 +41,12 @@ export { parseMarkdown, type ParsedDoc, type RawHeading, type RawLink, type RawP
 export { basename, normalizeTarget, PathResolver } from './resolve.js'
 export {
   compareRows,
+  isDurationText,
   keyValue,
   matchesFilter,
   propText,
   scalarText,
+  todayOf,
   typeProperty,
   typeScalar,
   type FilterContext,

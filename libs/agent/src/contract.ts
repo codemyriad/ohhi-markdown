@@ -423,7 +423,7 @@ export const CollectionsOut = z.object({
 })
 
 export const RowsIn = z.object({
-  /** The `.base` file. Omit to query every note with `--where`. */
+  /** The `.base` file. Omit for every note in the vault as records (narrow with `where`). */
   collection: VaultPath.optional(),
   /** A view by name (case-insensitive); default the first view. */
   view: z.string().optional(),
@@ -593,9 +593,11 @@ export const RestoreOut = z.object({
 
 /**
  * `usage` → exit 2 (bad args, no vault, ambiguous vault). `conflict` → exit 3
- * (`expectHash` mismatch). Everything else → exit 1. `refused` is a write the
- * core declined on its own rules (patch not unique, createOnly on an existing
- * note, > 20 files without `yes`, binary or non-`.md` target).
+ * (`expectHash` mismatch). Everything else → exit 1. `refused` is an op the
+ * core declined on its own rules: a write (patch not unique, createOnly on an
+ * existing note, > 20 files without `yes`, binary or non-`.md` target) or a
+ * read of something that is not what the op reads (a binary where a note was
+ * asked for, a `.base` that is not readable YAML).
  */
 export const ErrorCode = z.enum(['usage', 'not_found', 'conflict', 'refused', 'runtime'])
 export type ErrorCode = z.infer<typeof ErrorCode>

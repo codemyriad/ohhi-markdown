@@ -147,6 +147,15 @@ views:
     order:
       - file.name
       - verified
+  - type: table
+    name: Latest two
+    limit: 2
+    sort:
+      - property: verified
+        direction: DESC
+    order:
+      - file.name
+      - verified
 `,
   'Competitors/Ingredifind.md': `---
 threat: direct

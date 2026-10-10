@@ -14,7 +14,9 @@
    * Reactivity: the index is a plain structure; `indexRevision()` is its
    * whole subscription. The file's text is re-read on that counter too
    * (the `.base` is a text doc the sink feeds), so Source-mode edits and a
-   * peer's edits reach the table without a second channel.
+   * peer's edits reach the table without a second channel. The counter
+   * bumps on every keystroke anywhere in the vault, so the re-query is
+   * coalesced on the shell's clock; the first load is immediate.
    */
   import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert } from '@lucide/svelte'
   import {
@@ -29,29 +31,30 @@
   } from '@ohhi/collections'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { keyValue, type PropValue, type Row } from '@ohhi/index'
-  import { untrack } from 'svelte'
   import {
     applyFrontmatterOp,
+    cellText,
     columnKind,
     groupRows,
+    kindOf,
     newRowText,
     opFor,
     replaceDocText,
     toggleSort,
+    type CellKind,
   } from '../collection-cells.js'
-  import type { Tab } from '../panes.js'
   import IconButton from '../ui/IconButton.svelte'
   import Popover from '../ui/Popover.svelte'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
+  import Tabs from '../ui/Tabs.svelte'
   import { getViewShell, shellClock } from '../views.js'
   import type { Workspace } from '../workspace.svelte.js'
   import CollectionCell from './CollectionCell.svelte'
 
   interface Props {
     workspace: Workspace
-    /** The `.base` file. */
+    /** The `.base` file. The pane keys this component on it. */
     path: string
-    tab: Tab
   }
 
   let { workspace, path }: Props = $props()
@@ -60,47 +63,72 @@
   const clock = shellClock()
   const t = $derived($LL.web.collections)
   const uid = $props.id()
+  /** The reader's zone, so `today()` is their calendar day. A zone is not a clock. clock-exempt */
+  const tzOffsetMinutes = -new Date().getTimezoneOffset() // clock-exempt
+  /** How long typing elsewhere may go on before the table re-asks the index. */
+  const COALESCE_MS = 120
 
   const name = $derived(collectionName(path))
   const revision = $derived(shell?.indexRevision() ?? 0)
+  /** Bumped after this tab's own writes to the file, so they show at once rather than after the sink's round trip. */
+  let selfRevision = $state(0)
   /** The file's live text — re-read on every index change (the file is a doc the sink feeds). */
   const text = $derived.by(() => {
     void revision
+    void selfRevision
     return workspace.docForPath(path)?.getText() ?? ''
   })
   const spec = $derived(parseCollection(text))
 
-  /** Which saved view this tab shows; back to the first when the file changes. */
-  let active = $state(0)
-  $effect(() => {
-    void path
-    untrack(() => (active = 0))
+  /** Which saved view this tab shows, as the Tabs primitive's value. */
+  let activeValue = $state('0')
+  const view = $derived.by(() => {
+    if (!spec.views.length) return null
+    const wanted = Number(activeValue)
+    return spec.views.find((v) => v.index === wanted) ?? spec.views[0]
   })
-  const view = $derived(spec.views.length ? spec.views[Math.min(active, spec.views.length - 1)] : null)
   const compiled = $derived(view ? compileView(spec, view, { thisPath: path }) : null)
+  const viewTabs = $derived(spec.views.map((v) => ({ value: String(v.index), label: v.name, testid: `collection-tab:${v.name}` })))
 
   // ---- the rows ----
   let rows = $state.raw<Row[]>([])
   let total = $state(0)
+  /** The query the rows on screen answer; a different one is asked at once. */
+  let shown: unknown = null
   $effect(() => {
     const q = compiled
     void revision
     if (!q || !shell) {
       rows = []
       total = 0
+      shown = null
       return
     }
     let live = true
-    void shell
-      .index()
-      .rows({ ...q.query, now: clock.now() }, { limit: q.limit ?? 1000 })
-      .then((page) => {
-        if (!live) return
-        rows = page.items
-        total = page.total ?? page.items.length
-      })
+    const run = (): void => {
+      void shell
+        .index()
+        .rows({ ...q.query, now: clock.now(), tzOffsetMinutes }, { limit: q.limit ?? 1000 })
+        .then((page) => {
+          if (!live) return
+          rows = page.items
+          total = page.total ?? page.items.length
+        })
+    }
+    // A new query (first load, another view, a sort written) is answered
+    // at once; the same query on a changed vault is coalesced, so typing in
+    // a note next door does not re-run it per keystroke.
+    if (q !== shown) {
+      shown = q
+      run()
+      return () => {
+        live = false
+      }
+    }
+    const cancel = clock.schedule(run, COALESCE_MS)
     return () => {
       live = false
+      cancel()
     }
   })
 
@@ -110,31 +138,40 @@
   const dataColumns = $derived(columns.filter((c) => c !== nameColumn))
   const groups = $derived(groupRows(rows, compiled?.groupBy ?? null))
   const sortOf = (id: string): 'asc' | 'desc' | null => view?.sort.find((s) => s.property === id)?.direction ?? null
+  const ariaSort = (id: string): 'ascending' | 'descending' | undefined =>
+    sortOf(id) === 'asc' ? 'ascending' : sortOf(id) === 'desc' ? 'descending' : undefined
 
-  /** The values a property holds across the rows shown: a text cell's suggestions. */
-  const optionsFor = $derived.by(() => {
-    const out = new Map<string, string[]>()
+  /**
+   * Per property column, computed ONCE per row set: the editor kind most of
+   * the column has (for its empty cells) and the values it holds (a text
+   * cell's suggestions).
+   */
+  const columnInfo = $derived.by(() => {
+    const out = new Map<string, { kind: CellKind; options: string[] }>()
     for (const col of dataColumns) {
       if (!col.key || !('prop' in col.key)) continue
+      const prop = col.key.prop
+      const values = rows.map((r) => r.props[prop])
       const seen = new Set<string>()
-      for (const row of rows) {
-        const v = row.props[col.key.prop]
+      for (const v of values) {
         if (!v) continue
-        for (const item of v.kind === 'list' ? v.items : [v]) {
-          if (item.kind === 'string' && item.value) seen.add(item.value)
-        }
+        for (const item of v.kind === 'list' ? v.items : [v]) if (item.kind === 'string' && item.value) seen.add(item.value)
       }
-      out.set(col.id, [...seen].sort())
+      out.set(col.id, { kind: columnKind(undefined, values), options: [...seen].sort() })
     }
     return out
   })
+  const kindFor = (col: Column, value: PropValue | undefined): CellKind => kindOf(value) ?? columnInfo.get(col.id)?.kind ?? 'text'
 
   // ---- writes ----
   function writeView(patch: ViewPatch): void {
     const doc = workspace.docForPath(path)
     if (!doc || !view) return
     const result = patchView(doc.getText(), view.index, patch)
-    if (result.ok) replaceDocText(doc, result.text)
+    if (result.ok) {
+      replaceDocText(doc, result.text)
+      selfRevision++
+    }
   }
 
   function onSort(col: Column): void {
@@ -152,20 +189,22 @@
     writeView({ order })
   }
 
-  function onCell(row: Row, col: Column, raw: string | boolean): void {
-    if (!col.key || !('prop' in col.key)) return
+  /** A cell's edit, through the note's live doc. True when the note took it. */
+  function onCell(row: Row, col: Column, raw: string | boolean): boolean {
+    if (!col.key || !('prop' in col.key)) return false
     const doc = workspace.docForPath(row.path)
     if (!doc) {
       workspace.flash({ level: 'warn', text: t.not_a_note({ path: row.path }), path: row.path })
-      return
+      return false
     }
-    const kind = columnKind(row.props[col.key.prop], rows.map((r) => r.props[(col.key as { prop: string }).prop]))
-    const result = applyFrontmatterOp(doc, opFor(col.key.prop, kind, raw))
+    const result = applyFrontmatterOp(doc, opFor(col.key.prop, kindFor(col, row.props[col.key.prop]), raw))
     if (!result.ok) {
       const reasons = t.reason as unknown as Record<string, () => string>
       const reason = (reasons[result.reason] ?? reasons.unsupported)()
       workspace.flash({ level: 'warn', text: t.not_patched({ name: row.name, reason }), path: row.path })
+      return false
     }
+    return true
   }
 
   /** Where "+ New" puts a note: the view's folder, else the collection's own. */
@@ -187,12 +226,16 @@
     const doc = workspace.docForPath(path)
     if (!doc) return
     const result = addView(doc.getText(), { type: 'table', name: 'All', order: ['file.name'] })
-    if (result.ok) replaceDocText(doc, result.text)
+    if (result.ok) {
+      replaceDocText(doc, result.text)
+      selfRevision++
+    }
   }
 
-  // ---- the columns popover ----
+  // ---- the columns popover, and the "partly shown" detail ----
   let columnsAnchor = $state<HTMLElement | null>(null)
   let columnsOpen = $state(false)
+  let partlyOpen = $state(false)
   let knownKeys = $state.raw<string[]>([])
   $effect(() => {
     if (!columnsOpen || !shell) return
@@ -214,15 +257,20 @@
     return [...ids]
   })
 
-  const headerButton = 'flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
+  /** A file field or an uncomputed column, as text. */
+  function plainCell(col: Column, value: PropValue | undefined): string {
+    if (!col.key) return t.mtime_unknown()
+    if (col.id === 'file.mtime') return value && value.kind === 'date' ? new Date(value.ms).toLocaleDateString() : t.mtime_unknown()
+    return cellText(value)
+  }
+
+  const headerButton =
+    'flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
+  const headerText = 'block w-full truncate px-1.5 py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase'
   const cellClass = 'border-b border-base-200 px-1 py-0.5 align-top'
 </script>
 
-<section
-  aria-label={t.label({ name })}
-  data-testid="collection-view"
-  class="flex h-full min-h-0 flex-col bg-ed-surface text-base-content"
->
+<section aria-label={t.label({ name })} data-testid="collection-view" class="flex h-full min-h-0 flex-col bg-ed-surface text-base-content">
   {#if spec.error}
     <div class="m-4 rounded border border-warning/40 bg-base-100 p-3 text-sm" role="alert">
       <p>{t.unreadable({ error: spec.error })}</p>
@@ -236,71 +284,158 @@
       </button>
     </div>
   {:else}
-    <!-- The view strip: saved views as tabs, the verbs at the end. -->
-    <div class="flex shrink-0 items-center gap-1 border-b border-base-300 bg-base-100 px-2 py-1">
-      <div role="tablist" aria-label={t.views({ name })} class="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-        {#each spec.views as v (v.index)}
+    <!-- The saved views as a tab list (one tab stop, arrows move), the verbs at the row's end. -->
+    <Tabs tabs={viewTabs} bind:value={activeValue} size="sm" label={t.views({ name })} testid="collection-views">
+      {#snippet end()}
+        <span class="px-1 text-xs text-base-content/70 whitespace-nowrap" data-testid="collection-count">
+          {compiled && compiled.limit !== null && total > rows.length ? t.count_of({ shown: rows.length, total }) : t.count({ count: rows.length })}
+        </span>
+        {#if compiled && !compiled.supported}
           <button
             type="button"
-            role="tab"
-            id="{uid}-view-{v.index}"
-            aria-selected={v.index === view.index}
-            aria-controls="{uid}-panel"
-            tabindex={v.index === view.index ? 0 : -1}
-            data-testid="collection-tab:{v.name}"
-            class="rounded px-2 py-0.5 text-xs whitespace-nowrap {v.index === view.index
-              ? 'bg-base-200 font-semibold text-base-content'
-              : 'text-base-content/70 hover:bg-base-200'}"
-            onclick={() => (active = v.index)}
+            class="flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[11px] text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+            aria-expanded={partlyOpen}
+            aria-controls="{uid}-partly"
+            data-testid="collection-partly"
+            onclick={() => (partlyOpen = !partlyOpen)}
           >
-            {v.name}
+            <TriangleAlert aria-hidden="true" class="size-3" />
+            {t.partly()}
           </button>
-        {/each}
-      </div>
-      <span class="ml-auto text-xs text-base-content/70 whitespace-nowrap" data-testid="collection-count">
-        {compiled && compiled.limit !== null && total > rows.length ? t.count_of({ shown: rows.length, total }) : t.count({ count: rows.length })}
-      </span>
-      {#if compiled && !compiled.supported}
-        <span
-          class="flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[11px] text-base-content"
-          title={t.partly_detail({ reasons: compiled.reasons.join('; ') })}
-          data-testid="collection-partly"
-        >
-          <TriangleAlert aria-hidden="true" class="size-3" />
-          {t.partly()}
+        {/if}
+        <label class="flex items-center gap-1 text-xs text-base-content/70">
+          <Group aria-hidden="true" class="size-3.5" />
+          <span class="sr-only">{t.group_by()}</span>
+          <select
+            class="dui-select dui-select-xs max-w-32"
+            data-testid="collection-group"
+            value={compiled?.groupBy?.id ?? ''}
+            onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}
+          >
+            <option value="">{t.group_none()}</option>
+            {#each columns as col (col.id)}
+              {#if col.key}
+                <option value={col.id}>{col.label}</option>
+              {/if}
+            {/each}
+          </select>
+        </label>
+        <span bind:this={columnsAnchor}>
+          <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" onclick={() => (columnsOpen = !columnsOpen)} />
         </span>
-      {/if}
-      <label class="flex items-center gap-1 text-xs text-base-content/70">
-        <Group aria-hidden="true" class="size-3.5" />
-        <span class="sr-only">{t.group_by()}</span>
-        <select
-          class="dui-select dui-select-xs max-w-32"
-          data-testid="collection-group"
-          value={compiled?.groupBy?.id ?? ''}
-          onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}
+        <button
+          type="button"
+          class="{OUTLINE_BUTTON} flex items-center gap-1 px-2 py-0.5 text-xs"
+          data-testid="collection-new"
+          aria-label={targetDir ? t.new_row_in({ dir: targetDir }) : t.new_row()}
+          onclick={newRow}
         >
-          <option value="">{t.group_none()}</option>
-          {#each columns as col (col.id)}
-            {#if col.key}
-              <option value={col.id}>{col.label}</option>
-            {/if}
-          {/each}
-        </select>
-      </label>
-      <span bind:this={columnsAnchor}>
-        <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" onclick={() => (columnsOpen = !columnsOpen)} />
-      </span>
-      <button
-        type="button"
-        class="{OUTLINE_BUTTON} flex items-center gap-1 px-2 py-0.5 text-xs"
-        data-testid="collection-new"
-        aria-label={targetDir ? t.new_row_in({ dir: targetDir }) : t.new_row()}
-        onclick={newRow}
-      >
-        <Plus aria-hidden="true" class="size-3.5" />
-        {t.new_row()}
-      </button>
-    </div>
+          <Plus aria-hidden="true" class="size-3.5" />
+          {t.new_row()}
+        </button>
+      {/snippet}
+
+      {#snippet panel()}
+        {#if compiled && !compiled.supported && partlyOpen}
+          <p id="{uid}-partly" class="border-b border-base-300 bg-warning/10 px-3 py-1 text-xs" data-testid="collection-partly-detail">
+            {t.partly_detail({ reasons: compiled.reasons.join('; ') })}
+          </p>
+        {/if}
+        <div class="h-full min-h-0 overflow-auto">
+          {#if rows.length === 0}
+            <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
+          {:else}
+            <table class="w-full border-collapse text-xs" data-testid="collection-table">
+              <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
+              <thead class="sticky top-0 z-[1] bg-base-100">
+                <tr>
+                  <th scope="col" class="border-b border-base-300 px-1 py-0.5 text-left" aria-sort={ariaSort('file.name')}>
+                    <button
+                      type="button"
+                      class={headerButton}
+                      data-testid="collection-header:file.name"
+                      title={t.sort_by({ name: nameColumn?.label ?? t.name_column() })}
+                      onclick={() => onSort(nameColumn ?? { id: 'file.name', label: t.name_column(), key: { file: 'name' } })}
+                    >
+                      <span class="truncate">{nameColumn?.label ?? t.name_column()}</span>
+                      {#if sortOf('file.name') === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf('file.name') === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
+                    </button>
+                  </th>
+                  {#each dataColumns as col (col.id)}
+                    <th
+                      scope="col"
+                      class="border-b border-base-300 px-1 py-0.5 text-left"
+                      style={view.columnSize[col.id] ? `width:${view.columnSize[col.id]}px` : undefined}
+                      aria-sort={col.key ? ariaSort(col.id) : undefined}
+                    >
+                      {#if col.key}
+                        <button type="button" class={headerButton} data-testid="collection-header:{col.id}" title={t.sort_by({ name: col.label })} onclick={() => onSort(col)}>
+                          <span class="truncate">{col.label}</span>
+                          {#if sortOf(col.id) === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf(col.id) === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
+                        </button>
+                      {:else}
+                        <!-- A column the file names that this app cannot compute: labelled, not clickable. -->
+                        <span class={headerText} data-testid="collection-header:{col.id}">
+                          {col.label}
+                          <span class="sr-only">{t.column_not_computed({ name: col.id })}</span>
+                        </span>
+                      {/if}
+                    </th>
+                  {/each}
+                </tr>
+              </thead>
+              {#each groups as group (group.key)}
+                <tbody data-testid="collection-group:{group.key || '(none)'}">
+                  {#if compiled?.groupBy}
+                    <tr>
+                      <th scope="rowgroup" colspan={dataColumns.length + 1} class="border-b border-base-200 bg-base-200/60 px-2 py-1 text-left text-[11px] font-semibold">
+                        {group.key || t.group_empty()}
+                        <span class="ml-1 font-normal text-base-content/70">{t.count({ count: group.rows.length })}</span>
+                      </th>
+                    </tr>
+                  {/if}
+                  {#each group.rows as row (row.guid)}
+                    <tr class="odd:bg-base-100 even:bg-base-200/30">
+                      <th scope="row" class="{cellClass} font-normal">
+                        <button
+                          type="button"
+                          class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-base-content hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+                          aria-label={t.open_note({ name: row.name })}
+                          data-testid="collection-row:{row.path}"
+                          onclick={(e) => shell?.openPath(row.path, { background: e.metaKey || e.ctrlKey })}
+                        >
+                          {row.name}
+                        </button>
+                      </th>
+                      {#each dataColumns as col (col.id)}
+                        {@const value = col.key ? (keyValue(row, col.key) as PropValue | undefined) : undefined}
+                        <td class={cellClass}>
+                          {#if col.key && 'prop' in col.key}
+                            <CollectionCell
+                              {value}
+                              kind={kindFor(col, value)}
+                              column={col.label}
+                              row={row.name}
+                              options={columnInfo.get(col.id)?.options ?? []}
+                              testid="collection-cell:{row.name}:{col.id}"
+                              onCommit={(raw) => onCell(row, col, raw)}
+                            />
+                          {:else}
+                            <span class="block truncate px-1.5 py-0.5 text-base-content/70" data-testid="collection-cell:{row.name}:{col.id}">
+                              {plainCell(col, value)}
+                            </span>
+                          {/if}
+                        </td>
+                      {/each}
+                    </tr>
+                  {/each}
+                </tbody>
+              {/each}
+            </table>
+          {/if}
+        </div>
+      {/snippet}
+    </Tabs>
 
     {#if columnsOpen}
       <Popover anchor={columnsAnchor} title={t.columns_title({ view: view.name })} testid="collection-columns-popover" onClose={() => (columnsOpen = false)}>
@@ -321,85 +456,5 @@
         </div>
       </Popover>
     {/if}
-
-    <div id="{uid}-panel" role="tabpanel" aria-labelledby="{uid}-view-{view.index}" class="min-h-0 flex-1 overflow-auto">
-      {#if rows.length === 0}
-        <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
-      {:else}
-        <table class="w-full border-collapse text-xs" data-testid="collection-table">
-          <caption class="sr-only">{t.table_caption({ view: view.name, count: rows.length })}</caption>
-          <thead class="sticky top-0 z-[1] bg-base-100">
-            <tr>
-              <th scope="col" class="border-b border-base-300 px-1 py-0.5 text-left" aria-sort={sortOf('file.name') === 'asc' ? 'ascending' : sortOf('file.name') === 'desc' ? 'descending' : 'none'}>
-                <button type="button" class={headerButton} data-testid="collection-header:file.name" onclick={() => onSort(nameColumn ?? { id: 'file.name', label: 'Name', key: { file: 'name' } })}>
-                  <span class="truncate">{nameColumn?.label ?? 'Name'}</span>
-                  {#if sortOf('file.name') === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf('file.name') === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
-                </button>
-              </th>
-              {#each dataColumns as col (col.id)}
-                <th
-                  scope="col"
-                  class="border-b border-base-300 px-1 py-0.5 text-left"
-                  style={view.columnSize[col.id] ? `width:${view.columnSize[col.id]}px` : undefined}
-                  aria-sort={sortOf(col.id) === 'asc' ? 'ascending' : sortOf(col.id) === 'desc' ? 'descending' : 'none'}
-                >
-                  <button type="button" class={headerButton} data-testid="collection-header:{col.id}" disabled={!col.key} title={col.key ? t.sort_by({ name: col.label }) : t.partly_detail({ reasons: col.id })} onclick={() => onSort(col)}>
-                    <span class="truncate">{col.label}</span>
-                    {#if sortOf(col.id) === 'asc'}<ArrowUp aria-hidden="true" class="size-3" />{:else if sortOf(col.id) === 'desc'}<ArrowDown aria-hidden="true" class="size-3" />{/if}
-                  </button>
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          {#each groups as group (group.key)}
-            <tbody data-testid="collection-group:{group.key || '(none)'}">
-              {#if compiled?.groupBy}
-                <tr>
-                  <th scope="rowgroup" colspan={dataColumns.length + 1} class="border-b border-base-200 bg-base-200/60 px-2 py-1 text-left text-[11px] font-semibold">
-                    {group.key || t.group_empty()}
-                    <span class="ml-1 font-normal text-base-content/70">{t.count({ count: group.rows.length })}</span>
-                  </th>
-                </tr>
-              {/if}
-              {#each group.rows as row (row.guid)}
-                <tr class="odd:bg-base-100 even:bg-base-200/30">
-                  <th scope="row" class="{cellClass} font-normal">
-                    <button
-                      type="button"
-                      class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-base-content hover:underline focus-visible:outline-2 focus-visible:outline-primary"
-                      aria-label={t.open_note({ name: row.name })}
-                      data-testid="collection-row:{row.path}"
-                      onclick={(e) => shell?.openPath(row.path, { background: e.metaKey || e.ctrlKey })}
-                    >
-                      {row.name}
-                    </button>
-                  </th>
-                  {#each dataColumns as col (col.id)}
-                    {@const value = col.key ? (keyValue(row, col.key) as PropValue | undefined) : undefined}
-                    <td class={cellClass}>
-                      {#if col.key && 'prop' in col.key}
-                        <CollectionCell
-                          {value}
-                          kind={columnKind(value, rows.map((r) => r.props[(col.key as { prop: string }).prop]))}
-                          column={col.label}
-                          row={row.name}
-                          options={optionsFor.get(col.id) ?? []}
-                          testid="collection-cell:{row.name}:{col.id}"
-                          onCommit={(raw) => onCell(row, col, raw)}
-                        />
-                      {:else}
-                        <span class="block truncate px-1.5 py-0.5 text-base-content/70" data-testid="collection-cell:{row.name}:{col.id}">
-                          {col.key ? (value && value.kind === 'date' && col.id === 'file.mtime' ? new Date(value.ms).toLocaleDateString() : value ? (value.kind === 'list' ? value.items.map((i) => ('value' in i ? String(i.value) : '')).join(', ') : 'value' in value ? String(value.value) : '') : t.mtime_unknown()) : '—'}
-                        </span>
-                      {/if}
-                    </td>
-                  {/each}
-                </tr>
-              {/each}
-            </tbody>
-          {/each}
-        </table>
-      {/if}
-    </div>
   {/if}
 </section>

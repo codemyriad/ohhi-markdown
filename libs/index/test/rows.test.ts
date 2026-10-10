@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { MemoryIndex } from '../src/memory-index.js'
 import { parseMarkdown } from '../src/parse.js'
-import { compareRows, matchesFilter, typeScalar } from '../src/properties.js'
+import { compareRows, matchesFilter, todayOf, typeScalar } from '../src/properties.js'
 import type { IndexDoc, Row, RowFilter } from '../src/types.js'
 
 const note = (guid: string, path: string, fm: string, body = '', mtime?: number): IndexDoc => ({
@@ -91,17 +91,25 @@ describe('parseMarkdown — properties and the links inside them', () => {
     ])
   })
 
-  it('reads no cells from a block the patcher would refuse', () => {
+  it('reads no cell from an entry the patcher would refuse, and every cell beside it', () => {
     const parsed = parseMarkdown(DOCS[6].text)
     expect(parsed.frontmatterKeys).toEqual(['meta'])
     expect(parsed.properties).toEqual([])
+    const mixed = parseMarkdown('---\ndesc: >\n  long\n  text\nstatus: active\nstatus: again\n---\n')
+    expect(mixed.frontmatterKeys).toEqual(['desc', 'status', 'status'])
+    expect(mixed.properties.map((p) => [p.key, p.value])).toEqual([['status', 'active']])
+  })
+
+  it('reads a zoneless date-time as UTC, like a date', () => {
+    expect(typeScalar('2026-06-02T10:00')).toMatchObject({ kind: 'date', ms: Date.UTC(2026, 5, 2, 10) })
+    expect(typeScalar('2026-06-02T10:00+02:00')).toMatchObject({ kind: 'date', ms: Date.UTC(2026, 5, 2, 8) })
   })
 })
 
 describe('MemoryIndex.rows', () => {
   it('turns every note into a record with typed props and file fields', async () => {
     const index = build()
-    const page = await index.rows({ filter: { op: 'cmp', cmp: '==', left: { key: { file: 'name' } }, right: { lit: 'Ingredifind' } } })
+    const page = await index.rows({ now: 0, filter: { op: 'cmp', cmp: '==', left: { key: { file: 'name' } }, right: { lit: 'Ingredifind' } } })
     expect(page.items).toHaveLength(1)
     const row = page.items[0]
     expect(row).toMatchObject({
@@ -122,19 +130,19 @@ describe('MemoryIndex.rows', () => {
 
   it('filters by folder, including subfolders, and the vault root means everything', async () => {
     const index = build()
-    expect(paths((await index.rows({ filter: { op: 'inFolder', folder: 'Competitors' } })).items)).toEqual([
+    expect(paths((await index.rows({ now: 0, filter: { op: 'inFolder', folder: 'Competitors' } })).items)).toEqual([
       'Competitors/Ingredifind.md',
       'Competitors/Nested.md',
       'Competitors/No Depth.md',
       'Competitors/Quiteful.md',
     ])
-    expect((await index.rows({ filter: { op: 'inFolder', folder: '' } })).total).toBe(DOCS.length)
-    expect((await index.rows({ filter: { op: 'inFolder', folder: 'Comp' } })).total).toBe(0)
+    expect((await index.rows({ now: 0, filter: { op: 'inFolder', folder: '' } })).total).toBe(DOCS.length)
+    expect((await index.rows({ now: 0, filter: { op: 'inFolder', folder: 'Comp' } })).total).toBe(0)
   })
 
   it('compares typed values the way a person means them', async () => {
     const index = build()
-    const q = (filter: RowFilter) => index.rows({ filter }).then((p) => paths(p.items))
+    const q = (filter: RowFilter) => index.rows({ filter, now: 0 }).then((p) => paths(p.items))
     await expect(q({ op: 'cmp', cmp: '==', left: { key: { prop: 'threat' } }, right: { lit: 'direct' } })).resolves.toEqual([
       'Competitors/Ingredifind.md',
       'Competitors/No Depth.md',
@@ -177,7 +185,7 @@ describe('MemoryIndex.rows', () => {
 
   it('answers hasTag with the nesting rule, hasLink through resolution, and list membership', async () => {
     const index = build()
-    const q = (filter: RowFilter) => index.rows({ filter }).then((p) => paths(p.items))
+    const q = (filter: RowFilter) => index.rows({ filter, now: 0 }).then((p) => paths(p.items))
     await expect(q({ op: 'hasTag', tags: ['Competitor'] })).resolves.toEqual(['Competitors/Ingredifind.md'])
     await expect(q({ op: 'hasLink', target: 'Quiteful' })).resolves.toEqual(['Competitors/Ingredifind.md'])
     // A link written in a property is a link (the hub-note membership rule).
@@ -198,6 +206,7 @@ describe('MemoryIndex.rows', () => {
   it('composes and/or/not and treats a bare property as its truthiness', async () => {
     const index = build()
     const page = await index.rows({
+      now: 0,
       filter: {
         op: 'and',
         args: [
@@ -213,36 +222,63 @@ describe('MemoryIndex.rows', () => {
 
   it('sorts by a typed key, empties last, direction honoured, path as the tie-break', async () => {
     const index = build()
-    const desc = await index.rows({ filter: { op: 'inFolder', folder: 'Competitors' }, sort: [{ key: { prop: 'score' }, direction: 'desc' }] })
+    const desc = await index.rows({ now: 0, filter: { op: 'inFolder', folder: 'Competitors' }, sort: [{ key: { prop: 'score' }, direction: 'desc' }] })
     expect(paths(desc.items)).toEqual([
       'Competitors/No Depth.md', // `010` is text; against numbers it orders naturally, as 10
       'Competitors/Ingredifind.md',
       'Competitors/Quiteful.md',
       'Competitors/Nested.md', // no score at all: last
     ])
-    const byDate = await index.rows({ filter: { op: 'hasProperty', key: 'verified' }, sort: [{ key: { prop: 'verified' }, direction: 'asc' }] })
+    const byDate = await index.rows({ now: 0, filter: { op: 'hasProperty', key: 'verified' }, sort: [{ key: { prop: 'verified' }, direction: 'asc' }] })
     expect(paths(byDate.items)).toEqual(['Competitors/Quiteful.md', 'Competitors/Ingredifind.md'])
-    const byMtime = await index.rows({ sort: [{ key: { file: 'mtime' }, direction: 'desc' }], filter: { op: 'inFolder', folder: 'Competitors' } })
+    const byMtime = await index.rows({ now: 0, sort: [{ key: { file: 'mtime' }, direction: 'desc' }], filter: { op: 'inFolder', folder: 'Competitors' } })
     expect(paths(byMtime.items).slice(0, 2)).toEqual(['Competitors/Ingredifind.md', 'Competitors/Quiteful.md'])
   })
 
   it('pages like every other list and keeps the order stable across pages', async () => {
     const index = build()
-    const first = await index.rows({ sort: [{ key: { file: 'name' }, direction: 'asc' }] }, { limit: 3 })
+    const first = await index.rows({ now: 0, sort: [{ key: { file: 'name' }, direction: 'asc' }] }, { limit: 3 })
     expect(first.items).toHaveLength(3)
     expect(first.total).toBe(DOCS.length)
     expect(first.nextCursor).not.toBeNull()
-    const second = await index.rows({ sort: [{ key: { file: 'name' }, direction: 'asc' }] }, { limit: 3, cursor: first.nextCursor! })
+    const second = await index.rows({ now: 0, sort: [{ key: { file: 'name' }, direction: 'asc' }] }, { limit: 3, cursor: first.nextCursor! })
     expect(new Set([...paths(first.items), ...paths(second.items)]).size).toBe(6)
   })
 
   it('follows a text change on the next query — derived, never stored', async () => {
     const index = build()
     index.upsert({ guid: 'g-nodepth', path: 'Competitors/No Depth.md', text: '---\nthreat: adjacent\ndepth: Shallow\n---\n' })
-    const page = await index.rows({ filter: { op: 'cmp', cmp: '==', left: { key: { prop: 'depth' } }, right: { lit: 'Shallow' } } })
+    const page = await index.rows({ now: 0, filter: { op: 'cmp', cmp: '==', left: { key: { prop: 'depth' } }, right: { lit: 'Shallow' } } })
     expect(paths(page.items)).toEqual(['Competitors/No Depth.md'])
     index.remove('g-nodepth')
-    expect((await index.rows({ filter: { op: 'hasProperty', key: 'depth' } })).total).toBe(2)
+    expect((await index.rows({ now: 0, filter: { op: 'hasProperty', key: 'depth' } })).total).toBe(2)
+  })
+})
+
+describe('today() and calendar arithmetic', () => {
+  it('today() is the local calendar day as UTC midnight, like a date-only value', async () => {
+    const lateEvening = Date.UTC(2026, 5, 3, 3, 30) // 23:30 on June 2 in UTC-4
+    expect(todayOf(lateEvening, -240)).toBe(Date.UTC(2026, 5, 2))
+    expect(todayOf(lateEvening, 0)).toBe(Date.UTC(2026, 5, 3))
+    const index = build()
+    const same: RowFilter = { op: 'cmp', cmp: '==', left: { key: { prop: 'verified' } }, right: { now: 'today' } }
+    expect(paths((await index.rows({ filter: same, now: lateEvening, tzOffsetMinutes: -240 })).items)).toEqual(['Competitors/Ingredifind.md'])
+    expect(paths((await index.rows({ filter: same, now: lateEvening })).items)).toEqual([])
+  })
+
+  it('adds months on the calendar, clamped to the month’s end', async () => {
+    const index = build()
+    index.upsert({ guid: 'g-jan', path: 'Dates/Jan.md', text: '---\ndue: 2026-02-28\n---\n' })
+    const inOneMonth: RowFilter = { op: 'cmp', cmp: '==', left: { key: { prop: 'due' } }, right: { dateAdd: { now: 'today' }, duration: '1M', sign: 1 } }
+    expect(paths((await index.rows({ filter: inOneMonth, now: Date.UTC(2026, 0, 31) })).items)).toEqual(['Dates/Jan.md'])
+  })
+
+  it('two links are equal when they point at the same note, however spelled', async () => {
+    const index = build()
+    index.upsert({ guid: 'g-clusters', path: 'Pillars/Clusters.md', text: '# Clusters\n' })
+    index.upsert({ guid: 'g-other', path: 'Competitors/Other.md', text: '---\npillar: "[[Pillars/Clusters]]"\n---\n' })
+    const f: RowFilter = { op: 'cmp', cmp: '==', left: { key: { prop: 'pillar' } }, right: { lit: '[[Clusters]]' } }
+    expect(paths((await index.rows({ filter: f, now: 0 })).items)).toEqual(['Competitors/Ingredifind.md', 'Competitors/Other.md'])
   })
 })
 
@@ -258,7 +294,7 @@ describe('MemoryIndex.backlinks with a property', () => {
     const only = await index.backlinks('Clusters', { property: 'pillars' })
     expect(only.items.map((r) => r.path)).toEqual(['Competitors/Quiteful.md'])
     // Resolution now fills the row's link value too.
-    const row = (await index.rows({ filter: { op: 'cmp', cmp: '==', left: { key: { file: 'name' } }, right: { lit: 'Ingredifind' } } })).items[0]
+    const row = (await index.rows({ now: 0, filter: { op: 'cmp', cmp: '==', left: { key: { file: 'name' } }, right: { lit: 'Ingredifind' } } })).items[0]
     expect(row.props.pillar).toMatchObject({ kind: 'link', resolved: 'Pillars/Clusters.md' })
     expect(row.links).toContain('Pillars/Clusters.md')
   })

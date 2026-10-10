@@ -9,7 +9,7 @@ import { newCollectionText, collectionName, isCollectionPath } from '../src/crea
 import { compileStatement, UnsupportedFilter } from '../src/filter.js'
 import { parseCollection } from '../src/parse.js'
 import { addView, patchView, removeView } from '../src/patch.js'
-import { compileView, compileWhere, folderOf, keyFor, labelFor } from '../src/query.js'
+import { compileView, folderOf, keyFor, labelFor } from '../src/query.js'
 
 const BASE = `# Alex's competitor matrix
 filters:
@@ -158,6 +158,21 @@ describe('compileStatement — the subset', () => {
     expect(() => compileStatement('file.inFolder(this.file.folder)')).toThrow(UnsupportedFilter)
   })
 
+  it('binds ! tighter than a comparison, compares a condition to a boolean, and translates escapes', () => {
+    expect(c('!a.isEmpty() && b')).toEqual({ op: 'and', args: [{ op: 'not', arg: { op: 'isEmpty', target: { key: { prop: 'a' } } } }, { op: 'truthy', arg: { key: { prop: 'b' } } }] })
+    expect(c('a.isEmpty() == false')).toEqual({ op: 'not', arg: { op: 'isEmpty', target: { key: { prop: 'a' } } } })
+    expect(c('false == a.isEmpty()')).toEqual({ op: 'not', arg: { op: 'isEmpty', target: { key: { prop: 'a' } } } })
+    expect(c('a.isEmpty() != false')).toEqual({ op: 'isEmpty', target: { key: { prop: 'a' } } })
+    expect(() => c('!a == "b"')).toThrow(UnsupportedFilter)
+    expect(c('x == "a\\nb"')).toEqual({ op: 'cmp', cmp: '==', left: { key: { prop: 'x' } }, right: { lit: 'a\nb' } })
+  })
+
+  it('refuses a duration the evaluator would not read', () => {
+    expect(() => c('due < now() - "1 min"')).toThrow(UnsupportedFilter)
+    expect(() => c('due < now() - "30"')).toThrow(UnsupportedFilter)
+    expect(c('due < now() - "1 minute"')).toMatchObject({ right: { duration: '1 minute' } })
+  })
+
   it('refuses the rest with the statement in the message', () => {
     for (const s of ['formula.age > 3', 'price * 2 > 10', 'file.ctime > 1', 'name.lower() == "x"', 'if(a, b, c)', 'a ==', '"open', 'file']) {
       expect(() => c(s)).toThrow(UnsupportedFilter)
@@ -176,7 +191,7 @@ describe('compileView against the index', () => {
     const all = compileView(spec, spec.views[0])
     expect(all.supported).toBe(true)
     expect(all.columns.map((col) => col.label)).toEqual(['Name', 'Threat level', 'Depth', 'Verified'])
-    const rows = await index().rows(all.query)
+    const rows = await index().rows({ ...all.query, now: 0 })
     // The archived one is excluded, the `.base` is not a note, Meetings is elsewhere.
     expect(rows.items.map((r) => r.name)).toEqual(['Ingredifind', 'Stale', 'Quiteful'])
   })
@@ -187,6 +202,11 @@ describe('compileView against the index', () => {
     expect(watch.limit).toBe(10)
     const rows = await index().rows({ ...watch.query, now: Date.UTC(2026, 5, 15) })
     expect(rows.items.map((r) => r.name)).toEqual(['Stale'])
+  })
+
+  it('shows a property listed twice once', () => {
+    const spec = parseCollection('views:\n  - type: table\n    name: A\n    order:\n      - file.name\n      - status\n      - status\n')
+    expect(compileView(spec, spec.views[0]).columns.map((c) => c.id)).toEqual(['file.name', 'status'])
   })
 
   it('compiles grouping and marks what it cannot compute without refusing the view', () => {
@@ -200,8 +220,7 @@ describe('compileView against the index', () => {
     expect(formulas.columns[1]).toEqual({ id: 'formula.age', label: 'Age', key: null })
   })
 
-  it('compileWhere adds the notes-only rule; folderOf finds the first inFolder', () => {
-    expect(compileWhere('depth == "Deep"')).toMatchObject({ op: 'and' })
+  it('folderOf finds the first inFolder', () => {
     const spec = parseCollection(BASE)
     expect(folderOf(spec.filters)).toBe('Competitors')
     expect(folderOf('file.hasTag("x")')).toBeNull()
@@ -251,6 +270,8 @@ describe('patchView — golden rule 2', () => {
     const same = patchView(BASE, 0, { sort: spec.views[0].sort })
     expect(same).toEqual({ ok: true, text: BASE })
     expect(patchView(BASE, 9, { limit: 1 })).toEqual({ ok: false, reason: 'no-such-view' })
+    // The same bytes under a different spelling of the same sort: still a no-op.
+    expect(patchView(BASE, 0, { sort: [{ property: 'verified', direction: 'desc' }] })).toEqual({ ok: true, text: BASE })
     expect(patchView('views: [\n', 0, { limit: 1 })).toEqual({ ok: false, reason: 'invalid' })
     expect(patchView('filters: a\n', 0, { limit: 1 })).toEqual({ ok: false, reason: 'no-views' })
   })
@@ -260,6 +281,56 @@ describe('patchView — golden rule 2', () => {
     const spec = parseCollection((out as { text: string }).text)
     expect(spec.views[0].filters).toEqual({ and: ['depth == "Deep"', 'file.hasTag("x")'] })
     expect(compileView(spec, spec.views[0]).supported).toBe(true)
+  })
+})
+
+describe('patchView — the shapes it refuses, and the ones it must get right', () => {
+  it('refuses a flow-style views list, two views keys and invalid YAML, naming the reason', () => {
+    const flow = 'views: [{type: table, name: A}, {type: list, name: B}]\n'
+    expect(patchView(flow, 0, { limit: 5 })).toEqual({ ok: false, reason: 'flow' })
+    expect(removeView(flow, 0)).toEqual({ ok: false, reason: 'flow' })
+    expect(addView(flow, { type: 'table', name: 'C' })).toEqual({ ok: false, reason: 'flow' })
+    const twice = 'views:\n  - type: table\n    name: A\nviews:\n  - type: table\n    name: B\n'
+    expect(patchView(twice, 0, { limit: 1 })).toEqual({ ok: false, reason: 'duplicate-views' })
+  })
+
+  it('keeps CRLF files CRLF', () => {
+    const crlf = 'views:\r\n  - type: table\r\n    name: A\r\n  - type: list\r\n    name: B\r\n'
+    const out = patchView(crlf, 0, { limit: 5 })
+    expect(out).toEqual({ ok: true, text: 'views:\r\n  - type: table\r\n    name: A\r\n    limit: 5\r\n  - type: list\r\n    name: B\r\n' })
+    const added = addView(crlf, { type: 'table', name: 'C' })
+    expect((added as { text: string }).text.includes('\n  - type: table\r\n    name: C\r\n')).toBe(true)
+    expect((added as { text: string }).text.split('\n').every((l, i, all) => i === all.length - 1 || l.endsWith('\r'))).toBe(true)
+  })
+
+  it('leaves a node byte-identical when the patch changes nothing, quoting and comments included', () => {
+    const text = "views:\n  - type: table\n    name: A\n    limit: 10 # ten\n    filters:\n      and:\n        - 'threat == \"direct\"'\n"
+    expect(patchView(text, 0, { limit: 10 })).toEqual({ ok: true, text })
+    expect(patchView(text, 0, { filters: { and: ['threat == "direct"'] } })).toEqual({ ok: true, text })
+  })
+
+  it('adds a view under an empty or null views key as a block sequence, and after a dash-only item', () => {
+    for (const empty of ['filters: x\nviews: []\n', 'filters: x\nviews:\n', 'filters: x\nviews: null\n']) {
+      const out = addView(empty, { type: 'table', name: 'A' })
+      expect(out.ok).toBe(true)
+      const spec = parseCollection((out as { text: string }).text)
+      expect(spec.error).toBeNull()
+      expect(spec.filters).toBe('x')
+      expect(spec.views.map((v) => v.name)).toEqual(['A'])
+    }
+    const dash = 'views:\n  -\n    type: table\n    name: A\n'
+    const removed = removeView(dash, 0)
+    expect(removed).toEqual({ ok: true, text: 'views:\n' })
+    const back = addView((removed as { text: string }).text, { type: 'list', name: 'B' })
+    expect(parseCollection((back as { text: string }).text).views.map((v) => v.name)).toEqual(['B'])
+  })
+
+  it('remove the last view, then add one: the file stays readable', () => {
+    const one = 'filters: file.hasTag("x")\nviews:\n  - type: table\n    name: A\n'
+    const removed = removeView(one, 0) as { text: string }
+    expect(parseCollection(removed.text)).toMatchObject({ error: null, views: [], issues: [] })
+    const added = addView(removed.text, { type: 'table', name: 'B' }) as { text: string }
+    expect(parseCollection(added.text).views.map((v) => v.name)).toEqual(['B'])
   })
 })
 

@@ -353,7 +353,8 @@
   const shell = getViewShell()
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
   const desktop = isTauri()
-  const titled = $derived(inlineTitle && !!doc && !!path && !!shell)
+  // A collection's Source view has no inline title: its name is not a heading of a note.
+  const titled = $derived(inlineTitle && !!doc && !!path && !!shell && !isCollectionPath(path))
   $effect(() => {
     const view = handle?.view
     if (!view || !titled) return
@@ -498,8 +499,12 @@
       class="min-h-0 flex-1 overflow-hidden bg-ed-surface"
     >
       {#if doc && path && isCollectionPath(path) && mode !== 'source'}
-        <!-- A collection (bases-shaping A3): the table over its views; Source shows the YAML in CM6. -->
-        <CollectionView {workspace} {path} {tab} />
+        <!-- A collection (bases-shaping A3): the table over its views; Source
+             shows the YAML in CM6. Keyed like the editor, so a tab moving
+             from one collection to another starts clean. -->
+        {#key `${pane.id}:${path}`}
+          <CollectionView {workspace} {path} />
+        {/key}
       {:else if doc && path}
         {#key `${pane.id}:${path}`}
           {@const held = tab.id}

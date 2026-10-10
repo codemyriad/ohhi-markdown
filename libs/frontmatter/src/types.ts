@@ -23,6 +23,12 @@ export interface FmEntry {
   kind: 'scalar' | 'flow-list' | 'block-list'
   /** `tags: [a b]` — Obsidian's pre-1.4 space-separated flow list; read as N items, written back as a block list */
   legacy?: boolean
+  /**
+   * Why THIS entry is outside the flat subset (a nested map, a block
+   * scalar, an anchor, a duplicate of an earlier key). Entries without one
+   * are readable cells even when the block as a whole is `supported: false`.
+   */
+  reason?: FmReason
   /** 0-based inclusive line range of this entry inside the document */
   lines: [from: number, to: number]
 }

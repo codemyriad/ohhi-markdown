@@ -173,13 +173,15 @@ function readEntries(
       fail('invalid')
       continue
     }
-    if (seen.has(key.value)) fail('duplicate-key')
+    let own: FmReason | undefined
+    if (seen.has(key.value)) own = 'duplicate-key'
     seen.add(key.value)
-    if (key.anchor) fail('anchor')
+    if (key.anchor) own ??= 'anchor'
 
     const value = (pair.value ?? null) as Node | null
     const read = readValue(text, block, key.value, value)
-    if (read.reason) fail(read.reason)
+    if (read.reason) own ??= read.reason
+    if (own) fail(own)
     const endOffset = value?.range ? block.innerFrom + value.range[1] : keyTo
     const lines: [number, number] = [
       lineIndexAt(lineStarts, keyFrom),
@@ -191,6 +193,7 @@ function readEntries(
         value: read.value,
         kind: read.kind,
         ...(read.legacy ? { legacy: true } : {}),
+        ...(own ? { reason: own } : {}),
         lines,
       },
       keyFrom,

@@ -82,7 +82,8 @@ export interface Column {
 /** A view, compiled against the index's structured query. */
 export interface ViewQuery {
   view: ViewSpec
-  query: RowQuery
+  /** The filter and sort; the caller adds the instant (`now`) and its zone when it runs it. */
+  query: Omit<RowQuery, 'now' | 'tzOffsetMinutes'>
   columns: Column[]
   limit: number | null
   groupBy: { key: RowKey; direction: SortDirection; id: string } | null

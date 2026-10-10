@@ -7,7 +7,7 @@ export function renderCollections(o: OpOutput<'collections'>, sink: Sink): void 
     sink.out(c.path)
     if (c.error) sink.out(`    unreadable: ${oneLine(c.error)}`)
     for (const v of c.views) {
-      const flags = v.supported ? '' : `  (partly: ${v.reasons.map(oneLine).join('; ')})`
+      const flags = v.supported ? '' : `  (partly: ${v.reasons.map((r) => oneLine(r)).join('; ')})`
       sink.out(`    ${v.name.padEnd(24)} ${v.type.padEnd(7)} ${String(v.rows).padStart(5)} rows${flags}`)
     }
     for (const issue of c.issues) sink.out(`    note: ${oneLine(issue)}`)
@@ -24,20 +24,23 @@ function cellText(v: Cell): string {
   return String(v)
 }
 
+/**
+ * One row per line: the PATH first — it is the reference `read` takes, and
+ * names collide across folders — then the columns, clipped so one long
+ * value cannot shove the rest.
+ */
 export function renderRows(o: OpOutput<'rows'>, sink: Sink): void {
-  const cols = o.columns.filter((c) => c !== 'file.name' && c !== 'file.basename')
+  const cols = o.columns.filter((c) => c !== 'file.name' && c !== 'file.basename' && c !== 'file.path')
   const widths = new Map<string, number>()
   for (const c of cols) widths.set(c, Math.max(c.length, columnWidth(o.rows, (r) => cellText(r.values[c]), 32)))
-  const nameWidth = Math.max(4, columnWidth(o.rows, (r) => r.name, 40))
-  const line = (name: string, cells: string[]): string =>
-    [name.padEnd(nameWidth), ...cells.map((text, i) => clip(text, widths.get(cols[i]) ?? 0).padEnd(widths.get(cols[i]) ?? 0))]
+  const pathWidth = Math.max(4, columnWidth(o.rows, (r) => r.path, 60))
+  const line = (path: string, cells: string[]): string =>
+    [path.padEnd(pathWidth), ...cells.map((text, i) => clip(text, widths.get(cols[i]) ?? 0).padEnd(widths.get(cols[i]) ?? 0))]
       .join('  ')
       .trimEnd()
-  sink.out(line('name', cols))
-  for (const r of o.rows) sink.out(line(r.name, cols.map((c) => cellText(r.values[c]))))
+  sink.out(line('path', cols))
+  for (const r of o.rows) sink.out(line(r.path, cols.map((c) => cellText(r.values[c]))))
   counters(sink, o, { collection: o.collection ?? undefined, view: o.view ?? undefined })
-  // The name is the reference a person reads; the path is what `read` takes.
-  if (o.rows.length) sink.err(`paths: ${o.rows.map((r) => r.path).join(' · ')}`)
   for (const reason of o.reasons) sink.err(`note: ${oneLine(reason)}`)
   coverageNote(sink, o.coverage)
 }

@@ -14,6 +14,7 @@ import {
   kindOf,
   newRowText,
   opFor,
+  splitList,
   replaceDocText,
   toggleSort,
   uniqueName,
@@ -85,6 +86,12 @@ describe('opFor — the one op an edit becomes', () => {
     expect(opFor('score', 'number', ' 8 ')).toEqual({ op: 'set', key: 'score', value: 8 })
     expect(opFor('score', 'number', 'n/a')).toEqual({ op: 'set', key: 'score', value: 'n/a' })
     expect(opFor('score', 'number', '')).toEqual({ op: 'set', key: 'score', value: '' })
+    // A cleared number field is empty, never "null"; a non-decimal spelling is kept as typed.
+    expect(opFor('score', 'number', null)).toEqual({ op: 'set', key: 'score', value: '' })
+    expect(opFor('score', 'number', '1e3')).toEqual({ op: 'set', key: 'score', value: '1e3' })
+    expect(opFor('score', 'number', '-0')).toEqual({ op: 'set', key: 'score', value: '-0' })
+    expect(opFor('tags', 'list', '"a, b", c')).toEqual({ op: 'set', key: 'tags', value: ['a, b', 'c'] })
+    expect(splitList(`x, 'y, z'`)).toEqual(['x', 'y, z'])
     expect(opFor('depth', 'text', 'Deep')).toEqual({ op: 'set', key: 'depth', value: 'Deep' })
   })
 })
