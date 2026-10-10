@@ -11,6 +11,7 @@ import {
   appUrl,
   createBrowserVault,
   dragTo,
+  expectAccessible,
   openApp,
   openByQuickOpen,
   openManager,
@@ -436,12 +437,59 @@ test('a view tab draws no note chrome: no format bar, no dock strip, no corner c
   await noteChrome(true)
 
   // The strip going while it holds focus (the next tab is the Inspector):
-  // focus lands in the pane, never on the page body.
+  // focus lands on the focused pane's selected tab — the dock's `refocus` —
+  // never on the page body.
+  const selectedTab = page.locator('[data-pane-id] [role="tab"][aria-selected="true"]')
   await page.getByTestId('rail-expand').focus()
   await page.keyboard.press('Control+Tab')
   await expect(page.getByTestId('inspector')).toBeVisible()
   await noteChrome(false)
-  await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[data-pane-id]') !== null)).toBe(true)
+  await expect(selectedTab).toBeFocused()
+
+  // The same for the floating layer: focus in the format bar when the gate
+  // drops it hands off to the pane's tab (EditorArea's handoff).
+  await tabNamed(page, 'welcome').click()
+  await noteChrome(true)
+  await page.getByTestId('format-bar').getByRole('button').first().focus()
+  await expect(page.getByTestId('format-bar').getByRole('button').first()).toBeFocused()
+  await page.keyboard.press('Control+Tab')
+  await expect(page.getByTestId('inspector')).toBeVisible()
+  await noteChrome(false)
+  await expect(selectedTab).toBeFocused()
+})
+
+test('the sync card opens the focused note in its own inspector tab, which keeps no state of the full one (devtools-shaping DT5, E3)', async ({
+  page,
+}) => {
+  await page.goto(appUrl({ room: 'chrome-inspect-door', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await page.keyboard.press('ControlOrMeta+,')
+  await page.getByTestId('settings-tab:developer').click()
+  await page.getByTestId('settings-devtools').check()
+  await page.getByTestId('settings-close').click()
+  await openByQuickOpen(page, 'welcome')
+
+  // The door: the sync readout's hover card, while developer tools are on.
+  const readout = page.getByTestId('sync-readout').first()
+  await readout.hover()
+  const door = page.getByTestId('sync-inspect-note')
+  await expect(door).toBeVisible()
+  await door.click()
+  const own = tabNamed(page, 'Inspector · notes/welcome.md')
+  await expect(own).toBeVisible()
+  const inspector = page.getByTestId('inspector')
+  await expect(inspector.getByTestId('inspector-file')).toHaveAttribute('data-form', 'tab')
+  await expect(inspector.getByTestId('inspector-chain')).toBeVisible()
+  await expectAccessible(page, 'inspector own tab')
+
+  // The full inspector in the same pane is its own instance: the own tab's
+  // file does not come along as its selection.
+  await runCommand(page, 'Open inspector')
+  await expect(inspector.getByTestId('inspector-rows')).toBeVisible()
+  await expect(inspector.getByTestId('inspector-row:notes/welcome.md')).not.toHaveAttribute('data-selected', 'true')
+  await own.click()
+  await expect(inspector.getByTestId('inspector-file')).toHaveAttribute('data-form', 'tab')
+  await expect(inspector.getByTestId('inspector-file').getByRole('heading', { level: 2 })).toHaveText('notes/welcome.md')
 })
 
 test('settings are tabs: keyboard between them, validated forms with their own Save, and an unsaved-changes guard on close', async ({
