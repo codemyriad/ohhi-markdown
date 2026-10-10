@@ -3917,6 +3917,11 @@ export type NamespaceWebTranslation = {
 		 */
 		tab: string
 		/**
+		 * I​n​s​p​e​c​t​o​r​ ​·​ ​{​p​a​t​h​}
+		 * @param {string} path
+		 */
+		tab_file: RequiredParams<'path'>
+		/**
 		 * O​p​e​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r
 		 */
 		open: string
@@ -3950,56 +3955,244 @@ export type NamespaceWebTranslation = {
 		 */
 		invariants_failed: RequiredParams<'count'>
 		/**
-		 * n​o​ ​m​o​u​n​t​s​.​j​s​o​n​ ​r​o​w
+		 * s​n​a​p​s​h​o​t​ ​{​a​g​e​}
+		 * @param {string} age
 		 */
-		no_desc: string
-		/**
-		 * n​e​v​e​r​ ​h​e​l​d
-		 */
-		never_held: string
-		/**
-		 * L​C​A​ ​o​r​p​h​a​n​s
-		 */
-		orphans: string
-		/**
-		 * P​a​t​h​ ​p​r​e​f​i​x
-		 */
-		filter_prefix: string
-		/**
-		 * S​t​a​t​e
-		 */
-		filter_state: string
-		/**
-		 * a​n​y​ ​s​t​a​t​e
-		 */
-		state_any: string
-		states: {
+		snapshot: RequiredParams<'age'>
+		health: {
 			/**
 			 * i​n​ ​s​y​n​c
 			 */
-			in_sync: string
+			ok: string
 			/**
-			 * d​o​c​ ​a​h​e​a​d
+			 * s​o​m​e​t​h​i​n​g​ ​p​e​n​d​i​n​g
 			 */
-			doc_ahead: string
+			pending: string
 			/**
-			 * d​i​s​k​ ​c​h​a​n​g​e​d
-			 */
-			disk_changed: string
-			/**
-			 * d​i​v​e​r​g​e​d
+			 * s​o​m​e​t​h​i​n​g​ ​d​i​v​e​r​g​e​d
 			 */
 			diverged: string
 			/**
-			 * n​o​ ​L​C​A
+			 * n​o​t​ ​s​y​n​c​i​n​g
+			 */
+			offline: string
+		}
+		copy: {
+			/**
+			 * C​o​p​y​ ​r​e​p​o​r​t
+			 */
+			label: string
+			/**
+			 * T​h​e​ ​s​e​l​e​c​t​e​d​ ​f​i​l​e
+			 */
+			file: string
+			/**
+			 * S​e​l​e​c​t​ ​a​ ​f​i​l​e​ ​f​i​r​s​t
+			 */
+			file_none: string
+			/**
+			 * E​v​e​r​y​ ​r​o​w​ ​i​n​ ​s​c​o​p​e
+			 */
+			scope: string
+			/**
+			 * I​n​s​p​e​c​t​o​r​ ​r​e​p​o​r​t​ ​c​o​p​i​e​d
+			 */
+			copied: string
+			/**
+			 * T​h​e​ ​c​l​i​p​b​o​a​r​d​ ​r​e​f​u​s​e​d​ ​t​h​e​ ​r​e​p​o​r​t​.​ ​S​e​l​e​c​t​ ​i​t​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​ ​b​y​ ​h​a​n​d​.
+			 */
+			failed: string
+			/**
+			 * I​n​s​p​e​c​t​o​r​ ​r​e​p​o​r​t
+			 */
+			fallback_label: string
+			/**
+			 * O​h​ ​h​i​ ​i​n​s​p​e​c​t​o​r​ ​r​e​p​o​r​t
+			 */
+			report_title: string
+		}
+		mount: {
+			/**
+			 * {​c​o​u​n​t​}​ ​r​o​w​{​{​s​}​}
+			 * @param {number} count
+			 */
+			rows: RequiredParams<'count'>
+			/**
+			 * a​l​l​ ​i​n​ ​s​y​n​c
+			 */
+			all_in_sync: string
+			/**
+			 * n​o​t​ ​s​y​n​c​i​n​g
+			 */
+			not_syncing: string
+			/**
+			 * {​c​o​u​n​t​}​ ​a​t​ ​t​h​e​ ​r​e​l​a​y
+			 * @param {number} count
+			 */
+			at_relay: RequiredParams<'count'>
+			counted: {
+				/**
+				 * {​c​o​u​n​t​}​ ​d​i​v​e​r​g​e​d
+				 * @param {number} count
+				 */
+				diverged: RequiredParams<'count'>
+				/**
+				 * {​c​o​u​n​t​}​ ​f​l​u​s​h​ ​p​e​n​d​i​n​g
+				 * @param {number} count
+				 */
+				disk_changed: RequiredParams<'count'>
+				/**
+				 * {​c​o​u​n​t​}​ ​b​a​s​e​ ​p​e​n​d​i​n​g
+				 * @param {number} count
+				 */
+				doc_ahead: RequiredParams<'count'>
+			}
+			/**
+			 * n​o​ ​r​e​l​a​y
+			 */
+			no_relay: string
+			/**
+			 * r​o​o​m​ ​{​r​o​o​m​}
+			 * @param {string} room
+			 */
+			room: RequiredParams<'room'>
+			/**
+			 * {​e​n​t​r​i​e​s​}​ ​e​n​t​r​i​e​s​ ​·​ ​{​d​o​c​s​}​ ​d​o​c​s​ ​·​ ​{​b​a​s​e​}​ ​b​a​s​e​ ​·​ ​{​j​o​u​r​n​a​l​}​ ​j​o​u​r​n​a​l
+			 * @param {number} base
+			 * @param {number} docs
+			 * @param {number} entries
+			 * @param {number} journal
+			 */
+			stores: RequiredParams<'base' | 'docs' | 'entries' | 'journal'>
+			/**
+			 * m​o​u​n​t​s​.​j​s​o​n​ ​a​g​r​e​e​s
+			 */
+			agrees: string
+			/**
+			 * t​h​e​ ​v​a​u​l​t​ ​r​o​o​t​;​ ​m​o​u​n​t​s​.​j​s​o​n​ ​l​i​s​t​s​ ​o​n​l​y​ ​s​h​a​r​e​d​ ​f​o​l​d​e​r​s
+			 */
+			root: string
+			/**
+			 * n​o​ ​m​o​u​n​t​s​.​j​s​o​n​ ​r​o​w
+			 */
+			no_desc: string
+			/**
+			 * n​e​e​d​s​ ​a​ ​l​i​n​k
+			 */
+			needs_token: string
+			/**
+			 * n​e​e​d​s​ ​a​ ​l​i​n​k​,​ ​n​e​v​e​r​ ​h​e​l​d
+			 */
+			needs_token_never_held: string
+			/**
+			 * m​o​u​n​t​s​.​j​s​o​n​ ​s​a​y​s​ ​{​s​t​a​t​u​s​}
+			 * @param {string} status
+			 */
+			status: RequiredParams<'status'>
+			/**
+			 * m​o​u​n​t​s​.​j​s​o​n​ ​n​a​m​e​s​ ​{​d​e​s​c​}​,​ ​t​h​e​ ​s​e​s​s​i​o​n​ ​u​s​e​s​ ​{​s​e​s​s​i​o​n​}
+			 * @param {string} desc
+			 * @param {string} session
+			 */
+			relay_differs: RequiredParams<'desc' | 'session'>
+			/**
+			 * {​c​o​u​n​t​}​ ​b​a​s​e​ ​{​{​r​e​c​o​r​d​ ​n​a​m​e​s​|​r​e​c​o​r​d​s​ ​n​a​m​e​}​}​ ​n​o​ ​f​i​l​e
+			 * @param {number} count
+			 */
+			orphans: RequiredParams<'count'>
+			/**
+			 * s​h​o​w
+			 */
+			orphans_show: string
+			/**
+			 * n​o​ ​o​r​p​h​a​n​ ​b​a​s​e​ ​r​e​c​o​r​d​s
+			 */
+			no_orphans: string
+			/**
+			 * {​c​o​u​n​t​}​ ​o​p​e​n​ ​h​e​r​e
+			 * @param {number} count
+			 */
+			open_here: RequiredParams<'count'>
+		}
+		/**
+		 * P​a​t​h
+		 */
+		filter_prefix: string
+		/**
+		 * S​t​a​t​e​s
+		 */
+		tally: string
+		/**
+		 * O​r​d​e​r
+		 */
+		sort_label: string
+		sort: {
+			/**
+			 * W​o​r​s​t​ ​f​i​r​s​t
+			 */
+			worst: string
+			/**
+			 * B​y​ ​p​a​t​h
+			 */
+			path: string
+		}
+		states: {
+			/**
+			 * D​i​v​e​r​g​e​d
+			 */
+			diverged: string
+			/**
+			 * F​l​u​s​h​ ​p​e​n​d​i​n​g
+			 */
+			disk_changed: string
+			/**
+			 * B​a​s​e​ ​p​e​n​d​i​n​g
+			 */
+			doc_ahead: string
+			/**
+			 * N​e​v​e​r​ ​r​e​c​o​n​c​i​l​e​d
 			 */
 			no_lca: string
 			/**
-			 * n​o​ ​d​o​c
+			 * N​o​ ​l​i​v​e​ ​d​o​c
 			 */
 			no_doc: string
 			/**
-			 * n​o​t​ ​t​e​x​t
+			 * I​n​ ​s​y​n​c
+			 */
+			in_sync: string
+			/**
+			 * N​o​t​ ​t​e​x​t
+			 */
+			not_text: string
+		}
+		say: {
+			/**
+			 * D​i​s​k​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​b​o​t​h​ ​m​o​v​e​d​ ​s​i​n​c​e​ ​t​h​e​y​ ​l​a​s​t​ ​a​g​r​e​e​d​.​ ​T​h​e​ ​r​e​v​i​e​w​ ​d​e​c​i​d​e​s​;​ ​n​o​t​h​i​n​g​ ​i​s​ ​w​r​i​t​t​e​n​ ​t​o​ ​d​i​s​k​ ​u​n​t​i​l​ ​i​t​ ​i​s​ ​r​e​s​o​l​v​e​d​.
+			 */
+			diverged: string
+			/**
+			 * T​h​e​ ​d​o​c​u​m​e​n​t​ ​m​o​v​e​d​ ​a​n​d​ ​t​h​e​ ​f​i​l​e​ ​o​n​ ​d​i​s​k​ ​h​a​s​ ​n​o​t​ ​b​e​e​n​ ​w​r​i​t​t​e​n​ ​y​e​t​.​ ​I​t​ ​i​s​ ​w​r​i​t​t​e​n​ ​o​n​ ​t​h​e​ ​n​e​x​t​ ​f​l​u​s​h​;​ ​i​f​ ​t​h​i​s​ ​s​t​a​y​s​,​ ​t​h​a​t​ ​i​s​ ​a​ ​f​i​n​d​i​n​g​.
+			 */
+			disk_changed: string
+			/**
+			 * T​h​e​ ​f​i​l​e​ ​o​n​ ​d​i​s​k​ ​a​l​r​e​a​d​y​ ​m​a​t​c​h​e​s​ ​t​h​e​ ​d​o​c​u​m​e​n​t​,​ ​b​u​t​ ​t​h​e​ ​b​a​s​e​ ​r​e​c​o​r​d​ ​i​s​ ​b​e​h​i​n​d​ ​b​o​t​h​.​ ​T​h​e​ ​n​e​x​t​ ​r​e​c​o​n​c​i​l​e​ ​r​e​c​o​r​d​s​ ​t​h​e​ ​n​e​w​ ​b​a​s​e​.
+			 */
+			doc_ahead: string
+			/**
+			 * N​o​ ​r​e​c​o​r​d​ ​y​e​t​ ​o​f​ ​w​h​a​t​ ​d​i​s​k​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​l​a​s​t​ ​a​g​r​e​e​d​ ​o​n​.​ ​T​h​e​ ​f​i​r​s​t​ ​r​e​c​o​n​c​i​l​e​ ​w​r​i​t​e​s​ ​o​n​e​.
+			 */
+			no_lca: string
+			/**
+			 * N​o​t​h​i​n​g​ ​i​s​ ​i​n​ ​m​e​m​o​r​y​ ​f​o​r​ ​t​h​i​s​ ​f​i​l​e​ ​r​i​g​h​t​ ​n​o​w​;​ ​i​t​ ​l​i​v​e​s​ ​o​n​ ​d​i​s​k​ ​a​n​d​ ​i​n​ ​t​h​e​ ​b​a​s​e​ ​s​t​o​r​e​.​ ​O​p​e​n​i​n​g​ ​i​t​ ​l​o​a​d​s​ ​o​n​e​.
+			 */
+			no_doc: string
+			/**
+			 * D​i​s​k​,​ ​t​h​e​ ​b​a​s​e​ ​a​n​d​ ​t​h​e​ ​d​o​c​u​m​e​n​t​ ​a​r​e​ ​t​h​e​ ​s​a​m​e​ ​t​e​x​t​.
+			 */
+			in_sync: string
+			/**
+			 * A​ ​b​i​n​a​r​y​ ​f​i​l​e​ ​o​r​ ​a​ ​f​o​l​d​e​r​.​ ​I​t​ ​i​s​ ​n​e​v​e​r​ ​s​y​n​c​e​d​ ​t​h​r​o​u​g​h​ ​a​ ​d​o​c​u​m​e​n​t​,​ ​a​n​d​ ​n​o​ ​p​i​l​l​ ​e​v​e​r​ ​c​l​a​i​m​s​ ​i​t​.
 			 */
 			not_text: string
 		}
@@ -4013,27 +4206,39 @@ export type NamespaceWebTranslation = {
 		 * N​o​ ​r​o​w​s​ ​m​a​t​c​h​.
 		 */
 		no_rows: string
+		/**
+		 * o​p​e​n
+		 */
+		open_tag: string
 		col: {
 			/**
-			 * p​a​t​h
+			 * P​a​t​h
 			 */
 			path: string
 			/**
-			 * k​i​n​d
+			 * C​h​a​i​n
 			 */
-			kind: string
+			chain: string
 			/**
-			 * s​t​a​t​e
+			 * S​t​a​t​e
 			 */
 			state: string
+			/**
+			 * J​o​u​r​n​a​l
+			 */
+			journal: string
+			/**
+			 * A​c​t​i​o​n​s
+			 */
+			actions: string
 			/**
 			 * d​i​s​k
 			 */
 			disk: string
 			/**
-			 * l​c​a
+			 * b​a​s​e
 			 */
-			lca: string
+			base: string
 			/**
 			 * d​o​c
 			 */
@@ -4043,15 +4248,11 @@ export type NamespaceWebTranslation = {
 			 */
 			relay: string
 			/**
-			 * j​o​u​r​n​a​l
+			 * t​h​e​ ​t​e​x​t​ ​d​i​s​k​ ​a​n​d​ ​d​o​c​ ​l​a​s​t​ ​a​g​r​e​e​d​ ​o​n​ ​(​L​C​A​)
 			 */
-			journal: string
-			/**
-			 * o​p​e​n
-			 */
-			open: string
+			base_title: string
 		}
-		legend: {
+		link: {
 			/**
 			 * e​q​u​a​l
 			 */
@@ -4064,12 +4265,21 @@ export type NamespaceWebTranslation = {
 			 * n​o​t​ ​k​n​o​w​n
 			 */
 			unknown: string
+		}
+		/**
+		 * d​i​s​k​ ​t​o​ ​b​a​s​e​ ​{​d​i​s​k​L​c​a​}​,​ ​b​a​s​e​ ​t​o​ ​d​o​c​ ​{​l​c​a​D​o​c​}​,​ ​r​e​l​a​y​:​ ​{​r​e​l​a​y​}
+		 * @param {string} diskLca
+		 * @param {string} lcaDoc
+		 * @param {string} relay
+		 */
+		chain_said: RequiredParams<'diskLca' | 'lcaDoc' | 'relay'>
+		relay_link: {
 			/**
-			 * s​y​n​c​e​d
+			 * t​h​e​ ​r​e​l​a​y​ ​h​a​s​ ​e​v​e​r​y​ ​e​d​i​t
 			 */
 			synced: string
 			/**
-			 * n​o​t​ ​y​e​t
+			 * n​o​t​ ​y​e​t​ ​a​t​ ​t​h​e​ ​r​e​l​a​y
 			 */
 			pending: string
 			/**
@@ -4080,18 +4290,89 @@ export type NamespaceWebTranslation = {
 			 * n​o​ ​r​e​l​a​y
 			 */
 			none: string
+			/**
+			 * n​o​t​ ​k​n​o​w​n
+			 */
+			unknown: string
 		}
+		relay_say: {
+			/**
+			 * I​n​ ​s​y​n​c​ ​w​i​t​h​ ​t​h​e​ ​r​e​l​a​y​:​ ​i​t​ ​h​a​s​ ​r​e​c​e​i​v​e​d​ ​e​v​e​r​y​ ​e​d​i​t​.
+			 */
+			synced: string
+			/**
+			 * E​d​i​t​s​ ​a​r​e​ ​o​n​ ​t​h​e​i​r​ ​w​a​y​ ​t​o​ ​t​h​e​ ​r​e​l​a​y​.
+			 */
+			pending: string
+			/**
+			 * N​o​t​ ​c​o​n​n​e​c​t​e​d​ ​t​o​ ​t​h​e​ ​r​e​l​a​y​.
+			 */
+			offline: string
+			/**
+			 * T​h​i​s​ ​f​i​l​e​ ​h​a​s​ ​n​o​ ​r​e​l​a​y​.
+			 */
+			none: string
+			/**
+			 * T​h​e​ ​r​e​l​a​y​ ​s​t​a​t​e​ ​i​s​ ​n​o​t​ ​k​n​o​w​n​ ​y​e​t​.
+			 */
+			unknown: string
+		}
+		/**
+		 * {​c​o​u​n​t​}​ ​s​a​v​e​d​ ​v​e​r​s​i​o​n​{​{​s​}​}
+		 * @param {number} count
+		 */
+		versions: RequiredParams<'count'>
+		verbs: {
+			/**
+			 * O​p​e​n​ ​n​o​t​e
+			 */
+			open_note: string
+			/**
+			 * O​p​e​n​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			open_note_path: RequiredParams<'path'>
+			/**
+			 * R​e​v​e​a​l​ ​i​n​ ​n​a​v​i​g​a​t​o​r
+			 */
+			reveal: string
+			/**
+			 * O​p​e​n​ ​i​n​ ​i​t​s​ ​o​w​n​ ​t​a​b
+			 */
+			own_tab: string
+			/**
+			 * O​p​e​n​ ​{​p​a​t​h​}​ ​i​n​ ​i​t​s​ ​o​w​n​ ​t​a​b
+			 * @param {string} path
+			 */
+			own_tab_path: RequiredParams<'path'>
+			/**
+			 * O​p​e​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r
+			 */
+			open_inspector: string
+			/**
+			 * C​l​o​s​e
+			 */
+			close: string
+		}
+		/**
+		 * F​i​l​e​ ​d​e​t​a​i​l
+		 */
+		detail: string
 		peek: {
 			/**
-			 * S​h​o​w
+			 * D​i​f​f​e​r​e​n​c​e​s
 			 */
-			show: string
+			diffs: string
 			/**
-			 * d​o​c​ ​v​s​ ​l​c​a
+			 * T​e​x​t​s
+			 */
+			texts: string
+			/**
+			 * d​o​c​ ​v​s​ ​b​a​s​e
 			 */
 			doc_lca: string
 			/**
-			 * d​i​s​k​ ​v​s​ ​l​c​a
+			 * d​i​s​k​ ​v​s​ ​b​a​s​e
 			 */
 			disk_lca: string
 			/**
@@ -4099,15 +4380,15 @@ export type NamespaceWebTranslation = {
 			 */
 			disk_doc: string
 			/**
-			 * d​i​s​k​ ​t​e​x​t
+			 * d​i​s​k
 			 */
 			disk: string
 			/**
-			 * l​c​a​ ​t​e​x​t
+			 * b​a​s​e
 			 */
 			lca: string
 			/**
-			 * d​o​c​ ​t​e​x​t
+			 * d​o​c
 			 */
 			doc: string
 			/**
@@ -4123,7 +4404,7 @@ export type NamespaceWebTranslation = {
 			 */
 			too_large: string
 			/**
-			 * r​a​w​ ​h​a​s​h​e​s​ ​a​n​d​ ​h​e​a​d​s
+			 * R​a​w​ ​f​a​c​t​s
 			 */
 			raw: string
 		}
@@ -4131,6 +4412,10 @@ export type NamespaceWebTranslation = {
 		 * S​e​l​e​c​t​ ​a​ ​t​e​x​t​ ​r​o​w​ ​t​o​ ​i​n​s​p​e​c​t​ ​i​t​s​ ​d​i​s​k​ ​↔​ ​C​R​D​T​ ​s​t​a​t​e​.
 		 */
 		select_row: string
+		/**
+		 * N​o​ ​s​u​c​h​ ​f​i​l​e​ ​i​n​ ​t​h​e​ ​i​n​s​p​e​c​t​o​r​’​s​ ​s​n​a​p​s​h​o​t​.
+		 */
+		not_found: string
 		/**
 		 * n​o​ ​p​r​e​-​i​m​a​g​e​s​ ​y​e​t
 		 */
@@ -4152,6 +4437,11 @@ export type NamespaceWebTranslation = {
 		 * @param {number} count
 		 */
 		seconds_ago: RequiredParams<'count'>
+		/**
+		 * {​c​o​u​n​t​}​ ​m​i​n​ ​a​g​o
+		 * @param {number} count
+		 */
+		minutes_ago: RequiredParams<'count'>
 	}
 	ui: {
 		/**
@@ -8076,6 +8366,10 @@ export type TranslationFunctions = {
 			 */
 			tab: () => LocalizedString
 			/**
+			 * Inspector · {path}
+			 */
+			tab_file: (arg: { path: string }) => LocalizedString
+			/**
 			 * Open the inspector
 			 */
 			open: () => LocalizedString
@@ -8108,56 +8402,228 @@ export type TranslationFunctions = {
 			 */
 			invariants_failed: (arg: { count: number }) => LocalizedString
 			/**
-			 * no mounts.json row
+			 * snapshot {age}
 			 */
-			no_desc: () => LocalizedString
-			/**
-			 * never held
-			 */
-			never_held: () => LocalizedString
-			/**
-			 * LCA orphans
-			 */
-			orphans: () => LocalizedString
-			/**
-			 * Path prefix
-			 */
-			filter_prefix: () => LocalizedString
-			/**
-			 * State
-			 */
-			filter_state: () => LocalizedString
-			/**
-			 * any state
-			 */
-			state_any: () => LocalizedString
-			states: {
+			snapshot: (arg: { age: string }) => LocalizedString
+			health: {
 				/**
 				 * in sync
 				 */
-				in_sync: () => LocalizedString
+				ok: () => LocalizedString
 				/**
-				 * doc ahead
+				 * something pending
 				 */
-				doc_ahead: () => LocalizedString
+				pending: () => LocalizedString
 				/**
-				 * disk changed
-				 */
-				disk_changed: () => LocalizedString
-				/**
-				 * diverged
+				 * something diverged
 				 */
 				diverged: () => LocalizedString
 				/**
-				 * no LCA
+				 * not syncing
+				 */
+				offline: () => LocalizedString
+			}
+			copy: {
+				/**
+				 * Copy report
+				 */
+				label: () => LocalizedString
+				/**
+				 * The selected file
+				 */
+				file: () => LocalizedString
+				/**
+				 * Select a file first
+				 */
+				file_none: () => LocalizedString
+				/**
+				 * Every row in scope
+				 */
+				scope: () => LocalizedString
+				/**
+				 * Inspector report copied
+				 */
+				copied: () => LocalizedString
+				/**
+				 * The clipboard refused the report. Select it below and copy it by hand.
+				 */
+				failed: () => LocalizedString
+				/**
+				 * Inspector report
+				 */
+				fallback_label: () => LocalizedString
+				/**
+				 * Oh hi inspector report
+				 */
+				report_title: () => LocalizedString
+			}
+			mount: {
+				/**
+				 * {count} row{{s}}
+				 */
+				rows: (arg: { count: number }) => LocalizedString
+				/**
+				 * all in sync
+				 */
+				all_in_sync: () => LocalizedString
+				/**
+				 * not syncing
+				 */
+				not_syncing: () => LocalizedString
+				/**
+				 * {count} at the relay
+				 */
+				at_relay: (arg: { count: number }) => LocalizedString
+				counted: {
+					/**
+					 * {count} diverged
+					 */
+					diverged: (arg: { count: number }) => LocalizedString
+					/**
+					 * {count} flush pending
+					 */
+					disk_changed: (arg: { count: number }) => LocalizedString
+					/**
+					 * {count} base pending
+					 */
+					doc_ahead: (arg: { count: number }) => LocalizedString
+				}
+				/**
+				 * no relay
+				 */
+				no_relay: () => LocalizedString
+				/**
+				 * room {room}
+				 */
+				room: (arg: { room: string }) => LocalizedString
+				/**
+				 * {entries} entries · {docs} docs · {base} base · {journal} journal
+				 */
+				stores: (arg: { base: number, docs: number, entries: number, journal: number }) => LocalizedString
+				/**
+				 * mounts.json agrees
+				 */
+				agrees: () => LocalizedString
+				/**
+				 * the vault root; mounts.json lists only shared folders
+				 */
+				root: () => LocalizedString
+				/**
+				 * no mounts.json row
+				 */
+				no_desc: () => LocalizedString
+				/**
+				 * needs a link
+				 */
+				needs_token: () => LocalizedString
+				/**
+				 * needs a link, never held
+				 */
+				needs_token_never_held: () => LocalizedString
+				/**
+				 * mounts.json says {status}
+				 */
+				status: (arg: { status: string }) => LocalizedString
+				/**
+				 * mounts.json names {desc}, the session uses {session}
+				 */
+				relay_differs: (arg: { desc: string, session: string }) => LocalizedString
+				/**
+				 * {count} base {{record names|records name}} no file
+				 */
+				orphans: (arg: { count: number }) => LocalizedString
+				/**
+				 * show
+				 */
+				orphans_show: () => LocalizedString
+				/**
+				 * no orphan base records
+				 */
+				no_orphans: () => LocalizedString
+				/**
+				 * {count} open here
+				 */
+				open_here: (arg: { count: number }) => LocalizedString
+			}
+			/**
+			 * Path
+			 */
+			filter_prefix: () => LocalizedString
+			/**
+			 * States
+			 */
+			tally: () => LocalizedString
+			/**
+			 * Order
+			 */
+			sort_label: () => LocalizedString
+			sort: {
+				/**
+				 * Worst first
+				 */
+				worst: () => LocalizedString
+				/**
+				 * By path
+				 */
+				path: () => LocalizedString
+			}
+			states: {
+				/**
+				 * Diverged
+				 */
+				diverged: () => LocalizedString
+				/**
+				 * Flush pending
+				 */
+				disk_changed: () => LocalizedString
+				/**
+				 * Base pending
+				 */
+				doc_ahead: () => LocalizedString
+				/**
+				 * Never reconciled
 				 */
 				no_lca: () => LocalizedString
 				/**
-				 * no doc
+				 * No live doc
 				 */
 				no_doc: () => LocalizedString
 				/**
-				 * not text
+				 * In sync
+				 */
+				in_sync: () => LocalizedString
+				/**
+				 * Not text
+				 */
+				not_text: () => LocalizedString
+			}
+			say: {
+				/**
+				 * Disk and the document both moved since they last agreed. The review decides; nothing is written to disk until it is resolved.
+				 */
+				diverged: () => LocalizedString
+				/**
+				 * The document moved and the file on disk has not been written yet. It is written on the next flush; if this stays, that is a finding.
+				 */
+				disk_changed: () => LocalizedString
+				/**
+				 * The file on disk already matches the document, but the base record is behind both. The next reconcile records the new base.
+				 */
+				doc_ahead: () => LocalizedString
+				/**
+				 * No record yet of what disk and the document last agreed on. The first reconcile writes one.
+				 */
+				no_lca: () => LocalizedString
+				/**
+				 * Nothing is in memory for this file right now; it lives on disk and in the base store. Opening it loads one.
+				 */
+				no_doc: () => LocalizedString
+				/**
+				 * Disk, the base and the document are the same text.
+				 */
+				in_sync: () => LocalizedString
+				/**
+				 * A binary file or a folder. It is never synced through a document, and no pill ever claims it.
 				 */
 				not_text: () => LocalizedString
 			}
@@ -8169,27 +8635,39 @@ export type TranslationFunctions = {
 			 * No rows match.
 			 */
 			no_rows: () => LocalizedString
+			/**
+			 * open
+			 */
+			open_tag: () => LocalizedString
 			col: {
 				/**
-				 * path
+				 * Path
 				 */
 				path: () => LocalizedString
 				/**
-				 * kind
+				 * Chain
 				 */
-				kind: () => LocalizedString
+				chain: () => LocalizedString
 				/**
-				 * state
+				 * State
 				 */
 				state: () => LocalizedString
+				/**
+				 * Journal
+				 */
+				journal: () => LocalizedString
+				/**
+				 * Actions
+				 */
+				actions: () => LocalizedString
 				/**
 				 * disk
 				 */
 				disk: () => LocalizedString
 				/**
-				 * lca
+				 * base
 				 */
-				lca: () => LocalizedString
+				base: () => LocalizedString
 				/**
 				 * doc
 				 */
@@ -8199,15 +8677,11 @@ export type TranslationFunctions = {
 				 */
 				relay: () => LocalizedString
 				/**
-				 * journal
+				 * the text disk and doc last agreed on (LCA)
 				 */
-				journal: () => LocalizedString
-				/**
-				 * open
-				 */
-				open: () => LocalizedString
+				base_title: () => LocalizedString
 			}
-			legend: {
+			link: {
 				/**
 				 * equal
 				 */
@@ -8220,12 +8694,18 @@ export type TranslationFunctions = {
 				 * not known
 				 */
 				unknown: () => LocalizedString
+			}
+			/**
+			 * disk to base {diskLca}, base to doc {lcaDoc}, relay: {relay}
+			 */
+			chain_said: (arg: { diskLca: string, lcaDoc: string, relay: string }) => LocalizedString
+			relay_link: {
 				/**
-				 * synced
+				 * the relay has every edit
 				 */
 				synced: () => LocalizedString
 				/**
-				 * not yet
+				 * not yet at the relay
 				 */
 				pending: () => LocalizedString
 				/**
@@ -8236,18 +8716,86 @@ export type TranslationFunctions = {
 				 * no relay
 				 */
 				none: () => LocalizedString
+				/**
+				 * not known
+				 */
+				unknown: () => LocalizedString
 			}
+			relay_say: {
+				/**
+				 * In sync with the relay: it has received every edit.
+				 */
+				synced: () => LocalizedString
+				/**
+				 * Edits are on their way to the relay.
+				 */
+				pending: () => LocalizedString
+				/**
+				 * Not connected to the relay.
+				 */
+				offline: () => LocalizedString
+				/**
+				 * This file has no relay.
+				 */
+				none: () => LocalizedString
+				/**
+				 * The relay state is not known yet.
+				 */
+				unknown: () => LocalizedString
+			}
+			/**
+			 * {count} saved version{{s}}
+			 */
+			versions: (arg: { count: number }) => LocalizedString
+			verbs: {
+				/**
+				 * Open note
+				 */
+				open_note: () => LocalizedString
+				/**
+				 * Open {path}
+				 */
+				open_note_path: (arg: { path: string }) => LocalizedString
+				/**
+				 * Reveal in navigator
+				 */
+				reveal: () => LocalizedString
+				/**
+				 * Open in its own tab
+				 */
+				own_tab: () => LocalizedString
+				/**
+				 * Open {path} in its own tab
+				 */
+				own_tab_path: (arg: { path: string }) => LocalizedString
+				/**
+				 * Open the inspector
+				 */
+				open_inspector: () => LocalizedString
+				/**
+				 * Close
+				 */
+				close: () => LocalizedString
+			}
+			/**
+			 * File detail
+			 */
+			detail: () => LocalizedString
 			peek: {
 				/**
-				 * Show
+				 * Differences
 				 */
-				show: () => LocalizedString
+				diffs: () => LocalizedString
 				/**
-				 * doc vs lca
+				 * Texts
+				 */
+				texts: () => LocalizedString
+				/**
+				 * doc vs base
 				 */
 				doc_lca: () => LocalizedString
 				/**
-				 * disk vs lca
+				 * disk vs base
 				 */
 				disk_lca: () => LocalizedString
 				/**
@@ -8255,15 +8803,15 @@ export type TranslationFunctions = {
 				 */
 				disk_doc: () => LocalizedString
 				/**
-				 * disk text
+				 * disk
 				 */
 				disk: () => LocalizedString
 				/**
-				 * lca text
+				 * base
 				 */
 				lca: () => LocalizedString
 				/**
-				 * doc text
+				 * doc
 				 */
 				doc: () => LocalizedString
 				/**
@@ -8279,7 +8827,7 @@ export type TranslationFunctions = {
 				 */
 				too_large: () => LocalizedString
 				/**
-				 * raw hashes and heads
+				 * Raw facts
 				 */
 				raw: () => LocalizedString
 			}
@@ -8287,6 +8835,10 @@ export type TranslationFunctions = {
 			 * Select a text row to inspect its disk ↔ CRDT state.
 			 */
 			select_row: () => LocalizedString
+			/**
+			 * No such file in the inspector’s snapshot.
+			 */
+			not_found: () => LocalizedString
 			/**
 			 * no pre-images yet
 			 */
@@ -8307,6 +8859,10 @@ export type TranslationFunctions = {
 			 * {count}s ago
 			 */
 			seconds_ago: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} min ago
+			 */
+			minutes_ago: (arg: { count: number }) => LocalizedString
 		}
 		ui: {
 			/**
