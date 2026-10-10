@@ -34,6 +34,8 @@ describe('relay operations', () => {
     const res = await get(relay.port, '/healthz')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('application/json')
+    // The app probes it cross-origin before a join or a share (relay-probe.ts).
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect(await res.json()).toEqual({ ok: true })
   })
 

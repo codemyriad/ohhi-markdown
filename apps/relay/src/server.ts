@@ -70,9 +70,14 @@ function handleHealthRequest(
   } catch {
     ok = false
   }
+  // Readable cross-origin: the app probes it before a join or a share
+  // (apps/web relay-probe.ts) from the web origin and the desktop webview.
+  // It carries no credential and says nothing but `ok`, so `*` gives away
+  // nothing the socket handshake does not.
   response.writeHead(ok ? 200 : 503, {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
   })
   response.end(JSON.stringify({ ok }))
   return true
