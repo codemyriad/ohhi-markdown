@@ -4,7 +4,10 @@ import {
   decodeShareLink,
   encodeDeviceLink,
   encodeShareLink,
+  encodeShareUrl,
+  LINK_TEXT_MAX,
   looksLikeShareLink,
+  originForRelay,
   ShareLinkError,
   shareLinkErrorText,
   type ShareLinkErrorCode,
@@ -171,6 +174,174 @@ describe('device links (device-link-shaping A4-B)', () => {
     const decoded = decodeShareLink(encodeDeviceLink({ relay: 'ws://r', room: 'v', token: 't' }))
     expect(decoded.kind).toBe('device')
     expect(decoded.grants).toEqual([])
+  })
+})
+
+/** A payload built by hand, the way an older (or a forged) link would carry it. */
+function rawLink(obj: Record<string, unknown>): string {
+  return `editor1:${btoa(JSON.stringify(obj))}`
+}
+
+describe('label and from (first-run-shaping C1)', () => {
+  const target = { relay: 'wss://ohhi.example.ts.net/relay', room: 'team-room', token: 'tok' }
+
+  it('round-trips with label and from', () => {
+    const decoded = decodeShareLink(
+      encodeShareLink({ ...target, label: 'Projects/Atlas', from: 'Cynthia' })
+    )
+    expect(decoded).toEqual({
+      ...target,
+      kind: 'folder',
+      grants: [],
+      label: 'Projects/Atlas',
+      from: 'Cynthia',
+    })
+  })
+
+  it('round-trips without them — both read as undefined, and the JSON omits them', () => {
+    const link = encodeShareLink(target)
+    const decoded = decodeShareLink(link)
+    expect(decoded.label).toBeUndefined()
+    expect(decoded.from).toBeUndefined()
+    const json = JSON.parse(atob(link.slice('editor1:'.length))) as Record<string, unknown>
+    expect(Object.keys(json).sort()).toEqual(['relay', 'room', 'token', 'v'])
+  })
+
+  it('a device link carries the vault name as its label', () => {
+    const decoded = decodeShareLink(
+      encodeDeviceLink({ ...target, label: 'Notes', from: 'Chris' })
+    )
+    expect(decoded).toMatchObject({ kind: 'device', label: 'Notes', from: 'Chris' })
+  })
+
+  it('trims, drops blanks and truncates over-long text on encode', () => {
+    const long = 'x'.repeat(LINK_TEXT_MAX + 50)
+    const decoded = decodeShareLink(
+      encodeShareLink({ ...target, label: `  ${long}  `, from: '   ' })
+    )
+    expect(decoded.label).toBe('x'.repeat(LINK_TEXT_MAX))
+    expect(decoded.from).toBeUndefined()
+    const json = JSON.parse(
+      atob(encodeShareLink({ ...target, from: '   ' }).slice('editor1:'.length))
+    ) as Record<string, unknown>
+    expect('from' in json).toBe(false)
+  })
+
+  it('never splits a character when truncating', () => {
+    const emoji = '\u{1F600}'.repeat(LINK_TEXT_MAX + 1)
+    const label = decodeShareLink(encodeShareLink({ ...target, label: emoji })).label!
+    expect(Array.from(label)).toHaveLength(LINK_TEXT_MAX)
+    expect(label).toBe('\u{1F600}'.repeat(LINK_TEXT_MAX))
+  })
+
+  it('on decode: ignores a non-string, trims and truncates an over-long one', () => {
+    const base = { v: 1, relay: 'ws://r', room: 'v', token: 't' }
+    const nonString = decodeShareLink(rawLink({ ...base, label: 42, from: { name: 'x' } }))
+    expect(nonString.label).toBeUndefined()
+    expect(nonString.from).toBeUndefined()
+    const long = decodeShareLink(rawLink({ ...base, label: ` ${'y'.repeat(500)}`, from: ' Ana ' }))
+    expect(long.label).toBe('y'.repeat(LINK_TEXT_MAX))
+    expect(long.from).toBe('Ana')
+  })
+
+  it('still refuses grants on a folder link with label and from present', () => {
+    const grant = { room: 'other', relay: 'ws://r', token: 'g' }
+    expect(
+      codeOf(() => encodeShareLink({ ...target, grants: [grant], label: 'L', from: 'F' }))
+    ).toBe('grants_on_folder_link')
+    expect(
+      codeOf(() =>
+        decodeShareLink(
+          rawLink({ v: 1, relay: 'ws://r', room: 'v', token: 't', grants: [grant], label: 'L', from: 'F' })
+        )
+      )
+    ).toBe('grants_on_folder_link')
+  })
+
+  it('old fixture strings decode exactly as before', () => {
+    // Pinned literals, not re-encoded at test time: these are links already
+    // sitting in chat histories.
+    const folder =
+      'editor1:eyJ2IjoxLCJyZWxheSI6IndzOi8vciIsInJvb20iOiJvbGQtcm9vbSIsInRva2VuIjoib2xkLXRva2VuIn0'
+    expect(decodeShareLink(folder)).toEqual({
+      relay: 'ws://r',
+      room: 'old-room',
+      token: 'old-token',
+      kind: 'folder',
+      grants: [],
+      label: undefined,
+      from: undefined,
+    })
+    expect(encodeShareLink({ relay: 'ws://r', room: 'old-room', token: 'old-token' })).toBe(folder)
+  })
+})
+
+describe('the URL form (Fork 1-A)', () => {
+  const target = { relay: 'wss://ohhi.example.ts.net/relay', room: 'team-room', token: 'tok', label: 'Atlas' }
+
+  it('puts the payload in the fragment of <origin>/join', () => {
+    const link = encodeShareLink(target)
+    expect(encodeShareUrl(target, 'https://ohhi.example.ts.net')).toBe(
+      `https://ohhi.example.ts.net/join#${link}`
+    )
+    // A trailing slash on the origin is not doubled.
+    expect(encodeShareUrl(target, 'https://ohhi.example.ts.net//')).toBe(
+      `https://ohhi.example.ts.net/join#${link}`
+    )
+    // Nothing a server sees (path, query) carries the payload.
+    const url = new URL(encodeShareUrl(target, 'https://ohhi.example.ts.net'))
+    expect(url.pathname).toBe('/join')
+    expect(url.search).toBe('')
+  })
+
+  it('decodes all three spellings, trimmed', () => {
+    const link = encodeShareLink(target)
+    const spellings = [
+      link,
+      `  https://ohhi.example.ts.net/join#${link}\n`,
+      `https://ohhi.example.ts.net/?share=${link}`,
+      `http://localhost:5173/?share=${encodeURIComponent(link)}`,
+    ]
+    for (const s of spellings) {
+      expect(looksLikeShareLink(s)).toBe(true)
+      expect(decodeShareLink(s)).toMatchObject({ room: 'team-room', token: 'tok', label: 'Atlas' })
+    }
+  })
+
+  it('a URL carrying no payload is malformed, and does not look like a link', () => {
+    for (const s of [
+      'https://ohhi.example.ts.net/join',
+      'https://ohhi.example.ts.net/join#nope',
+      'https://ohhi.example.ts.net/?share=nope',
+      'wss://ohhi.example.ts.net/relay',
+    ]) {
+      expect(looksLikeShareLink(s)).toBe(false)
+      expect(codeOf(() => decodeShareLink(s))).toBe('malformed')
+    }
+  })
+})
+
+describe('originForRelay', () => {
+  it('derives https://<host> from the team-host shape', () => {
+    expect(originForRelay('wss://ohhi.example.ts.net/relay')).toBe('https://ohhi.example.ts.net')
+    expect(originForRelay('wss://ohhi.example.ts.net:8443/relay')).toBe(
+      'https://ohhi.example.ts.net:8443'
+    )
+  })
+
+  it('tolerates one trailing slash on /relay', () => {
+    expect(originForRelay('wss://ohhi.example.ts.net/relay/')).toBe('https://ohhi.example.ts.net')
+  })
+
+  it('is null for anything else — the caller falls back to the bare link', () => {
+    expect(originForRelay('ws://ohhi.example.ts.net/relay')).toBeNull()
+    expect(originForRelay('wss://localhost/relay')).toBeNull()
+    expect(originForRelay('wss://127.0.0.1/relay')).toBeNull()
+    expect(originForRelay('ws://localhost:8787')).toBeNull()
+    expect(originForRelay('wss://relay.example.com')).toBeNull()
+    expect(originForRelay('wss://relay.example.com/sync')).toBeNull()
+    expect(originForRelay('wss://relay.example.com/relay/x')).toBeNull()
+    expect(originForRelay('not a url')).toBeNull()
   })
 })
 

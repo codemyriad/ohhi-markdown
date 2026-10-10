@@ -564,7 +564,12 @@ secret. From there:
   without it (see `apps/relay/README.md`).
 
 **Join a share (desktop O2 / browser O3).** Manager → **Join a share** → paste
-the `editor1:…` link — it opens as a new vault in your list. On the browser the
+the link — the bare `editor1:…` string or its URL form
+`https://<host>/join#editor1:…` (the payload rides in the fragment, so no
+server sees it). Besides relay, room and token, a link may carry a `label`
+(the folder's path, or the vault's name for a device link) and a `from` — the
+sharer's self-reported name, "the name they typed", not a verified account.
+It opens as a new vault in your list. On the browser the
 vault is stored privately in **OPFS**; on desktop you pick a local folder to
 materialize into. The relay's content is pulled and you're co-editing live. The
 `?share=` deep-link (`/?share=editor1:…`) works too and is cleared from the URL

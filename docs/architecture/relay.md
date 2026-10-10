@@ -134,7 +134,10 @@ The lifecycle around it is unchanged:
 1. **Create share** — the sharing device calls the authenticated admin API or the relay
    CLI (the only mutation paths; nothing in the CRDT plane can touch the table):
    registers the folder GUID (plus `kind`/`parent`), gets back a token.
-2. **Token → joiner** — handed out out-of-band (paste a share link). The joiner's
+2. **Token → joiner** — handed out out-of-band (paste a share link: `editor1:` +
+   base64url of `{relay, room, token}`, optionally a `label` and the sharer's
+   self-reported `from`, bare or as `https://<host>/join#editor1:…` with the
+   payload in the fragment, `apps/web/src/lib/share-link.ts`). The joiner's
    provider presents it per document; the rule above scopes what it can open. Tokens
    never travel in a folder map or a mount desc (shaping **D4**): they live in the
    pasting device's own config.
