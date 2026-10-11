@@ -4348,6 +4348,10 @@ export type NamespaceWebTranslation = {
 				 */
 				read: string
 				/**
+				 * L​i​s​t​ ​t​h​e​ ​v​a​u​l​t​’​s​ ​c​o​l​l​e​c​t​i​o​n​s​ ​a​n​d​ ​q​u​e​r​y​ ​a​ ​c​o​l​l​e​c​t​i​o​n​’​s​ ​r​o​w​s​,​ ​t​h​e​ ​w​a​y​ ​i​t​s​ ​s​a​v​e​d​ ​v​i​e​w​s​ ​s​e​e​ ​t​h​e​m
+				 */
+				collections: string
+				/**
 				 * F​o​l​l​o​w​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​l​i​s​t​ ​l​i​n​k​s​ ​w​h​o​s​e​ ​n​o​t​e​ ​d​o​e​s​ ​n​o​t​ ​e​x​i​s​t​ ​y​e​t
 				 */
 				links: string
@@ -12196,6 +12200,10 @@ export type TranslationFunctions = {
 					 * Read a note’s outline and its properties, then just one section or a few lines
 					 */
 					read: () => LocalizedString
+					/**
+					 * List the vault’s collections and query a collection’s rows, the way its saved views see them
+					 */
+					collections: () => LocalizedString
 					/**
 					 * Follow links and backlinks, and list links whose note does not exist yet
 					 */

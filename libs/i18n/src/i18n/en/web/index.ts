@@ -1515,6 +1515,7 @@ const settings = {
     cap: {
       find: 'Find notes: ranked search that returns references, never whole notes',
       read: 'Read a note’s outline and its properties, then just one section or a few lines',
+      collections: 'List the vault’s collections and query a collection’s rows, the way its saved views see them',
       links: 'Follow links and backlinks, and list links whose note does not exist yet',
       changes: 'See what changed since a time',
       write: 'Write, patch and append, each write journaled first and made atomically',
