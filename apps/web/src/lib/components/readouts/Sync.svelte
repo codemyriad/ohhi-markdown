@@ -13,7 +13,14 @@
    * focus opens a hover card (`ui/Popover`, `peek`) listing who is editing
    * where, per room, each row a jump to their caret; a click opens Shared.
    * In a status bar (`ctx.pane`) it renders compact: a count, not avatars.
+   *
+   * While developer tools are on (`ctx.devtools`), the card is also the
+   * inspector's door for the focused note (devtools-shaping Fork 7, DT5):
+   * a footer entry opens that note's detail in its own tab
+   * (`openView('inspector', path)`), and the card opens with a note focused
+   * even when nobody else is here. Off, the card is exactly the people list.
    */
+  import { ScanSearch } from '@lucide/svelte'
   import type * as Y from 'yjs'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { vaultLabel, vaultTitle, pillTitle } from '../../pill-status.js'
@@ -26,7 +33,7 @@
   import Popover from '../../ui/Popover.svelte'
   import PresenceStack from '../PresenceStack.svelte'
 
-  let { ctx }: { ctx: Pick<ReadoutContext, 'workspace' | 'panes' | 'nav' | 'merged' | 'side' | 'pane'> } = $props()
+  let { ctx }: { ctx: Pick<ReadoutContext, 'workspace' | 'panes' | 'nav' | 'merged' | 'side' | 'pane' | 'devtools'> } = $props()
 
   const shell = getViewShell()
   const clock = shellClock()
@@ -47,6 +54,10 @@
     peers.length ? whoIsWhere(ui.presenceByPath, ui.presenceByRoom, ui.mounts, ctx.workspace.room, self) : []
   )
   const compact = $derived(ctx.pane !== undefined)
+  /** The note the card's inspector door opens; null while developer tools are off or no note is focused. */
+  const inspectPath = $derived(ctx.devtools?.() ? focused.path : null)
+  /** Whether the hover card has anything to show: people, or the inspector's door. */
+  const hasCard = $derived(peers.length > 0 || inspectPath !== null)
   const t = $derived($LL.web.presence)
   const words = $derived(status ? vaultLabel(status) : $LL.web.shell.nothing_shared())
   const said = $derived(peers.length ? t.sync.with_people({ status: words, count: peers.length }) : words)
@@ -62,7 +73,7 @@
   }
   function show(): void {
     stopClosing()
-    if (peers.length > 0) open = true
+    if (hasCard) open = true
   }
   function hideSoon(): void {
     stopClosing()
@@ -75,7 +86,7 @@
     if (!(e.relatedTarget instanceof Node && host?.contains(e.relatedTarget))) hideSoon()
   }
   $effect(() => {
-    if (peers.length === 0) open = false
+    if (!hasCard) open = false
   })
   $effect(() => stopClosing)
 
@@ -83,6 +94,15 @@
     stopClosing()
     open = false
     shell?.openView('shared')
+  }
+
+  function inspect(path: string): void {
+    stopClosing()
+    open = false
+    // A pane's own status bar speaks for THAT pane's note: focus it first, so
+    // the tab opens beside the note it describes, not in the focused pane.
+    if (ctx.pane && !ctx.pane.focused) ctx.panes.focusPane(ctx.pane.id)
+    shell?.openView('inspector', path)
   }
 
   function jump(path: string, peer: Peer): void {
@@ -116,12 +136,12 @@
       icon={VIEWS.shared.icon}
       testid={testid}
       data-status={status}
-      title={peers.length ? undefined : title}
+      title={hasCard ? undefined : title}
       tooltip={false}
       class="ed-sync-host"
       iconClass="ed-sync-icon"
-      aria-haspopup={peers.length ? 'dialog' : undefined}
-      aria-expanded={peers.length ? open : undefined}
+      aria-haspopup={hasCard ? 'dialog' : undefined}
+      aria-expanded={hasCard ? open : undefined}
       onclick={openShared}
     />
   {:else}
@@ -131,10 +151,10 @@
       {label}
       icon={VIEWS.shared.icon}
       testid="toolbar-vault-summary"
-      title={peers.length ? undefined : title}
+      title={hasCard ? undefined : title}
       tooltip={false}
-      aria-haspopup={peers.length ? 'dialog' : undefined}
-      aria-expanded={peers.length ? open : undefined}
+      aria-haspopup={hasCard ? 'dialog' : undefined}
+      aria-expanded={hasCard ? open : undefined}
       onclick={openShared}
     />
   {/if}
@@ -146,44 +166,67 @@
     {/if}
   {/if}
 
-  {#if open && peers.length > 0}
-    <Popover anchor={host ?? null} placement={readoutPlacement(ctx)} title={t.sync.title()} testid="sync-people-card" peek onClose={() => (open = false)}>
-      <div data-testid="presence" class="max-h-96 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto py-1 text-xs">
-        {#each groups as group (group.room)}
-          <section>
-            <h3 class="px-3 pt-2 pb-1 text-[11px] font-semibold text-base-content/80">
-              {group.mountPath ? folderName(group.mountPath) : t.people.vault()}
-            </h3>
-            <ul>
-              {#each group.people as { peer, path } (`${peer.name}:${path ?? ''}`)}
-                <li>
-                  {#if path}
-                    <button
-                      type="button"
-                      data-testid="people-row"
-                      data-peer={peer.name}
-                      data-path={path}
-                      title={t.people.jump({ name: peer.name, note: noteName(path) })}
-                      onclick={() => jump(path, peer)}
-                      class="flex w-full items-center gap-2 px-3 py-1 text-left text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
-                    >
-                      {@render avatar(peer)}
-                      <span class="truncate font-medium">{peer.name}</span>
-                      <span class="ml-auto truncate text-base-content/70">{t.people.in_note({ note: noteName(path) })}</span>
-                    </button>
-                  {:else}
-                    <div data-testid="people-row" data-peer={peer.name} class="flex items-center gap-2 px-3 py-1 text-base-content">
-                      {@render avatar(peer)}
-                      <span class="truncate font-medium">{peer.name}</span>
-                      <span class="ml-auto truncate text-base-content/70">{t.people.online()}</span>
-                    </div>
-                  {/if}
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/each}
-      </div>
+  {#if open && hasCard}
+    <Popover
+      anchor={host ?? null}
+      placement={readoutPlacement(ctx)}
+      title={peers.length ? t.sync.title() : t.sync.title_alone()}
+      testid="sync-people-card"
+      peek
+      onClose={() => (open = false)}
+    >
+      {#if peers.length > 0}
+        <div data-testid="presence" class="max-h-96 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto py-1 text-xs">
+          {#each groups as group (group.room)}
+            <section>
+              <h3 class="px-3 pt-2 pb-1 text-[11px] font-semibold text-base-content/80">
+                {group.mountPath ? folderName(group.mountPath) : t.people.vault()}
+              </h3>
+              <ul>
+                {#each group.people as { peer, path } (`${peer.name}:${path ?? ''}`)}
+                  <li>
+                    {#if path}
+                      <button
+                        type="button"
+                        data-testid="people-row"
+                        data-peer={peer.name}
+                        data-path={path}
+                        title={t.people.jump({ name: peer.name, note: noteName(path) })}
+                        onclick={() => jump(path, peer)}
+                        class="flex w-full items-center gap-2 px-3 py-1 text-left text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+                      >
+                        {@render avatar(peer)}
+                        <span class="truncate font-medium">{peer.name}</span>
+                        <span class="ml-auto truncate text-base-content/70">{t.people.in_note({ note: noteName(path) })}</span>
+                      </button>
+                    {:else}
+                      <div data-testid="people-row" data-peer={peer.name} class="flex items-center gap-2 px-3 py-1 text-base-content">
+                        {@render avatar(peer)}
+                        <span class="truncate font-medium">{peer.name}</span>
+                        <span class="ml-auto truncate text-base-content/70">{t.people.online()}</span>
+                      </div>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            </section>
+          {/each}
+        </div>
+      {/if}
+      {#if inspectPath}
+        <div class="w-72 max-w-[calc(100vw-2rem)] py-1 text-xs {peers.length ? 'border-t border-base-300' : ''}">
+          <button
+            type="button"
+            data-testid="sync-inspect-note"
+            title={t.sync.inspect_path({ path: inspectPath })}
+            onclick={() => inspect(inspectPath)}
+            class="flex w-full items-center gap-2 px-3 py-1 text-left text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <ScanSearch aria-hidden="true" class="size-4 shrink-0 text-base-content/70" />
+            <span class="truncate">{t.sync.inspect()}</span>
+          </button>
+        </div>
+      {/if}
     </Popover>
   {/if}
 </div>

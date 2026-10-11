@@ -31,6 +31,16 @@ export function focusedOf(layout: Layout, paneId?: string): Focused {
 }
 
 /**
+ * Whether the focused pane's active tab holds a note (devtools-shaping D7,
+ * R10): the gate on the chrome that is about a note — the floating format
+ * bar, the corner count and the dock's floating strip. An empty tab and a
+ * view tab (Inspector, Log, Shared) are not notes, and draw none of it.
+ */
+export function focusedIsNote(layout: Layout): boolean {
+  return focusedOf(layout).path !== null
+}
+
+/**
  * The open note's pill — `pillStatus(record)` exactly as the pane computes it
  * (golden rule 4: the readout decides nothing of its own). Null with no note
  * or no record yet.

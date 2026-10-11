@@ -7,9 +7,18 @@ import {
   filterRows,
   isWrong,
   lineDiff,
+  mountAgreement,
+  mountHealth,
   peekChain,
+  relayHost,
+  reportText,
+  rowTone,
+  sayKey,
+  sessionStatus,
+  sortRows,
   rowState,
   ROW_STATES,
+  STATE_TONE,
   type ClassifiedRow,
 } from './inspector.js'
 
@@ -180,5 +189,186 @@ describe('lineDiff', () => {
 
   it('refuses above the cap rather than stalling the pane', () => {
     expect(lineDiff('x\n'.repeat(4000), 'y')).toBeNull()
+  })
+})
+
+describe('sortRows (worst first, fork 4)', () => {
+  const rows = [
+    { row: row({ path: 'b.md' }), state: 'in-sync' as const },
+    { row: row({ path: 'img.png', kind: 'binary' }), state: 'not-text' as const },
+    { row: row({ path: 'z.md' }), state: 'diverged' as const },
+    { row: row({ path: 'a.md' }), state: 'doc-ahead' as const },
+    { row: row({ path: 'c.md' }), state: 'diverged' as const },
+  ]
+  it('orders by state severity, then path; not-text last', () => {
+    expect(sortRows(rows, 'worst').map((r) => r.row.path)).toEqual(['c.md', 'z.md', 'a.md', 'b.md', 'img.png'])
+  })
+  it('orders by path with not-text still last, and leaves the input alone', () => {
+    expect(sortRows(rows, 'path').map((r) => r.row.path)).toEqual(['a.md', 'b.md', 'c.md', 'z.md', 'img.png'])
+    expect(rows[0].row.path).toBe('b.md')
+  })
+})
+
+describe('mountHealth (the scope chip\'s dot)', () => {
+  const r = (state: Parameters<typeof isWrong>[0], relay: 'synced' | 'pending' | 'offline' | 'none' = 'synced') => ({
+    row: row(),
+    state,
+    chain: { diskLca: 'equal' as const, lcaDoc: 'equal' as const, relay },
+  })
+  it('needs-token is offline whatever the rows say', () => {
+    expect(mountHealth([r('diverged')], 'needs-token').tone).toBe('offline')
+  })
+  it('diverged beats pending beats ok', () => {
+    expect(mountHealth([r('doc-ahead'), r('diverged')], 'active').tone).toBe('diverged')
+    expect(mountHealth([r('disk-changed')], 'active').tone).toBe('pending')
+    expect(mountHealth([r('in-sync', 'pending')], 'active')).toMatchObject({ tone: 'pending', atRelay: 1 })
+    expect(mountHealth([r('in-sync'), r('no-doc')], null).tone).toBe('ok')
+  })
+  it('an unreachable relay is offline, as the pill says: above pending, below diverged', () => {
+    expect(mountHealth([r('in-sync', 'offline'), r('in-sync')], 'active')).toMatchObject({ tone: 'offline', relayOffline: 1 })
+    expect(mountHealth([r('doc-ahead', 'offline'), r('in-sync', 'pending')], 'active').tone).toBe('offline')
+    expect(mountHealth([r('diverged', 'offline')], 'active').tone).toBe('diverged')
+    // No relay at all is not "offline": a local mount is simply local.
+    expect(mountHealth([r('in-sync', 'none')], null)).toMatchObject({ tone: 'ok', relayOffline: 0 })
+  })
+})
+
+describe('rowTone / sayKey (an in-sync row follows its relay)', () => {
+  it('paints an in-sync row by its relay link, every other state by its own tone', () => {
+    expect(rowTone('in-sync', 'synced')).toBe('ok')
+    expect(rowTone('in-sync', 'none')).toBe('ok')
+    expect(rowTone('in-sync', 'unknown')).toBe('ok')
+    expect(rowTone('in-sync', 'pending')).toBe('pending')
+    expect(rowTone('in-sync', 'offline')).toBe('offline')
+    for (const s of ROW_STATES.filter((x) => x !== 'in-sync')) {
+      expect(rowTone(s, 'offline')).toBe(STATE_TONE[s])
+      expect(rowTone(s, 'pending')).toBe(STATE_TONE[s])
+    }
+  })
+  it('gives an in-sync row a relay clause when the relay is behind or away', () => {
+    expect(sayKey('in-sync', 'synced')).toBe('in_sync')
+    expect(sayKey('in-sync', 'none')).toBe('in_sync')
+    expect(sayKey('in-sync', 'pending')).toBe('in_sync_relay_pending')
+    expect(sayKey('in-sync', 'offline')).toBe('in_sync_offline')
+    expect(sayKey('doc-ahead', 'offline')).toBe('doc_ahead')
+    expect(sayKey('not-text', 'none')).toBe('not_text')
+  })
+})
+
+describe('mountAgreement (line 2 of the card)', () => {
+  const m = (desc: { status: string; relay: string | null; neverHeld: boolean } | null, mountPath = 'f', relay: string | null = 'wss://r') => ({
+    mountPath,
+    relay,
+    desc,
+  })
+  it('agrees when status is active and the relay matches or is the default', () => {
+    expect(mountAgreement(m({ status: 'active', relay: 'wss://r', neverHeld: false })).kind).toBe('agrees')
+    expect(mountAgreement(m({ status: 'active', relay: null, neverHeld: false })).kind).toBe('agrees')
+  })
+  it('says the difference otherwise', () => {
+    expect(mountAgreement(m(null))).toEqual({ kind: 'no-desc' })
+    expect(mountAgreement(m(null, ''))).toEqual({ kind: 'root' })
+    expect(mountAgreement(m({ status: 'needs-token', relay: null, neverHeld: true }, 'f', null))).toEqual({
+      kind: 'needs-token',
+      neverHeld: true,
+    })
+    expect(mountAgreement(m({ status: 'carving:seeding', relay: null, neverHeld: false }))).toEqual({
+      kind: 'status',
+      status: 'carving:seeding',
+    })
+    expect(mountAgreement(m({ status: 'active', relay: 'wss://other', neverHeld: false }))).toEqual({
+      kind: 'relay',
+      desc: 'wss://other',
+      session: 'wss://r',
+    })
+  })
+  it('sessionStatus: the row\'s status, or active for a live session with no row (the root)', () => {
+    expect(sessionStatus({ desc: null })).toBe('active')
+    expect(sessionStatus({ desc: { status: 'needs-token' } })).toBe('needs-token')
+  })
+  it('relayHost shortens a URL and tolerates junk', () => {
+    expect(relayHost('wss://relay.example:8080/x')).toBe('relay.example:8080')
+    expect(relayHost('not a url')).toBe('not a url')
+    expect(relayHost(null)).toBeNull()
+  })
+})
+
+describe('reportText (Copy report)', () => {
+  const words = { title: 'Report', state: (s: string) => s.toUpperCase(), sort: (s: string) => `sort:${s}` }
+  const chain = { diskLca: 'equal' as const, lcaDoc: 'differs' as const, relay: 'none' as const }
+  it('lists every row in scope, one per line, with the chain as glyphs', () => {
+    const text = reportText(
+      {
+        kind: 'scope',
+        scope: 'All mounts',
+        invariants: ['x is wrong'],
+        mounts: [{ name: 'root', line: 'local · active' }],
+        rows: [
+          { row: row({ path: 'a.md' }), state: 'doc-ahead', chain },
+          { row: row({ path: 'p.png', kind: 'binary' }), state: 'not-text', chain },
+        ],
+        total: 2,
+        filters: { state: null, prefix: '', sort: 'worst' },
+      },
+      0,
+      words
+    )
+    expect(text.split('\n')).toEqual([
+      'Report · 1970-01-01T00:00:00.000Z',
+      'scope: All mounts',
+      'invariants: 1 violated',
+      '  ! x is wrong',
+      'mount root: local · active',
+      'filters: state any · path any · order sort:worst',
+      'rows: 2 of 2',
+      'DOC-AHEAD  disk ═══ base ≠≠≠ doc – relay  a.md',
+      'NOT-TEXT   binary  p.png',
+    ])
+  })
+  it('states the filters and counts N of M, so a filtered list never passes for the whole scope', () => {
+    const text = reportText(
+      {
+        kind: 'scope',
+        scope: 'shared',
+        invariants: [],
+        mounts: [{ name: 'shared', line: 'carved · active' }],
+        rows: [{ row: row({ path: 'shared/a.md' }), state: 'doc-ahead', chain }],
+        total: 7,
+        filters: { state: 'doc-ahead', prefix: ' shared/ ', sort: 'path' },
+      },
+      0,
+      words
+    )
+    const lines = text.split('\n')
+    expect(lines).toContain('scope: shared')
+    expect(lines).toContain('filters: state DOC-AHEAD · path shared/ · order sort:path')
+    expect(lines).toContain('rows: 1 of 7')
+  })
+  it('reports one file with its record, measured chain and raw facts', () => {
+    const text = reportText(
+      {
+        kind: 'file',
+        row: { row: row(), state: 'doc-ahead', chain },
+        record: record(),
+        peek: { disk: { text: 'a', hash: 'h1' }, lca: { text: 'b', hash: 'h2' }, doc: null },
+        detail: {
+          guid: 'g-a',
+          mount: { path: '', room: 'room-1' },
+          lca: { contentHash: 'h2', headsDigest: 'hd', eol: 'lf', bom: false, baseTextLength: 1 },
+          doc: { headsDigest: 'dd', textLength: 1 },
+          journal: { count: 1, recent: [{ at: 0, bytes: 3 }] },
+          providerAttached: false,
+        },
+      },
+      0,
+      words
+    )
+    expect(text).toContain('path: notes/a.md')
+    expect(text).toContain('state: DOC-AHEAD (doc-ahead)')
+    // The peek's hashes differ → disk ≠ base, measured.
+    expect(text).toContain('chain: disk ≠≠≠ base ≠≠≠ doc – relay')
+    expect(text).toContain('diverged false')
+    expect(text).toContain("mount: '/' · room room-1 · guid g-a")
+    expect(text).toContain('journal: 1')
   })
 })

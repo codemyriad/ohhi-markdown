@@ -21,9 +21,16 @@
    * CM6 scroller under it pads by that much (every pane alike, so focusing
    * another pane never reflows its text). The layer clears the pane's top tab
    * strip and bottom status bar.
+   *
+   * The layer is the NOTE's chrome (devtools-shaping D7, R10): it draws only
+   * while the focused pane's active tab is a note (`focusedIsNote`). Focus a
+   * view tab (Inspector, Log, Shared, Settings) or an empty tab and the format
+   * bar and the corner go, the scrollers pad nothing, and the dock's floating
+   * strip goes with them; focus a note and all of it returns.
    */
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
   import { shareName } from '@ohhi/editor-lang'
+  import { tick, untrack } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { GroupShell } from '../group-ui.svelte.js'
   import type { Navigation } from '../navigation.svelte.js'
@@ -33,6 +40,7 @@
   import { themeState } from '../theme.svelte.js'
   import type { ShellSpec } from '../layout-spec.js'
   import { getReadoutContext, inBar } from '../readouts.js'
+  import { focusedIsNote } from '../readout-state.js'
   import type { ShellLayout } from '../shell-layout.svelte.js'
   import type { PaneChrome } from '../pane-chrome.js'
   import type { PaneShell } from '../workspace-panes.svelte.js'
@@ -84,13 +92,17 @@
   /** The bottom layer's readouts and menus open upward; the top one's downward. */
   const bottomCtx = $derived(shellCtx ? inBar(shellCtx, { side: 'top' }) : null)
   const topCtx = $derived(shellCtx ? inBar(shellCtx, { side: 'bottom' }) : null)
+  /** The note's chrome only over a note (D7): a view or an empty tab draws none of it. */
+  const onNote = $derived(focusedIsNote(panes.layout))
   const formatAt = $derived(
-    layout && layout.spec.regions.format !== 'off' && layout.focusKeeps('format') ? layout.spec.regions.format : null
+    onNote && layout && layout.spec.regions.format !== 'off' && layout.focusKeeps('format')
+      ? layout.spec.regions.format
+      : null
   )
   /** E6: a live pane mode's keys in the corner, above the count (Pane keys: Subtle / Off). */
   const cue = $derived(panes.mode !== null && paneHints.value !== 'full')
   const corner = $derived(
-    layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
+    onNote && layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
   )
 
   /** The pane container the layer floats in, and what it must clear at its edges. */
@@ -184,8 +196,37 @@
     formatAt === 'bottom' && (corner || cue) && barW > 0 && cornerW > 0 && barW + cornerW + 2 * SEP_PX > rowW
   )
 
-  const padBottom = $derived(bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
-  const padTop = $derived(topH > 0 ? topH + 2 * GAP_PX : 0)
+  /**
+   * Focus where the dock's strip would have taken it, when no strip is drawn
+   * (D7): the focused pane's selected tab, else the first control in it.
+   */
+  function focusPane(): void {
+    const pane = stage?.querySelector<HTMLElement>(`[data-pane-id="${CSS.escape(panes.layout.focus)}"]`)
+    const target =
+      pane?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ??
+      pane?.querySelector<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex="0"]')
+    target?.focus()
+  }
+
+  /** The two floating stacks, for the focus handoff below. */
+  let floatTop = $state<HTMLElement>()
+  let floatBottom = $state<HTMLElement>()
+  // The gate turning the layer off while focus is inside it (a key switched
+  // the focused tab to a view): read before the DOM drops it, then hand focus
+  // to the focused pane's tab — what the dock's strip does (`refocus`).
+  $effect.pre(() => {
+    if (onNote) return
+    const held = untrack(() => {
+      const el = document.activeElement
+      return !!el && (!!floatTop?.contains(el) || !!floatBottom?.contains(el))
+    })
+    if (held) void tick().then(focusPane)
+  })
+
+  // A stack that is not drawn pads nothing: `bind:clientHeight` keeps its
+  // last value when the element goes, so the gate is read here too.
+  const padBottom = $derived((formatAt === 'bottom' || corner || cue) && bottomH > 0 ? bottomH + 2 * GAP_PX : 0)
+  const padTop = $derived(formatAt === 'top' && topH > 0 ? topH + 2 * GAP_PX : 0)
 
   /** The three measures (F1) — set inline here, so the CM6 theme's `var(--ed-measure)` reads it. */
   const MEASURES: Record<ShellSpec['editor']['measure'], string> = {
@@ -277,6 +318,7 @@
       <PaneTree node={treeRoot} {ctx} />
       {#if formatAt === 'top' && topCtx}
         <div
+          bind:this={floatTop}
           data-testid="float-top"
           class="pointer-events-none absolute z-10 flex justify-center px-2 @container"
           style:left="{frame?.left ?? 0}px"
@@ -296,6 +338,7 @@
              two meeting. Too narrow for both (measured): the corner stacks
              above the bar, right-aligned. -->
         <div
+          bind:this={floatBottom}
           data-testid="float-bottom"
           data-stacked={stacked}
           class="pointer-events-none absolute z-10 px-2 @container"
@@ -332,7 +375,7 @@
     <ModeBar {panes} />
   </main>
   {#if floatingDock && layout}
-    <Dock {workspace} {nav} {layout} form="float" {area} />
+    <Dock {workspace} {nav} {layout} form="float" {area} showStrip={onNote} refocus={focusPane} />
   {/if}
 </div>
 

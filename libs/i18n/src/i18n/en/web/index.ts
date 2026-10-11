@@ -789,6 +789,11 @@ const presence = {
   sync: {
     with_people: '{status:string} · {count:number} {{person|people}} online',
     title: 'Who is where',
+    /** The card's name when nobody else is here: only the inspector's door is in it (devtools-shaping DT5). */
+    title_alone: 'This note',
+    /** The card's footer while developer tools are on: the focused note in its own inspector tab. */
+    inspect: 'Inspect this note',
+    inspect_path: 'Open the inspector on {path:string}',
   },
 }
 
@@ -1906,6 +1911,8 @@ const review = {
 /** The inspector tab (devtools-shaping D). Field-name echoes are not copy. */
 const devtools = {
   tab: 'Inspector',
+  /** A view tab holding one file's detail alone (devtools-shaping E3). */
+  tab_file: 'Inspector · {path:string}',
   /** The `inspector` readout: the toolbar's bug icon, shown while developer tools are on. */
   open: 'Open the inspector',
   title: 'Inspector',
@@ -1915,62 +1922,178 @@ const devtools = {
   root_mount: 'root',
   invariants_ok: 'invariants hold',
   invariants_failed: '{count:number} invariant violation{{s}}',
-  no_desc: 'no mounts.json row',
-  never_held: 'never held',
-  orphans: 'LCA orphans',
-  filter_prefix: 'Path prefix',
-  filter_state: 'State',
-  state_any: 'any state',
+  snapshot: 'snapshot {age:string}',
+  /** The dot on a scope chip or a mount line, said for a screen reader. */
+  health: {
+    ok: 'in sync',
+    pending: 'something pending',
+    diverged: 'something diverged',
+    offline: 'not syncing',
+  },
+  copy: {
+    label: 'Copy report',
+    file: 'The selected file',
+    file_none: 'Select a file first',
+    scope: 'Every row in scope',
+    copied: 'Inspector report copied',
+    failed: 'The clipboard refused the report. Select it below and copy it by hand.',
+    fallback_label: 'Inspector report',
+    report_title: 'Oh hi inspector report',
+  },
+  /** The mount strip (All mounts) and the mount card (one mount). */
+  mount: {
+    rows: '{count:number} row{{s}}',
+    all_in_sync: 'all in sync',
+    not_syncing: 'not syncing',
+    /** A mount line's right end when rows' relay is offline (the pill is grey). */
+    relay_unreachable: 'relay unreachable',
+    at_relay: '{count:number} at the relay',
+    counted: {
+      diverged: '{count:number} diverged',
+      disk_changed: '{count:number} flush pending',
+      doc_ahead: '{count:number} base pending',
+    },
+    no_relay: 'no relay',
+    /** A mount's status (`MountStatus`, `:` and `-` as `_`), in the identity line, the strip and the report. */
+    statuses: {
+      active: 'active',
+      needs_token: 'needs a link',
+      joining: 'joining',
+      carving_seeding: 'carving (seeding)',
+      carving_detaching: 'carving (detaching)',
+      unsharing_absorbing: 'unsharing (absorbing)',
+      unsharing_disconnecting: 'unsharing (disconnecting)',
+      adopting_seeding: 'adopting (seeding)',
+      adopting_detaching: 'adopting (detaching)',
+      absorbing: 'absorbing',
+    },
+    room: 'room {room:string}',
+    stores: '{entries:number} entries · {docs:number} docs · {base:number} base · {journal:number} journal',
+    agrees: 'mounts.json agrees',
+    root: 'the vault root; mounts.json lists only shared folders',
+    no_desc: 'no mounts.json row',
+    needs_token: 'needs a link',
+    needs_token_never_held: 'needs a link, never held',
+    status: 'mounts.json says {status:string}',
+    relay_differs: 'mounts.json names {desc:string}, the session uses {session:string}',
+    orphans: '{count:number} base {{record names|records name}} no file',
+    orphans_show: 'show',
+    no_orphans: 'no orphan base records',
+    open_here: '{count:number} open here',
+  },
+  filter_prefix: 'Path',
+  /** The list's scroll region (focus lands on it when the drawer closes with no row selected). */
+  list_label: 'Files',
+  tally: 'States',
+  sort_label: 'Order',
+  sort: {
+    worst: 'Worst first',
+    path: 'By path',
+  },
+  /** States renamed by what is pending (second pass); the ids in `inspector.ts` are unchanged. */
   states: {
-    in_sync: 'in sync',
-    doc_ahead: 'doc ahead',
-    disk_changed: 'disk changed',
-    diverged: 'diverged',
-    no_lca: 'no LCA',
-    no_doc: 'no doc',
-    not_text: 'not text',
+    diverged: 'Diverged',
+    disk_changed: 'Flush pending',
+    doc_ahead: 'Base pending',
+    no_lca: 'Never reconciled',
+    no_doc: 'No live doc',
+    in_sync: 'In sync',
+    not_text: 'Not text',
+  },
+  /** The one sentence the detail says for a state. */
+  say: {
+    diverged:
+      'Disk and the document both moved since they last agreed. The review decides; nothing is written to disk until it is resolved.',
+    disk_changed:
+      'The document moved and the file on disk has not been written yet. It is written on the next flush; if this stays, that is a finding.',
+    doc_ahead:
+      'The file on disk already matches the document, but the base record is behind both. The next reconcile records the new base.',
+    no_lca: 'No record yet of what disk and the document last agreed on. The first reconcile writes one.',
+    no_doc:
+      'Nothing is in memory for this file right now; it lives on disk and in the base store. Opening it loads one.',
+    in_sync: 'Disk, the base and the document are the same text.',
+    /** An in-sync row whose relay has not received every edit (its badge is pending amber). */
+    in_sync_relay_pending: 'Disk, the base and the document are the same text. Edits are still on their way to the relay.',
+    /** An in-sync row whose relay is unreachable (its badge is offline grey). */
+    in_sync_offline:
+      'Disk, the base and the document are the same text. The relay is unreachable, so edits stay here until it is back.',
+    not_text: 'A binary file or a folder. It is never synced through a document, and no pill ever claims it.',
   },
   rows: '{shown:number} of {total:number} row{{s}}',
   no_rows: 'No rows match.',
+  open_tag: 'open',
   col: {
-    path: 'path',
-    kind: 'kind',
-    state: 'state',
+    path: 'Path',
+    chain: 'Chain',
+    state: 'State',
+    journal: 'Journal',
+    actions: 'Actions',
     disk: 'disk',
-    lca: 'lca',
+    base: 'base',
     doc: 'doc',
     relay: 'relay',
-    journal: 'journal',
-    open: 'open',
+    /** The chain column header's title: what "base" means. */
+    base_title: 'the text disk and doc last agreed on (LCA)',
   },
-  legend: {
+  /** A link of the chain, said (glyph titles and screen readers). */
+  link: {
     equal: 'equal',
     differs: 'differs',
     unknown: 'not known',
-    synced: 'synced',
-    pending: 'not yet',
+  },
+  /** The chain read aloud: one sentence for the glyphs a screen reader would spell out. */
+  chain_said: 'disk to base {diskLca:string}, base to doc {lcaDoc:string}, relay: {relay:string}',
+  relay_link: {
+    synced: 'the relay has every edit',
+    pending: 'not yet at the relay',
     offline: 'offline',
     none: 'no relay',
+    unknown: 'not known',
   },
+  /** The relay in words, in the detail. Green is relay receipt, never durability (golden rule 4). */
+  relay_say: {
+    synced: 'In sync with the relay: it has received every edit.',
+    pending: 'Edits are on their way to the relay.',
+    offline: 'Not connected to the relay.',
+    none: 'This file has no relay.',
+    unknown: 'The relay state is not known yet.',
+  },
+  versions: '{count:number} saved version{{s}}',
+  verbs: {
+    open_note: 'Open note',
+    open_note_path: 'Open {path:string}',
+    reveal: 'Reveal in navigator',
+    own_tab: 'Open in its own tab',
+    own_tab_path: 'Open {path:string} in its own tab',
+    open_inspector: 'Open the inspector',
+    close: 'Close',
+  },
+  detail: 'File detail',
   peek: {
-    show: 'Show',
-    doc_lca: 'doc vs lca',
-    disk_lca: 'disk vs lca',
+    diffs: 'Differences',
+    texts: 'Texts',
+    doc_lca: 'doc vs base',
+    disk_lca: 'disk vs base',
     disk_doc: 'disk vs doc',
-    disk: 'disk text',
-    lca: 'lca text',
-    doc: 'doc text',
+    disk: 'disk',
+    lca: 'base',
+    doc: 'doc',
     absent: '(absent)',
     identical: 'identical',
     too_large: 'too large to diff here',
-    raw: 'raw hashes and heads',
+    raw: 'Raw facts',
   },
   select_row: 'Select a text row to inspect its disk ↔ CRDT state.',
+  /** The detail before the first snapshot, or while the selected file is being read. */
+  loading: 'Reading…',
+  /** A tab's path the current snapshot does not name (rename-following is deferred). */
+  not_found: 'This file is not in the current snapshot: it was renamed or deleted.',
   no_preimages: 'no pre-images yet',
   no_doc_store: 'no doc store',
   never: 'never',
   just_now: 'just now',
   seconds_ago: '{count:number}s ago',
+  minutes_ago: '{count:number} min ago',
 }
 
 const ui = {

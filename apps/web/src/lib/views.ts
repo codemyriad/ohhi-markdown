@@ -153,7 +153,8 @@ export interface ViewDef {
 export const VIEWS = {
   inspector: {
     id: 'inspector',
-    title: (LL) => LL.web.devtools.tab(),
+    // A path argument is one file's detail alone (devtools-shaping E3).
+    title: (LL, arg) => (arg ? LL.web.devtools.tab_file({ path: arg }) : LL.web.devtools.tab()),
     icon: ScanSearch,
     component: Inspector,
     command: {

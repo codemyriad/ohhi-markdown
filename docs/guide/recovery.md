@@ -183,7 +183,14 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
    restarts — even after the toast has gone. *Copy as text* puts the whole
    list on the clipboard.
 5. **The sync inspector for the affected note**, if you are asked for it. Turn
-   developer tools on in *Settings › Developer*, then run *Open inspector*
-   from the command palette. In the browser, adding `?debug=1` to the URL
-   opens it for one session. Select the note and screenshot it.
+   developer tools on in *Settings › Developer*, then open the inspector:
+   *Open inspector* in the command palette, or the bug icon at the toolbar's
+   right. In the browser, adding `?debug=1` to the URL turns developer tools on
+   for one session. The note you were looking at when the inspector opened is
+   selected (it does not follow the focus afterwards; click a row to pick
+   another): its chain (disk, base — the text disk and doc last agreed on —
+   doc, relay), its state in words, and the diff that explains it. (*Inspect
+   this note* in the sync icon's hover card opens that note in its own
+   inspector tab.) Then **Copy report** → *The selected file*, and paste the
+   text into your report instead of a screenshot.
 6. **Whether a teammate sees the same thing.**

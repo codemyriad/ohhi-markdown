@@ -470,9 +470,13 @@
           />
         {/key}
       {:else if tab.view}
-        <!-- A view tab: whichever component the registry names (S22 Q5). -->
+        <!-- A view tab: whichever component the registry names (S22 Q5).
+             Keyed on the tab, so two tabs of one kind in a pane (the full
+             inspector and an own-tab one) never share an instance's state. -->
         {@const View = viewDef(tab.view).component}
-        <View {workspace} {tab} />
+        {#key tab.id}
+          <View {workspace} {tab} />
+        {/key}
       {:else}
         <EmptyTab
           {search}

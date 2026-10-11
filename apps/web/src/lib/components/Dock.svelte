@@ -36,9 +36,16 @@
    * Focus: the strip is one tab stop (`role=toolbar`, arrows rove); opening
    * from it lands on the panel's active tab, and collapsing (`»`, Escape)
    * gives focus back to the strip.
+   *
+   * The strip is the NOTE's door (devtools-shaping D7, R10): `showStrip`
+   * (the focused tab is a note) gates it, so a view tab or an empty tab
+   * draws no strip. The open floating panel and the pinned column are not
+   * gated. Where the strip would have taken focus — a collapse, or the strip
+   * going while it held focus — `refocus` takes it instead (the focused
+   * pane), so focus never falls to `body`.
    */
   import { ChevronsLeft } from '@lucide/svelte'
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { RAIL_SECTIONS, railForm } from '../layout.js'
   import type { Navigation } from '../navigation.svelte.js'
@@ -54,9 +61,13 @@
     form: 'float' | 'column'
     /** `float`: the editor area the strip measures its place in. */
     area?: HTMLElement | null
+    /** `float`: whether the closed strip is drawn (D7: only over a note). Absent → drawn. */
+    showStrip?: boolean
+    /** `float`: where focus goes when the strip it was meant for is not drawn. */
+    refocus?: () => void
   }
 
-  let { workspace, nav, layout, form, area = null }: Props = $props()
+  let { workspace, nav, layout, form, area = null, showStrip = true, refocus }: Props = $props()
 
   const t = $derived($LL.web.rail)
   const open = $derived(layout.railOpen)
@@ -77,7 +88,14 @@
     layout.railOpen = false
   }
   $effect(() => {
-    if (!handoff.strip || !strip) return
+    if (form !== 'float' || !handoff.strip) return
+    if (!showStrip) {
+      // No strip to land on (a view tab is focused): the pane takes focus.
+      handoff.strip = false
+      requestAnimationFrame(() => refocus?.())
+      return
+    }
+    if (!strip) return
     handoff.strip = false
     // The strip's place was last measured with the panel (or the pinned
     // column) open; measure it as it is now first, so focus lands on the
@@ -90,6 +108,13 @@
         ;(own ?? strip?.querySelector<HTMLElement>('button'))?.focus()
       })
     })
+  })
+
+  // The strip going while it holds focus (a key switched the focused tab to a
+  // view): read before the DOM drops it, then hand focus to the pane.
+  $effect.pre(() => {
+    if (showStrip) return
+    if (untrack(() => strip?.contains(document.activeElement))) void tick().then(() => refocus?.())
   })
 
   // ---- the floating strip's place (form: float) ----
@@ -286,10 +311,11 @@
       </div>
     </aside>
   {/if}
-{:else if !(open && pinnedColumn)}
+{:else if open ? !pinnedColumn : showStrip}
   <!-- A landmark of its own beside `main`, positioned over it: the editor
        area's wrapper is the containing block. Open, the panel hangs off the
-       area's right edge; closed, the strip sits on the anchor pane's body. -->
+       area's right edge; closed, the strip sits on the anchor pane's body —
+       over a note only (D7): a view or an empty tab draws no strip. -->
   <aside
     data-testid="dock-region"
     data-state={open ? 'expanded' : 'collapsed'}

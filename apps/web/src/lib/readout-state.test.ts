@@ -4,10 +4,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { paneAt, strip } from './panes.fixture.js'
-import { focusPane, split, zoom } from './panes.js'
+import { activate, focusPane, openView, panes, split, zoom } from './panes.js'
 import { newGroup } from './groups.js'
 import { getLL } from '@ohhi/i18n'
-import { focusedOf, focusedPeers, leadText, noteStatus, zoomedAway } from './readout-state.js'
+import { focusedIsNote, focusedOf, focusedPeers, leadText, noteStatus, zoomedAway } from './readout-state.js'
 import { readoutTestid, statusBarTestid } from './readouts.js'
 import { slotFor, withNames } from './presence.js'
 import { countWords, readingMinutes } from './words.js'
@@ -47,6 +47,29 @@ describe('focusedOf', () => {
     const f = focusedOf(newGroup(l, pane.id, pane.active!, gen))
     expect(f.path).toBe('b.md')
     expect(f.group).not.toBeNull()
+  })
+})
+
+describe('focusedIsNote (devtools-shaping D7)', () => {
+  it('holds for a note, not for an empty tab or a view tab, and follows focus', () => {
+    expect(focusedIsNote(strip().l)).toBe(false) // the empty tab a pane always holds
+    const { l, gen } = strip('a.md')
+    expect(focusedIsNote(l)).toBe(true)
+    for (const view of ['inspector', 'log', 'shared'] as const) {
+      expect(focusedIsNote(openView(l, view, {}, gen))).toBe(false)
+    }
+    // Back on the note's tab: it holds again.
+    const viewed = openView(l, 'inspector', {}, gen)
+    const pane = paneAt(viewed)
+    const noteTab = pane.tabs.find((t) => t.path === 'a.md')!
+    expect(focusedIsNote(activate(viewed, pane.id, noteTab.id))).toBe(true)
+    // A split, the note on both sides: the Inspector in the focused pane
+    // hides it; focusing the other pane (the note) brings it back.
+    const two = split(l, pane.id, 'row', gen)
+    const inspected = openView(two, 'inspector', {}, gen)
+    expect(focusedIsNote(inspected)).toBe(false)
+    const other = panes(inspected.tree).find((p) => p.id !== inspected.focus)!
+    expect(focusedIsNote(focusPane(inspected, other.id))).toBe(true)
   })
 })
 

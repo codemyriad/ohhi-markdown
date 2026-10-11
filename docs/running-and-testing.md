@@ -282,7 +282,10 @@ close it; pin opens it as the rail column, which offers unpin only, and
 unpinned it is the floating strip again; pinned, the format bar and the
 corner span the panes left of the column; bottom-right, the strip stands
 above the corner count at every width; at a narrow width the strip shrinks to
-its expand button, and Focus mode hides it.
+its expand button, and Focus mode hides it. A view tab draws neither the strip
+nor the format bar and corner (devtools-shaping D7); `e2e/chrome.spec.ts`
+checks it over the Log and the Inspector, and that a note's tab brings them
+back.
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server
@@ -734,20 +737,27 @@ cleanable with `share-rm`/the admin API, or just point the dev relay at a
 fresh `DATA_DIR`. If the vault is open when you remove it, the workspace is
 shut down first; you stay on the manager.
 
-**Sync devtools (M6).** A read-only inspector of any file's disk ↔ CRDT
-state. Enable it with **⚙ Settings → Developer tools** (persisted per
-device) or force it for one session with `?debug=1`. A bottom drawer shows,
-for the selected file: the raw sync-record fields plus the pill status they
-compute to (so you can see *why* a pill is that color); the LCA vs live doc
-heads with an explicit **DOC AHEAD of LCA** marker while a flush is pending;
-LCA facts (content hash — "(never on disk)" for remote-created files — EOL
-flavor, BOM, base-text length); the durable doc blob's size and time since
-last flush (session-local — a blob restored from a previous launch reads
-"never" until its first flush); the pre-image **journal timeline** (every
-guarded disk write, newest first); and the file's mount (room, provenance).
-A footer lists every mount's room, provenance, and entry/doc/LCA/journal
-counts. It refreshes on selection, on record changes, and via its refresh
-button — no polling, and nothing in it can mutate state.
+**Sync devtools (M6).** A read-only inspector of every file's disk ↔ CRDT
+state, opened as a pane tab. Enable it with **⚙ Settings → Developer tools**
+(persisted per device) or force it for one session with `?debug=1`; then
+*Open inspector* in the palette, the bug icon at the toolbar's right, or
+*Inspect this note* in the sync icon's hover card opens it. The list: scope
+chips per mount (each with a health dot), the mount's identity and whether
+`mounts.json` agrees with the live session, then the files as pipeline rows
+(`disk ═══ base ≠≠≠ doc … relay`) in the pill's colours, worst first, with tally
+chips per state that are both the key and the filter. Selecting a row shows
+its detail — the chain, its state in a plain sentence, the three texts and
+their pairwise diffs, the raw facts — as a right column when the
+pane is wide and a drawer over the list when it is narrow; *Open in its own
+tab* moves one file's detail to a tab titled `Inspector · <path>`. **Copy
+report** puts the selected file or every row in scope on the clipboard as
+text for a bug report; the scope's report names the active filters and order
+and counts `N of M rows`. The mount snapshot re-reads when the vault's shape
+changes (files created, deleted or renamed, mounts coming or going), when
+the scope changes and on its refresh button; a record change only re-colours
+the rows and re-reads the selected file. No polling — the snapshot's age is
+re-worded on a clock tick, nothing is read by it — and nothing in it can
+mutate state.
 
 ---
 
