@@ -431,6 +431,9 @@ test('a view tab draws no note chrome: no format bar, no dock strip, no corner c
   await openSettings(page, 'developer')
   await page.getByTestId('settings-devtools').check()
   await closeSettings(page)
+  // Settings is a tab too: closing it focuses its neighbour (the Log), so
+  // come back to the note — the Inspector then opens right after it.
+  await tabNamed(page, 'welcome').click()
   await runCommand(page, 'Open inspector')
   await expect(page.getByTestId('inspector')).toBeVisible()
   await noteChrome(false)
