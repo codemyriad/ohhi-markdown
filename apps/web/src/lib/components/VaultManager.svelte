@@ -32,9 +32,11 @@
   import { melt } from '@melt-ui/svelte'
   import { LL, locale } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
-  import { guideHref } from '../guide.js'
+  import { guideHref, openGuide } from '../guide.js'
+  import type { JoinOutcome } from '../manager.svelte.js'
   import type { SettingsSection } from '../settings.js'
   import { realClock } from '../real-clock.js'
+  import type { Probe } from '../relay-check.js'
   import { formatBytes } from '../storage-persistence.js'
   import { storageState } from '../storage.svelte.js'
   import { openedWhen, type VaultFacts } from '../vault-facts.js'
@@ -49,6 +51,7 @@
   import TextControl from '../ui/TextControl.svelte'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
+  import HelpMenu from './HelpMenu.svelte'
   import ImportDialog from './ImportDialog.svelte'
 
   interface Props {
@@ -78,7 +81,12 @@
     onRenameVault?: (room: string, name: string) => void
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
-    onJoin: (name: string, link: string) => void
+    /**
+     * Open a share as its own vault. Resolving the join's outcome lets the
+     * Add dialog keep the paste when the desktop folder picker is cancelled
+     * (`cancelled`) and say why when it failed (`failed`).
+     */
+    onJoin: (name: string, link: string) => void | Promise<JoinOutcome | void>
     /**
      * The vault open behind the manager, offered by *Add a shared folder* as
      * a destination beside "as its own vault" (sharing E4); null = none open.
@@ -98,6 +106,8 @@
     onDismissStorage: () => void
     /** The wall clock, for "opened today". */
     now?: () => number
+    /** The Add dialog's relay health check; tests hand in a fake (default: the network). */
+    probe?: Probe
   }
 
   let {
@@ -129,6 +139,7 @@
     onKeepStorage,
     onDismissStorage,
     now = () => realClock.now(),
+    probe,
   }: Props = $props()
 
   const t = $derived($LL.web.manager)
@@ -195,8 +206,23 @@
     newVaultOpen = false
   }
 
-  function openGuide(): void {
-    window.open(guideHref('start'), '_blank', 'noreferrer')
+  /**
+   * The guide link: a real anchor in the browser (a new tab, as `openGuide`
+   * opens one there); on the desktop, where an anchor's new tab goes nowhere
+   * (no opener plugin), `openGuide`'s own window instead.
+   */
+  function onGuide(e: MouseEvent): void {
+    if (!isTauri) return
+    e.preventDefault()
+    void openGuide('start')
+  }
+
+  /** The Add dialog's "as its own vault": the TYPED name, and the join's outcome back to the dialog. */
+  async function joinAsVault(link: string, typed: string): Promise<boolean | void> {
+    const outcome = await onJoin(typed, link)
+    if (!outcome) return
+    if (outcome.kind === 'cancelled') return false
+    if (outcome.kind === 'failed') throw new Error(outcome.message)
   }
 
   /** Focus a control the moment it appears (the browser door's name field). */
@@ -302,6 +328,25 @@
   />
 {/snippet}
 
+<!-- The Help menu, not just the guide, in both states: Report a problem must
+     be reachable from here, where a vault that will not open leaves people. -->
+{#snippet helpButton()}
+  <HelpMenu testid="manager-help">
+    {#snippet trigger(attrs)}
+      <button
+        use:melt={attrs}
+        type="button"
+        aria-label={t.help()}
+        title={t.help()}
+        data-testid="manager-help"
+        class="inline-flex shrink-0 items-center rounded p-1.5 text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <CircleQuestionMark size={18} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    {/snippet}
+  </HelpMenu>
+{/snippet}
+
 {#snippet topError()}
   {#if failure && !failure.room}
     <p role="alert" data-testid="manager-error" class="rounded bg-error/10 px-3 py-2 text-sm text-error">
@@ -324,13 +369,7 @@
         {#if canGoBack}
           <button data-testid="manager-back" onclick={onBack} class={chrome}>{t.back()}</button>
         {/if}
-        <IconButton
-          label={t.help()}
-          icon={CircleQuestionMark}
-          size="md"
-          testid="manager-help"
-          onclick={openGuide}
-        />
+        {@render helpButton()}
         {@render settingsButton()}
       </div>
     </header>
@@ -429,7 +468,7 @@
               {w.agents()}
             </button>
           {/if}
-          <a href={guideHref('start')} target="_blank" rel="noreferrer" data-testid="manager-guide" class={textLink}>
+          <a href={guideHref('start')} target="_blank" rel="noreferrer" onclick={onGuide} data-testid="manager-guide" class={textLink}>
             {w.guide()}
           </a>
         </span>
@@ -475,6 +514,7 @@
             <MenuItem {item} testid="open-import" onSelect={() => (importOpen = true)}>{l.add_import()}</MenuItem>
           {/snippet}
         </DropdownMenu>
+        {@render helpButton()}
         {@render settingsButton()}
       </div>
     </header>
@@ -668,7 +708,7 @@
 
       <footer class="mt-1 flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-base-content/70">
         <p data-testid="manager-identity">
-          {l.identity({ name: name || 'Anonymous' })}
+          {l.identity({ name: name || t.anonymous() })}
           ·
           <button type="button" data-testid="manager-identity-change" onclick={() => onSettings()} class={textLink}>
             {l.identity_change()}
@@ -709,7 +749,7 @@
               data-testid="remembered-share:{share.room}"
               onclick={() => {
                 rememberedAnchor = null
-                onJoin(name, share.link)
+                void onJoin(name, share.link)
               }}
               disabled={busy}
               class="min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-sm leading-5 text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
@@ -742,8 +782,9 @@
     initialWhere="own"
     {isTauri}
     onJoinIntoVault={joinInto?.join ?? null}
-    onJoinAsVault={(link) => onJoin(name, link)}
+    onJoinAsVault={joinAsVault}
     onClose={() => (joinOpen = false)}
+    {probe}
   />
 {/if}
 

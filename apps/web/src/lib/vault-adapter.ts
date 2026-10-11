@@ -51,6 +51,29 @@ export async function buildStoreDir(source: VaultSourceDesc, room: string): Prom
 }
 
 /**
+ * The vault's store namespace if it already exists on this device, else
+ * null — a READ that never creates `stores/<room>` (first-run B1's row
+ * facts). `buildStoreDir` creates the directory, which is right for a boot
+ * but wrong for a glance: reading every row's facts would leave a skeleton
+ * behind for each, and racing `forgetVaultState` could recreate a namespace
+ * just wiped. Memory mode has no durable namespace: null.
+ */
+export async function openStoreDirIfExists(source: VaultSourceDesc, room: string): Promise<StoreDir | null> {
+  switch (source.kind) {
+    case 'memory':
+      return null
+    case 'tauri': {
+      const { openTauriStoreDirIfExists } = await import('./store-dirs/tauri-store-dir.js')
+      return await openTauriStoreDirIfExists(room)
+    }
+    case 'opfs': {
+      const { openOpfsStoreDirIfExists } = await import('./store-dirs/opfs-store-dir.js')
+      return await openOpfsStoreDirIfExists(room)
+    }
+  }
+}
+
+/**
  * Forget a vault's SYNC STATE: delete its entire store namespace
  * (`stores/<room>` — mounts.json plus every mount's subnamespace) so the next
  * open of the same folder enrolls fresh under a new room. Disk `.md` files

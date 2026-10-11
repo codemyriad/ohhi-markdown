@@ -11,8 +11,13 @@ import { relayHost } from '@ohhi/workspace'
 import { DEFAULT_RELAY, DEFAULT_RELAY_CONFIGURED } from './config.js'
 import { probeRelay, type ProbeResult } from './relay-probe.js'
 
-/** What a surface shows: still asking, the health check answered, or it did not. */
-export type RelayCheck = 'pending' | 'ok' | 'down'
+/**
+ * What a surface shows: still asking, the health check answered `ok`, the
+ * relay answered but says it is not healthy, or nothing answered in time.
+ * `unhealthy` is not `down`: the relay WAS reached, so "join the tailnet" is
+ * the wrong advice for it.
+ */
+export type RelayCheck = 'pending' | 'ok' | 'unhealthy' | 'down'
 
 /** A probe a surface can be handed (tests pass a fake); `signal` aborts it. */
 export type Probe = (relayWsUrl: string, signal: AbortSignal) => Promise<ProbeResult>
@@ -39,12 +44,16 @@ export const defaultProbe: Probe = (relayWsUrl, signal) =>
  * after it, the answer (if one still arrives) is dropped and the request is
  * aborted.
  */
-export function checkRelay(relay: string, probe: Probe, onResult: (check: 'ok' | 'down') => void): () => void {
+export function checkRelay(
+  relay: string,
+  probe: Probe,
+  onResult: (check: Exclude<RelayCheck, 'pending'>) => void
+): () => void {
   const controller = new AbortController()
   let live = true
   probe(relay, controller.signal).then(
     (r) => {
-      if (live) onResult(r.ok ? 'ok' : 'down')
+      if (live) onResult(r.ok ? 'ok' : r.reason === 'unhealthy' ? 'unhealthy' : 'down')
     },
     () => {
       if (live) onResult('down')

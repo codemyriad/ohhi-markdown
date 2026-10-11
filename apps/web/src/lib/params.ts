@@ -131,9 +131,58 @@ export function colorFor(name: string): string {
  * the URL form is pasted into *Add a shared folder*, whose codec reads it.
  * An empty or damaged fragment still returns the address: the page shows
  * its error state rather than falling through to the manager.
+ *
+ * A bare `/join` in a tab that already showed a link (`settleJoinAddress`
+ * held it) answers with that link, so "reload this page" still works after
+ * the token has left the address bar.
  */
-export function joinPageLink(loc: { pathname: string; href: string }, desktop: boolean): string | null {
+export function joinPageLink(
+  loc: { pathname: string; href: string },
+  desktop: boolean,
+  store: Storage | null = sessionStore()
+): string | null {
   if (desktop) return null
   if (loc.pathname !== '/join' && loc.pathname !== '/join/') return null
+  const hash = loc.href.indexOf('#')
+  if (hash < 0 || hash === loc.href.length - 1) {
+    try {
+      const held = store?.getItem(K_JOIN_LINK) ?? null
+      if (held) return held
+    } catch {
+      /* private mode — nothing held */
+    }
+  }
   return loc.href
+}
+
+const K_JOIN_LINK = 'ohhi:join-link'
+
+/**
+ * Take the link out of the address bar the moment the join page shows (R2):
+ * the address becomes `/join`, REPLACING the entry, so the token is in
+ * neither the address bar nor Back's history, whichever way the person
+ * leaves (the recommended desktop path is *Copy* and close the tab). The
+ * link is held in this tab's sessionStorage — gone when the tab closes — so
+ * a reload of `/join` shows the same page (`joinPageLink`).
+ */
+export function settleJoinAddress(
+  link: string,
+  hist: Pick<History, 'replaceState'>,
+  store: Storage | null = sessionStore()
+): void {
+  try {
+    store?.setItem(K_JOIN_LINK, link)
+  } catch {
+    /* private mode — a reload shows the page's error state instead */
+  }
+  hist.replaceState({}, '', '/join')
+}
+
+/** Forget the held link: the join page has been left for the manager. */
+export function dropJoinLink(store: Storage | null = sessionStore()): void {
+  try {
+    store?.removeItem(K_JOIN_LINK)
+  } catch {
+    /* nothing held */
+  }
 }

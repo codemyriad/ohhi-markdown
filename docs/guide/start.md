@@ -13,13 +13,15 @@ with other people and edit it together, live.
 
 This page takes about two minutes.
 
-## Install the app
+## Install
 
 Use the desktop app for your own notes. A browser works too, but keeps its
 notes inside the browser (see [the browser](#or-use-a-browser) below).
 
-Download the newest release from the releases page your team uses (ask the
-person who shared Oh hi markdown with you if you don't have the link).
+**Where the builds are.** If your team runs its own host for Oh hi markdown,
+that host serves every release under `/updates/` — the person who set it up
+has the link. Releases are also attached in the repository, for those who
+have access to it. Download the newest one for your computer.
 
 **macOS**
 
@@ -67,9 +69,21 @@ Coming from Notion, Apple Notes, Bear or Logseq? See
 
 ## Add a folder someone shared with you
 
-Someone sends you a link to a folder. Choose *Add a folder someone shared with
-you*, paste the link, and pick where it goes: inside a vault you already have,
-or as a vault of its own (the app asks for an empty folder to put it in).
+Someone sends you a link to a folder, usually inside a short message. There
+are two kinds, and both work:
+
+- **A web address** (`https://<host>/join#editor1:…`). Click it. A page opens
+  that says who sent it, what you get (everything inside the folder, live)
+  and whether the relay answers from where you are. Then choose:
+  - *In the desktop app*: **Copy link**, then open Oh hi markdown and choose
+    *Add a folder someone shared with you*; the link is ready to paste.
+  - *In this browser*: **Add here** adds it to a vault in this browser.
+- **Bare text** starting with `editor1:`. Copy it, open the app, choose
+  *Add a folder someone shared with you* and paste it.
+
+Either way, the app then asks where the folder goes: inside a vault you
+already have, or as a vault of its own (the app asks for an empty folder to
+put it in).
 
 The folder syncs through a relay, the small server your team runs. You need
 to be able to reach it: on a team setup that usually means being on the
@@ -106,7 +120,7 @@ The **question mark** at the right end of the toolbar opens Help:
 - **Keyboard shortcuts**, which opens Settings › Keys;
 - **What's new**, the changes in the version you are running;
 - **Report a problem…**, which copies a short report with the facts someone
-  needs to help you. Paste it in your team chat.
+  needs to help you. Paste it wherever you ask for help.
 
 Everything Help does is also in the command palette (`Ctrl+Shift+P`, or
 `Cmd+Shift+P` on a Mac).

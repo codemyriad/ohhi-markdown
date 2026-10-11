@@ -95,16 +95,26 @@ export function startUpdateChecks(host: UpdaterHost, intervalMs = UPDATE_INTERVA
 }
 
 /**
+ * What *What changed* opens, or null when there is nothing honest to open.
+ * Only a team build has one: its host serves the page of the release the
+ * update came from. A generic build has only the bundled `changes` page,
+ * which describes the build still running, not the update — so its toast
+ * offers no *What changed* (the Help menu's *What's new* still opens the
+ * bundled page, which is honest there: it describes the running version).
+ */
+export function changesOpener(teamHost: string | null | undefined): (() => void) | null {
+  return teamHost ? () => void openGuide('changes', { host: teamHost }) : null
+}
+
+/**
  * The offer: a toast that stays until dismissed, with Restart and — first-run
- * E2 — *What changed*, which opens the `changes` guide page (the same page as
- * the Help menu's *What's new*). Opened from here,
- * on a team build it is read from the team host, which serves the release the
- * update came from (the bundled copy describes the build still running).
+ * E2, on a team build only — *What changed*, which opens the team host's
+ * `changes` guide page (see `changesOpener`).
  */
 export function offerRestart(
   version: string,
   restart: () => void,
-  showChanges: () => void = () => void openGuide('changes', TEAM_HOST ? { host: TEAM_HOST } : {})
+  showChanges: (() => void) | null = changesOpener(TEAM_HOST)
 ): void {
   const t = getLL().web.ui
   toast(
@@ -113,7 +123,7 @@ export function offerRestart(
       title: t.update_ready(),
       description: t.update_ready_body({ version }),
       action: { label: t.restart(), run: restart },
-      secondary: { label: t.what_changed(), run: showChanges },
+      ...(showChanges ? { secondary: { label: t.what_changed(), run: showChanges } } : {}),
     },
     0
   )

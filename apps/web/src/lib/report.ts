@@ -1,7 +1,7 @@
 /**
  * Report a problem (first-run-shaping E3): one sentence from the person plus
- * the facts `docs/guide/recovery.md` asks for, as plain text to paste in the
- * team chat. The app copies it to the clipboard and sends it nowhere
+ * the facts `docs/guide/recovery.md` asks for, as plain text to paste
+ * wherever the person asks for help. The app copies it to the clipboard and sends it nowhere
  * (Question 4, answered: clipboard only).
  *
  * NEVER note content. Every line is built from metadata the shell already

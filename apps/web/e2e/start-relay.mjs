@@ -14,6 +14,10 @@ const child = spawn('node', ['--experimental-strip-types', 'src/main.ts'], {
     ...process.env,
     PORT: '8799',
     DATA_DIR: dataDir,
+    // The team's secret (the relay's operator secret): with it set, the admin
+    // API answers, so a spec can check a secret ("works" / "doesn't match")
+    // and complete a real first share (shared.spec, a11y.spec's share sheet).
+    OPERATOR_SECRET: 'e2e-operator-secret',
     // e2eroom: the collab smoke. chrome-tree: chrome.spec's tree test, which
     // needs an AUTHORISED room to show a green note (the other memory rooms
     // are rejected by design and stay offline). panes-sync: the two-panes

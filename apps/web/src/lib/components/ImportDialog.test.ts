@@ -4,12 +4,18 @@
  * the desktop opens a folder in place, the browser says it cannot, and the
  * two export routes point at the import guide.
  */
-import { cleanup, render, screen, within } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
-import { guideHref } from '../guide.js'
+import { guideHref, openGuide } from '../guide.js'
 import ImportDialog from './ImportDialog.svelte'
+
+// `openGuide` is the one way a guide opens; the desktop's link must go through it.
+vi.mock('../guide.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../guide.js')>()),
+  openGuide: vi.fn(async () => {}),
+}))
 
 afterEach(() => {
   cleanup()
@@ -59,6 +65,14 @@ describe('ImportDialog', () => {
       expect(a.getAttribute('target')).toBe('_blank')
       expect(a.getAttribute('rel')).toBe('noreferrer')
     }
+  })
+
+  it('on the desktop a guide link opens through openGuide, not a new tab that goes nowhere', async () => {
+    open(true)
+    const [a] = screen.getAllByRole('link', { name: t.guide() })
+    // fireEvent returns false when the default (the anchor's new tab) was prevented.
+    expect(await fireEvent.click(a!)).toBe(false)
+    expect(openGuide).toHaveBeenCalledExactlyOnceWith('import')
   })
 
   it('closes on its own close button', async () => {

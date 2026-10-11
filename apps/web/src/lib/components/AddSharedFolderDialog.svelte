@@ -58,10 +58,12 @@
     onJoinIntoVault: ((link: string, destPath: string) => Promise<void>) | null
     /**
      * Open the share as its own vault (the manager's join). A rejection's
-     * message is shown in the dialog, which stays open with the paste.
+     * message is shown in the dialog, which stays open with the paste;
+     * resolving `false` keeps it open silently (the desktop folder picker was
+     * cancelled — nothing happened, and the paste must not be lost).
      * `name` is the "Your name" field's value, already saved (`saveUser`).
      */
-    onJoinAsVault: (link: string, name: string) => void | Promise<void>
+    onJoinAsVault: (link: string, name: string) => void | boolean | Promise<void | boolean>
     onClose: () => void
     /** The desktop app (an OS folder picker follows "as its own vault") or the browser. */
     isTauri: boolean
@@ -159,11 +161,14 @@
   const probeLine = $derived.by(() => {
     if (check === 'pending') return t.probe_checking()
     if (check === 'ok') return t.probe_ok()
+    // Reached: the network note would be the wrong advice.
+    if (check === 'unhealthy') return t.probe_unhealthy()
     const note = teamHost !== null && fromHost === teamHost ? networkNote : ''
     return note ? t.probe_down_note({ note }) : t.probe_down()
   })
 
   async function join(): Promise<void> {
+    let keepOpen = false
     const ok = await form.submit(async ({ link, where, dest, name }) => {
       // Saved when the join starts (Fork 5-A); a blank name keeps the saved one.
       saveUser(name)
@@ -173,7 +178,7 @@
         // it starts; this field is the one the person just answered, so it
         // is saved again, last.
         saveUser(name)
-        await joined
+        if ((await joined) === false) keepOpen = true
         return
       }
       // The rendering site is where a codec error code becomes a sentence.
@@ -183,7 +188,7 @@
         throw new Error(shareLinkErrorText(err))
       }
     })
-    if (ok) onClose()
+    if (ok && !keepOpen) onClose()
   }
 
   const radio = 'flex cursor-pointer items-start gap-2 rounded border border-base-300 p-2 hover:bg-base-200'
@@ -215,7 +220,7 @@
       {#if linkLine}
         <Description>
           <span data-testid="add-share-about">{linkLine}</span>
-          · <span data-testid="add-share-probe" data-check={check}>{probeLine}</span>
+          · <span role="status" data-testid="add-share-probe" data-check={check}>{probeLine}</span>
         </Description>
       {/if}
       <FieldErrors />
@@ -311,7 +316,7 @@
         type="submit"
         data-testid="add-share-join"
         disabled={form.busy}
-        class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
+        class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
       >
         {form.busy ? t.joining() : t.join()}
       </button>

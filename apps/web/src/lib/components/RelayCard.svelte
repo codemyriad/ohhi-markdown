@@ -21,8 +21,13 @@
    * *Change…* / *Use another…*, and it says the build syncs through this host
    * only (R10).
    *
-   * The state dot is a SYNC dot (the unlayered `.ed-sync-dot` keyed on
-   * `data-status`), never a presence colour: no theme can repaint it.
+   * Only the CONNECTED state draws the SYNC dot (the unlayered `.ed-sync-dot`
+   * keyed on `data-status`; no theme can repaint it), and only connected AND
+   * in sync with the relay is green (golden rule 4). A probe says nothing
+   * about sync, so it never borrows a sync colour: it draws a neutral mark in
+   * ordinary tokens, and its words carry the answer.
+   *
+   * The status line is a polite live region, so a *Test* result is heard.
    *
    * Timing (the probe's debounce and timeout, the "checked …" wording) runs
    * on the injected clock (golden rule 5), so tests drive it.
@@ -31,7 +36,8 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Clock } from '@ohhi/vault'
   import { relayHost, type SharedSnapshot } from '@ohhi/workspace'
-  import { guideHref } from '../guide.js'
+  import { guideHref, openGuide } from '../guide.js'
+  import { isTauri } from '../platform.js'
   import type { PillStatus } from '../pill-status.js'
   import { realClock } from '../real-clock.js'
   import { probeRelay, type ProbeResult } from '../relay-probe.js'
@@ -131,22 +137,32 @@
   /** What the card's `data-state` says (tests and e2e read it). */
   const cardState = $derived(mode === 'none' ? 'none' : mode === 'connected' ? connection!.state : probeState)
 
-  /** The dot, in sync colours only. */
+  /** The connected dot, in sync colours: green only when connected and in sync with the relay. */
   const dot = $derived<PillStatus>(
-    mode === 'connected'
-      ? connection!.state === 'connected'
-        ? connection!.inSyncSince !== undefined
-          ? 'green'
-          : 'yellow'
-        : connection!.state === 'refused'
-          ? 'red'
-          : 'offline'
-      : probeState === 'reachable'
+    connection?.state === 'connected'
+      ? connection.inSyncSince !== undefined
         ? 'green'
-        : probeState === 'unhealthy'
-          ? 'red'
-          : 'offline'
+        : 'yellow'
+      : connection?.state === 'refused'
+        ? 'red'
+        : 'offline'
   )
+
+  /** The probe's neutral mark: filled when the health check answered, hollow otherwise. */
+  const probeMark = $derived(
+    probeState === 'reachable'
+      ? 'bg-base-content/70'
+      : probeState === 'checking'
+        ? 'border border-base-content/40'
+        : 'border border-base-content/70'
+  )
+
+  /** A guide link stays a real link; on the desktop (no opener) it opens the guide's own window. */
+  function guideClick(e: MouseEvent): void {
+    if (!isTauri()) return
+    e.preventDefault()
+    void openGuide('relay')
+  }
 
   const button = `${OUTLINE_BUTTON} px-2 py-0.5 text-xs text-base-content/80`
   const link =
@@ -161,12 +177,27 @@
     {#if mode === 'none'}
       <p data-testid="relay-host" class="m-0 text-sm font-medium">{t.none_host()}</p>
       <p data-testid="relay-state" class="m-0 text-xs text-base-content/80">{t.none_body()}</p>
-      <a data-testid="relay-guide" href={guideHref('relay')} target="_blank" rel="noreferrer" class="justify-self-start {link}"
+      <a
+        data-testid="relay-guide"
+        href={guideHref('relay')}
+        target="_blank"
+        rel="noreferrer"
+        onclick={guideClick}
+        class="justify-self-start {link}"
         >{t.guide()}</a
       >
     {:else}
       <p class="m-0 flex min-w-0 items-center gap-2">
-        <span class="ed-sync-host items-center" data-status={dot}><span class="ed-sync-dot" aria-hidden="true"></span></span>
+        {#if mode === 'connected'}
+          <span class="ed-sync-host items-center" data-status={dot}><span class="ed-sync-dot" aria-hidden="true"></span></span>
+        {:else}
+          <span
+            data-testid="relay-probe-mark"
+            data-mark={probeState}
+            aria-hidden="true"
+            class="inline-block size-2 shrink-0 rounded-full {probeMark}"
+          ></span>
+        {/if}
         <span data-testid="relay-host" class="truncate font-ed-mono text-sm font-medium">{host || r.unknown_host()}</span>
         {#if isTeam}
           <span data-testid="relay-team" class="shrink-0 rounded border border-base-300 px-1 text-[11px] text-base-content/80"
@@ -174,7 +205,7 @@
           >
         {/if}
       </p>
-      <p data-testid="relay-state" class="m-0 text-xs text-base-content/80">
+      <p data-testid="relay-state" role="status" class="m-0 text-xs text-base-content/80">
         {#if mode === 'connected' && connection}
           {#if connection.state === 'refused'}
             {connection.reason ? r.refused_reason({ reason: connection.reason }) : r.state.refused()}

@@ -135,7 +135,7 @@
           type="submit"
           data-testid="create-device-link"
           disabled={form.busy}
-          class="w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
+          class="w-full rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content disabled:opacity-50"
         >
           {form.busy ? t.creating() : t.create()}
         </button>

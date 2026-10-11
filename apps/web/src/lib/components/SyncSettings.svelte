@@ -19,13 +19,14 @@
     TEAM_HOST,
     TEAM_NETWORK_NOTE,
     defaultRelay,
+    ignoredSavedRelay,
     isRelayUrl,
     operatorSecret,
     relayKnown,
     setDefaultRelay,
     setOperatorSecret,
   } from '../config.js'
-  import { guideHref } from '../guide.js'
+  import { guideHref, openGuide } from '../guide.js'
   import { realClock } from '../real-clock.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
   import { formatBytes, notGuaranteed } from '../storage-persistence.js'
@@ -82,12 +83,17 @@
 
   // ---- the relay ----
   /** The relay as saved (or the build's default): the address field commits against it. */
-  let shownRelay = $state(defaultRelay())
-  let relay = $state(defaultRelay())
+  // svelte-ignore state_referenced_locally -- seed only; the pin is fixed at build time
+  let shownRelay = $state(defaultRelay(pinnedHost))
+  // svelte-ignore state_referenced_locally -- seed only
+  let relay = $state(defaultRelay(pinnedHost))
+  /** A relay saved before this build was pinned, which the pin now ignores ('' = none). */
+  // svelte-ignore state_referenced_locally -- seed only
+  const ignoredRelay = ignoredSavedRelay(pinnedHost)
   let relayErrors = $state<string[]>([])
   /** Whether a relay is known at all; a pinned build always knows its one. */
   // svelte-ignore state_referenced_locally -- seed only; the pin is fixed at build time
-  let syncRelayKnown = $state(relayKnown() || !!pinnedHost)
+  let syncRelayKnown = $state(relayKnown(pinnedHost) || !!pinnedHost)
   /** The address field: open with nothing known, after *Change…*, and — read-only — always when pinned. */
   // svelte-ignore state_referenced_locally -- seed only
   let relayOpen = $state(!syncRelayKnown || !!pinnedHost)
@@ -108,9 +114,10 @@
     relayErrors = []
     if (next === shownRelay) return true
     setDefaultRelay(next)
-    shownRelay = defaultRelay()
+    shownRelay = defaultRelay(pinnedHost)
     relay = shownRelay
-    syncRelayKnown = relayKnown() || !!pinnedHost
+    secretTypedFor = null
+    syncRelayKnown = relayKnown(pinnedHost) || !!pinnedHost
     onConfigChange?.()
     return true
   }
@@ -122,7 +129,7 @@
     if (secret === storedSecret) return
     setOperatorSecret(secret)
     storedSecret = secret
-    syncRelayKnown = relayKnown() || !!pinnedHost
+    syncRelayKnown = relayKnown(pinnedHost) || !!pinnedHost
     onConfigChange?.()
   }
 
@@ -136,6 +143,15 @@
 
   /** The relay the card is about: the field's when it is a relay URL, else the saved one. */
   const cardRelay = $derived(isRelayUrl(relay.trim()) ? relay.trim() : shownRelay)
+  /**
+   * The relay the secret may be checked against. The SAVED secret only ever
+   * goes to the SAVED relay: while the address field holds another one (a
+   * paste, a typo, a `ws://` host), only a secret typed after that edit is
+   * checked there — never the one saved for the team's relay. Committing the
+   * address makes the new relay the saved one.
+   */
+  let secretTypedFor = $state<string | null>(null)
+  const secretRelay = $derived(cardRelay === shownRelay ? shownRelay : secretTypedFor === cardRelay ? cardRelay : '')
   const cardConnection = $derived(
     relays.find((r) => r.host && r.host.toLowerCase() === (relayHost(cardRelay) ?? '').toLowerCase()) ?? null
   )
@@ -197,9 +213,15 @@
       <Description>{pinnedHost ? t.sync.relay_pinned_hint() : `${t.sync.relay_hint()} ${t.sync.relay_commit_hint()}`}</Description>
       <FieldErrors />
     </Field>
+    {#if pinnedHost && ignoredRelay}
+      <p data-testid="settings-relay-ignored" class="text-xs text-base-content/80">
+        {t.sync.relay_pinned_saved_ignored({ saved: ignoredRelay, host: pinnedHost })}
+      </p>
+    {/if}
   {/if}
   <RelaySecretField
-    relayUrl={cardRelay}
+    relayUrl={secretRelay}
+    oninput={() => (secretTypedFor = cardRelay)}
     bind:value={secret}
     onblur={commitSecret}
     placeholder={t.sync.secret_placeholder()}
@@ -235,8 +257,18 @@
     {pinnedHost ? t.sync.running_pinned({ host: pinnedHost }) : t.sync.running_body()}
   </p>
   {#if !pinnedHost}
-    <a href={guideHref('relay')} target="_blank" rel="noreferrer" data-testid="settings-relay-guide" class={textLink}
-      >{t.sync.running_guide()}</a
+    <a
+      href={guideHref('relay')}
+      target="_blank"
+      rel="noreferrer"
+      onclick={(e) => {
+        // The desktop has no opener: a guide opens in its own window.
+        if (!desktop) return
+        e.preventDefault()
+        void openGuide('relay')
+      }}
+      data-testid="settings-relay-guide"
+      class={textLink}>{t.sync.running_guide()}</a
     >
   {/if}
 </section>

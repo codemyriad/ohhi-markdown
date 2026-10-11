@@ -175,6 +175,22 @@ describe('createManager', () => {
     expect(session.joining?.kind).toBe('device')
   })
 
+  it('join tells a cancelled folder picker from a failure and from a join that went ahead', async () => {
+    picked = null
+    expect(await manager.join('chris', FOLDER_LINK)).toEqual({ kind: 'cancelled' })
+    expect(await manager.join('chris', DEVICE_LINK)).toEqual({ kind: 'cancelled' })
+    expect(session.booted).toEqual([])
+    expect(session.failure).toBeNull()
+    expect(session.busy).toBe(false)
+
+    const failed = await manager.join('chris', 'not a link')
+    expect(failed).toEqual({ kind: 'failed', message: session.failure?.message })
+
+    picked = '/home/chris/vault'
+    expect(await manager.join('chris', FOLDER_LINK)).toEqual({ kind: 'started' })
+    expect(session.booted[0]!.room).toBe(ROOM)
+  })
+
   it('linkThisDevice merges the grants and stores the device key BEFORE the boot', async () => {
     let tokensAtBoot: [string, string] | null = null
     session.boot = async () => {

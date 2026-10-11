@@ -5,7 +5,7 @@
    * build, the platform, the vault, the relay, the open note's path and its
    * pill words, the Log's last events; never note content), and *Copy
    * report*. The app sends nothing anywhere (Question 4: clipboard only), so
-   * nothing here says "sent": the person pastes it in the team chat.
+   * nothing here says "sent": the person pastes it wherever they ask for help.
    *
    * The clipboard write runs inside the click handler (the user gesture a
    * browser requires). When the clipboard refuses, the whole report appears
@@ -80,8 +80,13 @@
       </p>
     </section>
 
+    <!-- One live region, in the DOM from mount: a screen reader announces a
+         change to an existing status, not a status that arrives with its text. -->
+    <p role="status" data-testid="report-status" class="text-xs text-base-content/80">
+      {#if fallback !== null}{t.copy_failed()}{:else if copied}<span data-testid="report-copied">{t.copied()}</span
+        >{/if}
+    </p>
     {#if fallback !== null}
-      <p role="status" class="text-xs text-base-content/80">{t.copy_failed()}</p>
       <textarea
         bind:this={fallbackEl}
         readonly
@@ -91,8 +96,6 @@
         class="w-full rounded border border-base-300 bg-base-100 p-2 font-ed-mono text-[11px] text-base-content"
         >{fallback}</textarea
       >
-    {:else if copied}
-      <p role="status" data-testid="report-copied" class="text-xs text-base-content/80">{t.copied()}</p>
     {/if}
 
     <div class="flex justify-end gap-2">
@@ -108,7 +111,7 @@
         type="button"
         data-testid="report-copy"
         onclick={() => void copy()}
-        class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90"
+        class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content"
       >
         {t.copy()}
       </button>

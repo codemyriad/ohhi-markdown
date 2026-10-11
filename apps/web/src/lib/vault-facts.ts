@@ -12,14 +12,15 @@
  *
  * For the vault open behind the manager the live `workspace.ui.mounts` is
  * used instead (`factsFromUi`); for the rest, one small JSON read each
- * (`readVaultFacts`). An unreadable table is `null`: the row says "—",
- * never zero.
+ * (`readVaultFacts`), which never creates the namespace it reads. An
+ * unreadable table is `null`: the row says "—", never zero; a vault with no
+ * namespace here yet has no mounts, so zero is true.
  */
 import { roomRelayUrl } from '@ohhi/workspace'
-import { MountsFile, type MountDesc } from '@ohhi/vault'
+import { MountsFile, type MountDesc, type StoreDir } from '@ohhi/vault'
 import { defaultRelay, roomRelay, type VaultEntry } from './config.js'
 import { isForeignMount } from './share-status.js'
-import { buildStoreDir } from './vault-adapter.js'
+import { openStoreDirIfExists } from './vault-adapter.js'
 
 export interface VaultFacts {
   /** Folders carved out of this vault and shared by you. */
@@ -51,10 +52,19 @@ export function factsFromUi(mounts: readonly { path: string; provenance: MountDe
   return facts
 }
 
-/** Read a vault's mount table through the same store-dir builders the boot uses. */
-export async function readMountTable(entry: VaultEntry): Promise<MountDesc[]> {
+/**
+ * Read a vault's mount table from its store namespace, WITHOUT creating it: a
+ * vault never booted on this device has no namespace, so no mounts — an
+ * empty table, which is true (nothing shared here), not unknown. `open` is
+ * injected for the tests.
+ */
+export async function readMountTable(
+  entry: VaultEntry,
+  open: (source: VaultEntry['vault'], room: string) => Promise<StoreDir | null> = openStoreDirIfExists
+): Promise<MountDesc[]> {
   if (entry.vault.kind === 'memory') return [] // per-boot stores: nothing durable to read
-  const dir = await buildStoreDir(entry.vault, entry.room)
+  const dir = await open(entry.vault, entry.room)
+  if (!dir) return []
   return await new MountsFile(dir.io('mounts.json')).load()
 }
 

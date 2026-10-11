@@ -354,6 +354,12 @@ test('the join-a-share dialog is accessible', async ({ page }) => {
   await expect(page.getByTestId('add-share-dialog')).toBeVisible()
   await expectAccessible(page, 'add a shared folder')
 
+  // A valid link pasted: the dialog says what it is and probes the relay.
+  await page.getByTestId('add-share-link').fill(encodeShareLink({ relay: RELAY, room: 'join-page', token: 'join-token', label: 'team/notes', from: 'Sam' }))
+  await expect(page.getByTestId('add-share-about')).toBeVisible()
+  await expect(page.getByTestId('add-share-probe')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
+  await expectAccessible(page, 'add a shared folder (valid link)')
+
   // …and with both fields refused, so the error wiring is in the DOM too.
   await page.getByTestId('add-share-link').fill('not a link')
   await page.getByTestId('add-share-join').click()
@@ -381,12 +387,20 @@ test('the join page is accessible', async ({ page }) => {
   await page.goto('/join#editor1:damaged')
   await expect(page.getByTestId('join-error')).toBeVisible()
   await expectAccessible(page, 'join page (damaged link)')
+
+  // A device link: the page says what it is and routes it to *Link this device*.
+  await page.goto('about:blank')
+  await page.goto(`/join#${encodeDeviceLink({ relay: RELAY, room: 'a11y-join-device', token: 'nope', label: 'Work', from: 'Sam' })}`)
+  await expect(page.getByTestId('join-device-body')).toBeVisible()
+  await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
+  await expectAccessible(page, 'join page (device link)')
 })
 
 /**
- * The share sheet's first run (sharing E4): with no operator secret yet, the
+ * The share sheet's first run (sharing E4): with no team's secret yet, the
  * relay is met inline — two more fields and a refusal, in a dialog that also
- * carries the honesty paragraph.
+ * carries the honesty paragraph — and then the share done block, after a real
+ * first share (the e2e relay runs with `e2e-operator-secret`).
  */
 test('the share sheet, first run, is accessible', async ({ page }) => {
   await openApp(page, 'a11y-share-sheet')
@@ -402,25 +416,39 @@ test('the share sheet, first run, is accessible', async ({ page }) => {
   await expectAccessible(page, 'share sheet (first run)')
 
   // First-run D1/D2: this build knows no relay, so the card says none and the
-  // address field is open; typed, the card probes it. The e2e relay runs with
-  // no operator secret, so any secret is checked and answered "no admin API" —
-  // and Share stays disabled, with the reason, until a secret works.
+  // address field is open; typed, the card probes it. A wrong team's secret is
+  // checked and refused, and Share stays disabled, with the reason, until a
+  // secret works.
   await expect(page.getByTestId('relay-card')).toHaveAttribute('data-state', 'none')
   await page.getByTestId('share-relay').fill(RELAY)
   await expect(page.getByTestId('relay-card')).toHaveAttribute('data-state', 'reachable', { timeout: 10_000 })
   await page.getByTestId('share-secret').fill('not-the-secret')
-  await expect(page.getByTestId('share-secret-check')).toContainText('this relay has no admin API', { timeout: 10_000 })
+  await expect(page.getByTestId('share-secret-check')).toContainText('doesn’t match this relay', { timeout: 10_000 })
   await expect(page.getByTestId('confirm-share-folder')).toBeDisabled()
   await expect(page.getByTestId('share-waits')).toBeVisible()
   await page.getByText('Where do I get this?').click()
   await expect(page.getByTestId('share-secret-where-body')).toBeVisible()
   await expectAccessible(page, 'share sheet (secret checked)')
+
+  // The right secret works; Share enables and makes the first link.
+  await page.getByTestId('share-secret').fill('e2e-operator-secret')
+  await expect(page.getByTestId('share-secret-check')).toContainText('works', { timeout: 10_000 })
+  await expect(page.getByTestId('confirm-share-folder')).toBeEnabled()
+  await expect(page.getByTestId('share-waits')).toHaveCount(0)
+  await page.getByTestId('confirm-share-folder').click()
+  await expect(page.getByTestId('share-done')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('share-done-link')).toBeVisible()
+  await expect(page.getByTestId('share-done-copy-message')).toBeVisible()
+  await expectAccessible(page, 'share sheet (shared)')
 })
 
 test('the owner device-link dialog is accessible', async ({ page }) => {
   await openApp(page, 'a11y-device-link')
   await openSettings(page, 'sync')
-  // The mint button only exists once the relay operator secret is set.
+  // Settings › Sync alone, its relay card drawn, before any dialog on top.
+  await expect(page.getByTestId('settings-relay-card').getByTestId('relay-card')).toBeVisible()
+  await expectAccessible(page, 'settings sync')
+  // The mint button only exists once the team's secret is set.
   await page.getByTestId('settings-secret').fill('e2e-operator-secret')
   await page.getByTestId('settings-link-device').click()
   await expect(page.getByTestId('device-link-dialog')).toBeVisible()

@@ -665,7 +665,7 @@ shared a folder" when the link carries neither — what you get, which relay
 it syncs through (the team's when its host is the build's
 `VITE_DEFAULT_RELAY` host, with `VITE_TEAM_NETWORK_NOTE`; else "a relay run by
 whoever shared this"), and the relay's health check (`relay-probe.ts`
-`GET /healthz`, run on load: "Relay reachable · checked just now" means the
+`GET /healthz`, run on load: "The relay answered." means the
 check answered, never that the link is valid; "Can't reach the relay from
 here." says what to do, then "reload this page"). Then *In the desktop app* →
 **Copy link** (paste it into the app's *Add a folder someone shared*; no deep

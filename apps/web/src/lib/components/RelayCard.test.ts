@@ -3,18 +3,28 @@
  * The relay card (first-run D1, R3, R5, R10): connected — the snapshot's
  * words, receipt never "durable"; probed — "reachable" is a health check;
  * none — one relay per group and the guide; pinned — no other relay offered.
- * The dot is a sync dot keyed on `data-status`.
+ * Only the connected state draws the sync dot (keyed on `data-status`), and
+ * only connected + in sync is green (golden rule 4); a probe draws a neutral
+ * mark, never a sync colour. The state line is a live region.
  */
 import { getLL } from '@ohhi/i18n'
 import type { Clock } from '@ohhi/vault'
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { guideHref } from '../guide.js'
+import { guideHref, openGuide } from '../guide.js'
 import RelayCard from './RelayCard.svelte'
 
-afterEach(cleanup)
+vi.mock('../guide.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../guide.js')>()),
+  openGuide: vi.fn(async () => {}),
+}))
+
+afterEach(() => {
+  cleanup()
+  vi.mocked(openGuide).mockClear()
+})
 
 const LL = getLL()
 const t = LL.web.relay_card
@@ -43,6 +53,15 @@ function draw(over: Partial<ComponentProps<typeof RelayCard>> = {}) {
 
 const dot = (card: HTMLElement): string | null => card.querySelector('.ed-sync-dot')!.parentElement!.getAttribute('data-status')
 
+/** A probed card: no sync dot at all, only the neutral mark, in no sync colour. */
+function expectNeutralMark(card: HTMLElement, state: string): void {
+  expect(card.querySelector('.ed-sync-dot')).toBeNull()
+  expect(card.querySelector('[data-status]')).toBeNull()
+  const mark = within(card).getByTestId('relay-probe-mark')
+  expect(mark).toHaveAttribute('data-mark', state)
+  expect(mark.className).not.toMatch(/sync|success|green|\bed-/)
+}
+
 describe('RelayCard — connected (the snapshot)', () => {
   const conn = { host: 'ohhi.example.ts.net', state: 'connected' as const, rooms: 2, people: 1, inSyncSince: NOW - 2 * MIN }
 
@@ -57,6 +76,11 @@ describe('RelayCard — connected (the snapshot)', () => {
     expect(card.textContent).not.toMatch(/durable/i)
     expect(dot(card)).toBe('green')
     expect(props.probe).not.toHaveBeenCalled()
+  })
+
+  it('connected but not in sync yet is never green', () => {
+    const { card } = draw({ connection: { ...conn, inSyncSince: undefined } })
+    expect(dot(card)).toBe('yellow')
   })
 
   it('people only where asked', () => {
@@ -89,16 +113,25 @@ describe('RelayCard — probed (not connected yet)', () => {
     await waitFor(() => expect(card).toHaveAttribute('data-state', 'reachable'))
     expect(props.probe).toHaveBeenCalledWith(RELAY)
     expect(card).toHaveTextContent(t.reachable({ when: LL.web.relative_time.now() }))
-    expect(dot(card)).toBe('green')
+    // A health check says nothing about sync: no sync dot, never green.
+    expectNeutralMark(card, 'reachable')
+  })
+
+  it('the state line is a live region, so a Test result is heard', async () => {
+    const { card } = draw({ showTest: true })
+    const line = within(card).getByRole('status')
+    expect(line).toHaveAttribute('data-testid', 'relay-state')
+    await waitFor(() => expect(line).toHaveTextContent(t.reachable({ when: LL.web.relative_time.now() })))
   })
 
   it('can’t reach it from here, and a relay that answers unhealthy', async () => {
     const { card } = draw({ probe: vi.fn(async () => ({ ok: false as const, reason: 'timeout' as const })) })
     await waitFor(() => expect(card).toHaveTextContent(t.unreachable()))
-    expect(dot(card)).toBe('offline')
+    expectNeutralMark(card, 'unreachable')
     cleanup()
     const sick = draw({ probe: vi.fn(async () => ({ ok: false as const, reason: 'unhealthy' as const })) }).card
     await waitFor(() => expect(sick).toHaveTextContent(t.unhealthy()))
+    expectNeutralMark(sick, 'unhealthy')
   })
 
   it('Test probes again; Change… hands over', async () => {
@@ -135,6 +168,29 @@ describe('RelayCard — none and pinned', () => {
     expect(card).toHaveTextContent(t.none_body())
     expect(screen.getByRole('link', { name: t.guide() })).toHaveAttribute('href', guideHref('relay'))
     expect(props.probe).not.toHaveBeenCalled()
+  })
+
+  it('the guide link is a real link the browser follows (the desktop opens the guide window instead)', async () => {
+    draw({ known: false })
+    const link = screen.getByRole('link', { name: t.guide() })
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    link.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(false)
+    expect(openGuide).not.toHaveBeenCalled()
+  })
+
+  it('on the desktop (no opener) the guide link opens the guide window through openGuide', () => {
+    const w = window as unknown as Record<string, unknown>
+    w.__TAURI_INTERNALS__ = {}
+    try {
+      draw({ known: false })
+      const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+      screen.getByRole('link', { name: t.guide() }).dispatchEvent(click)
+      expect(click.defaultPrevented).toBe(true)
+      expect(openGuide).toHaveBeenCalledWith('relay')
+    } finally {
+      delete w.__TAURI_INTERNALS__
+    }
   })
 
   it('pinned: says the build syncs through its host only, and offers no other relay', async () => {

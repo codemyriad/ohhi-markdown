@@ -5,7 +5,8 @@
  * typed") and that the relay answered its health check, chooses *Add here*,
  * and lands in the manager's Add dialog with the link prefilled — then joins
  * it as its own (browser) vault and the workspace opens with the room's
- * notes. A link to a relay nobody runs says it can't be reached, and why.
+ * notes, named after the folder. A link to a relay nobody runs says it can't
+ * be reached, and why.
  */
 import { expect, test } from '@playwright/test'
 import { encodeShareLink } from '../src/lib/share-link.js'
@@ -32,10 +33,13 @@ test('a /join link: who sent it, the relay answers, Add here → the Add dialog 
 
   const join = page.getByTestId('join-page')
   await expect(join).toBeVisible()
+  // The token leaves the address bar (and Back's history) as the page shows,
+  // not only on *Add here*: *Copy* and closing the tab is the desktop path (R2).
+  await expect.poll(() => new URL(page.url()).pathname + new URL(page.url()).hash).toBe('/join')
   await expect(join.getByRole('heading', { level: 1 })).toHaveText('Sam shared team/notes with you')
   await expect(join).toContainText('“Sam” is the name they typed, not a verified account.')
   await expect(join.getByTestId('join-syncs-through')).toContainText('localhost:8799, a relay run by whoever shared this.')
-  await expect(join.getByTestId('join-relay')).toHaveText('Relay reachable · checked just now', { timeout: 10_000 })
+  await expect(join.getByTestId('join-relay')).toHaveText('The relay answered.', { timeout: 10_000 })
 
   // In this browser: the manager's Add dialog, the link in it, the address cleared.
   await join.getByRole('button', { name: 'Add here' }).click()
@@ -52,8 +56,14 @@ test('a /join link: who sent it, the relay answers, Add here → the Add dialog 
   await page.getByTestId('add-share-name').fill('Robin')
   await page.getByTestId('add-share-join').click()
 
-  // The folder arrives as its own browser vault, named after the folder.
+  // The folder arrives as its own browser vault, named after the folder: the
+  // link's label `team/notes` → `notes` (never a literal "Shared vault").
   await expect(page.getByTestId('file-item:notes/welcome.md')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('vault-switcher')).toHaveText('notes')
+  const names = await page.evaluate(
+    () => (JSON.parse(localStorage.getItem('editor:config') ?? '{}') as { vaults?: { room: string; name: string }[] }).vaults ?? []
+  )
+  expect(names.find((v) => v.room === 'join-page')?.name).toBe('notes')
   // "Your name" (Fork 5-A): the dialog's answer is the one remembered.
   expect(await page.evaluate(() => localStorage.getItem('editor:user'))).toBe('Robin')
 
@@ -68,7 +78,17 @@ test('a /join link to a relay nobody runs says it cannot be reached from here', 
   await expect(join.getByRole('heading', { level: 1 })).toHaveText('Someone shared a folder with you')
   await expect(join.getByTestId('join-relay')).toContainText('Can’t reach the relay from here.', { timeout: 10_000 })
   await expect(join.getByTestId('join-relay')).toContainText('Ask whoever shared this how to reach their relay.')
-  await expect(join.getByTestId('join-relay')).not.toContainText('reachable ·')
+  await expect(join.getByTestId('join-relay')).toContainText('Reload this page once you can reach it.')
+  await expect(join.getByTestId('join-relay')).not.toContainText('The relay answered.')
+})
+
+test('a reload of /join, once the token has left the address bar, shows the same link', async ({ page }) => {
+  const payload = encodeShareLink({ relay: 'ws://localhost:1', room: 'nowhere', token: 'nope', from: 'Sam' })
+  await page.goto(`/join#${payload}`)
+  await expect(page.getByTestId('join-page').getByRole('heading', { level: 1 })).toHaveText('Sam shared a folder with you')
+  await expect.poll(() => new URL(page.url()).hash).toBe('')
+  await page.reload()
+  await expect(page.getByTestId('join-page').getByRole('heading', { level: 1 })).toHaveText('Sam shared a folder with you')
 })
 
 test('a damaged /join link shows why, and how to paste it in the app instead', async ({ page }) => {

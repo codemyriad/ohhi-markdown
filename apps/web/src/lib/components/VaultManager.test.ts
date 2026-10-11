@@ -5,20 +5,35 @@
  * — and the list once there is one: rows that say what each vault is, one
  * Add menu, the row menu, the inline confirm and a failed row's two ways on.
  */
-import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
 import type { VaultEntry } from '../config.js'
-import { guideHref } from '../guide.js'
+import { guideHref, openGuide } from '../guide.js'
+import { help } from '../help.svelte.js'
+import type { Probe } from '../relay-check.js'
 import { encodeShareLink } from '../share-link.js'
 import VaultManager from './VaultManager.svelte'
+
+// `openGuide` is the one way a guide opens; the desktop's link must go through it.
+vi.mock('../guide.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../guide.js')>()),
+  openGuide: vi.fn(async () => {}),
+}))
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.mocked(openGuide).mockClear()
+  help.menuOpen = false
+  help.reportOpen = false
+  localStorage.clear()
 })
+
+/** The Add dialog's relay check, answered without the network. */
+const probe: Probe = vi.fn(async () => ({ ok: true }) as const)
 
 const LL = getLL()
 const t = LL.web.manager
@@ -60,6 +75,7 @@ function setup(over: Partial<ComponentProps<typeof VaultManager>> = {}) {
     onKeepStorage: vi.fn(),
     onDismissStorage: vi.fn(),
     now: () => NOW,
+    probe,
     ...over,
   } satisfies ComponentProps<typeof VaultManager>
   render(VaultManager, props)
@@ -140,10 +156,56 @@ describe('the welcome (no vault registered)', () => {
     expect(screen.getByRole('dialog', { name: LL.web.import_app.title() })).toBeTruthy()
   })
 
-  it('a ?share= link opens the Add dialog on it', async () => {
+  it('a ?share= link opens the Add dialog on it, whose relay check is the one handed in', async () => {
     const link = encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: 'a'.repeat(64) })
     setup({ prefillLink: link })
     expect(await screen.findByTestId('add-share-dialog')).toBeTruthy()
+    await waitFor(() => expect(screen.getByTestId('add-share-probe').getAttribute('data-check')).toBe('ok'))
+    expect(probe).toHaveBeenCalledWith('wss://relay.example', expect.any(AbortSignal))
+  })
+
+  it('"as its own vault" joins under the name TYPED in the dialog, not the saved one', async () => {
+    const link = encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: 'a'.repeat(64) })
+    const { props, user } = setup({ prefillLink: link })
+    const nameField = await screen.findByTestId('add-share-name')
+    await user.clear(nameField)
+    await user.type(nameField, 'Sam')
+    await user.click(screen.getByTestId('add-share-join'))
+    await waitFor(() => expect(props.onJoin).toHaveBeenCalledWith('Sam', link))
+    await waitFor(() => expect(screen.queryByTestId('add-share-dialog')).toBeNull())
+  })
+
+  it('a cancelled folder picker keeps the dialog open with the paste; a failure says why', async () => {
+    const link = encodeShareLink({ relay: 'wss://relay.example', room: 'r', token: 'a'.repeat(64) })
+    const onJoin = vi.fn(async () => ({ kind: 'cancelled' }) as const)
+    const { user } = setup({ isTauri: true, prefillLink: link, onJoin })
+    await user.click(await screen.findByTestId('add-share-join'))
+    await waitFor(() => expect(onJoin).toHaveBeenCalled())
+    await waitFor(() => expect((screen.getByTestId('add-share-join') as HTMLButtonElement).disabled).toBe(false))
+    expect(screen.getByTestId('add-share-dialog')).toBeTruthy()
+    expect((screen.getByTestId('add-share-link') as HTMLTextAreaElement).value).toBe(link)
+    expect(screen.queryByTestId('add-share-error')).toBeNull()
+
+    onJoin.mockImplementation(async () => ({ kind: 'failed', message: 'relay rejected the token' }) as never)
+    await user.click(screen.getByTestId('add-share-join'))
+    expect((await screen.findByTestId('add-share-error')).textContent).toContain('relay rejected the token')
+    expect(screen.getByTestId('add-share-dialog')).toBeTruthy()
+  })
+
+  it('the help icon opens the Help menu, whose Report a problem is reachable from here', async () => {
+    const { user } = setup()
+    await user.click(screen.getByRole('button', { name: t.help() }))
+    const menu = within(await screen.findByTestId('manager-help-list'))
+    expect(menu.getByTestId('help:start')).toBeTruthy()
+    await user.click(menu.getByTestId('help:report'))
+    expect(help.reportOpen).toBe(true)
+  })
+
+  it('on the desktop the guide link opens through openGuide, not a new tab that goes nowhere', async () => {
+    setup({ isTauri: true })
+    // fireEvent returns false when the default (the anchor's new tab) was prevented.
+    expect(await fireEvent.click(screen.getByTestId('manager-guide'))).toBe(false)
+    expect(openGuide).toHaveBeenCalledExactlyOnceWith('start')
   })
 
   it('a boot failure with no vault to pin it on is shown above the doors', () => {
@@ -244,6 +306,13 @@ describe('the list (vaults registered)', () => {
     expect(props.onRemoveVault).toHaveBeenCalledWith('room-disk')
   })
 
+  it('the list has the Help menu too, so a failed row can be reported', async () => {
+    const { user } = setup({ vaults: [disk], failure: { room: 'room-disk', message: 'folder moved' } })
+    await user.click(screen.getByTestId('manager-help'))
+    await user.click(await screen.findByTestId('help:report'))
+    expect(help.reportOpen).toBe(true)
+  })
+
   it('a row that cannot open says why, with Try again and Remove', async () => {
     const { props, user } = setup({ vaults: [disk], failure: { room: 'room-disk', message: 'folder moved' } })
     expect(screen.getByTestId('vault-error:room-disk').textContent).toBe(t.vault_error({ message: 'folder moved' }))
@@ -255,7 +324,7 @@ describe('the list (vaults registered)', () => {
 
   it('the foot says who people see you as, and Change opens Settings', async () => {
     const { props, user } = setup({ vaults: [disk], defaultUser: '' })
-    expect(screen.getByTestId('manager-identity').textContent).toContain(l.identity({ name: 'Anonymous' }))
+    expect(screen.getByTestId('manager-identity').textContent).toContain(l.identity({ name: t.anonymous() }))
     await user.click(screen.getByTestId('manager-identity-change'))
     expect(props.onSettings).toHaveBeenCalled()
     expect(screen.queryByTestId('manager-remembered')).toBeNull()

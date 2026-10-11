@@ -33,7 +33,9 @@ app switches over and installed desktop apps offer the update.
 - **Bursts collapse.** A newer push to `release` cancels the build in
   progress (`cancel-in-progress`). The run number still counts up, so even a
   push of an older commit gets a higher version and installed apps take it.
-- **Docs-only pushes don't build** (`docs/**`, root `*.md`, `.claude/**`).
+- **Docs-only pushes don't build** (`docs/**`, root `*.md`, `.claude/**`) —
+  except `docs/guide/**`: the web app embeds the guide pages, so a guide-only
+  push builds.
   Other markdown does build: the web app bundles `templates/*.md`.
 - **The release is atomic.** It is created as a draft, every asset is
   attached, and only then is it published. A run cancelled in that window

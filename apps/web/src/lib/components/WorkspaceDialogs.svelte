@@ -11,6 +11,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { FileActions } from '../file-actions.svelte.js'
   import { isTauri } from '../platform.js'
+  import type { Probe } from '../relay-check.js'
   import type { ShareActions } from '../share-actions.svelte.js'
   import { dirPaths } from '../tree-model.js'
   import type { Workspace } from '../workspace.svelte.js'
@@ -41,6 +42,8 @@
     onSaveName?: (name: string) => void
     /** *Add a shared folder* → as its own vault: the manager's join. Rejects with the reason. */
     onJoinAsVault: (link: string) => Promise<void>
+    /** *Add a shared folder*'s relay health check; tests hand in a fake (default: the network). */
+    probe?: Probe
   }
 
   let {
@@ -55,6 +58,7 @@
     userName = '',
     onSaveName,
     onJoinAsVault,
+    probe,
   }: Props = $props()
 
   const activeReview = $derived(workspace.ui.reviews[0] ?? null)
@@ -79,6 +83,7 @@
     {onJoinAsVault}
     isTauri={isTauri()}
     onClose={() => (sharing.addShareOpen = null)}
+    {probe}
   />
 {/if}
 

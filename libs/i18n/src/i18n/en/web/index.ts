@@ -824,7 +824,6 @@ const shared = {
     people: '{count:number} online',
   },
   relay: {
-    title: 'Relay',
     unknown_host: 'this vault’s relay',
     state: {
       connected: 'Connected',
@@ -840,7 +839,6 @@ const shared = {
     in_sync: 'in sync with the relay since {when:string}',
     last_in_sync: 'last in sync with the relay {when:string}',
     safe: 'your edits are safe on this device',
-    change: 'Change relay…',
   },
   folders: {
     title: 'Shared folders',
@@ -873,7 +871,7 @@ const shared = {
     unnamed: 'unnamed device',
     linked: 'This whole vault syncs to your devices.',
     online_at: 'online {when:string}',
-    needs_secret: 'Set the team’s secret in Settings › Sync & devices to list your linked devices.',
+    needs_secret: 'Add the team’s secret in Settings › Sync & devices to list your linked devices.',
   },
   changes: {
     title: 'Changes',
@@ -956,8 +954,8 @@ const relay_card = {
   change: 'Change…',
   use_another: 'Use another…',
   secret: {
-    title: 'Permission to create links',
-    description: 'Lets this app create, list and remove links on this relay.',
+    title: 'Team secret',
+    description: 'Lets this device create links. Asked once; kept on this device.',
     checking: 'checking…',
     /** "works" = a listing call answered 200, just now — nothing more. */
     ok: 'works',
@@ -967,9 +965,9 @@ const relay_card = {
     where: 'Where do I get this?',
     /** `hint` is the build's `VITE_TEAM_SECRET_HINT`, e.g. "the team password manager, under ohhi relay". */
     where_team:
-      'It is the relay’s operator secret, one for the whole team: {hint:string}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.',
+      'The team’s secret is one for the whole team (the relay’s docs call it the operator secret): {hint:string}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.',
     where_generic:
-      'It is the relay’s operator secret. Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.',
+      'The team’s secret is one for the whole team (the relay’s docs call it the operator secret). Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.',
   },
 }
 
@@ -996,6 +994,8 @@ const manager = {
   your_name: 'Your name',
   name_placeholder: 'Anonymous',
   name_hint: 'Shown to people you share with.',
+  /** The list's foot when no name is saved: who people see you as. */
+  anonymous: 'Anonymous',
   your_vaults: 'Your vaults',
   no_vaults: 'No vaults yet. Add a folder, link a device, or add a shared folder to get started.',
   // ---- the welcome: the manager with no vault registered (first-run A1) ----
@@ -1010,7 +1010,7 @@ const manager = {
     browser_hint:
       "Kept in this browser's private storage, which it may clear. Good for trying things out and for team folders; keep your own notes in the desktop app.",
     shared: 'Add a folder someone shared with you',
-    shared_hint: 'Paste the link they sent. The folder syncs through their relay, live, and the rest of your notes stay yours.',
+    shared_hint: 'Paste the link they sent. The folder stays in step with theirs, live, and the rest of your notes stay yours.',
     device: 'Bring your vault from another device',
     device_hint:
       'Paste the device link you made on your other computer. The whole vault arrives here and the two stay in step.',
@@ -1360,6 +1360,9 @@ const settings = {
     secret_placeholder: 'unset',
     /** Pinned build (first-run R10): the field is read-only and says why. */
     relay_pinned_hint: 'Set by this build: its security policy allows no other relay.',
+    /** Pinned build, with a relay saved before the pin: said once under the read-only field. */
+    relay_pinned_saved_ignored:
+      'A relay saved earlier ({saved:string}) is ignored: this build syncs through {host:string} only.',
     devices: 'Your devices',
     running_title: 'Running your own relay',
     running_body:
@@ -1575,6 +1578,8 @@ const share = {
     probe_down: 'can’t reach the relay from here',
     /** The team's relay, with the build's network sentence (`VITE_TEAM_NETWORK_NOTE`). */
     probe_down_note: 'can’t reach the relay from here. {note:string}',
+    /** The relay answered its health check, but not `ok`: reached, so no network advice. */
+    probe_unhealthy: 'the relay answered but is not healthy. Tell whoever runs it.',
     /** Fork 5-A: asked at the first join, prefilled from the saved name. */
     name: 'Your name, shown to the people in this folder',
     name_placeholder: 'e.g. Sam',
@@ -1619,10 +1624,12 @@ const share = {
     save_where: 'Save',
     first_link: 'First link: who is it for?',
     first_link_hint: 'One link per person, named for them, so you can remove one later.',
+    /** The first link's name when none was typed (the owner's own credential is never handed over). */
+    first_link_default: 'First link',
     your_name: 'Your name, shown to them',
     your_name_hint: 'Remembered on this device. They see it as the name you typed, not a verified account.',
     /** Why *Share* is disabled while the secret has not answered "works". */
-    share_waits: 'Share waits until the permission to create links says it works.',
+    share_waits: 'Share unlocks once the team’s secret above says “works”.',
     share: 'Share and copy link',
     sharing: 'Sharing…',
     shared_copied: 'Shared. The link is on your clipboard — send it to whoever should have it.',
@@ -1630,7 +1637,7 @@ const share = {
     links: 'Links · {count:number}',
     links_loading: 'Loading links…',
     links_none: 'No links yet — nobody else can open this folder.',
-    links_need_secret: 'Add the relay’s operator secret to see, create and remove this folder’s links.',
+    links_need_secret: 'Add the team’s secret to see, create and remove this folder’s links.',
     this_link: 'This folder’s link',
     unnamed: 'Unnamed link',
     read_only: 'read-only',
@@ -1641,6 +1648,9 @@ const share = {
     copy_message: 'Copy message',
     copy_message_for: 'Copy message for {name:string}',
     message: 'I shared {folder:string} with you in Oh hi markdown. Open this link: {link:string}',
+    /** C4 with no join page to point at (the desktop, off the team host): the bare link, pasted in the app. */
+    message_bare:
+      'I shared {folder:string} with you in Oh hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link:string}',
     message_guide: 'New to the app? {url:string}',
     just_made: 'Link for {name:string}',
     copied: 'Copied',
@@ -1707,10 +1717,13 @@ const join_page = {
   syncs_other: '{host:string}, a relay run by whoever shared this.',
   offline: 'Editing offline always works.',
   relay_checking: 'Checking the relay…',
-  relay_ok: 'Relay reachable · checked just now',
+  relay_ok: 'The relay answered.',
+  /** The relay answered its health check, but not `ok`: reached, so no network advice. */
+  relay_unhealthy: 'The relay answered but is not healthy. Tell whoever runs it.',
+  /** The down line: relay_down, then the network note (team) or relay_down_other, then reload. Each reads alone. */
   relay_down: 'Can’t reach the relay from here.',
   relay_down_other: 'Ask whoever shared this how to reach their relay.',
-  reload: 'Then reload this page.',
+  reload: 'Reload this page once you can reach it.',
   where: 'Where do you want it?',
   desktop: 'In the desktop app',
   desktop_hint: 'Beside your own notes, as real files on disk. Best for anything you will keep.',
@@ -1808,10 +1821,10 @@ const device_link = {
   open: 'Link a device…',
   needs_vault: 'Open a vault first — a device link is a key to one vault.',
   /** Settings › Sync, under the secret field (first-run D2). */
-  needs_secret: 'Creating a device link needs permission to create links on this relay: paste it above.',
+  needs_secret: 'Creating a device link needs the team’s secret. Enter it in the Team secret field above.',
   /** The owner's dialog, opened without a secret saved. */
   needs_secret_dialog:
-    'Creating a device link needs permission to create links on this relay. Add it in Settings › Sync & devices, then come back here.',
+    'Creating a device link needs the team’s secret. Add it in Settings › Sync & devices, then come back here.',
   // ---- the owner's dialog ----
   title: 'Link a device',
   description:
@@ -2017,13 +2030,13 @@ const help = {
   window_title: 'Oh hi markdown guide',
   report: {
     title: 'Report a problem',
-    description: 'Say what happened in a sentence. The facts below are copied with it; paste the whole thing in the team chat.',
+    description: 'Say what happened in a sentence. The facts below are copied with it; paste the whole thing wherever you ask for help.',
     what_label: 'What happened',
     what_placeholder: 'I clicked … and then …',
     attached: 'Attached automatically',
     never_content: 'Note contents are never included.',
     copy: 'Copy report',
-    copied: 'Report copied. Paste it in the team chat.',
+    copied: 'Report copied. Paste it wherever you ask for help.',
     copy_failed: 'The clipboard is blocked. The report is selected below: copy it by hand.',
     fallback_label: 'The report as text',
     /** The copied text, line by line. */
@@ -2072,7 +2085,7 @@ const workspace = {
   only_folders: 'only folders can be shared',
   inside_shared: 'this folder is already inside a shared folder',
   overlaps: 'this folder overlaps an existing shared folder',
-  needs_secret: 'set the relay operator secret in Settings to create shares in-app',
+  needs_secret: 'add the team’s secret in Settings to create shares in-app',
   already_joined: 'this share is already part of this vault',
   not_shared: "'{path:string}' is not a shared folder",
   cannot_read: 'cannot read {path:string}',
@@ -2081,7 +2094,7 @@ const workspace = {
 
 const relay = {
   unreachable: 'relay unreachable at {url:string} — is it running?',
-  bad_secret: 'relay rejected the operator secret — check Settings',
+  bad_secret: 'the relay rejected the team’s secret — check Settings',
   no_admin: 'this relay has no admin API enabled (OPERATOR_SECRET unset)',
   failed: 'relay admin call failed ({status:number})',
 }

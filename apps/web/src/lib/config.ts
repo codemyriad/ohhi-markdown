@@ -477,9 +477,40 @@ export function lastVault(): VaultEntry | null {
 
 // ---- settings ----
 
+/** A relay URL's host, lower-cased ('' when it does not parse). */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The relay saved in Settings › Sync, as this build may use it: in a PINNED
+ * build (`teamHost`, `TEAM_HOST`) a relay saved before the pin whose host is
+ * not the pinned one is ignored — the content security policy refuses it, so
+ * every surface (Settings, the relay card, the share sheet, device links)
+ * falls back to the build's relay instead of failing on it.
+ */
+function usableSaved(saved: string, teamHost: string): string {
+  if (!saved || !teamHost) return saved
+  return hostOf(saved) === teamHost.toLowerCase() ? saved : ''
+}
+
 /** The relay new shares are minted on: the user's choice, else this build's default. */
-export function defaultRelay(): string {
-  return loadConfig().defaultRelay || DEFAULT_RELAY
+export function defaultRelay(teamHost: string = TEAM_HOST): string {
+  return usableSaved(loadConfig().defaultRelay, teamHost) || DEFAULT_RELAY
+}
+
+/**
+ * A relay saved in Settings that this pinned build ignores (see
+ * `usableSaved`) — '' when there is none, or the build is not pinned.
+ * Settings › Sync says so once under its read-only field.
+ */
+export function ignoredSavedRelay(teamHost: string = TEAM_HOST): string {
+  const saved = loadConfig().defaultRelay
+  return saved && !usableSaved(saved, teamHost) ? saved : ''
 }
 
 /** Store a relay the user chose (never an echo of the default); blank = follow the build again. */
@@ -488,8 +519,8 @@ export function defaultRelay(): string {
  * Sync, or one the build was given. The local-dev fallback does not count
  * (first-run-shaping D3: the Shared view's empty state says so).
  */
-export function relayKnown(): boolean {
-  return loadConfig().defaultRelay !== '' || DEFAULT_RELAY_CONFIGURED
+export function relayKnown(teamHost: string = TEAM_HOST): boolean {
+  return usableSaved(loadConfig().defaultRelay, teamHost) !== '' || DEFAULT_RELAY_CONFIGURED
 }
 
 export function setDefaultRelay(url: string): void {
@@ -727,7 +758,7 @@ export function setRoomToken(room: string, token: string, relay?: string, kind?:
  */
 export function grantsForBundle(): ShareGrant[] {
   const cfg = loadConfig()
-  const fallback = cfg.defaultRelay || DEFAULT_RELAY
+  const fallback = usableSaved(cfg.defaultRelay, TEAM_HOST) || DEFAULT_RELAY
   const out: ShareGrant[] = []
   for (const [room, held] of Object.entries(cfg.tokensByRoom)) {
     const token = held?.token

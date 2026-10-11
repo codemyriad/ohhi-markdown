@@ -3,6 +3,7 @@ import { get } from 'svelte/store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toaster } from './ui/toaster.js'
 import {
+  changesOpener,
   offerRestart,
   startUpdateChecks,
   UPDATE_INTERVAL_MS,
@@ -167,5 +168,20 @@ describe('offerRestart', () => {
     expect(restart).not.toHaveBeenCalled()
     t!.data.action!.run()
     expect(restart).toHaveBeenCalledTimes(1)
+  })
+
+  it('a generic build (no TEAM_HOST) offers Restart alone: the bundled page describes the running build', () => {
+    // The test build sets no VITE_TEAM_HOST, so this is the default path.
+    offerRestart('0.2.0', vi.fn())
+    const [t] = get(toaster.states.toasts)
+    expect(t!.data.action!.label).toBe('Restart')
+    expect(t!.data.secondary).toBeUndefined()
+  })
+
+  it('What changed is offered only when a team host serves the new release’s page', () => {
+    expect(changesOpener(null)).toBeNull()
+    expect(changesOpener(undefined)).toBeNull()
+    expect(changesOpener('')).toBeNull()
+    expect(changesOpener('ohhi.example.ts.net')).toBeTypeOf('function')
   })
 })

@@ -104,14 +104,15 @@ undo a restore the same way.
 Use this only if the person who looks after your team's setup asks you to.
 Take a snapshot first.
 
-In the vault manager, click **✕** on the vault, then **Remove?** to confirm.
+In the vault manager, open the vault's **⋯** menu, choose *Remove from this
+list…*, then **Remove?** to confirm.
 
 - **Desktop vault:** your files are never touched. The vault's sync state,
   shares and tokens are deleted, and opening the folder again starts it fresh,
   with new share links. If the vault has shared folders in it, ask whoever
   shared them first, because they won't reconnect by themselves.
-- **Browser vault:** ✕ **deletes its notes too**, because they live nowhere
-  else.
+- **Browser vault:** removing it **deletes its notes too**, because they live
+  nowhere else.
 
 ## Getting a version out of the journal
 
@@ -164,7 +165,7 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
 2. **Help › Report a problem…** (the question mark at the toolbar's right
    end, or *Report a problem…* in the command palette). Say what happened in
    a sentence; the app attaches the facts below and **Copy report** puts the
-   whole thing on your clipboard. Paste it in the team chat. The app sends
+   whole thing on your clipboard. Paste it wherever you ask for help. The app sends
    nothing anywhere by itself, and note contents are never included: it
    carries paths, never text.
 

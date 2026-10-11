@@ -97,6 +97,12 @@ export interface Manager {
    * show why it did not happen.
    */
   joinShare(name: string, link: string): Promise<string | null>
+  /**
+   * `joinShare` for a dialog that must tell a cancelled desktop folder
+   * picker (nothing happened: keep the paste) from a failure (say why) and
+   * from a join that went ahead.
+   */
+  join(name: string, link: string): Promise<JoinOutcome>
   /** Rejects with the reason — the dialog keeps the paste and shows it. */
   linkThisDevice(link: string): Promise<void>
   removeVault(room: string): Promise<void>
@@ -105,6 +111,9 @@ export interface Manager {
   /** What the progress panel calls the place a vault is being written. */
   destinationOf(vault: VaultSourceDesc): string
 }
+
+/** How a join from the manager ended: it went ahead, the folder picker was cancelled, or it failed. */
+export type JoinOutcome = { kind: 'started' } | { kind: 'cancelled' } | { kind: 'failed'; message: string }
 
 export function createManager(session: Session, host: ManagerHost): Manager {
   let vaults = $state(listVaults())
@@ -201,6 +210,13 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     return session.failure?.message ?? null
   }
 
+  async function join(name: string, link: string): Promise<JoinOutcome> {
+    const outcome = await joinShareInto(name, link)
+    if (outcome === 'cancelled') return { kind: 'cancelled' }
+    const failure = session.failure?.message
+    return failure ? { kind: 'failed', message: failure } : { kind: 'started' }
+  }
+
   /**
    * A browser vault opened from a folder share is named after the folder
    * (first-run F1): the link's label when it carries one — the sharer's path,
@@ -213,7 +229,8 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     return getLL().web.manager.joined_vault_name({ host: relayHost(target.relay) ?? target.relay })
   }
 
-  async function joinShareInto(name: string, link: string): Promise<void> {
+  /** 'cancelled' = the desktop folder picker was closed: nothing happened. */
+  async function joinShareInto(name: string, link: string): Promise<'done' | 'cancelled'> {
     saveUser(name)
     session.failure = null
     session.busy = true
@@ -225,19 +242,22 @@ export function createManager(session: Session, host: ManagerHost): Manager {
       // WHICH way the link is unusable rather than "invalid link".
       session.failure = { room: null, message: shareLinkErrorText(err) }
       session.busy = false
-      return
+      return 'done'
     }
     // A device link pasted here is not a folder share — it is this vault, and
     // it wants the device path (grants merged before boot, the destination
     // checked, the token stored as a device key).
     if (target.kind === 'device') {
       try {
-        await linkThisDevice(link)
+        if (!(await linkDevice(link))) {
+          session.busy = false
+          return 'cancelled'
+        }
       } catch (err) {
         session.failure = { room: null, message: shareLinkErrorText(err) }
         session.busy = false
       }
-      return
+      return 'done'
     }
     try {
       let entry: VaultEntry
@@ -245,7 +265,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
         const path = await host.pickFolder()
         if (!path) {
           session.busy = false
-          return
+          return 'cancelled'
         }
         entry = {
           name: deriveVaultName({ kind: 'tauri', path }),
@@ -277,6 +297,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
       session.failure = { room: null, message: message(err) }
       session.busy = false
     }
+    return 'done'
   }
 
   /**
@@ -289,6 +310,11 @@ export function createManager(session: Session, host: ManagerHost): Manager {
    * (spike S10 Q7).
    */
   async function linkThisDevice(link: string): Promise<void> {
+    await linkDevice(link)
+  }
+
+  /** `linkThisDevice`, resolving false when the desktop folder picker was cancelled. */
+  async function linkDevice(link: string): Promise<boolean> {
     const t = getLL().web.device_link
     const target = decodeShareLink(link)
     if (target.kind !== 'device') throw new Error(t.join_not_device())
@@ -297,7 +323,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     let vault: VaultSourceDesc
     if (host.isTauri()) {
       const path = await host.pickFolder()
-      if (!path) return // the picker was cancelled; nothing has happened yet
+      if (!path) return false // the picker was cancelled; nothing has happened yet
       if (!(await host.folderIsEmpty(path))) throw new Error(t.not_empty({ path }))
       vault = { kind: 'tauri', path }
     } else {
@@ -320,6 +346,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     host.onDeviceLinked()
     session.joining = { entry, destination: destinationOf(vault), kind: 'device' }
     await session.boot(entry)
+    return true
   }
 
   async function removeVault(room: string): Promise<void> {
@@ -377,6 +404,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     openFolder,
     createBrowserVault,
     joinShare,
+    join,
     linkThisDevice,
     removeVault,
     forgetShare: (room: string) => {

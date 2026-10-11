@@ -9,7 +9,7 @@
    */
   import { FileText, FolderOpen, Notebook } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { guideHref } from '../guide.js'
+  import { guideHref, openGuide } from '../guide.js'
   import Dialog from '../ui/Dialog.svelte'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
 
@@ -24,6 +24,17 @@
   let { isTauri, busy = false, onOpenFolder, onClose }: Props = $props()
 
   const t = $derived($LL.web.import_app)
+
+  /**
+   * The guide link: a real anchor in the browser (a new tab, as `openGuide`
+   * opens one there); on the desktop, where an anchor's new tab goes nowhere
+   * (no opener plugin), `openGuide`'s own window instead.
+   */
+  function onGuide(e: MouseEvent): void {
+    if (!isTauri) return
+    e.preventDefault()
+    void openGuide('import')
+  }
   const link =
     'text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
 </script>
@@ -58,7 +69,7 @@
       <div class="min-w-0 flex-1">
         <h3 class="text-sm font-semibold">{t.notion()}</h3>
         <p class="mt-0.5 text-xs text-base-content/80">{t.notion_body()}</p>
-        <a href={guideHref('import')} target="_blank" rel="noreferrer" class="mt-2 inline-block {link}">{t.guide()}</a>
+        <a href={guideHref('import')} target="_blank" rel="noreferrer" onclick={onGuide} class="mt-2 inline-block {link}">{t.guide()}</a>
       </div>
     </li>
     <li class="flex gap-3 rounded-lg border border-base-300 p-3" data-testid="import-other">
@@ -66,7 +77,7 @@
       <div class="min-w-0 flex-1">
         <h3 class="text-sm font-semibold">{t.other()}</h3>
         <p class="mt-0.5 text-xs text-base-content/80">{t.other_body()}</p>
-        <a href={guideHref('import')} target="_blank" rel="noreferrer" class="mt-2 inline-block {link}">{t.guide()}</a>
+        <a href={guideHref('import')} target="_blank" rel="noreferrer" onclick={onGuide} class="mt-2 inline-block {link}">{t.guide()}</a>
       </div>
     </li>
   </ul>

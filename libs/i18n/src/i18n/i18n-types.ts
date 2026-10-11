@@ -2336,10 +2336,6 @@ export type NamespaceWebTranslation = {
 		}
 		relay: {
 			/**
-			 * R​e​l​a​y
-			 */
-			title: string
-			/**
 			 * t​h​i​s​ ​v​a​u​l​t​’​s​ ​r​e​l​a​y
 			 */
 			unknown_host: string
@@ -2394,10 +2390,6 @@ export type NamespaceWebTranslation = {
 			 * y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
 			 */
 			safe: string
-			/**
-			 * C​h​a​n​g​e​ ​r​e​l​a​y​…
-			 */
-			change: string
 		}
 		folders: {
 			/**
@@ -2522,7 +2514,7 @@ export type NamespaceWebTranslation = {
 			 */
 			online_at: RequiredParams<'when'>
 			/**
-			 * S​e​t​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
+			 * A​d​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​ ​t​o​ ​l​i​s​t​ ​y​o​u​r​ ​l​i​n​k​e​d​ ​d​e​v​i​c​e​s​.
 			 */
 			needs_secret: string
 		}
@@ -2753,11 +2745,11 @@ export type NamespaceWebTranslation = {
 		use_another: string
 		secret: {
 			/**
-			 * P​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s
+			 * T​e​a​m​ ​s​e​c​r​e​t
 			 */
 			title: string
 			/**
-			 * L​e​t​s​ ​t​h​i​s​ ​a​p​p​ ​c​r​e​a​t​e​,​ ​l​i​s​t​ ​a​n​d​ ​r​e​m​o​v​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.
+			 * L​e​t​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​c​r​e​a​t​e​ ​l​i​n​k​s​.​ ​A​s​k​e​d​ ​o​n​c​e​;​ ​k​e​p​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 			 */
 			description: string
 			/**
@@ -2785,12 +2777,12 @@ export type NamespaceWebTranslation = {
 			 */
 			where: string
 			/**
-			 * I​t​ ​i​s​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​,​ ​o​n​e​ ​f​o​r​ ​t​h​e​ ​w​h​o​l​e​ ​t​e​a​m​:​ ​{​h​i​n​t​}​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​t​h​e​r​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
+			 * T​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​s​ ​o​n​e​ ​f​o​r​ ​t​h​e​ ​w​h​o​l​e​ ​t​e​a​m​ ​(​t​h​e​ ​r​e​l​a​y​’​s​ ​d​o​c​s​ ​c​a​l​l​ ​i​t​ ​t​h​e​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​)​:​ ​{​h​i​n​t​}​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​t​h​e​r​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
 			 * @param {string} hint
 			 */
 			where_team: RequiredParams<'hint'>
 			/**
-			 * I​t​ ​i​s​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​.​ ​W​h​o​e​v​e​r​ ​r​u​n​s​ ​t​h​e​ ​r​e​l​a​y​ ​f​o​r​ ​y​o​u​r​ ​g​r​o​u​p​ ​h​a​s​ ​i​t​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​s​o​m​e​w​h​e​r​e​ ​s​a​f​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
+			 * T​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​s​ ​o​n​e​ ​f​o​r​ ​t​h​e​ ​w​h​o​l​e​ ​t​e​a​m​ ​(​t​h​e​ ​r​e​l​a​y​’​s​ ​d​o​c​s​ ​c​a​l​l​ ​i​t​ ​t​h​e​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​)​.​ ​W​h​o​e​v​e​r​ ​r​u​n​s​ ​t​h​e​ ​r​e​l​a​y​ ​f​o​r​ ​y​o​u​r​ ​g​r​o​u​p​ ​h​a​s​ ​i​t​.​ ​W​h​o​e​v​e​r​ ​h​o​l​d​s​ ​i​t​ ​c​a​n​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​a​n​y​ ​l​i​n​k​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​,​ ​s​o​ ​k​e​e​p​ ​i​t​ ​s​o​m​e​w​h​e​r​e​ ​s​a​f​e​.​ ​I​t​ ​i​s​ ​r​e​m​e​m​b​e​r​e​d​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​a​f​t​e​r​ ​t​h​i​s​.
 			 */
 			where_generic: string
 		}
@@ -2829,6 +2821,10 @@ export type NamespaceWebTranslation = {
 		 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​.
 		 */
 		name_hint: string
+		/**
+		 * A​n​o​n​y​m​o​u​s
+		 */
+		anonymous: string
 		/**
 		 * Y​o​u​r​ ​v​a​u​l​t​s
 		 */
@@ -2871,7 +2867,7 @@ export type NamespaceWebTranslation = {
 			 */
 			shared: string
 			/**
-			 * P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​t​h​e​y​ ​s​e​n​t​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​t​h​e​i​r​ ​r​e​l​a​y​,​ ​l​i​v​e​,​ ​a​n​d​ ​t​h​e​ ​r​e​s​t​ ​o​f​ ​y​o​u​r​ ​n​o​t​e​s​ ​s​t​a​y​ ​y​o​u​r​s​.
+			 * P​a​s​t​e​ ​t​h​e​ ​l​i​n​k​ ​t​h​e​y​ ​s​e​n​t​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​s​t​a​y​s​ ​i​n​ ​s​t​e​p​ ​w​i​t​h​ ​t​h​e​i​r​s​,​ ​l​i​v​e​,​ ​a​n​d​ ​t​h​e​ ​r​e​s​t​ ​o​f​ ​y​o​u​r​ ​n​o​t​e​s​ ​s​t​a​y​ ​y​o​u​r​s​.
 			 */
 			shared_hint: string
 			/**
@@ -3939,6 +3935,12 @@ export type NamespaceWebTranslation = {
 			 */
 			relay_pinned_hint: string
 			/**
+			 * A​ ​r​e​l​a​y​ ​s​a​v​e​d​ ​e​a​r​l​i​e​r​ ​(​{​s​a​v​e​d​}​)​ ​i​s​ ​i​g​n​o​r​e​d​:​ ​t​h​i​s​ ​b​u​i​l​d​ ​s​y​n​c​s​ ​t​h​r​o​u​g​h​ ​{​h​o​s​t​}​ ​o​n​l​y​.
+			 * @param {string} host
+			 * @param {string} saved
+			 */
+			relay_pinned_saved_ignored: RequiredParams<'host' | 'saved'>
+			/**
 			 * Y​o​u​r​ ​d​e​v​i​c​e​s
 			 */
 			devices: string
@@ -4526,6 +4528,10 @@ export type NamespaceWebTranslation = {
 			 */
 			probe_down_note: RequiredParams<'note'>
 			/**
+			 * t​h​e​ ​r​e​l​a​y​ ​a​n​s​w​e​r​e​d​ ​b​u​t​ ​i​s​ ​n​o​t​ ​h​e​a​l​t​h​y​.​ ​T​e​l​l​ ​w​h​o​e​v​e​r​ ​r​u​n​s​ ​i​t​.
+			 */
+			probe_unhealthy: string
+			/**
 			 * Y​o​u​r​ ​n​a​m​e​,​ ​s​h​o​w​n​ ​t​o​ ​t​h​e​ ​p​e​o​p​l​e​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r
 			 */
 			name: string
@@ -4655,6 +4661,10 @@ export type NamespaceWebTranslation = {
 			 */
 			first_link_hint: string
 			/**
+			 * F​i​r​s​t​ ​l​i​n​k
+			 */
+			first_link_default: string
+			/**
 			 * Y​o​u​r​ ​n​a​m​e​,​ ​s​h​o​w​n​ ​t​o​ ​t​h​e​m
 			 */
 			your_name: string
@@ -4663,7 +4673,7 @@ export type NamespaceWebTranslation = {
 			 */
 			your_name_hint: string
 			/**
-			 * S​h​a​r​e​ ​w​a​i​t​s​ ​u​n​t​i​l​ ​t​h​e​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​s​a​y​s​ ​i​t​ ​w​o​r​k​s​.
+			 * S​h​a​r​e​ ​u​n​l​o​c​k​s​ ​o​n​c​e​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​a​b​o​v​e​ ​s​a​y​s​ ​“​w​o​r​k​s​”​.
 			 */
 			share_waits: string
 			/**
@@ -4696,7 +4706,7 @@ export type NamespaceWebTranslation = {
 			 */
 			links_none: string
 			/**
-			 * A​d​d​ ​t​h​e​ ​r​e​l​a​y​’​s​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​t​o​ ​s​e​e​,​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​t​h​i​s​ ​f​o​l​d​e​r​’​s​ ​l​i​n​k​s​.
+			 * A​d​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​t​o​ ​s​e​e​,​ ​c​r​e​a​t​e​ ​a​n​d​ ​r​e​m​o​v​e​ ​t​h​i​s​ ​f​o​l​d​e​r​’​s​ ​l​i​n​k​s​.
 			 */
 			links_need_secret: string
 			/**
@@ -4740,6 +4750,12 @@ export type NamespaceWebTranslation = {
 			 * @param {string} link
 			 */
 			message: RequiredParams<'folder' | 'link'>
+			/**
+			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​e​ ​a​p​p​,​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​,​ ​a​n​d​ ​p​a​s​t​e​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
+			 * @param {string} folder
+			 * @param {string} link
+			 */
+			message_bare: RequiredParams<'folder' | 'link'>
 			/**
 			 * N​e​w​ ​t​o​ ​t​h​e​ ​a​p​p​?​ ​{​u​r​l​}
 			 * @param {string} url
@@ -4919,9 +4935,13 @@ export type NamespaceWebTranslation = {
 		 */
 		relay_checking: string
 		/**
-		 * R​e​l​a​y​ ​r​e​a​c​h​a​b​l​e​ ​·​ ​c​h​e​c​k​e​d​ ​j​u​s​t​ ​n​o​w
+		 * T​h​e​ ​r​e​l​a​y​ ​a​n​s​w​e​r​e​d​.
 		 */
 		relay_ok: string
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​a​n​s​w​e​r​e​d​ ​b​u​t​ ​i​s​ ​n​o​t​ ​h​e​a​l​t​h​y​.​ ​T​e​l​l​ ​w​h​o​e​v​e​r​ ​r​u​n​s​ ​i​t​.
+		 */
+		relay_unhealthy: string
 		/**
 		 * C​a​n​’​t​ ​r​e​a​c​h​ ​t​h​e​ ​r​e​l​a​y​ ​f​r​o​m​ ​h​e​r​e​.
 		 */
@@ -4931,7 +4951,7 @@ export type NamespaceWebTranslation = {
 		 */
 		relay_down_other: string
 		/**
-		 * T​h​e​n​ ​r​e​l​o​a​d​ ​t​h​i​s​ ​p​a​g​e​.
+		 * R​e​l​o​a​d​ ​t​h​i​s​ ​p​a​g​e​ ​o​n​c​e​ ​y​o​u​ ​c​a​n​ ​r​e​a​c​h​ ​i​t​.
 		 */
 		reload: string
 		/**
@@ -5176,11 +5196,11 @@ export type NamespaceWebTranslation = {
 		 */
 		needs_vault: string
 		/**
-		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​:​ ​p​a​s​t​e​ ​i​t​ ​a​b​o​v​e​.
+		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​.​ ​E​n​t​e​r​ ​i​t​ ​i​n​ ​t​h​e​ ​T​e​a​m​ ​s​e​c​r​e​t​ ​f​i​e​l​d​ ​a​b​o​v​e​.
 		 */
 		needs_secret: string
 		/**
-		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​c​r​e​a​t​e​ ​l​i​n​k​s​ ​o​n​ ​t​h​i​s​ ​r​e​l​a​y​.​ ​A​d​d​ ​i​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​.
+		 * C​r​e​a​t​i​n​g​ ​a​ ​d​e​v​i​c​e​ ​l​i​n​k​ ​n​e​e​d​s​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​.​ ​A​d​d​ ​i​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​ ​h​e​r​e​.
 		 */
 		needs_secret_dialog: string
 		/**
@@ -5836,7 +5856,7 @@ export type NamespaceWebTranslation = {
 			 */
 			title: string
 			/**
-			 * S​a​y​ ​w​h​a​t​ ​h​a​p​p​e​n​e​d​ ​i​n​ ​a​ ​s​e​n​t​e​n​c​e​.​ ​T​h​e​ ​f​a​c​t​s​ ​b​e​l​o​w​ ​a​r​e​ ​c​o​p​i​e​d​ ​w​i​t​h​ ​i​t​;​ ​p​a​s​t​e​ ​t​h​e​ ​w​h​o​l​e​ ​t​h​i​n​g​ ​i​n​ ​t​h​e​ ​t​e​a​m​ ​c​h​a​t​.
+			 * S​a​y​ ​w​h​a​t​ ​h​a​p​p​e​n​e​d​ ​i​n​ ​a​ ​s​e​n​t​e​n​c​e​.​ ​T​h​e​ ​f​a​c​t​s​ ​b​e​l​o​w​ ​a​r​e​ ​c​o​p​i​e​d​ ​w​i​t​h​ ​i​t​;​ ​p​a​s​t​e​ ​t​h​e​ ​w​h​o​l​e​ ​t​h​i​n​g​ ​w​h​e​r​e​v​e​r​ ​y​o​u​ ​a​s​k​ ​f​o​r​ ​h​e​l​p​.
 			 */
 			description: string
 			/**
@@ -5860,7 +5880,7 @@ export type NamespaceWebTranslation = {
 			 */
 			copy: string
 			/**
-			 * R​e​p​o​r​t​ ​c​o​p​i​e​d​.​ ​P​a​s​t​e​ ​i​t​ ​i​n​ ​t​h​e​ ​t​e​a​m​ ​c​h​a​t​.
+			 * R​e​p​o​r​t​ ​c​o​p​i​e​d​.​ ​P​a​s​t​e​ ​i​t​ ​w​h​e​r​e​v​e​r​ ​y​o​u​ ​a​s​k​ ​f​o​r​ ​h​e​l​p​.
 			 */
 			copied: string
 			/**
@@ -6018,7 +6038,7 @@ export type NamespaceWebTranslation = {
 		 */
 		overlaps: string
 		/**
-		 * s​e​t​ ​t​h​e​ ​r​e​l​a​y​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​t​o​ ​c​r​e​a​t​e​ ​s​h​a​r​e​s​ ​i​n​-​a​p​p
+		 * a​d​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​t​o​ ​c​r​e​a​t​e​ ​s​h​a​r​e​s​ ​i​n​-​a​p​p
 		 */
 		needs_secret: string
 		/**
@@ -6047,7 +6067,7 @@ export type NamespaceWebTranslation = {
 		 */
 		unreachable: RequiredParams<'url'>
 		/**
-		 * r​e​l​a​y​ ​r​e​j​e​c​t​e​d​ ​t​h​e​ ​o​p​e​r​a​t​o​r​ ​s​e​c​r​e​t​ ​—​ ​c​h​e​c​k​ ​S​e​t​t​i​n​g​s
+		 * t​h​e​ ​r​e​l​a​y​ ​r​e​j​e​c​t​e​d​ ​t​h​e​ ​t​e​a​m​’​s​ ​s​e​c​r​e​t​ ​—​ ​c​h​e​c​k​ ​S​e​t​t​i​n​g​s
 		 */
 		bad_secret: string
 		/**
@@ -8529,10 +8549,6 @@ export type TranslationFunctions = {
 			}
 			relay: {
 				/**
-				 * Relay
-				 */
-				title: () => LocalizedString
-				/**
 				 * this vault’s relay
 				 */
 				unknown_host: () => LocalizedString
@@ -8582,10 +8598,6 @@ export type TranslationFunctions = {
 				 * your edits are safe on this device
 				 */
 				safe: () => LocalizedString
-				/**
-				 * Change relay…
-				 */
-				change: () => LocalizedString
 			}
 			folders: {
 				/**
@@ -8697,7 +8709,7 @@ export type TranslationFunctions = {
 				 */
 				online_at: (arg: { when: string }) => LocalizedString
 				/**
-				 * Set the team’s secret in Settings › Sync & devices to list your linked devices.
+				 * Add the team’s secret in Settings › Sync & devices to list your linked devices.
 				 */
 				needs_secret: () => LocalizedString
 			}
@@ -8923,11 +8935,11 @@ export type TranslationFunctions = {
 			use_another: () => LocalizedString
 			secret: {
 				/**
-				 * Permission to create links
+				 * Team secret
 				 */
 				title: () => LocalizedString
 				/**
-				 * Lets this app create, list and remove links on this relay.
+				 * Lets this device create links. Asked once; kept on this device.
 				 */
 				description: () => LocalizedString
 				/**
@@ -8955,11 +8967,11 @@ export type TranslationFunctions = {
 				 */
 				where: () => LocalizedString
 				/**
-				 * It is the relay’s operator secret, one for the whole team: {hint}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.
+				 * The team’s secret is one for the whole team (the relay’s docs call it the operator secret): {hint}. Whoever holds it can create and remove any link on this relay, so keep it there. It is remembered on this device after this.
 				 */
 				where_team: (arg: { hint: string }) => LocalizedString
 				/**
-				 * It is the relay’s operator secret. Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.
+				 * The team’s secret is one for the whole team (the relay’s docs call it the operator secret). Whoever runs the relay for your group has it. Whoever holds it can create and remove any link on this relay, so keep it somewhere safe. It is remembered on this device after this.
 				 */
 				where_generic: () => LocalizedString
 			}
@@ -8997,6 +9009,10 @@ export type TranslationFunctions = {
 			 * Shown to people you share with.
 			 */
 			name_hint: () => LocalizedString
+			/**
+			 * Anonymous
+			 */
+			anonymous: () => LocalizedString
 			/**
 			 * Your vaults
 			 */
@@ -9039,7 +9055,7 @@ export type TranslationFunctions = {
 				 */
 				shared: () => LocalizedString
 				/**
-				 * Paste the link they sent. The folder syncs through their relay, live, and the rest of your notes stay yours.
+				 * Paste the link they sent. The folder stays in step with theirs, live, and the rest of your notes stay yours.
 				 */
 				shared_hint: () => LocalizedString
 				/**
@@ -10043,6 +10059,10 @@ export type TranslationFunctions = {
 				 */
 				relay_pinned_hint: () => LocalizedString
 				/**
+				 * A relay saved earlier ({saved}) is ignored: this build syncs through {host} only.
+				 */
+				relay_pinned_saved_ignored: (arg: { host: string, saved: string }) => LocalizedString
+				/**
 				 * Your devices
 				 */
 				devices: () => LocalizedString
@@ -10609,6 +10629,10 @@ export type TranslationFunctions = {
 				 */
 				probe_down_note: (arg: { note: string }) => LocalizedString
 				/**
+				 * the relay answered but is not healthy. Tell whoever runs it.
+				 */
+				probe_unhealthy: () => LocalizedString
+				/**
 				 * Your name, shown to the people in this folder
 				 */
 				name: () => LocalizedString
@@ -10731,6 +10755,10 @@ export type TranslationFunctions = {
 				 */
 				first_link_hint: () => LocalizedString
 				/**
+				 * First link
+				 */
+				first_link_default: () => LocalizedString
+				/**
 				 * Your name, shown to them
 				 */
 				your_name: () => LocalizedString
@@ -10739,7 +10767,7 @@ export type TranslationFunctions = {
 				 */
 				your_name_hint: () => LocalizedString
 				/**
-				 * Share waits until the permission to create links says it works.
+				 * Share unlocks once the team’s secret above says “works”.
 				 */
 				share_waits: () => LocalizedString
 				/**
@@ -10771,7 +10799,7 @@ export type TranslationFunctions = {
 				 */
 				links_none: () => LocalizedString
 				/**
-				 * Add the relay’s operator secret to see, create and remove this folder’s links.
+				 * Add the team’s secret to see, create and remove this folder’s links.
 				 */
 				links_need_secret: () => LocalizedString
 				/**
@@ -10810,6 +10838,10 @@ export type TranslationFunctions = {
 				 * I shared {folder} with you in Oh hi markdown. Open this link: {link}
 				 */
 				message: (arg: { folder: string, link: string }) => LocalizedString
+				/**
+				 * I shared {folder} with you in Oh hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link}
+				 */
+				message_bare: (arg: { folder: string, link: string }) => LocalizedString
 				/**
 				 * New to the app? {url}
 				 */
@@ -10976,9 +11008,13 @@ export type TranslationFunctions = {
 			 */
 			relay_checking: () => LocalizedString
 			/**
-			 * Relay reachable · checked just now
+			 * The relay answered.
 			 */
 			relay_ok: () => LocalizedString
+			/**
+			 * The relay answered but is not healthy. Tell whoever runs it.
+			 */
+			relay_unhealthy: () => LocalizedString
 			/**
 			 * Can’t reach the relay from here.
 			 */
@@ -10988,7 +11024,7 @@ export type TranslationFunctions = {
 			 */
 			relay_down_other: () => LocalizedString
 			/**
-			 * Then reload this page.
+			 * Reload this page once you can reach it.
 			 */
 			reload: () => LocalizedString
 			/**
@@ -11224,11 +11260,11 @@ export type TranslationFunctions = {
 			 */
 			needs_vault: () => LocalizedString
 			/**
-			 * Creating a device link needs permission to create links on this relay: paste it above.
+			 * Creating a device link needs the team’s secret. Enter it in the Team secret field above.
 			 */
 			needs_secret: () => LocalizedString
 			/**
-			 * Creating a device link needs permission to create links on this relay. Add it in Settings › Sync & devices, then come back here.
+			 * Creating a device link needs the team’s secret. Add it in Settings › Sync & devices, then come back here.
 			 */
 			needs_secret_dialog: () => LocalizedString
 			/**
@@ -11857,7 +11893,7 @@ export type TranslationFunctions = {
 				 */
 				title: () => LocalizedString
 				/**
-				 * Say what happened in a sentence. The facts below are copied with it; paste the whole thing in the team chat.
+				 * Say what happened in a sentence. The facts below are copied with it; paste the whole thing wherever you ask for help.
 				 */
 				description: () => LocalizedString
 				/**
@@ -11881,7 +11917,7 @@ export type TranslationFunctions = {
 				 */
 				copy: () => LocalizedString
 				/**
-				 * Report copied. Paste it in the team chat.
+				 * Report copied. Paste it wherever you ask for help.
 				 */
 				copied: () => LocalizedString
 				/**
@@ -12016,7 +12052,7 @@ export type TranslationFunctions = {
 			 */
 			overlaps: () => LocalizedString
 			/**
-			 * set the relay operator secret in Settings to create shares in-app
+			 * add the team’s secret in Settings to create shares in-app
 			 */
 			needs_secret: () => LocalizedString
 			/**
@@ -12042,7 +12078,7 @@ export type TranslationFunctions = {
 			 */
 			unreachable: (arg: { url: string }) => LocalizedString
 			/**
-			 * relay rejected the operator secret — check Settings
+			 * the relay rejected the team’s secret — check Settings
 			 */
 			bad_secret: () => LocalizedString
 			/**

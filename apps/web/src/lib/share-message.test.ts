@@ -25,15 +25,41 @@ describe('linkOrigin', () => {
     )
   })
 
-  it('the desktop derives the team host from the room’s relay, never the webview’s origin', () => {
-    expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM })).toBe(
-      'https://ohhi.example.ts.net'
-    )
+  it('the desktop derives the team host from the room’s relay — only when it IS the team host — never the webview’s origin', () => {
+    expect(
+      linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM, teamHost: 'ohhi.example.ts.net' })
+    ).toBe('https://ohhi.example.ts.net')
+    expect(
+      linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM, teamHost: 'OHHI.example.ts.net' })
+    ).toBe('https://ohhi.example.ts.net')
+  })
+
+  it('the desktop never assumes someone else’s wss://<host>/relay serves the app: bare link', () => {
+    // A generic build (no team host): nothing to point at.
+    expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM })).toBeNull()
+    expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: TEAM, teamHost: '' })).toBeNull()
+    // A team build, but the room lives on another group's relay.
+    expect(
+      linkOrigin({
+        desktop: true,
+        locationOrigin: 'tauri://localhost',
+        relayUrl: 'wss://their-relay.example/relay',
+        teamHost: 'ohhi.example.ts.net',
+      })
+    ).toBeNull()
+  })
+
+  it('a browser’s own origin wins whatever the relay — the join page lives beside the app that made the link', () => {
+    expect(
+      linkOrigin({ desktop: false, locationOrigin: 'https://app.example', relayUrl: 'wss://their-relay.example/relay', teamHost: '' })
+    ).toBe('https://app.example')
   })
 
   it('no origin anyone can open → null (the bare link)', () => {
     expect(linkOrigin({ desktop: true, locationOrigin: 'tauri://localhost', relayUrl: 'ws://localhost:8787' })).toBeNull()
     expect(linkOrigin({ desktop: false, locationOrigin: 'null', relayUrl: 'ws://localhost:8787' })).toBeNull()
+    // A browser with no web origin does not guess one from the relay either.
+    expect(linkOrigin({ desktop: false, locationOrigin: 'null', relayUrl: TEAM, teamHost: 'ohhi.example.ts.net' })).toBeNull()
   })
 })
 
@@ -77,10 +103,10 @@ describe('shareMessage', () => {
     )
   })
 
-  it('omits the network sentence when none is given and the guide when there is no origin', () => {
-    expect(shareMessage({ folder: 'notes', link: 'editor1:abc', networkNote: '', origin: null })).toBe(
-      t.message({ folder: 'notes', link: 'editor1:abc' })
-    )
+  it('with no origin: the bare link, how to paste it in the app, no network sentence when none is given, no guide', () => {
+    const msg = shareMessage({ folder: 'notes', link: 'editor1:abc', networkNote: '', origin: null })
+    expect(msg).toBe(t.message_bare({ folder: 'notes', link: 'editor1:abc' }))
+    expect(msg).not.toBe(t.message({ folder: 'notes', link: 'editor1:abc' }))
   })
 
   it('guideUrl joins the origin and the getting-started page', () => {
