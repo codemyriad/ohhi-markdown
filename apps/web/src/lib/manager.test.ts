@@ -311,4 +311,47 @@ describe('createManager', () => {
     await manager.loadFacts()
     expect(manager.facts).toEqual({})
   })
+
+  describe('allowAccessAgain (DEL-89)', () => {
+    const SAVED = '/home/chris/vault'
+    const REFUSED = { room: 'room-t', message: 'needs permission', access: true } as const
+    let asked: (string | undefined)[]
+
+    beforeEach(() => {
+      upsertVault({ name: 'vault', room: 'room-t', vault: { kind: 'tauri', path: SAVED } })
+      asked = []
+      host.pickFolder = async (defaultPath) => {
+        asked.push(defaultPath)
+        return picked
+      }
+      session.failure = { ...REFUSED }
+    })
+
+    it('opens the picker on the saved folder; the same folder boots the vault', async () => {
+      picked = `${SAVED}/`
+      await manager.allowAccessAgain('room-t')
+      expect(asked).toEqual([SAVED])
+      expect(session.booted.map((e) => e.room)).toEqual(['room-t'])
+    })
+
+    it('a different folder is refused, said, and leaves the vault as it was', async () => {
+      picked = '/home/chris/elsewhere'
+      await manager.allowAccessAgain('room-t')
+      expect(session.booted).toEqual([])
+      expect(session.failure?.room).toBe('room-t')
+      expect(session.failure?.access).toBe(true)
+      expect(session.failure?.message).toContain('/home/chris/elsewhere')
+      expect(session.failure?.message).toContain(SAVED)
+      expect(getVault('room-t')?.vault).toEqual({ kind: 'tauri', path: SAVED })
+      expect(session.busy).toBe(false)
+    })
+
+    it('a cancelled picker changes nothing', async () => {
+      picked = null
+      await manager.allowAccessAgain('room-t')
+      expect(session.booted).toEqual([])
+      expect(session.failure).toEqual(REFUSED)
+      expect(session.busy).toBe(false)
+    })
+  })
 })

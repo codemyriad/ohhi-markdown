@@ -62,8 +62,12 @@
     vaults: VaultEntry[]
     shares: StoredShare[]
     prefillLink: string
-    /** Boot failure to surface — attached to its vault row when room matches. */
-    failure: { room: string | null; message: string } | null
+    /**
+     * Boot failure to surface — attached to its vault row when room matches.
+     * `access`: the desktop fs scope refused the folder (DEL-89); the row
+     * offers to allow access again.
+     */
+    failure: { room: string | null; message: string; access?: true } | null
     busy: boolean
     /** Shown when a workspace is open behind the manager (switcher route). */
     canGoBack: boolean
@@ -79,6 +83,8 @@
     onRemoveVault: (room: string) => void
     /** Rename the registry entry (this list's name), never the folder. */
     onRenameVault?: (room: string, name: string) => void
+    /** Reopen the picker on a refused vault's folder (DEL-89). */
+    onAllowAccess: (room: string) => void
     onOpenFolder: (name: string) => void
     onCreateBrowserVault: (name: string, vaultName: string) => void
     /**
@@ -127,6 +133,7 @@
     onOpenVault,
     onRemoveVault,
     onRenameVault,
+    onAllowAccess,
     onOpenFolder,
     onCreateBrowserVault,
     onJoin,
@@ -646,18 +653,32 @@
             {#if failed && failure}
               <div class="px-3 pb-2 pl-11">
                 <p role="alert" data-testid="vault-error:{entry.room}" class="text-xs text-error">
-                  {t.vault_error({ message: failure.message })}
+                  {failure.access ? failure.message : t.vault_error({ message: failure.message })}
                 </p>
                 <div class="mt-1.5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    data-testid="retry-vault:{entry.room}"
-                    disabled={busy}
-                    onclick={() => onOpenVault(entry)}
-                    class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
-                  >
-                    {l.try_again()}
-                  </button>
+                  {#if failure.access}
+                    <!-- Refused by the fs scope (DEL-89): trying again would be refused
+                         again, so the way on is re-granting the folder. -->
+                    <button
+                      type="button"
+                      data-testid="allow-access:{entry.room}"
+                      disabled={busy}
+                      onclick={() => onAllowAccess(entry.room)}
+                      class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
+                    >
+                      {t.allow_access()}
+                    </button>
+                  {:else}
+                    <button
+                      type="button"
+                      data-testid="retry-vault:{entry.room}"
+                      disabled={busy}
+                      onclick={() => onOpenVault(entry)}
+                      class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
+                    >
+                      {l.try_again()}
+                    </button>
+                  {/if}
                   <button
                     type="button"
                     data-testid="remove-failed:{entry.room}"

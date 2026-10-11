@@ -184,7 +184,8 @@
   })
   const manager = createManager(session, {
     isTauri,
-    pickFolder: async () => (await import('./lib/adapters/tauri-vault-adapter.js')).pickVaultFolder(),
+    pickFolder: async (defaultPath) =>
+      (await import('./lib/adapters/tauri-vault-adapter.js')).pickVaultFolder(defaultPath),
     folderIsEmpty,
     forgetVaultState,
     cleanUrl,
@@ -526,6 +527,7 @@
     onRemoveVault={(room) => void manager.removeVault(room)}
     onForgetShare={(room) => manager.forgetShare(room)}
     onRenameVault={(room, name) => manager.renameVault(room, name)}
+    onAllowAccess={(room) => void manager.allowAccessAgain(room)}
     onOpenFolder={(name) => void manager.openFolder(name)}
     onCreateBrowserVault={(name, vaultName) => void manager.createBrowserVault(name, vaultName)}
     onJoin={(name, link) => manager.join(name, link)}

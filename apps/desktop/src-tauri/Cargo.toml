@@ -20,6 +20,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 # generate_context! emits serde_json for the `plugins` block of tauri.conf.json.
 serde_json = "1"
+tauri-plugin-persisted-scope = "2"
 
 # Self-update (docs/desktop-builds.md): the feed check and the relaunch into
 # an installed update. Desktop only; locked to versions rustc 1.88 builds.

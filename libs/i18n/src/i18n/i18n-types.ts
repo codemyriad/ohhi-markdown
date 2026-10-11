@@ -3094,6 +3094,24 @@ export type NamespaceWebTranslation = {
 		 */
 		vault_error: RequiredParams<'message'>
 		/**
+		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​y​o​u​r​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​g​a​i​n​.​ ​Y​o​u​r​ ​f​i​l​e​s​ ​a​r​e​ ​u​n​t​o​u​c​h​e​d​.
+		 */
+		access_lost: string
+		/**
+		 * A​l​l​o​w​ ​a​c​c​e​s​s​ ​t​o​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​g​a​i​n
+		 */
+		allow_access: string
+		/**
+		 * Y​o​u​ ​p​i​c​k​e​d​ ​{​p​i​c​k​e​d​}​,​ ​w​h​i​c​h​ ​i​s​n​'​t​ ​t​h​i​s​ ​v​a​u​l​t​'​s​ ​f​o​l​d​e​r​ ​(​{​p​a​t​h​}​)​.​ ​N​o​t​h​i​n​g​ ​c​h​a​n​g​e​d​ ​—​ ​p​i​c​k​ ​t​h​e​ ​v​a​u​l​t​'​s​ ​o​w​n​ ​f​o​l​d​e​r​ ​t​o​ ​a​l​l​o​w​ ​a​c​c​e​s​s​.
+		 * @param {string} path
+		 * @param {string} picked
+		 */
+		access_wrong_folder: RequiredParams<'path' | 'picked'>
+		/**
+		 * C​h​o​o​s​e​ ​a​ ​v​a​u​l​t​ ​f​o​l​d​e​r
+		 */
+		pick_title: string
+		/**
 		 * A​d​d​ ​a​ ​v​a​u​l​t
 		 */
 		add_vault: string
@@ -9634,6 +9652,22 @@ export type TranslationFunctions = {
 			 * {message} — fix the folder, or remove this entry (files are untouched).
 			 */
 			vault_error: (arg: { message: string }) => LocalizedString
+			/**
+			 * Oh hi markdown needs your permission to open this folder again. Your files are untouched.
+			 */
+			access_lost: () => LocalizedString
+			/**
+			 * Allow access to this folder again
+			 */
+			allow_access: () => LocalizedString
+			/**
+			 * You picked {picked}, which isn't this vault's folder ({path}). Nothing changed — pick the vault's own folder to allow access.
+			 */
+			access_wrong_folder: (arg: { path: string, picked: string }) => LocalizedString
+			/**
+			 * Choose a vault folder
+			 */
+			pick_title: () => LocalizedString
 			/**
 			 * Add a vault
 			 */

@@ -1,9 +1,21 @@
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+
+use tauri::ipc::CapabilityBuilder;
+use tauri::plugin::TauriPlugin;
+use tauri::{AppHandle, Manager, Runtime};
+use tauri_plugin_fs::FsExt;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     configure_webkit_renderer();
     tauri::Builder::default()
+        // Order matters: persisted-scope needs the fs plugin's scope, and
+        // granted-folders mirrors what persisted-scope restored.
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(granted_folders())
         .setup(|app| {
             // The update feed and the relaunch into an update are desktop
             // only. A build with no `plugins.updater.endpoints` (every local
@@ -20,6 +32,60 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// The folders the user granted, readable with their dot-entries.
+///
+/// The webview's fs scope is the app's own data plus whatever the user picked
+/// (`pickVaultFolder` passes `recursive: true`, so the dialog plugin adds the
+/// folder to the fs plugin's runtime scope; persisted-scope saves it and
+/// restores it on the next launch). The fs plugin builds that runtime scope
+/// with Tauri's default matching, which on Unix never lets `**` match a name
+/// starting with `.` — and ignores `plugins.fs.requireLiteralLeadingDot`. A
+/// granted vault would then refuse its own `.ohhi/` and `.obsidian/`, and its
+/// listing would fail on the first `.DS_Store`.
+///
+/// So every pattern in the runtime scope is copied into a runtime capability's
+/// `fs:scope`, which the fs plugin matches with the config's flag (false). The
+/// patterns are already glob-escaped, and capability scope paths are parsed
+/// as globs, so they carry over as they are. Only Rust adds them: the webview
+/// can grant nothing (the grant file is denied to it, see
+/// `capabilities/default.json`).
+fn granted_folders<R: Runtime>() -> TauriPlugin<R> {
+    tauri::plugin::Builder::new("granted-folders")
+        .setup(|app, _api| {
+            let mirrored: Arc<Mutex<HashSet<String>>> = Arc::default();
+            mirror_grants(app, &mirrored);
+            let app_ = app.clone();
+            app.fs_scope().listen(move |event| {
+                if let tauri::fs::Event::PathAllowed(_) = event {
+                    mirror_grants(&app_, &mirrored);
+                }
+            });
+            Ok(())
+        })
+        .build()
+}
+
+fn mirror_grants<R: Runtime>(app: &AppHandle<R>, mirrored: &Mutex<HashSet<String>>) {
+    let mut seen = mirrored.lock().unwrap();
+    let fresh: Vec<serde_json::Value> = app
+        .fs_scope()
+        .allowed_patterns()
+        .into_iter()
+        .map(|p| p.as_str().to_owned())
+        .filter(|p| seen.insert(p.clone()))
+        .map(|p| serde_json::json!({ "path": p }))
+        .collect();
+    if fresh.is_empty() {
+        return;
+    }
+    let grant = CapabilityBuilder::new(format!("granted-folders-{}", seen.len()))
+        .window("main")
+        .permission_scoped("fs:scope", fresh, Vec::<serde_json::Value>::new());
+    if let Err(err) = app.add_capability(grant) {
+        eprintln!("granted-folders: could not widen the fs scope: {err}");
+    }
 }
 
 /// WebKitGTK's DMA-BUF renderer draws the note's text at a heavier weight

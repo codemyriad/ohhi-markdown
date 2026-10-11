@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for the main window. Vault access pattern: the user picks a vault folder at runtime via the dialog plugin; fs calls are then scoped to that folder by the web layer. V1 DEV ONLY: the fs scope below is a blanket $HOME/** grant so any picked vault works. $APPDATA is listed SEPARATELY because Tauri's scope globs never cross dot-directories — $HOME/** does NOT match ~/.local/... — and the durable stores (M1) live under app-data; without these entries every desktop vault boot fails with 'forbidden path' on its store dir. For the same reason <vault>/.ohhi/ (custom themes, app files) and <vault>/.obsidian/ (daily-notes.json) get their own $HOME/**/.ohhi and $HOME/**/.obsidian entries: a literal leading-dot segment in the pattern matches, where ** alone does not (spike-resource-root F0; unverified on a real desktop build, and a vault under another dot-directory is still refused). $CONFIG/ohhi is the user resource root (layouts, later keymaps and templates; quiet-shell F8, spike-resource-root Q4) — ~/.config/ohhi on Linux, read-only from the app; also unverified on a real build. TODO(tighten before real dogfooding): replace the $HOME grant with tauri-plugin-persisted-scope or runtime-scoped grants keyed to the picked folder — see plans/shaping.md D6. Updater: check, download and install (not the download-and-install shortcut), plus process:allow-restart to relaunch into an installed update. Guide windows (first-run E4): core:webview:allow-create-webview-window lets this window open the Help menu's bundled guide pages in a second window, and core:window:allow-set-focus brings an already-open guide window forward; that window is in no capability, so it gets no IPC (docs/desktop-builds.md, Guide windows). The feed URL and signing key live in tauri.conf.json, so the webview can neither repoint the updater nor make it accept an unsigned build.",
+  "description": "Default capability for the main window. Filesystem access is the app's own data plus the folders the user picked (DEL-89, plans/fs-scope-plan.md). Static scope: $APPDATA/stores (the durable stores, M1) read-write, and $CONFIG/ohhi (the user resource root: layouts, keymaps, templates; ~/.config/ohhi on Linux) read-only through command scopes on exists, read-dir and read-text-file only. Nothing under $HOME. A vault folder enters the scope when the user picks it: the dialog plugin's open() with recursive: true grants it at runtime, tauri-plugin-persisted-scope saves the grant in Rust and restores it on the next launch, and src/lib.rs (granted_folders) mirrors each grant into a runtime capability so its dot-entries (.ohhi/, .obsidian/) match too (plugins.fs.requireLiteralLeadingDot is false in tauri.conf.json). Dropping a file or folder on the window grants it the same way (the fs plugin's own behaviour). The grant file, $APPDATA/.persisted-scope, is denied to the webview here as well as by the plugin, so a script in the webview cannot grant itself more on the next launch. Updater: check, download and install (not the download-and-install shortcut), plus process:allow-restart to relaunch into an installed update. Guide windows (first-run E4): core:webview:allow-create-webview-window lets this window open the Help menu's bundled guide pages in a second window, and core:window:allow-set-focus brings an already-open guide window forward; that window is in no capability, so it gets no IPC (docs/desktop-builds.md, Guide windows). The feed URL and signing key live in tauri.conf.json, so the webview can neither repoint the updater nor make it accept an unsigned build.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -19,14 +19,31 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "$HOME" },
-        { "path": "$HOME/**" },
-        { "path": "$HOME/**/.ohhi" },
-        { "path": "$HOME/**/.ohhi/**" },
-        { "path": "$HOME/**/.obsidian" },
-        { "path": "$HOME/**/.obsidian/**" },
-        { "path": "$APPDATA" },
-        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/stores" },
+        { "path": "$APPDATA/stores/**" }
+      ],
+      "deny": [
+        { "path": "$APPDATA/.persisted-scope" },
+        { "path": "$APPDATA/.persisted-scope-asset" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$CONFIG/ohhi" },
+        { "path": "$CONFIG/ohhi/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "$CONFIG/ohhi" },
+        { "path": "$CONFIG/ohhi/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
         { "path": "$CONFIG/ohhi" },
         { "path": "$CONFIG/ohhi/**" }
       ]

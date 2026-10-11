@@ -64,6 +64,7 @@ function setup(over: Partial<ComponentProps<typeof VaultManager>> = {}) {
     onOpenVault: vi.fn(),
     onRemoveVault: vi.fn(),
     onRenameVault: vi.fn(),
+    onAllowAccess: vi.fn(),
     onOpenFolder: vi.fn(),
     onCreateBrowserVault: vi.fn(),
     onJoin: vi.fn(),
@@ -320,6 +321,18 @@ describe('the list (vaults registered)', () => {
     expect(props.onOpenVault).toHaveBeenCalledWith(disk)
     await user.click(screen.getByTestId('remove-failed:room-disk'))
     expect(screen.getByTestId('remove-note:room-disk')).toBeTruthy()
+  })
+
+  it('a row the fs scope refuses offers Allow access again instead of Try again (DEL-89)', async () => {
+    const { props, user } = setup({
+      vaults: [disk],
+      failure: { room: 'room-disk', message: 'needs permission', access: true },
+    })
+    expect(screen.getByTestId('vault-error:room-disk').textContent).toBe('needs permission')
+    expect(screen.queryByTestId('retry-vault:room-disk')).toBeNull()
+    await user.click(screen.getByTestId('allow-access:room-disk'))
+    expect(props.onAllowAccess).toHaveBeenCalledWith('room-disk')
+    expect(screen.getByTestId('remove-failed:room-disk')).toBeTruthy()
   })
 
   it('the foot says who people see you as, and Change opens Settings', async () => {

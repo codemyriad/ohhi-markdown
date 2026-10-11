@@ -162,10 +162,17 @@ App data lives under the app identifier (`md.ohhi.desktop`):
 it. A desktop app from a build before the rename (identifier `dev.chris.editor`)
 kept its state elsewhere, so it starts with fresh sync state; files are untouched.
 
-**Known dogfood limitation:** the desktop app's filesystem permission is a blanket
-`$HOME/**` grant (`apps/desktop/src-tauri/capabilities/default.json`); tightening
-it to the picked vault folders is tracked separately. Until then the CSP below
-is the main barrier.
+**Filesystem access** is the app's own data plus the folders you picked
+(`apps/desktop/src-tauri/capabilities/default.json`). Picking a vault folder in
+the native dialog is what grants it, recursively; the grant is saved in app
+data (`.persisted-scope`, written only by the Rust side) and restored on the
+next launch. Dropping a file or folder on the window grants it the same way.
+Nothing else under your home folder is reachable from the webview, and
+`~/.config/ohhi` is read-only. A vault opened by a build from before this rule
+shows "Allow access to this folder again" once in the vault manager: pick the
+same folder and it opens as before. Removing a vault from the list does not
+revoke its grant (Tauri can add to the scope but not remove from it); the
+folder stays reachable until the app data is cleared.
 
 ### Guide windows
 
@@ -204,9 +211,11 @@ is the webview's GPU-composited path, which a text editor does not need.
 The webview renders what other people wrote — markdown and theme CSS arrive
 through shared folders, relay traffic from teammates' devices — and the same
 webview holds the relay tokens and operator secret and, on desktop, Tauri IPC
-with `fs:read-all` / `fs:write-all` over `$HOME/**`. Script running there can
-read and write the home directory (SSH keys, shell rc files, other vaults),
-which is close to code execution. So the policy has two jobs:
+with read and write access to the vault folders you picked and the app's
+stores. Script running there can read and change every note in those vaults
+(and anything else inside a folder you picked — so pick the vault, not your
+home folder); it cannot reach SSH keys, shell rc files or source trees outside
+them. So the policy has two jobs:
 
 1. **No injected script runs** — no inline script or event handlers, no
    `javascript:` URLs, no `eval` / `new Function`, no remote or `data:`/`blob:`
@@ -223,7 +232,7 @@ through `sanitizeThemeCss` (`apps/web/src/lib/theme.svelte.ts`), and a remote
 It does **not** stop exfiltration over `fetch`/WebSocket to an arbitrary
 `https:`/`wss:` host (see the trade-off below), protect against a compromised
 dependency in our own bundle (`script-src 'self'` trusts what we ship), or
-narrow the filesystem grant.
+narrow the filesystem grant below the picked vaults.
 
 ### The policies
 
