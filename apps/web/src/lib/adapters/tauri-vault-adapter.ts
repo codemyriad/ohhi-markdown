@@ -242,6 +242,18 @@ export class TauriVaultAdapter implements VaultAdapter {
     return out.sort()
   }
 
+  /** The folders in one ignored app dir (`.ohhi/themes`): the theme folders. */
+  async listAppDirs(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    const full = this.abs(rel)
+    if (!(await exists(full))) return []
+    const out: string[] = []
+    for (const entry of await readDir(full)) {
+      if (entry.isDirectory && !isTempName(entry.name)) out.push(`${rel}/${entry.name}`)
+    }
+    return out.sort()
+  }
+
   watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
     return this.appDirs.add(dir, cb)
   }

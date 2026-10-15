@@ -28,6 +28,7 @@ import {
   type Polarity,
 } from '@ohhi/ui/tokens'
 import { setPolarityMirror, setThemePref, themePref, type ThemePref } from './config.js'
+import { THEME_NAME, themePath } from './theme-files.js'
 
 /** Is `name` one of the built-in themes (the registry in `@ohhi/ui/tokens`)? */
 export function isBuiltinTheme(name: string): name is BuiltinTheme {
@@ -159,8 +160,7 @@ export function initTheme(): void {
   }
 }
 
-/** Where a custom theme lives in the vault. Mirrors `.obsidian/themes/`. */
-export const themePath = (name: string): string => `.ohhi/themes/${name}/theme.css`
+export { themePath }
 
 /**
  * Load and apply a vault-resident theme. Returns an error message on failure
@@ -173,7 +173,7 @@ export async function useCustomTheme(
 ): Promise<string | null> {
   const clean = name.trim()
   // The name becomes a [data-theme] value and a path segment.
-  if (!/^[\w -]{1,64}$/.test(clean)) {
+  if (!THEME_NAME.test(clean)) {
     return getLL().web.theme.bad_name()
   }
   let css: string | null

@@ -514,6 +514,12 @@ export interface Workspace {
    */
   listAppDir(dir: string): Promise<string[]>
   /**
+   * The folders directly inside one app directory (`.ohhi/themes`: the
+   * theme folders), as vault-relative paths; `[]` when it is absent or the
+   * adapter cannot list folders there. Same guard as `listAppDir`.
+   */
+  listAppDirs(dir: string): Promise<string[]>
+  /**
    * Write a file under `.ohhi/` (layouts from Settings, quiet-shell F8): the
    * pre-image goes to a journal first, then the adapter's atomic temp+rename
    * write (golden rule 1). Never `.obsidian/`. Listeners of
@@ -2148,6 +2154,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     listAppDir: async (dir) => {
       const rel = appFilePath(dir.endsWith('/') ? dir : `${dir}/`, APP_FILE_DIRS, 'listAppDir')
       return (await cfg.adapter.listAppDir?.(rel.replace(/\/+$/, ''))) ?? []
+    },
+    listAppDirs: async (dir) => {
+      const rel = appFilePath(dir.endsWith('/') ? dir : `${dir}/`, APP_FILE_DIRS, 'listAppDirs')
+      return (await cfg.adapter.listAppDirs?.(rel.replace(/\/+$/, ''))) ?? []
     },
     writeAppFile: async (path, text) => {
       const rel = appFilePath(path, [APP_WRITE_DIR], 'writeAppFile')

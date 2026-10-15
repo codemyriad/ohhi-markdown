@@ -129,6 +129,16 @@ export interface VaultAdapter {
    */
   listAppDir?(dir: string): Promise<string[]>
   /**
+   * The FOLDERS directly inside one ignored app directory (`.ohhi/themes`),
+   * as vault-relative paths, sorted; `[]` when it does not exist. The
+   * folder-shaped twin of `listAppDir`: a theme is a folder,
+   * `.ohhi/themes/<name>/theme.css`, so listing the themes means listing
+   * folders. Same reach as `listAppDir` — app directories only, never fed to
+   * `list()`, the path map, the index or a CRDT. Optional: an adapter without
+   * it has no theme folders to offer.
+   */
+  listAppDirs?(dir: string): Promise<string[]>
+  /**
    * Changes under ONE ignored app directory (`.ohhi`), routed to their own
    * listener (spike-resource-root Q1). The events already reach the adapter's
    * watcher and are dropped there; with a listener they go HERE instead —

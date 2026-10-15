@@ -195,3 +195,56 @@ describe('createResources — the change feed', () => {
     expect(seen).toEqual(['layouts:reload', 'keymaps:reload', 'templates:reload'])
   })
 })
+
+describe('createResources — the theme folders', () => {
+  const css = (name: string): string => `[data-theme="${name}"] { color-scheme: dark; }`
+  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+
+  it('lists every folder under .ohhi/themes/ that holds a theme.css, by name; none with no vault', async () => {
+    const { resources } = setup({
+      vault: {
+        '.ohhi/themes/nord-dark/theme.css': css('nord-dark'),
+        '.ohhi/themes/Paper/theme.css': css('Paper'),
+        '.ohhi/themes/half-made/notes.txt': 'not a theme yet',
+        '.ohhi/themes/bad:name/theme.css': css('bad'),
+        '.ohhi/layouts/writing.json': {},
+      },
+    })
+    expect(await resources.refreshThemes()).toEqual([
+      { name: 'nord-dark', path: '.ohhi/themes/nord-dark/theme.css' },
+      { name: 'Paper', path: '.ohhi/themes/Paper/theme.css' },
+    ])
+    expect(resources.themes.map((t) => t.name)).toEqual(['nord-dark', 'Paper'])
+    expect(await setup({ vault: null }).resources.refreshThemes()).toEqual([])
+  })
+
+  it('re-lists on a vault switch, on a change under .ohhi/themes/ and on reloadAll — and tells its listeners after', async () => {
+    const first = fakeVault({ '.ohhi/themes/one/theme.css': css('one') })
+    const vault = box<ReturnType<typeof fakeVault> | null>(first)
+    const resources = createResources({ vault: () => vault.value?.vault ?? null, userRoot: async () => null, warn: () => {} })
+    const seen: string[] = []
+    resources.onChange('themes', (why) => seen.push(`${why}:${resources.themes.map((t) => t.name).join(',')}`))
+    resources.onChange('layouts', (why) => seen.push(`layouts:${why}`))
+    flushSync()
+    await tick()
+    expect(seen).toEqual(['layouts:open', 'open:one'])
+
+    seen.length = 0
+    first.disk.set('.ohhi/themes/two/theme.css', css('two'))
+    first.touch('.ohhi/themes/two/theme.css')
+    await tick()
+    expect(seen).toEqual(['change:one,two'])
+
+    seen.length = 0
+    first.disk.delete('.ohhi/themes/one/theme.css')
+    resources.reloadAll()
+    await tick()
+    expect(seen).toEqual(['layouts:reload', 'reload:two'])
+
+    seen.length = 0
+    vault.value = null
+    flushSync()
+    await tick()
+    expect(seen).toEqual(['layouts:open', 'open:'])
+  })
+})

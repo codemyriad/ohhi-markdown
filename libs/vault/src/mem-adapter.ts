@@ -129,6 +129,19 @@ export class MemVaultAdapter implements VaultAdapter {
       .sort()
   }
 
+  async listAppDirs(dir: string): Promise<string[]> {
+    const prefix = `${dir.replace(/\/+$/, '')}/`
+    const out = new Set<string>()
+    // A folder exists when it was made, or when something lives under it.
+    for (const p of [...this.files.keys(), ...this.dirs]) {
+      if (!p.startsWith(prefix)) continue
+      const child = p.slice(prefix.length).split('/')[0]!
+      const isDir = this.dirs.has(p) || p.slice(prefix.length).includes('/')
+      if (child && isDir) out.add(`${prefix}${child}`)
+    }
+    return [...out].sort()
+  }
+
   watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
     return this.appDirs.add(dir, cb)
   }
