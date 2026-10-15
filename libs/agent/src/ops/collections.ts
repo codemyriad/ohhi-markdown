@@ -1,6 +1,6 @@
 import { collectionName, compileView, isCollectionPath, parseCollection } from '@ohhi/collections'
 import { OP_SCHEMAS, schemaName, type OpOutput } from '../contract.js'
-import { readNote } from '../backend.js'
+import { readNote } from '../read.js'
 import type { OpDef } from '../op.js'
 import { paginate } from '../paging.js'
 import { isUnder, normalizeDir } from '../paths.js'

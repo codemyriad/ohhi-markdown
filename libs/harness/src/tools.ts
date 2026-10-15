@@ -31,7 +31,13 @@ const PERSON_ONLY: ReadonlySet<string> = new Set(['mv', 'rm', 'restore'])
 /** Ops that see every skill, trusted or not: replaced by the host-backed `ohhi_skill`. */
 const SKILL_OPS: ReadonlySet<string> = new Set(['skills', 'skill'])
 /** The writes a proposal can stand in for: each changes one note's text. */
-const PROPOSABLE: ReadonlySet<string> = new Set(['write', 'patch', 'append'])
+const PROPOSABLE: ReadonlySet<string> = new Set(['write', 'patch', 'append', 'fm'])
+/**
+ * Mutating ops whose plain call is a read: `fm` reads a note's frontmatter
+ * unless it is given `set`/`unset`/`rename` (collections DB fm writes). A
+ * read-only run keeps the read and refuses the write.
+ */
+const READS_UNLESS: Readonly<Record<string, readonly string[]>> = { fm: ['set', 'unset', 'rename'] }
 
 /** What a proposing tool returns to the model instead of the op's own output. */
 export interface ProposalResult {
@@ -63,7 +69,8 @@ export function toolsFromContract(
   for (const op of OP_NAMES as readonly OpName[]) {
     const def: { input: ZodType; mutates: boolean; description: string } = OP_SCHEMAS[op]
     if (SKILL_OPS.has(op)) continue
-    if (def.mutates && (!opts.mutates || PERSON_ONLY.has(op))) continue
+    const readOnlyUse = def.mutates && !opts.mutates && op in READS_UNLESS
+    if (def.mutates && !readOnlyUse && (!opts.mutates || PERSON_ONLY.has(op))) continue
     const proposing = opts.proposeEdit !== undefined && PROPOSABLE.has(op)
     tools[toolName(op)] = tool({
       description: proposing
@@ -72,6 +79,9 @@ export function toolsFromContract(
       inputSchema: def.input,
       execute: async (input: unknown) => {
         try {
+          if (readOnlyUse && writesIn(op, input)) {
+            throw new OpError('refused', `this run reads only; ${op} can read here but not change the note`)
+          }
           if (proposing) return await propose(backend, op, input, opts.proposeEdit!, opts.origin)
           return await runOp(backend, op, input)
         } catch (err) {
@@ -85,6 +95,12 @@ export function toolsFromContract(
   }
   if (opts.skills) tools[toolName('skill')] = skillTool(opts.skills)
   return tools
+}
+
+/** Does a call of a `READS_UNLESS` op carry any of its writing inputs? */
+function writesIn(op: string, input: unknown): boolean {
+  if (!input || typeof input !== 'object') return false
+  return (READS_UNLESS[op] ?? []).some((key) => (input as Record<string, unknown>)[key] !== undefined)
 }
 
 /**

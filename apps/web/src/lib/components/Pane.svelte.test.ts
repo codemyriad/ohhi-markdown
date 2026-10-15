@@ -71,6 +71,10 @@ function vault(files: Record<string, string>) {
     focus: () => {},
     flash: () => {},
     createFile: async () => null,
+    // The writing harness's seams on a note: no agent here, so nothing pending.
+    suggestionSpans: () => [],
+    subscribeSuggestions: () => () => {},
+    threadsFor: () => null,
   } as unknown as Workspace
 
   /** A rename as the shell learns of it: index, tracker, tree — then the tab follows. */

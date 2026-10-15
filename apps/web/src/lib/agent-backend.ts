@@ -122,6 +122,8 @@ function pathKeyed(index: VaultIndex, guidOf: (path: string) => string | undefin
     byTag: (t, o) => index.byTag(t, o),
     headings: (key) => index.headings(guidOf(key) ?? key),
     frontmatterKeys: (o) => index.frontmatterKeys(o),
+    rows: (q, o) => index.rows(q, o),
+    propertyValues: (key, o) => index.propertyValues(key, o),
     resolve: (t, from) => index.resolve(t, from),
     stats: () => index.stats(),
   }

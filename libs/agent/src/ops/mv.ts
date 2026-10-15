@@ -1,6 +1,6 @@
 import { isCollectionPath, planCollectionMoves } from '@ohhi/collections'
 import { applyLinkEdits, collectMoveRefs, planLinkRewrites, type LinkEdit } from '@ohhi/index'
-import { readNote, type VaultBackend } from '../backend.js'
+import { readNote, type VaultBackend } from '../read.js'
 import { OP_SCHEMAS, OpError, schemaName, type OpOutput } from '../contract.js'
 import type { OpDef } from '../op.js'
 import { isUnder, normalizeVaultPath } from '../paths.js'

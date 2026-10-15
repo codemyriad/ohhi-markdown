@@ -11,7 +11,7 @@ import {
 } from '@ohhi/collections'
 import type { PropScalar, PropValue, Row, RowFilter, RowKey, RowQuery, RowSort } from '@ohhi/index'
 import { OP_SCHEMAS, OpError, schemaName, type OpOutput } from '../contract.js'
-import { openForRead } from '../backend.js'
+import { openForRead } from '../read.js'
 import type { OpDef } from '../op.js'
 import { fromIndexPage, paginate, type PageResult } from '../paging.js'
 

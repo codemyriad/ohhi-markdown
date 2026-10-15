@@ -46,6 +46,16 @@ describe('toolsFromContract', () => {
     await expect(run(tools, 'ohhi_skill', { name: 'fact-check' })).rejects.toThrow(/^not_found: /)
   })
 
+  it('read-only: ohhi_fm reads frontmatter, and refuses a set/unset/rename', async () => {
+    const tools = toolsFromContract(h.backend, { mutates: false })
+    expect(Object.keys(tools)).toContain('ohhi_fm')
+    const out = (await run(tools, 'ohhi_fm', { path: 'Projects/Editor.md' })) as { frontmatter: unknown; changed: boolean }
+    expect(out.changed).toBe(false)
+    const before = await h.text('Projects/Editor.md')
+    await expect(run(tools, 'ohhi_fm', { path: 'Projects/Editor.md', set: { status: 'done' } })).rejects.toThrow(/^refused: /)
+    expect(await h.text('Projects/Editor.md')).toBe(before)
+  })
+
   it('a tool runs the op over the backend', async () => {
     const tools = toolsFromContract(h.backend, { mutates: false })
     const out = (await run(tools, 'ohhi_read', { path: 'Projects/Editor.md', outline: true })) as { mode: string }
@@ -89,6 +99,18 @@ describe('toolsFromContract', () => {
       expect(p.baseText.length).toBeLessThan(25)
       expect(await h.text('Projects/Editor.md')).toBe(before)
       expect(await h.backend.journal.list('Projects/Editor.md')).toEqual([])
+    })
+
+    it('fm --set proposes the changed value and writes nothing; a plain fm still reads', async () => {
+      const before = await h.text('Projects/Editor.md')
+      const tools = toolsFromContract(h.backend, { mutates: true, proposeEdit, origin: ORIGIN })
+      const out = await run(tools, 'ohhi_fm', { path: 'Projects/Editor.md', set: { status: 'done' } })
+      expect(out).toMatchObject({ schema: 'ohhi.proposal.v1', proposed: true, path: 'Projects/Editor.md' })
+      const p = proposals[0]
+      expect(before.slice(0, p.from) + p.proposedText + before.slice(p.to)).toBe(before.replace('status: active', 'status: done'))
+      expect(await h.text('Projects/Editor.md')).toBe(before)
+      const read = (await run(tools, 'ohhi_fm', { path: 'Projects/Editor.md' })) as { schema: string }
+      expect(read.schema).toBe('ohhi.fm.v1')
     })
 
     it('a host that accepted the proposal as it landed (direct mode) is told so', async () => {
