@@ -64,6 +64,25 @@ export {
 } from './attachments.js'
 export { selectedTextIn } from './selection.js'
 export {
+  barEligible,
+  createSettle,
+  focusSelectionBar,
+  insideSuggestion,
+  isTyping,
+  selectionBar,
+  selectionBarField,
+  selectionBarForm,
+  handlePlacement,
+  SETTLE_MS,
+  showSelectionBar,
+  type Schedule,
+  type Settle,
+  type SelectionBarForm,
+  type SelectionBarHost,
+  type SelectionBarMount,
+  type SelectionBarOptions,
+} from './selection-bar.js'
+export {
   acceptSuggestionAtCaret,
   buildDecorations,
   currentSuggestion,

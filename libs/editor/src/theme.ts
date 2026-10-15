@@ -805,6 +805,19 @@ const editorBaseTheme = EditorView.theme({
   '.cm-link-card-open:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
   '.cm-link-card-open .cm-icon': { flexShrink: '0' },
 
+  // --- the selection handle (selection explorations, shape B) ---------------
+  // A tooltip dressed as every other (the rule above), as a pill: the app
+  // draws `bars.selection` inside it (by default Comment | Ask), placed at
+  // the selection's end by `selection-bar.ts`.
+  '.cm-tooltip.cm-selection-bar': {
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.75rem',
+    lineHeight: '1.4',
+    borderRadius: '999px',
+    padding: '0.125rem',
+    maxWidth: 'min(24rem, calc(100vw - 1rem))',
+  },
+
   // --- collab (class names come from y-codemirror.next) --------------------
   // The peer COLOUR is written as an inline style from awareness, so only the
   // chrome is themeable here. Moving the colour itself onto --ed-presence-N
