@@ -1,6 +1,8 @@
 <script lang="ts">
   /**
-   * Settings › Sync & devices (settings-shaping ST2): the relay as one thing
+   * Settings › Sync & devices (settings-shaping ST2): first, your name as
+   * collaborators see it (Settings › You until QA round 1, Fork 10 — it
+   * lives where it is used); then the relay as one thing
    * with a state (first-run D1), the operator secret answered as you type
    * (D2), your devices, running your own relay (R10), a pointer to where the
    * remembered vaults and shares now live (the manager), and — in a browser —
@@ -21,7 +23,9 @@
     defaultRelay,
     ignoredSavedRelay,
     isRelayUrl,
+    loadUser,
     operatorSecret,
+    saveUser,
     relayKnown,
     setDefaultRelay,
     setOperatorSecret,
@@ -80,6 +84,28 @@
 
   const t = $derived($LL.web.settings)
   const dl = $derived($LL.web.device_link)
+
+  // ---- your name (Settings › You until QA round 1): the first row, where it is used ----
+  let storedName = loadUser() ?? ''
+  let name = $state(storedName)
+  let nameErrors = $state<string[]>([])
+  let nameSaved = $state(false)
+  /** Commit the name: refused inline when empty; stored only when it changed. */
+  function commitName(): void {
+    const next = name.trim()
+    if (!next) {
+      nameErrors = [t.sync.name_required()]
+      nameSaved = false
+      return
+    }
+    nameErrors = []
+    name = next
+    if (next === storedName) return
+    saveUser(next)
+    storedName = next
+    nameSaved = true
+    onConfigChange?.()
+  }
 
   // ---- the relay ----
   /** The relay as saved (or the build's default): the address field commits against it. */
@@ -182,7 +208,26 @@
     'mt-1 inline-block text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
-<div class="space-y-3">
+<div data-testid="settings-you">
+  <Field name="name" errors={nameErrors} required>
+    <TextControl
+      label={t.sync.name()}
+      bind:value={name}
+      oninput={() => (nameSaved = false)}
+      onblur={commitName}
+      onkeydown={onEnter(commitName)}
+      placeholder={t.sync.name_placeholder()}
+      testid="settings-name"
+    />
+    <Description>{t.sync.name_hint()}</Description>
+    <FieldErrors />
+  </Field>
+  <p role="status" class="mt-1 min-h-4 text-xs text-base-content/70" data-testid="settings-name-status">
+    {nameSaved ? t.saved() : ''}
+  </p>
+</div>
+
+<div class="mt-4 space-y-3 border-t border-base-300 pt-4">
   <div class="space-y-1.5" data-testid="settings-relay-card">
     <h3 class={HEADING}>{$LL.web.relay_card.label()}</h3>
     <RelayCard

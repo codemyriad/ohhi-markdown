@@ -276,10 +276,11 @@ open it with `openView('settings', '<section>')` (or
 `getViewShell()?.openSettings(section)`; `Mod+,` is `app.settings`), the
 section riding as the tab's `viewArg`. With no vault open the manager shows
 the same body as a page (`SettingsPage.svelte`); the tab is
-`SettingsView.svelte`; both render `Settings.svelte` — the grouped nav (You ·
-Editor · Layout · Appearance · Keys | Sync & devices · Customise · Agents |
-Developer · About, `SETTINGS_GROUPS` in `lib/settings.ts`) and the section
-on show. Each section is its own `*Settings.svelte` in `components/`. A
+`SettingsView.svelte`; both render `Settings.svelte` — the nav, a tree
+(Customise › Editor · Layout · Appearance · Keys | Sync & devices · AI |
+Developer · About, `SETTINGS_GROUPS` in `lib/settings.ts`; `you` and `agents`
+are `LEGACY` names for `sync` and `ai`) and the section on show; a bare
+`openView('settings')` opens the Customise hub. Each section is its own `*Settings.svelte` in `components/`. A
 section in `NEEDS_VAULT` (Keys, Customise) says "open a vault" when none is
 open rather than hiding. What a section may ask about where it is drawn
 (vault open, its kind and folder, desktop, the host, moving to another

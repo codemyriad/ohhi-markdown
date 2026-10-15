@@ -1230,19 +1230,20 @@ const storage = {
 const settings = {
   title: 'Settings',
   sections: 'Settings sections',
-  /** The nav (settings-shaping Fork 3): three groups, in this order. */
+  /**
+   * The nav (settings-shaping Fork 7, QA round 1): Customise › Editor ·
+   * Layout · Appearance · Keys | Sync & devices · AI | Developer · About.
+   */
   nav: {
-    you: 'You',
+    customise: 'Customise',
     editor: 'Editor',
     layout: 'Layout',
     appearance: 'Appearance',
     keys: 'Keys',
     sync: 'Sync & devices',
-    customise: 'Customise',
-    agents: 'Agents',
+    ai: 'AI',
     developer: 'Developer',
     about: 'About',
-    ai: 'AI',
   },
   /** The manager's page host (no vault open): its way back. */
   page: {
@@ -1257,12 +1258,6 @@ const settings = {
   },
   /** A text field that commits on Enter or when you leave it (R3). */
   saved: 'Saved',
-  you: {
-    name: 'Display name',
-    name_placeholder: 'Anonymous',
-    name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
-    name_required: 'Enter a name — it’s what your collaborators see.',
-  },
   /** Settings › Editor: how notes open and read — the default view plus the layout's editor fields. */
   editor: {
     intro: 'How notes open and read. Changes apply at once and stay on this device.',
@@ -1442,6 +1437,11 @@ const settings = {
     needs_modifier: 'Add Ctrl, Alt or Cmd — on its own, that key would stop you typing it.',
   },
   sync: {
+    /** The display name (Settings › You until QA round 1): Sync & devices' first row, where it is used. */
+    name: 'Your name, as collaborators see it',
+    name_placeholder: 'Anonymous',
+    name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
+    name_required: 'Enter a name — it’s what your collaborators see.',
     relay: 'Default relay',
     relay_hint: 'Used when creating new shares. Each share remembers its own relay in its link.',
     relay_required: 'The relay new shares are created on.',

@@ -83,7 +83,8 @@ against its repo. A symlink cannot.
 
 Check `~/.local/bin` is on `PATH`; the script says so if it is not.
 
-**In the app:** Settings › Agents shows these steps and the connect lines —
+**In the app:** Settings › AI › *Outside agents* shows these steps and the
+connect lines —
 Claude Code (skill or `claude mcp add`), another MCP client's JSON config, and
 plain `ohhi … --vault` — with the open vault's folder already filled in and a
 Copy button on each. For a vault kept in browser storage it explains that no

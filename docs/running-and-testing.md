@@ -481,7 +481,7 @@ shows the **vault manager**, in one of two states:
   and *Bring your vault from another device*. The top bar carries the version
   (desktop), help and Settings; the foot opens the **Import** dialog ("Coming
   from another app?") and links the two-minute guide. No name is asked here:
-  the name peers see lives in Settings › You.
+  the name peers see is the first row of Settings › Sync & devices.
 - **The list** (one or more vaults; also where *Manage vaults…* and a failed
   auto-reopen land): one row per vault — a kind glyph, the name ("open now"
   on the vault open behind the manager), the path and when it was last opened

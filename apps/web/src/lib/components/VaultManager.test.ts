@@ -371,10 +371,10 @@ describe('the list (vaults registered)', () => {
 })
 
 describe('the welcome’s agent door (settings-shaping ST6)', () => {
-  it('on the desktop, Connect an agent opens Settings › Agents (it works with no vault)', async () => {
+  it('on the desktop, Connect an agent opens Settings › AI, where Outside agents lives (it works with no vault)', async () => {
     const { props, user } = setup({ isTauri: true })
     await user.click(screen.getByTestId('manager-agents'))
-    expect(props.onSettings).toHaveBeenCalledExactlyOnceWith('agents')
+    expect(props.onSettings).toHaveBeenCalledExactlyOnceWith('ai')
   })
 
   it('in a browser it is not drawn: no agent reaches a vault kept in the browser', () => {

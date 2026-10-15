@@ -3416,9 +3416,9 @@ export type NamespaceWebTranslation = {
 		sections: string
 		nav: {
 			/**
-			 * Y​o​u
+			 * C​u​s​t​o​m​i​s​e
 			 */
-			you: string
+			customise: string
 			/**
 			 * E​d​i​t​o​r
 			 */
@@ -3440,13 +3440,9 @@ export type NamespaceWebTranslation = {
 			 */
 			sync: string
 			/**
-			 * C​u​s​t​o​m​i​s​e
+			 * A​I
 			 */
-			customise: string
-			/**
-			 * A​g​e​n​t​s
-			 */
-			agents: string
+			ai: string
 			/**
 			 * D​e​v​e​l​o​p​e​r
 			 */
@@ -3455,10 +3451,6 @@ export type NamespaceWebTranslation = {
 			 * A​b​o​u​t
 			 */
 			about: string
-			/**
-			 * A​I
-			 */
-			ai: string
 		}
 		page: {
 			/**
@@ -3488,24 +3480,6 @@ export type NamespaceWebTranslation = {
 		 * S​a​v​e​d
 		 */
 		saved: string
-		you: {
-			/**
-			 * D​i​s​p​l​a​y​ ​n​a​m​e
-			 */
-			name: string
-			/**
-			 * A​n​o​n​y​m​o​u​s
-			 */
-			name_placeholder: string
-			/**
-			 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.​ ​S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
-			 */
-			name_hint: string
-			/**
-			 * E​n​t​e​r​ ​a​ ​n​a​m​e​ ​—​ ​i​t​’​s​ ​w​h​a​t​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​.
-			 */
-			name_required: string
-		}
 		editor: {
 			/**
 			 * H​o​w​ ​n​o​t​e​s​ ​o​p​e​n​ ​a​n​d​ ​r​e​a​d​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
@@ -4094,6 +4068,22 @@ export type NamespaceWebTranslation = {
 			needs_modifier: string
 		}
 		sync: {
+			/**
+			 * Y​o​u​r​ ​n​a​m​e​,​ ​a​s​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​ ​i​t
+			 */
+			name: string
+			/**
+			 * A​n​o​n​y​m​o​u​s
+			 */
+			name_placeholder: string
+			/**
+			 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.​ ​S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
+			 */
+			name_hint: string
+			/**
+			 * E​n​t​e​r​ ​a​ ​n​a​m​e​ ​—​ ​i​t​’​s​ ​w​h​a​t​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​.
+			 */
+			name_required: string
 			/**
 			 * D​e​f​a​u​l​t​ ​r​e​l​a​y
 			 */
@@ -11764,9 +11754,9 @@ export type TranslationFunctions = {
 			sections: () => LocalizedString
 			nav: {
 				/**
-				 * You
+				 * Customise
 				 */
-				you: () => LocalizedString
+				customise: () => LocalizedString
 				/**
 				 * Editor
 				 */
@@ -11788,13 +11778,9 @@ export type TranslationFunctions = {
 				 */
 				sync: () => LocalizedString
 				/**
-				 * Customise
+				 * AI
 				 */
-				customise: () => LocalizedString
-				/**
-				 * Agents
-				 */
-				agents: () => LocalizedString
+				ai: () => LocalizedString
 				/**
 				 * Developer
 				 */
@@ -11803,10 +11789,6 @@ export type TranslationFunctions = {
 				 * About
 				 */
 				about: () => LocalizedString
-				/**
-				 * AI
-				 */
-				ai: () => LocalizedString
 			}
 			page: {
 				/**
@@ -11836,24 +11818,6 @@ export type TranslationFunctions = {
 			 * Saved
 			 */
 			saved: () => LocalizedString
-			you: {
-				/**
-				 * Display name
-				 */
-				name: () => LocalizedString
-				/**
-				 * Anonymous
-				 */
-				name_placeholder: () => LocalizedString
-				/**
-				 * Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.
-				 */
-				name_hint: () => LocalizedString
-				/**
-				 * Enter a name — it’s what your collaborators see.
-				 */
-				name_required: () => LocalizedString
-			}
 			editor: {
 				/**
 				 * How notes open and read. Changes apply at once and stay on this device.
@@ -12393,6 +12357,22 @@ export type TranslationFunctions = {
 				needs_modifier: () => LocalizedString
 			}
 			sync: {
+				/**
+				 * Your name, as collaborators see it
+				 */
+				name: () => LocalizedString
+				/**
+				 * Anonymous
+				 */
+				name_placeholder: () => LocalizedString
+				/**
+				 * Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.
+				 */
+				name_hint: () => LocalizedString
+				/**
+				 * Enter a name — it’s what your collaborators see.
+				 */
+				name_required: () => LocalizedString
 				/**
 				 * Default relay
 				 */

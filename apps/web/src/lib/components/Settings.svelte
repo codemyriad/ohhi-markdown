@@ -29,7 +29,7 @@
   import { overridesToBindings } from '../keymap-spec.js'
   import { isTauri } from '../platform.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
-  import { NEEDS_VAULT, SETTINGS_GROUPS, type SettingsSection } from '../settings.js'
+  import { NEEDS_VAULT, settingsRows, type SettingsSection } from '../settings.js'
   import { setSettingsEnv, type SettingsHost } from '../settings-host.js'
   import { getViewShell } from '../views.js'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
@@ -44,7 +44,6 @@
   import HotkeySettings from './HotkeySettings.svelte'
   import LayoutSettings from './LayoutSettings.svelte'
   import SyncSettings from './SyncSettings.svelte'
-  import YouSettings from './YouSettings.svelte'
 
   interface Props extends SettingsHost {
     /** The section on show (the view tab's `viewArg`, or the page's own state). */
@@ -117,14 +116,12 @@
   })
 
   const TABS = $derived(
-    SETTINGS_GROUPS.flatMap((group, g) =>
-      group.map((value, i) => ({
-        value,
-        label: t.nav[value](),
-        testid: `settings-tab:${value}`,
-        separated: g > 0 && i === 0,
-      }))
-    )
+    settingsRows().map((row, i, rows) => ({
+      value: row.id,
+      label: t.nav[row.id](),
+      testid: `settings-tab:${row.id}`,
+      separated: i > 0 && rows[i - 1]!.group !== row.group,
+    }))
   )
 
   /** Bound to the nav; a pick goes to the host, a host move comes back through `section`. */
@@ -167,8 +164,6 @@
               </button>
             {/if}
           </div>
-        {:else if sid === 'you'}
-          <YouSettings {onConfigChange} />
         {:else if sid === 'editor'}
           <EditorSettings {registry} {layout} />
         {:else if sid === 'layout'}
@@ -204,10 +199,9 @@
           />
         {:else if sid === 'customise'}
           <CustomiseSettings {registry} {resources} {layout} {keymap} showLog={showLog} />
-        {:else if sid === 'agents'}
-          <AgentSettings />
         {:else if sid === 'ai'}
           <AiSettings />
+          <AgentSettings />
         {:else if sid === 'developer'}
           <DeveloperSettings {onConfigChange} />
         {:else if sid === 'about'}

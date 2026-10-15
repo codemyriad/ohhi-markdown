@@ -69,14 +69,14 @@ function liveLayout() {
 }
 
 describe('Settings: the nav and its hosts (ST1/ST2)', () => {
-  it('lists the eleven sections in three groups, in order; picking one asks the host to move', async () => {
+  it('lists the nine sections in three groups, in order (Customise and its parts first); picking one asks the host to move', async () => {
     const user = userEvent.setup()
     const onSection = vi.fn()
-    render(Settings, { section: 'you', onSection, vault: VAULT, registry: registryWith() })
+    render(Settings, { section: 'customise', onSection, vault: VAULT, registry: registryWith() })
     const tabs = screen.getAllByRole('tab')
     expect(tabs.map((tab) => tab.getAttribute('data-testid'))).toEqual(SETTINGS_SECTIONS.map((s) => `settings-tab:${s}`))
     expect(tabs.map((tab) => tab.textContent!.trim())).toEqual([
-      'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'AI', 'Developer', 'About',
+      'Customise', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'AI', 'Developer', 'About',
     ])
     // A rule starts the second and third groups (drawn by the tab itself: the list holds tabs only).
     const separated = tabs.filter((tab) => tab.className.includes('before:border-t')).map((tab) => tab.dataset.testid)
@@ -87,8 +87,8 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
   })
 
   it('follows the host: a new section prop shows that section', async () => {
-    const view = render(Settings, { section: 'you', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
-    expect(screen.getByTestId('settings-section:you')).toBeVisible()
+    const view = render(Settings, { section: 'sync', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    expect(screen.getByTestId('settings-section:sync')).toBeVisible()
     await view.rerender({ section: 'developer', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
     expect(await screen.findByTestId('settings-section:developer')).toBeVisible()
     expect(screen.getByTestId('settings-tab:developer')).toHaveAttribute('aria-selected', 'true')
@@ -118,10 +118,10 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
     expect(screen.getByTestId('settings-layout')).toBeVisible()
   })
 
-  it('the Customise and Agents sections render with a vault open', async () => {
+  it('Customise renders with a vault open; AI holds the outside agents (Agents folded into AI)', async () => {
     const view = render(Settings, { section: 'customise', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
     expect(screen.getByTestId('settings-customise')).toHaveTextContent(LL.web.settings.customise.intro())
-    await view.rerender({ section: 'agents', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
+    await view.rerender({ section: 'ai', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
     expect(await screen.findByTestId('settings-agents')).toHaveTextContent(LL.web.settings.agents.intro())
   })
 })
@@ -144,7 +144,7 @@ describe('Settings: one save model (R3) — no Save buttons, nothing to guard', 
       pinnedHost: '',
       teamRelay: '',
     }
-    const view = render(Settings, { ...props, section: 'you' })
+    const view = render(Settings, { ...props, section: 'customise' })
     for (const section of SETTINGS_SECTIONS) {
       await view.rerender({ ...props, section })
       await screen.findByTestId(`settings-section:${section}`)
@@ -152,10 +152,10 @@ describe('Settings: one save model (R3) — no Save buttons, nothing to guard', 
     }
   })
 
-  it('the name commits on leaving the field, and an empty one is refused inline', async () => {
+  it('the name (Sync & devices’ first row) commits on leaving the field, and an empty one is refused inline', async () => {
     const user = userEvent.setup()
     const onConfigChange = vi.fn()
-    render(Settings, { section: 'you', onSection: vi.fn(), vault: VAULT, registry: registryWith(), onConfigChange })
+    render(Settings, { section: 'sync', onSection: vi.fn(), vault: VAULT, registry: registryWith(), onConfigChange, pinnedHost: '', teamRelay: '' })
     const field = screen.getByTestId('settings-name')
     await user.type(field, 'Chris B')
     expect(localStorage.getItem('editor:user')).toBeNull()
@@ -167,7 +167,7 @@ describe('Settings: one save model (R3) — no Save buttons, nothing to guard', 
     await user.clear(field)
     await user.keyboard('{Enter}')
     expect(field).toHaveAttribute('aria-invalid', 'true')
-    expect(screen.getByTestId('field-errors:name')).toHaveTextContent(LL.web.settings.you.name_required())
+    expect(screen.getByTestId('field-errors:name')).toHaveTextContent(LL.web.settings.sync.name_required())
     expect(localStorage.getItem('editor:user')).toBe('Chris B')
   })
 

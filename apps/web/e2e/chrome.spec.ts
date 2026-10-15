@@ -504,13 +504,14 @@ test('settings is a view tab: grouped sections, the keyboard between them, field
   const view = settingsView(page)
   // A tab beside the note, not a dialog over it (settings-shaping ST1).
   await expect(page.locator('[aria-modal="true"]')).toHaveCount(0)
-  await expect(view.getByRole('tab', { name: 'You', exact: true })).toHaveAttribute('aria-selected', 'true')
+  // It opens on the hub, Customise (settings-shaping Fork 7, QA round 1).
+  await expect(view.getByRole('tab', { name: 'Customise', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(view.getByRole('tab')).toHaveText([
-    'You', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'Customise', 'Agents', 'AI', 'Developer', 'About',
+    'Customise', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'AI', 'Developer', 'About',
   ])
 
   // Arrow keys move between sections (vertical list → down).
-  await view.getByRole('tab', { name: 'You', exact: true }).focus()
+  await view.getByRole('tab', { name: 'Customise', exact: true }).focus()
   for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown')
   await expect(view.getByRole('tab', { name: 'Sync & devices' })).toHaveAttribute('aria-selected', 'true')
 

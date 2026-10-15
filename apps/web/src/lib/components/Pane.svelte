@@ -680,7 +680,7 @@
           onNew={() => newNote(tab.id)}
           onOpenQuick={openQuick}
           onCustomise={shell ? () => shell.openSettings('customise') : undefined}
-          onAgents={shell && desktop ? () => shell.openSettings('agents') : undefined}
+          onAgents={shell && desktop ? () => shell.openSettings('ai') : undefined}
         />
       {/if}
     </div>

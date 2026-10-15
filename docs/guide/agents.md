@@ -60,9 +60,10 @@ Through MCP each of these is a tool of the same name, starting `ohhi_`
   `~/.claude/skills`. Both make links rather than copies, so neither goes
   stale.
 
-## Connect one: Settings › Agents
+## Connect one: Settings › AI
 
-**Settings › Agents** has the lines to copy, with the open vault's folder
+**Settings › AI**, under *Outside agents*, has the lines to copy — pick a
+route, then copy its three lines — with the open vault's folder
 already filled in:
 
 - **Claude Code**: start it with the vault named (`OHHI_VAULT="<folder>"

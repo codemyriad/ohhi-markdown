@@ -24,13 +24,13 @@ const t = getLL().web.ai
 const PROVIDER = { id: 'claude', name: 'Claude', kind: 'anthropic' as const, baseUrl: '', model: 'claude-x', apiKey: 'sk-test' }
 
 /** Settings at `section`, with no vault open: Providers are this device's config. */
-function renderAt(section: 'you' | 'ai') {
+function renderAt(section: 'sync' | 'ai') {
   return render(Settings, { section, onSection: vi.fn(), vault: null, registry: new CommandRegistry(false) })
 }
 
 describe('Settings › AI', () => {
   it('is a section with no provider configured — where one is added', () => {
-    renderAt('you')
+    renderAt('sync')
     expect(screen.getByTestId('settings-tab:ai')).toHaveTextContent(getLL().web.settings.nav.ai())
   })
 

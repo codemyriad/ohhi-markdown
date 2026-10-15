@@ -34,7 +34,7 @@ test('at phone width the nav is a select, Customise stacks, and nothing scrolls 
   await expect(nav(page)).toBeHidden()
   await expectNoSideScroll(page)
 
-  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'agents', 'about']) {
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'ai', 'about']) {
     await select(page).selectOption(section)
     await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
     await expect(settingsView(page).getByTestId('settings')).toHaveAttribute('data-section', section)

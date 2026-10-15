@@ -20,13 +20,15 @@ tools — this page is everything it needs. Ground truth for the decisions:
 
 | Kind | File | Schema | Chosen in |
 |---|---|---|---|
-| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Layout names the file in use and edits this device's overrides on top |
-| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Keys |
+| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Customise › Layout names the file in use and edits this device's overrides on top |
+| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Customise › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
-| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance (by name, beside the ten built-in themes; the folder is not listed). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Customise › Appearance (by name, beside the ten built-in themes; the folder is not listed). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
 
-**Settings › Customise** is the overview of all four: the roots below in
-order, each kind's file in use with the root it came from and what it
+**Settings › Customise** is the overview of all four, and the parent of
+the sections that choose them (Editor, Layout, Appearance, Keys — QA round
+1): first what is in use, one row per kind with a door to its section; then
+the roots below in order, each kind's file in use with the root it came from and what it
 shadows, every other name with its root, and **Problems** — every layout or
 keymap file that does not parse or validate, listed with its file, root and
 message until it is fixed (read from the files on each change and on

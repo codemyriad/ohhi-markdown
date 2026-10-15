@@ -362,7 +362,7 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await page.getByTestId('open-settings').click()
   await expect(settingsView(page)).toBeVisible()
   await expectAccessible(page, 'settings view')
-  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'agents', 'developer', 'about']) {
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'ai', 'developer', 'about']) {
     await settingsView(page).getByTestId(`settings-tab:${section}`).click()
     await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
     await expectAccessible(page, `settings ${section}`)
@@ -522,7 +522,7 @@ test('the browser-storage note and its Settings section are accessible', async (
   await page.getByTestId('settings-tab:sync').click()
   await expect(page.getByTestId('settings-storage-status')).toContainText('Not guaranteed')
   await expectAccessible(page, 'settings: storage in this browser')
-  for (const section of ['editor', 'layout', 'appearance', 'keys', 'customise', 'agents', 'developer', 'about']) {
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'customise', 'ai', 'developer', 'about']) {
     await page.getByTestId(`settings-tab:${section}`).click()
     await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
     await expectAccessible(page, `settings page ${section}`)
