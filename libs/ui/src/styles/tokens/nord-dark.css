@@ -147,11 +147,15 @@
     --ed-suggest-stale: #a3abba;
     --ed-comment-bg: #b48ead40;
     --ed-comment-resolved-bg: #d8dee91f;
-    --ed-agent-working-bg: #88c0d038;
+    /* Not frost1 #88c0d0: since band C went per polarity the dark offline
+     * grey #8b96a6 sits 59 units from it, and the agent's tint must clear
+     * every sync colour by 60. A brighter frost of the same hue. */
+    --ed-agent-working-bg: #88d0e038;
 
     --ed-presence-1: #88c0d0;
-    /* Slots 2 and 4 are NOT Nord's green and yellow: those ARE this theme's
-     * --ed-sync-ok and --ed-sync-pending, and a peer must never read as a
+    /* Slots 2 and 4 are NOT Nord's green and yellow: those WERE this theme's
+     * --ed-sync-ok and --ed-sync-pending (before band C went per polarity,
+     * 2026-10-15; kept as they were), and a peer must never read as a
      * sync state (sharing R5). A rose and Nord's own snow (nord4) instead. */
     --ed-presence-2: #e0a3b8;
     --ed-presence-3: #b48ead;

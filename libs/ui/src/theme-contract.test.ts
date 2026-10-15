@@ -22,7 +22,7 @@ import {
   GROUP_SLOTS,
   PRESENCE_SLOTS,
   SUGGEST_TOKENS,
-  THEME_LABELS,
+  THEME_LABEL_KEYS,
 } from './tokens.js'
 
 const here = fileURLToPath(new URL('./styles/', import.meta.url))
@@ -56,6 +56,23 @@ function themeBlock(css: string, name: string): string {
   }
   return ''
 }
+
+/** The body of the first rule whose selector list contains `selector`, or ''. */
+function ruleBlock(css: string, selector: string): string {
+  const start = css.indexOf(selector)
+  if (start === -1) return ''
+  const open = css.indexOf('{', start)
+  const close = css.indexOf('}', open)
+  return open === -1 || close === -1 ? '' : css.slice(open + 1, close)
+}
+
+/** Band C is chosen per POLARITY (themes review Fork 3-B), never per theme. */
+const POLARITIES = ['light', 'dark'] as const
+const polarityOf = (theme: string): (typeof POLARITIES)[number] => (DARK_THEMES.has(theme) ? 'dark' : 'light')
+/** The sync block a polarity reads: `[data-polarity='…'] { … }`. */
+const polarityBlock = (pol: string): string => ruleBlock(SYNC, `[data-polarity='${pol}']`)
+/** The sync block a built-in theme ends up with — its polarity's. */
+const syncFor = (theme: string): string => polarityBlock(polarityOf(theme))
 
 /** The `@plugin "daisyui/theme" { … }` body — where band A's --color-* live. */
 function daisyBlock(css: string): string {
@@ -170,7 +187,7 @@ describe('token contract', () => {
 
   it('every built-in theme is labelled and its polarity declared', () => {
     for (const theme of BUILTIN_THEMES) {
-      expect(THEME_LABELS[theme], `${theme} has no label`).toBeTruthy()
+      expect(THEME_LABEL_KEYS[theme], `${theme} has no label`).toBeTruthy()
       const scheme = THEME_CSS[theme].match(/color-scheme:\s*(light|dark)/)?.[1]
       expect(scheme, `${theme} must declare color-scheme`).toBeDefined()
       expect(
@@ -223,7 +240,7 @@ describe('sync honesty (band C)', () => {
     expect(SYNC).toMatch(/\.ed-sync-dot \{[^}]*display:\s*inline-block/)
     // …and the host's, so hiding the pill's own element fails as well.
     expect(SYNC).toMatch(/\.ed-sync-host \{[^}]*display:\s*inline-flex/)
-    // Exactly one unscoped rule per status (the editor-light defaults).
+    // Exactly one unscoped rule per status (the light set, the default).
     for (const status of ['green', 'yellow', 'red', 'offline']) {
       const unscoped = SYNC.match(new RegExp(`(^|\\})\\s*\\[data-status='${status}'\\] > \\.ed-sync-dot`, 'g')) ?? []
       expect(unscoped.length, `unscoped ${status} dot rules`).toBe(1)
@@ -231,16 +248,23 @@ describe('sync honesty (band C)', () => {
     // ...and it must all stay unlayered: `@layer` anywhere in this file would
     // put it behind a user theme's normal rules.
     expect(SYNC.includes('@layer')).toBe(false)
-    // ...and a theme override for every non-default theme.
-    for (const theme of BUILTIN_THEMES) {
-      if (theme === 'editor-light') continue // the defaults above ARE its palette
-      // Every status, scoped: an unscoped override would repaint every theme's dot.
-      for (const status of ['green', 'yellow', 'red', 'offline']) {
-        expect(SYNC, `${theme} has no scoped ${status} dot rule`).toContain(
-          `[data-theme='${theme}'] [data-status='${status}'] > .ed-sync-dot {`
-        )
-      }
+    // ...and the dark set, scoped by polarity: an unscoped override would
+    // repaint every theme's dot.
+    for (const status of ['green', 'yellow', 'red', 'offline']) {
+      expect(SYNC, `no dark ${status} dot rule`).toContain(
+        `[data-polarity='dark'] [data-status='${status}'] > .ed-sync-dot {`
+      )
     }
+  })
+
+  it('is chosen per polarity, never per theme (Fork 3-B)', () => {
+    // A per-theme block would leave every custom theme on the light defaults
+    // (a custom DARK theme with the light green and amber), and grow by a
+    // block and eight rules with every built-in.
+    expect(SYNC, 'sync-tokens.css names a theme').not.toMatch(/\[data-theme/)
+    for (const pol of POLARITIES) expect(polarityBlock(pol), `no ${pol} block`).not.toBe('')
+    // The light set is also the default, for the frame before the attribute exists.
+    expect(SYNC).toMatch(/:root,\s*\[data-polarity='light'\]\s*\{/)
   })
 
   it('paints the sync ICON the same way: its stroke, per status and theme, the dot\'s colour', () => {
@@ -251,13 +275,18 @@ describe('sync honesty (band C)', () => {
     expect(SYNC).toMatch(/\.ed-sync-icon \* \{[^}]*fill:\s*none[^}]*stroke:\s*inherit/)
     const colour = (selector: string, prop: string): string | undefined =>
       SYNC.match(new RegExp(`${selector.replace(/[[\]().*>]/g, '\\$&')} \\{\\s*${prop}:\\s*(#[0-9a-f]+)`))?.[1]
-    for (const theme of [null, ...BUILTIN_THEMES.filter((t) => t !== 'editor-light')]) {
-      for (const status of ['green', 'yellow', 'red', 'offline']) {
-        const scope = theme ? `[data-theme='${theme}'] ` : ''
+    const STATE = { green: 'ok', yellow: 'pending', red: 'diverged', offline: 'offline' } as const
+    for (const pol of POLARITIES) {
+      for (const status of ['green', 'yellow', 'red', 'offline'] as const) {
+        const scope = pol === 'dark' ? `[data-polarity='dark'] ` : ''
         const dot = colour(`${scope}[data-status='${status}'] > .ed-sync-dot`, 'background-color')
         const icon = colour(`${scope}[data-status='${status}'] > .ed-sync-icon`, 'stroke')
-        expect(icon, `${theme ?? 'default'} ${status} icon`).toBeTruthy()
-        expect(icon, `${theme ?? 'default'} ${status}: icon and dot must say the same`).toBe(dot)
+        expect(icon, `${pol} ${status} icon`).toBeTruthy()
+        expect(icon, `${pol} ${status}: icon and dot must say the same`).toBe(dot)
+        // …and both are that polarity's own token value.
+        expect(dot, `${pol} ${status}: the dot is not --ed-sync-${STATE[status]}`).toBe(
+          tokenValue(polarityBlock(pol), `--ed-sync-${STATE[status]}`)
+        )
       }
     }
   })
@@ -268,9 +297,9 @@ describe('sync honesty (band C)', () => {
     expect(SYNC).not.toMatch(/--ed-sync-[a-z-]+:\s*var\(--color-(success|warning|error|neutral)\)/)
   })
 
-  it('defines all four state/foreground pairs for :root and every theme', () => {
-    for (const scope of [':root', ...BUILTIN_THEMES]) {
-      const block = scope === ':root' ? themeRoot(SYNC) : themeBlock(SYNC, scope)
+  it('defines all four state/foreground pairs for :root and both polarities', () => {
+    for (const scope of [':root', ...POLARITIES]) {
+      const block = scope === ':root' ? themeRoot(SYNC) : polarityBlock(scope)
       expect(block, `${scope} has no sync block`).not.toBe('')
       for (const state of SYNC_STATES) {
         expect(tokenValue(block, `--ed-sync-${state}`), `${scope} ${state}`).toBeTruthy()
@@ -281,7 +310,7 @@ describe('sync honesty (band C)', () => {
 
   it('keeps the four states visually distinct', () => {
     for (const theme of BUILTIN_THEMES) {
-      const block = themeBlock(SYNC, theme)
+      const block = syncFor(theme)
       const values = SYNC_STATES.map((s) => tokenValue(block, `--ed-sync-${s}`)!)
       for (let i = 0; i < values.length; i++) {
         for (let j = i + 1; j < values.length; j++) {
@@ -296,7 +325,7 @@ describe('sync honesty (band C)', () => {
 
   it('keeps ok and pending separable under deuteranopia', () => {
     for (const theme of BUILTIN_THEMES) {
-      const block = themeBlock(SYNC, theme)
+      const block = syncFor(theme)
       expect(
         deuteranopiaDistance(
           tokenValue(block, '--ed-sync-ok')!,
@@ -309,7 +338,7 @@ describe('sync honesty (band C)', () => {
 
   it('clears 4.5:1 for every state foreground', () => {
     for (const theme of BUILTIN_THEMES) {
-      const block = themeBlock(SYNC, theme)
+      const block = syncFor(theme)
       for (const state of SYNC_STATES) {
         const bg = tokenValue(block, `--ed-sync-${state}`)!
         const fg = tokenValue(block, `--ed-sync-${state}-fg`)!
@@ -321,7 +350,7 @@ describe('sync honesty (band C)', () => {
   it('never puts a presence colour near the diverged colour', () => {
     // A peer's caret must never be mistakable for a conflict marker.
     for (const theme of BUILTIN_THEMES) {
-      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       const block = themeBlock(THEME_CSS[theme], theme)
       const source = block.includes('--ed-presence-1') ? block : CONTRACT
       for (let i = 1; i <= PRESENCE_SLOTS; i++) {
@@ -361,7 +390,7 @@ describe('presence colours (band B)', () => {
         expect(slot, `${theme} slot ${i}`).toMatch(/^#/)
         expect(ink, `${theme} slot ${i} fg`).toMatch(/^#/)
         expect(contrastRatio(slot, ink), `${theme} slot ${i} (${slot}) with ink ${ink}`).toBeGreaterThanOrEqual(4.5)
-        const sync = themeBlock(SYNC, theme)
+        const sync = syncFor(theme)
         for (const state of SYNC_STATES) {
           const value = tokenValue(sync, `--ed-sync-${state}`)!
           // 30: "not the same colour" — catches a slot that IS a state
@@ -433,7 +462,7 @@ describe('tab-group colours (band B)', () => {
     // carries the name you gave it. nord-dark's Nord orange (#d08770) sits 42
     // units from Nord's aurora red and is the closest any theme comes.
     for (const theme of BUILTIN_THEMES) {
-      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       slots(theme).forEach((value, i) => {
         expect(
           colorDistance(value, diverged),
@@ -514,6 +543,34 @@ describe('editor readability', () => {
     }
   })
 
+  /**
+   * The code fence (themes review F6, 2026-10-15). The first Editor Light's `type` sat
+   * at 4.3:1 on its own slab and Editor Dark's comment at 2.98:1, and nothing
+   * asserted either. The five syntax colours a reader reads are text (4.5:1,
+   * WCAG 1.4.3) on `--ed-code-block-bg`, the slab they sit on, not the page;
+   * the comment is allowed to recede, to the 3:1 the docs give marks.
+   *
+   * Nord is a faithful port of another theme's syntax palette and keeps it
+   * (docs/theming.md, the Nord deviations): its frost and comment greys on
+   * nord1 sit under both floors, and the port is listed here rather than
+   * repainted.
+   */
+  const FENCE_EXEMPT: ReadonlySet<string> = new Set(['nord-light', 'nord-dark'])
+
+  it('keeps the syntax colours readable on the fence they sit on', () => {
+    for (const theme of BUILTIN_THEMES.filter((t) => !FENCE_EXEMPT.has(t))) {
+      const block = themeBlock(THEME_CSS[theme], theme)
+      const slab = tokenValue(block, '--ed-code-block-bg') ?? tokenValue(CONTRACT, '--ed-code-block-bg')!
+      for (const slot of ['keyword', 'string', 'number', 'function', 'type']) {
+        const value = tokenValue(block, `--ed-syn-${slot}`) ?? tokenValue(CONTRACT, `--ed-syn-${slot}`)!
+        expect(contrastRatio(slab, value), `${theme} syntax ${slot} (${value}) on ${slab}`).toBeGreaterThanOrEqual(4.5)
+      }
+      const comment = tokenValue(block, '--ed-syn-comment') ?? tokenValue(CONTRACT, '--ed-syn-comment')!
+      // Not `>= 3`: the first Editor Dark's 2.98 rounded to the "3.0:1" that hid it.
+      expect(contrastRatio(slab, comment), `${theme} syntax comment (${comment}) on ${slab}`).toBeGreaterThan(3)
+    }
+  })
+
   it('keeps every heading level at AA-large or better', () => {
     // Headings are large text, so 3:1 is the bar — but nord-light's faithful
     // port would land at 1.6:1, which is why it carries corrections.
@@ -533,7 +590,7 @@ describe('editor readability', () => {
     // link is a note you have not written yet — not a conflict — and the two
     // must never look the same. (nord-light shipped this bug once.)
     for (const theme of BUILTIN_THEMES) {
-      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       const block = themeBlock(THEME_CSS[theme], theme)
       const unresolved =
         tokenValue(block, '--ed-wikilink-unresolved') ??
@@ -585,7 +642,7 @@ describe('suggestion colours (band B)', () => {
 
   it('never paints a suggestion in the diverged colour', () => {
     for (const theme of BUILTIN_THEMES) {
-      const diverged = tokenValue(themeBlock(SYNC, theme), '--ed-sync-diverged')!
+      const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       for (const name of SUGGEST_TOKENS) {
         expect(colorDistance(value(theme, name), diverged), `${theme} ${name}`).toBeGreaterThan(60)
       }
@@ -629,7 +686,7 @@ describe('list guides and indent (band B)', () => {
 
 /** The bare `:root { … }` block of a stylesheet (first occurrence). */
 function themeRoot(css: string): string {
-  const start = css.search(/^:root\s*\{/m)
+  const start = css.search(/^:root\s*[{,]/m)
   if (start === -1) return ''
   const open = css.indexOf('{', start)
   let depth = 0
@@ -679,7 +736,7 @@ describe('agent working tint (band B)', () => {
   it('is no sync colour, no comment and no search match in any built-in theme', () => {
     for (const theme of BUILTIN_THEMES) {
       const tint = value(theme, AGENT_WORKING_TOKEN)
-      const sync = themeBlock(SYNC, theme)
+      const sync = syncFor(theme)
       for (const state of SYNC_STATES) {
         expect(colorDistance(tint, tokenValue(sync, `--ed-sync-${state}`)!), `${theme} vs sync ${state}`).toBeGreaterThan(60)
       }

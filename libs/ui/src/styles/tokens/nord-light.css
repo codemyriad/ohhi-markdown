@@ -143,10 +143,12 @@
     --ed-agent-working-bg: #2b8a9a2e;
 
     --ed-presence-1: #2b7f8a;
-    /* Slots 2 and 4 are not the ported green and amber: #4d7c2f is this
-     * theme's --ed-sync-ok in all but name and #8a6300 IS --ed-sync-pending;
-     * a peer must never read as a sync state (sharing R5). */
-    --ed-presence-2: #2f7a5a;
+    /* Slot 2 is the ported green again (it was #2f7a5a while nord-light had
+     * its own sync ok, #4a7a2e; since band C went per polarity the light ok is
+     * #2f7d3f, which the port's green clears and #2f7a5a did not). Slot 4 is
+     * not the ported amber: #8a6300 IS --ed-sync-pending; a peer must never
+     * read as a sync state (sharing R5). */
+    --ed-presence-2: #4d7c2f;
     --ed-presence-3: #7d3fa8;
     --ed-presence-4: #8f5a2b;
     --ed-presence-5: #3b6e7d;

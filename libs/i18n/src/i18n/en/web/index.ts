@@ -1274,7 +1274,23 @@ const settings = {
     theme: 'Theme',
     system: 'System',
     theme_help:
-      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.',
+      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too; Nord reproduces the Obsidian theme it is named after.',
+    /**
+     * The built-in themes' names, keyed by `THEME_LABEL_KEYS` in
+     * `libs/ui/src/tokens.ts` (the theme id with `_` for `-`).
+     */
+    theme_names: {
+      editor_light: 'Oh hi Light',
+      editor_dark: 'Oh hi Dark',
+      graphite_light: 'Graphite Light',
+      graphite_dark: 'Graphite Dark',
+      fjord_light: 'Fjord Light',
+      fjord_dark: 'Fjord Dark',
+      iris_light: 'Iris Light',
+      iris_dark: 'Iris Dark',
+      nord_light: 'Nord Light',
+      nord_dark: 'Nord Dark',
+    },
     custom_theme: 'Custom theme',
     custom_placeholder: 'my-theme',
     use_custom: 'Use custom',

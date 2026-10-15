@@ -24,7 +24,6 @@
    * it draws the "open a vault" notice instead (NEEDS_VAULT).
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { THEME_LABELS } from '@ohhi/ui/tokens'
   import type { CommandRegistry } from '../commands.js'
   import {
     filePath,
@@ -42,7 +41,7 @@
   import { layoutName } from '../layout.js'
   import { RESOURCE_KINDS, type ResourceOverview, type Resources, type RootId } from '../resources.svelte.js'
   import { getSettingsEnv, type SettingsLayout } from '../settings-host.js'
-  import { themePath, themeState } from '../theme.svelte.js'
+  import { builtinThemeLabel, themePath, themeState } from '../theme.svelte.js'
   import { HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import RootPill from './RootPill.svelte'
 
@@ -97,7 +96,7 @@
           name: themeState.pref.slice('custom:'.length),
           path: themePath(themeState.pref.slice('custom:'.length)),
         }
-      : { builtin: true, name: (THEME_LABELS as Record<string, string>)[themeState.name] ?? themeState.name }
+      : { builtin: true, name: builtinThemeLabel($LL, themeState.name) ?? themeState.name }
   )
   const rows = $derived<KindRow[]>(
     kindRows({

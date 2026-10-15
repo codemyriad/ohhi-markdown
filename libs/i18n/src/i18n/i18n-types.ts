@@ -3531,10 +3531,52 @@ export type NamespaceWebTranslation = {
 			 */
 			system: string
 			/**
-			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​.​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​;​ ​t​h​e​ ​t​w​o​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​t​h​e​m​e​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​d​e​f​a​u​l​t​s​.
+			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​h​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​h​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​;​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​.
 			 * @param {string} system
 			 */
 			theme_help: RequiredParams<'system'>
+			theme_names: {
+				/**
+				 * O​h​ ​h​i​ ​L​i​g​h​t
+				 */
+				editor_light: string
+				/**
+				 * O​h​ ​h​i​ ​D​a​r​k
+				 */
+				editor_dark: string
+				/**
+				 * G​r​a​p​h​i​t​e​ ​L​i​g​h​t
+				 */
+				graphite_light: string
+				/**
+				 * G​r​a​p​h​i​t​e​ ​D​a​r​k
+				 */
+				graphite_dark: string
+				/**
+				 * F​j​o​r​d​ ​L​i​g​h​t
+				 */
+				fjord_light: string
+				/**
+				 * F​j​o​r​d​ ​D​a​r​k
+				 */
+				fjord_dark: string
+				/**
+				 * I​r​i​s​ ​L​i​g​h​t
+				 */
+				iris_light: string
+				/**
+				 * I​r​i​s​ ​D​a​r​k
+				 */
+				iris_dark: string
+				/**
+				 * N​o​r​d​ ​L​i​g​h​t
+				 */
+				nord_light: string
+				/**
+				 * N​o​r​d​ ​D​a​r​k
+				 */
+				nord_dark: string
+			}
 			/**
 			 * C​u​s​t​o​m​ ​t​h​e​m​e
 			 */
@@ -11836,9 +11878,51 @@ export type TranslationFunctions = {
 				 */
 				system: () => LocalizedString
 				/**
-				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.
+				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too; Nord reproduces the Obsidian theme it is named after.
 				 */
 				theme_help: (arg: { system: string }) => LocalizedString
+				theme_names: {
+					/**
+					 * Oh hi Light
+					 */
+					editor_light: () => LocalizedString
+					/**
+					 * Oh hi Dark
+					 */
+					editor_dark: () => LocalizedString
+					/**
+					 * Graphite Light
+					 */
+					graphite_light: () => LocalizedString
+					/**
+					 * Graphite Dark
+					 */
+					graphite_dark: () => LocalizedString
+					/**
+					 * Fjord Light
+					 */
+					fjord_light: () => LocalizedString
+					/**
+					 * Fjord Dark
+					 */
+					fjord_dark: () => LocalizedString
+					/**
+					 * Iris Light
+					 */
+					iris_light: () => LocalizedString
+					/**
+					 * Iris Dark
+					 */
+					iris_dark: () => LocalizedString
+					/**
+					 * Nord Light
+					 */
+					nord_light: () => LocalizedString
+					/**
+					 * Nord Dark
+					 */
+					nord_dark: () => LocalizedString
+				}
 				/**
 				 * Custom theme
 				 */

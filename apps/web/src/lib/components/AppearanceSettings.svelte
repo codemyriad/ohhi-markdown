@@ -6,10 +6,10 @@
    * the theme in use and where it came from — built in, or this vault.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { BUILTIN_THEMES, THEME_LABELS } from '@ohhi/ui/tokens'
+  import { BUILTIN_THEMES } from '@ohhi/ui/tokens'
   import type { ThemePref } from '../config.js'
   import { escapeHtml } from '../html.js'
-  import { applyTheme, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
+  import { applyTheme, builtinThemeLabel, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
   import { HEADING } from '../ui/styles.js'
   import ResourceSource from './ResourceSource.svelte'
 
@@ -40,7 +40,7 @@
     return custom
       ? { name: custom, root: 'vault' as const, path: themePath(custom), shadows: [], fellBackFrom: null }
       : {
-          name: (THEME_LABELS as Record<string, string>)[themeState.name] ?? themeState.name,
+          name: builtinThemeLabel($LL, themeState.name) ?? themeState.name,
           root: 'builtin' as const,
           path: null,
           shadows: [],
@@ -50,7 +50,7 @@
 
   const options = $derived([
     { value: 'system' as ThemePref, label: t.system() },
-    ...BUILTIN_THEMES.map((th) => ({ value: th as ThemePref, label: THEME_LABELS[th] })),
+    ...BUILTIN_THEMES.map((th) => ({ value: th as ThemePref, label: builtinThemeLabel($LL, th) ?? th })),
   ])
 </script>
 

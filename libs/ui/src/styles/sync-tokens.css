@@ -45,11 +45,22 @@
  * The custom properties above remain for anything that legitimately wants the
  * palette (a future per-folder rollup); the PILL does not depend on them.
  *
+ * ONE SET PER POLARITY, not per theme (themes review 2026-10-15, Fork 3-B).
+ * The app sets `data-polarity="light|dark"` on <html> beside `data-theme`
+ * (lib/theme.svelte.ts, and the pre-paint script in index.html), and the
+ * rules below pick by it. So every built-in of a polarity, and every custom
+ * theme, shows the same four colours: a custom DARK theme gets the
+ * dark-legible set, where a per-theme band C left it the light defaults. A
+ * theme cannot set an attribute, so this adds nothing for the sanitizer to
+ * strip. The light set is also the unscoped default, for the frame before the
+ * attribute exists.
+ *
  * Asserted by theme-contract.test.ts and by apps/web/e2e/v2.spec.ts.
  */
 
-/* Defaults (light polarity). */
-:root {
+/* The light set: the default, and every light theme. */
+:root,
+[data-polarity='light'] {
   --ed-sync-ok: #2f7d3f;
   --ed-sync-ok-fg: #ffffff;
   --ed-sync-pending: #8a6300;
@@ -60,18 +71,8 @@
   --ed-sync-offline-fg: #ffffff;
 }
 
-[data-theme="editor-light"] {
-  --ed-sync-ok: #2f7d3f;
-  --ed-sync-ok-fg: #ffffff;
-  --ed-sync-pending: #8a6300;
-  --ed-sync-pending-fg: #ffffff;
-  --ed-sync-diverged: #b3271e;
-  --ed-sync-diverged-fg: #ffffff;
-  --ed-sync-offline: #6b7684;
-  --ed-sync-offline-fg: #ffffff;
-}
-
-[data-theme="editor-dark"] {
+/* The dark set: every dark theme, built in or custom. */
+[data-polarity='dark'] {
   --ed-sync-ok: #56b96f;
   --ed-sync-ok-fg: #0d1408;
   --ed-sync-pending: #d9a441;
@@ -83,32 +84,6 @@
    * needs to be able to read. */
   --ed-sync-offline: #8b96a6;
   --ed-sync-offline-fg: #0f1319;
-}
-
-/* Nord's own semantic colours — green/yellow/red/nord3. */
-[data-theme="nord-dark"] {
-  --ed-sync-ok: #a3be8c;
-  --ed-sync-ok-fg: #2e3440;
-  --ed-sync-pending: #ebcb8b;
-  --ed-sync-pending-fg: #2e3440;
-  --ed-sync-diverged: #bf616a;
-  /* Not Nord's own #2e3440: aurora red is dark enough that the theme's own
-   * darkest background only reaches 3.05:1 on it. A near-black keeps the
-   * hue and makes the label readable. Documented in docs/theming.md. */
-  --ed-sync-diverged-fg: #140a0c;
-  --ed-sync-offline: #4c566a;
-  --ed-sync-offline-fg: #d8dee9;
-}
-
-[data-theme="nord-light"] {
-  --ed-sync-ok: #4a7a2e;
-  --ed-sync-ok-fg: #ffffff;
-  --ed-sync-pending: #8a6300;
-  --ed-sync-pending-fg: #ffffff;
-  --ed-sync-diverged: #b3271e;
-  --ed-sync-diverged-fg: #ffffff;
-  --ed-sync-offline: #6b7690;
-  --ed-sync-offline-fg: #ffffff;
 }
 
 /*
@@ -155,43 +130,17 @@
   background-color: #6b7684;
 }
 
-[data-theme='editor-dark'] [data-status='green'] > .ed-sync-dot {
+[data-polarity='dark'] [data-status='green'] > .ed-sync-dot {
   background-color: #56b96f;
 }
-[data-theme='editor-dark'] [data-status='yellow'] > .ed-sync-dot {
+[data-polarity='dark'] [data-status='yellow'] > .ed-sync-dot {
   background-color: #d9a441;
 }
-[data-theme='editor-dark'] [data-status='red'] > .ed-sync-dot {
+[data-polarity='dark'] [data-status='red'] > .ed-sync-dot {
   background-color: #e05252;
 }
-[data-theme='editor-dark'] [data-status='offline'] > .ed-sync-dot {
+[data-polarity='dark'] [data-status='offline'] > .ed-sync-dot {
   background-color: #8b96a6;
-}
-
-[data-theme='nord-dark'] [data-status='green'] > .ed-sync-dot {
-  background-color: #a3be8c;
-}
-[data-theme='nord-dark'] [data-status='yellow'] > .ed-sync-dot {
-  background-color: #ebcb8b;
-}
-[data-theme='nord-dark'] [data-status='red'] > .ed-sync-dot {
-  background-color: #bf616a;
-}
-[data-theme='nord-dark'] [data-status='offline'] > .ed-sync-dot {
-  background-color: #4c566a;
-}
-
-[data-theme='nord-light'] [data-status='green'] > .ed-sync-dot {
-  background-color: #4a7a2e;
-}
-[data-theme='nord-light'] [data-status='yellow'] > .ed-sync-dot {
-  background-color: #8a6300;
-}
-[data-theme='nord-light'] [data-status='red'] > .ed-sync-dot {
-  background-color: #b3271e;
-}
-[data-theme='nord-light'] [data-status='offline'] > .ed-sync-dot {
-  background-color: #6b7690;
 }
 
 /*
@@ -201,7 +150,7 @@
  * longhands on the svg itself, and again on every shape inside it, because a
  * layered `.lucide path { stroke: red }` lands on the CHILD, where an
  * inherited stroke would lose to it. `fill: none` too: a filled glyph is a
- * repaint by other means. Literal colours, the dot's, per theme.
+ * repaint by other means. Literal colours, the dot's, per polarity.
  */
 .ed-sync-icon {
   display: inline-block;
@@ -232,39 +181,15 @@
 [data-status='offline'] > .ed-sync-icon {
   stroke: #6b7684;
 }
-[data-theme='editor-dark'] [data-status='green'] > .ed-sync-icon {
+[data-polarity='dark'] [data-status='green'] > .ed-sync-icon {
   stroke: #56b96f;
 }
-[data-theme='editor-dark'] [data-status='yellow'] > .ed-sync-icon {
+[data-polarity='dark'] [data-status='yellow'] > .ed-sync-icon {
   stroke: #d9a441;
 }
-[data-theme='editor-dark'] [data-status='red'] > .ed-sync-icon {
+[data-polarity='dark'] [data-status='red'] > .ed-sync-icon {
   stroke: #e05252;
 }
-[data-theme='editor-dark'] [data-status='offline'] > .ed-sync-icon {
+[data-polarity='dark'] [data-status='offline'] > .ed-sync-icon {
   stroke: #8b96a6;
-}
-[data-theme='nord-dark'] [data-status='green'] > .ed-sync-icon {
-  stroke: #a3be8c;
-}
-[data-theme='nord-dark'] [data-status='yellow'] > .ed-sync-icon {
-  stroke: #ebcb8b;
-}
-[data-theme='nord-dark'] [data-status='red'] > .ed-sync-icon {
-  stroke: #bf616a;
-}
-[data-theme='nord-dark'] [data-status='offline'] > .ed-sync-icon {
-  stroke: #4c566a;
-}
-[data-theme='nord-light'] [data-status='green'] > .ed-sync-icon {
-  stroke: #4a7a2e;
-}
-[data-theme='nord-light'] [data-status='yellow'] > .ed-sync-icon {
-  stroke: #8a6300;
-}
-[data-theme='nord-light'] [data-status='red'] > .ed-sync-icon {
-  stroke: #b3271e;
-}
-[data-theme='nord-light'] [data-status='offline'] > .ed-sync-icon {
-  stroke: #6b7690;
 }

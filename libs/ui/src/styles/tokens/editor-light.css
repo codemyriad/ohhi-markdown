@@ -1,15 +1,17 @@
 /*
- * editor-light — Editor's own default theme (light).
+ * editor-light — "Oh hi Light".
  *
- * Design thesis (plans/v2-shaping.md, Fork 2): headings are a six-step
- * LUMINANCE ramp of one hue, not six competing hues. Hue is spent on links,
- * code, tags and unresolved wikilinks. The highest-chroma things on screen
- * are the sync and presence colours — in an app whose promise is "sync state
- * never lies", the status indicators must win every fight for attention, and
- * they cannot win against a red h1.
+ * Direction B, "Ledger" — the default pair. Paper and a fountain pen: warm neutrals
+ * from the page to the darkest chrome, one ink-blue for everything you can follow
+ * (link, wikilink, title, caret), teal code, a sand chip for tags, and a visible
+ * warm heading ramp (Fork 6-B). The cool sync greens and ambers sit on it like stamps.
  *
- * The `:root` defaults in _contract.css already ARE this theme's editor
- * tokens, so this file only restates the headings ramp and the title.
+ * Values from the design review "Oh hi Theme Explorations" (2026-10-15), each
+ * checked there against theme-contract.test.ts's rules and the floors in
+ * docs/theming.md (7:1 ink, 4.5:1 every text colour, 3:1 marks). Band C (the
+ * sync colours) is not here: sync-tokens.css chooses it by polarity. The people
+ * and group colours are the light set every built-in default shares (Fork 5-A),
+ * so a peer keeps their colour when you switch theme.
  */
 @plugin "daisyui/theme" {
   name: "editor-light";
@@ -17,24 +19,21 @@
   prefersdark: false;
   color-scheme: light;
 
-  --color-base-100: #ffffff;
-  --color-base-200: #f5f7f9;
-  --color-base-300: #e3e8ee;
-  --color-base-content: #1f242b;
-
-  --color-primary: #1d7f9c;
+  --color-base-100: #faf8f4;
+  --color-base-200: #f1ede6;
+  --color-base-300: #e1dbd0;
+  --color-base-content: #2a2521;
+  --color-primary: #2f55a4;
   --color-primary-content: #ffffff;
-  --color-secondary: #55606f;
+  --color-secondary: #5e564e;
   --color-secondary-content: #ffffff;
-  --color-accent: #9a5b12;
+  --color-accent: #7a4b8a;
   --color-accent-content: #ffffff;
-
-  --color-neutral: #1f242b;
-  --color-neutral-content: #ffffff;
-
-  --color-info: #1d7f9c;
+  --color-neutral: #2a2521;
+  --color-neutral-content: #faf8f4;
+  --color-info: #2f55a4;
   --color-info-content: #ffffff;
-  --color-success: #4a7a2e;
+  --color-success: #3f6f27;
   --color-success-content: #ffffff;
   --color-warning: #8a6300;
   --color-warning-content: #ffffff;
@@ -53,25 +52,113 @@
 
 @layer editor.tokens {
   [data-theme="editor-light"] {
-    --ed-h1: #0d1117;
-    --ed-h2: #171c23;
-    --ed-h3: #242b34;
-    --ed-h4: #333c47;
-    --ed-h5: #4a5462;
-    --ed-h6: #626d7d;
-    --ed-title: #1d7f9c;
-    --ed-bold: #0d1117;
-    --ed-italic: #333c47;
+    --ed-surface: #faf8f4;
+    --ed-scrim: #2a25214d;
+    --ed-ink: #2a2521;
+    --ed-ink-muted: #5e564e;
+    --ed-ink-faint: #857c72;
+    --ed-h1: #1f1b18;
+    --ed-h2: #241f1b;
+    --ed-h3: #2a2521;
+    --ed-h4: #3a342f;
+    --ed-h5: #4e4740;
+    --ed-h6: #5e564e;
+    --ed-title: #2f55a4;
+    --ed-bold: #1f1b18;
+    --ed-italic: #2a2521;
+    --ed-strike: #857c72;
+    --ed-mark-bg: #f5dc84;
+    --ed-mark-fg: #2a2521;
+    --ed-code-fg: #1e6b66;
+    --ed-code-bg: #efeae1;
+    --ed-code-block-fg: #2a2521;
+    --ed-code-block-bg: #f3efe8;
+    --ed-code-border: #e1dbd0;
+    --ed-syn-keyword: #7a4b8a;
+    --ed-syn-string: #44703a;
+    --ed-syn-number: #9a5a22;
+    --ed-syn-comment: #8d8377;
+    --ed-syn-function: #2f55a4;
+    --ed-syn-type: #1e6b66;
+    --ed-syn-variable: #2a2521;
+    --ed-syn-operator: #5e564e;
+    --ed-syn-invalid: #b3271e;
+    --ed-link: #2f55a4;
+    --ed-link-hover: #2f55a4;
+    --ed-url: #5e564e;
+    --ed-wikilink: #2f55a4;
+    --ed-wikilink-unresolved: #8a6224;
+    --ed-wikilink-punct: #c2b9ac;
+    --ed-tag-fg: #6a5634;
+    --ed-tag-bg: #efe5d3;
+    --ed-tag-bg-hover: #dfd6c5;
+    --ed-frontmatter-fg: #5e564e;
+    --ed-frontmatter-bg: #f3efe8;
+    --ed-frontmatter-border: #e1dbd0;
+    --ed-quote-fg: #5e564e;
+    --ed-quote-border: #d6cfc3;
+    --ed-hr: #e1dbd0;
+    --ed-bullet: #857c72;
+    --ed-marker: #c2b9ac;
+    --ed-checkbox: #2f55a4;
+    --ed-task-done-fg: #857c72;
 
-    /* --- callouts (E3): the nine type colours (see the contract) --- */
-    --ed-callout-note: #1d7f9c;
-    --ed-callout-tip: #0f6e63;
-    --ed-callout-success: #4a7a2e;
+    --ed-table-header-bg: #f1ede6;
+    --ed-table-row-alt-bg: #f6f3ed;
+    --ed-table-border: #e1dbd0;
+
+    --ed-selection: #2f55a42e;
+    --ed-selection-blur: #2f55a417;
+    --ed-caret: #2f55a4;
+    --ed-active-line: #2a252108;
+    --ed-gutter-bg: transparent;
+    --ed-gutter-fg: #c2b9ac;
+    --ed-gutter-active-fg: #5e564e;
+    --ed-bracket-match-bg: #2f55a433;
+    --ed-search-match-bg: #f5dc8480;
+    --ed-search-match-active-bg: #f5dc84;
+    --ed-suggest-del: #8a4f7d;
+    --ed-suggest-add: #1d6a85;
+    --ed-suggest-stale: #66707c;
+    --ed-comment-bg: #7b6fd62e;
+    --ed-comment-resolved-bg: #b0bac52e;
+    --ed-agent-working-bg: #1aa3b82e;
+
+    --ed-presence-1: #2b7f8a;
+    --ed-presence-2: #4d7c2f;
+    --ed-presence-3: #5b55b5;
+    --ed-presence-4: #7d3fa8;
+    --ed-presence-5: #2f6fbf;
+    --ed-presence-6: #a8327d;
+    --ed-presence-7: #1f7a68;
+    --ed-presence-8: #55606f;
+    --ed-peer-label-fg: #ffffff;
+    --ed-presence-fg-1: #ffffff;
+    --ed-presence-fg-2: #ffffff;
+    --ed-presence-fg-3: #ffffff;
+    --ed-presence-fg-4: #ffffff;
+    --ed-presence-fg-5: #ffffff;
+    --ed-presence-fg-6: #ffffff;
+    --ed-presence-fg-7: #ffffff;
+    --ed-presence-fg-8: #ffffff;
+
+    --ed-group-1: #1d7f9c;
+    --ed-group-2: #4a7a2e;
+    --ed-group-3: #7d3fa8;
+    --ed-group-4: #8a6300;
+    --ed-group-5: #0f6e63;
+    --ed-group-6: #2f6fbf;
+    --ed-group-7: #9c5335;
+    --ed-group-8: #a8327d;
+
+    --ed-callout-note: #2f55a4;
+    --ed-callout-tip: #2f55a4;
+    --ed-callout-success: #3f6f27;
     --ed-callout-warning: #8a6300;
     --ed-callout-danger: #b3271e;
-    --ed-callout-question: #9a5b12;
+    --ed-callout-question: #7a4b8a;
     --ed-callout-bug: #b3271e;
-    --ed-callout-example: #7d3fa8;
-    --ed-callout-quote: var(--ed-ink-faint);
+    --ed-callout-example: #7a4b8a;
+    --ed-callout-quote: #857c72;
   }
 }

@@ -11,20 +11,27 @@
       // script, i.e. deferred, and would flash the wrong theme first. Mirrors
       // `editor:config.theme` via the `editor:theme` fast-path key — see
       // config.ts (K_THEME) and lib/theme.svelte.ts.
+      //
+      // It sets `data-polarity` too, which picks band C's sync colours
+      // (sync-tokens.css): from the built-in's known polarity, or — for a
+      // custom theme, whose CSS waits on the vault — the last polarity the app
+      // resolved (K_POLARITY), else the OS's. DARK lists the dark built-ins;
+      // theme.test.ts keeps it equal to DARK_THEMES in @ohhi/ui/tokens.
       ;(function () {
+        var DARK = ['editor-dark', 'graphite-dark', 'fjord-dark', 'iris-dark', 'nord-dark']
+        var root = document.documentElement
         try {
           var pref = localStorage.getItem('editor:theme') || 'system'
-          var name =
-            pref === 'system'
-              ? window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'editor-dark'
-                : 'editor-light'
-              : pref.indexOf('custom:') === 0
-                ? pref.slice(7)
-                : pref
-          document.documentElement.setAttribute('data-theme', name)
+          var osDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          var custom = pref.indexOf('custom:') === 0
+          var name = pref === 'system' ? (osDark ? 'editor-dark' : 'editor-light') : custom ? pref.slice(7) : pref
+          var last = localStorage.getItem('editor:polarity')
+          var dark = custom ? (last ? last === 'dark' : osDark) : DARK.indexOf(name) !== -1
+          root.setAttribute('data-theme', name)
+          root.setAttribute('data-polarity', dark ? 'dark' : 'light')
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'editor-light')
+          root.setAttribute('data-theme', 'editor-light')
+          root.setAttribute('data-polarity', 'light')
         }
       })()
     </script>

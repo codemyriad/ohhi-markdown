@@ -262,6 +262,15 @@ const K_CONFIG = 'editor:config'
  * corrupt mirror degrades to `system`, which is always defensible.
  */
 export const K_THEME = 'editor:theme'
+/**
+ * The last resolved polarity, `light` or `dark`, for the pre-paint script's
+ * `data-polarity` (band C, themes review Fork 3-B). A built-in's polarity is
+ * known statically, but a custom theme's is only known once its CSS is in —
+ * after the vault opens — so the boot script reads this last answer rather
+ * than paint a dark theme's first frame with the light sync colours.
+ * Best-effort like K_THEME; a miss falls back to the OS preference.
+ */
+export const K_POLARITY = 'editor:polarity'
 /** v1 keys, read once by the migration and never written again. */
 const K_LAST_V1 = 'editor:lastSession'
 const K_SHARES_V1 = 'editor:shares'
@@ -602,6 +611,15 @@ export function setThemePref(pref: ThemePref): void {
     store()?.setItem(K_THEME, pref)
   } catch {
     // Mirror is best-effort; a miss costs one frame of the default theme.
+  }
+}
+
+/** Mirror the resolved polarity for the pre-paint script (K_POLARITY). */
+export function setPolarityMirror(polarity: 'light' | 'dark'): void {
+  try {
+    store()?.setItem(K_POLARITY, polarity)
+  } catch {
+    // Best-effort; a miss costs one frame of the OS polarity's sync colours.
   }
 }
 

@@ -5,8 +5,10 @@
  * the CodeMirror editor alike — resolves `var(--ed-*)` and `var(--color-*)`
  * against the `data-theme` attribute on <html>. So this module does exactly
  * three things: set the attribute, persist the choice, and publish the one
- * boolean CSS cannot express for us (CM6's `darkTheme` facet, which selects
- * its own base rules for scrollers, panels and tooltips).
+ * boolean CSS cannot work out for itself — the theme's polarity — twice: as
+ * CM6's `darkTheme` facet (its own base rules for scrollers, panels and
+ * tooltips) and as `data-polarity` on <html>, which picks band C's sync
+ * colours (sync-tokens.css, one set per polarity: themes review Fork 3-B).
  *
  * `system` is resolved to an explicit attribute rather than left to
  * `:root:not([data-theme])`. DaisyUI's `--prefersdark` could handle band A in
@@ -15,12 +17,33 @@
  * code path is worth more than the CSS-only purity, and the boot script is
  * synchronous so there is no flash either way. Recorded in docs/theming.md.
  */
-import { getLL } from '@ohhi/i18n'
-import { BUILTIN_THEMES, DARK_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
-import { setThemePref, themePref, type ThemePref } from './config.js'
+import { getLL, type TranslationFunctions } from '@ohhi/i18n'
+import {
+  BUILTIN_THEMES,
+  DARK_THEMES,
+  DEFAULT_DARK_THEME as DEFAULT_DARK,
+  DEFAULT_LIGHT_THEME as DEFAULT_LIGHT,
+  THEME_LABEL_KEYS,
+  type BuiltinTheme,
+  type Polarity,
+} from '@ohhi/ui/tokens'
+import { setPolarityMirror, setThemePref, themePref, type ThemePref } from './config.js'
 
-const DEFAULT_LIGHT: BuiltinTheme = 'editor-light'
-const DEFAULT_DARK: BuiltinTheme = 'editor-dark'
+/** Is `name` one of the built-in themes (the registry in `@ohhi/ui/tokens`)? */
+export function isBuiltinTheme(name: string): name is BuiltinTheme {
+  return (BUILTIN_THEMES as readonly string[]).includes(name)
+}
+
+/**
+ * A built-in theme's label in the current language, or null for a custom
+ * theme (whose name is its folder's). The labels are dictionary entries
+ * (`web.settings.appearance.theme_names`), keyed by `THEME_LABEL_KEYS`.
+ */
+export function builtinThemeLabel(ll: TranslationFunctions, name: string): string | null {
+  if (!isBuiltinTheme(name)) return null
+  const names: Record<(typeof THEME_LABEL_KEYS)[BuiltinTheme], () => string> = ll.web.settings.appearance.theme_names
+  return names[THEME_LABEL_KEYS[name]]()
+}
 
 function prefersDark(): boolean {
   try {
@@ -50,8 +73,17 @@ export function resolveTheme(pref: ThemePref): string {
  */
 export function resolveDark(pref: ThemePref): boolean {
   const name = resolveTheme(pref)
-  if ((BUILTIN_THEMES as readonly string[]).includes(name)) return DARK_THEMES.has(name)
+  if (isBuiltinTheme(name)) return DARK_THEMES.has(name)
   try {
+    // A custom theme whose CSS is not in yet (boot, before the vault opens)
+    // cannot be probed: keep the polarity the pre-paint script restored
+    // from the mirror rather than overwrite it — and the mirror — with the
+    // OS's, which would flip band C back and forth on every boot.
+    if (!document.getElementById('ed-user-theme')) {
+      const restored = document.documentElement.getAttribute('data-polarity')
+      if (restored === 'dark' || restored === 'light') return restored === 'dark'
+      return prefersDark()
+    }
     const probe = document.createElement('div')
     probe.setAttribute('data-theme', name)
     probe.style.display = 'none'
@@ -71,9 +103,25 @@ export const themeState = $state({
   pref: themePref(),
   /** The applied `data-theme` value. */
   name: DEFAULT_LIGHT as string,
-  /** Resolved polarity, for CM6's darkTheme facet. CSS needs no such thing. */
+  /** Resolved polarity: CM6's darkTheme facet, and `data-polarity` (band C). */
   dark: false,
 })
+
+/**
+ * Set band C's `data-polarity` on <html> (sync-tokens.css picks the light or
+ * dark sync colours by it) and mirror it for the pre-paint script, which
+ * cannot know a custom theme's polarity before the vault opens.
+ */
+function setPolarity(dark: boolean): void {
+  const polarity: Polarity = dark ? 'dark' : 'light'
+  themeState.dark = dark
+  try {
+    document.documentElement.setAttribute('data-polarity', polarity)
+  } catch {
+    // No DOM (tests, SSR).
+  }
+  setPolarityMirror(polarity)
+}
 
 export function applyTheme(pref: ThemePref): void {
   const name = resolveTheme(pref)
@@ -84,7 +132,7 @@ export function applyTheme(pref: ThemePref): void {
   }
   themeState.pref = pref
   themeState.name = name
-  themeState.dark = resolveDark(pref)
+  setPolarity(resolveDark(pref))
   setThemePref(pref)
 }
 
@@ -99,7 +147,7 @@ export function initTheme(): void {
   }
   themeState.pref = pref
   themeState.name = name
-  themeState.dark = resolveDark(pref)
+  setPolarity(resolveDark(pref))
 
   try {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -156,7 +204,7 @@ export function installUserTheme(css: string): void {
   el.textContent = `@layer editor.user {\n${sanitizeThemeCss(css)}\n}`
   // The CSS only exists now, so the polarity probe can finally answer — the
   // boot script set the attribute long before the vault could be read.
-  themeState.dark = resolveDark(themeState.pref)
+  setPolarity(resolveDark(themeState.pref))
 }
 
 /**

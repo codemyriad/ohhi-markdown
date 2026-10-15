@@ -10,20 +10,70 @@
  * freeze one theme's answer into JS and silently stop tracking theme changes.
  */
 
-/** Built-in themes. `system` is a preference, not a theme — see ThemePref. */
-export const BUILTIN_THEMES = ['editor-light', 'editor-dark', 'nord-light', 'nord-dark'] as const
+/**
+ * Built-in themes, in the order Settings › Appearance lists them. `system` is
+ * a preference, not a theme — see ThemePref.
+ *
+ * `editor-light` / `editor-dark` are the default pair, labelled "Oh hi Light"
+ * and "Oh hi Dark": the ids are plumbing kept from before the themes review
+ * (2026-10-15, v2-shaping Fork 2 amendment, 2-A), so a stored preference keeps
+ * working while the values are the Ledger direction's. Graphite, Fjord and
+ * Iris are the review's other three directions; Nord is the Obsidian port.
+ */
+export const BUILTIN_THEMES = [
+  'editor-light',
+  'editor-dark',
+  'graphite-light',
+  'graphite-dark',
+  'fjord-light',
+  'fjord-dark',
+  'iris-light',
+  'iris-dark',
+  'nord-light',
+  'nord-dark',
+] as const
 
 export type BuiltinTheme = (typeof BUILTIN_THEMES)[number]
 
-/** Which built-ins are dark. Used to resolve the CM6 darkTheme facet. */
-export const DARK_THEMES: ReadonlySet<string> = new Set(['editor-dark', 'nord-dark'])
+/** What `system` resolves to, by the OS's polarity. */
+export const DEFAULT_LIGHT_THEME: BuiltinTheme = 'editor-light'
+export const DEFAULT_DARK_THEME: BuiltinTheme = 'editor-dark'
 
-export const THEME_LABELS: Record<BuiltinTheme, string> = {
-  'editor-light': 'Editor Light',
-  'editor-dark': 'Editor Dark',
-  'nord-light': 'Nord Light',
-  'nord-dark': 'Nord Dark',
-}
+/** Which built-ins are dark. Resolves the CM6 darkTheme facet and band C's `data-polarity`. */
+export const DARK_THEMES: ReadonlySet<string> = new Set([
+  'editor-dark',
+  'graphite-dark',
+  'fjord-dark',
+  'iris-dark',
+  'nord-dark',
+])
+
+/**
+ * A theme's polarity, set as `data-polarity` on <html> beside `data-theme`.
+ * Band C (sync-tokens.css) picks one of its two sets by it, so every theme of
+ * a polarity — a custom one included — shows the same sync colours.
+ */
+export type Polarity = 'light' | 'dark'
+
+/**
+ * Each built-in's label, as its key under `web.settings.appearance.theme_names`
+ * in the i18n dictionary — a label is user-facing text, so it lives there and
+ * this registry names the key. (Dictionary keys cannot hold `-`.)
+ */
+export const THEME_LABEL_KEYS = {
+  'editor-light': 'editor_light',
+  'editor-dark': 'editor_dark',
+  'graphite-light': 'graphite_light',
+  'graphite-dark': 'graphite_dark',
+  'fjord-light': 'fjord_light',
+  'fjord-dark': 'fjord_dark',
+  'iris-light': 'iris_light',
+  'iris-dark': 'iris_dark',
+  'nord-light': 'nord_light',
+  'nord-dark': 'nord_dark',
+} as const satisfies Record<BuiltinTheme, string>
+
+export type ThemeLabelKey = (typeof THEME_LABEL_KEYS)[BuiltinTheme]
 
 /** How many presence slots a theme defines (--ed-presence-1 … -8). */
 export const PRESENCE_SLOTS = 8
