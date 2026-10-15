@@ -58,6 +58,25 @@ function caretOf(page: Page): Promise<{ head: number; text: string }> {
   })
 }
 
+type Box = { left: number; top: number; bottom: number; height: number }
+
+/** The composer's drawn caret, its placeholder and its first line, as client rects. */
+function composerCaret(page: Page): Promise<{ caret: Box | null; placeholder: Box | null; line: Box }> {
+  return page.getByTestId('session-composer-input').evaluate((el) => {
+    const box = (e: Element | null) => {
+      if (!e) return null
+      const r = e.getBoundingClientRect()
+      return { left: r.left, top: r.top, bottom: r.bottom, height: r.height }
+    }
+    const root = el.closest('.cm-editor')!
+    return {
+      caret: box(root.querySelector('.cm-cursor-primary')),
+      placeholder: box(root.querySelector('.cm-placeholder')),
+      line: box(root.querySelector('.cm-line'))!,
+    }
+  })
+}
+
 /** Run a palette row by its title, checking it is the row `id`. */
 async function runFromPalette(page: Page, title: string, id: string): Promise<void> {
   await page.keyboard.press('ControlOrMeta+Shift+p')
@@ -239,6 +258,22 @@ test('a session’s first screen: starts above a focused composer, the provider 
   const composer = page.getByTestId('session-composer-input')
   await expect(composer).toBeFocused()
   await expect(composer).toBeInViewport()
+  // The empty composer's caret sits where the first character lands — at the
+  // placeholder's x, inside the line, as tall as a typed character's caret —
+  // not at the field's edge or the height of the field.
+  const empty = await composerCaret(page)
+  expect(empty.caret, 'a drawn caret').not.toBeNull()
+  expect(Math.abs(empty.caret!.left - empty.placeholder!.left)).toBeLessThanOrEqual(2)
+  expect(empty.caret!.top).toBeGreaterThanOrEqual(empty.line.top - 0.5)
+  expect(empty.caret!.bottom).toBeLessThanOrEqual(empty.line.bottom + 0.5)
+  await page.keyboard.type('A')
+  // The drawn caret moves on CM's next measure; wait for it to leave the start.
+  await expect.poll(async () => (await composerCaret(page)).caret?.left ?? 0).toBeGreaterThan(empty.caret!.left + 2)
+  const typed = await composerCaret(page)
+  expect(typed.placeholder).toBeNull()
+  expect(Math.abs(empty.caret!.height - typed.caret!.height)).toBeLessThanOrEqual(2)
+  expect(Math.abs(empty.caret!.top - typed.caret!.top)).toBeLessThanOrEqual(2)
+  await page.keyboard.press('Backspace')
   const starts = page.getByTestId('session-starts')
   await expect(starts.getByRole('button')).toHaveText(['Ask about welcome.md', 'Summarise welcome.md', 'Run a skill…'])
   // The provider is a picker at the composer's foot; the header has none.

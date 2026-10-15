@@ -20,11 +20,21 @@
  *
  * Colour comes from `--ed-*` only (the theme.ts rule: no literal colour in a
  * CM6 theme object).
+ *
+ * The caret is DRAWN (`drawSelection()`), not the browser's. An empty
+ * composer's one line holds no text — only CM6's widget-buffer `<img>` and the
+ * `contenteditable=false` placeholder — so a native caret has no glyph to
+ * measure and each engine guesses (Chromium draws it the full line box tall;
+ * others at the line's edge or above the text, in the padding). The
+ * drawn caret comes from `coordsAtPos`, which the placeholder widget answers
+ * with its own first text rect: where the first typed character lands, and
+ * that character's height.
  */
 import { defaultKeymap, history, historyKeymap, insertNewline } from '@codemirror/commands'
 import { EditorState, Prec, StateEffect, StateField, type Extension } from '@codemirror/state'
 import {
   Decoration,
+  drawSelection,
   EditorView,
   keymap,
   placeholder as placeholderExt,
@@ -240,6 +250,7 @@ export function createComposer(opts: ComposerOptions): ComposerHandle {
       history(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.lineWrapping,
+      drawSelection(),
       composerTheme,
       attrsField,
       field,
