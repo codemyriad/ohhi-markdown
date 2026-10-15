@@ -11,7 +11,7 @@
  *  - a comment sent to the agent → its reply in the thread.
  */
 import { expect, type Page } from '@playwright/test'
-import { closeSettings, openApp, openSettings, paneContent, seedProvider, selectLine, test } from './fixtures.js'
+import { closeSettings, editors, openApp, openSettings, paneContent, panes, seedProvider, selectLine, test } from './fixtures.js'
 
 const NOTE = 'notes/welcome.md'
 const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
@@ -150,20 +150,73 @@ test('a session left for the note and reopened keeps the chip in its draft, and 
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(page.getByTestId('mention-chip')).toHaveCount(1)
 
-  // Over to the note's tab and back: the Session view is re-created and its
-  // composer restores the draft — chip included — from sessionStorage. That
-  // restore dispatches inside the effect creating the composer; untracked,
-  // it is one update, not a loop (effect_update_depth_exceeded, 2026-10-15).
-  const tabs = page.locator('[data-testid^="tab:"]')
-  await expect(tabs).toHaveCount(2)
-  await tabs.first().click()
+  // The session tab closed (its pane goes with it) and the session reopened
+  // — Mod+Shift+L with nothing selected opens the current one: the Session
+  // view is re-created and its composer restores the draft — chip included —
+  // from sessionStorage. That restore dispatches inside the effect creating
+  // the composer; untracked, it is one update, not a loop
+  // (effect_update_depth_exceeded, 2026-10-15).
+  await expect(panes(page)).toHaveCount(2)
+  await page.keyboard.press('ControlOrMeta+w')
   await expect(page.getByTestId('session-view')).toBeHidden()
-  await tabs.nth(1).click()
+  await expect(panes(page)).toHaveCount(1)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(page.getByTestId('mention-chip')).toHaveCount(1)
   await page.getByTestId(`file-item:${NOTE}`).click()
   await expect(paneContent(page)).toContainText(LINE)
   expect(errors).toEqual([])
+})
+
+test('a session opens beside the note, never over it: right in a wide pane, below in a narrow one; the toolbar door and Mod+Shift+L need no selection', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  // The specs boot the `dense` layout, whose header is the breadcrumb and
+  // whose toolbar is empty: a device override puts the toolbar back as the
+  // header and draws its right end as the default layout does (`session` is
+  // the Session view's door, `help` the Help menu). The rail becomes the
+  // dock so the pane, beside the navigator column, is wide enough for two
+  // halves of 32rem at 1600 px (the split rule is the pane's width).
+  await seedProvider(page, `${mock.url}/v1`, {
+    layout: { overrides: { regions: { header: 'toolbar', rail: 'dock' }, bars: { 'toolbar.right': ['sync', 'session', 'help'] } } },
+  })
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await openApp(page, 'harness-beside')
+  // The door on the toolbar, drawn now that a provider exists.
+  const door = page.getByTestId('session-open')
+  await expect(door).toHaveAccessibleName('Open AI session')
+  await openNote(page)
+  // A bare caret, no selection: Mod+Shift+L opens a session anyway…
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('mention-chip')).toHaveCount(0)
+  // …beside the note, which stays on screen (the session pane is the focused
+  // one now, so the note's editor is the first `.cm-content`): two panes side by side.
+  await expect(panes(page)).toHaveCount(2)
+  await expect(editors(page).first()).toContainText(LINE)
+  const [noteBox, sessionBox] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(sessionBox!.x).toBeGreaterThanOrEqual(noteBox!.x + noteBox!.width - 1)
+  // Its first screen offers the composer at once, in view, not below the fold.
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeInViewport()
+  // The door opens the SAME session: focused, not a third pane.
+  await editors(page).first().getByText(LINE).click()
+  await door.click()
+  await expect(panes(page)).toHaveCount(2)
+  await expect(page.getByTestId('session-view')).toHaveCount(1)
+
+  // Narrow: the session tab closed, the window narrowed, the session opened again — below the note.
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(panes(page)).toHaveCount(1)
+  await page.setViewportSize({ width: 900, height: 900 })
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(below!.y).toBeGreaterThanOrEqual(top!.y + top!.height - 1)
+  expect(Math.abs(below!.x - top!.x)).toBeLessThan(2)
 })
 
 test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts it and the readout names the agent', async ({ page, mockLlm }) => {

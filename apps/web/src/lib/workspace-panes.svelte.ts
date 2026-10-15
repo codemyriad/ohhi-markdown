@@ -206,6 +206,23 @@ export interface PaneShell {
   navigate(path: string, tabId?: string): void
   /** A shell surface as a tab (devtools-shaping D1-A); one per pane per (view, arg). */
   openView(view: TabView, arg?: string): void
+  /**
+   * A COMPANION view beside the focused pane — the harness's Session, which
+   * is about the note it was opened from, so the note stays on screen
+   * (Chris, 2026-10-15). Already open anywhere → that tab is activated. The
+   * focused pane's active tab empty, or that kind of view already → in
+   * place. Another pane on screen → in the nearest one (right, below, left,
+   * above), never a second split. Alone → a split: to the right while both
+   * halves keep 32rem, else below (`panes.ts` `besideDir`).
+   */
+  openViewBeside(view: TabView, arg?: string): void
+  /**
+   * The mirror, for a note opened FROM a companion (a session card's *Open*):
+   * shown anywhere → activated there; the focused pane showing a view → into
+   * the companion pane (splitting as above when it is alone); else a plain
+   * `open`. `replace` as `open`'s.
+   */
+  openBeside(path: string, opts?: { replace?: boolean }): void
   travel(delta: number): void
   canTravel(delta: number): boolean
 
@@ -589,6 +606,36 @@ export function createPanes(
   function focusSide(side: Side): void {
     const next = tree.neighbour(current, current.focus, side, rects())
     if (next) commit(tree.focusPane(current, next))
+  }
+
+  /** The pane nearest the focused one, for a companion: right, below, left, above; null when it is alone. */
+  function companionPane(): string | null {
+    for (const side of ['right', 'down', 'left', 'up'] as const) {
+      const next = tree.neighbour(current, current.focus, side, rects())
+      if (next) return next
+    }
+    return null
+  }
+
+  /** Which way the focused pane splits for a companion (`besideDir`), from its drawn width. */
+  function besideDirOfFocused(): Dir {
+    return tree.besideDir(paneEls.get(current.focus)?.getBoundingClientRect())
+  }
+
+  /** `PaneShell.open` (B5): every open is a tab; `replace` navigates in place. */
+  function openPathIn(path: string, opts: { background?: boolean; paneId?: string; replace?: boolean } = {}): void {
+    const p = opts.paneId ? tree.findPane(current, opts.paneId) : focused()
+    const slot = p ? tree.activeTab(p) : null
+    // An empty tab is a slot waiting for a note (that is what its picker is
+    // for), so a foreground open fills it rather than leaving it behind.
+    if (!opts.background && p && slot && slot.path === null && !slot.view) {
+      commit(tree.navigateInTab(current, slot.id, path, now()))
+      return
+    }
+    // Replacing leaves the note on the tab's Back trail: where the view is
+    // NOW is what that trail entry keeps, exactly as `navigate` does.
+    if (opts.replace && !opts.background) captureLive()
+    commit(tree.openPath(current, path, opts, ids, now()))
   }
 
   const actions = {
@@ -1041,23 +1088,54 @@ export function createPanes(
       mode = null
     },
 
-    open(path, opts = {}) {
-      const p = opts.paneId ? tree.findPane(current, opts.paneId) : focused()
-      const slot = p ? tree.activeTab(p) : null
-      // An empty tab is a slot waiting for a note (that is what its picker is
-      // for), so a foreground open fills it rather than leaving it behind.
-      if (!opts.background && p && slot && slot.path === null && !slot.view) {
-        commit(tree.navigateInTab(current, slot.id, path, now()))
-        return
-      }
-      // Replacing leaves the note on the tab's Back trail: where the view is
-      // NOW is what that trail entry keeps, exactly as `navigate` does.
-      if (opts.replace && !opts.background) captureLive()
-      commit(tree.openPath(current, path, opts, ids, now()))
-    },
+    open: openPathIn,
 
     openView(view, arg) {
       commit(tree.openView(current, view, arg === undefined ? {} : { arg }, ids, now()))
+    },
+
+    openViewBeside(view, arg) {
+      const hit = tree.viewTabOf(current, view, arg)
+      if (hit) {
+        commit(tree.activate(current, hit.pane.id, hit.tab.id, now()))
+        return
+      }
+      const p = focused()
+      const a = p ? tree.activeTab(p) : null
+      const opts = arg === undefined ? {} : { arg }
+      // An empty tab is a slot; a pane already showing this kind of view (a
+      // session opening another) keeps its kind together.
+      if (!p || !a || (a.path === null && !a.view) || a.view === view) {
+        commit(tree.openView(current, view, opts, ids, now()))
+        return
+      }
+      const other = companionPane()
+      if (other) {
+        commit(tree.openView(current, view, { ...opts, paneId: other }, ids, now()))
+        return
+      }
+      const tab: Tab = { ...tree.newTab(ids), view, ...(arg === undefined ? {} : { viewArg: arg }) }
+      commit(tree.splitWithTab(current, current.focus, besideDirOfFocused(), tab, ids))
+    },
+
+    openBeside(path, opts = {}) {
+      const shown = tree.paneShowing(current, path)
+      if (shown) {
+        commit(tree.activate(current, shown.pane.id, shown.tab.id, now()))
+        return
+      }
+      const p = focused()
+      const a = p ? tree.activeTab(p) : null
+      if (!p || !a?.view) {
+        openPathIn(path, opts)
+        return
+      }
+      const other = companionPane()
+      if (other) {
+        openPathIn(path, { ...opts, paneId: other })
+        return
+      }
+      commit(tree.splitWithTab(current, current.focus, besideDirOfFocused(), tree.newTab(ids, path), ids))
     },
 
     navigate(path, tabId) {

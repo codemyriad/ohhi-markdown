@@ -104,7 +104,7 @@
       <span class="text-base-content/70">· {t.results({ count: hits.length })}</span>
     {/if}
     {#if proposal?.proposed && shell}
-      <button type="button" class={link} data-testid="tool-open" onclick={() => shell.openPath(proposal.path)}>{t.open()}</button>
+      <button type="button" class={link} data-testid="tool-open" onclick={() => shell.openPath(proposal.path, { beside: true })}>{t.open()}</button>
     {/if}
   </p>
   {#if hits.length}
@@ -114,7 +114,7 @@
           <FileText size={12} aria-hidden="true" />
           <span class="min-w-0 flex-1 truncate">{hit.path}{hit.line ? `:${hit.line}` : ''}</span>
           {#if shell}
-            <button type="button" class={link} onclick={() => shell.openPath(hit.path)}>{t.open()}</button>
+            <button type="button" class={link} onclick={() => shell.openPath(hit.path, { beside: true })}>{t.open()}</button>
           {/if}
         </li>
       {/each}

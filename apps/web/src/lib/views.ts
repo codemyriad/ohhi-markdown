@@ -57,9 +57,11 @@ export interface ViewShell {
   /**
    * Open a note: App's `openPath` — `panes.open: 'replace'`, recents, the
    * navigator drawer closing. `background` is Mod+click (a tab, stay put).
+   * `beside` is a companion view's open (a session card): the note where it
+   * already is, else in the pane beside the companion (`PaneShell.openBeside`).
    */
-  openPath(path: string, opts?: { background?: boolean }): void
-  /** Open another view tab. */
+  openPath(path: string, opts?: { background?: boolean; beside?: boolean }): void
+  /** Open another view tab. A `session` opens BESIDE the focused note (`PaneShell.openViewBeside`). */
   openView(id: TabView, arg?: string): void
   /** *Create* for an unresolved link (the Note menu's Links). */
   createFromLink(target: string): void

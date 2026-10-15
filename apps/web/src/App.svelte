@@ -260,12 +260,15 @@
    * panel, quick-open, search, the Log view, daily notes. `background` is
    * Mod+click / Mod+Enter — a tab, but stay where you are.
    */
-  function openPath(path: string, opts: { background?: boolean } = {}): void {
+  function openPath(path: string, opts: { background?: boolean; beside?: boolean } = {}): void {
     if (!workspace) return
     // `panes.open: 'replace'` (quiet-shell F3): a foreground open navigates
     // the focused tab in place, Typora's way; Mod+click stays a new tab.
     const replace = layout.spec.panes.open === 'replace' && !opts.background
-    panes.open(path, { ...opts, replace })
+    // `beside`: a note opened from a companion view (a session card's *Open*)
+    // goes where it already is, else into the pane beside the companion.
+    if (opts.beside) panes.openBeside(path, { replace })
+    else panes.open(path, { background: opts.background, replace })
     touchPath(workspace.room, path)
     // The drawer has done its job once the note it opened is on the page.
     if (replace && layout.spec.regions.navigator === 'drawer') layout.treeOpen = false
@@ -464,6 +467,8 @@
   }
   function openView(id: TabView, arg?: string): void {
     if (id === 'settings') openSettings(arg)
+    // A session is about the note it was opened from: beside it, never over it.
+    else if (id === 'session') panes.openViewBeside(id, arg)
     else panes.openView(id, arg)
   }
   /** What Settings is handed, in both hosts — every field read live. */

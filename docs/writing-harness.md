@@ -68,9 +68,16 @@ The terminal's providers (`ohhi ask`) live in `~/.config/ohhi/providers.json`
 
 ## 3. Sessions, references and `@`
 
-A **session** is a conversation with the agent, opened as a view tab
-(`app.session`; *New AI session* in the palette; `Mod+Shift+L` adds the
-selection to the current session, starting one if there is none). The composer
+A **session** is a conversation with the agent, opened as a view tab. Its
+doors: the speech-bubble icon on the toolbar (the `session` readout, drawn
+only once a provider exists), *Open AI session* and *New AI session* in the
+palette (`app.session`, `ai.new-session`), and `Mod+Shift+L`, which opens the
+current session — starting one if there is none — carrying the selection
+along as a reference when there is one. A session opens **beside** the note it
+was opened from, never over it: to the right while both halves keep 32rem,
+below in a narrower pane; a second open goes to the pane already there rather
+than splitting again, and *Open* on a session card brings the note back where
+it already is. The composer
 takes plain text plus **references**: type `@` for a menu of notes, folders and
 headings, or hand it a selection. Each reference is a chip and resolves to one
 of four kinds — a note, a folder (named only), a section (`path#Heading`), or a
@@ -103,10 +110,13 @@ beside the text (`{ range, baseText, proposedText, status }`), drawn in the
 note as the struck text and the inserted proposal, never bytes in the file.
 The model is told it proposed (`ohhi.proposal.v1`), not that it wrote.
 
-- **Accept** (`Mod+Enter` in the suggestion, or *Accept suggestion* /
-  *Accept all suggestions*) applies it in one transaction carrying the run's
-  agent origin. **Reject** (`Mod+Backspace`) drops it; the text is never
-  touched.
+- **Accept** (`Mod+Enter` with the caret in the suggestion, or *Accept
+  suggestion* / *Accept all suggestions*) applies it in one transaction
+  carrying the run's agent origin. **Reject** (`Mod+Backspace`) drops it; the
+  text is never touched. The two keys are the editor's while the caret is in
+  a suggestion and CodeMirror's own otherwise (`Mod+Enter` inserts a blank
+  line), and Settings › Keys lists them on the two rows. There is no
+  on-screen control on the proposal yet (§9).
 - The range is pinned with Yjs relative positions, so it follows every edit
   around it. If anyone changes the text **inside** it before it is accepted, it
   turns **stale** and can no longer be applied — a proposal never reverts what
@@ -217,6 +227,15 @@ Not built, on purpose, with where each would go:
   open, or propose a new note.
 - **A per-session direct-mode toggle** in the Session header; today direct
   mode is the device setting only.
+- **Accept and reject on the screen.** A proposal is reviewed with the keys
+  (caret in the suggestion) or the palette; nothing on the proposal itself or
+  on the session's card takes or refuses it. The design is explored (the
+  pair on the proposal plus the card's controls, over the one suggestion
+  record) and waits on Chris's call.
+- **A session's first screen.** A new session shows a sentence, the recent
+  sessions and the composer; it offers no start (ask about the open note,
+  summarise it, run a skill, continue the last session) and the provider sits
+  in the header rather than beside the composer. Explored with the above.
 - **Importing CriticMarkup into threads.** The reader exists
   (`importCriticMarkup` in `libs/workspace/src/criticmarkup.ts`), but wiring
   it to an action means mapping each comment from the de-marked text back

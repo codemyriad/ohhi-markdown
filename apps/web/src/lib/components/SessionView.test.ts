@@ -132,7 +132,7 @@ describe('SessionView', () => {
     await waitFor(() => expect(card).toHaveAttribute('data-state', 'output-available'))
     expect(within(card).getByTestId('tool-summary')).toHaveTextContent(t.tool.search({ query: 'harness' }))
     await user.click(within(within(card).getByTestId('tool-hits')).getByRole('button', { name: t.tool.open() }))
-    expect(shell.openPath).toHaveBeenCalledWith('plan.md')
+    expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
   })
 
   it('a proposal renders as “proposed an edit in <note>” whose Open opens the note; an empty one says so', async () => {
@@ -154,7 +154,7 @@ describe('SessionView', () => {
     await waitFor(() => expect(within(none).getByTestId('tool-summary')).toHaveTextContent(getLL().web.ai.session.tool.proposal_none({ path: 'plan.md' })))
     expect(within(none).queryByTestId('tool-open')).toBeNull()
     await user.click(within(made).getByTestId('tool-open'))
-    expect(shell.openPath).toHaveBeenCalledWith('plan.md')
+    expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
   })
 
   it('a handed-over mention becomes a chip; Backspace removes it whole', async () => {

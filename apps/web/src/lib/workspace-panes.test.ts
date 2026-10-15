@@ -495,6 +495,133 @@ describe('zoom does not disable the pane family (Minor 6)', () => {
   })
 })
 
+describe('a companion view beside the note (the Session; Chris, 2026-10-15)', () => {
+  /** Register a pane's box the way `Pane.svelte` does, with a measured rect. */
+  function place(paneId: string, x: number, width: number, y = 0, height = 800): HTMLElement {
+    const el = document.createElement('section')
+    el.getBoundingClientRect = () =>
+      ({ x, y, width, height, top: y, left: x, right: x + width, bottom: y + height }) as DOMRect
+    document.body.append(el)
+    panes.registerPane(paneId, el)
+    return el
+  }
+  const views = (i: number): [string | undefined, string | undefined][] => pane(i).tabs.map((t) => [t.view, t.viewArg])
+
+  it('alone in a wide pane: a split to the right, the note staying put, the session focused', () => {
+    boot()
+    openAll(['a.md'])
+    place(pane().id, 0, 1200)
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    const all = panesOf(panes.layout.tree)
+    expect(all).toHaveLength(2)
+    expect((panes.layout.tree as { dir?: string }).dir).toBe('row')
+    expect(pathsIn(0)).toContain('a.md')
+    expect(views(1)).toEqual([['session', 's1']])
+    expect(panes.layout.focus).toBe(all[1].id)
+  })
+
+  it('alone in a narrow pane: below', () => {
+    boot()
+    openAll(['a.md'])
+    place(pane().id, 0, 700)
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect((panes.layout.tree as { dir?: string }).dir).toBe('col')
+  })
+
+  it('already open anywhere: that tab is activated, nothing splits', () => {
+    boot()
+    openAll(['a.md'])
+    place(pane().id, 0, 1200)
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    const [note, session] = panesOf(panes.layout.tree)
+    place(note.id, 0, 600)
+    place(session.id, 600, 600)
+    panes.focusPane(note.id)
+    harness.flush()
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect(panes.layout.focus).toBe(session.id)
+    expect(views(1)).toEqual([['session', 's1']])
+  })
+
+  it('already in a split: the companion goes to the other pane, never a second split', () => {
+    boot()
+    openAll(['a.md'])
+    run('workspace.split-right')
+    harness.flush()
+    const [left, right] = panesOf(panes.layout.tree)
+    place(left.id, 0, 600)
+    place(right.id, 600, 600)
+    panes.focusPane(left.id)
+    harness.flush()
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect(views(1)).toContainEqual(['session', 's1'])
+    expect(activeTab(pane(1))?.viewArg).toBe('s1')
+    expect(panes.layout.focus).toBe(right.id)
+  })
+
+  it('from a session pane, another session opens in place; an empty tab is filled', () => {
+    boot()
+    openAll(['a.md'])
+    place(pane().id, 0, 1200)
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    panes.openViewBeside('session', 's2')
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect(views(1)).toEqual([
+      ['session', 's1'],
+      ['session', 's2'],
+    ])
+    // A fresh empty pane: the view fills its slot.
+    panes.newTabIn(pane(0).id)
+    harness.flush()
+    panes.openViewBeside('log')
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect(activeTab(pane(0))?.view).toBe('log')
+  })
+
+  it('openBeside: a note opened from the session goes where it is, else into the note pane', () => {
+    boot()
+    openAll(['a.md'])
+    place(pane().id, 0, 1200)
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    const [note, session] = panesOf(panes.layout.tree)
+    place(note.id, 0, 600)
+    place(session.id, 600, 600)
+    expect(panes.layout.focus).toBe(session.id)
+    // Already shown on the left: activated there, no twin in the session pane.
+    panes.openBeside('a.md')
+    harness.flush()
+    expect(panes.layout.focus).toBe(note.id)
+    expect(views(1)).toEqual([['session', 's1']])
+    // Not shown anywhere, from the session pane: into the note pane, with replace semantics.
+    panes.focusPane(session.id)
+    harness.flush()
+    panes.openBeside('b.md', { replace: true })
+    harness.flush()
+    expect(panesOf(panes.layout.tree)).toHaveLength(2)
+    expect(pathsIn(0)).toContain('b.md')
+    expect(views(1)).toEqual([['session', 's1']])
+    // From a note pane it is a plain open.
+    panes.focusPane(note.id)
+    harness.flush()
+    panes.openBeside('c.md')
+    harness.flush()
+    expect(pathsIn(0)).toContain('c.md')
+    expect(views(1)).toEqual([['session', 's1']])
+  })
+})
+
 describe('a whole group moves without a pointer (M8)', () => {
   it('carries the run, its name and its colour to the neighbouring pane', () => {
     boot()
