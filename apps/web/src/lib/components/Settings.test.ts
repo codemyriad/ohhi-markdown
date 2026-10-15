@@ -107,7 +107,11 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
     await user.tab()
     expect(tabs[0]).toHaveFocus()
     // Its name as a tooltip on keyboard focus (CSS hides it while the labels show).
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(LL.web.settings.nav.customise())
+    const tip = await screen.findByRole('tooltip')
+    expect(tip).toHaveTextContent(LL.web.settings.nav.customise())
+    // Drawn in the nav, outside the tablist (which may hold tabs only — axe's aria-required-children).
+    await waitFor(() => expect(list.contains(tip)).toBe(false))
+    expect(list.closest('nav')!.contains(tip)).toBe(true)
     await user.keyboard('{ArrowDown}')
     expect(onSection).toHaveBeenLastCalledWith('editor')
     expect(tabs[1]).toHaveFocus()

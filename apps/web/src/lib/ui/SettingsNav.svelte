@@ -57,6 +57,9 @@
   let { rows, value, onSelect, label, tabId, panelId, testid }: Props = $props()
 
   let list = $state<HTMLElement | null>(null)
+  /** The rail's tooltips are drawn in the nav, outside the tablist (which may hold tabs only). */
+  const uid = $props.id()
+  const navId = `${uid}-settings-nav`
 
   function focusTab(at: number): void {
     const row = rows[at]
@@ -88,6 +91,7 @@
 </script>
 
 <nav
+  id={navId}
   class="shrink-0 border-r border-base-300 bg-base-100 @max-[32rem]/settings:w-11"
   data-testid={testid ? `${testid}-nav` : undefined}
 >
@@ -108,6 +112,7 @@
         placement="right"
         triggerId={tabId(row.value)}
         contentClass="@min-[32rem]/settings:hidden"
+        portal="#{navId}"
       >
         {#snippet children(trigger)}
           <button

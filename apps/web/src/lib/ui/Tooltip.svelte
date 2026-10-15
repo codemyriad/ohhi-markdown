@@ -19,6 +19,12 @@
     triggerId?: string
     /** Extra classes for the label (Settings' rail draws it only while narrow). */
     contentClass?: string
+    /**
+     * Where the label is drawn, as a selector; default: in place. A trigger
+     * inside a container whose role allows only certain children (a tablist)
+     * draws its label in an ancestor outside that container instead.
+     */
+    portal?: string
     children: Snippet<[TooltipTrigger]>
   }
 
@@ -28,16 +34,18 @@
     ? V
     : never
 
-  let { text, placement = 'bottom', triggerId, contentClass = '', children }: Props = $props()
+  let { text, placement = 'bottom', triggerId, contentClass = '', portal, children }: Props = $props()
 
   const {
     elements: { trigger, content },
     states: { open },
   } = createTooltip({
-    // In place (see DropdownMenu): a portalled tooltip lands outside every landmark.
     // svelte-ignore state_referenced_locally -- placement is fixed at mount
     positioning: { placement, gutter: 6, strategy: 'fixed' },
-    portal: null,
+    // In place (see DropdownMenu): a tooltip portalled to the body lands outside
+    // every landmark. `portal` names a nearer ancestor when in place is not allowed.
+    // svelte-ignore state_referenced_locally -- fixed at mount
+    portal: portal ?? null,
     openDelay: 350,
     closeDelay: 0,
     closeOnPointerDown: true,
