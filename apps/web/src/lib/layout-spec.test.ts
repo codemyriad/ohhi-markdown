@@ -99,7 +99,7 @@ describe('the built-in and the example', () => {
     // …and the inspector's door right of the bell (drawn only with devtools on),
     // the Session view's door (drawn only with a provider; Chris, 2026-10-15),
     // then Help at the far end (first-run E1).
-    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector', 'session', 'help'])
+    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'session', 'inspector', 'help'])
     // …the words and characters ride the corner. (`last-agent-write` is a
     // catalogue readout a layout opts into: the corner's " · " join is drawn
     // between ids, so a readout that draws nothing would leave a stray dot.)
@@ -269,7 +269,7 @@ describe('resolveSpec — extends and precedence', () => {
     }
     const spec = resolveSpec(file({ extends: 'later', editor: { measure: 'narrow' } }), presets)
     expect(spec.editor).toEqual({ measure: 'narrow', typewriter: true, inlineTitle: true })
-    expect(spec.bars['toolbar.right']).toEqual(['sync', 'inspector', 'session', 'help'])
+    expect(spec.bars['toolbar.right']).toEqual(['sync', 'session', 'inspector', 'help'])
   })
 
   it('refuses a cycle, a self-extend and an unknown parent instead of looping', () => {
@@ -411,7 +411,7 @@ describe('diffSpec', () => {
   it('a list becomes a delta when that is shorter, a replacement when not', () => {
     const fewer: ShellSpec = {
       ...DEFAULT,
-      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'inspector', 'session', 'help', 'words', 'reading-time'] },
+      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'session', 'inspector', 'help', 'words', 'reading-time'] },
     }
     expect(roundTrip(DEFAULT, fewer, 'default').bars).toEqual({
       'toolbar.right': ['+words', '+reading-time'],

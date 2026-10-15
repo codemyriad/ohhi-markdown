@@ -17,8 +17,8 @@
     "toolbar.right": [
       "sync",
       "drawer",
-      "inspector",
       "session",
+      "inspector",
       "help"
     ],
     "format": [

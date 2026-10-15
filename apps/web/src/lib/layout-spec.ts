@@ -52,7 +52,7 @@ export const READOUT_IDS = [
   'help',
   /** Writing-harness B7: the in-app agent's last edit, "Tighten edited Plan 3 min ago"; drawn only once it has written. */
   'last-agent-write',
-  /** Chris, 2026-10-15: the Session view's door, beside the inspector's — drawn only while a provider exists. */
+  /** Chris, 2026-10-15: the Session view's door, right after the shares drawer's — drawn only while a provider exists. */
   'session',
   'note.pill',
   'people',
