@@ -82,7 +82,28 @@ export const harness = $state({
   current: null as string | null,
   /** Mentions waiting for a session's composer (`ai.add-selection`), by session id. */
   inbox: {} as Record<string, Mention[]>,
+  /**
+   * A person just opened or switched to a session (a door, a key, a palette
+   * row, a start): its composer takes the keyboard once — `'*'` when the
+   * opened tab had no session id yet. Never set by a tab restored at
+   * startup or a re-render, so the composer never takes the keyboard from
+   * the note on its own.
+   */
+  focusComposer: null as string | null,
 })
+
+/** Ask the session about to be shown (`id`, or whichever opens) to focus its composer, once. */
+export function requestComposerFocus(id?: string): void {
+  harness.focusComposer = id ?? '*'
+}
+
+/** Is there a focus request for session `id`? Consumes it when there is. */
+export function takeComposerFocus(id: string): boolean {
+  const want = harness.focusComposer
+  if (!want || (want !== '*' && want !== id)) return false
+  harness.focusComposer = null
+  return true
+}
 
 /** Called once by `App.svelte`; null detaches (tests). */
 export function attachHarness(next: HarnessShell | null): void {

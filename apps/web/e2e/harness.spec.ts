@@ -265,6 +265,31 @@ test('a session’s first screen: starts above a focused composer, the provider 
   expect(req.system).toContain(`### ${NOTE}`)
 })
 
+test('an empty Session tab restored beside a note at startup does not take the keyboard from the note', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-restore')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  // A person's door: the composer takes the keyboard…
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeFocused()
+  await expect(panes(page)).toHaveCount(2)
+  // …back to the note, and the layout (note + empty session beside it) restored by a reload.
+  await page.getByRole('textbox', { name: 'Note text' }).getByText(LINE).click()
+  // The layout is written on the save debounce (panes.spec.ts); give it the beat.
+  await page.waitForTimeout(600)
+  await page.reload()
+  await expect(page.getByTestId('session-view')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('textbox', { name: 'Note text' })).toContainText(LINE)
+  await expect(composer).toBeVisible()
+  // Nothing in the session holds the keyboard: the restored tab took nothing.
+  await page.waitForTimeout(300)
+  await expect(composer).not.toBeFocused()
+  expect(await page.getByTestId('session-view').evaluate((el) => el.contains(document.activeElement))).toBe(false)
+})
+
 test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts it and the readout names the agent', async ({ page, mockLlm }) => {
   const OLD = 'the pill goes offline honestly'
   const NEW = 'the pill goes offline, honestly'

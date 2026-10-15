@@ -13,7 +13,7 @@ import type { Tab } from '../panes.js'
 import { fakeViewShell } from '../readouts.fixture.js'
 import { mentionOf } from '../references.js'
 import type { AgentFactory } from '../ai-transport.js'
-import { attachHarness, harness, queueMention, startRun } from '../sessions.svelte.js'
+import { attachHarness, harness, queueMention, requestComposerFocus, startRun } from '../sessions.svelte.js'
 import { viewShellContext } from '../views.js'
 import type { Workspace } from '../workspace.svelte.js'
 import SessionView from './SessionView.svelte'
@@ -90,6 +90,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   attachHarness(null)
+  harness.focusComposer = null
 })
 
 describe('SessionView', () => {
@@ -125,9 +126,11 @@ describe('SessionView', () => {
   })
 
   it('the first screen: starts for the note you came from, the composer focused, the provider at its foot, the egress said once', async () => {
+    // A person opened it (a door, a key): the composer takes the keyboard.
+    requestComposerFocus('s1')
     const { user } = setup({ note: 'notes/plan.md' })
-    // The composer takes the keyboard on a new session.
     await waitFor(() => expect(content()).toHaveFocus())
+    expect(harness.focusComposer).toBeNull() // taken once
     // The vault's first session: where words go is said, under the starts.
     expect(await screen.findByTestId('session-egress')).toHaveTextContent(getLL().web.ai.providers.egress({ name: 'Local', host: 'localhost:11434' }))
     // The provider is a picker at the composer's foot, not in the header.
@@ -140,6 +143,24 @@ describe('SessionView', () => {
     // *Run a skill…* types the `/` that opens the skills menu.
     await user.click(screen.getByRole('button', { name: t.starts.skill() }))
     await waitFor(() => expect(content()).toHaveTextContent('/'))
+  })
+
+  it('a session nobody just opened (a tab restored at startup) leaves the keyboard alone, until a door asks', async () => {
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+    setup({ note: 'notes/plan.md' })
+    await screen.findByTestId('session-composer-input')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(outside).toHaveFocus()
+    // Another session's request is not this one's.
+    requestComposerFocus('other')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(outside).toHaveFocus()
+    // A door to THIS session, while it is already on screen: now it takes the keyboard.
+    requestComposerFocus('s1')
+    await waitFor(() => expect(content()).toHaveFocus())
+    outside.remove()
   })
 
   it('Summarise sends a turn of its own with the note as its reference', async () => {

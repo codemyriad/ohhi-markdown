@@ -56,6 +56,7 @@
   import { sharedSnapshot } from '@ohhi/workspace'
   import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
+  import { requestComposerFocus } from './lib/sessions.svelte.js'
   import { nextFrame, revealSuggestionIn, revealThreadIn } from './lib/suggestion-reveal.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
@@ -491,7 +492,12 @@
   function openView(id: TabView, arg?: string): void {
     if (id === 'settings') openSettings(arg)
     // A session is about the note it was opened from: beside it, never over it.
-    else if (id === 'session') panes.openViewBeside(id, arg)
+    // Every person's door to a session comes through here, so this is where
+    // its composer is asked to take the keyboard — a restored tab is not.
+    else if (id === 'session') {
+      requestComposerFocus(arg)
+      panes.openViewBeside(id, arg)
+    }
     else panes.openView(id, arg)
   }
   /** What Settings is handed, in both hosts — every field read live. */

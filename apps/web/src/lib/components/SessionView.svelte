@@ -20,6 +20,7 @@
    * the words will go.
    */
   import type { UIMessage } from 'ai'
+  import { untrack } from 'svelte'
   import type { Chat } from '@ai-sdk/svelte'
   import { anySelection } from '../focused-editor.svelte.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -53,6 +54,7 @@
     skillSource,
     startRun,
     stopRun,
+    takeComposerFocus,
     takeMentions,
   } from '../sessions.svelte.js'
   import { getViewShell, shellClock, type ViewProps } from '../views.js'
@@ -140,6 +142,19 @@
   /** Mentions a start hands the composer (*Ask about…*), beside the ones commands queue. */
   let startMentions = $state<Mention[]>([])
   let composerRef = $state<{ begin(text: string): void } | null>(null)
+  /**
+   * The composer takes the keyboard only when a person just opened this
+   * session (`requestComposerFocus` — a door, a key, a palette row, a
+   * start): on mount, or later while already mounted (switched to). A tab
+   * restored at startup, or a re-render, leaves the keyboard where it is.
+   */
+  // svelte-ignore state_referenced_locally -- read once, at mount
+  const focusOnMount = untrack(() => takeComposerFocus(sessionId))
+  $effect(() => {
+    if (!harness.focusComposer || !composerRef) return
+    const ref = composerRef
+    if (untrack(() => takeComposerFocus(sessionId))) ref.begin('')
+  })
   const noteName = $derived(lastNote ? (lastNote.split('/').pop() ?? lastNote) : '')
   const noteMention = (): Mention | null => (lastNote ? mentionOf({ kind: 'file', path: lastNote }) : null)
 
@@ -323,7 +338,7 @@
       {providerId}
       onProvider={(id) => (chosenProvider = id)}
       onManageProviders={shell ? () => shell.openSettings('ai') : undefined}
-      autofocus={messages.length === 0}
+      autofocus={focusOnMount}
       onTaken={() => {
         takeMentions(sessionId)
         startMentions = []
