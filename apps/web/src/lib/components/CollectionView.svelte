@@ -23,7 +23,7 @@
    * the view does (no sort, grouping, columns, new views or new rows), and
    * `this.file` is the EMBEDDING note, as Obsidian scopes it.
    */
-  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, Ellipsis, ChevronDown } from '@lucide/svelte'
+  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, Ellipsis, ChevronDown, Kanban } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import {
     addView,
@@ -31,6 +31,7 @@
     compileView,
     dynamicColumnIds,
     folderOf,
+    labelFor,
     parseCollection,
     patchView,
     removeView,
@@ -400,6 +401,10 @@
   let partlyOpen = $state(false)
   let knownKeys = $state.raw<string[]>([])
   const boardNeedsGroup = $derived(view?.type === 'kanban' && !compiled?.groupBy)
+  /** What a board could group by: the view's property columns first, then the index's known keys. */
+  const groupChoices = $derived([
+    ...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys]),
+  ])
   $effect(() => {
     if ((!columnsOpen && !boardNeedsGroup) || !shell) return
     let live = true
@@ -451,20 +456,30 @@
       </p>
     {/if}
     {#if boardNeedsGroup}
-      <div class="m-4 text-sm" data-testid="board-needs-group">
-        {#if embedded}
-          <p>{t.board_needs_group()}</p>
-        {:else}
-          <label class="flex items-center gap-2">
-            <span>{t.board_needs_group()}</span>
-            <select class="dui-select dui-select-xs" data-testid="board-group-pick" value="" onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}>
-              <option value="">—</option>
-              {#each [...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys])] as id (id)}
-                <option value={id}>{id}</option>
+      <!-- A board with nothing to group by: an empty state, centred, whose
+           choices ARE the fix — one button per property, the view's own
+           columns first, then what else the vault knows. -->
+      <div class="flex h-full min-h-48 items-center justify-center p-6" data-testid="board-needs-group">
+        <div class="flex max-w-sm flex-col items-center gap-3 text-center">
+          <Kanban size={24} strokeWidth={1.5} aria-hidden="true" class="text-base-content/70" />
+          <h3 class="text-sm font-semibold text-base-content">{t.board_needs_group()}</h3>
+          {#if embedded}
+            <p class="text-xs text-base-content/70">{t.board_group_embedded()}</p>
+          {:else if groupChoices.length}
+            <ul class="flex flex-wrap justify-center gap-1.5" aria-label={t.board_group_choices()} data-testid="board-group-pick">
+              {#each groupChoices as id (id)}
+                <li>
+                  <button type="button" class="{OUTLINE_BUTTON} h-7 bg-base-100 px-2.5 text-xs text-base-content" data-testid="board-group-pick:{id}" onclick={() => onGroup(id)}>
+                    {labelFor(id, spec)}
+                  </button>
+                </li>
               {/each}
-            </select>
-          </label>
-        {/if}
+            </ul>
+            <p class="text-xs text-base-content/70">{t.board_group_hint()}</p>
+          {:else}
+            <p class="text-xs text-base-content/70" data-testid="board-group-none">{t.board_group_none()}</p>
+          {/if}
+        </div>
       </div>
     {:else if rows.length === 0}
       <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>

@@ -656,3 +656,23 @@ describe('CollectionView view menu (QA round 1)', () => {
     await screen.findByTestId('collection-add-table')
   })
 })
+
+describe('CollectionView board with nothing to group by (QA round 1)', () => {
+  it('an empty state whose property buttons write the grouping', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    // A board added from a view with no property column has nothing to group by yet.
+    await user.click(screen.getByRole('tab', { name: 'Active board' }))
+    await user.click(screen.getByTestId('collection-add-view'))
+    await user.click(await screen.findByTestId('collection-add-view:kanban'))
+    const empty = await screen.findByTestId('board-needs-group')
+    expect(within(empty).getByRole('heading')).toHaveTextContent('Choose what this board groups by')
+    const picks = await within(empty).findAllByTestId(/^board-group-pick:/)
+    expect(picks.map((b) => b.getAttribute('data-testid'))).toEqual(expect.arrayContaining(['board-group-pick:threat', 'board-group-pick:depth']))
+    expect(within(empty).getByRole('list', { name: 'Properties to group by' })).toBeInTheDocument()
+    await user.click(within(empty).getByTestId('board-group-pick:depth'))
+    expect(store.get('Competitors.base')).toContain('  - type: kanban\n    name: Board 2\n    groupBy:\n      property: depth\n      direction: ASC\n')
+    await screen.findByTestId('collection-board')
+  })
+})

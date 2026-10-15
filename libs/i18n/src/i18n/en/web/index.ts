@@ -2780,8 +2780,13 @@ const collections = {
   view_name_table: 'Table',
   view_name_board: 'Board',
   view_name_list: 'List',
-  /** A board with nothing to group by: the picker that fixes it. */
-  board_needs_group: 'A board groups notes by a property. Choose one:',
+  /** A board with nothing to group by: an empty state whose buttons are the fix. */
+  board_needs_group: 'Choose what this board groups by',
+  board_group_choices: 'Properties to group by',
+  board_group_hint: 'Each value becomes a column; moving a card writes that value into its note.',
+  board_group_none: 'These notes have no properties to group by yet. Add one to a note, then come back.',
+  /** Embedded (read-mostly): the choice is made in the collection's own tab. */
+  board_group_embedded: 'Open the collection to choose one.',
   board_column: '{group:string} — {count:number} note{{s}}',
   board_label: 'Board of {view:string}',
   /** The keyboard's drag: a select on every card. */

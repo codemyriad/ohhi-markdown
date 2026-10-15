@@ -8325,9 +8325,25 @@ export type NamespaceWebTranslation = {
 		 */
 		view_name_list: string
 		/**
-		 * A​ ​b​o​a​r​d​ ​g​r​o​u​p​s​ ​n​o​t​e​s​ ​b​y​ ​a​ ​p​r​o​p​e​r​t​y​.​ ​C​h​o​o​s​e​ ​o​n​e​:
+		 * C​h​o​o​s​e​ ​w​h​a​t​ ​t​h​i​s​ ​b​o​a​r​d​ ​g​r​o​u​p​s​ ​b​y
 		 */
 		board_needs_group: string
+		/**
+		 * P​r​o​p​e​r​t​i​e​s​ ​t​o​ ​g​r​o​u​p​ ​b​y
+		 */
+		board_group_choices: string
+		/**
+		 * E​a​c​h​ ​v​a​l​u​e​ ​b​e​c​o​m​e​s​ ​a​ ​c​o​l​u​m​n​;​ ​m​o​v​i​n​g​ ​a​ ​c​a​r​d​ ​w​r​i​t​e​s​ ​t​h​a​t​ ​v​a​l​u​e​ ​i​n​t​o​ ​i​t​s​ ​n​o​t​e​.
+		 */
+		board_group_hint: string
+		/**
+		 * T​h​e​s​e​ ​n​o​t​e​s​ ​h​a​v​e​ ​n​o​ ​p​r​o​p​e​r​t​i​e​s​ ​t​o​ ​g​r​o​u​p​ ​b​y​ ​y​e​t​.​ ​A​d​d​ ​o​n​e​ ​t​o​ ​a​ ​n​o​t​e​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​.
+		 */
+		board_group_none: string
+		/**
+		 * O​p​e​n​ ​t​h​e​ ​c​o​l​l​e​c​t​i​o​n​ ​t​o​ ​c​h​o​o​s​e​ ​o​n​e​.
+		 */
+		board_group_embedded: string
 		/**
 		 * {​g​r​o​u​p​}​ ​—​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
 		 * @param {number} count
@@ -16242,9 +16258,25 @@ export type TranslationFunctions = {
 			 */
 			view_name_list: () => LocalizedString
 			/**
-			 * A board groups notes by a property. Choose one:
+			 * Choose what this board groups by
 			 */
 			board_needs_group: () => LocalizedString
+			/**
+			 * Properties to group by
+			 */
+			board_group_choices: () => LocalizedString
+			/**
+			 * Each value becomes a column; moving a card writes that value into its note.
+			 */
+			board_group_hint: () => LocalizedString
+			/**
+			 * These notes have no properties to group by yet. Add one to a note, then come back.
+			 */
+			board_group_none: () => LocalizedString
+			/**
+			 * Open the collection to choose one.
+			 */
+			board_group_embedded: () => LocalizedString
 			/**
 			 * {group} — {count} note{{s}}
 			 */
