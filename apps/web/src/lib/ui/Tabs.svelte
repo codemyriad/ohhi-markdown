@@ -9,6 +9,11 @@
    * icon, with `end` (the row's own controls) at its right end, outside the
    * tablist so the list holds tabs and nothing else.
    *
+   * `size: 'segmented'` (horizontal only; Settings › AI's route picker, QA
+   * round 1): a segmented control — the tabs as one pill-shaped group, the
+   * active one raised — for a choice that filters what is under it, never a
+   * second navigation.
+   *
    * Settings' own nav is `SettingsNav.svelte` (a tree, with an icon rail in a
    * narrow pane — QA round 1), so the vertical form here has no group rules
    * and no narrow form of its own any more.
@@ -34,8 +39,8 @@
     label: string
     testid?: string
     panel: Snippet<[string]>
-    /** `sm`: the compact 32 px row (horizontal only). */
-    size?: 'md' | 'sm'
+    /** `sm`: the compact 32 px row; `segmented`: a segmented control (both horizontal only). */
+    size?: 'md' | 'sm' | 'segmented'
     /** Controls at the compact row's right end (outside the tablist). */
     end?: Snippet
     /**
@@ -67,6 +72,7 @@
 
   const vertical = $derived(orientation === 'vertical')
   const compact = $derived(!vertical && size === 'sm')
+  const segmented = $derived(!vertical && size === 'segmented')
   // Melt 0.86 emits role/tabindex/data-state but no aria-selected, and points
   // the panel's aria-labelledby at the bare value string; the ids below make
   // the tab ↔ panel relationship real (and axe-clean).
@@ -106,7 +112,9 @@
       ? 'w-40 flex-col gap-0.5'
       : compact
         ? `min-w-0 flex-row items-stretch gap-0.5 overflow-x-auto [scrollbar-width:none] ${after ? '' : 'flex-1'}`
-        : 'flex-row gap-1 border-b border-base-300'}"
+        : segmented
+          ? 'flex-row flex-wrap gap-0.5 self-start rounded-md bg-base-200 p-0.5'
+          : 'flex-row gap-1 border-b border-base-300'}"
   >
     {#each tabs as tab (tab.value)}
       <button
@@ -116,7 +124,9 @@
         aria-selected={$current === tab.value}
         aria-controls={panelId(tab.value)}
         data-testid={tab.testid}
-        class={compact
+        class={segmented
+          ? 'inline-flex h-6 items-center rounded px-2.5 text-xs whitespace-nowrap text-base-content hover:bg-base-100/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary data-[state=active]:bg-base-100 data-[state=active]:font-semibold data-[state=active]:shadow-sm'
+          : compact
           ? 'inline-flex items-center gap-1 border-b-2 border-transparent px-1.5 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary data-[state=active]:border-primary data-[state=active]:font-medium data-[state=active]:text-base-content'
           : `rounded px-3 py-1.5 text-left text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary data-[state=active]:bg-primary data-[state=active]:font-medium data-[state=active]:text-primary-content ${vertical ? '' : 'rounded-b-none'}`}
       >
@@ -135,7 +145,9 @@
       ? 'flex-row gap-4'
       : compact
         ? 'flex-col'
-        : 'flex-col gap-4'}"
+        : segmented
+          ? 'flex-col gap-3'
+          : 'flex-col gap-4'}"
   >
     {#if compact}
       <div class="flex h-8 shrink-0 items-stretch border-b border-base-300" style:padding-right={endInset}>

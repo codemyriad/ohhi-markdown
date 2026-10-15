@@ -1554,11 +1554,15 @@ const settings = {
       overview_label: 'Open Settings › Customise',
     },
   },
-  /** Settings › Agents (settings-shaping ST5 fills it). */
+  /**
+   * Settings › AI › Outside agents (settings-shaping ST5; Settings › Agents
+   * until QA round 1 folded it into AI): the group's strings.
+   */
   agents: {
-    intro:
-      'Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.',
-    can_do: 'What an agent can do here',
+    title: 'Outside agents',
+    intro: 'Claude Code, another MCP client or a terminal works on this vault with the ohhi command. Pick a route, then copy its lines.',
+    /** The eyebrow row's popover: what the ops let an agent do. */
+    can_do: 'What an agent can do',
     /** One line per group of `ohhi` ops (`agent-setup.ts` AGENT_CAPABILITIES); the op names are drawn beside it. */
     cap: {
       find: 'Find notes: ranked search that returns references, never whole notes',
@@ -1571,7 +1575,6 @@ const settings = {
       skills: 'List the vault’s skills in .agents/skills/ and read one',
     },
     mcp_tools: 'Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).',
-    connect: 'Connect an agent',
     routes: 'How to connect',
     route_claude: 'Claude Code',
     route_mcp: 'Other MCP client',
@@ -1579,14 +1582,13 @@ const settings = {
     placeholder:
       'No vault is open, so the lines below show a placeholder path. Put your vault’s folder in its place.',
     placeholder_browser: 'Vaults kept in this browser can’t be reached by an agent: it needs a vault in a folder on disk, in the desktop app.',
-    get_body:
-      'The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.',
     /** Step 1 on every route: the checkout and its dependencies (`agent-setup.ts` GET_REPO). */
     step_repo: 'Get the repository and install its dependencies',
     repo_note:
       'Needs access to the private codemyriad/ohhi-markdown repository and Node 22. Run the next steps from the ohhi-markdown folder.',
     step_install: 'Install the command',
     step_install_both: 'Install the command and the skill',
+    install_note: 'Each script makes a link (ohhi in ~/.local/bin, the skill in ~/.claude/skills), so neither goes stale.',
     claude_start: 'Start Claude Code with this vault named',
     /** The copy button's name for the MCP line (`copy_what`). */
     claude_mcp: 'Give Claude Code the commands as MCP tools',
@@ -2438,13 +2440,9 @@ const attachments = {
  */
 const ai = {
   settings: {
+    /** Settings › AI's lede (one page since QA round 1: no Providers · Skills tabs). */
     egress:
       'Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.',
-    sections: 'AI settings',
-    tabs: {
-      providers: 'Providers',
-      skills: 'Skills',
-    },
   },
   providers: {
     title: 'Providers',
@@ -2590,6 +2588,8 @@ const ai = {
     new: 'New skill…',
     import: 'Import…',
     open: 'Open {name:string}',
+    /** A row's verb, beside the name it opens (its accessible name is `open`). */
+    open_short: 'Open',
     review: 'Review…',
     enabled: 'Use {name:string}',
     trusted: 'Trusted',

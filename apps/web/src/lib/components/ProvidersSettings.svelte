@@ -7,6 +7,12 @@
    * the form never holds the stored one, an empty key field keeps it.
    *
    * Every rule lives in `ai-providers.ts`; this file is the markup.
+   *
+   * QA round 1 (QA3): the first group of Settings › AI. Rows, not cards: a
+   * 36 px grid row per provider — the default radio, the name, its kind and
+   * model, the key chip and Edit · Delete in one right-aligned column — with
+   * the egress line under it ("Default · text you reference is sent to …").
+   * *Local servers* is a popover from the eyebrow row, not a bold disclosure.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { ProviderKind } from '@ohhi/harness'
@@ -15,7 +21,20 @@
   import FieldErrors from '../ui/FieldErrors.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import { createForm } from '../ui/form.svelte.js'
-  import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import Popover from '../ui/Popover.svelte'
+  import {
+    BUTTON,
+    BUTTON_PRIMARY,
+    BUTTON_SM,
+    CARD,
+    CHIP,
+    EYEBROW,
+    GROUP_ROW,
+    LINK,
+    META,
+    ROW,
+    ROW_THING,
+  } from '../ui/styles.js'
   import { aiConfig } from '../ai-config.svelte.js'
   import { PROVIDER_KINDS } from '@ohhi/harness/config'
   import {
@@ -124,79 +143,98 @@
 
   const origin = typeof window === 'undefined' ? '' : window.location.origin
 
-  const smallBtn = `${OUTLINE_BUTTON} px-2 py-0.5 text-xs font-medium text-base-content/80 disabled:opacity-50`
-  const primaryBtn =
-    'rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50'
+  /** *Local servers*: the help popover, anchored to its own button. */
+  let localAnchor = $state<HTMLElement | null>(null)
+  let localOpen = $state(false)
+
   const selectCls =
     'mt-1 w-full rounded border border-base-300 bg-base-100 px-2 py-2 text-sm focus:border-primary focus:outline-none'
 </script>
 
-<section data-testid="ai-providers" aria-labelledby="ai-providers-title" class="space-y-3">
-  <div class="flex items-center justify-between gap-2">
-    <h3 id="ai-providers-title" class="m-0 {HEADING}">{t.title()}</h3>
-    {#if editing === null}
-      <button type="button" class={smallBtn} data-testid="ai-provider-add" onclick={startAdd}>{t.add()}</button>
-    {/if}
+<section data-testid="ai-providers" aria-labelledby="ai-providers-title">
+  <div class={GROUP_ROW}>
+    <h3 id="ai-providers-title" class="m-0 {EYEBROW}">{t.title()}</h3>
+    <span class="ms-auto flex items-center gap-3">
+      <button
+        type="button"
+        bind:this={localAnchor}
+        class={LINK}
+        aria-expanded={localOpen}
+        data-testid="ai-providers-local-help"
+        onclick={() => (localOpen = !localOpen)}>{t.local_help_title()}</button
+      >
+      {#if editing === null}
+        <button type="button" class={BUTTON} data-testid="ai-provider-add" onclick={startAdd}>{t.add()}</button>
+      {/if}
+    </span>
   </div>
-  <p class="m-0 text-xs text-base-content/70">{t.intro()}</p>
+  {#if localOpen}
+    <Popover
+      anchor={localAnchor}
+      placement="bottom-end"
+      title={t.local_help_title()}
+      testid="ai-providers-local-popover"
+      onClose={() => (localOpen = false)}
+    >
+      <p class="m-0 max-w-sm p-3 text-xs leading-[1.45] text-base-content">{t.local_help({ origin })}</p>
+    </Popover>
+  {/if}
+  <p class="m-0 mb-2 {META}">{t.intro()}</p>
 
   {#if rows.length === 0}
-    <p class="m-0 text-sm text-base-content/80" data-testid="ai-providers-empty">{t.empty()}</p>
+    <p class="m-0 text-[13px] text-base-content" data-testid="ai-providers-empty">{t.empty()}</p>
   {:else}
-    <ul class="m-0 list-none space-y-2 p-0" aria-label={t.title()}>
+    <ul class="m-0 list-none p-0" aria-label={t.title()}>
       {#each rows as row (row.id)}
-        <li class="{CARD} p-3" data-testid="ai-provider:{row.id}">
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <label class="flex items-center gap-1.5 text-xs text-base-content/80">
-              <input
-                type="radio"
-                name="ai-default-provider"
-                checked={row.isDefault}
-                aria-label={t.default_label({ name: row.name })}
-                data-testid="ai-provider-default:{row.id}"
-                onchange={() => makeDefault(row.id)}
-              />
-              {#if row.isDefault}{t.default()}{/if}
-            </label>
-            <span class="text-sm font-semibold text-base-content">{row.name}</span>
-            <span class="text-xs text-base-content/80">{kindLabel(row.kind)}</span>
-            <span class="font-ed-mono text-xs text-base-content/80">{row.model}</span>
-            {#if row.apiKeyConfigured}
-              <span
-                class="rounded bg-base-200 px-1.5 py-0.5 text-[11px] text-base-content"
-                data-testid="ai-provider-key:{row.id}">{t.key_configured()}</span
-              >
-            {/if}
-            <span class="ml-auto flex gap-1.5">
-              <button
-                type="button"
-                class={smallBtn}
-                aria-label={t.edit_label({ name: row.name })}
-                data-testid="ai-provider-edit:{row.id}"
-                onclick={() => startEdit(row.id)}>{t.edit()}</button
-              >
-              <button
-                type="button"
-                class={smallBtn}
-                aria-label={t.delete_label({ name: row.name })}
-                data-testid="ai-provider-delete:{row.id}"
-                onclick={() => (confirmDelete = row.id)}>{t.delete()}</button
-              >
+        <li class="grid grid-cols-[20px_minmax(0,1fr)_auto] {ROW}" data-testid="ai-provider:{row.id}">
+          <input
+            type="radio"
+            name="ai-default-provider"
+            class="accent-primary"
+            checked={row.isDefault}
+            aria-label={t.default_label({ name: row.name })}
+            data-testid="ai-provider-default:{row.id}"
+            onchange={() => makeDefault(row.id)}
+          />
+          <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <span class={ROW_THING}>{row.name}</span>
+            <span class="min-w-0 {META}">
+              {kindLabel(row.kind)} · <code class="font-ed-mono text-[11.5px]">{row.model}</code>
             </span>
           </div>
-          <p class="m-0 mt-1 text-xs text-base-content/70" data-testid="ai-provider-egress:{row.id}">
-            {t.egress({ name: row.name, host: row.host })}
+          <span class="flex items-center justify-end gap-1">
+            {#if row.apiKeyConfigured}
+              <span class="{CHIP} me-1" data-testid="ai-provider-key:{row.id}">{t.key_configured()}</span>
+            {/if}
+            <button
+              type="button"
+              class={BUTTON_SM}
+              aria-label={t.edit_label({ name: row.name })}
+              data-testid="ai-provider-edit:{row.id}"
+              onclick={() => startEdit(row.id)}>{t.edit()}</button
+            >
+            <button
+              type="button"
+              class={BUTTON_SM}
+              aria-label={t.delete_label({ name: row.name })}
+              data-testid="ai-provider-delete:{row.id}"
+              onclick={() => (confirmDelete = row.id)}>{t.delete()}</button
+            >
+          </span>
+          <p class="col-start-2 col-end-4 m-0 -mt-0.5 pb-1 {META}" data-testid="ai-provider-egress:{row.id}">
+            {#if row.isDefault}<span class="font-medium text-base-content">{t.default()}</span> ·
+            {/if}{t.egress({ name: row.name, host: row.host })}
           </p>
           {#if confirmDelete === row.id}
-            <div role="alert" class="mt-2 flex flex-wrap items-center gap-2 text-xs text-base-content">
+            <div role="alert" class="col-start-2 col-end-4 flex flex-wrap items-center gap-2 pb-2 text-xs text-base-content">
               <span>{t.delete_confirm({ name: row.name })}</span>
               <button
                 type="button"
-                class="rounded bg-error px-2 py-0.5 text-xs font-medium text-error-content"
+                class="inline-flex h-[22px] items-center rounded-md bg-error px-2 text-[11.5px] font-medium text-error-content"
                 data-testid="ai-provider-delete-confirm:{row.id}"
                 onclick={() => remove(row.id)}>{t.delete_yes()}</button
               >
-              <button type="button" class={smallBtn} onclick={() => (confirmDelete = null)}>{$LL.common.cancel()}</button>
+              <button type="button" class={BUTTON_SM} onclick={() => (confirmDelete = null)}>{$LL.common.cancel()}</button>
             </div>
           {/if}
         </li>
@@ -207,7 +245,7 @@
   {#if editing !== null}
     <form
       novalidate
-      class="{CARD} space-y-3 p-3"
+      class="{CARD} mt-3 space-y-3 p-3"
       data-testid="ai-provider-form"
       aria-labelledby="ai-provider-form-title"
       onsubmit={(e) => {
@@ -215,7 +253,7 @@
         void save()
       }}
     >
-      <h4 id="ai-provider-form-title" class="m-0 {HEADING}">
+      <h4 id="ai-provider-form-title" class="m-0 {EYEBROW}">
         {editingRow ? t.edit_title({ name: editingRow.name }) : t.add_title()}
       </h4>
       <Field name="name" errors={form.errorsFor('name')} required>
@@ -229,7 +267,7 @@
         <FieldErrors />
       </Field>
       <label class="block">
-        <span class="block text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.field.kind()}</span>
+        <span class="block text-[13px] font-medium text-base-content">{t.field.kind()}</span>
         <select
           class={selectCls}
           data-testid="ai-provider-kind"
@@ -281,7 +319,7 @@
         </Description>
         <FieldErrors />
       </Field>
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div class="grid grid-cols-1 gap-3 @md:grid-cols-2">
         <Field name="timeoutSec" errors={form.errorsFor('timeoutSec')}>
           <TextControl
             label={t.field.timeout()}
@@ -321,27 +359,23 @@
       {/if}
 
       <div class="flex flex-wrap items-center gap-2">
-        <button type="submit" class={primaryBtn} data-testid="ai-provider-save" disabled={form.busy}>
+        <button type="submit" class={BUTTON_PRIMARY} data-testid="ai-provider-save" disabled={form.busy}>
           {$LL.web.ai.providers.save()}
         </button>
         <button
           type="button"
-          class="{smallBtn} py-1.5"
+          class={BUTTON}
           data-testid="ai-provider-test"
           disabled={testing || !form.valid}
           onclick={() => void test()}
         >
           {testing ? t.testing() : t.test()}
         </button>
-        <button type="button" class="{smallBtn} py-1.5" data-testid="ai-provider-cancel" onclick={close}>
+        <button type="button" class={BUTTON} data-testid="ai-provider-cancel" onclick={close}>
           {$LL.common.cancel()}
         </button>
       </div>
     </form>
   {/if}
 
-  <details class="text-xs text-base-content/80" data-testid="ai-providers-local-help">
-    <summary class="cursor-pointer font-semibold">{t.local_help_title()}</summary>
-    <p class="m-0 mt-1">{t.local_help({ origin })}</p>
-  </details>
 </section>

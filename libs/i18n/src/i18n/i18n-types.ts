@@ -4426,11 +4426,15 @@ export type NamespaceWebTranslation = {
 		}
 		agents: {
 			/**
-			 * A​g​e​n​t​s​ ​w​o​r​k​ ​o​n​ ​a​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​:​ ​r​a​n​k​e​d​ ​s​e​a​r​c​h​,​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​a​t​ ​a​ ​t​i​m​e​,​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​j​o​u​r​n​a​l​e​d​ ​w​r​i​t​e​s​ ​y​o​u​ ​c​a​n​ ​r​e​s​t​o​r​e​.
+			 * O​u​t​s​i​d​e​ ​a​g​e​n​t​s
+			 */
+			title: string
+			/**
+			 * C​l​a​u​d​e​ ​C​o​d​e​,​ ​a​n​o​t​h​e​r​ ​M​C​P​ ​c​l​i​e​n​t​ ​o​r​ ​a​ ​t​e​r​m​i​n​a​l​ ​w​o​r​k​s​ ​o​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​.​ ​P​i​c​k​ ​a​ ​r​o​u​t​e​,​ ​t​h​e​n​ ​c​o​p​y​ ​i​t​s​ ​l​i​n​e​s​.
 			 */
 			intro: string
 			/**
-			 * W​h​a​t​ ​a​n​ ​a​g​e​n​t​ ​c​a​n​ ​d​o​ ​h​e​r​e
+			 * W​h​a​t​ ​a​n​ ​a​g​e​n​t​ ​c​a​n​ ​d​o
 			 */
 			can_do: string
 			cap: {
@@ -4472,10 +4476,6 @@ export type NamespaceWebTranslation = {
 			 */
 			mcp_tools: string
 			/**
-			 * C​o​n​n​e​c​t​ ​a​n​ ​a​g​e​n​t
-			 */
-			connect: string
-			/**
 			 * H​o​w​ ​t​o​ ​c​o​n​n​e​c​t
 			 */
 			routes: string
@@ -4500,10 +4500,6 @@ export type NamespaceWebTranslation = {
 			 */
 			placeholder_browser: string
 			/**
-			 * T​h​e​ ​c​o​m​m​a​n​d​ ​i​s​n​’​t​ ​b​u​n​d​l​e​d​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​ ​y​e​t​.​ ​T​o​d​a​y​ ​i​t​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​a​ ​c​h​e​c​k​o​u​t​ ​o​f​ ​t​h​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​c​o​d​e​m​y​r​i​a​d​/​o​h​h​i​-​m​a​r​k​d​o​w​n​ ​o​n​ ​G​i​t​H​u​b​.​ ​T​h​a​t​ ​r​e​p​o​s​i​t​o​r​y​ ​i​s​ ​p​r​i​v​a​t​e​:​ ​y​o​u​ ​n​e​e​d​ ​a​c​c​e​s​s​ ​t​o​ ​i​t​ ​t​o​ ​f​o​l​l​o​w​ ​t​h​e​s​e​ ​s​t​e​p​s​.​ ​T​h​e​ ​c​h​e​c​k​o​u​t​ ​n​e​e​d​s​ ​g​i​t​ ​a​n​d​ ​N​o​d​e​ ​2​2​;​ ​e​a​c​h​ ​i​n​s​t​a​l​l​ ​s​c​r​i​p​t​ ​t​h​e​n​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​ ​a​n​d​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
-			 */
-			get_body: string
-			/**
 			 * G​e​t​ ​t​h​e​ ​r​e​p​o​s​i​t​o​r​y​ ​a​n​d​ ​i​n​s​t​a​l​l​ ​i​t​s​ ​d​e​p​e​n​d​e​n​c​i​e​s
 			 */
 			step_repo: string
@@ -4519,6 +4515,10 @@ export type NamespaceWebTranslation = {
 			 * I​n​s​t​a​l​l​ ​t​h​e​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​s​k​i​l​l
 			 */
 			step_install_both: string
+			/**
+			 * E​a​c​h​ ​s​c​r​i​p​t​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​o​h​h​i​ ​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​,​ ​t​h​e​ ​s​k​i​l​l​ ​i​n​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
+			 */
+			install_note: string
 			/**
 			 * S​t​a​r​t​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​w​i​t​h​ ​t​h​i​s​ ​v​a​u​l​t​ ​n​a​m​e​d
 			 */
@@ -6909,20 +6909,6 @@ export type NamespaceWebTranslation = {
 			 * N​o​t​h​i​n​g​ ​l​e​a​v​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​u​n​t​i​l​ ​y​o​u​ ​a​d​d​ ​a​ ​p​r​o​v​i​d​e​r​.​ ​W​i​t​h​ ​o​n​e​,​ ​t​h​e​ ​t​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​t​h​a​t​ ​e​n​d​p​o​i​n​t​,​ ​a​n​d​ ​n​o​w​h​e​r​e​ ​e​l​s​e​.
 			 */
 			egress: string
-			/**
-			 * A​I​ ​s​e​t​t​i​n​g​s
-			 */
-			sections: string
-			tabs: {
-				/**
-				 * P​r​o​v​i​d​e​r​s
-				 */
-				providers: string
-				/**
-				 * S​k​i​l​l​s
-				 */
-				skills: string
-			}
 		}
 		providers: {
 			/**
@@ -7473,6 +7459,10 @@ export type NamespaceWebTranslation = {
 			 * @param {string} name
 			 */
 			open: RequiredParams<'name'>
+			/**
+			 * O​p​e​n
+			 */
+			open_short: string
 			/**
 			 * R​e​v​i​e​w​…
 			 */
@@ -12724,11 +12714,15 @@ export type TranslationFunctions = {
 			}
 			agents: {
 				/**
-				 * Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.
+				 * Outside agents
+				 */
+				title: () => LocalizedString
+				/**
+				 * Claude Code, another MCP client or a terminal works on this vault with the ohhi command. Pick a route, then copy its lines.
 				 */
 				intro: () => LocalizedString
 				/**
-				 * What an agent can do here
+				 * What an agent can do
 				 */
 				can_do: () => LocalizedString
 				cap: {
@@ -12770,10 +12764,6 @@ export type TranslationFunctions = {
 				 */
 				mcp_tools: () => LocalizedString
 				/**
-				 * Connect an agent
-				 */
-				connect: () => LocalizedString
-				/**
 				 * How to connect
 				 */
 				routes: () => LocalizedString
@@ -12798,10 +12788,6 @@ export type TranslationFunctions = {
 				 */
 				placeholder_browser: () => LocalizedString
 				/**
-				 * The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.
-				 */
-				get_body: () => LocalizedString
-				/**
 				 * Get the repository and install its dependencies
 				 */
 				step_repo: () => LocalizedString
@@ -12817,6 +12803,10 @@ export type TranslationFunctions = {
 				 * Install the command and the skill
 				 */
 				step_install_both: () => LocalizedString
+				/**
+				 * Each script makes a link (ohhi in ~/.local/bin, the skill in ~/.claude/skills), so neither goes stale.
+				 */
+				install_note: () => LocalizedString
 				/**
 				 * Start Claude Code with this vault named
 				 */
@@ -15049,20 +15039,6 @@ export type TranslationFunctions = {
 				 * Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.
 				 */
 				egress: () => LocalizedString
-				/**
-				 * AI settings
-				 */
-				sections: () => LocalizedString
-				tabs: {
-					/**
-					 * Providers
-					 */
-					providers: () => LocalizedString
-					/**
-					 * Skills
-					 */
-					skills: () => LocalizedString
-				}
 			}
 			providers: {
 				/**
@@ -15565,6 +15541,10 @@ export type TranslationFunctions = {
 				 * Open {name}
 				 */
 				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Open
+				 */
+				open_short: () => LocalizedString
 				/**
 				 * Review…
 				 */

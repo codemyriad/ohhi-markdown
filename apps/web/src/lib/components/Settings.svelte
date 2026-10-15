@@ -49,7 +49,6 @@
   import { BUTTON, LEDE, META, TITLE } from '../ui/styles.js'
   import SettingsNav, { type NavRow } from '../ui/SettingsNav.svelte'
   import AboutSettings from './AboutSettings.svelte'
-  import AgentSettings from './AgentSettings.svelte'
   import AiSettings from './AiSettings.svelte'
   import AppearanceSettings from './AppearanceSettings.svelte'
   import CustomiseSettings from './CustomiseSettings.svelte'
@@ -245,7 +244,6 @@
         <CustomiseSettings {registry} {resources} {layout} {keymap} showLog={showLog} />
       {:else if sid === 'ai'}
         <AiSettings />
-        <AgentSettings />
       {:else if sid === 'developer'}
         <DeveloperSettings {onConfigChange} />
       {:else if sid === 'about'}

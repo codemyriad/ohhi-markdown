@@ -13,6 +13,11 @@
    * in the browser it says why there is nothing to export.
    *
    * The store is the open vault's (`currentSkills()`); a test hands one in.
+   *
+   * QA round 1 (QA3): the second group of Settings › AI, inline. The eyebrow
+   * row carries *New skill…* and *Import…*; each skill is a row — its switch,
+   * its name and shape, the trust and scripts chips, one verb (*Review…* for
+   * one that needs it, else *Open*) — with what it needs said under it.
    */
   import { z } from 'zod'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -22,7 +27,18 @@
   import FieldErrors from '../ui/FieldErrors.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import { createForm } from '../ui/form.svelte.js'
-  import { CARD, FACT, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import {
+    BUTTON,
+    BUTTON_PRIMARY,
+    BUTTON_SM,
+    CARD,
+    CHIP,
+    EYEBROW,
+    GROUP_ROW,
+    META,
+    ROW,
+    ROW_SETTING,
+  } from '../ui/styles.js'
   import { isTauri } from '../platform.js'
   import { getViewShell } from '../views.js'
   import { isValidSkillName } from '@ohhi/harness/skills'
@@ -94,42 +110,40 @@
     })
   }
 
-  const BADGE = 'rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase'
+  /** A trust chip that needs you is the warning colour's ink on the base, never a filled block. */
+  const CHIP_WARN = `${CHIP} border-warning text-base-content`
 </script>
 
-<section data-testid="ai-skills" aria-labelledby="ai-skills-title" class="space-y-3">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <h3 id="ai-skills-title" class="m-0 {HEADING}">{t.title()}</h3>
+<section data-testid="ai-skills" aria-labelledby="ai-skills-title">
+  <div class={GROUP_ROW}>
+    <h3 id="ai-skills-title" class="m-0 {EYEBROW}">{t.list()}</h3>
     {#if store}
-      <div class="flex gap-2">
+      <span class="ms-auto flex gap-1.5">
         <button
           type="button"
           data-testid="ai-skills-new"
           onclick={() => (creating = !creating)}
           aria-expanded={creating}
-          class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs text-base-content"
+          class={BUTTON}
         >
           {t.new()}
         </button>
-        <button
-          type="button"
-          data-testid="ai-skills-import"
-          onclick={() => (importing = true)}
-          class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs text-base-content"
-        >
+        <button type="button" data-testid="ai-skills-import" onclick={() => (importing = true)} class={BUTTON}>
           {t.import()}
         </button>
-      </div>
+      </span>
     {/if}
   </div>
-  <p class="m-0 text-xs text-base-content/80">{t.intro()}</p>
+  <p class="m-0 mb-2 {META}">{t.intro()}</p>
 
   {#if !store}
-    <p class="m-0 text-sm text-base-content/80" data-testid="ai-skills-no-vault">{t.no_vault()}</p>
+    <p class="m-0 rounded-lg border border-dashed border-base-300 px-3 py-2.5 text-[13px] text-base-content" data-testid="ai-skills-no-vault">
+      {t.no_vault()}
+    </p>
   {:else}
     {#if creating}
       <form
-        class="{CARD} space-y-2 p-3"
+        class="{CARD} mb-3 space-y-2 p-3"
         novalidate
         aria-label={t.create.title()}
         data-testid="ai-skills-create"
@@ -153,15 +167,10 @@
           <p class="m-0 text-xs text-error" role="alert">{form.formError}</p>
         {/if}
         <div class="flex justify-end gap-2">
-          <button type="button" onclick={() => (creating = false)} class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs text-base-content">
+          <button type="button" onclick={() => (creating = false)} class={BUTTON}>
             {t.create.cancel()}
           </button>
-          <button
-            type="submit"
-            data-testid="ai-skills-create-submit"
-            disabled={form.busy}
-            class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
-          >
+          <button type="submit" data-testid="ai-skills-create-submit" disabled={form.busy} class={BUTTON_PRIMARY}>
             {t.create.submit()}
           </button>
         </div>
@@ -169,75 +178,72 @@
     {/if}
 
     {#if store.ready && store.rows.length === 0}
-      <p class="m-0 text-sm text-base-content/80" data-testid="ai-skills-empty">{t.empty()}</p>
+      <p class="m-0 text-[13px] text-base-content" data-testid="ai-skills-empty">{t.empty()}</p>
     {:else}
-      <ul class="m-0 list-none space-y-2 p-0" aria-label={t.list()} data-testid="ai-skills-list">
+      <ul class="m-0 list-none p-0" aria-label={t.list()} data-testid="ai-skills-list">
         {#each store.rows as row (row.id)}
-          <li class="{CARD} space-y-1.5 p-3" data-testid="ai-skill:{row.id}">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-ed-mono text-sm font-semibold text-base-content">{row.meta.name}</span>
+          <li class="grid grid-cols-[20px_minmax(0,1fr)_auto] {ROW}" data-testid="ai-skill:{row.id}">
+            <!-- Only a reviewed, valid skill can be switched on. -->
+            <input
+              type="checkbox"
+              class="accent-primary"
+              aria-label={t.enabled({ name: row.meta.name })}
+              checked={row.enabled && row.trusted}
+              disabled={!row.trusted || !row.valid}
+              data-testid="ai-skill-enabled:{row.id}"
+              onchange={(e) => void store.setEnabled(row.id, e.currentTarget.checked)}
+            />
+            <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <span class="font-ed-mono {ROW_SETTING} font-semibold">{row.meta.name}</span>
               {#if shape(row)}
-                <span class="text-xs text-base-content/80" data-testid="ai-skill-shape:{row.id}">{shape(row)}</span>
+                <span class={META} data-testid="ai-skill-shape:{row.id}">{shape(row)}</span>
               {/if}
-              <span class="flex-1"></span>
+            </div>
+            <span class="flex flex-wrap items-center justify-end gap-1">
               {#if !row.valid}
-                <span class="{BADGE} bg-error text-error-content" data-testid="ai-skill-invalid:{row.id}">{t.invalid()}</span>
+                <span class="{CHIP} border-error text-error" data-testid="ai-skill-invalid:{row.id}">{t.invalid()}</span>
               {/if}
               {#if row.meta.hasScripts}
-                <span class="{BADGE} border border-base-300 text-base-content" data-testid="ai-skill-scripts:{row.id}">{t.scripts()}</span>
+                <span class={CHIP} data-testid="ai-skill-scripts:{row.id}">{t.scripts()}</span>
               {/if}
-              <span
-                class="{BADGE} {row.trusted ? 'bg-success text-success-content' : 'bg-warning text-warning-content'}"
-                data-testid="ai-skill-trust:{row.id}"
-                data-trusted={row.trusted}
-              >
+              <span class={row.trusted ? CHIP : CHIP_WARN} data-testid="ai-skill-trust:{row.id}" data-trusted={row.trusted}>
                 {row.trusted ? t.trusted() : t.untrusted()}
               </span>
-            </div>
-            <p class="m-0 text-xs text-base-content/80">{row.meta.description}</p>
-            {#if !row.trusted}
-              <p class="m-0 text-xs text-base-content/80">{t.untrusted_hint()}</p>
-            {/if}
-            {#if row.meta.hasScripts}
-              <p class="m-0 text-xs text-base-content/80">{t.scripts_hint()}</p>
-            {/if}
-            {#if row.meta.problems.length > 0}
-              <ul class="m-0 list-disc pl-5 text-xs text-error" data-testid="ai-skill-problems:{row.id}">
-                {#each row.meta.problems as code (code)}
-                  <li>{problemText(code)}</li>
-                {/each}
-              </ul>
-            {/if}
-            <div class="flex flex-wrap items-center gap-3 pt-1">
-              <Field name="enabled-{row.id}">
-                <CheckControl
-                  label={t.enabled({ name: row.meta.name })}
-                  checked={row.enabled && row.trusted}
-                  disabled={!row.trusted || !row.valid}
-                  testid="ai-skill-enabled:{row.id}"
-                  onchange={(e) => void store.setEnabled(row.id, e.currentTarget.checked)}
-                />
-              </Field>
-              <span class="flex-1"></span>
               {#if !row.trusted}
                 <button
                   type="button"
                   data-testid="ai-skill-review:{row.id}"
                   onclick={() => void review(row)}
-                  class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs text-base-content"
+                  class="{BUTTON_SM} ms-1"
                 >
                   {t.review()}
                 </button>
-              {/if}
-              {#if shell}
+              {:else if shell}
                 <button
                   type="button"
                   data-testid="ai-skill-open:{row.id}"
+                  aria-label={t.open({ name: row.meta.name })}
                   onclick={() => shell.openPath(`${row.meta.dir}/SKILL.md`)}
-                  class="{OUTLINE_BUTTON} px-2.5 py-1 text-xs text-base-content"
+                  class="{BUTTON_SM} ms-1"
                 >
-                  {t.open({ name: row.meta.name })}
+                  {t.open_short()}
                 </button>
+              {/if}
+            </span>
+            <div class="col-start-2 col-end-4 -mt-0.5 space-y-0.5 pb-1">
+              <p class="m-0 {META}">{row.meta.description}</p>
+              {#if !row.trusted}
+                <p class="m-0 {META}">{t.untrusted_hint()}</p>
+              {/if}
+              {#if row.meta.hasScripts}
+                <p class="m-0 {META}">{t.scripts_hint()}</p>
+              {/if}
+              {#if row.meta.problems.length > 0}
+                <ul class="m-0 list-disc pl-5 text-xs text-error" data-testid="ai-skill-problems:{row.id}">
+                  {#each row.meta.problems as code (code)}
+                    <li>{problemText(code)}</li>
+                  {/each}
+                </ul>
               {/if}
             </div>
           </li>
@@ -245,8 +251,8 @@
       </ul>
     {/if}
 
-    <section aria-labelledby="ai-skills-farm-title" class="space-y-1 pt-1">
-      <h4 id="ai-skills-farm-title" class="m-0 {FACT}">{t.farm.title()}</h4>
+    <section aria-labelledby="ai-skills-farm-title" class="mt-3 space-y-1 border-t border-base-200 pt-2">
+      <h4 id="ai-skills-farm-title" class="sr-only">{t.farm.title()}</h4>
       {#if store.farm.available}
         <Field name="farm">
           <CheckControl
@@ -258,7 +264,7 @@
           <Description>{t.farm.hint()}</Description>
         </Field>
         {#if store.farm.last}
-          <p class="m-0 text-xs text-base-content/80" data-testid="ai-skills-farm-result">
+          <p class="m-0 {META}" data-testid="ai-skills-farm-result">
             {t.farm.result({ written: store.farm.last.written.length + store.farm.last.linked.length, blocked: store.farm.last.blocked.length })}
           </p>
         {/if}
@@ -266,14 +272,14 @@
           <p class="m-0 text-xs text-error" role="alert">{t.farm.failed({ message: store.farm.error })}</p>
         {/if}
       {:else}
-        <p class="m-0 text-xs text-base-content/80" data-testid="ai-skills-farm-unavailable">
+        <p class="m-0 {META}" data-testid="ai-skills-farm-unavailable">
           {onDesktop ? t.farm.unavailable() : t.farm.browser()}
         </p>
       {/if}
     </section>
 
     {#if status}
-      <p class="m-0 text-xs text-base-content/80" role="status" data-testid="ai-skills-status">{status}</p>
+      <p class="m-0 mt-2 {META}" role="status" data-testid="ai-skills-status">{status}</p>
     {/if}
 
     {#if importing || reviewing}

@@ -615,12 +615,24 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await seedProvider(page, `${mock.url}/v1`)
   await openApp(page, 'a11y-harness')
 
+  // Settings › AI is one page (QA round 1): providers, skills and the outside agents, no sub-tabs.
   await openSettings(page, 'ai')
   await expect(page.getByTestId('ai-providers')).toBeVisible()
-  await expectAccessible(page, 'settings › AI › providers')
-  await page.getByTestId('ai-settings-tab:skills').click()
   await expect(page.getByTestId('ai-skills')).toBeVisible()
-  await expectAccessible(page, 'settings › AI › skills')
+  await expect(page.getByTestId('settings-agents')).toBeVisible()
+  await expectAccessible(page, 'settings › AI, one page')
+  // Its two popovers: the local servers, and what an agent can do.
+  await page.getByTestId('ai-providers-local-help').click()
+  await expect(page.getByTestId('ai-providers-local-popover')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › local servers')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('agents-can-do-open').click()
+  await expect(page.getByTestId('agents-can-do')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › what an agent can do')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('agents-route:terminal').click()
+  await expect(page.getByTestId('agents-code:terminal')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › outside agents, terminal')
   await closeSettings(page)
 
   await page.getByTestId('file-item:notes/welcome.md').click()
@@ -667,7 +679,6 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
 
   // Settings › AI › Skills: the import dialog, then a skill of our own for the picker.
   await openSettings(page, 'ai')
-  await page.getByTestId('ai-settings-tab:skills').click()
   await page.getByTestId('ai-skills-import').click()
   await expect(page.getByTestId('skill-import-dialog')).toBeVisible()
   await expectAccessible(page, 'skill import dialog')
@@ -680,7 +691,6 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // since settings-shaping ST1); back in Settings › AI › Skills it is trusted.
   await expect(settingsView(page)).toBeHidden()
   await openSettings(page, 'ai')
-  await page.getByTestId('ai-settings-tab:skills').click()
   await expect(page.getByTestId('ai-skill-trust:tighten')).toHaveAttribute('data-trusted', 'true')
   await closeSettings(page)
 

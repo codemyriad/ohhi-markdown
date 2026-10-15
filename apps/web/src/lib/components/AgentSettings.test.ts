@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Settings › Agents (settings-shaping ST5) in its three places: a folder
+ * Settings › AI › Outside agents (settings-shaping ST5; Settings › Agents
+ * until QA round 1 folded it into AI as a group) in its three places: a folder
  * vault on the desktop (the routes filled in with its path, copyable), a
  * vault in browser storage (Fork 5: shown, with the honest explanation and
  * the way to Sync & devices), and no vault (the manager's page: the routes
@@ -39,10 +40,13 @@ function setup(
 
 const codeOf = (id: string): string => screen.getByTestId(`agents-code:${id}`).textContent ?? ''
 
-describe('Settings › Agents', () => {
-  it('lists what an agent can do, one line per op group', () => {
-    setup({ vault: { name: 'notes', kind: 'tauri', path: '/home/me/notes' }, desktop: true })
-    const list = screen.getByTestId('agents-can-do')
+describe('Settings › AI › Outside agents', () => {
+  it('lists what an agent can do, one line per op group, in a popover from the eyebrow row', async () => {
+    const { user } = setup({ vault: { name: 'notes', kind: 'tauri', path: '/home/me/notes' }, desktop: true })
+    expect(screen.getByRole('heading', { name: t.title() })).toBeInTheDocument()
+    expect(screen.queryByTestId('agents-can-do')).toBeNull()
+    await user.click(screen.getByTestId('agents-can-do-open'))
+    const list = await screen.findByTestId('agents-can-do')
     expect(list.querySelectorAll('li')).toHaveLength(AGENT_CAPABILITIES.length)
     expect(list.textContent).toContain(t.cap.find())
     expect(list.textContent).toContain('backlinks')
@@ -56,9 +60,9 @@ describe('Settings › Agents', () => {
     expect(screen.queryByTestId('agents-unreachable')).toBeNull()
     expect(screen.queryByTestId('agents-placeholder')).toBeNull()
 
-    // Claude Code (the default route): the scripts, the skill line, the MCP line.
-    expect(codeOf('install-ohhi')).toBe('./scripts/install-ohhi.sh')
-    expect(codeOf('install-skill')).toBe('./scripts/install-skill.sh')
+    // Claude Code (the default route, a segmented control): the scripts on one line, the skill line, the MCP line.
+    expect(screen.getByRole('tablist', { name: t.routes() })).toBeInTheDocument()
+    expect(codeOf('install-both')).toBe('./scripts/install-ohhi.sh && ./scripts/install-skill.sh')
     expect(codeOf('claude-skill')).toBe('OHHI_VAULT="/home/me/black book" claude')
     expect(codeOf('claude-mcp')).toBe('claude mcp add ohhi -- ohhi mcp --vault "/home/me/black book"')
 
@@ -68,6 +72,7 @@ describe('Settings › Agents', () => {
 
     // Another MCP client: valid JSON naming the path.
     await user.click(screen.getByTestId('agents-route:mcp'))
+    expect(codeOf('install-ohhi')).toBe('./scripts/install-ohhi.sh')
     expect(JSON.parse(codeOf('mcp-json')).mcpServers.ohhi.args).toEqual(['mcp', '--vault', '/home/me/black book'])
 
     // The terminal.
@@ -108,7 +113,8 @@ describe('Settings › Agents', () => {
     expect(screen.getByTestId('agents-unreachable').textContent).toContain(t.browser_title())
     expect(screen.queryByTestId('agents-connect')).toBeNull()
     // Still says what an agent could do.
-    expect(screen.getByTestId('agents-can-do')).toBeTruthy()
+    await user.click(screen.getByTestId('agents-can-do-open'))
+    expect(await screen.findByTestId('agents-can-do')).toBeTruthy()
     await user.click(screen.getByTestId('agents-open-sync'))
     expect(env.openSection).toHaveBeenCalledWith('sync')
   })
@@ -127,7 +133,7 @@ describe('Settings › Agents', () => {
   })
 })
 
-describe('Settings › Agents — the guide (settings-shaping ST6)', () => {
+describe('Settings › AI › Outside agents — the guide (settings-shaping ST6)', () => {
   it('Read the guide opens the agents guide page, in every place the section is drawn', async () => {
     for (const vault of [{ name: 'notes', kind: 'tauri' as const, path: '/n' }, { name: 'web', kind: 'opfs' as const }, null]) {
       const openGuide = vi.fn()
