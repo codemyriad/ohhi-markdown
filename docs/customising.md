@@ -23,7 +23,7 @@ tools — this page is everything it needs. Ground truth for the decisions:
 | Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Layout names the file in use and edits this device's overrides on top |
 | Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
-| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance (by name; the folder is not listed) |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance (by name, beside the ten built-in themes; the folder is not listed). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
 
 **Settings › Customise** is the overview of all four: the roots below in
 order, each kind's file in use with the root it came from and what it
