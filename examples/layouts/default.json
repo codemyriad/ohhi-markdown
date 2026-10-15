@@ -43,7 +43,9 @@
       "format.wikilink",
       "format.link",
       "format.table",
-      "format.image"
+      "format.image",
+      "|",
+      "note.comment"
     ],
     "statusbar": [
       "pane.lead",

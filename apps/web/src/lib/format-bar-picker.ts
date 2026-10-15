@@ -19,11 +19,15 @@ import { SEPARATOR, type LayoutFile, type ShellSpec } from './layout-spec.js'
 /**
  * Everything the bar can show, in the order the hidden row lists it: the
  * grouped paragraph-style menu, then every `format.*` command in the command
- * table's order (`format.rule` is one — off the default bar, still pickable).
+ * table's order (`format.rule` is one — off the default bar, still pickable),
+ * then the bar's one non-format verb, `note.comment` (the door to a comment,
+ * QA round 1).
  */
+export const BAR_EXTRA_IDS: readonly string[] = ['note.comment']
 export const BAR_CANDIDATES: readonly string[] = [
   ...TOOLBAR_ITEM_IDS,
   ...COMMAND_IDS.filter((id) => id.startsWith('format.')),
+  ...BAR_EXTRA_IDS,
 ]
 
 /** Separators collapsed and trimmed, as `applyList` resolves a list. */

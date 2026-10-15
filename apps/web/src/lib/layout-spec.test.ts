@@ -104,10 +104,12 @@ describe('the built-in and the example', () => {
     // catalogue readout a layout opts into: the corner's " · " join is drawn
     // between ids, so a readout that draws nothing would leave a stray dot.)
     expect(d.bars.status).toEqual(['words', 'chars'])
-    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(18)
+    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(19)
     // E6: the tab strip's end carries the two split commands.
     expect(d.bars.tabs).toEqual(['workspace.split-right', 'workspace.split-down'])
-    expect(d.bars.format.filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
+    // The format commands, then (QA round 1) the comment button after its own separator.
+    expect(d.bars.format.slice(0, -2).filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
+    expect(d.bars.format.slice(-2)).toEqual(['|', 'note.comment'])
     expect(d.bars.statusbar).toEqual(['pane.lead', '|', 'sync'])
     expect(d.panes.open).toBe('replace')
     expect(d.editor).toEqual({ measure: 'comfortable', typewriter: false, inlineTitle: true })

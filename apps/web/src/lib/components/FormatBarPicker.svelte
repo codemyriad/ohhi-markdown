@@ -58,7 +58,10 @@
     if (id === SEPARATOR) return t.separator()
     if (id === PARAGRAPH_STYLE) return $LL.web.toolbar.paragraph_style()
     const words = $LL.web.commands.format as unknown as Record<string, (() => string) | undefined>
-    return words[id.slice('format.'.length).replace(/-/g, '_')]?.() ?? registry?.get(id)?.title ?? id
+    const own = id.startsWith('format.') ? words[id.slice('format.'.length).replace(/-/g, '_')]?.() : undefined
+    if (own) return own
+    if (id === 'note.comment') return $LL.web.ai.commands.comment()
+    return registry?.get(id)?.title ?? id
   }
   const iconOf = (id: string): LucideIcon | null =>
     id === PARAGRAPH_STYLE ? PARAGRAPH_STYLE_ICON : (COMMAND_ICONS[id] ?? null)

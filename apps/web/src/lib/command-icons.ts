@@ -25,6 +25,7 @@ import {
   ListTodo,
   Maximize2,
   MessageSquareWarning,
+  MessageSquarePlus,
   Minus,
   Pilcrow,
   Rows2,
@@ -60,6 +61,8 @@ export const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = {
   'format.table': Table,
   'format.image': Image,
   'format.rule': Minus,
+  // Not a format command, but a bar's: the door to a comment (QA round 1).
+  'note.comment': MessageSquarePlus,
   'workspace.split-right': Columns2,
   'workspace.split-down': Rows2,
   'workspace.split-auto': SquareSplitHorizontal,

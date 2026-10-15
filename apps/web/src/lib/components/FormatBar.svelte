@@ -107,6 +107,10 @@
     const { tab } = focusedOf(ctx.panes.layout)
     return tab?.path != null && ctx.panes.modeOf(tab) !== 'reading'
   })
+  /** A note on screen at all: what a non-format item (`note.comment`) needs — a comment is fine in Reading. */
+  const onNote = $derived(focusedOf(ctx.panes.layout).tab?.path != null)
+  /** Whether a bar item can be pressed: a format command needs a live note; anything else, a note. */
+  const enabled = (id: string): boolean => (id.startsWith('format.') ? canFormat : onNote)
 
   const t = $derived($LL.web.toolbar)
   const tip = $derived(sideAwayFrom(edge))
@@ -204,7 +208,7 @@
               label={named(entry)}
               icon={entry.icon}
               placement={tip}
-              disabled={!canFormat}
+              disabled={!enabled(entry.id)}
               testid="toolbar:{entry.id}"
               onmousedown={keepEditorFocus}
               onclick={() => run(entry.id)}
@@ -274,7 +278,7 @@
   <!-- The rows, not the trigger, carry "no note to format": Melt reads a
        trigger's `disabled` once, at mount, so a trigger that started disabled
        (no note yet) would stay `aria-disabled` after one opens. -->
-  <MenuItem {item} disabled={!canFormat} testid="toolbar-menu:{entry.id}" onSelect={() => run(entry.id)}>
+  <MenuItem {item} disabled={!enabled(entry.id)} testid="toolbar-menu:{entry.id}" onSelect={() => run(entry.id)}>
     <span class="flex items-center gap-2">
       <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
       <span class="flex-1">{entry.title}</span>

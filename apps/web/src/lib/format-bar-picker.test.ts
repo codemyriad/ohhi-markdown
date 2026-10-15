@@ -28,7 +28,8 @@ describe('the picker rows (E6)', () => {
   })
   it('offers the paragraph-style menu and every format command', () => {
     expect(BAR_CANDIDATES[0]).toBe('format.paragraph-style')
-    expect(BAR_CANDIDATES.every((id) => id.startsWith('format.'))).toBe(true)
+    expect(BAR_CANDIDATES.every((id) => id.startsWith('format.') || id === 'note.comment')).toBe(true)
+    expect(BAR_CANDIDATES.at(-1)).toBe('note.comment')
     expect(BAR_CANDIDATES).toContain('format.highlight')
   })
   it('keeps an id it does not know on the bar', () => {
