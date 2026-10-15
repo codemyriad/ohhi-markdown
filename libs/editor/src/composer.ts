@@ -198,7 +198,18 @@ const composerTheme = EditorView.theme({
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
     backgroundColor: 'var(--ed-selection)',
   },
-  '.cm-placeholder': { color: 'var(--ed-ink-muted)' },
+  // One line, however long the hint: a wrapping placeholder would make the
+  // empty field taller than its first typed line, and the caret would jump
+  // when the field shrinks (the composer is anchored at the pane's foot).
+  '.cm-placeholder': {
+    color: 'var(--ed-ink-muted)',
+    display: 'inline-block',
+    maxWidth: '100%',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    verticalAlign: 'bottom',
+  },
   '.ohhi-chip': {
     display: 'inline',
     padding: '0 0.35em',

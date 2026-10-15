@@ -289,6 +289,8 @@ test('no selection handle inside a proposal: its own Accept / Reject pair is the
   await send(page, 'Add a comma before honestly.')
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  // The run folds to one line once the answer lands; the card is behind it.
+  await unfoldRuns(page)
   await card.getByRole('button', { name: 'Show in note' }).click()
   await expect(page.locator('[data-testid="editor-pane"] .ed-suggest-add').first()).toBeVisible()
   const handle = page.getByTestId('selection-handle')
