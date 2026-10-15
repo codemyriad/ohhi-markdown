@@ -73,7 +73,15 @@ doors: the speech-bubble icon on the toolbar (the `session` readout, drawn
 only once a provider exists), *Open AI session* and *New AI session* in the
 palette (`app.session`, `ai.new-session`), and `Mod+Shift+L`, which opens the
 current session — starting one if there is none — carrying the selection
-along as a reference when there is one. A session opens **beside** the note it
+along as a reference when there is one. A selection has its own door: the **selection
+handle**, a small pill at the end of a settled selection, offers *Comment*
+and — once a provider exists — *Ask* (`ai.ask-selection`, the layout's
+`bars.selection`). *Ask* opens the current session (or a new one) beside the
+note with the selection as a line-range chip and the composer focused; it
+sends nothing, the question is yours to type. It is `Mod+Shift+L`'s gesture
+made visible, and it requires a selection (from the palette, without one, it
+says to select some text). The handle never appears over a proposal.
+A session opens **beside** the note it
 was opened from, never over it: to the right while both halves keep 40rem,
 below in a narrower pane; a second open goes to the pane already there rather
 than splitting again, and *Open* on a session card brings the note back where
@@ -297,5 +305,6 @@ Not built, on purpose, with where each would go:
 | Suggestions, the agent origin, the throttle | `libs/workspace/src/suggestions.ts`, `agent-origin.ts`, `agent-throttle.ts`; drawn by `libs/editor/src/suggestions.ts` (the marks, the pair, the gutter); the commands in `apps/web/src/lib/suggestions.svelte.ts`; *Show in note* / *Show thread* in `suggestion-reveal.ts`; the card in `ToolCard.svelte` |
 | The agent's presence | `libs/workspace/src/agent-presence.ts`; `apps/web/src/lib/agent-presence.ts`; `libs/editor/src/working-highlight.ts` |
 | Comments | `libs/workspace/src/threads.ts`, `apps/web/src/lib/threads.svelte.ts`, `libs/editor/src/comments.ts` |
+| The selection handle | `libs/editor/src/selection-bar.ts` (when and where), `apps/web/src/lib/components/SelectionBar.svelte` (the items, `bars.selection`); `ai.ask-selection` in `shell-commands.ts` |
 | Skills | `libs/agent/src/skills.ts` (the one loader, the trust rule, the farm helpers), `apps/web/src/lib/skills.svelte.ts` (trust state), `skill-import.ts` (review and import), `skill-routing.ts` (`ai.run-skill` and where a run lands), `skills-farm.ts`; `apps/cli/src/skills-export.ts` |
 | The mock LLM (tests) | `libs/testkit/src/mock-llm.ts`, `mock-llm-server.ts` (`@ohhi/testkit/src/node`) |
