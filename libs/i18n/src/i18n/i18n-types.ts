@@ -119,6 +119,14 @@ export type NamespaceWebTranslation = {
 		 * U​n​p​i​n​ ​—​ ​b​a​c​k​ ​t​o​ ​a​ ​d​r​a​w​e​r
 		 */
 		unpin_navigator: string
+		/**
+		 * P​i​n​s​ ​a​p​p​l​y​ ​o​n​ ​w​i​d​e​r​ ​s​c​r​e​e​n​s
+		 */
+		pin_wide_only: string
+		/**
+		 * P​i​n​n​e​d​ ​o​n​ ​w​i​d​e​r​ ​s​c​r​e​e​n​s​ ​—​ ​i​t​ ​f​l​o​a​t​s​ ​h​e​r​e
+		 */
+		pinned_wide_only: string
 	}
 	notices: {
 		toast_title: {
@@ -8590,6 +8598,14 @@ export type TranslationFunctions = {
 			 * Unpin — back to a drawer
 			 */
 			unpin_navigator: () => LocalizedString
+			/**
+			 * Pins apply on wider screens
+			 */
+			pin_wide_only: () => LocalizedString
+			/**
+			 * Pinned on wider screens — it floats here
+			 */
+			pinned_wide_only: () => LocalizedString
 		}
 		notices: {
 			toast_title: {

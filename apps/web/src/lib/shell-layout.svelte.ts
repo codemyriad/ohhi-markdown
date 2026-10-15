@@ -85,6 +85,12 @@ export interface LayoutHost {
   resolveLayout?: (active: LayoutChoice, pins: LayoutPins, overrides: LayoutFile) => Promise<ResolvedLayout>
   /** Where the device's pins live (Round 2, P7); absent → `config.layout.pins`. */
   pins?: { read(): LayoutPins; write(pins: LayoutPins): void }
+  /**
+   * Whether the window starts below the small-screen breakpoint (QA round 1),
+   * so the first paint already leaves the pins out; `setSmallScreen` follows
+   * it after that. Absent → a wide screen.
+   */
+  smallScreen?: () => boolean
   /** Where the device's layout overrides live (round 3, Q6); absent → `config.layout.overrides`. */
   overrides?: { read(): LayoutFile; write(overrides: LayoutFile): void }
   /** Re-list the resources (on reload); absent → nothing to list. */
@@ -154,6 +160,16 @@ export interface ShellLayout {
   unpin(side: PinSide): void
   /** Drop every pin (Settings › Layout › *Reset pins*). */
   resetPins(): void
+  /**
+   * False below the small-screen breakpoint (QA round 1): the pins are KEPT
+   * (`pins`, `pinned` still answer) but not applied — each side renders as
+   * the drawer or dock it would be unpinned, and the pin controls say pins
+   * apply on wider screens. A column the layout itself asks for is not a pin
+   * and still renders.
+   */
+  readonly pinsHonoured: boolean
+  /** The window crossed the small-screen breakpoint: re-apply the spec with or without the pins. */
+  setSmallScreen(small: boolean): void
   /** Why the active layout fell back, when it did. */
   readonly specError: string | null
   /**
@@ -297,7 +313,11 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
   // overrides and the pins are config, so they are right from the first paint too.
   let fileSpec = $state.raw<ShellSpec>(shipped(active))
   let ownSpec = $state.raw<ShellSpec>(applyOverrides(fileSpec, overrides))
-  let spec = $state.raw<ShellSpec>(applyPins(ownSpec, pins))
+  /** Below the small-screen breakpoint (QA round 1): the pins are kept, not applied. */
+  let small = $state(host.smallScreen?.() ?? false)
+  const NO_PINS: LayoutPins = {}
+  const honoured = (): LayoutPins => (small ? NO_PINS : pins)
+  let spec = $state.raw<ShellSpec>(applyPins(ownSpec, honoured()))
   let source = $state.raw<ResourceEntry | null>(null)
   let specError = $state<string | null>(null)
   /** The choice whose file `fileSpec` is (null until the roots first answer). */
@@ -339,7 +359,7 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
   function apply(file: ShellSpec, force: boolean): void {
     fileSpec = file
     ownSpec = applyOverrides(file, overrides)
-    const next = applyPins(ownSpec, pins)
+    const next = applyPins(ownSpec, honoured())
     spec = next
     const key = seedKey(next)
     const [wasNav, wasRail] = seedSides(seededFrom)
@@ -573,6 +593,14 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
     resetPins() {
       pins = {}
       pinStore.write(pins)
+      apply(fileSpec, false)
+    },
+    get pinsHonoured() {
+      return !small
+    },
+    setSmallScreen(next) {
+      if (next === small) return
+      small = next
       apply(fileSpec, false)
     },
     get specError() {

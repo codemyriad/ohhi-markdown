@@ -34,6 +34,13 @@ const shell = {
   pin_navigator: 'Pin as a column',
   /** A column this device pinned: back to the layout's own drawer. */
   unpin_navigator: 'Unpin — back to a drawer',
+  /**
+   * The pin control on a small screen (QA round 1), disabled: a pin is kept
+   * there but not honoured — the side floats as it would unpinned.
+   */
+  pin_wide_only: 'Pins apply on wider screens',
+  /** The same, for a side this device has pinned. */
+  pinned_wide_only: 'Pinned on wider screens — it floats here',
 }
 
 const notices = {

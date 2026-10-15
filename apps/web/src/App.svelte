@@ -51,6 +51,7 @@
   import { createShellLayout } from './lib/shell-layout.svelte.js'
   import { installShellCommands, layoutFileSource } from './lib/shell-commands.js'
   import { realClock } from './lib/real-clock.js'
+  import { screen } from './lib/small-screen.svelte.js'
   import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
   import { sharedSnapshot } from '@ohhi/workspace'
   import { createMembership } from './lib/collection-membership.svelte.js'
@@ -240,7 +241,10 @@
     // The layout's reload notice and *Show problems* on a file that can't be used (settings-shaping ST6).
     notify: (input) => workspace?.notify(input),
     openSettings: (section) => openSettings(section),
+    smallScreen: () => screen.small,
   })
+  // A pin is kept but not honoured on a small screen (QA round 1): follow the window across the breakpoint.
+  $effect(() => layout.setSmallScreen(screen.small))
   nav.setLinksVisible(() => layout.linksVisible)
   nav.setLayoutFiles(layoutFileSource(resources, layout))
 

@@ -87,3 +87,47 @@ test('a tap in the note closes the file drawer and the dock panel', async ({ pag
   await page.mouse.click(wide.x + wide.width - 12, wide.y + 12)
   await expect(page.getByTestId('navigator-drawer')).toBeVisible()
 })
+
+test('a pin is kept but not honoured: the side floats here, and its pin says pins apply on wider screens', async ({
+  page,
+}) => {
+  // Pin the navigator on a wide window: a column.
+  await page.setViewportSize({ width: 1100, height: 780 })
+  await boot(page, 'small-pins')
+  await openByQuickOpen(page, 'welcome')
+  await toolbar(page).getByTestId('toggle-tree').click()
+  await page.getByTestId('navigator-drawer').getByTestId('navigator-pin').click()
+  await expect(page.getByTestId('navigator')).toBeVisible()
+  await expect(page.getByTestId('navigator-drawer')).toHaveCount(0)
+
+  // A phone's width: no column — the drawer, closed, as if unpinned.
+  await page.setViewportSize({ width: 390, height: 780 })
+  await expect(page.getByTestId('navigator')).toHaveCount(0)
+  await toolbar(page).getByTestId('toggle-tree').tap()
+  const drawer = page.getByTestId('navigator-drawer')
+  await expect(drawer).toBeVisible()
+  const pin = drawer.getByTestId('navigator-pin')
+  await expect(pin).toHaveAttribute('aria-disabled', 'true')
+  await expect(pin).toHaveAccessibleName('Pinned on wider screens — it floats here')
+  await expectAccessible(page, 'small screen: the drawer with its pin held')
+  // A tap says why (a finger gets no tooltip), and pins nothing.
+  // (`force`: Playwright counts aria-disabled as not enabled; a finger does not.)
+  await pin.tap({ force: true })
+  await expect(page.getByTestId('toast').filter({ hasText: 'Pinned on wider screens' })).toBeVisible()
+  await expect(page.getByTestId('navigator-unpin')).toHaveCount(0)
+
+  // The dock's pin says the same, unpinned.
+  const box = (await paneContent(page).boundingBox())!
+  await page.touchscreen.tap(box.x + box.width - 12, box.y + 12)
+  await expect(drawer).toHaveCount(0)
+  await page.getByTestId('dock').locator('button').first().tap()
+  const railPin = page.getByTestId('dock-panel').getByTestId('rail-pin')
+  await expect(railPin).toHaveAttribute('aria-disabled', 'true')
+  await expect(railPin).toHaveAccessibleName('Pins apply on wider screens')
+
+  // Wide again: the pin was kept all along.
+  await page.setViewportSize({ width: 1100, height: 780 })
+  await expect(page.getByTestId('navigator')).toBeVisible()
+  await expect(page.getByTestId('navigator-drawer')).toHaveCount(0)
+  await expect(page.getByTestId('navigator-unpin')).toBeVisible()
+})

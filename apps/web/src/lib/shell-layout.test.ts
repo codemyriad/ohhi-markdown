@@ -394,6 +394,47 @@ describe('createShellLayout — a tap in a note on a small screen (QA round 1)',
     expect(layout.railOpen).toBe(false)
   })
 
+  it('a pin is kept but not honoured on a small screen, and honoured again on a wide one', () => {
+    setLayoutPins({ navigator: 'column', rail: 'column' })
+    setLayoutPrefs({ active: 'default' })
+    build()
+    expect(layout.pinsHonoured).toBe(true)
+    expect(layout.spec.regions.navigator).toBe('column')
+
+    layout.setSmallScreen(true)
+    expect(layout.pinsHonoured).toBe(false)
+    // Kept: config and the pinned answer are untouched…
+    expect(layout.pinned('navigator')).toBe(true)
+    expect(layoutPins()).toEqual({ navigator: 'column', rail: 'column' })
+    // …but each side is the drawer / dock it would be unpinned, closed.
+    expect(layout.spec.regions.navigator).toBe(PRESETS.default.regions.navigator)
+    expect(layout.spec.regions.rail).toBe(PRESETS.default.regions.rail)
+    expect(layout.treeOpen).toBe(false)
+    expect(layout.railOpen).toBe(false)
+
+    layout.setSmallScreen(false)
+    expect(layout.spec.regions.navigator).toBe('column')
+    expect(layout.spec.regions.rail).toBe('column')
+  })
+
+  it('starting small, the first paint already leaves the pins out', () => {
+    setLayoutPins({ navigator: 'column' })
+    setLayoutPrefs({ active: 'default' })
+    harness = withActions(() =>
+      createShellLayout({
+        inWorkspace: () => true,
+        events: () => [],
+        flashes: () => [],
+        now: () => 0,
+        toast: () => {},
+        smallScreen: () => true,
+      })
+    )
+    layout = harness.actions
+    expect(layout.spec.regions.navigator).toBe(PRESETS.default.regions.navigator)
+    expect(layout.treeOpen).toBe(false)
+  })
+
   it('leaves a column open: only what floats over the note closes', () => {
     setLayoutPins({ navigator: 'column', rail: 'column' })
     setLayoutPrefs({ active: 'default' })

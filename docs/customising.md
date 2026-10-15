@@ -74,7 +74,10 @@ layout file, then this device's **overrides**, then its **pins**:
   count, *Full* as a bar along the bottom, *Off* the mode's name only — is
   device config, not a layout override);
 - **pins**: *Pin as a column* on the navigator or the dock
-  (`config.layout.pins`) wins over both.
+  (`config.layout.pins`) wins over both — on a window at least 40rem wide.
+  On a small screen a pin is kept but not honoured: the side is the drawer or
+  dock it would be unpinned, and its pin control says pins apply on wider
+  screens.
 
 None of the three is ever written into a file. A layout *file* is how an
 agent, or a team in a shared vault, describes a shell.

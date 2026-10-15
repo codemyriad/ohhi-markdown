@@ -35,6 +35,7 @@
   import type { Workspace } from '../workspace.svelte.js'
   import HistorySection from './HistorySection.svelte'
   import LinksPanel from './LinksPanel.svelte'
+  import PinWideOnly from './PinWideOnly.svelte'
   import ThreadList from './ThreadList.svelte'
   import { openThread } from '../threads.svelte.js'
 
@@ -183,7 +184,16 @@
      collapsed, it is unpinned, which returns it to the floating strip. -->
 {#snippet rowControls()}
   {#if form === 'float'}
-    <IconButton label={t.pin()} icon={Pin} placement="bottom" testid="rail-pin" onclick={() => layout.pin('rail')} />
+    {#if layout.pinsHonoured}
+      <IconButton label={t.pin()} icon={Pin} placement="bottom" testid="rail-pin" onclick={() => layout.pin('rail')} />
+    {:else}
+      <!-- A small screen (QA round 1): pins apply on wider screens only. -->
+      <PinWideOnly
+        pinned={layout.pinned('rail')}
+        testid="rail-pin"
+        onExplain={(text) => workspace.flash({ level: 'info', text })}
+      />
+    {/if}
     <IconButton label={t.collapse()} icon={ChevronsRight} placement="bottom" testid="rail-collapse" onclick={onCollapse} />
   {:else}
     <IconButton label={t.unpin()} icon={PinOff} placement="bottom" testid="rail-unpin" onclick={unpin} />
