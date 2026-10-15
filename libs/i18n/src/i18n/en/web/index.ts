@@ -107,6 +107,18 @@ const rail = {
     history: 'History',
     comments: 'Comments',
   },
+  /**
+   * The context line over the sections (QA feedback round 1): which note
+   * they are about — its name, its folder muted after it — and, while a
+   * session or another view has the focus, that it is the note focused last.
+   */
+  note: {
+    /** The line's landmark name. */
+    label: 'The note these sections are about',
+    /** The line's button: focuses the pane holding the note, or opens it. */
+    go: 'Go to {name:string}',
+    last_focused: 'last focused',
+  },
 }
 
 const actions = {

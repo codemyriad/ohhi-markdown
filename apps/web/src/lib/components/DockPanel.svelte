@@ -8,8 +8,9 @@
 
 <script lang="ts">
   /**
-   * The dock's panel (Round 2 P4): the note's sections — Links, History —
-   * behind one tab row, with pin and collapse at the row's end. ONE panel for
+   * The dock's panel (Round 2 P4): the note's sections — Links, History,
+   * Comments — behind one tab row, with pin and collapse at the row's end,
+   * and under it a context line naming the note they are about. ONE panel for
    * both forms: floating over the editor's right edge (`form: 'float'`, the
    * dock), or standing as the right column (`form: 'column'`, pinned). Which
    * tab is showing is `layout.railTab` and whether it is open `layout.railOpen`
@@ -33,6 +34,7 @@
   import Tabs from '../ui/Tabs.svelte'
   import { getViewShell, shellClock } from '../views.js'
   import type { Workspace } from '../workspace.svelte.js'
+  import DockNoteContext from './DockNoteContext.svelte'
   import HistorySection from './HistorySection.svelte'
   import LinksPanel from './LinksPanel.svelte'
   import PinWideOnly from './PinWideOnly.svelte'
@@ -77,8 +79,14 @@
     onCollapse()
   }
 
-  /** The focused pane's active path — what every section follows. */
-  const selectedPath = $derived(workspace.ui.selectedPath ?? null)
+  /**
+   * The note every section follows, and the context line names: the focused
+   * note, or the one focused last while a session or a view has the focus
+   * (`ui.dockNote`, `dock-note.ts`). One read, so the line naming the note
+   * and the bodies under it can never disagree.
+   */
+  const dockNote = $derived(workspace.ui.dockNote ?? null)
+  const selectedPath = $derived(dockNote?.path ?? null)
   /** The open note's own sync record — History reads it. */
   const noteRecord = $derived.by(() => {
     if (!selectedPath) return null
@@ -143,36 +151,40 @@
         end={rowControls}
       >
         {#snippet panel(id)}
-          <div data-testid="rail-section:{id}" class="h-full overflow-y-auto px-1 pt-1">
-            <!-- The sections' own headings are h3s: this is the level above them. -->
-            <h2 class="sr-only">{t.sections[id as RailSectionId]()}</h2>
-            {#if id === 'links'}
-              <LinksPanel
-                backlinks={nav.links.backlinks}
-                outgoing={nav.links.outgoing}
-                path={selectedPath}
-                onOpen={(path, opts) => shell?.openPath(path, opts)}
-                onCreate={(target) => shell?.createFromLink(target)}
-              />
-            {:else if id === 'history'}
-              <HistorySection
-                path={selectedPath}
-                load={(p) => workspace.fileHistory(p)}
-                restore={(p, seq) => workspace.restorePreImage(p, seq)}
-                written={noteRecord?.diskMatchesCrdt ?? true}
-                now={() => clock.now()}
-              />
-            {:else if id === 'comments'}
-              <!-- Comment threads (writing-harness B8): not AI-gated. -->
-              <ThreadList
-                registry={nav.registry}
-                path={selectedPath}
-                {workspace}
-                onOpen={(thread) => selectedPath && openThread(selectedPath, thread)}
-                onExported={(p) => shell?.openPath(p)}
-                flash={(input) => workspace.flash(input)}
-              />
-            {/if}
+          <div class="flex h-full min-h-0 flex-col">
+            <!-- The note the sections are about, above whichever is showing. -->
+            <DockNoteContext note={dockNote} />
+            <div data-testid="rail-section:{id}" class="min-h-0 flex-1 overflow-y-auto px-1 pt-1">
+              <!-- The sections' own headings are h3s: this is the level above them. -->
+              <h2 class="sr-only">{t.sections[id as RailSectionId]()}</h2>
+              {#if id === 'links'}
+                <LinksPanel
+                  backlinks={nav.links.backlinks}
+                  outgoing={nav.links.outgoing}
+                  path={selectedPath}
+                  onOpen={(path, opts) => shell?.openPath(path, opts)}
+                  onCreate={(target) => shell?.createFromLink(target)}
+                />
+              {:else if id === 'history'}
+                <HistorySection
+                  path={selectedPath}
+                  load={(p) => workspace.fileHistory(p)}
+                  restore={(p, seq) => workspace.restorePreImage(p, seq)}
+                  written={noteRecord?.diskMatchesCrdt ?? true}
+                  now={() => clock.now()}
+                />
+              {:else if id === 'comments'}
+                <!-- Comment threads (writing-harness B8): not AI-gated. -->
+                <ThreadList
+                  registry={nav.registry}
+                  path={selectedPath}
+                  {workspace}
+                  onOpen={(thread) => selectedPath && openThread(selectedPath, thread)}
+                  onExported={(p) => shell?.openPath(p)}
+                  flash={(input) => workspace.flash(input)}
+                />
+              {/if}
+            </div>
           </div>
         {/snippet}
       </Tabs>

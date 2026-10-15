@@ -114,7 +114,11 @@ collapsed form **always**, pinned or not — and `components/DockPanel.svelte`,
 Links and History behind a compact `ui/Tabs` row (`size: 'sm'`, 32 px, 11 px
 labels with `icon`s, pin and collapse in its `end` snippet — **pinned, unpin
 only**, and `Mod+ArrowRight` then focuses its tab; a bottom-right strip
-stacks above the corner count) — **one
+stacks above the corner count; under the row `DockNoteContext.svelte`,
+`dock-note`, names the note every section follows — `ui.dockNote`
+(`lib/dock-note.ts`): the focused note, or the last one, "last focused",
+while a session or a view has the focus; Links, History and Comments read
+the same value, never `ui.selectedPath`) — **one
 panel for both expanded forms**: floating from `EditorArea`, or the pinned
 rail column, `Rail.svelte` = `<Dock
 form="column">`; one `railOpen` + one `railTab`, so a pinned column never

@@ -70,6 +70,30 @@ function openAll(list: string[]): void {
 }
 
 describe('what the rest of the app reads off the tree (B3, S9-Q1)', () => {
+  it('the dock follows the focused note, and keeps the last one while a session has the focus', () => {
+    boot()
+    openAll(['a.md'])
+    expect(ws.ui.dockNote).toEqual({ path: 'a.md', lastFocused: false })
+
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    expect(ws.ui.selectedPath).toBeNull()
+    expect(ws.ui.dockNote).toEqual({ path: 'a.md', lastFocused: true })
+
+    // A second note focused: the dock names it, no longer "last focused".
+    panes.open('b.md')
+    harness.flush()
+    expect(ws.ui.dockNote).toEqual({ path: 'b.md', lastFocused: false })
+
+    // The remembered note deleted while a view has the focus: nothing to follow.
+    panes.openViewBeside('session', 's1')
+    harness.flush()
+    expect(ws.ui.dockNote?.lastFocused).toBe(true)
+    ws.setFiles(FILES.filter((f) => f !== 'b.md'))
+    harness.flush()
+    expect(ws.ui.dockNote).toBeNull()
+  })
+
   it('hands the facade one live path per pane on screen, and one while zoomed', () => {
     boot()
     openAll(['a.md', 'b.md'])

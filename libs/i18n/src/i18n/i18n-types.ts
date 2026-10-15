@@ -290,6 +290,21 @@ export type NamespaceWebTranslation = {
 			 */
 			comments: string
 		}
+		note: {
+			/**
+			 * T​h​e​ ​n​o​t​e​ ​t​h​e​s​e​ ​s​e​c​t​i​o​n​s​ ​a​r​e​ ​a​b​o​u​t
+			 */
+			label: string
+			/**
+			 * G​o​ ​t​o​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			go: RequiredParams<'name'>
+			/**
+			 * l​a​s​t​ ​f​o​c​u​s​e​d
+			 */
+			last_focused: string
+		}
 	}
 	actions: {
 		/**
@@ -9035,6 +9050,20 @@ export type TranslationFunctions = {
 				 * Comments
 				 */
 				comments: () => LocalizedString
+			}
+			note: {
+				/**
+				 * The note these sections are about
+				 */
+				label: () => LocalizedString
+				/**
+				 * Go to {name}
+				 */
+				go: (arg: { name: string }) => LocalizedString
+				/**
+				 * last focused
+				 */
+				last_focused: () => LocalizedString
 			}
 		}
 		actions: {

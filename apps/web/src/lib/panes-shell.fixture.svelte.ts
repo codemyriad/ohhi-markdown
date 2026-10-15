@@ -14,13 +14,14 @@
 import { flushSync } from 'svelte'
 import type { FileRow } from '@ohhi/workspace'
 import { CommandRegistry } from './commands.js'
+import type { DockNote } from './dock-note.js'
 import type { Workspace } from './workspace.svelte.js'
 import { createPanes, type PaneShell } from './workspace-panes.svelte.js'
 import type { Clock } from '@ohhi/testkit'
 
 /** Everything the controller reads or writes on the facade, and nothing else. */
 export interface FakeWorkspace {
-  ui: { files: FileRow[]; selectedPath: string | null; settling: boolean }
+  ui: { files: FileRow[]; selectedPath: string | null; dockNote: DockNote | null; settling: boolean }
   setLiveViews(paths: ReadonlySet<string>): void
   /** Every set handed to `setLiveViews`, in order — the S9 seam, observed. */
   readonly liveViews: string[][]
@@ -35,6 +36,7 @@ export function fakeWorkspace(paths: string[] = []): FakeWorkspace {
   const ui = $state({
     files: rows(paths),
     selectedPath: null as string | null,
+    dockNote: null as DockNote | null,
     settling: false,
   })
   const liveViews: string[][] = []

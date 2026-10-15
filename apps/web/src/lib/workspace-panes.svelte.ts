@@ -25,6 +25,7 @@ import type { FormatBindings, FormatCommandId } from '@ohhi/editor'
 import type { TableCommandId } from '@ohhi/editor-lang'
 import type { Clock } from '@ohhi/vault'
 import type { Command, CommandRegistry } from './commands.js'
+import { followNote } from './dock-note.js'
 import * as groupOps from './groups.js'
 import { MODES, hints as modeHints, step as modeStep, type Hint, type Mode } from './mode.js'
 import { familyTitle, formatCommands, paneCommands, tableCommands } from './pane-commands.js'
@@ -531,6 +532,21 @@ export function createPanes(
     // Not a second source of truth: one derived value, so the rail, the
     // breadcrumb, the links panel and the index keep the API they had.
     ws.ui.selectedPath = tree.activeTab(tree.focusedPane(l))?.path ?? null
+  })
+
+  // The note the dock follows (`dock-note.ts`): the same focused tab as
+  // `selectedPath`, but while a session, a collection or Settings holds the
+  // focus it keeps the note focused last — until that note is gone. While
+  // the vault settles the file list is mid-rebuild, so absence means nothing.
+  $effect(() => {
+    const ws = workspace
+    if (!ws) return
+    const focusedPath = tree.activeTab(tree.focusedPane(rendered))?.path ?? null
+    const files = ws.ui.files
+    const settling = ws.ui.settling
+    const prev = untrack(() => ws.ui.dockNote ?? null)
+    const next = followNote(prev, focusedPath, (p) => settling || files.some((f) => f.path === p))
+    if (next !== prev) ws.ui.dockNote = next
   })
 
   /**
