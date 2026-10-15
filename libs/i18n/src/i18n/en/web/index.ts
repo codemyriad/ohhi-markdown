@@ -1512,6 +1512,18 @@ const settings = {
     },
     shadows: 'shadows {roots:string}',
     device_changes: 'plus this device’s changes',
+    /** The hub's layout row when this device changes nothing on top of the file. */
+    no_device_changes: 'no changes on this device',
+    /** The hub's theme row for the System choice. */
+    follows_system: 'follows the system',
+    /** A door from the hub to the part of Settings that chooses a kind. */
+    door_label: 'Open Settings › {section:string}',
+    /** The files table (QA round 1): its title, the actions column's name, the prose at its foot. */
+    files: 'Files',
+    col_actions: 'Actions',
+    themes_not_listed: 'not listed yet',
+    files_foot:
+      'Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css, used by name in Appearance; theme folders are not listed here yet.',
     fell_back: '{name:string} can’t be used, so the built-in default stands in',
     cant_use: 'can’t be used',
     nothing_else: 'nothing else',

@@ -11,6 +11,6 @@
 </script>
 
 <span
-  class="inline-block rounded border border-base-300 bg-base-200 px-1.5 text-[11px] leading-4 text-base-content/80"
+  class="inline-flex h-[18px] items-center rounded-full border border-base-300 px-1.5 align-middle text-[11px] font-medium whitespace-nowrap text-base-content"
   data-root={root}>{$LL.web.settings.customise.from[root]()}</span
 >

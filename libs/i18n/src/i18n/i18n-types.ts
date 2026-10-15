@@ -4293,6 +4293,35 @@ export type NamespaceWebTranslation = {
 			 */
 			device_changes: string
 			/**
+			 * n​o​ ​c​h​a​n​g​e​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			no_device_changes: string
+			/**
+			 * f​o​l​l​o​w​s​ ​t​h​e​ ​s​y​s​t​e​m
+			 */
+			follows_system: string
+			/**
+			 * O​p​e​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​{​s​e​c​t​i​o​n​}
+			 * @param {string} section
+			 */
+			door_label: RequiredParams<'section'>
+			/**
+			 * F​i​l​e​s
+			 */
+			files: string
+			/**
+			 * A​c​t​i​o​n​s
+			 */
+			col_actions: string
+			/**
+			 * n​o​t​ ​l​i​s​t​e​d​ ​y​e​t
+			 */
+			themes_not_listed: string
+			/**
+			 * T​e​m​p​l​a​t​e​s​ ​a​r​e​ ​i​n​s​e​r​t​e​d​ ​w​i​t​h​ ​I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​,​ ​u​s​e​d​ ​b​y​ ​n​a​m​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​;​ ​t​h​e​m​e​ ​f​o​l​d​e​r​s​ ​a​r​e​ ​n​o​t​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​y​e​t​.
+			 */
+			files_foot: string
+			/**
 			 * {​n​a​m​e​}​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​d​e​f​a​u​l​t​ ​s​t​a​n​d​s​ ​i​n
 			 * @param {string} name
 			 */
@@ -12585,6 +12614,34 @@ export type TranslationFunctions = {
 				 * plus this device’s changes
 				 */
 				device_changes: () => LocalizedString
+				/**
+				 * no changes on this device
+				 */
+				no_device_changes: () => LocalizedString
+				/**
+				 * follows the system
+				 */
+				follows_system: () => LocalizedString
+				/**
+				 * Open Settings › {section}
+				 */
+				door_label: (arg: { section: string }) => LocalizedString
+				/**
+				 * Files
+				 */
+				files: () => LocalizedString
+				/**
+				 * Actions
+				 */
+				col_actions: () => LocalizedString
+				/**
+				 * not listed yet
+				 */
+				themes_not_listed: () => LocalizedString
+				/**
+				 * Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css, used by name in Appearance; theme folders are not listed here yet.
+				 */
+				files_foot: () => LocalizedString
 				/**
 				 * {name} can’t be used, so the built-in default stands in
 				 */
