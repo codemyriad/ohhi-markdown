@@ -226,9 +226,18 @@
     attachmentHost.of(fileHost),
     commentsExtension(commentsHostFor(() => pane.id, () => path)),
     // Untracked like the hosts above: CM6 reads these inside the view's own effect.
+    // The pair on a proposal runs the registry's caret rows — through the
+    // shell, with this pane the one note-acting commands mean.
     noteSuggestions(
       () => untrack(() => workspace),
-      () => untrack(() => path)
+      () => untrack(() => path),
+      {
+        run: (id) => {
+          focusEditor(pane.id)
+          shell?.runCommand(id)
+        },
+        keys: (id) => shell?.commandKeys(id) ?? '',
+      }
     ),
     workingHighlight(
       workingHost(

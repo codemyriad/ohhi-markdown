@@ -2740,6 +2740,13 @@ const ai = {
     rejected_all: 'Rejected {count:number} suggestion{{s}}.',
     undone: 'Undid the agent’s edit.',
     nothing_to_undo: 'The agent has no edit to undo.',
+    /** The pair drawn after a proposal in the note (QA round 1). */
+    accept: 'Accept',
+    reject: 'Reject',
+    /** The pair's group name: who proposed it. */
+    pair: 'Suggestion by {name:string}',
+    /** A proposal's gutter mark: which one, of how many, by whom. Pressing it moves the caret there. */
+    marker: 'Suggestion {n:number} of {total:number}, by {name:string}',
   },
   comments: {
     bubble_new: 'New comment',

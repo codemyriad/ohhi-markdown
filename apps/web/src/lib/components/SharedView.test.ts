@@ -71,6 +71,8 @@ function setup(over: {
     membership: { isMember: () => false, watch: () => () => {}, invalidate: () => {}, renamed: () => {} },
     openPath: vi.fn(),
     openView: vi.fn(),
+    runCommand: vi.fn(),
+    commandKeys: () => '',
     createFromLink: vi.fn(),
     renameNote: vi.fn(async (path: string) => path),
     pin: vi.fn(),

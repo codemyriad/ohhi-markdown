@@ -257,6 +257,47 @@ test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts
   await expect(page.getByTestId('last-agent-write')).toContainText('welcome')
 })
 
+test('the pair on a proposal rejects and accepts it by click; a gutter mark per proposal takes the caret there', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: 'Everything you type here', new: 'Everything you write here' } } },
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Two small edits proposed.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-pair')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await send(page, 'Two small edits.')
+  await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+
+  // Two proposals on two lines: two numbered marks in the gutter, and one
+  // pair — on the current proposal — without the caret having been put there.
+  // The session pane holds the focus: the note's pane is `editor-pane:<id>`.
+  const added = page.locator('[data-testid^="editor-pane"] .ed-suggest-add')
+  await expect(added).toHaveCount(2)
+  const marks = page.locator('[data-testid^="suggestion-marker:"]')
+  await expect(marks).toHaveText(['1', '2'])
+  const pair = page.locator('[data-testid="suggestion-pair"]')
+  await expect(pair).toHaveCount(1)
+
+  // The first mark takes the caret to the first proposal; its pair rejects it, the text untouched.
+  await marks.nth(0).click()
+  await expect(pair).toHaveAttribute('aria-label', /^Suggestion by /)
+  await pair.getByRole('button', { name: 'Reject' }).click()
+  await expect(added).toHaveCount(1)
+  expect(await docText(page)).toContain('Everything you type here')
+  // The pair is on the one left; Accept applies it.
+  await expect(pair).toHaveCount(1)
+  await pair.getByRole('button', { name: 'Accept' }).click()
+  await expect(added).toHaveCount(0)
+  await expect.poll(() => docText(page)).toContain(NEW)
+  await expect(marks).toHaveCount(0)
+  await expect(pair).toHaveCount(0)
+})
+
 test('a comment sent to the agent gets its reply in the thread', async ({ page, mockLlm }) => {
   const mock = await mockLlm([{ text: 'It means every keystroke is shared with the room.' }])
   await seedProvider(page, `${mock.url}/v1`)

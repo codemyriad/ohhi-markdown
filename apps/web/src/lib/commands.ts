@@ -122,7 +122,8 @@ export function formatBinding(binding: string, mac: boolean): string {
     ? { arrowleft: '←', arrowright: '→', arrowup: '↑', arrowdown: '↓' }[parsed.key] ?? parsed.key
     : parsed.key.length === 1
       ? parsed.key.toUpperCase()
-      : parsed.key
+      : // A named key reads as it is written on the keycap: `Enter`, not `enter`.
+        parsed.key[0].toUpperCase() + parsed.key.slice(1)
   if (mac) {
     return `${parsed.ctrl ? '⌃' : ''}${parsed.alt ? '⌥' : ''}${parsed.shift ? '⇧' : ''}${parsed.mod ? '⌘' : ''}${key}`
   }

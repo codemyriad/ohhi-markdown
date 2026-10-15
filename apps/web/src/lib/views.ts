@@ -63,6 +63,14 @@ export interface ViewShell {
   openPath(path: string, opts?: { background?: boolean; beside?: boolean }): void
   /** Open another view tab. A `session` opens BESIDE the focused note (`PaneShell.openViewBeside`). */
   openView(id: TabView, arg?: string): void
+  /**
+   * Run a registry command by id — the one path a button shares with its
+   * key and its palette row (golden rule 7). Nothing when the id is unknown
+   * or its guard refuses.
+   */
+  runCommand(id: string): void
+  /** A command's key as it is pressed here (`Ctrl+Enter`), '' when it has none. */
+  commandKeys(id: string): string
   /** *Create* for an unresolved link (the Note menu's Links). */
   createFromLink(target: string): void
   /**

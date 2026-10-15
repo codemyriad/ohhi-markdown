@@ -45,6 +45,8 @@ export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell
     clock: { now: () => now, schedule: () => () => {} },
     openPath: vi.fn(),
     openView: vi.fn(),
+    runCommand: vi.fn(),
+    commandKeys: () => '',
     createFromLink: vi.fn(),
     renameNote: vi.fn(async (path: string) => path),
     pin: vi.fn(),

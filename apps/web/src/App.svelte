@@ -355,6 +355,11 @@
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
     openView: (id, arg) => openView(id, arg),
+    runCommand: (id) => {
+      const command = nav.registry.get(id)
+      if (command && (!command.when || command.when())) void command.run()
+    },
+    commandKeys: (id) => nav.registry.binding(id),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,

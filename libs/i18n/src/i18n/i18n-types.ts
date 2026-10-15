@@ -8047,6 +8047,26 @@ export type NamespaceWebTranslation = {
 			 * T​h​e​ ​a​g​e​n​t​ ​h​a​s​ ​n​o​ ​e​d​i​t​ ​t​o​ ​u​n​d​o​.
 			 */
 			nothing_to_undo: string
+			/**
+			 * A​c​c​e​p​t
+			 */
+			accept: string
+			/**
+			 * R​e​j​e​c​t
+			 */
+			reject: string
+			/**
+			 * S​u​g​g​e​s​t​i​o​n​ ​b​y​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			pair: RequiredParams<'name'>
+			/**
+			 * S​u​g​g​e​s​t​i​o​n​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}​,​ ​b​y​ ​{​n​a​m​e​}
+			 * @param {number} n
+			 * @param {string} name
+			 * @param {number} total
+			 */
+			marker: RequiredParams<'n' | 'name' | 'total'>
 		}
 		comments: {
 			/**
@@ -16164,6 +16184,22 @@ export type TranslationFunctions = {
 				 * The agent has no edit to undo.
 				 */
 				nothing_to_undo: () => LocalizedString
+				/**
+				 * Accept
+				 */
+				accept: () => LocalizedString
+				/**
+				 * Reject
+				 */
+				reject: () => LocalizedString
+				/**
+				 * Suggestion by {name}
+				 */
+				pair: (arg: { name: string }) => LocalizedString
+				/**
+				 * Suggestion {n} of {total}, by {name}
+				 */
+				marker: (arg: { n: number, name: string, total: number }) => LocalizedString
 			}
 			comments: {
 				/**

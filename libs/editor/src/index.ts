@@ -66,15 +66,23 @@ export { selectedTextIn } from './selection.js'
 export {
   acceptSuggestionAtCaret,
   buildDecorations,
+  currentSuggestion,
+  hasSuggestionGutter,
   INTRA_DIFF_MIN,
+  pairDecorations,
   rejectSuggestionAtCaret,
+  revealSuggestion,
   setSuggestions,
+  stepSuggestion,
   suggestionAt,
   suggestionField,
+  suggestionMarkers,
   suggestions,
   suggestionsCompartment,
   suggestionsIn,
+  suggestionStep,
   type EditorSuggestion,
+  type SuggestionLabels,
   type SuggestionsHost,
 } from './suggestions.js'
 export {

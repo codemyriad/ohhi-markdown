@@ -6,6 +6,12 @@
  * under the caret), `ai.accept-all` / `ai.reject-all` (the note) and
  * `ai.undo-agent` (the agent's last run).
  *
+ * The controls on the screen are these same rows: the pair the editor draws
+ * on a proposal puts the caret in it and runs `ai.accept-suggestion` /
+ * `ai.reject-suggestion` through the registry (`SuggestionControls.run`),
+ * — a button, a key and a palette row are one path over the one record
+ * (QA round 1, Explorations D).
+ *
  * Which editor a command means is `focused-editor.svelte.ts`'s answer: the
  * one whose pane last had the focus.
  *
@@ -21,6 +27,7 @@ import {
   suggestionsCompartment,
   suggestionsIn,
   type EditorSuggestion,
+  type SuggestionLabels,
   type SuggestionsHost,
 } from '@ohhi/editor'
 import { getLL } from '@ohhi/i18n'
@@ -51,13 +58,38 @@ export interface NoteSuggestionsHost extends SuggestionsHost {
 }
 
 /**
+ * How the on-proposal pair reaches the registry: `run` a command id (the
+ * pane's: focus that editor for commands, then `ViewShell.runCommand`), and
+ * `keys` for the hint on a button. Absent, the pair accepts and rejects
+ * through the host directly and shows no key.
+ */
+export interface SuggestionControls {
+  run(commandId: string): void
+  keys(commandId: string): string
+}
+
+/** The pair's and the gutter marks' words, from the dictionary. */
+export function suggestionLabels(keys: (id: string) => string = () => ''): SuggestionLabels {
+  const s = getLL().web.ai.suggest
+  return {
+    accept: s.accept(),
+    reject: s.reject(),
+    acceptKeys: keys('ai.accept-suggestion'),
+    rejectKeys: keys('ai.reject-suggestion'),
+    pair: (x) => s.pair({ name: x.name }),
+    marker: (x, n, total) => s.marker({ n, total, name: x.name }),
+  }
+}
+
+/**
  * The host for one pane's editor. Both getters are read lazily, at the call:
  * the pane hands the same extension to every view it builds, and a view is
  * built per note, so `path()` at subscribe time IS that view's note.
  */
 export function noteSuggestionsHost(
   workspace: () => SuggestionWorkspace | null,
-  path: () => string | null
+  path: () => string | null,
+  controls?: SuggestionControls
 ): NoteSuggestionsHost {
   const ws = (): { w: SuggestionWorkspace; p: string } | null => {
     const w = workspace()
@@ -90,6 +122,14 @@ export function noteSuggestionsHost(
       const at = ws()
       at?.w.rejectSuggestion(at.p, id)
     },
+    // The pair: the caret is already in the proposal, so the registry's
+    // caret rows act on it — exactly what the key would have done.
+    decide(act, id) {
+      if (controls) controls.run(act === 'accept' ? 'ai.accept-suggestion' : 'ai.reject-suggestion')
+      else if (act === 'accept') host.accept(id)
+      else host.reject(id)
+    },
+    labels: () => suggestionLabels(controls?.keys),
     acceptAll() {
       let accepted = 0
       let stale = 0
@@ -116,8 +156,12 @@ export function noteSuggestionsHost(
  * The extension a pane hands its editors: the suggestions drawn and keyed,
  * in `suggestionsCompartment` so it reconfigures without a rebuild.
  */
-export function noteSuggestions(workspace: () => SuggestionWorkspace | null, path: () => string | null): Extension {
-  return suggestionsCompartment.of(suggestions(noteSuggestionsHost(workspace, path)))
+export function noteSuggestions(
+  workspace: () => SuggestionWorkspace | null,
+  path: () => string | null,
+  controls?: SuggestionControls
+): Extension {
+  return suggestionsCompartment.of(suggestions(noteSuggestionsHost(workspace, path, controls)))
 }
 
 /**
