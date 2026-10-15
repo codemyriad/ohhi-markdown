@@ -73,6 +73,9 @@ const wikiLinkClicks = EditorView.domEventHandlers({
     const modClick = event.button === 0 && (event.metaKey || event.ctrlKey)
     const middleClick = event.button === 1
     if (!modClick && !middleClick) return false
+    // On the link's own text only (QA round 1): `posAtCoords` snaps to the
+    // nearest position, so a press beside a link would otherwise follow it.
+    if (!(event.target as Element | null)?.closest?.('.cm-wikilink, .cm-wikilink-unresolved')) return false
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
     if (pos === null) return false
     const node = syntaxTree(view.state).resolveInner(pos, 1)

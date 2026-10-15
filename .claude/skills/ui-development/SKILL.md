@@ -607,6 +607,14 @@ manager, the remote carets and `git diff` never see it
   `theme.ts`'s autocomplete block over `--ed-popover-*` (dressed as
   `ui/Popover`). Every completion source registers in the single `override`
   array in `wikilink-view.ts`.
+- **A link is pressed on its own text** (QA round 1): `preview/clicks.ts`
+  follows a link only when the press landed on its drawn mark (`onLinkText`)
+  — `posAtCoords` snaps to the nearest position, so the empty rest of a line
+  used to follow the link at its end. A finger (the `pointerdown`'s
+  `pointerType`, `coarsePress`) on a rendered wikilink in Live gets the
+  **link card** instead (`preview/link-tap.ts`, a CM6 tooltip like the table
+  hint, `.cm-link-card`): the caret where it landed and one *Open* button; a
+  second tap on the link opens too. A mouse is unchanged.
 - **Paste and drop of pictures go through the `attachmentHost` Facet**
   (`libs/editor/src/attachments.ts`): the editor notices the files the host
   `accepts` (libs/workspace's `isAttachmentFile` — the editor keeps no type

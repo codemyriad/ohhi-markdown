@@ -703,6 +703,41 @@ const editorBaseTheme = EditorView.theme({
   },
   '.cm-table-hint-button:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
 
+  // --- the link card (QA round 1): a finger's tap on a wikilink ------------
+  // One button over the link, dressed as the table hint; big enough for a
+  // thumb (2.75rem tall), never wider than the editor.
+  '.cm-link-card': {
+    display: 'flex',
+    padding: '0.2em',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.8125rem',
+    lineHeight: '1.4',
+    maxWidth: 'min(22rem, calc(100vw - 2rem))',
+  },
+  '.cm-link-card-open': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4em',
+    minHeight: '2.75rem',
+    minWidth: '0',
+    font: 'inherit',
+    color: 'var(--ed-popover-ink)',
+    background: 'none',
+    border: 'none',
+    borderRadius: '0.3em',
+    padding: '0 0.75em',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-link-card-open:hover, .cm-link-card-open:focus-visible': {
+    backgroundColor: 'var(--ed-popover-selected)',
+    outline: 'none',
+  },
+  '.cm-link-card-open:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
+  '.cm-link-card-open .cm-icon': { flexShrink: '0' },
+
   // --- collab (class names come from y-codemirror.next) --------------------
   // The peer COLOUR is written as an inline style from awareness, so only the
   // chrome is themeable here. Moving the colour itself onto --ed-presence-N

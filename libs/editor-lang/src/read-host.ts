@@ -62,6 +62,24 @@ export interface ReadLabels {
   remoteImage?: RemoteImageLabels
   /** The `[[` link popover (E1); the shell hands the same group to `wikiLinkHost`. */
   linkPopover?: LinkPopoverLabels
+  /** The card a tap on a wikilink shows on a touch screen (QA round 1). */
+  linkCard?: LinkCardLabels
+}
+
+/** The link card's copy (QA round 1): its one action, on a note that exists or not. */
+export interface LinkCardLabels {
+  /** The card's accessible name. */
+  label: string
+  /** `Open “{name}”`. */
+  open(name: string): string
+  /** `Create “{name}”`, for an unresolved link. */
+  create(name: string): string
+}
+
+export const FALLBACK_LINK_CARD_LABELS: LinkCardLabels = {
+  label: 'Link',
+  open: (name) => `Open “${name}”`,
+  create: (name) => `Create “${name}”`,
 }
 
 /** The code card's copy (E3): its copy button and its language chip. */

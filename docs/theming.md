@@ -212,7 +212,7 @@ what buys it).
 | `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
 | `--ed-code-block-fg` | a fence's body text under its slab, beside the nine `--ed-syn-*` slots (X1) |
 | `--ed-quote-border` | the blockquote's left border, once `> ` is hidden (X1). On the caret's line the revealed `> ` hangs in the line's padding beside it, out of the flow, so the text does not move; quotes are upright (E2) |
-| `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates, so it must look clickable (X1) |
+| `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates (a finger's tap on a wikilink in Live shows the link card instead, QA round 1), so it must look clickable (X1) |
 | `--ed-table-header-bg` / `--ed-table-row-alt-bg` / `--ed-table-border` | the Reading table widget, and Live's column guides over the raw pipes (X2) |
 | `--ed-frontmatter-bg` / `--ed-frontmatter-border` | the YAML block's fencing while the caret is inside it (X3) |
 | `--ed-tag-bg-hover` / `--ed-tag-radius` | the tag chip, both in the text and in the collapsed frontmatter strip (X4) |
@@ -237,7 +237,7 @@ The callout colours are restated per built-in theme.
 
 | Token | Default | Read by |
 |---|---|---|
-| `--ed-card-radius` | `8px` | every card the editor draws: the code card's corners, a callout's box, the link popover and the table hint (`.cm-tooltip`), the drop target |
+| `--ed-card-radius` | `8px` | every card the editor draws: the code card's corners, a callout's box, the link popover, the table hint and the link card (`.cm-tooltip`), the drop target |
 | `--ed-focus-ring` | `var(--ed-caret)` | the one `:focus-visible` outline (2px) of the buttons a widget owns — the code card's language chip and *Copy*, a callout's chevron, a remote image's *Load image* |
 
 ### Link popover (`--ed-popover-*`)

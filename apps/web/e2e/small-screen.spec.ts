@@ -131,3 +131,68 @@ test('a pin is kept but not honoured: the side floats here, and its pin says pin
   await expect(page.getByTestId('navigator-drawer')).toHaveCount(0)
   await expect(page.getByTestId('navigator-unpin')).toBeVisible()
 })
+
+test.describe('a wikilink under a finger', () => {
+  /** `ideas` with a link to `welcome` on its first line, the caret parked on the last. */
+  async function linkNote(page: Page, room: string): Promise<void> {
+    await boot(page, room)
+    await openByQuickOpen(page, 'ideas')
+    await paneContent(page).click()
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.insertText('see [[welcome]]\n\nmore text')
+    await expect(page.locator('.cm-wikilink.cm-live-link')).toBeVisible()
+  }
+  const card = (page: Page) => page.getByTestId('link-card-open')
+
+  test('a tap places the caret and shows the card; the card opens the note', async ({ page }) => {
+    await linkNote(page, 'small-link-card')
+    await page.locator('.cm-wikilink.cm-live-link').tap()
+    // Not followed: still this note, the brackets back for editing, the card up.
+    await expect(paneContent(page)).toContainText('[[welcome]]')
+    await expect(paneContent(page)).not.toContainText('Welcome to Editor')
+    await expect(card(page)).toHaveText('Open “welcome”')
+    await expectAccessible(page, 'small screen: the link card')
+    await card(page).tap()
+    await expect(paneContent(page)).toContainText('Welcome to Editor')
+  })
+
+  test('a second tap on the link opens it; typing takes the card down', async ({ page }) => {
+    await linkNote(page, 'small-link-twice')
+    await page.locator('.cm-wikilink.cm-live-link').tap()
+    await expect(card(page)).toBeVisible()
+    await page.keyboard.type('x')
+    await expect(card(page)).toHaveCount(0)
+    await page.keyboard.press('Backspace')
+
+    // Away and back: the link rendered again, then two taps.
+    await page.keyboard.press('ControlOrMeta+End')
+    await page.locator('.cm-wikilink.cm-live-link').tap()
+    await expect(card(page)).toBeVisible()
+    await page.locator('.cm-wikilink').first().tap()
+    await expect(paneContent(page)).toContainText('Welcome to Editor')
+  })
+
+  test('a tap beside the link, on the empty rest of its line, only places the caret', async ({ page }) => {
+    await linkNote(page, 'small-link-beside')
+    const link = (await page.locator('.cm-wikilink.cm-live-link').boundingBox())!
+    const content = (await paneContent(page).boundingBox())!
+    await page.touchscreen.tap(content.x + content.width - 16, link.y + link.height / 2)
+    await expect(card(page)).toHaveCount(0)
+    await expect(paneContent(page)).not.toContainText('Welcome to Editor')
+  })
+
+  test('a mouse is unchanged: a click on a rendered link follows it, a click beside it does not', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1100, height: 780 })
+    await linkNote(page, 'small-link-mouse')
+    const link = (await page.locator('.cm-wikilink.cm-live-link').boundingBox())!
+    const content = (await paneContent(page).boundingBox())!
+    await page.mouse.click(content.x + content.width - 16, link.y + link.height / 2)
+    await expect(paneContent(page)).not.toContainText('Welcome to Editor')
+    await page.keyboard.press('ControlOrMeta+End')
+    await page.locator('.cm-wikilink.cm-live-link').click()
+    await expect(card(page)).toHaveCount(0)
+    await expect(paneContent(page)).toContainText('Welcome to Editor')
+  })
+})

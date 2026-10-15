@@ -393,6 +393,15 @@ const read = {
     toggle: 'Fold {title:string}',
   },
   /**
+   * The link card (QA round 1): a finger's tap on a wikilink shows it, with
+   * the one action that opens the note — instead of opening it at once.
+   */
+  link_card: {
+    label: 'Link',
+    open: 'Open “{name:string}”',
+    create: 'Create “{name:string}”',
+  },
+  /**
    * The `[[` link popover (editor-usability E1). CM6 draws it, so these travel
    * to the editor through the wikilink host, as the widget copy does.
    */

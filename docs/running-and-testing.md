@@ -294,6 +294,11 @@ that a tap expands; a tap in the note closes the file drawer and the dock panel
 (a click on a wide window still leaves the drawer open); a pin made on a wide
 window is kept but not honoured at phone width — the drawer, its pin control
 `aria-disabled` and saying why — and is a column again when the window widens.
+A tap on a rendered wikilink places the caret and shows the link card
+(`libs/editor-lang` `preview/link-tap.ts`); the card's *Open* or a second tap opens
+the note, typing takes the card down, a tap beside the link only places the
+caret, and a mouse click still follows a rendered link (the card's state and
+the hit test are unit-tested in `libs/editor-lang/test/link-tap.test.ts`).
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server

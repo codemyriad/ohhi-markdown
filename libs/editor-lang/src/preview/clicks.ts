@@ -9,6 +9,10 @@
  * One handler for every target, because each one is the same two steps (find
  * what was clicked, ask the host): chips in the text and chips in the
  * frontmatter strip, wikilinks, markdown links, bare URLs, checkboxes.
+ *
+ * QA round 1: the press must land ON the link's drawn text (`onLinkText`),
+ * and a finger's tap on a rendered wikilink in Live shows the link card
+ * rather than opening the note (`link-tap.ts`).
  */
 import { syntaxTree } from '@codemirror/language'
 import type { SyntaxNode } from '@lezer/common'
@@ -17,7 +21,9 @@ import { previewMode, readHost } from '../read-host.js'
 import { splitWikiLink } from '../wikilink.js'
 import { wikiLinkHost } from '../wikilink-view.js'
 import { isRendered } from './active-lines.js'
+import * as cls from './classes.js'
 import { toggleTaskAt } from './commands.js'
+import { cardOpenOn, coarsePress, openTapped, tapLink } from './link-tap.js'
 import { cellPosition } from './table-commands.js'
 
 /**
@@ -60,14 +66,26 @@ export const previewClicks = EditorView.domEventHandlers({
       if (name !== 'Tag' && name !== 'WikiLink' && name !== 'Link' && name !== 'URL' && name !== 'Image') continue
       // A drawn picture is not a link; only a remote image left as one is (E5).
       if (name === 'Image' && target.closest('.cm-embed')) return false
+      // The surface is the link's own text (QA round 1). `posAtCoords` snaps
+      // to the NEAREST position, so a press on the empty rest of a line that
+      // ends in a link, or below the last one, resolved into the link's hidden
+      // `]]` and followed it; only a press on the drawn link counts.
+      if (!onLinkText(target, name)) return false
+      if (name === 'WikiLink') {
+        const { target: wanted } = splitWikiLink(view.state.doc.sliceString(from + 2, to - 2))
+        // A finger's second tap on a link whose card is up opens it (link-tap.ts).
+        if (cardOpenOn(view.state, from) && coarsePress(view)) return done(event, () => openTapped(view, wanted))
+        if (!isRendered(view.state, from, to)) return false
+        // A finger's first tap: the caret and the card, never a jump (QA round 1).
+        if (coarsePress(view) && view.state.facet(previewMode) === 'live') {
+          return done(event, () => tapLink(view, pos, { from, to, target: wanted }))
+        }
+        return done(event, () => openWikiLink(view, wanted))
+      }
       if (!isRendered(view.state, from, to)) return false
       if (name === 'Tag') {
         const tag = view.state.doc.sliceString(from + 1, to)
         return done(event, () => host.searchTag(tag))
-      }
-      if (name === 'WikiLink') {
-        const { target: wanted } = splitWikiLink(view.state.doc.sliceString(from + 2, to - 2))
-        return done(event, () => openWikiLink(view, wanted))
       }
       const urlNode = name === 'URL' ? node : node.getChild('URL')
       if (!urlNode) return false
@@ -86,6 +104,21 @@ export const previewClicks = EditorView.domEventHandlers({
     return true
   },
 })
+
+/** The drawn text each kind of link marks itself with (`classes.ts`). */
+const LINK_TEXT: Record<string, string> = {
+  WikiLink: '.cm-wikilink, .cm-wikilink-unresolved',
+  Tag: `.${cls.TAG}`,
+  Link: '.cm-live-link',
+  URL: '.cm-live-link',
+  Image: '.cm-live-link',
+}
+
+/** Did the press land on the link's own drawn text, not just near it? */
+export function onLinkText(target: Element, node: string): boolean {
+  const selector = LINK_TEXT[node]
+  return !!selector && target.closest(selector) !== null
+}
 
 /** Open a wikilink target, or offer to create it — V2c's rule, unchanged. */
 function openWikiLink(view: EditorView, target: string): void {

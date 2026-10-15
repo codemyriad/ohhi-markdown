@@ -1088,6 +1088,22 @@ export type NamespaceWebTranslation = {
 			 */
 			toggle: RequiredParams<'title'>
 		}
+		link_card: {
+			/**
+			 * L​i​n​k
+			 */
+			label: string
+			/**
+			 * O​p​e​n​ ​“​{​n​a​m​e​}​”
+			 * @param {string} name
+			 */
+			open: RequiredParams<'name'>
+			/**
+			 * C​r​e​a​t​e​ ​“​{​n​a​m​e​}​”
+			 * @param {string} name
+			 */
+			create: RequiredParams<'name'>
+		}
 		link_popover: {
 			/**
 			 * I​n​ ​{​m​o​u​n​t​}
@@ -9505,6 +9521,20 @@ export type TranslationFunctions = {
 				 * Fold {title}
 				 */
 				toggle: (arg: { title: string }) => LocalizedString
+			}
+			link_card: {
+				/**
+				 * Link
+				 */
+				label: () => LocalizedString
+				/**
+				 * Open “{name}”
+				 */
+				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Create “{name}”
+				 */
+				create: (arg: { name: string }) => LocalizedString
 			}
 			link_popover: {
 				/**

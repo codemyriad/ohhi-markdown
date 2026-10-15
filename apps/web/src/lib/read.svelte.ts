@@ -151,6 +151,11 @@ export function editorLabels(): ReadLabels & { linkPopover: NonNullable<ReadLabe
       failed: (host) => a.remote_failed({ host }),
       notLoaded: a.remote_not_loaded(),
     },
+    linkCard: {
+      label: t.link_card.label(),
+      open: (name) => t.link_card.open({ name }),
+      create: (name) => t.link_card.create({ name }),
+    },
     linkPopover: {
       scope: (mount) => t.link_popover.scope({ mount }),
       others: t.link_popover.others(),
