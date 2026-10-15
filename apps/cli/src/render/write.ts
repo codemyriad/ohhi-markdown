@@ -15,7 +15,7 @@ const verb = (dryRun: boolean, done: string, would: string): string => (dryRun ?
  * shape, because a caller comparing two of these lines must not have to
  * notice that they were written by different functions.
  */
-function wroteNote(
+export function wroteNote(
   sink: Sink,
   o: { path: string; hash: string; journalSeq: number | null; dryRun: boolean; bytes?: number }
 ): void {
@@ -38,9 +38,42 @@ export function renderAppend(o: OpOutput<'append'>, sink: Sink): void {
   wroteNote(sink, o)
 }
 
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** Why a referencing note was left alone, and what to do about it. */
+const SKIP_REASONS: Record<OpOutput<'mv'>['skipped'][number]['reason'], string> = {
+  conflict: 'it changed while this call was in flight — read it again and fix the links by hand',
+  unaddressable: 'the link text is not where the index saw it — read it again and fix the links by hand',
+  refused: 'not a markdown note — fix the links by hand',
+  not_found: 'the note is gone',
+}
+
+/** What a rewrite changed in this file: a note's links, or a collection's (`.base`) filter strings. */
+const edited = (path: string, n: number): string => plural(n, /\.base$/i.test(path) ? 'filter' : 'link')
+
 export function renderMv(o: OpOutput<'mv'>, sink: Sink): void {
   sink.out(`${verb(o.dryRun, 'moved', 'move')} ${o.from} -> ${o.to}`)
-  sink.err(kv({ files: o.files, dryRun: o.dryRun || undefined }))
+  // One line per referencing note, with the same provenance every write
+  // prints: the note's hash now and the undo handle for ITS pre-image.
+  for (const r of o.rewrote) {
+    sink.out(`${verb(o.dryRun, 'updated', 'update')} ${edited(r.path, r.links)} in ${r.path}`)
+    wroteNote(sink, { path: r.path, hash: r.hash, journalSeq: r.journalSeq, dryRun: o.dryRun })
+  }
+  for (const s of o.skipped) {
+    sink.err(`warning: ${edited(s.path, s.links)} in ${s.path} not updated: ${SKIP_REASONS[s.reason]}`)
+  }
+  sink.err(
+    kv({
+      files: o.files,
+      rewrote: o.rewrote.length,
+      skipped: o.skipped.length || undefined,
+      keepLinks: o.keepLinks || undefined,
+      dryRun: o.dryRun || undefined,
+    })
+  )
+  if (!o.dryRun && o.rewrote.length > 0) {
+    sink.err(`note: restore <note> reverts that note's text, not the move — reverse the move with: ohhi mv ${o.to} ${o.from} (links follow it back)`)
+  }
 }
 
 export function renderRm(o: OpOutput<'rm'>, sink: Sink): void {

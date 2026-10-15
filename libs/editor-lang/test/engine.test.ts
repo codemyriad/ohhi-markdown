@@ -4,13 +4,15 @@
  * a performance decision; it must not be a behaviour decision).
  */
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { EditorSelection, EditorState } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import { describe, expect, it } from 'vitest'
 import {
   Frontmatter,
   Highlight,
   livePreview,
   previewMode,
+  readHost,
+  refreshPreview,
   Tag,
   WikiLink,
   wikiLinkExtensions,
@@ -22,7 +24,7 @@ import {
   type PreviewDecorations,
 } from '../src/preview/build.js'
 import { blockPreviewField } from '../src/preview/index.js'
-import { makeState, modeCompartment } from './support.js'
+import { makeState, modeCompartment, testHost } from './support.js'
 
 const note =
   '---\ntags: [a]\n---\n\n# Head\n\n- [ ] a **task** with [a link](https://ex.dev) and #tag\n\n---\n\n```js\nlet a\n```\n\n![[shot.png]]\n'
@@ -85,6 +87,26 @@ describe('when the block field rebuilds', () => {
     const before = state.field(blockPreviewField)
     const typed = state.update({ changes: { from: 20, insert: 'x' } }).state
     expect(typed.field(blockPreviewField)).not.toBe(before)
+  })
+
+  it('rebuilds on `refreshPreview` — the host’s own inputs changed, not the state’s', () => {
+    // Membership of a collection lives in the host, outside the state: the
+    // host flips its answer and asks for a rebuild with one effect.
+    let member = false
+    const hostCompartment = new Compartment()
+    const host = testHost({ inCollection: () => member, mountProperties: () => ({ update: () => {}, destroy: () => {} }) })
+    const s = makeState(note, { at: 200, extensions: [hostCompartment.of(readHost.of(host))] })
+    const widget = (st: EditorState): string | undefined => {
+      let name: string | undefined
+      st.field(blockPreviewField).decorations.between(0, 20, (_f, _t, deco) => {
+        name = (deco.spec as { widget?: object }).widget?.constructor.name
+      })
+      return name
+    }
+    expect(widget(s)).toBe('FrontmatterStripWidget')
+    member = true
+    expect(widget(s.update({}).state)).toBe('FrontmatterStripWidget')
+    expect(widget(s.update({ effects: refreshPreview.of(null) }).state)).toBe('PropertiesFormWidget')
   })
 
   it('rebuilds when the mode is reconfigured — Reading draws what Live hides', () => {

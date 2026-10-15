@@ -20,7 +20,7 @@
  * `bench.test.ts` holds the pair to a frame on a 3,000-URL note.
  */
 import { syntaxTree } from '@codemirror/language'
-import { Prec, StateField, type Extension } from '@codemirror/state'
+import { Prec, StateEffect, StateField, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view'
 import { previewMode, readHost } from '../read-host.js'
 import { buildBlockPreview, buildInlinePreview, type PreviewDecorations } from './build.js'
@@ -30,6 +30,19 @@ import { calloutFolds } from './callout-fold.js'
 import { fenceKeymap } from './fence-edit.js'
 import { tableKeymap } from './table-commands.js'
 import { tableHint } from './table-hint.js'
+
+/**
+ * Rebuild the decorations although nothing in the state moved: what the host
+ * dispatches when an input it holds OUTSIDE the state changes — whether the
+ * open note is a row of a collection (`ReadHost.inCollection`), which the
+ * host computes off the index on its own clock, and the vault's path set,
+ * which an embedded collection's resolved path (`resolveCollection`) is a
+ * function of. One effect, no payload; the builder re-asks the host.
+ */
+export const refreshPreview = StateEffect.define<null>()
+
+const refreshed = (tr: { effects: readonly StateEffect<unknown>[] }): boolean =>
+  tr.effects.some((e) => e.is(refreshPreview))
 
 /** True when anything the decorations are a function of has moved. */
 function stale(startState: ViewUpdate['startState'], state: ViewUpdate['state']): boolean {
@@ -48,7 +61,7 @@ export const blockPreviewField = StateField.define<PreviewDecorations>({
   create: (state) => buildBlockPreview(state),
   update(value, tr) {
     const rebuild =
-      tr.docChanged || tr.selection !== undefined || stale(tr.startState, tr.state)
+      tr.docChanged || tr.selection !== undefined || refreshed(tr) || stale(tr.startState, tr.state)
     return rebuild ? buildBlockPreview(tr.state) : value
   },
 })
@@ -66,6 +79,7 @@ class InlinePreview {
       update.docChanged ||
       update.viewportChanged ||
       update.selectionSet ||
+      update.transactions.some(refreshed) ||
       stale(update.startState, update.state)
     ) {
       this.build(update.view)

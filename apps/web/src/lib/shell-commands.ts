@@ -39,7 +39,7 @@ export interface ShellCommandDeps {
     Partial<Pick<PaneShell, 'tableCommands'>>
   groups: Pick<GroupShell, 'commands' | 'savedCommands'>
   daily: Pick<DailyShell, 'openToday' | 'step' | 'steps'>
-  fileOps: Pick<FileActions, 'createNote' | 'op'>
+  fileOps: Pick<FileActions, 'createNote' | 'createCollection' | 'op'>
   sharing: Pick<ShareActions, 'addShareOpen' | 'folderSharePath'>
   /** The open vault's mounts ('' = the root): the share sheet opens on the shared folder around a note. */
   mounts(): readonly { path: string }[]
@@ -157,6 +157,9 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       },
       newFolder: () => {
         if (hasVault()) fileOps.op = { type: 'new-folder', dir: containingDir(deps.selectedPath(), 'text') }
+      },
+      newCollection: () => {
+        if (hasVault()) void fileOps.createCollection(containingDir(deps.selectedPath(), 'text'))
       },
       addShare: () => {
         if (hasVault()) sharing.addShareOpen = { dir: '' }

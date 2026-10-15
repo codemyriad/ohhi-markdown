@@ -29,6 +29,7 @@ import {
   openManager,
   openSettings,
   paneContent,
+  runCommand,
   seedProvider,
   seedReadNote,
   selectLine,
@@ -677,4 +678,79 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   await expect(added).toHaveCount(0)
   await expect(page.getByTestId('last-agent-write')).toBeVisible()
   await expectAccessible(page, 'last-agent-write readout')
+})
+
+test('a collection tab is accessible', async ({ page }) => {
+  // A collection over the vault root, created the way a person creates one
+  // (bases-shaping DB2): every note is a row, the one table view is open.
+  // The welcome note gets a property first, so the table has a cell to edit.
+  await seedReadNote(page, 'a11y-collection', '---\nstatus: draft\n---\n\n# Welcome\n')
+  await runCommand(page, 'New collection')
+  await expect(page.getByTestId('collection-view')).toBeVisible()
+  await expect(page.getByTestId('collection-table')).toBeVisible()
+  await expectAccessible(page, 'collection tab')
+
+  // The columns popover: a checkbox list anchored to its button. Adding a
+  // column writes the view's node in the file; the table follows.
+  await page.getByTestId('collection-columns').click()
+  await expect(page.getByTestId('collection-columns-popover')).toBeVisible()
+  await expectAccessible(page, 'collection columns popover')
+  await page.getByTestId('collection-column:status').check()
+  await expect(page.getByTestId('collection-header:status')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('collection-columns-popover')).toHaveCount(0)
+
+  // A cell in edit: the text field with its suggestions.
+  await page.locator('[data-testid^="collection-cell:"][data-testid$=":status"]').first().click()
+  await expect(page.locator('[data-testid$=":status:input"]')).toBeVisible()
+  await expectAccessible(page, 'collection cell editor')
+  await page.keyboard.press('Escape')
+
+  // A board view (DB3): added from the menu, grouped by the first property,
+  // every card with its keyboard "Move to…".
+  await page.getByTestId('collection-add-view').click()
+  await page.getByTestId('collection-add-view:kanban').click()
+  await expect(page.getByTestId('collection-board')).toBeVisible()
+  await expectAccessible(page, 'collection board')
+  await page.getByTestId('collection-add-view').click()
+  await page.getByTestId('collection-add-view:list').click()
+  await expect(page.getByTestId('collection-list')).toBeVisible()
+  await expectAccessible(page, 'collection list')
+
+  // A row-note (DB4, Fork 3-B): the collection was created over the open
+  // note's folder (`file.inFolder("notes")`, its one view unfiltered), so
+  // the welcome note is a row and its frontmatter is the properties form —
+  // one row, `status`, with the table's own text editor. In Reading the
+  // form is text: no editor, no door into the YAML.
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await expect(page.getByTestId('properties-form')).toBeVisible()
+  await expectAccessible(page, 'properties form')
+  await page.keyboard.press('ControlOrMeta+e')
+  await expect(page.getByTestId('properties-form')).toBeVisible()
+  await expect(page.getByTestId('properties-form').getByRole('button')).toHaveCount(0)
+  await expect(page.getByTestId('property:status')).toHaveText('draft')
+  await expectAccessible(page, 'properties form (reading)')
+  await page.keyboard.press('ControlOrMeta+e')
+  // Back in Live, a key is a door into the YAML, where the form gives way
+  // to the text (R4.1.1).
+  await page.getByTestId('property:status').click()
+  await expect(page.getByTestId('property:status:input')).toBeVisible()
+  await expectAccessible(page, 'properties form cell editor')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('property-key:status').click()
+  await expect(page.getByTestId('properties-form')).toHaveCount(0)
+  await expect(paneContent(page).locator('.cm-live-frontmatter')).toHaveCount(3)
+
+  // An embedded collection (A6): `![[Collection.base]]` on a line of its own
+  // draws the collection's first view inside the note, cells and all, with
+  // no view controls; the caret off its line, so the line is the widget.
+  await page.keyboard.press('ControlOrMeta+End')
+  await page.keyboard.insertText('\n\n![[Collection.base]]\n')
+  await expect(page.getByTestId('collection-embed')).toBeVisible()
+  await expect(page.getByTestId('collection-embed').getByTestId('collection-table')).toBeVisible()
+  await expect(page.getByTestId('collection-embed').getByTestId('collection-new')).toHaveCount(0)
+  // The embed scrolls in a box of its own rather than growing with the collection.
+  await expect(page.getByTestId('collection-embed-body')).toHaveCSS('overflow-y', 'auto')
+  await expect(page.getByTestId('collection-embed-body')).toHaveCSS('max-height', '384px')
+  await expectAccessible(page, 'collection embed')
 })

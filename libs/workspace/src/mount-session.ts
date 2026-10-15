@@ -100,6 +100,8 @@ import {
   type SyncRecordFields,
 } from './types.js'
 
+/** What `createFile` will create by name: a note, or a collection's `.base` file. */
+const CREATED_TEXT_EXTENSIONS = new Set(['.md', '.base'])
 const FLUSH_DEBOUNCE_MS = 800
 const CLOSED_RECONCILE_MS = 200
 /**
@@ -782,14 +784,16 @@ export class MountSession {
       if (name) {
         const clean = name.replace(/^\/+/, '')
         if (clean.split('/').includes('..')) throw new Error(`invalid note name '${name}'`)
-        // Notes are markdown. A name carrying some other extension is an
-        // attachment reference (`![[diagram.png]]`), and appending `.md` to it
-        // would create `diagram.png.md` — a file nobody wants and nothing links to.
+        // Notes are markdown, and a collection is a `.base` file this app
+        // creates (bases-shaping A2). A name carrying any other extension is
+        // an attachment reference (`![[diagram.png]]`), and appending `.md`
+        // to it would create `diagram.png.md` — a file nobody wants and
+        // nothing links to.
         const ext = /\.[A-Za-z0-9]{1,8}$/.exec(clean)?.[0]
-        if (ext && ext.toLowerCase() !== '.md') {
-          throw new Error(`'${clean}' is not a note — only .md files are created here`)
+        if (ext && !CREATED_TEXT_EXTENSIONS.has(ext.toLowerCase())) {
+          throw new Error(`'${clean}' is not a note — only .md and .base files are created here`)
         }
-        path = `${base}${clean.endsWith('.md') ? clean : `${clean}.md`}`
+        path = `${base}${ext ? clean : `${clean}.md`}`
         const existing = this.folderDoc.getMap().get(path)
         if (existing && !existing.deleted) return path
       } else {

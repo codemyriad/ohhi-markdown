@@ -82,7 +82,7 @@ describe('treeMenuItems', () => {
   const plain = { mounts: [] as MountLike[], rootShared: false }
 
   it('offers only creation on the tree background (vault root)', () => {
-    expect(actions({ kind: 'root' }, plain)).toEqual(['new-file', 'new-folder', 'add-share'])
+    expect(actions({ kind: 'root' }, plain)).toEqual(['new-file', 'new-folder', 'new-collection', 'add-share'])
   })
 
   it('offers rename/move/history/delete on a note, and no sharing', () => {
@@ -104,6 +104,7 @@ describe('treeMenuItems', () => {
     expect(items.map((i) => i.action)).toEqual([
       'new-file',
       'new-folder',
+      'new-collection',
       'rename',
       'move',
       'share',
@@ -142,6 +143,7 @@ describe('treeMenuItems', () => {
     expect(actions({ kind: 'dir', path: 'team' }, { mounts: carved, rootShared: false })).toEqual([
       'new-file',
       'new-folder',
+      'new-collection',
       'rename',
       'move',
       'manage',
@@ -196,6 +198,7 @@ describe('treeMenuItems', () => {
     expect(items.map((i) => i.action)).toEqual([
       'new-file',
       'new-folder',
+      'new-collection',
       'rename',
       'move',
       'add-link',
@@ -234,6 +237,7 @@ describe('treeMenuItems', () => {
     expect(actions({ kind: 'dir', path: 'team' }, { mounts, rootShared: true })).toEqual([
       'new-file',
       'new-folder',
+      'new-collection',
       'rename',
       'move',
       'manage',

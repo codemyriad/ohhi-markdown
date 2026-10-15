@@ -67,6 +67,7 @@ function setup(over: Partial<ShellCommandDeps> = {}) {
     },
     fileOps: {
       createNote: vi.fn(async () => {}),
+      createCollection: vi.fn(async () => {}),
       set op(v) {
         state.fileOp = v
       },

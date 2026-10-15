@@ -45,6 +45,8 @@ export interface FilesBackendOptions {
    * ONLY — never written. `restore` lists their pre-images beside its own.
    */
   appStoreDirs?: string[]
+  /** Where `VaultBackend.trail` lines go — the CLI's stderr. */
+  trail?: (line: string) => void
 }
 
 interface Walk {
@@ -110,6 +112,7 @@ export async function createFilesBackend(opts: FilesBackendOptions): Promise<Vau
       await index()
       return buildMs
     },
+    ...(opts.trail === undefined ? {} : { trail: opts.trail }),
   }
 }
 
@@ -150,7 +153,7 @@ async function walkVault(adapter: VaultAdapter, root: string): Promise<Walk> {
       if (!bytes) continue
       const binary = looksBinary(entry.path, bytes)
       if (binary) skippedBinary++
-      else docs.set(entry.path, { guid: entry.path, path: entry.path, text: decodeFile(bytes).text })
+      else docs.set(entry.path, { guid: entry.path, path: entry.path, text: decodeFile(bytes).text, ...(mtime === null ? {} : { mtime }) })
       files.set(entry.path, { path: entry.path, size: entry.size, mtime, kind: binary ? 'binary' : 'text' })
     }
   }

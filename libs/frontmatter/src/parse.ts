@@ -173,13 +173,15 @@ function readEntries(
       fail('invalid')
       continue
     }
-    if (seen.has(key.value)) fail('duplicate-key')
+    let own: FmReason | undefined
+    if (seen.has(key.value)) own = 'duplicate-key'
     seen.add(key.value)
-    if (key.anchor) fail('anchor')
+    if (key.anchor) own ??= 'anchor'
 
     const value = (pair.value ?? null) as Node | null
     const read = readValue(text, block, key.value, value)
-    if (read.reason) fail(read.reason)
+    if (read.reason) own ??= read.reason
+    if (own) fail(own)
     const endOffset = value?.range ? block.innerFrom + value.range[1] : keyTo
     const lines: [number, number] = [
       lineIndexAt(lineStarts, keyFrom),
@@ -191,6 +193,8 @@ function readEntries(
         value: read.value,
         kind: read.kind,
         ...(read.legacy ? { legacy: true } : {}),
+        ...(read.quoted !== undefined ? { quoted: read.quoted } : {}),
+        ...(own ? { reason: own } : {}),
         lines,
       },
       keyFrom,
@@ -205,6 +209,8 @@ function readEntries(
 interface ValueRead {
   value: string | string[]
   kind: FmEntry['kind']
+  /** Which written scalars were quoted: one flag, or one per item. */
+  quoted?: boolean | boolean[]
   legacy?: boolean
   reason?: FmReason
 }
@@ -214,18 +220,19 @@ function readValue(text: string, block: Block, key: string, value: Node | null):
   if (isAlias(value) || value.anchor) return { value: '', kind: 'scalar', reason: 'anchor' }
   if (isScalar(value)) {
     const scalar = scalarText(text, block, value)
-    return scalar === null
-      ? { value: '', kind: 'scalar', reason: 'multiline' }
-      : { value: scalar, kind: 'scalar' }
+    if (scalar === null) return { value: '', kind: 'scalar', reason: 'multiline' }
+    return quotedNode(value) ? { value: scalar, kind: 'scalar', quoted: true } : { value: scalar, kind: 'scalar' }
   }
   if (isSeq(value)) {
     const kind = value.flow ? 'flow-list' : 'block-list'
     const items: string[] = []
+    const quoted: boolean[] = []
     for (const item of value.items) {
       if (!isScalar(item)) return { value: [], kind, reason: 'nested' }
       const scalar = scalarText(text, block, item)
       if (scalar === null) return { value: [], kind, reason: 'multiline' }
       items.push(scalar)
+      quoted.push(quotedNode(item))
     }
     // Obsidian before 1.4 split frontmatter tags on whitespace, and the vault
     // still holds both shapes (`tags: [a b]`, `- a b`). Only PLAIN items split:
@@ -237,9 +244,14 @@ function readValue(text: string, block: Block, key: string, value: Node | null):
     if (TAG_KEYS.has(key.toLowerCase()) && plainSpaced) {
       return { value: items.flatMap((i) => i.split(/\s+/).filter(Boolean)), kind, legacy: true }
     }
-    return { value: items, kind }
+    return quoted.some(Boolean) ? { value: items, kind, quoted } : { value: items, kind }
   }
   return { value: sourceOf(text, block, value), kind: 'scalar', reason: 'nested' }
+}
+
+/** Was the scalar written in quotes? Quoted text is text whatever it looks like. */
+function quotedNode(node: Scalar): boolean {
+  return node.type === 'QUOTE_SINGLE' || node.type === 'QUOTE_DOUBLE'
 }
 
 /** A scalar's text as written, or null when it spans lines (outside the subset). */

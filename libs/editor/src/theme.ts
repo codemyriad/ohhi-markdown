@@ -638,6 +638,26 @@ const editorBaseTheme = EditorView.theme({
     borderRadius: '0.25em',
     padding: '0 0.4em',
   },
+  // The properties form on a row-note (bases-shaping A7): the strip's own
+  // fencing, the interface font inside; the rows are the host's component.
+  '.cm-properties-form': {
+    backgroundColor: 'var(--ed-frontmatter-bg)',
+    borderBottom: '1px solid var(--ed-frontmatter-border)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.85em',
+  },
+  // An embedded collection (A6): a bordered block in the note's flow, the
+  // host's table inside, never taller than a screen's worth of rows.
+  '.cm-embed-collection': {
+    display: 'block',
+    margin: '0.5em 0',
+    border: '1px solid var(--ed-table-border)',
+    borderRadius: '0.25em',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.85em',
+    overflow: 'hidden',
+  },
+  '.cm-embed-collection.cm-embed-missing': { display: 'inline-block', border: '1px dashed var(--ed-code-border)' },
 
   '.cm-table-pipe': { color: 'var(--ed-marker)' },
   '.cm-table-head': { fontWeight: '600' },

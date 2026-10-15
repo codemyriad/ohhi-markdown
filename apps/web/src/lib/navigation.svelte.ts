@@ -495,6 +495,8 @@ export function defaultCommands(actions: {
   deleteNote: () => void
   moveNote: () => void
   newFolder: () => void
+  /** A collection over the open note's folder (bases-shaping A3). */
+  newCollection: () => void
   addShare: () => void
   /**
    * The share sheet for the open note's folder (sharing E4), or for the
@@ -532,6 +534,7 @@ export function defaultCommands(actions: {
     { id: 'nav.search', title: t.search(), group: g.navigate(), keys: 'Mod+Shift+f', run: actions.search },
     { id: 'file.new', title: t.new_note(), group: g.file(), keys: 'Mod+n', run: actions.newNote },
     { id: 'file.new-folder', title: t.new_folder(), group: g.file(), keys: 'Mod+Shift+n', run: actions.newFolder },
+    { id: 'file.new-collection', title: t.new_collection(), group: g.file(), run: actions.newCollection },
     // Chris's own Obsidian bindings: app:delete-file and file-explorer:move-file.
     { id: 'file.delete', title: t.delete_note(), group: g.file(), keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
     { id: 'file.move', title: t.move_note(), group: g.file(), keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },

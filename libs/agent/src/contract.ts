@@ -12,7 +12,14 @@
  *  1. Every output document carries `schema: 'ohhi.<op>.v1'`. A reader
  *     written against v1 keeps working while v1 is served, and a change of
  *     shape is a change of name, not a silent drift (Cassini's
- *     `cassini.meetings.context.v1`).
+ *     `cassini.meetings.context.v1`). A version GROWS additively: a new
+ *     optional input or a new output field is still v1 (a reader ignores
+ *     what it does not know); removing, renaming or retyping a field is v2.
+ *     (`fm` gained `changed`, `hash`, `journalSeq`, `dryRun` and `ops` at
+ *     v1 this way.) A write op's widened SIDE EFFECT is held to the same
+ *     line: `mv` now also rewrites other notes' links and collections'
+ *     filter strings, and stays v1 only because `--keep-links` restores the
+ *     old behaviour exactly.
  *  2. Search returns REFERENCES and snippets, never bodies (R4). Reading is
  *     `read`, which is addressable below the note and budgeted.
  *  3. Every list is limited and cursored (R4) and carries honesty counters
@@ -379,6 +386,82 @@ export const SkillOut = z.object({
   body: z.string(),
 })
 
+// ---- collections (bases-shaping A9, DB1) -----------------------------------
+
+/**
+ * A cell as an agent reads it: scalars as JSON, a date as the text written,
+ * a link as `[[target]]`, a list as an array of those, a property the file
+ * asked for but this reader cannot compute (`formula.x`) as null.
+ */
+const CellScalar = z.union([z.string(), z.number(), z.boolean(), z.null()])
+export const CellValue = z.union([CellScalar, z.array(CellScalar)])
+
+export const CollectionsIn = z.object({
+  dir: z.string().optional().describe('Only collections under this folder; omit for the whole vault'),
+  ...PageIn,
+})
+export const CollectionView = z.object({
+  name: z.string(),
+  /** `table`, `list`, `kanban`, `cards`, or whatever the file wrote. */
+  type: z.string(),
+  /** Notes the view shows, counted now. */
+  rows: z.number().int().nonnegative(),
+  /** False when a part of the view is outside the subset this tool reads; `reasons` says which. */
+  supported: z.boolean(),
+  reasons: z.array(z.string()),
+})
+export const CollectionsOut = z.object({
+  schema: z.literal(schemaName('collections')),
+  collections: z.array(
+    z.object({
+      /** The `.base` file. */
+      path: VaultPath,
+      /** Its name without the extension. */
+      name: z.string(),
+      views: z.array(CollectionView),
+      /** Blocks the file has that are read past (`formulas are not computed here`). */
+      issues: z.array(z.string()),
+      /** The file could not be read as YAML; `views` is then empty. */
+      error: z.string().nullable(),
+    })
+  ),
+  ...PageOut,
+  coverage: Coverage,
+})
+
+export const RowsIn = z.object({
+  /** The `.base` file. Omit for every note in the vault as records (narrow with `where`). */
+  collection: VaultPath.optional(),
+  /** A view by name (case-insensitive); default the first view. */
+  view: z.string().optional(),
+  /** An extra filter statement in the file’s own grammar, ANDed with the view’s: `depth == "Deep"`, `file.hasTag("x")`, `verified < today() - "30d"`. */
+  where: z.string().optional(),
+  /** Properties to return (`file.name`, `status`, `note.status`); default the view’s `order`, else every property the rows carry. */
+  columns: z.array(z.string()).optional(),
+  /** `<property>` or `<property>:desc`; replaces the view’s sort. */
+  sort: z.string().optional(),
+  ...PageIn,
+})
+export const RowsOut = z.object({
+  schema: z.literal(schemaName('rows')),
+  collection: VaultPath.nullable(),
+  view: z.string().nullable(),
+  /** The properties each row’s `values` carries, in order. */
+  columns: z.array(z.string()),
+  rows: z.array(
+    z.object({
+      /** The note — a reference; read it with `read`. */
+      path: VaultPath,
+      name: z.string(),
+      values: z.record(z.string(), CellValue),
+    })
+  ),
+  supported: z.boolean(),
+  reasons: z.array(z.string()),
+  ...PageOut,
+  coverage: Coverage,
+})
+
 // ---- write side -----------------------------------------------------------
 
 const WriteCommon = {
@@ -440,20 +523,74 @@ export const AppendOut = z.object({
   dryRun: z.boolean(),
 })
 
-/** Read side only until `libs/frontmatter` (read-shaping X3) lands `set`/`unset`. */
-export const FmIn = z.object({ path: VaultPath })
+/** A frontmatter key as the flat subset writes it: one line, not empty. */
+const FmKey = z.string().min(1).regex(/^[^\r\n]+$/, 'a key is one line')
+/** A text value: one line (a multi-line value is a block scalar, outside the subset). */
+const FmText = z.string().regex(/^[^\r\n]*$/, 'a value is one line')
+/**
+ * A value `fm --set` writes: a string as text (quoted where a plain scalar
+ * would read back as something else), a number or boolean plain, an array
+ * as a block list of those. The flat-subset patcher (`libs/frontmatter`)
+ * moves ONE value's bytes per key and nothing else (golden rule 2).
+ */
+const FmWriteScalar = z.union([FmText, z.number().finite(), z.boolean()])
+export const FmWriteValue = z.union([FmWriteScalar, z.array(FmWriteScalar)])
+
+export const FmIn = z.object({
+  path: VaultPath,
+  set: z
+    .record(FmKey, FmWriteValue)
+    .optional()
+    .describe('Keys to set, applied after `rename` and `unset`. A string is written as text, a number or boolean plain, an array as a list; an empty string leaves the key with no value.'),
+  unset: z.array(FmKey).optional().describe('Keys to remove. A key that is not there is already removed.'),
+  rename: z.record(FmKey, FmKey).optional().describe('Keys to rename, old → new, applied first. Refused when the new name exists.'),
+  ...WriteCommon,
+})
 export const FmOut = z.object({
   schema: z.literal(schemaName('fm')),
   path: VaultPath,
+  /** The block as it is now on disk — or, on a dry run, as it would be. */
   frontmatter: Frontmatter,
+  /** Keys touched by this call: 0 on a read. */
+  ops: z.number().int().nonnegative(),
+  /** True when bytes changed — or, on a dry run, would change. */
+  changed: z.boolean(),
+  /** The note's content hash ON DISK now (a dry run writes nothing) — the `expectHash` for a later write. */
+  hash: z.string(),
+  journalSeq: z.number().int().nonnegative().nullable(),
+  dryRun: z.boolean(),
 })
 
 export const MvIn = z.object({
   from: VaultPath,
   to: VaultPath,
-  /** Required when `from` is a directory holding more than 20 files. */
+  /** Required when the files moved plus the notes whose links are rewritten exceed 20. */
   yes: z.boolean().optional(),
   dryRun: z.boolean().optional(),
+  /** Move only: leave every `[[link]]` to the moved note as it is written. */
+  keepLinks: z.boolean().optional().describe('Move only; leave links in other notes as they are written.'),
+})
+/** One referencing note whose links were rewritten — or, on a dry run, would be. */
+export const MvRewrite = z.object({
+  path: VaultPath,
+  /** Links rewritten in this note. */
+  links: z.number().int().positive(),
+  /** The note's content hash ON DISK now (a dry run writes nothing) — the `expectHash` for a later write. */
+  hash: z.string(),
+  journalSeq: z.number().int().nonnegative().nullable(),
+})
+/** A referencing note whose links were NOT rewritten, and why: the move itself still happened. */
+export const MvSkipped = z.object({
+  path: VaultPath,
+  links: z.number().int().positive(),
+  /**
+   * `conflict`: someone wrote the note while this call was in flight;
+   * `unaddressable`: the bytes at a link are not the link the index saw (the
+   * note changed since the walk); `refused`: not a markdown note; `not_found`:
+   * the note is gone. Read it again and fix the links by hand — nothing was
+   * guessed.
+   */
+  reason: z.enum(['conflict', 'unaddressable', 'refused', 'not_found']),
 })
 export const MvOut = z.object({
   schema: z.literal(schemaName('mv')),
@@ -461,6 +598,16 @@ export const MvOut = z.object({
   to: VaultPath,
   /** Files moved (1 for a note). */
   files: z.number().int().nonnegative(),
+  /**
+   * Referencing notes whose `[[links]]` were rewritten to follow the move
+   * (bases-shaping A5.1), each through its own journaled compare-and-swap
+   * write. Empty with `keepLinks`, or when nothing linked by a target the
+   * move breaks. On a dry run: what would be rewritten.
+   */
+  rewrote: z.array(MvRewrite),
+  /** Referencing notes left as they were, with the reason. */
+  skipped: z.array(MvSkipped),
+  keepLinks: z.boolean(),
   dryRun: z.boolean(),
 })
 
@@ -517,9 +664,11 @@ export const RestoreOut = z.object({
 
 /**
  * `usage` → exit 2 (bad args, no vault, ambiguous vault). `conflict` → exit 3
- * (`expectHash` mismatch). Everything else → exit 1. `refused` is a write the
- * core declined on its own rules (patch not unique, createOnly on an existing
- * note, > 20 files without `yes`, binary or non-`.md` target).
+ * (`expectHash` mismatch). Everything else → exit 1. `refused` is an op the
+ * core declined on its own rules: a write (patch not unique, createOnly on an
+ * existing note, > 20 files without `yes`, binary or non-`.md` target) or a
+ * read of something that is not what the op reads (a binary where a note was
+ * asked for, a `.base` that is not readable YAML).
  */
 export const ErrorCode = z.enum(['usage', 'not_found', 'conflict', 'refused', 'runtime'])
 export type ErrorCode = z.infer<typeof ErrorCode>
@@ -572,6 +721,8 @@ export const OP_NAMES = [
   'changes',
   'skills',
   'skill',
+  'collections',
+  'rows',
   'write',
   'patch',
   'append',
@@ -595,11 +746,13 @@ export const OP_SCHEMAS = {
   changes: { input: ChangesIn, output: ChangesOut, mutates: false, description: 'Paths changed since an instant or since a journal sequence.' },
   skills: { input: SkillsIn, output: SkillsOut, mutates: false, description: 'Skills in the vault (`.agents/skills/`): name, description, kind, input, output and validation problems.' },
   skill: { input: SkillIn, output: SkillOut, mutates: false, description: 'One skill: its parsed SKILL.md frontmatter, validation problems and instructions.' },
+  collections: { input: CollectionsIn, output: CollectionsOut, mutates: false, description: 'Collections in the vault (`.base` files): their views and row counts.' },
+  rows: { input: RowsIn, output: RowsOut, mutates: false, description: 'The rows of a collection view — notes as references plus the columns asked for; filter further with --where.' },
   write: { input: WriteIn, output: WriteOut, mutates: true, description: 'Create or replace a note (journaled, atomic).' },
   patch: { input: PatchIn, output: PatchOut, mutates: true, description: 'Replace one exact string in a note (journaled, atomic). Refused when the string is not unique.' },
   append: { input: AppendIn, output: AppendOut, mutates: true, description: 'Append text to a note or to one of its sections (journaled, atomic).' },
-  fm: { input: FmIn, output: FmOut, mutates: false, description: 'Read a note’s frontmatter (flat subset). Writing frontmatter is not available yet.' },
-  mv: { input: MvIn, output: MvOut, mutates: true, description: 'Move or rename a note or folder.' },
+  fm: { input: FmIn, output: FmOut, mutates: true, description: 'Read a note’s frontmatter (flat subset), or set, unset and rename keys in it — one value’s bytes per key, nothing else moves (journaled, atomic).' },
+  mv: { input: MvIn, output: MvOut, mutates: true, description: 'Move or rename a note or folder; links to it in other notes follow (keepLinks leaves them; dryRun shows what would change).' },
   rm: { input: RmIn, output: RmOut, mutates: true, description: 'Move a note or folder to .trash/ (never deletes outright).' },
   restore: { input: RestoreIn, output: RestoreOut, mutates: true, description: 'List or restore pre-images the journal kept before earlier writes.' },
 } as const satisfies Record<OpName, { input: z.ZodType; output: z.ZodType; mutates: boolean; description: string }>

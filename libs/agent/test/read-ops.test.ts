@@ -23,13 +23,17 @@ describe('ls', () => {
       '.agents',
       'Areas',
       'attachments',
+      'Competitors',
       'Daily',
       'Edible',
       'Inbox',
       'Projects',
       'TODO',
+      'Competitors.base',
     ])
-    expect(out.items.every((i) => i.kind === 'dir')).toBe(true)
+    // Folders first, then the one root-level file (the collection).
+    expect(out.items.slice(0, -1).every((i) => i.kind === 'dir')).toBe(true)
+    expect(out.items.at(-1)?.kind).toBe('text')
     expect(out.coverage).toEqual({
       docs: FIXTURE_TEXT_NOTES,
       skippedBinary: FIXTURE_BINARIES,

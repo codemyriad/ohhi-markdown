@@ -19,6 +19,7 @@
     "@melt-ui/svelte": "~0.86.6",
     "@ohhi/editor": "workspace:*",
     "@ohhi/editor-lang": "workspace:*",
+    "@ohhi/collections": "workspace:*",
     "@ohhi/frontmatter": "workspace:*",
     "@ohhi/harness": "workspace:*",
     "@ohhi/i18n": "workspace:*",

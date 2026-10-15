@@ -66,6 +66,18 @@ describe('flag mapping', () => {
     expect(input).toEqual({ path: 'a.md', text: 'x', createOnly: true, expectHash: 'abc', dryRun: true })
   })
 
+  it('fm collects repeatable key=value flags into typed records', () => {
+    const { input } = parse(['fm', 'a.md', '--set', 'status=done', '--set', 'score= 8', '--set', 'ok=true', '--set', 'note=1e3', '--set-list', 'tags=a, "b, c"', '--unset', 'x', '--unset', 'y', '--rename', 'old=new', '--dry-run'])
+    expect(input).toEqual({
+      path: 'a.md',
+      set: { status: 'done', score: 8, ok: true, note: '1e3', tags: ['a', 'b, c'] },
+      unset: ['x', 'y'],
+      rename: { old: 'new' },
+      dryRun: true,
+    })
+    expect(() => parse(['fm', 'a.md', '--set', 'novalue'])).toThrow(/KEY=VALUE/)
+  })
+
   it('restore --source names which journal --seq belongs to', () => {
     // The CLI and app journals number independently (S11-Q4), so `--seq 1`
     // without `--source` is genuinely ambiguous once an --app-store is given.
@@ -161,6 +173,54 @@ describe('text rendering', () => {
     expect(out).not.toContain('Open questions')
   })
 
+  it('collections prints each file with its views and counts; rows prints the path first, then the columns', async () => {
+    const v = await fixture()
+    const list = await ohhi(inVault(v, ['collections']))
+    expect(list.out).toContain('Competitors.base')
+    expect(list.out).toMatch(/All\s+table\s+3 rows/)
+    expect(list.err).toContain('returned=1')
+    const rows = await ohhi(inVault(v, ['rows', 'Competitors.base', '--view', 'Direct', '--columns', 'threat,verified']))
+    const lines = rows.out.trimEnd().split('\n')
+    expect(lines[0]).toMatch(/^path\s+threat\s+verified$/)
+    expect(lines[1]).toMatch(/^Competitors\/Ingredifind\.md\s+direct\s+2026-06-02$/)
+    expect(lines).toHaveLength(3)
+    expect(rows.err).toContain('view=Direct')
+  })
+
+  it('fm --set prints the block after the write and how to undo it', async () => {
+    const v = await fixture()
+    const { out, err, code } = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=done', '--set', 'retries=4']))
+    expect(code).toBe(0)
+    expect(out).toMatch(/^changed Projects\/Editor\.md \(2 keys\)/)
+    expect(out).toMatch(/status:\s+done\s+\(string\)/)
+    expect(out).toMatch(/retries:\s+4\s+\(number\)/)
+    expect(err).toMatch(/undo with: ohhi restore Projects\/Editor\.md --seq \d+/)
+    const again = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=done']))
+    expect(again.out).toMatch(/already said so/)
+    const dry = await ohhi(inVault(v, ['fm', 'Projects/Editor.md', '--set', 'status=open', '--dry-run']))
+    expect(dry.out).toMatch(/^would change Projects\/Editor\.md \(1 key\)/)
+  })
+
+  it('fm over MCP takes the records as JSON', async () => {
+    const v = await fixture()
+    const backend = await createFilesBackend({ root: v.root, dataDir: v.dataDir, clock: new RealClock() })
+    const ok = await callTool(backend, 'ohhi_fm', { path: 'Projects/Editor.md', set: { score: 7, tags: ['a', 'b'] }, unset: ['draft'] })
+    expect(ok.isError).toBeUndefined()
+    const doc = JSON.parse(ok.content[0].text) as { changed: boolean; ops: number; frontmatter: { entries: { key: string; value: unknown }[] } }
+    expect(doc).toMatchObject({ changed: true, ops: 3 })
+    expect(doc.frontmatter.entries.find((e) => e.key === 'score')?.value).toBe(7)
+    expect(doc.frontmatter.entries.find((e) => e.key === 'draft')).toBeUndefined()
+    const bad = await callTool(backend, 'ohhi_fm', { path: 'Projects/Editor.md', set: { '': 'x' } })
+    expect(bad.isError).toBe(true)
+    expect(JSON.parse(bad.content[0].text)).toMatchObject({ code: 'usage' })
+  })
+
+  it('rows --json notes a partly computed view on stderr', async () => {
+    const v = await fixture()
+    const { err } = await ohhi(inVault(v, ['rows', 'Competitors.base', '--columns', 'formula.age', '--json']))
+    expect(err).toContain('partly computed')
+  })
+
   it('stats prints the vault root and the coverage counters', async () => {
     const v = await fixture()
     const { out, err } = await ohhi(inVault(v, ['stats']))
@@ -196,6 +256,48 @@ describe('text rendering', () => {
     const restore = await ohhi(inVault(v, ['restore', 'TODO/Writing.md']))
     expect(restore.code).toBe(1)
     expect(restore.err).toContain('not_found')
+  })
+
+  it('mv prints one line per note whose links it rewrote, each with its undo handle, and how to reverse the move', async () => {
+    const v = await fixture()
+    const dry = await ohhi(inVault(v, ['mv', 'Areas/CS/JSON.md', 'Areas/CS/Data Format.md', '--dry-run']))
+    expect(dry.code).toBe(0)
+    expect(dry.out).toContain('would move Areas/CS/JSON.md -> Areas/CS/Data Format.md')
+    expect(dry.out).toContain('would update 1 link in Areas/CS/HTML.md')
+    expect(dry.out).toContain('would update 1 link in Projects/Editor.md')
+    expect(dry.err).toContain('files=1 rewrote=4 dryRun=true')
+    expect(dry.err).not.toContain('plan:')
+    expect(dry.err).not.toContain('ohhi restore')
+    expect(readFileSync(join(v.root, 'Areas/CS/HTML.md'), 'utf8')).toContain('[[JSON]]')
+
+    const { out, err, code } = await ohhi(inVault(v, ['mv', 'Areas/CS/JSON.md', 'Areas/CS/Data Format.md']))
+    expect(code).toBe(0)
+    const lines = out.trimEnd().split('\n')
+    expect(lines[0]).toBe('moved Areas/CS/JSON.md -> Areas/CS/Data Format.md')
+    expect(lines.slice(1)).toEqual([
+      'updated 1 link in Areas/CS/HTML.md',
+      'updated 1 link in Daily/02-5-2024.md',
+      'updated 1 link in Edible/Docs.md',
+      'updated 1 link in Projects/Editor.md',
+    ])
+    // The plan went to stderr BEFORE the move; the handles after it.
+    expect(err.indexOf('plan: move Areas/CS/JSON.md')).toBeLessThan(err.indexOf('undo with:'))
+    expect(err).toContain('plan: 1 link in Edible/Docs.md')
+    expect(err).toContain('undo with: ohhi restore Areas/CS/HTML.md --seq ')
+    expect(err).toContain('undo with: ohhi restore Projects/Editor.md --seq ')
+    expect(err).toContain('files=1 rewrote=4')
+    expect(err).toContain('reverse the move with: ohhi mv Areas/CS/Data Format.md Areas/CS/JSON.md')
+    expect(readFileSync(join(v.root, 'Areas/CS/HTML.md'), 'utf8')).toContain('[[Data Format]]')
+  })
+
+  it('mv of the folder a collection reads updates the collection\'s filter, with its undo handle', async () => {
+    const v = await fixture()
+    const { out, err, code } = await ohhi(inVault(v, ['mv', 'Competitors', 'Rivals']))
+    expect(code).toBe(0)
+    expect(out).toContain('updated 1 filter in Competitors.base')
+    expect(err).toContain('plan: 1 filter in Competitors.base')
+    expect(err).toContain('undo with: ohhi restore Competitors.base --seq ')
+    expect(readFileSync(join(v.root, 'Competitors.base'), 'utf8')).toContain('file.inFolder("Rivals")')
   })
 
   it('--dry-run says "would", and changes nothing', async () => {

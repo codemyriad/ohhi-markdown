@@ -56,9 +56,10 @@ person runs *Reload layouts and resources*. The formats, every command,
 readout, region and view id, and worked examples:
 [`customising.md`](customising.md).
 
-**Status.** Slices G1–G4 of `plans/slices.md`. `fm` is read-only until the
-surgical frontmatter patcher (`v2-shaping.md` Spike S3 / read-shaping X3)
-exists — `ohhi` will not reserialize a YAML block (golden rule 2).
+**Status.** Slices G1–G4 of `plans/slices.md`, plus the collections series
+(`collections`, `rows`, and `fm`'s write half — `plans/bases-shaping.md`).
+`ohhi` never reserializes a YAML block: `fm --set` moves one value's bytes
+through the flat-subset patcher (golden rule 2).
 
 ---
 
@@ -141,7 +142,9 @@ and the skill in the same change.
 
 - **Every output document carries `schema: "ohhi.<op>.v1"`.** A reader written
   against v1 keeps working while v1 is served, and a change of shape is a change
-  of name rather than a silent drift.
+  of name rather than a silent drift. A version grows additively: a new optional
+  input or a new output field is still v1 (ignore what you do not know);
+  removing, renaming or retyping a field would be v2.
 - **Every list carries `returned`, `total`, `nextCursor`.** `nextCursor: null`
   means the end; `total: null` means the backend could not count cheaply, not
   that there are none. Cursors are opaque — pass them back, never parse them.
@@ -532,6 +535,73 @@ stays. Turning the app's farm off removes the app's copies, never a CLI link.
 command like `ohhi mcp`: no MCP tool, no `spec/` schema). `.claude` is in the
 ignored set, so the farm is never synced or indexed twice.
 
+### `collections [dir]`
+
+Every collection in the vault — a `.base` file in Obsidian's format, read as
+a documented subset (`libs/collections`) — with its views and how many notes
+each shows right now:
+
+```text
+$ ohhi collections
+Competitors.base                                          # stdout
+    All                      table       3 rows
+    Direct                   table       2 rows
+    Latest two               table       2 rows
+returned=1 total=1                                        # stderr
+coverage: searched 16 notes; 1 binaries skipped; ignored .editor,.editor-cache,…
+```
+
+A view with a formula column prints `(partly: \`formula.age\` is not computed
+here)` after its row count.
+
+A view is `supported: false` with `reasons` when a part of the file is outside
+the subset this tool reads — a formula column, a `map` view, a function the
+grammar does not know. The rows it *can* compute are still returned. `issues`
+names top-level blocks read past (`formulas are not computed here`). `error`
+is set, and `views` empty, when the file is not readable YAML.
+
+`--limit` · `--cursor`
+
+### `rows [collection]`
+
+The rows of a collection view: each note as a **reference** (`path`, `name`)
+plus the columns asked for — never bodies. Values are what the note says
+(the index types them by their written form): a number is a number, `true`
+is a boolean, `2026-06-02` is a date string, `[[Clusters]]` is the link's
+text, a list is an array, an empty or absent property is `null`.
+
+```bash
+ohhi rows Competitors.base                                   # the first view, its columns and sort
+ohhi rows Competitors.base --view "Threat Watch"             # a view by name (case-insensitive)
+ohhi rows Competitors.base --where 'verified < today() - "30d"'   # narrow further, same grammar as the file
+ohhi rows Competitors.base --columns threat,verified --sort verified:desc
+ohhi rows --where 'file.hasTag("meeting") && status != "done"'    # no collection: every note in the vault
+```
+
+With no collection and no `--where`, every note in the vault is a row, and the
+columns are the name plus every property those notes carry. A collection
+with no `views:` still applies its global filters.
+
+`--where` takes one statement in the file's own filter grammar, ANDed with
+the view's filters: comparisons (`==` `!=` `<` `<=` `>` `>=`), `&&` `||` `!`,
+`file.hasTag(…)`, `file.hasLink(…)`, `file.inFolder(…)`,
+`file.hasProperty(…)`, `.contains(…)`, `.containsAny(…)`, `.containsAll(…)`,
+`.isEmpty()`, `.startsWith(…)`, `.endsWith(…)`, `now()`, `today()`,
+`date("…")` and a date ± a duration (`"7d"`, `"2 weeks"`). A statement outside
+that is a `usage` error naming the statement — formulas are not evaluated
+here. `--columns` are property ids as the file writes them (`file.name`,
+`status`, `note.status`); with neither a view nor `--columns`, the columns are
+the name plus every property the rows carry. A view's `limit` caps the rows
+returned. `--limit` · `--cursor`
+
+Rows are references on purpose: `read` the ones that matter. The text
+renderer prints the path first for the same reason.
+
+Errors: a path that is not a `.base` → `usage`; an unknown `--view` → `usage`
+with `details.views` naming the ones there are; a `--where` the grammar
+refuses → `usage` naming the statement; a `.base` that is not readable YAML →
+`refused`.
+
 ---
 
 ## 7. Write operations
@@ -593,21 +663,113 @@ heading of the same or higher level, keeping one blank line. Returns the 1-based
 
 ### `fm <path>`
 
-Read a note's frontmatter. Flat subset: `key: scalar`, `key: [a, b]`, block
-lists of scalars. Anything nested returns `supported: false` with the raw block
-and no entries, rather than a lossy parse.
+Read a note's frontmatter, or change it one key at a time. Flat subset:
+`key: scalar`, `key: [a, b]`, block lists of scalars. Anything nested returns
+`supported: false` with the raw block and no entries, rather than a lossy
+parse — and refuses a write.
 
-**There is no `fm set`.** Writing frontmatter waits for the surgical
-byte-preserving patcher (Spike S3 / read-shaping X3) — reserialising a YAML block
-would rewrite bytes nobody edited, which golden rule 2 forbids. The flat reader
-in `libs/agent/src/frontmatter-read.ts` is a stand-in that `libs/frontmatter`
-replaces; its file header says so.
+```bash
+ohhi fm "Competitors/Ingredifind.md"                                  # read; `hash` is the --expect-hash for a write
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --set score=8   # one value's bytes per key
+ohhi fm "Competitors/Ingredifind.md" --set verified=2026-06-02 --set active=true
+ohhi fm "Competitors/Ingredifind.md" --set-list pillars="[[Clusters]],[[Pricing]]"
+ohhi fm "Competitors/Ingredifind.md" --unset draft --rename threat=threat_level
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --expect-hash <hash> --dry-run
+```
+
+`--set KEY=VALUE` writes `true`/`false` as booleans and plain decimals as
+numbers, everything else as text — quoted only where a plain scalar would read
+back as something else (`"8"` when you meant the text; a quoted value reads
+back as text, in `fm`, `rows` and the app alike). `--set-list KEY=A,B` writes
+a block list (quote an item that holds a comma; it wins over `--set` for the
+same key). `--set KEY=` leaves the key with no value (reads back as `null`);
+`--set-list KEY=` writes `[]`. Order: `--rename`, then `--unset`, then
+`--set` — so `--unset a --set a=x` ends with `a: x`, and `--rename a=b --set
+a=x` ends with both `b` and a new `a`. The patcher moves the value's bytes
+and nothing else: the key's spelling, a trailing comment, every other line and
+the body stay (golden rule 2). A note with no block gets one; unsetting a key
+that is not there is a no-op; a batch that changes nothing writes nothing
+(`changed: false`, `ops` says how many keys were asked). A block outside the
+flat subset (nested, multi-line, anchors, a duplicate key) is `refused` with
+`details.reason` — edit it in the note; renaming onto a key that exists is
+`refused` naming the key; an empty or multi-line key or value is `usage`.
+Journaled, atomic, compare-and-swap like every write: `--expect-hash` ·
+`--dry-run` (shows the block as it would be; `hash` is always the disk's, so
+it is the one to expect next); `journalSeq` is the handle `restore` takes.
 
 ### `mv <from> <to>`
 
 Move or rename a note or a directory (any extension — see above). The target
 must not exist (`refused`), and a move of a directory into itself is `refused`.
-A directory holding more than 20 files needs `--yes` (see the note under `rm`).
+
+**Links follow** (bases-shaping A5.1, collections DB6). The index names every
+note that links to what moves, and `mv` rewrites each `[[link]]` the move
+would break — the same planner the app runs on a rename from the tree or the
+inline title (`@ohhi/index`'s `planLinkRewrites`), so the two agree:
+
+- a link is rewritten only when its **written** target would no longer reach
+  the note: a bare `[[Clusters]]` survives a move between folders (basename
+  unchanged) and becomes `[[New Name]]` on a rename — the bare name when the
+  new basename is unique in the vault, else the path; a path-prefixed
+  `[[Pillars/Clusters]]` becomes the new path (without `.md` unless `.md` was
+  written); a folder move rewrites the path links to everything under it and
+  leaves bare links alone;
+- the alias (`|…`), the anchor (`#…`), the `!` of an embed and the quotes
+  round a frontmatter value stay byte for byte: a link inside a property
+  value is the same byte edit as one in the body, never a YAML rewrite
+  (golden rule 2); a note's own `[[#heading]]` anchors are not links to it;
+- **each referencing note is its own write**: a fresh read from disk, its
+  own pre-image, its own compare-and-swap (see above), **after** the move.
+  A note that loses a race, or whose link text is no longer where the index
+  saw it, is listed in `skipped` with the reason and left untouched — the
+  move and the other notes stand, nothing is guessed. `rewrote` lists every
+  note changed with its new `hash` and `journalSeq` (`ohhi restore <that
+  note> --seq N` undoes one note).
+
+**Collections follow too.** A `.base` names its rows by folder and by link,
+so `mv` also rewrites the quoted string in a collection's
+`file.inFolder("…")` when it names the moved folder or one under it (the
+prefix is rewritten: `Competitors` → `Rivals`, `Competitors/Deep` →
+`Rivals/Deep`) and in `file.hasLink("…")` when its target resolved to the
+moved note — by the same bare-versus-path rule as a `[[link]]`
+(`@ohhi/collections`' `planCollectionRewrites`, the planner the app runs
+too). Only statements in a `filters` tree are read; nothing else in the file
+moves a byte, and the edit is the same journaled, compare-and-swapped write.
+The collection appears in `rewrote` beside the notes, its `links` counting
+the filter strings changed (the text renderer says `updated 1 filter in
+Competitors.base`). A string written with an escape, or a new name the
+statement's quoting cannot hold byte for byte, is left as it is.
+
+`--dry-run` plans it all and reports `rewrote` without moving or writing —
+look first when the note is widely linked. `--keep-links` moves only.
+Before it moves anything, `mv` prints the plan to stderr (`plan: 3 links in
+Clusters/A.md`, one line per note), so a crash between the move and the
+last rewrite leaves a list of what was meant to change. **To reverse a
+move, move it back**: `ohhi mv <to> <from>` follows the links back;
+`ohhi restore <note>` reverts that one note's text and leaves the move
+standing.
+
+Two things it leaves alone on purpose: a case-only rename (`Clusters.md` →
+`clusters.md`) rewrites nothing, because names and paths resolve without
+case and every link still lands; and a link inside a code span
+(`` `[[Clusters]]` ``) is not a link to the index (the editor never looks
+inside one), so it is neither a backlink nor rewritten. Links in notes that
+are not `.md` (a `.canvas`, a `.txt`) are not rewritten either — the app
+and the CLI agree on that.
+
+A rename can also change where a bare link to some OTHER note lands: rename
+`Pillars/Clusters.md` to `Pillars/Groupings.md` while `Other/Groupings.md`
+exists, and a neighbour's `[[Groupings]]` that meant the other note would
+now resolve to the renamed one by proximity. `mv` checks the namesakes'
+backlinks too and rewrites such a link to the path it meant
+(`[[Other/Groupings]]`), reported in `rewrote` like the rest. A partial
+path (`[[CS/Clusters]]`) is kept while it still names the note alone, and
+otherwise becomes the same-depth suffix of the new path when that does, else
+the full path.
+
+**The breaker counts the notes it would rewrite with the files moved**: a
+rename that would touch more than 20 (moved + rewritten) needs `--yes`, like
+any other burst (see the note under `rm`).
 
 **The journal is re-keyed** (`journal.rename`): every pre-image for the old
 path, and prefix-wise for the subtree under it, moves to the new one — the note
@@ -615,7 +777,7 @@ is still the note, so its recoverable history follows it. Journal first, then
 the disk move, so a crash in between leaves history pointing forward rather
 than nowhere.
 
-`--yes` · `--dry-run`
+`--yes` · `--dry-run` · `--keep-links`
 
 ### `rm <path>`
 
@@ -879,6 +1041,8 @@ and it asserts three things:
 | `libs/agent/src/backend.ts` | `VaultBackend` — root, adapter, lazy index, docs, journal, clock, coverage. |
 | `libs/agent/src/select-vault.ts` | Vault selection and the data directory. |
 | `libs/agent/src/ops/` | One file per op, registered in `ops/index.ts`. |
+| `libs/index/src/link-rewrite.ts` | The rename planner `mv` and the app share: which `[[links]]` a move breaks (`collectMoveRefs`, `planLinkRewrites`, `retargetLink`) and the checked byte edit (`applyLinkEdits`). |
+| `libs/collections/src/` | The `.base` reader, the filter grammar and the view patcher behind `collections` and `rows`; `rewrite.ts` is the collections' rename planner (`planCollectionRewrites`) `mv` runs beside the link one. |
 | `apps/cli/src/run.ts` | `run(argv, io) => exit code` — no framework, `node:util` `parseArgs`. |
 | `apps/cli/src/render/` | The text renderers (humans only). |
 | `apps/cli/src/mcp.ts` | The stdio MCP server. |

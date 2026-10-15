@@ -123,6 +123,7 @@ export function editorLabels(): ReadLabels & { linkPopover: NonNullable<ReadLabe
   const keys = LL.common.keys
   return {
     missingAttachment: t.missing_attachment(),
+    missingCollection: t.missing_collection(),
     task: t.task(),
     properties: (count) => t.properties({ count }),
     frontmatterUnsupported: t.frontmatter_unsupported(),

@@ -1,6 +1,6 @@
 ---
 name: ohhi-vault
-description: Search, read and edit a markdown vault — Oh hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", or asks you to add to, patch, rename, move or restore a note.
+description: Search, read and edit a markdown vault — Oh hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, collections (`.base` files: saved views over notes whose frontmatter properties are the columns — list them, query a view, filter by a property), what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", "which notes have status X", a table, database, collection or base of notes, or asks you to add to, patch, rename, move or restore a note.
 ---
 
 # Read and edit a markdown vault with `ohhi`
@@ -131,6 +131,30 @@ ohhi ls "Areas/CS" --depth 1 --kind text
 ohhi stats
 ```
 
+### Query a collection
+
+A collection is a `.base` file (Obsidian's format): saved views over the notes
+in a folder, whose properties are the columns. Rows come back as references
+plus the columns you ask for — never bodies.
+
+```bash
+ohhi collections                                             # every .base, its views, live row counts
+ohhi rows Competitors.base                                   # the first view: its columns and sort
+ohhi rows Competitors.base --view "Threat Watch" --json      # a view by name
+ohhi rows Competitors.base --where 'verified < today() - "30d"' --columns verified,threat
+ohhi rows --where 'file.hasTag("meeting") && status != "done"'   # the whole vault, no collection
+ohhi rows --columns status,due --sort due                      # every note as records, no filter
+```
+
+`--where` is one statement in the file's own grammar (comparisons, `&&` `||`
+`!`, `file.hasTag/hasLink/inFolder/hasProperty`, `.contains/.isEmpty/
+.startsWith`, `today()`, `now()`, `date("…")`, a date ± `"7d"`). Values are
+typed by what the note wrote: `8` is a number, `2026-06-02` a date string,
+`[[X]]` a link, a list an array. A view marked `supported: false` names in
+`reasons` the part this tool does not compute (formulas, map views); the rows
+it can compute are still there. Change a cell with `fm --set` on the
+note — there is no `rows set`.
+
 ### Resume instead of restarting
 
 ```bash
@@ -200,12 +224,16 @@ ohhi append "Notes/Retro.md" --text "- one more thing"
 ohhi append "Notes/Retro.md" --section "Open questions" --text "- and another"
 ohhi write "Notes/New Note.md" --create-only --text "# New Note"
 echo "# New Note" | ohhi write "Notes/New Note.md" --create-only   # or from stdin
-ohhi mv "Notes/Old.md" "Areas/CS/New.md"
+ohhi mv "Notes/Old.md" "Areas/CS/New.md" --dry-run       # which notes' [[links]] a rename would rewrite
+ohhi mv "Notes/Old.md" "Areas/CS/New.md"                  # move; links to it in other notes follow
+ohhi mv "Notes/Old.md" "Areas/CS/New.md" --keep-links     # move only
 ohhi rm "Notes/Scratch.md"                                # to .trash/, never deleted outright
 ohhi restore "Notes/Retro.md" --list                      # pre-images kept before earlier writes
 ohhi restore "Notes/Retro.md"                             # put the latest one back
 ohhi restore "Notes/Retro.md" --seq 41
 ohhi restore "Notes/Retro.md" --seq 41 --source app       # --seq 41 of WHICH journal
+ohhi fm "Competitors/Ingredifind.md" --set depth=Deep --set score=8 --unset draft   # one value's bytes per key
+ohhi fm "Competitors/Ingredifind.md" --set-list pillars="[[Clusters]],[[Pricing]]" --expect-hash "<the hash>"
 ```
 
 The rules, and why:
@@ -224,13 +252,30 @@ The rules, and why:
   `--expect-hash` covers.)
 - **`--dry-run` when unsure.** It computes everything — the match count, the
   resulting hash, where the appended line lands — and writes nothing.
-- **Frontmatter is read-only.** `ohhi fm <path>` reads it; there is no `fm set`
-  yet, and the surgical byte-preserving patcher that will make one safe does not
-  exist. Do not edit frontmatter with `patch` or `write` to work around this —
-  reserialising YAML is exactly the spurious-diff failure the editor forbids.
-  Tell the user it is not available.
-- **Keep bursts under 20 files.** `mv`/`rm` on a directory holding more than 20
-  files is refused without `--yes`, and that refusal is the **only** guard: the
+- **Frontmatter goes through `fm`, never `patch` or `write`.** `ohhi fm <path>
+  --set key=value` moves one value's bytes and nothing else; `--unset` and
+  `--rename` likewise. `true`/`false` and plain numbers are written as such,
+  everything else as text; `--set-list key=a,b` writes a list. It refuses a
+  block outside the flat subset (nested, multi-line) — say so; do not rewrite
+  the block with `patch`, that is the spurious-diff failure the editor forbids.
+  Read first: the `hash` it prints is the `--expect-hash` for the write.
+- **A rename updates links.** `mv` rewrites every `[[link]]` in other notes
+  that the move would break — bare names on a rename, path-prefixed links on
+  any move, inside frontmatter values too — each note as its own journaled
+  write, after the move. It prints one line per note updated, with that
+  note's `hash` and its `journalSeq` (undo one with `ohhi restore <note>
+  --seq N`). Run it with `--dry-run` first on a note that is widely linked:
+  the output lists exactly which notes would change. A note listed under
+  `skipped` (it changed while the call ran, or its text was not where the
+  index saw it) was left alone — read it and fix the link by hand, do not
+  re-run the move. Collections follow too: a `.base` whose
+  `file.inFolder("…")` or `file.hasLink("…")` names what moved is updated
+  the same way (`updated 1 filter in X.base`). `--keep-links` moves only. **To undo a move, move it
+  back** (`ohhi mv <to> <from>`), which follows the links back; `restore
+  <note>` reverts that one note's text and leaves the move standing.
+- **Keep bursts under 20 files.** `mv`/`rm` touching more than 20 files —
+  for `mv`, the files moved plus the notes whose links it would rewrite — is
+  refused without `--yes`, and that refusal is the **only** guard: the
   running editor's own breaker does not catch a CLI burst. If you truly need a
   large batch, do it in runs of a dozen and say so.
 - **`write`/`patch`/`append` only edit `.md` notes**; anything else is
@@ -310,6 +355,11 @@ responses — so branch on `code`, never on the exit code alone.
 | 1 | `refused` | More than 20 files without `--yes`. | Confirm with the user, then pass `--yes` — or do it in smaller runs. |
 | 1 | `refused` | Target is not a `.md` note, is binary, or the destination of a `mv` exists. | Pick a different path. |
 | 1 | `refused` | A path outside the vault, or a symlink leading out of it. | Stay inside the vault. This is a guard, not a bug. |
+| 2 | `usage` | `rows <path>` on a file that is not a `.base`; an unknown `--view` (`details.views` lists the real names); a `--where` outside the grammar (the message quotes the statement). | Pick a listed view; rewrite the statement with the operators and functions the recipe lists — there are no formulas. |
+| 1 | `refused` | A `.base` that is not readable YAML. | Read it with `read`; the person fixes it in the app's Source mode. Do not rewrite it. |
+| 1 | `refused` | `fm` on a block outside the flat subset (`details.reason`: `nested`, `multiline`, `anchor`, `duplicate-key`, `invalid`) — the message ends "edit it in the note instead". | Tell the user which note and why; the block is edited in the editor. Never rewrite it with `patch` or `write`. |
+| 1 | `refused` | `fm --rename` onto a key that exists, or of a key that is not there (`details.op` names it). | Unset the existing key first, or pick another name; `fm <path>` lists the keys. |
+| 2 | `usage` | `fm` given an empty or multi-line key or value. | A key and a value are one line each; a multi-line value belongs in the note's body. |
 | 1 | `not_found` | The note, or the `--section` heading, is not there. | For a note: `search` or `ls` for the real path. For a section: `read --outline` and use a heading it lists. |
 | 1 | `not_found` | `restore <path>` with no pre-image, or a `--seq` that is not in that journal. | Run `restore <path> --list` first. If the list is **empty** (exit 0), nothing has a version to put back — say so and stop. If it is not, take a `seq` **and its `source`** from it. |
 | 0 | — | `restore … --list` printed `entries: []`. | Not an error: nothing here has written that note. Do not retry, and do not go looking in `.trash/` unless the user asks. |

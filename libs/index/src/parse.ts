@@ -16,7 +16,7 @@
  * the index never calls it.
  */
 
-import { parseFrontmatter } from '@ohhi/frontmatter'
+import { lineStartsOf, parseFrontmatter } from '@ohhi/frontmatter'
 import { scanTag, scanTags } from './tag-syntax.js'
 
 export interface RawLink {
@@ -26,6 +26,19 @@ export interface RawLink {
   offset: number
   /** Whether the occurrence was an `![[embed]]` rather than a `[[link]]`. */
   embed: boolean
+  /** The frontmatter key the link is written under, when it is a property value. */
+  property?: string
+}
+
+/** One frontmatter entry, values as written — typed later by the index. */
+export interface RawProperty {
+  key: string
+  value: string | string[]
+  kind: 'scalar' | 'flow-list' | 'block-list'
+  /** Which written scalars were quoted (text whatever they look like): one flag, or one per item. */
+  quoted?: boolean | boolean[]
+  /** Offset of the entry's first line. */
+  offset: number
 }
 
 export interface RawTag {
@@ -52,6 +65,19 @@ export interface ParsedDoc {
   frontmatterTags: RawTag[]
   /** `aliases`/`alias`, as written. Nothing consumes them yet; the CLI will. */
   aliases: string[]
+  /**
+   * Every flat-subset entry of the block, in order (collections A1). Values
+   * are the reader's strings; `typeProperty` in properties.ts types them.
+   * Empty when the block is outside the flat subset — a note the patcher
+   * refuses is a note with no cells, not a note with guessed ones.
+   */
+  properties: RawProperty[]
+  /**
+   * `[[wikilinks]]` written INSIDE property values, each tagged with its
+   * key. The body scan never sees them (the block is blanked), so a relation
+   * (`pillar: "[[Clusters]]"`) is a backlink only because of this list.
+   */
+  propertyLinks: RawLink[]
   /** Text with the frontmatter block blanked out — what links/tags/headings are scanned in. */
   body: string
   /**
@@ -92,7 +118,7 @@ const URL_RUN = /(?:https?:\/\/|www\.)\S+/g
 const LINK_TARGET = /\]\(([^)\n]*)\)/g
 
 export function parseMarkdown(text: string): ParsedDoc {
-  const { keys, bodyOffset, frontmatterTags, aliases } = readFrontmatter(text)
+  const { keys, bodyOffset, frontmatterTags, aliases, properties, propertyLinks } = readFrontmatter(text)
   // Blank the frontmatter rather than slicing it, so every offset below is an
   // offset into the ORIGINAL text and callers never have to rebase. NEWLINES
   // ARE PRESERVED — blanking them too would merge the frontmatter into the
@@ -113,10 +139,13 @@ export function parseMarkdown(text: string): ParsedDoc {
   const inCode = (offset: number): boolean =>
     inFence(offset) || spans.some(([from, to]) => offset >= from && offset < to)
 
+  // Links stay out of `code spans` for the same reason tags do: the editor
+  // never looks inside one, so a link counted here would be a backlink with
+  // nothing to click — and a rename would rewrite a code sample (DB6).
   const links: RawLink[] = []
   WIKILINK.lastIndex = 0
   for (let m = WIKILINK.exec(body); m; m = WIKILINK.exec(body)) {
-    if (inFence(m.index)) continue
+    if (inCode(m.index)) continue
     const inner = m[2]
     if (!inner.trim()) continue
     const pipe = inner.indexOf('|')
@@ -154,10 +183,32 @@ export function parseMarkdown(text: string): ParsedDoc {
     frontmatterKeys: keys,
     frontmatterTags,
     aliases,
+    properties,
+    propertyLinks,
     body,
     indexBody: blankNoise(body, fenced),
     bodyOffset,
   }
+}
+
+/** Every wikilink inside `[from, to)` of `text`, as the body scan would read it. */
+function scanLinks(text: string, from: number, to: number, property: string): RawLink[] {
+  const out: RawLink[] = []
+  const re = new RegExp(WIKILINK.source, 'g')
+  re.lastIndex = from
+  for (let m = re.exec(text); m && m.index < to; m = re.exec(text)) {
+    const inner = m[2]
+    if (!inner.trim()) continue
+    const pipe = inner.indexOf('|')
+    const head = pipe === -1 ? inner : inner.slice(0, pipe)
+    const alias = pipe === -1 ? null : inner.slice(pipe + 1).trim() || null
+    const hash = head.indexOf('#')
+    const target = (hash === -1 ? head : head.slice(0, hash)).trim()
+    const anchor = hash === -1 ? null : head.slice(hash + 1).trim() || null
+    if (!target) continue
+    out.push({ target, alias, anchor, offset: m.index, embed: m[1] === '!', property })
+  }
+  return out
 }
 
 /**
@@ -202,8 +253,10 @@ function readFrontmatter(text: string): {
   bodyOffset: number
   frontmatterTags: RawTag[]
   aliases: string[]
+  properties: RawProperty[]
+  propertyLinks: RawLink[]
 } {
-  const none = { keys: [], bodyOffset: 0, frontmatterTags: [], aliases: [] }
+  const none = { keys: [], bodyOffset: 0, frontmatterTags: [], aliases: [], properties: [], propertyLinks: [] }
   const fm = parseFrontmatter(text)
   // A block with no top-level key is far more likely to be a thematic break
   // than real frontmatter, so index it as content rather than hiding it: the
@@ -221,11 +274,32 @@ function readFrontmatter(text: string): {
     frontmatterTags.push({ tag: `#${raw}`, offset: at >= 0 && at < fm.end ? at : 0 })
   }
 
+  // Cells from every entry the patcher could write back to (R3): an entry
+  // the flat subset refuses (a nested map, a block scalar, a duplicate)
+  // reads as a key for `frontmatterKeys()` and nothing more, while its
+  // neighbours stay cells — the one folded `description:` in a note must
+  // not hide its `status:` from a collection.
+  const properties: RawProperty[] = []
+  const propertyLinks: RawLink[] = []
+  if (fm.entries.length) {
+    // Line starts up to the block's end are all the entries need.
+    const starts = lineStartsOf(text.slice(0, fm.end))
+    for (const e of fm.entries) {
+      if (e.reason) continue
+      const offset = starts[e.lines[0]] ?? 0
+      const limit = e.lines[1] + 1 < starts.length ? starts[e.lines[1] + 1] : fm.end
+      properties.push({ key: e.key, value: e.value, kind: e.kind, ...(e.quoted === undefined ? {} : { quoted: e.quoted }), offset })
+      propertyLinks.push(...scanLinks(text, offset, limit, e.key))
+    }
+  }
+
   return {
     keys: fm.entries.map((e) => e.key),
     bodyOffset: fm.end,
     frontmatterTags,
     aliases: fm.aliases,
+    properties,
+    propertyLinks,
   }
 }
 

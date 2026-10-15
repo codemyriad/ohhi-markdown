@@ -11,7 +11,7 @@
    * strip opens.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { basename } from '@ohhi/index'
+  import { displayName } from '../../collection-cells.js'
   import { tabDragSource } from '../../pane-drag.js'
   import { findPane, type Tab } from '../../panes.js'
   import { targetOf, type ReadoutContext } from '../../readouts.js'
@@ -25,7 +25,7 @@
   const focused = $derived(targetOf(ctx))
   /** The strip's own name for a tab — the drag ghost and the menu say the same thing. */
   const nameOf = (tab: Tab): string =>
-    tab.path ? basename(tab.path) : tab.view ? viewDef(tab.view).title($LL, tab.viewArg) : ''
+    tab.path ? displayName(tab.path) : tab.view ? viewDef(tab.view).title($LL, tab.viewArg) : ''
   const name = $derived(focused.tab ? nameOf(focused.tab) : '')
   /** A bar at the bottom opens its menu upward, from the title's top edge. */
   const upward = $derived(ctx.side === 'top')

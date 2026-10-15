@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ohhi.md/schema/ohhi.mv.v1.schema.json",
   "title": "ohhi.mv.v1",
-  "description": "Move or rename a note or folder.",
+  "description": "Move or rename a note or folder; links to it in other notes follow (keepLinks leaves them; dryRun shows what would change).",
   "type": "object",
   "properties": {
     "schema": {
@@ -24,6 +24,82 @@
       "minimum": 0,
       "maximum": 9007199254740991
     },
+    "rewrote": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+            "type": "string",
+            "minLength": 1
+          },
+          "links": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hash": {
+            "type": "string"
+          },
+          "journalSeq": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "links",
+          "hash",
+          "journalSeq"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Vault-relative POSIX path, e.g. `Areas/CS/JSON.md`",
+            "type": "string",
+            "minLength": 1
+          },
+          "links": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "conflict",
+              "unaddressable",
+              "refused",
+              "not_found"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "links",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "keepLinks": {
+      "type": "boolean"
+    },
     "dryRun": {
       "type": "boolean"
     }
@@ -33,6 +109,9 @@
     "from",
     "to",
     "files",
+    "rewrote",
+    "skipped",
+    "keepLinks",
     "dryRun"
   ],
   "additionalProperties": false

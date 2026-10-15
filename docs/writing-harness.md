@@ -95,7 +95,9 @@ journal (golden rule 1).
 ## 4. Suggestions, direct mode, *Undo agent edit*
 
 **The agent never writes a note directly.** When it calls `ohhi_write`,
-`ohhi_patch` or `ohhi_append`, the op runs against a capturing copy of the
+`ohhi_patch`, `ohhi_append` or `ohhi_fm` with `set`/`unset`/`rename` (a plain
+`ohhi_fm` is a read, offered in a read-only run too; a write there is
+refused), the op runs against a capturing copy of the
 backend; the bytes it would have written become a **suggestion** — a record
 beside the text (`{ range, baseText, proposedText, status }`), drawn in the
 note as the struck text and the inserted proposal, never bytes in the file.

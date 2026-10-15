@@ -993,6 +993,10 @@ export type NamespaceWebTranslation = {
 		 */
 		missing_attachment: string
 		/**
+		 * M​i​s​s​i​n​g​ ​c​o​l​l​e​c​t​i​o​n
+		 */
+		missing_collection: string
+		/**
 		 * T​a​s​k
 		 */
 		task: string
@@ -1286,6 +1290,10 @@ export type NamespaceWebTranslation = {
 			 */
 			new_folder: string
 			/**
+			 * N​e​w​ ​c​o​l​l​e​c​t​i​o​n
+			 */
+			new_collection: string
+			/**
 			 * R​e​n​a​m​e​…
 			 */
 			rename: string
@@ -1443,6 +1451,54 @@ export type NamespaceWebTranslation = {
 			 * C​r​e​a​t​e
 			 */
 			create: string
+		}
+	}
+	link_follow: {
+		/**
+		 * U​p​d​a​t​e​d​ ​l​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
+		 * @param {number} count
+		 */
+		updated: RequiredParams<'count'>
+		/**
+		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​w​e​r​e​ ​n​o​t​ ​u​p​d​a​t​e​d​ ​—​ ​t​h​e​ ​t​e​x​t​ ​h​a​d​ ​c​h​a​n​g​e​d​ ​u​n​d​e​r​ ​t​h​e​ ​r​e​n​a​m​e​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
+		 * @param {number} count
+		 */
+		changed: RequiredParams<'count'>
+		/**
+		 * L​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​u​p​d​a​t​e​d​.​ ​F​i​x​ ​{​{​i​t​|​t​h​e​m​}​}​ ​b​y​ ​h​a​n​d​.
+		 * @param {number} count
+		 */
+		unreachable: RequiredParams<'count'>
+		/**
+		 * A​n​s​w​e​r​ ​t​h​e​ ​o​p​e​n​ ​“​U​p​d​a​t​e​ ​l​i​n​k​s​”​ ​q​u​e​s​t​i​o​n​ ​f​i​r​s​t​.
+		 */
+		busy: string
+		confirm: {
+			/**
+			 * U​p​d​a​t​e​ ​l​i​n​k​s​ ​i​n​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​?
+			 * @param {number} count
+			 */
+			title: RequiredParams<'count'>
+			/**
+			 * R​e​n​a​m​i​n​g​ ​“​{​n​a​m​e​}​”​ ​c​h​a​n​g​e​s​ ​w​h​a​t​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​ ​l​i​n​k​ ​t​o​.​ ​E​a​c​h​ ​o​f​ ​t​h​e​m​ ​i​s​ ​e​d​i​t​e​d​,​ ​w​i​t​h​ ​i​t​s​ ​o​w​n​ ​s​y​n​c​ ​s​t​a​t​e​ ​a​n​d​ ​h​i​s​t​o​r​y​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			rename_body: RequiredParams<'count' | 'name'>
+			/**
+			 * M​o​v​i​n​g​ ​“​{​n​a​m​e​}​”​ ​c​h​a​n​g​e​s​ ​t​h​e​ ​p​a​t​h​ ​{​c​o​u​n​t​}​ ​n​o​t​e​s​ ​l​i​n​k​ ​t​o​.​ ​E​a​c​h​ ​o​f​ ​t​h​e​m​ ​i​s​ ​e​d​i​t​e​d​,​ ​w​i​t​h​ ​i​t​s​ ​o​w​n​ ​s​y​n​c​ ​s​t​a​t​e​ ​a​n​d​ ​h​i​s​t​o​r​y​.
+			 * @param {number} count
+			 * @param {string} name
+			 */
+			move_body: RequiredParams<'count' | 'name'>
+			/**
+			 * R​e​n​a​m​e​ ​a​n​d​ ​u​p​d​a​t​e​ ​l​i​n​k​s
+			 */
+			rename: string
+			/**
+			 * M​o​v​e​ ​a​n​d​ ​u​p​d​a​t​e​ ​l​i​n​k​s
+			 */
+			move: string
 		}
 	}
 	palette: {
@@ -1747,6 +1803,10 @@ export type NamespaceWebTranslation = {
 		 * N​e​w​ ​f​o​l​d​e​r
 		 */
 		new_folder: string
+		/**
+		 * N​e​w​ ​c​o​l​l​e​c​t​i​o​n
+		 */
+		new_collection: string
 		/**
 		 * D​e​l​e​t​e​ ​c​u​r​r​e​n​t​ ​n​o​t​e​…
 		 */
@@ -4299,6 +4359,10 @@ export type NamespaceWebTranslation = {
 				 * R​e​a​d​ ​a​ ​n​o​t​e​’​s​ ​o​u​t​l​i​n​e​ ​a​n​d​ ​i​t​s​ ​p​r​o​p​e​r​t​i​e​s​,​ ​t​h​e​n​ ​j​u​s​t​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​o​r​ ​a​ ​f​e​w​ ​l​i​n​e​s
 				 */
 				read: string
+				/**
+				 * L​i​s​t​ ​t​h​e​ ​v​a​u​l​t​’​s​ ​c​o​l​l​e​c​t​i​o​n​s​ ​a​n​d​ ​q​u​e​r​y​ ​a​ ​c​o​l​l​e​c​t​i​o​n​’​s​ ​r​o​w​s​,​ ​t​h​e​ ​w​a​y​ ​i​t​s​ ​s​a​v​e​d​ ​v​i​e​w​s​ ​s​e​e​ ​t​h​e​m
+				 */
+				collections: string
 				/**
 				 * F​o​l​l​o​w​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​l​i​s​t​ ​l​i​n​k​s​ ​w​h​o​s​e​ ​n​o​t​e​ ​d​o​e​s​ ​n​o​t​ ​e​x​i​s​t​ ​y​e​t
 				 */
@@ -8048,6 +8112,270 @@ export type NamespaceWebTranslation = {
 			session: string
 		}
 	}
+	collections: {
+		/**
+		 * {​n​a​m​e​}​ ​(​c​o​l​l​e​c​t​i​o​n​)
+		 * @param {string} name
+		 */
+		label: RequiredParams<'name'>
+		/**
+		 * V​i​e​w​s​ ​o​f​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		views: RequiredParams<'name'>
+		/**
+		 * {​v​i​e​w​}​ ​—​ ​{​c​o​u​n​t​}​ ​r​o​w​{​{​s​}​}
+		 * @param {number} count
+		 * @param {string} view
+		 */
+		table_caption: RequiredParams<'count' | 'view'>
+		/**
+		 * {​c​o​u​n​t​}​ ​r​o​w​{​{​s​}​}
+		 * @param {number} count
+		 */
+		count: RequiredParams<'count'>
+		/**
+		 * {​s​h​o​w​n​}​ ​o​f​ ​{​t​o​t​a​l​}​ ​r​o​w​s
+		 * @param {number} shown
+		 * @param {number} total
+		 */
+		count_of: RequiredParams<'shown' | 'total'>
+		/**
+		 * N​e​w
+		 */
+		new_row: string
+		/**
+		 * N​e​w​ ​n​o​t​e​ ​i​n​ ​{​d​i​r​}
+		 * @param {string} dir
+		 */
+		new_row_in: RequiredParams<'dir'>
+		/**
+		 * C​o​l​u​m​n​s
+		 */
+		columns: string
+		/**
+		 * C​o​l​u​m​n​s​ ​o​f​ ​{​v​i​e​w​}
+		 * @param {string} view
+		 */
+		columns_title: RequiredParams<'view'>
+		/**
+		 * S​h​o​w​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		column_label: RequiredParams<'name'>
+		/**
+		 * G​r​o​u​p​ ​b​y
+		 */
+		group_by: string
+		/**
+		 * N​o​ ​g​r​o​u​p​i​n​g
+		 */
+		group_none: string
+		/**
+		 * N​o​ ​v​a​l​u​e
+		 */
+		group_empty: string
+		/**
+		 * S​o​r​t​ ​b​y​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		sort_by: RequiredParams<'name'>
+		/**
+		 * N​a​m​e
+		 */
+		name_column: string
+		/**
+		 * O​p​e​n​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		open_note: RequiredParams<'name'>
+		/**
+		 * E​d​i​t​ ​{​c​o​l​u​m​n​}​ ​o​f​ ​{​n​a​m​e​}
+		 * @param {string} column
+		 * @param {string} name
+		 */
+		edit_cell: RequiredParams<'column' | 'name'>
+		/**
+		 * {​c​o​l​u​m​n​}​ ​o​f​ ​{​n​a​m​e​}
+		 * @param {string} column
+		 * @param {string} name
+		 */
+		edit_cell_bool: RequiredParams<'column' | 'name'>
+		/**
+		 * e​m​p​t​y
+		 */
+		empty_cell: string
+		/**
+		 * P​a​r​t​l​y​ ​s​h​o​w​n
+		 */
+		partly: string
+		/**
+		 * N​o​t​ ​c​o​m​p​u​t​e​d​ ​h​e​r​e​:​ ​{​r​e​a​s​o​n​s​}
+		 * @param {string} reasons
+		 */
+		partly_detail: RequiredParams<'reasons'>
+		/**
+		 * {​n​a​m​e​}​ ​i​s​ ​n​o​t​ ​c​o​m​p​u​t​e​d​ ​h​e​r​e
+		 * @param {string} name
+		 */
+		column_not_computed: RequiredParams<'name'>
+		/**
+		 * T​h​i​s​ ​c​o​l​l​e​c​t​i​o​n​ ​h​a​s​ ​n​o​ ​v​i​e​w​s​ ​y​e​t​.
+		 */
+		no_views: string
+		/**
+		 * A​d​d​ ​a​ ​t​a​b​l​e​ ​v​i​e​w
+		 */
+		add_table: string
+		/**
+		 * A​d​d​ ​a​ ​v​i​e​w
+		 */
+		add_view: string
+		/**
+		 * T​a​b​l​e
+		 */
+		add_view_table: string
+		/**
+		 * B​o​a​r​d
+		 */
+		add_view_board: string
+		/**
+		 * L​i​s​t
+		 */
+		add_view_list: string
+		/**
+		 * T​a​b​l​e
+		 */
+		view_name_table: string
+		/**
+		 * B​o​a​r​d
+		 */
+		view_name_board: string
+		/**
+		 * L​i​s​t
+		 */
+		view_name_list: string
+		/**
+		 * A​ ​b​o​a​r​d​ ​g​r​o​u​p​s​ ​n​o​t​e​s​ ​b​y​ ​a​ ​p​r​o​p​e​r​t​y​.​ ​C​h​o​o​s​e​ ​o​n​e​:
+		 */
+		board_needs_group: string
+		/**
+		 * {​g​r​o​u​p​}​ ​—​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
+		 * @param {number} count
+		 * @param {string} group
+		 */
+		board_column: RequiredParams<'count' | 'group'>
+		/**
+		 * B​o​a​r​d​ ​o​f​ ​{​v​i​e​w​}
+		 * @param {string} view
+		 */
+		board_label: RequiredParams<'view'>
+		/**
+		 * M​o​v​e​ ​{​n​a​m​e​}​ ​t​o​…
+		 * @param {string} name
+		 */
+		move_card: RequiredParams<'name'>
+		/**
+		 * G​r​o​u​p​e​d​ ​b​y​ ​{​g​r​o​u​p​}​:​ ​m​o​v​e​ ​a​ ​n​o​t​e​ ​b​y​ ​c​h​a​n​g​i​n​g​ ​i​t​,​ ​n​o​t​ ​f​r​o​m​ ​h​e​r​e​.
+		 * @param {string} group
+		 */
+		not_movable: RequiredParams<'group'>
+		/**
+		 * L​i​s​t​ ​o​f​ ​{​v​i​e​w​}
+		 * @param {string} view
+		 */
+		list_label: RequiredParams<'view'>
+		/**
+		 * C​a​r​d​s​ ​o​f​ ​{​v​i​e​w​}
+		 * @param {string} view
+		 */
+		cards_label: RequiredParams<'view'>
+		/**
+		 * T​h​i​s​ ​f​i​l​e​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​a​d​ ​a​s​ ​a​ ​c​o​l​l​e​c​t​i​o​n​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		unreadable: RequiredParams<'error'>
+		/**
+		 * F​i​x​ ​i​t​ ​i​n​ ​S​o​u​r​c​e​ ​(​M​o​d​+​E​)​.
+		 */
+		unreadable_hint: string
+		/**
+		 * N​o​ ​n​o​t​e​s​ ​m​a​t​c​h​ ​t​h​i​s​ ​v​i​e​w​.
+		 */
+		no_rows: string
+		/**
+		 * '​{​p​a​t​h​}​'​ ​i​s​ ​n​o​t​ ​a​ ​n​o​t​e​.
+		 * @param {string} path
+		 */
+		not_a_note: RequiredParams<'path'>
+		/**
+		 * '​{​n​a​m​e​}​'​ ​w​a​s​ ​n​o​t​ ​c​h​a​n​g​e​d​:​ ​i​t​s​ ​p​r​o​p​e​r​t​i​e​s​ ​a​r​e​ ​{​r​e​a​s​o​n​}​ ​a​n​d​ ​a​r​e​ ​e​d​i​t​e​d​ ​i​n​ ​t​h​e​ ​n​o​t​e​ ​i​t​s​e​l​f​.
+		 * @param {string} name
+		 * @param {string} reason
+		 */
+		not_patched: RequiredParams<'name' | 'reason'>
+		reason: {
+			/**
+			 * n​e​s​t​e​d
+			 */
+			nested: string
+			/**
+			 * m​u​l​t​i​-​l​i​n​e
+			 */
+			multiline: string
+			/**
+			 * u​s​i​n​g​ ​a​n​c​h​o​r​s
+			 */
+			anchor: string
+			/**
+			 * i​n​v​a​l​i​d​ ​Y​A​M​L
+			 */
+			invalid: string
+			/**
+			 * u​s​i​n​g​ ​a​ ​d​u​p​l​i​c​a​t​e​ ​k​e​y
+			 */
+			'duplicate-key': string
+			/**
+			 * o​u​t​s​i​d​e​ ​t​h​e​ ​f​l​a​t​ ​s​u​b​s​e​t
+			 */
+			unsupported: string
+		}
+		/**
+		 * —
+		 */
+		mtime_unknown: string
+		/**
+		 * P​r​o​p​e​r​t​i​e​s​ ​o​f​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		properties_label: RequiredParams<'name'>
+		/**
+		 * E​d​i​t​ ​{​k​e​y​}​ ​a​s​ ​Y​A​M​L
+		 * @param {string} key
+		 */
+		property_key: RequiredParams<'key'>
+		/**
+		 * E​d​i​t​ ​a​s​ ​Y​A​M​L
+		 */
+		open_yaml: string
+		/**
+		 * {​n​a​m​e​}​ ​(​c​o​l​l​e​c​t​i​o​n​)​ ​—​ ​{​v​i​e​w​}
+		 * @param {string} name
+		 * @param {string} view
+		 */
+		embed_label: RequiredParams<'name' | 'view'>
+		/**
+		 * O​p​e​n​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		embed_open: RequiredParams<'name'>
+		/**
+		 * N​o​ ​v​i​e​w​ ​c​a​l​l​e​d​ ​{​v​i​e​w​}​;​ ​s​h​o​w​i​n​g​ ​{​s​h​o​w​n​}​.
+		 * @param {string} shown
+		 * @param {string} view
+		 */
+		embed_view_missing: RequiredParams<'shown' | 'view'>
+	}
 }
 
 export type Namespaces =
@@ -8979,6 +9307,10 @@ export type TranslationFunctions = {
 			 */
 			missing_attachment: () => LocalizedString
 			/**
+			 * Missing collection
+			 */
+			missing_collection: () => LocalizedString
+			/**
 			 * Task
 			 */
 			task: () => LocalizedString
@@ -9262,6 +9594,10 @@ export type TranslationFunctions = {
 				 */
 				new_folder: () => LocalizedString
 				/**
+				 * New collection
+				 */
+				new_collection: () => LocalizedString
+				/**
 				 * Rename…
 				 */
 				rename: () => LocalizedString
@@ -9405,6 +9741,46 @@ export type TranslationFunctions = {
 				 * Create
 				 */
 				create: () => LocalizedString
+			}
+		}
+		link_follow: {
+			/**
+			 * Updated links in {count} note{{s}}
+			 */
+			updated: (arg: { count: number }) => LocalizedString
+			/**
+			 * Links in {count} note{{s}} were not updated — the text had changed under the rename. Fix {{it|them}} by hand.
+			 */
+			changed: (arg: { count: number }) => LocalizedString
+			/**
+			 * Links in {count} note{{s}} could not be updated. Fix {{it|them}} by hand.
+			 */
+			unreachable: (arg: { count: number }) => LocalizedString
+			/**
+			 * Answer the open “Update links” question first.
+			 */
+			busy: () => LocalizedString
+			confirm: {
+				/**
+				 * Update links in {count} notes?
+				 */
+				title: (arg: { count: number }) => LocalizedString
+				/**
+				 * Renaming “{name}” changes what {count} notes link to. Each of them is edited, with its own sync state and history.
+				 */
+				rename_body: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * Moving “{name}” changes the path {count} notes link to. Each of them is edited, with its own sync state and history.
+				 */
+				move_body: (arg: { count: number, name: string }) => LocalizedString
+				/**
+				 * Rename and update links
+				 */
+				rename: () => LocalizedString
+				/**
+				 * Move and update links
+				 */
+				move: () => LocalizedString
 			}
 		}
 		palette: {
@@ -9708,6 +10084,10 @@ export type TranslationFunctions = {
 			 * New folder
 			 */
 			new_folder: () => LocalizedString
+			/**
+			 * New collection
+			 */
+			new_collection: () => LocalizedString
 			/**
 			 * Delete current note…
 			 */
@@ -12108,6 +12488,10 @@ export type TranslationFunctions = {
 					 * Read a note’s outline and its properties, then just one section or a few lines
 					 */
 					read: () => LocalizedString
+					/**
+					 * List the vault’s collections and query a collection’s rows, the way its saved views see them
+					 */
+					collections: () => LocalizedString
 					/**
 					 * Follow links and backlinks, and list links whose note does not exist yet
 					 */
@@ -15598,6 +15982,234 @@ export type TranslationFunctions = {
 				 */
 				session: () => LocalizedString
 			}
+		}
+		collections: {
+			/**
+			 * {name} (collection)
+			 */
+			label: (arg: { name: string }) => LocalizedString
+			/**
+			 * Views of {name}
+			 */
+			views: (arg: { name: string }) => LocalizedString
+			/**
+			 * {view} — {count} row{{s}}
+			 */
+			table_caption: (arg: { count: number, view: string }) => LocalizedString
+			/**
+			 * {count} row{{s}}
+			 */
+			count: (arg: { count: number }) => LocalizedString
+			/**
+			 * {shown} of {total} rows
+			 */
+			count_of: (arg: { shown: number, total: number }) => LocalizedString
+			/**
+			 * New
+			 */
+			new_row: () => LocalizedString
+			/**
+			 * New note in {dir}
+			 */
+			new_row_in: (arg: { dir: string }) => LocalizedString
+			/**
+			 * Columns
+			 */
+			columns: () => LocalizedString
+			/**
+			 * Columns of {view}
+			 */
+			columns_title: (arg: { view: string }) => LocalizedString
+			/**
+			 * Show {name}
+			 */
+			column_label: (arg: { name: string }) => LocalizedString
+			/**
+			 * Group by
+			 */
+			group_by: () => LocalizedString
+			/**
+			 * No grouping
+			 */
+			group_none: () => LocalizedString
+			/**
+			 * No value
+			 */
+			group_empty: () => LocalizedString
+			/**
+			 * Sort by {name}
+			 */
+			sort_by: (arg: { name: string }) => LocalizedString
+			/**
+			 * Name
+			 */
+			name_column: () => LocalizedString
+			/**
+			 * Open {name}
+			 */
+			open_note: (arg: { name: string }) => LocalizedString
+			/**
+			 * Edit {column} of {name}
+			 */
+			edit_cell: (arg: { column: string, name: string }) => LocalizedString
+			/**
+			 * {column} of {name}
+			 */
+			edit_cell_bool: (arg: { column: string, name: string }) => LocalizedString
+			/**
+			 * empty
+			 */
+			empty_cell: () => LocalizedString
+			/**
+			 * Partly shown
+			 */
+			partly: () => LocalizedString
+			/**
+			 * Not computed here: {reasons}
+			 */
+			partly_detail: (arg: { reasons: string }) => LocalizedString
+			/**
+			 * {name} is not computed here
+			 */
+			column_not_computed: (arg: { name: string }) => LocalizedString
+			/**
+			 * This collection has no views yet.
+			 */
+			no_views: () => LocalizedString
+			/**
+			 * Add a table view
+			 */
+			add_table: () => LocalizedString
+			/**
+			 * Add a view
+			 */
+			add_view: () => LocalizedString
+			/**
+			 * Table
+			 */
+			add_view_table: () => LocalizedString
+			/**
+			 * Board
+			 */
+			add_view_board: () => LocalizedString
+			/**
+			 * List
+			 */
+			add_view_list: () => LocalizedString
+			/**
+			 * Table
+			 */
+			view_name_table: () => LocalizedString
+			/**
+			 * Board
+			 */
+			view_name_board: () => LocalizedString
+			/**
+			 * List
+			 */
+			view_name_list: () => LocalizedString
+			/**
+			 * A board groups notes by a property. Choose one:
+			 */
+			board_needs_group: () => LocalizedString
+			/**
+			 * {group} — {count} note{{s}}
+			 */
+			board_column: (arg: { count: number, group: string }) => LocalizedString
+			/**
+			 * Board of {view}
+			 */
+			board_label: (arg: { view: string }) => LocalizedString
+			/**
+			 * Move {name} to…
+			 */
+			move_card: (arg: { name: string }) => LocalizedString
+			/**
+			 * Grouped by {group}: move a note by changing it, not from here.
+			 */
+			not_movable: (arg: { group: string }) => LocalizedString
+			/**
+			 * List of {view}
+			 */
+			list_label: (arg: { view: string }) => LocalizedString
+			/**
+			 * Cards of {view}
+			 */
+			cards_label: (arg: { view: string }) => LocalizedString
+			/**
+			 * This file could not be read as a collection: {error}
+			 */
+			unreadable: (arg: { error: string }) => LocalizedString
+			/**
+			 * Fix it in Source (Mod+E).
+			 */
+			unreadable_hint: () => LocalizedString
+			/**
+			 * No notes match this view.
+			 */
+			no_rows: () => LocalizedString
+			/**
+			 * '{path}' is not a note.
+			 */
+			not_a_note: (arg: { path: string }) => LocalizedString
+			/**
+			 * '{name}' was not changed: its properties are {reason} and are edited in the note itself.
+			 */
+			not_patched: (arg: { name: string, reason: string }) => LocalizedString
+			reason: {
+				/**
+				 * nested
+				 */
+				nested: () => LocalizedString
+				/**
+				 * multi-line
+				 */
+				multiline: () => LocalizedString
+				/**
+				 * using anchors
+				 */
+				anchor: () => LocalizedString
+				/**
+				 * invalid YAML
+				 */
+				invalid: () => LocalizedString
+				/**
+				 * using a duplicate key
+				 */
+				'duplicate-key': () => LocalizedString
+				/**
+				 * outside the flat subset
+				 */
+				unsupported: () => LocalizedString
+			}
+			/**
+			 * —
+			 */
+			mtime_unknown: () => LocalizedString
+			/**
+			 * Properties of {name}
+			 */
+			properties_label: (arg: { name: string }) => LocalizedString
+			/**
+			 * Edit {key} as YAML
+			 */
+			property_key: (arg: { key: string }) => LocalizedString
+			/**
+			 * Edit as YAML
+			 */
+			open_yaml: () => LocalizedString
+			/**
+			 * {name} (collection) — {view}
+			 */
+			embed_label: (arg: { name: string, view: string }) => LocalizedString
+			/**
+			 * Open {name}
+			 */
+			embed_open: (arg: { name: string }) => LocalizedString
+			/**
+			 * No view called {view}; showing {shown}.
+			 */
+			embed_view_missing: (arg: { shown: string, view: string }) => LocalizedString
 		}
 	}
 }

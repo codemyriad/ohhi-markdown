@@ -77,6 +77,12 @@ export interface ShareActions {
    * that changes who can see the content, so it is never silent (spike S8 Q5).
    */
   move(from: string, to: string): Promise<void>
+  /**
+   * Runs after a move has landed — straight away for a move inside one
+   * mount, after the confirm for one across a boundary. How `file-actions`
+   * makes links follow a move it did not get to await (collections DB6).
+   */
+  afterMove: ((from: string, to: string) => void) | null
 }
 
 export function createShareActions(host: ShareHost): ShareActions {
@@ -87,6 +93,7 @@ export function createShareActions(host: ShareHost): ShareActions {
   let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
   let unmountConfirm = $state<string | null>(null)
   let moveConfirm = $state<{ from: string; to: string; leavingShared: boolean } | null>(null)
+  let afterMove: ((from: string, to: string) => void) | null = null
 
   const mountAt = (path: string | null): MountInfo | null => {
     const ws = host.workspace()
@@ -226,6 +233,7 @@ export function createShareActions(host: ShareHost): ShareActions {
     if (!mv || !ws) return
     try {
       await ws.movePath(mv.from, mv.to)
+      afterMove?.(mv.from, mv.to)
     } catch (err) {
       ws.notify({ level: 'error', code: 'move_failed', params: { message: message(err) }, path: mv.from })
     }
@@ -239,6 +247,7 @@ export function createShareActions(host: ShareHost): ShareActions {
       moveConfirm = { from, to, leavingShared }
     } else {
       await ws.movePath(from, to)
+      afterMove?.(from, to)
     }
   }
 
@@ -293,6 +302,12 @@ export function createShareActions(host: ShareHost): ShareActions {
     },
     set moveConfirm(next) {
       moveConfirm = next
+    },
+    get afterMove() {
+      return afterMove
+    },
+    set afterMove(next) {
+      afterMove = next
     },
     askUnshare: (path) => {
       const provenance = mountAt(path)?.provenance ?? 'carved'

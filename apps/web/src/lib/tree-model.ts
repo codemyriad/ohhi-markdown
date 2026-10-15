@@ -99,6 +99,8 @@ export function dirPaths(rows: FileRow[]): string[] {
 export type TreeOp =
   | { type: 'new-file'; dir: string }
   | { type: 'new-folder'; dir: string }
+  /** A collection (bases-shaping A2): a `.base` file over the notes of `dir`. */
+  | { type: 'new-collection'; dir: string }
   | { type: 'rename'; path: string; kind: 'dir' | 'text' | 'binary' }
   | { type: 'move'; path: string; kind: 'dir' | 'text' | 'binary' }
   /** Drag-and-drop arrange: destination already resolved by `planDrop`. */
@@ -169,6 +171,7 @@ export type TreeMenuTarget =
 export type TreeMenuAction =
   | 'new-file'
   | 'new-folder'
+  | 'new-collection'
   | 'rename'
   | 'move'
   | 'delete'
@@ -258,6 +261,7 @@ export function treeMenuItems(
     return [
       { action: 'new-file', label: t.new_file() },
       { action: 'new-folder', label: t.new_folder() },
+      { action: 'new-collection', label: t.new_collection() },
       { ...addShareItem('', ctx), separatorBefore: true },
     ]
   }
@@ -287,6 +291,7 @@ export function treeMenuItems(
   const items: TreeMenuItem[] = [
     { action: 'new-file', label: t.new_file() },
     { action: 'new-folder', label: t.new_folder() },
+    { action: 'new-collection', label: t.new_collection() },
     {
       action: 'rename',
       label: t.rename(),

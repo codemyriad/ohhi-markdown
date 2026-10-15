@@ -22,6 +22,7 @@ export const COMMAND_IDS = [
   'nav.search',
   'file.new',
   'file.new-folder',
+  'file.new-collection',
   'file.delete',
   'file.move',
   'share.folder',

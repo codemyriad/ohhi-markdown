@@ -1,6 +1,6 @@
 /**
- * The ONE write path (golden rule 1). `write`, `patch`, `append`, `rm` and
- * `restore` all come through here, so the sequence is impossible to get
+ * The ONE write path (golden rule 1). `write`, `patch`, `append`, `fm`, `rm`
+ * and `restore` all come through here, so the sequence is impossible to get
  * wrong or to do differently in one op:
  *
  *   1. Read the CURRENT bytes from disk (never a cache).
@@ -32,6 +32,7 @@ import {
   type EolFlavor,
   type PreImageJournal,
 } from '@ohhi/vault'
+import { isCollectionPath } from '@ohhi/collections'
 import type { VaultBackend } from './read.js'
 import { readNote } from './read.js'
 import { OpError } from './contract.js'
@@ -53,15 +54,20 @@ export interface NoteForWrite {
  *
  * Non-`.md` is `refused` rather than written: this surface edits NOTES. An
  * attachment, a `.canvas`, a stylesheet — all of those have an owner that is
- * not a text patcher, and `mv`/`rm` can still move them.
+ * not a text patcher, and `mv`/`rm` can still move them. The one exception
+ * is `mv`'s own: a collection (`.base`) whose `file.inFolder`/`file.hasLink`
+ * strings follow a move (`allowCollection`), a planner's byte edits through
+ * this same journal and compare-and-swap. No op an agent drives with text
+ * writes a `.base`.
  */
 export async function openForWrite(
   backend: VaultBackend,
   rawPath: string,
-  expectHash?: string
+  expectHash?: string,
+  opts: { allowCollection?: boolean } = {}
 ): Promise<NoteForWrite> {
   const path = normalizeVaultPath(rawPath)
-  if (!isMarkdown(path)) {
+  if (!isMarkdown(path) && !(opts.allowCollection && isCollectionPath(path))) {
     throw new OpError('refused', `not a markdown note: ${path}`, { path })
   }
   const current = await readNote(backend, path)

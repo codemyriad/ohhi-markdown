@@ -5,6 +5,7 @@
  * `ViewShell` a component test injects with `viewShellContext(shell)` —
  * the one verb surface every readout and view opens things through.
  */
+import { MemoryIndex } from '@ohhi/index'
 import type { AppEvent, EventLevel } from '@ohhi/workspace'
 import { vi } from 'vitest'
 import type { ViewShell } from './views.js'
@@ -37,7 +38,10 @@ export function event(p: Partial<AppEvent> & Pick<AppEvent, 'kind' | 'at'>): App
 
 /** A recording `ViewShell`: every verb a `vi.fn()`, the clock pinned at `now`. */
 export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell {
+  const index = new MemoryIndex()
   return {
+    index: () => index,
+    indexRevision: () => 0,
     clock: { now: () => now, schedule: () => () => {} },
     openPath: vi.fn(),
     openView: vi.fn(),
@@ -54,6 +58,7 @@ export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell
     relayKnown: () => false,
     revision: () => 0,
     inSyncByRoom: () => ({}),
+    membership: { isMember: () => false, watch: () => () => {}, invalidate: () => {}, renamed: () => {} },
     ...over,
   }
 }

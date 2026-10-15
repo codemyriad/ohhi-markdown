@@ -4,41 +4,16 @@
  * bytes stay untouched — EOL and BOM included (rule 2), and a write over a
  * note that moved under the agent is refused, not merged (R1).
  */
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hashBytes, type WriteOptions } from '@ohhi/vault'
+import { hashBytes } from '@ohhi/vault'
 import { runOp } from '../src/ops/index.js'
-import { harness, type Harness } from './harness.js'
+import { harness, raceTheWrite, type Harness } from './harness.js'
 
 let h: Harness
 const open = async (): Promise<Harness> => (h = await harness())
 afterEach(async () => h?.cleanup())
 
 const NUL = String.fromCharCode(0)
-
-/**
- * Arm ONE external write to `path` that lands inside `writeAtomic` — after the
- * op has read the note and journaled its pre-image, a moment before the
- * rename. The narrowest window there is, and the only one a caller-side re-read
- * cannot close (Spike S11 finding F1). Returns nothing: the point is what the
- * op does, not what the hook did.
- */
-function raceTheWrite(h: Harness, path: string, theirText: string): void {
-  const real = h.backend.adapter.writeAtomic.bind(h.backend.adapter)
-  let armed = true
-  ;(h.backend.adapter as { writeAtomic: unknown }).writeAtomic = async (
-    p: string,
-    bytes: Uint8Array,
-    opts?: WriteOptions
-  ): Promise<void> => {
-    if (armed && p === path) {
-      armed = false
-      await writeFile(join(h.root, path), theirText, 'utf8')
-    }
-    await real(p, bytes, opts)
-  }
-}
 
 describe('a write that loses a race writes nothing (golden rule 1)', () => {
   it('refuses with `conflict` when the note changes between the read and the rename', async () => {

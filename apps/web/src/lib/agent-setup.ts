@@ -19,11 +19,12 @@
  */
 
 /** The contract's ops, grouped the way a person thinks of them. */
-export type AgentCapability = 'find' | 'read' | 'links' | 'changes' | 'write' | 'move' | 'skills'
+export type AgentCapability = 'find' | 'read' | 'collections' | 'links' | 'changes' | 'write' | 'move' | 'skills'
 
 export const AGENT_CAPABILITIES: readonly { id: AgentCapability; ops: readonly string[] }[] = [
   { id: 'find', ops: ['search', 'ls', 'tags', 'stats'] },
   { id: 'read', ops: ['read', 'fm'] },
+  { id: 'collections', ops: ['collections', 'rows'] },
   { id: 'links', ops: ['links', 'backlinks', 'unresolved', 'resolve'] },
   { id: 'changes', ops: ['changes'] },
   { id: 'write', ops: ['write', 'patch', 'append'] },

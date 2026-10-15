@@ -23,6 +23,18 @@ export interface FmEntry {
   kind: 'scalar' | 'flow-list' | 'block-list'
   /** `tags: [a b]` — Obsidian's pre-1.4 space-separated flow list; read as N items, written back as a block list */
   legacy?: boolean
+  /**
+   * Which written scalars were quoted — one flag for a scalar, one per item
+   * for a list. A quoted value is TEXT whatever it looks like (`"8"`,
+   * `'true'`), as YAML means it; a reader typing values must honour this.
+   */
+  quoted?: boolean | boolean[]
+  /**
+   * Why THIS entry is outside the flat subset (a nested map, a block
+   * scalar, an anchor, a duplicate of an earlier key). Entries without one
+   * are readable cells even when the block as a whole is `supported: false`.
+   */
+  reason?: FmReason
   /** 0-based inclusive line range of this entry inside the document */
   lines: [from: number, to: number]
 }
@@ -48,9 +60,17 @@ export interface Frontmatter {
   aliases: string[]
 }
 
+/**
+ * A value the patcher writes. A STRING is written as text — quoted where a
+ * plain scalar would read back as something else (`"true"`, `"8"`). A
+ * NUMBER or BOOLEAN is written plain, so a cell editor can set `score: 8`
+ * and `done: true` and the note means what the table showed.
+ */
+export type FmScalar = string | number | boolean
+
 export type FmOp =
   /** scalar or list; a list is written as a block list */
-  | { op: 'set'; key: string; value: string | string[] }
+  | { op: 'set'; key: string; value: FmScalar | FmScalar[] }
   | { op: 'remove'; key: string }
   | { op: 'rename'; key: string; to: string }
 

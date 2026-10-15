@@ -11,6 +11,7 @@ import type { OpDef } from '../op.js'
 import { append } from './append.js'
 import { backlinks } from './backlinks.js'
 import { changes } from './changes.js'
+import { collections } from './collections.js'
 import { fm } from './fm.js'
 import { links } from './links.js'
 import { ls } from './ls.js'
@@ -20,6 +21,7 @@ import { read } from './read.js'
 import { resolve } from './resolve.js'
 import { restore } from './restore.js'
 import { rm } from './rm.js'
+import { rows } from './rows.js'
 import { search } from './search.js'
 import { skill } from './skill.js'
 import { skills } from './skills.js'
@@ -41,6 +43,8 @@ export const OPS: { [N in OpName]: OpDef<N> } = {
   changes,
   skills,
   skill,
+  collections,
+  rows,
   write,
   patch,
   append,

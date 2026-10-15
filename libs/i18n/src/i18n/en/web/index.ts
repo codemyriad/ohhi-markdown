@@ -342,6 +342,8 @@ const read = {
   /** The icon a Source/Reading tab carries; Live tabs carry nothing. */
   tab_mode: '{mode:string} view',
   missing_attachment: 'Missing attachment',
+  /** `![[X.base]]` naming a collection the vault has not got (bases-shaping A6). */
+  missing_collection: 'Missing collection',
   /** The accessible name of a checkbox whose task has no text yet. */
   task: 'Task',
   /** The dim count beside the collapsed strip's chips. */
@@ -456,6 +458,7 @@ const tree = {
   menu: {
     new_file: 'New file',
     new_folder: 'New folder',
+    new_collection: 'New collection',
     rename: 'Rename…',
     move: 'Move…',
     delete: 'Delete…',
@@ -503,6 +506,30 @@ const tree_op = {
     move: 'Move',
     rename: 'Rename',
     create: 'Create',
+  },
+}
+
+/**
+ * Renames follow (collections DB6, bases-shaping A5.1): a rename or move
+ * rewrites the `[[links]]` other notes hold to the moved one, each note on
+ * its own live doc. The flash says how many notes changed; over a threshold
+ * the confirm names the count first; a note whose link text is not where
+ * the index saw it is reported, never guessed at.
+ */
+const link_follow = {
+  updated: 'Updated links in {count:number} note{{s}}',
+  /** The note's text is not what the plan was made from: nothing in it was touched. */
+  changed: 'Links in {count:number} note{{s}} were not updated — the text had changed under the rename. Fix {{count:it|them}} by hand.',
+  /** No live document to edit (not a note the vault holds open). */
+  unreachable: 'Links in {count:number} note{{s}} could not be updated. Fix {{count:it|them}} by hand.',
+  /** A second rename or move while the links confirm is up. */
+  busy: 'Answer the open “Update links” question first.',
+  confirm: {
+    title: 'Update links in {count:number} notes?',
+    rename_body: 'Renaming “{name:string}” changes what {count:number} notes link to. Each of them is edited, with its own sync state and history.',
+    move_body: 'Moving “{name:string}” changes the path {count:number} notes link to. Each of them is edited, with its own sync state and history.',
+    rename: 'Rename and update links',
+    move: 'Move and update links',
   },
 }
 
@@ -602,6 +629,7 @@ const commands = {
   search: 'Search in vault',
   new_note: 'New note',
   new_folder: 'New folder',
+  new_collection: 'New collection',
   delete_note: 'Delete current note…',
   move_note: 'Move current note…',
   share_folder: 'Share this folder…',
@@ -1487,6 +1515,7 @@ const settings = {
     cap: {
       find: 'Find notes: ranked search that returns references, never whole notes',
       read: 'Read a note’s outline and its properties, then just one section or a few lines',
+      collections: 'List the vault’s collections and query a collection’s rows, the way its saved views see them',
       links: 'Follow links and backlinks, and list links whose note does not exist yet',
       changes: 'See what changed since a time',
       write: 'Write, patch and append, each write journaled first and made atomically',
@@ -2689,6 +2718,86 @@ const ai = {
   },
 }
 
+/**
+ * Collections (bases-shaping A3/A4, DB2): a `.base` file opened as a tab —
+ * its saved views, the table, the cell editors and the toolbar's verbs.
+ */
+const collections = {
+  /** The tab body's accessible name: "Competitors (collection)". */
+  label: '{name:string} (collection)',
+  views: 'Views of {name:string}',
+  table_caption: '{view:string} — {count:number} row{{s}}',
+  count: '{count:number} row{{s}}',
+  count_of: '{shown:number} of {total:number} rows',
+  new_row: 'New',
+  new_row_in: 'New note in {dir:string}',
+  columns: 'Columns',
+  columns_title: 'Columns of {view:string}',
+  column_label: 'Show {name:string}',
+  group_by: 'Group by',
+  group_none: 'No grouping',
+  group_empty: 'No value',
+  sort_by: 'Sort by {name:string}',
+  /** The first column, when the file gives `file.name` no display name. */
+  name_column: 'Name',
+  open_note: 'Open {name:string}',
+  edit_cell: 'Edit {column:string} of {name:string}',
+  edit_cell_bool: '{column:string} of {name:string}',
+  empty_cell: 'empty',
+  /** A part of the view this app does not compute (formulas, map views). */
+  partly: 'Partly shown',
+  partly_detail: 'Not computed here: {reasons:string}',
+  /** A column the view names that this app cannot compute (`formula.x`). */
+  column_not_computed: '{name:string} is not computed here',
+  no_views: 'This collection has no views yet.',
+  add_table: 'Add a table view',
+  add_view: 'Add a view',
+  add_view_table: 'Table',
+  add_view_board: 'Board',
+  add_view_list: 'List',
+  /** Default names for views this app adds. */
+  view_name_table: 'Table',
+  view_name_board: 'Board',
+  view_name_list: 'List',
+  /** A board with nothing to group by: the picker that fixes it. */
+  board_needs_group: 'A board groups notes by a property. Choose one:',
+  board_column: '{group:string} — {count:number} note{{s}}',
+  board_label: 'Board of {view:string}',
+  /** The keyboard's drag: a select on every card. */
+  move_card: 'Move {name:string} to…',
+  /** A board grouped by a file field (folder, tags): cards cannot be moved by writing a property. */
+  not_movable: 'Grouped by {group:string}: move a note by changing it, not from here.',
+  list_label: 'List of {view:string}',
+  cards_label: 'Cards of {view:string}',
+  unreadable: 'This file could not be read as a collection: {error:string}',
+  unreadable_hint: 'Fix it in Source (Mod+E).',
+  no_rows: 'No notes match this view.',
+  not_a_note: "'{path:string}' is not a note.",
+  /** The frontmatter patcher refused the note (nested YAML, a multi-line value). */
+  not_patched: "'{name:string}' was not changed: its properties are {reason:string} and are edited in the note itself.",
+  reason: {
+    nested: 'nested',
+    multiline: 'multi-line',
+    anchor: 'using anchors',
+    invalid: 'invalid YAML',
+    'duplicate-key': 'using a duplicate key',
+    unsupported: 'outside the flat subset',
+  },
+  mtime_unknown: '—',
+  /** The properties form at the top of a row-note (bases-shaping A7). */
+  properties_label: 'Properties of {name:string}',
+  /** A key in the form: a door into the YAML at that line. */
+  property_key: 'Edit {key:string} as YAML',
+  /** The form's last control, the keyboard's way into the block. */
+  open_yaml: 'Edit as YAML',
+  /** An embedded collection view (A6): "Competitors (collection) — Threat Watch". */
+  embed_label: '{name:string} (collection) — {view:string}',
+  /** The embed's caption, a button opening the collection's own tab. */
+  embed_open: 'Open {name:string}',
+  /** `![[X.base#View]]` naming a view the file has not got. */
+  embed_view_missing: 'No view called {view:string}; showing {shown:string}.',
+}
+
 const web = {
   shell,
   notices,
@@ -2704,6 +2813,7 @@ const web = {
   pill,
   tree,
   tree_op,
+  link_follow,
   palette,
   commands,
   daily,
@@ -2740,6 +2850,7 @@ const web = {
   toolbar,
   attachments,
   ai,
+  collections,
 } satisfies BaseTranslation
 
 export default web

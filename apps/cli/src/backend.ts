@@ -33,5 +33,6 @@ export async function openVault(
     dataDir: globals.dataDir ?? resolveDataDir(io.env),
     clock: new RealClock(),
     appStoreDirs: globals.appStore.length > 0 ? globals.appStore : undefined,
+    trail: (line) => io.stderr(`${line}\n`),
   })
 }

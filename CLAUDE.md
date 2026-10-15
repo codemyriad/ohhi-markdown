@@ -36,7 +36,9 @@ Packages beyond V1's set, created by their slices: `libs/workspace` (M1),
 `libs/ui` (V2a — design tokens + themes), `libs/index` (V2b — the derived
 index), `libs/editor-lang` (V2c — wikilink grammar), `libs/frontmatter` (V2e —
 the flat-subset YAML reader and one-line-range patcher every frontmatter
-writer goes through), `libs/agent` (G1 — the host-neutral command core behind
+writer goes through), `libs/collections` (DB1 — the `.base` reader, filter
+grammar and view-scoped patcher behind collections: notes as rows, the index
+answering; `plans/bases-shaping.md`), `libs/agent` (G1 — the host-neutral command core behind
 the agent surface) and `apps/cli` (G1 — the `ohhi` binary, bin name `ohhi`,
 plus `ohhi mcp`), `libs/harness` (H1 — the writing harness: providers over
 the Vercel AI SDK, the tool loop over the `libs/agent` contract, the prompt,

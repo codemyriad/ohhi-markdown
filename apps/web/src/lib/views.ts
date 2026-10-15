@@ -13,9 +13,11 @@
  */
 import { MessageSquareText, RadioTower, ScanSearch, ScrollText, Settings as SettingsIcon, type LucideIcon } from '@lucide/svelte'
 import { getLL, type TranslationFunctions } from '@ohhi/i18n'
+import type { VaultIndex } from '@ohhi/index'
 import type { Clock } from '@ohhi/vault'
 import type { InSyncSpan } from '@ohhi/workspace'
 import { getContext, hasContext, setContext, type Component } from 'svelte'
+import type { CollectionMembership } from './collection-membership.svelte.js'
 import type { Command } from './commands.js'
 import type { ShellSpec } from './layout-spec.js'
 import { VIEW_KINDS, type Tab, type TabView } from './panes.js'
@@ -94,6 +96,20 @@ export interface ViewShell {
   revision(): number
   /** Per room, its rollup's last green span — relay receipt, not durability (`shared.svelte.ts`). */
   inSyncByRoom(): Record<string, InSyncSpan>
+  /**
+   * The app's derived index (navigation's `MemoryIndex`), for a view that
+   * queries notes — the collection tab's rows (bases-shaping A3). Read it
+   * fresh on every `indexRevision()` change: the index itself is a plain
+   * structure, and the revision counter is its whole subscription.
+   */
+  index(): VaultIndex
+  indexRevision(): number
+  /**
+   * Which open notes are rows of a collection (bases-shaping A7): the one
+   * tracker for the shell, asked once per note path however many panes
+   * show it. A pane watches its note; the engine reads the answer.
+   */
+  membership: CollectionMembership
 }
 
 const VIEW_SHELL = Symbol('view-shell')

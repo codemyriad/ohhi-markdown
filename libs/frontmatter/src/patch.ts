@@ -12,7 +12,7 @@
  */
 import { stringify } from 'yaml'
 import { lineLimitOf, readBlock, TAG_KEYS, type RawEntry } from './parse.js'
-import type { FmChange, FmOp, FmPatchResult } from './types.js'
+import type { FmChange, FmOp, FmPatchResult, FmScalar } from './types.js'
 
 export function patchFrontmatter(text: string, op: FmOp): FmPatchResult {
   const bad = rejectOp(op)
@@ -79,13 +79,14 @@ function rejectOp(op: FmOp): string | null {
     const values = Array.isArray(op.value) ? op.value : [op.value]
     // A value with a line break is a block scalar, which the subset refuses
     // on read; writing one would make the note unpatchable by its own writer.
-    if (values.some((v) => /[\n\r]/.test(v))) return 'multiline'
+    if (values.some((v) => typeof v === 'string' && /[\n\r]/.test(v))) return 'multiline'
+    if (values.some((v) => typeof v === 'number' && !Number.isFinite(v))) return 'invalid-value'
   }
   return null
 }
 
 /** `key: value\n`, or `key:` + one `  - item` line each (Obsidian's own shape). */
-function renderEntry(key: string, value: string | string[]): string {
+function renderEntry(key: string, value: FmScalar | FmScalar[]): string {
   if (!Array.isArray(value)) return value === '' ? `${key}:\n` : `${key}: ${renderScalar(value)}\n`
   // An empty list must read back as a list, not as an empty scalar.
   if (value.length === 0) return `${key}: []\n`
@@ -100,9 +101,11 @@ function renderEntry(key: string, value: string | string[]): string {
  * One scalar, quoted only where a plain one would read back as something else
  * (`1.50`, `true`, `#ccc`, a leading space). `quoteSpaces` additionally quotes
  * a value containing whitespace, which is how a tag list says "one item" —
- * a plain `- a b` is Obsidian's pre-1.4 pair of tags (see parse.ts).
+ * a plain `- a b` is Obsidian's pre-1.4 pair of tags (see parse.ts). A number
+ * or a boolean is written plain: it is MEANT to read back as one.
  */
-function renderScalar(value: string, quoteSpaces = false): string {
+function renderScalar(value: FmScalar, quoteSpaces = false): string {
+  if (typeof value !== 'string') return String(value)
   const quoted = quoteSpaces && /\s/.test(value)
   return stringify(value, {
     lineWidth: 0,
