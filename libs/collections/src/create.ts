@@ -6,7 +6,10 @@
 export interface NewCollection {
   /** The folder whose notes are the rows (`''` for the whole vault). */
   folder: string
-  /** Property keys to show as columns after the name. */
+  /**
+   * Property keys to show as columns after the name. Absent or empty: the
+   * view writes no `order`, so its columns follow the notes' properties.
+   */
   columns?: string[]
   viewName?: string
 }
@@ -17,8 +20,11 @@ export function newCollectionText(opts: NewCollection): string {
   if (opts.folder) {
     lines.push('filters:', '  and:', `    - file.inFolder("${opts.folder.replace(/"/g, '\\"')}")`)
   }
-  lines.push('views:', '  - type: table', `    name: ${opts.viewName ?? 'All'}`, '    order:', '      - file.name')
-  for (const c of opts.columns ?? []) lines.push(`      - ${c}`)
+  lines.push('views:', '  - type: table', `    name: ${opts.viewName ?? 'All'}`)
+  if (opts.columns?.length) {
+    lines.push('    order:', '      - file.name')
+    for (const c of opts.columns) lines.push(`      - ${c}`)
+  }
   return lines.join('\n') + '\n'
 }
 

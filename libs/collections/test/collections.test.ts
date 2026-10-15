@@ -3,13 +3,13 @@
  * compiler against a real MemoryIndex, and the view-scoped patcher's
  * golden-rule-2 promise: only the view's bytes move.
  */
-import { MemoryIndex, type IndexDoc } from '@ohhi/index'
+import { MemoryIndex, type IndexDoc, type Row } from '@ohhi/index'
 import { describe, expect, it } from 'vitest'
 import { newCollectionText, collectionName, isCollectionPath } from '../src/create.js'
 import { compileStatement, UnsupportedFilter } from '../src/filter.js'
 import { parseCollection } from '../src/parse.js'
 import { addView, patchView, removeView } from '../src/patch.js'
-import { compileView, folderOf, keyFor, labelFor } from '../src/query.js'
+import { compileView, dynamicColumnIds, folderOf, keyFor, labelFor, rowColumns } from '../src/query.js'
 
 const BASE = `# Alex's competitor matrix
 filters:
@@ -378,9 +378,47 @@ describe('new collections', () => {
     expect(parseCollection(newCollectionText({ folder: '' })).filters).toBeNull()
   })
 
+  it('writes no `order` when no columns are given, so the columns follow the notes', () => {
+    const text = newCollectionText({ folder: 'Competitors' })
+    expect(text).toBe('filters:\n  and:\n    - file.inFolder("Competitors")\nviews:\n  - type: table\n    name: All\n')
+    const spec = parseCollection(text)
+    expect(spec.views[0]!.order).toBeNull()
+    const compiled = compileView(spec, spec.views[0]!)
+    expect(compiled.dynamicColumns).toBe(true)
+    expect(compiled.columns).toEqual([])
+  })
   it('names and recognises the file', () => {
     expect(collectionName('Team/Competitors.base')).toBe('Competitors')
     expect(isCollectionPath('x/y.BASE')).toBe(true)
     expect(isCollectionPath('x/y.md')).toBe(false)
   })
 })
+
+describe('columns that follow the notes (QA round 1)', () => {
+  const rows = [
+    { props: { threat: { kind: 'string', value: 'direct' }, depth: { kind: 'string', value: 'Deep' } } },
+    { props: { verified: { kind: 'date', value: '2026-01-01', ms: 0 }, threat: { kind: 'string', value: 'x' } } },
+    { props: {} },
+  ] as unknown as Pick<Row, 'props'>[]
+
+  it('an absent `order` is null; a written one, even empty, is kept as written', () => {
+    const spec = parseCollection('views:\n  - type: table\n    name: A\n  - type: table\n    name: B\n    order: []\n  - type: table\n    name: C\n    order:\n      - file.name\n')
+    expect(spec.views.map((v) => v.order)).toEqual([null, [], ['file.name']])
+    expect(spec.views.map((v) => compileView(spec, v).dynamicColumns)).toEqual([true, false, false])
+  })
+
+  it('the name, then every key in order of first appearance across the rows as sorted', () => {
+    expect(dynamicColumnIds(rows)).toEqual(['file.name', 'threat', 'depth', 'verified'])
+    expect(dynamicColumnIds([])).toEqual(['file.name'])
+    const cols = rowColumns({ properties: { threat: { displayName: 'Threat level' } } }, rows)
+    expect(cols.map((c) => c.label)).toEqual(['Name', 'Threat level', 'Depth', 'Verified'])
+    expect(cols[1]!.key).toEqual({ prop: 'threat' })
+  })
+
+  it('a patch that materialises the columns writes `order` into that view alone', () => {
+    const text = 'views:\n  - type: table\n    name: A\n  - type: list\n    name: B\n'
+    const out = patchView(text, 0, { order: ['file.name', 'threat'] })
+    expect(out).toEqual({ ok: true, text: 'views:\n  - type: table\n    name: A\n    order:\n      - file.name\n      - threat\n  - type: list\n    name: B\n' })
+  })
+})
+

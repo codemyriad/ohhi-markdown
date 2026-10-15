@@ -590,8 +590,11 @@ the view's filters: comparisons (`==` `!=` `<` `<=` `>` `>=`), `&&` `||` `!`,
 `date("…")` and a date ± a duration (`"7d"`, `"2 weeks"`). A statement outside
 that is a `usage` error naming the statement — formulas are not evaluated
 here. `--columns` are property ids as the file writes them (`file.name`,
-`status`, `note.status`); with neither a view nor `--columns`, the columns are
-the name plus every property the rows carry. A view's `limit` caps the rows
+`status`, `note.status`); with neither `--columns` nor an `order` written on
+the view, the columns are the name plus every property the rows carry, in
+order of first appearance across the rows as sorted — the app's table follows
+the same rule for a view that writes no `order` (a written `order` is honoured
+as written, even `[file.name]` alone). A view's `limit` caps the rows
 returned. `--limit` · `--cursor`
 
 Rows are references on purpose: `read` the ones that matter. The text

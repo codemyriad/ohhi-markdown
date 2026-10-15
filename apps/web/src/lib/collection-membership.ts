@@ -14,7 +14,7 @@ import { compileView, isCollectionPath, parseCollection, type ViewSpec } from '@
 import type { RowFilter, VaultIndex } from '@ohhi/index'
 
 /** A collection with filters and no `views:` is still a query (as `ohhi rows` reads it): its filters through this empty view. */
-const EMPTY_VIEW: ViewSpec = { index: -1, type: 'table', name: '', filters: null, order: [], sort: [], groupBy: null, limit: null, columnSize: {}, extra: {} }
+const EMPTY_VIEW: ViewSpec = { index: -1, type: 'table', name: '', filters: null, order: null, sort: [], groupBy: null, limit: null, columnSize: {}, extra: {} }
 
 /** One collection's membership test: the file, and its filters compiled. */
 export interface CollectionQuery {

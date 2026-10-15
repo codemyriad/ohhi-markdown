@@ -41,8 +41,14 @@ export interface ViewSpec {
   type: string
   name: string
   filters: FilterTree | null
-  /** Properties shown, in order, as written (`file.name`, `status`, `formula.x`). */
-  order: string[]
+  /**
+   * Properties shown, in order, as written (`file.name`, `status`, `formula.x`).
+   * NULL when the view writes no `order` at all: its columns then follow the
+   * notes — the name plus every property the rows on screen hold
+   * (`dynamicColumnIds`). An `order` the file writes, even an empty one, is
+   * honoured exactly.
+   */
+  order: string[] | null
   sort: ViewSort[]
   groupBy: { property: string; direction: SortDirection } | null
   limit: number | null
@@ -84,7 +90,10 @@ export interface ViewQuery {
   view: ViewSpec
   /** The filter and sort; the caller adds the instant (`now`) and its zone when it runs it. */
   query: Omit<RowQuery, 'now' | 'tzOffsetMinutes'>
+  /** The view's written `order`; empty when the view writes none (`dynamicColumns`). */
   columns: Column[]
+  /** True when the view writes no `order`: the caller derives the columns from the rows (`rowColumns`). */
+  dynamicColumns: boolean
   limit: number | null
   groupBy: { key: RowKey; direction: SortDirection; id: string } | null
   /** False when some part was refused; `reasons` says which, in the file's words. */

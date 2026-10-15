@@ -2734,6 +2734,11 @@ const collections = {
   columns: 'Columns',
   columns_title: 'Columns of {view:string}',
   column_label: 'Show {name:string}',
+  /** The columns popover's first group: the properties the notes on screen hold. */
+  columns_in_notes: 'In these notes',
+  columns_other: 'Other properties',
+  /** A view that writes no `order`: its columns follow the notes until one is changed here. */
+  columns_dynamic: 'Showing every property these notes have. Changing one pins the list.',
   group_by: 'Group by',
   group_none: 'No grouping',
   group_empty: 'No value',

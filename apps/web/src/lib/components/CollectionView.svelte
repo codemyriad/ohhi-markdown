@@ -29,9 +29,11 @@
     addView,
     collectionName,
     compileView,
+    dynamicColumnIds,
     folderOf,
     parseCollection,
     patchView,
+    rowColumns,
     type Column,
     type NewView,
     type ViewPatch,
@@ -158,7 +160,12 @@
     }
   })
 
-  const columns = $derived<Column[]>(compiled?.columns ?? [])
+  /**
+   * The view's written `order`, else (no `order` key at all) the columns
+   * follow the notes: the name plus every property the rows on screen
+   * hold, in order of first appearance as the view sorts them.
+   */
+  const columns = $derived<Column[]>(compiled?.dynamicColumns ? rowColumns(spec, rows) : (compiled?.columns ?? []))
   /** The name is the row's own column, drawn first and never edited here. */
   const nameColumn = $derived(columns.find((c) => c.id === 'file.name' || c.id === 'file.basename') ?? null)
   const dataColumns = $derived(columns.filter((c) => c !== nameColumn))
@@ -209,9 +216,15 @@
     writeView({ groupBy: id ? { property: id, direction: 'asc' } : null })
   }
 
+  /**
+   * Show or hide a column. A view whose columns follow the notes has no
+   * `order` to edit yet: the columns on screen are written first, then the
+   * change applied — from then on the file pins them.
+   */
   function toggleColumn(id: string, on: boolean): void {
     if (!view) return
-    const order = on ? [...view.order, id] : view.order.filter((o) => o !== id)
+    const base = view.order ?? columns.map((c) => c.id)
+    const order = on ? (base.includes(id) ? base : [...base, id]) : base.filter((o) => o !== id)
     writeView({ order })
   }
 
@@ -259,9 +272,15 @@
     const taken = new Set(spec.views.map((v) => v.name))
     let name: string = names[type]
     for (let n = 2; taken.has(name); n++) name = `${names[type]} ${n}`
-    const order = view ? view.order : ['file.name']
+    // The new view pins columns only when the one it copies did; else its columns follow the notes too.
+    const order = view?.order ?? null
     const groupBy = type === 'kanban' ? firstProperty() : null
-    const next: NewView = { type, name, order, ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}) }
+    const next: NewView = {
+      type,
+      name,
+      ...(order ? { order } : {}),
+      ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}),
+    }
     // The new view's index — the sequence's next slot — read before the file changes under the derived chain.
     const index = (spec.views.at(-1)?.index ?? -1) + 1
     const result = addView(doc.getText(), next)
@@ -318,11 +337,18 @@
       live = false
     }
   })
+  /**
+   * The columns popover's choices, in two groups: what the notes on screen
+   * hold (and what the view already shows) first — so a view pinned to
+   * `file.name` alone still lists its notes' keys even when the index's key
+   * list is empty or long — then everything else the vault knows.
+   */
+  const shownIds = $derived(columns.map((c) => c.id))
   const columnChoices = $derived.by(() => {
-    const ids = new Set<string>(['file.name', 'file.folder', 'file.mtime', 'file.tags'])
-    for (const k of knownKeys) ids.add(k)
-    for (const o of view?.order ?? []) ids.add(o)
-    return [...ids]
+    const near = new Set<string>([...dynamicColumnIds(rows), ...shownIds])
+    const far = new Set<string>()
+    for (const k of [...knownKeys, 'file.folder', 'file.mtime', 'file.tags']) if (!near.has(k)) far.add(k)
+    return { near: [...near], far: [...far] }
   })
 
   /** A file field or an uncomputed column, as text. */
@@ -608,19 +634,28 @@
     {#if columnsOpen}
       <Popover anchor={columnsAnchor} title={t.columns_title({ view: view.name })} testid="collection-columns-popover" onClose={() => (columnsOpen = false)}>
         <div class="flex max-h-72 flex-col gap-1 overflow-y-auto p-2 text-xs">
-          {#each columnChoices as id (id)}
-            <label class="flex items-center gap-2">
+          {#snippet choice(id: string)}
+            <label class="flex items-center gap-2 py-0.5">
               <input
                 type="checkbox"
                 class="dui-checkbox dui-checkbox-xs"
-                checked={view.order.includes(id)}
+                checked={shownIds.includes(id)}
                 data-testid="collection-column:{id}"
                 onchange={(e) => toggleColumn(id, (e.currentTarget as HTMLInputElement).checked)}
               />
               <span class="sr-only">{t.column_label({ name: id })}</span>
               <span aria-hidden="true">{id}</span>
             </label>
-          {/each}
+          {/snippet}
+          <p class="text-[11px] font-semibold tracking-wide text-base-content/70 uppercase" data-testid="collection-columns-near">{t.columns_in_notes()}</p>
+          {#each columnChoices.near as id (id)}{@render choice(id)}{/each}
+          {#if columnChoices.far.length}
+            <p class="mt-2 text-[11px] font-semibold tracking-wide text-base-content/70 uppercase" data-testid="collection-columns-far">{t.columns_other()}</p>
+            {#each columnChoices.far as id (id)}{@render choice(id)}{/each}
+          {/if}
+          {#if !view.order}
+            <p class="mt-2 text-[11px] text-base-content/70" data-testid="collection-columns-dynamic">{t.columns_dynamic()}</p>
+          {/if}
         </div>
       </Popover>
     {/if}

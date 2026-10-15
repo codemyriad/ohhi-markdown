@@ -232,7 +232,8 @@ describe('CollectionView', () => {
     render(CollectionView, { props: { workspace, path: 'Empty.base' }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
     expect(screen.getByText(/no views yet/)).toBeInTheDocument()
     await userEvent.setup().click(screen.getByTestId('collection-add-table'))
-    expect(store.get('Empty.base')).toBe('filters: file.hasTag("x")\nviews:\n  - type: table\n    name: Table\n    order:\n      - file.name\n')
+    // No `order`: the new view's columns follow its notes.
+    expect(store.get('Empty.base')).toBe('filters: file.hasTag("x")\nviews:\n  - type: table\n    name: Table\n')
   })
 
   it('marks a view the subset cannot fully compute, and still draws its rows', async () => {
@@ -468,5 +469,89 @@ describe('CollectionView embedded in a note (bases-shaping A6)', () => {
     })
     await screen.findByTestId('collection-table')
     expect(rowNames()).toEqual(['Ingredifind'])
+  })
+})
+
+describe('CollectionView columns that follow the notes (QA round 1)', () => {
+  /** A collection over the same notes with a view that writes no `order`, and one pinned to the name. */
+  function setupWith(base: string) {
+    const store = new Map(Object.entries(NOTES))
+    store.set('Competitors.base', base)
+    const index = new MemoryIndex()
+    index.rebuild([...store.entries()].map(([path, text]): IndexDoc => ({ guid: path, path, text })))
+    const workspace = {
+      ui: { files: [] },
+      docForPath: (path: string) => (store.has(path) ? fakeDoc(path, index, store) : null),
+      createFile: vi.fn(),
+      flash: vi.fn(),
+    } as unknown as Workspace
+    render(CollectionView, {
+      props: { workspace, path: 'Competitors.base' },
+      context: viewShellContext(fakeViewShell(0, { index: () => new EmptyKeysIndex(index) as unknown as MemoryIndex })),
+    })
+    return { store }
+  }
+  /** The index with an empty key list, as a vault whose index has not answered keys yet. */
+  class EmptyKeysIndex {
+    constructor(private readonly inner: MemoryIndex) {}
+    rows(...args: Parameters<MemoryIndex['rows']>) {
+      return this.inner.rows(...args)
+    }
+    async frontmatterKeys() {
+      return { items: [], nextCursor: null }
+    }
+  }
+  const AUTO = 'filters:\n  and:\n    - file.inFolder("Competitors")\nviews:\n  - type: table\n    name: All\n'
+  const headers = () => screen.getAllByRole('columnheader').map((h) => h.textContent?.trim())
+
+  it('a view with no `order` shows the name and every key its rows hold, by first appearance as sorted', async () => {
+    setupWith(AUTO)
+    await screen.findByTestId('collection-table')
+    // Rows by name: Ingredifind (threat, depth, verified, active, score) first; a nested value is not a property.
+    await waitFor(() => expect(headers()).toEqual(['Name', 'Threat', 'Depth', 'Verified', 'Active', 'Score']))
+  })
+
+  it('hiding a column on such a view first writes the columns on screen, then the change', async () => {
+    const { store } = setupWith(AUTO)
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByTestId('collection-columns'))
+    expect(screen.getByTestId('collection-columns-dynamic')).toBeInTheDocument()
+    await user.click(screen.getByTestId('collection-column:depth'))
+    expect(store.get('Competitors.base')).toBe(
+      `${AUTO}    order:\n      - file.name\n      - threat\n      - verified\n      - active\n      - score\n`
+    )
+    await waitFor(() => expect(headers()).toEqual(['Name', 'Threat', 'Verified', 'Active', 'Score']))
+  })
+
+  it('a view pinned to the name alone still offers its notes’ keys first, with no key list from the index', async () => {
+    const { store } = setupWith(`${AUTO}    order:\n      - file.name\n`)
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    expect(headers()).toEqual(['Name'])
+    await user.click(screen.getByTestId('collection-columns'))
+    const popover = screen.getByTestId('collection-columns-popover')
+    const ids = within(popover)
+      .getAllByRole('checkbox')
+      .map((c) => c.getAttribute('data-testid'))
+    expect(ids.slice(0, 6)).toEqual([
+      'collection-column:file.name',
+      'collection-column:threat',
+      'collection-column:depth',
+      'collection-column:verified',
+      'collection-column:active',
+      'collection-column:score',
+    ])
+    await user.click(screen.getByTestId('collection-column:threat'))
+    expect(store.get('Competitors.base')).toContain('    order:\n      - file.name\n      - threat\n')
+  })
+
+  it('a new view copies `order` only when the view it copies wrote one', async () => {
+    const { store } = setupWith(AUTO)
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByTestId('collection-add-view'))
+    await user.click(await screen.findByTestId('collection-add-view:list'))
+    expect(store.get('Competitors.base')).toBe(`${AUTO}  - type: list\n    name: List\n`)
   })
 })

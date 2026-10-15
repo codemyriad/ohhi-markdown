@@ -8164,6 +8164,18 @@ export type NamespaceWebTranslation = {
 		 */
 		column_label: RequiredParams<'name'>
 		/**
+		 * I​n​ ​t​h​e​s​e​ ​n​o​t​e​s
+		 */
+		columns_in_notes: string
+		/**
+		 * O​t​h​e​r​ ​p​r​o​p​e​r​t​i​e​s
+		 */
+		columns_other: string
+		/**
+		 * S​h​o​w​i​n​g​ ​e​v​e​r​y​ ​p​r​o​p​e​r​t​y​ ​t​h​e​s​e​ ​n​o​t​e​s​ ​h​a​v​e​.​ ​C​h​a​n​g​i​n​g​ ​o​n​e​ ​p​i​n​s​ ​t​h​e​ ​l​i​s​t​.
+		 */
+		columns_dynamic: string
+		/**
 		 * G​r​o​u​p​ ​b​y
 		 */
 		group_by: string
@@ -16024,6 +16036,18 @@ export type TranslationFunctions = {
 			 * Show {name}
 			 */
 			column_label: (arg: { name: string }) => LocalizedString
+			/**
+			 * In these notes
+			 */
+			columns_in_notes: () => LocalizedString
+			/**
+			 * Other properties
+			 */
+			columns_other: () => LocalizedString
+			/**
+			 * Showing every property these notes have. Changing one pins the list.
+			 */
+			columns_dynamic: () => LocalizedString
 			/**
 			 * Group by
 			 */

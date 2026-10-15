@@ -1,6 +1,7 @@
 import {
   compileStatement,
   compileView,
+  dynamicColumnIds,
   isCollectionPath,
   keyFor,
   NOTES_ONLY,
@@ -21,7 +22,7 @@ type Cell = OpOutput<'rows'>['rows'][number]['values'][string]
  * A collection with no `views:` is still a query: its global filters apply
  * through this empty view, so `rows NoViews.base` never widens to the vault.
  */
-const EMPTY_VIEW: ViewSpec = { index: -1, type: 'table', name: '', filters: null, order: [], sort: [], groupBy: null, limit: null, columnSize: {}, extra: {} }
+const EMPTY_VIEW: ViewSpec = { index: -1, type: 'table', name: '', filters: null, order: null, sort: [], groupBy: null, limit: null, columnSize: {}, extra: {} }
 
 /** The index caps a page at this; a view's `limit` beyond it is read in full by paging. */
 const INDEX_MAX = 1000
@@ -131,11 +132,9 @@ function parseSort(raw: string): RowSort {
   return { key, direction: m?.[2]?.toLowerCase() === 'desc' ? 'desc' : 'asc' }
 }
 
-/** With no view columns and no `--columns`: the name plus every property the page's rows carry. */
+/** With no view columns and no `--columns`: the name plus every property the page's rows carry — the app's rule for a view with no `order`. */
 function defaultColumns(items: Row[]): string[] {
-  const keys = new Set<string>()
-  for (const row of items) for (const key of Object.keys(row.props)) keys.add(key)
-  return ['file.name', ...keys]
+  return dynamicColumnIds(items)
 }
 
 function scalarCell(s: PropScalar): string | number | boolean | null {

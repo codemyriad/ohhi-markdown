@@ -61,7 +61,8 @@ export function parseCollection(text: string): CollectionSpec {
 function readView(v: Record<string, unknown>, index: number, issues: string[]): ViewSpec {
   const type = typeof v.type === 'string' ? v.type : 'table'
   const name = typeof v.name === 'string' ? v.name : `View ${index + 1}`
-  const order = Array.isArray(v.order) ? v.order.filter((o): o is string => typeof o === 'string') : []
+  // Absent (or not a list) is not the same as empty: null lets the columns follow the notes.
+  const order = Array.isArray(v.order) ? v.order.filter((o): o is string => typeof o === 'string') : null
   const sort: ViewSort[] = []
   if (Array.isArray(v.sort)) {
     for (const s of v.sort) {
