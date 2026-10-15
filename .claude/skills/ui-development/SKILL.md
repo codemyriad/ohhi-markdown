@@ -300,7 +300,15 @@ A section's grids use `@md:`-style container breakpoints, never `sm:`, so a
 split pane gets the narrow layout. Test ids: `settings-view` /
 `settings-page`, `settings` (with `data-section`), `settings-tab:<id>` (wide
 and rail alike, with `data-depth` and `data-group-start`),
-`settings-section:<id>`, `settings-needs-vault:<id>`. Add a setting to the section it belongs to.
+`settings-section:<id>`, `settings-needs-vault:<id>`, `settings-lede:<id>`.
+**Settings' type scale (QA round 1) is `ui/styles.ts`**: `TITLE`, one
+`LEDE` per section (drawn by `Settings.svelte`), groups as an `EYEBROW` on a
+`GROUP_ROW` with their actions on its baseline, `GROUP` (28 px) between
+them, `ROW` (36 px grid rows), `META` for hints, `CHIP`, `BUTTON` /
+`BUTTON_SM` / `BUTTON_PRIMARY`, `CHOICE` for a pressed option (a tint, never
+a solid block), and **one muted ink, `MUTED`** — no `/80` tints and no 14 px
+text in a Settings component. Settings › AI is one page (no sub-tabs);
+Customise is the hub (what is in use first, a door to each part). Add a setting to the section it belongs to.
 
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
