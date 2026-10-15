@@ -60,7 +60,7 @@
   interface Props {
     /** `app.reload-resources` runs through it. */
     registry?: Pick<CommandRegistry, 'get'>
-    resources?: Partial<Pick<Resources, 'overview' | 'onChange'>>
+    resources?: Partial<Pick<Resources, 'overview' | 'onChange' | 'themes'>>
     layout?: SettingsLayout
     keymap?: Pick<Keymap, 'active' | 'resolved'>
     /** Injected for the tests. */
@@ -124,6 +124,7 @@
         error: keymap?.resolved?.error ?? null,
       },
       theme,
+      themes: resources?.themes ?? [],
     })
   )
   const problems = $derived(overview?.problems ?? [])
@@ -360,9 +361,7 @@
             </td>
             <td class="truncate pr-2 @max-md:block @max-md:p-0 @max-md:pt-1.5 @max-md:whitespace-normal">
               <span class="hidden @max-md:mb-0.5 @max-md:block {MUTED}">{t.col_also()}</span>
-              {#if row.kind === 'themes'}
-                <span class={MUTED}>{t.themes_not_listed()}</span>
-              {:else if row.others.length === 0}
+              {#if row.others.length === 0}
                 <span class={MUTED}>{t.nothing_else()}</span>
               {:else}
                 <ul class="m-0 inline list-none p-0 @max-md:flex @max-md:flex-wrap @max-md:gap-x-3 @max-md:gap-y-1">

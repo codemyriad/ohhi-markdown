@@ -3501,10 +3501,6 @@ export type NamespaceWebTranslation = {
 			 */
 			lede: string
 			/**
-			 * T​h​e​m​e
-			 */
-			theme: string
-			/**
 			 * S​y​s​t​e​m
 			 */
 			system: string
@@ -3556,11 +3552,24 @@ export type NamespaceWebTranslation = {
 				nord_dark: string
 			}
 			/**
-			 * C​u​s​t​o​m​ ​t​h​e​m​e
+			 * B​u​i​l​t​ ​i​n
 			 */
-			custom_theme: string
+			builtin: string
 			/**
-			 * T​h​e​m​e​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t
+			 * I​n​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			in_vault: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​u​s​e​ ​t​h​e​ ​t​h​e​m​e​s​ ​i​n​ ​i​t​.
+			 */
+			vault_none: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​ ​h​a​s​ ​n​o​ ​t​h​e​m​e​s​ ​y​e​t​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​h​o​l​d​i​n​g​ ​o​n​e​ ​s​t​y​l​e​s​h​e​e​t​,​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			vault_empty: RequiredParams<'path'>
+			/**
+			 * A​ ​t​h​e​m​e​ ​f​o​l​d​e​r​ ​t​h​e​ ​l​i​s​t​ ​d​o​e​s​ ​n​o​t​ ​s​h​o​w
 			 */
 			custom_label: string
 			/**
@@ -3568,7 +3577,7 @@ export type NamespaceWebTranslation = {
 			 */
 			custom_placeholder: string
 			/**
-			 * U​s​e​ ​c​u​s​t​o​m
+			 * U​s​e
 			 */
 			use_custom: string
 			/**
@@ -4314,11 +4323,7 @@ export type NamespaceWebTranslation = {
 			 */
 			col_actions: string
 			/**
-			 * n​o​t​ ​l​i​s​t​e​d​ ​y​e​t
-			 */
-			themes_not_listed: string
-			/**
-			 * T​e​m​p​l​a​t​e​s​ ​a​r​e​ ​i​n​s​e​r​t​e​d​ ​w​i​t​h​ ​I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​,​ ​u​s​e​d​ ​b​y​ ​n​a​m​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​;​ ​t​h​e​m​e​ ​f​o​l​d​e​r​s​ ​a​r​e​ ​n​o​t​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​y​e​t​.
+			 * T​e​m​p​l​a​t​e​s​ ​a​r​e​ ​i​n​s​e​r​t​e​d​ ​w​i​t​h​ ​I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​e​v​e​r​y​ ​o​n​e​ ​i​s​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​a​n​d​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.
 			 */
 			files_foot: string
 			/**
@@ -4344,7 +4349,7 @@ export type NamespaceWebTranslation = {
 			 */
 			templates_how: string
 			/**
-			 * A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​u​s​e​ ​o​n​e​ ​b​y​ ​n​a​m​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.​ ​T​h​e​m​e​ ​f​o​l​d​e​r​s​ ​a​r​e​ ​n​o​t​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​y​e​t​.
+			 * A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​p​i​c​k​ ​o​n​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.
 			 */
 			themes_how: string
 			/**
@@ -11896,10 +11901,6 @@ export type TranslationFunctions = {
 				 */
 				lede: () => LocalizedString
 				/**
-				 * Theme
-				 */
-				theme: () => LocalizedString
-				/**
 				 * System
 				 */
 				system: () => LocalizedString
@@ -11950,11 +11951,23 @@ export type TranslationFunctions = {
 					nord_dark: () => LocalizedString
 				}
 				/**
-				 * Custom theme
+				 * Built in
 				 */
-				custom_theme: () => LocalizedString
+				builtin: () => LocalizedString
 				/**
-				 * Theme folder in this vault
+				 * In this vault
+				 */
+				in_vault: () => LocalizedString
+				/**
+				 * Open a vault to use the themes in it.
+				 */
+				vault_none: () => LocalizedString
+				/**
+				 * This vault has no themes yet. A theme is a folder holding one stylesheet, {path}.
+				 */
+				vault_empty: (arg: { path: string }) => LocalizedString
+				/**
+				 * A theme folder the list does not show
 				 */
 				custom_label: () => LocalizedString
 				/**
@@ -11962,7 +11975,7 @@ export type TranslationFunctions = {
 				 */
 				custom_placeholder: () => LocalizedString
 				/**
-				 * Use custom
+				 * Use
 				 */
 				use_custom: () => LocalizedString
 				/**
@@ -12654,11 +12667,7 @@ export type TranslationFunctions = {
 				 */
 				col_actions: () => LocalizedString
 				/**
-				 * not listed yet
-				 */
-				themes_not_listed: () => LocalizedString
-				/**
-				 * Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css, used by name in Appearance; theme folders are not listed here yet.
+				 * Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; every one is listed here and in Appearance.
 				 */
 				files_foot: () => LocalizedString
 				/**
@@ -12682,7 +12691,7 @@ export type TranslationFunctions = {
 				 */
 				templates_how: () => LocalizedString
 				/**
-				 * A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.
+				 * A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; pick one in Appearance.
 				 */
 				themes_how: () => LocalizedString
 				/**

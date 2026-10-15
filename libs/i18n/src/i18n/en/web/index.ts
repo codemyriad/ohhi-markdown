@@ -1267,7 +1267,6 @@ const settings = {
   },
   appearance: {
     lede: 'How the app looks on this device. A theme of your own lives in this vault.',
-    theme: 'Theme',
     system: 'System',
     theme_help:
       'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too; Nord reproduces the Obsidian theme it is named after.',
@@ -1287,11 +1286,17 @@ const settings = {
       nord_light: 'Nord Light',
       nord_dark: 'Nord Dark',
     },
-    custom_theme: 'Custom theme',
-    /** The field's label; the path and the rules are its hint line, under it (QA round 1). */
-    custom_label: 'Theme folder in this vault',
+    /** The picker's two groups: the themes that ship with the app, and the vault's own theme folders. */
+    builtin: 'Built in',
+    in_vault: 'In this vault',
+    /** The vault group with no vault open (the manager's page). */
+    vault_none: 'Open a vault to use the themes in it.',
+    /** The vault group when the open vault has no theme folder. */
+    vault_empty: 'This vault has no themes yet. A theme is a folder holding one stylesheet, {path:string}.',
+    /** The fallback field under the vault group; the path and the rules are its hint line (QA round 1). */
+    custom_label: 'A theme folder the list does not show',
     custom_placeholder: 'my-theme',
-    use_custom: 'Use custom',
+    use_custom: 'Use',
     custom_help:
       'Reads {path:string} from the open vault. Start from {template:string}; {import_rule:string} and remote {url:string} are stripped, and the sync-status colours cannot be overridden.',
     needs_vault: 'Open a vault first — custom themes live inside it.',
@@ -1521,16 +1526,15 @@ const settings = {
     /** The files table (QA round 1): its title, the actions column's name, the prose at its foot. */
     files: 'Files',
     col_actions: 'Actions',
-    themes_not_listed: 'not listed yet',
     files_foot:
-      'Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css, used by name in Appearance; theme folders are not listed here yet.',
+      'Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; every one is listed here and in Appearance.',
     fell_back: '{name:string} can’t be used, so the built-in default stands in',
     cant_use: 'can’t be used',
     nothing_else: 'nothing else',
     templates_count: '{count:number} template{{s}}',
     templates_how: 'Insert one with Insert template… in the palette.',
     themes_how:
-      'A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.',
+      'A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; pick one in Appearance.',
     copy_json: 'Copy as JSON',
     copy_json_label: 'Copy the {kind:string} in use as JSON',
     copied: 'Copied',

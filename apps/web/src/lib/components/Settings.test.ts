@@ -41,7 +41,7 @@ describe('Settings › Appearance › Fonts (round 3 Q7)', () => {
   it('offers no font pickers: the faces come from the theme, and nothing is set inline', async () => {
     document.documentElement.removeAttribute('style')
     render(Settings, { section: 'appearance', onSection: vi.fn(), vault: null, registry: registryWith() })
-    await screen.findByText(LL.web.settings.appearance.theme())
+    await screen.findByText(LL.web.settings.appearance.builtin())
     expect(screen.queryByTestId('font-pickers')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Notes' })).toBeNull()
     expect(document.documentElement.style.getPropertyValue('--ed-font-prose')).toBe('')

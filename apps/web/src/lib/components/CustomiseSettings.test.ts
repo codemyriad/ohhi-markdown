@@ -105,6 +105,24 @@ describe('Settings › Customise — the hub (QA round 1, QA5)', () => {
     )
   })
 
+  it('the theme row lists this vault’s theme folders under Also here, from the vault — not "not listed yet"', async () => {
+    setup({
+      files: {
+        '.ohhi/themes/nord-dark/theme.css': '[data-theme="nord-dark"] { color-scheme: dark; }',
+        '.ohhi/themes/paper/theme.css': '[data-theme="paper"] { color-scheme: light; }',
+      },
+    })
+    const row = screen.getByTestId('customise-kind:themes')
+    await waitFor(() => expect(within(row).getByTestId('customise-entry:themes:nord-dark')).toBeVisible())
+    expect(within(row).getByTestId('customise-entry:themes:paper')).toHaveTextContent(t.from.vault())
+    expect(row).not.toHaveTextContent(/not listed/)
+  })
+
+  it('a vault with no theme folders: nothing else on the theme row', async () => {
+    setup({ files: {} })
+    await waitFor(() => expect(screen.getByTestId('customise-kind:themes')).toHaveTextContent(t.nothing_else()))
+  })
+
   it('the roots carry no numbers (the order is the rule); Reload files sits on their eyebrow row', () => {
     setup({ files: {} })
     const roots = screen.getByTestId('customise-roots')

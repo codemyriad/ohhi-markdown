@@ -215,7 +215,7 @@
         {/if}
         {#if layout}<LayoutSettings {layout} {registry} />{/if}
       {:else if sid === 'appearance'}
-        <AppearanceSettings {readAppFile} />
+        <AppearanceSettings {readAppFile} themes={resources?.themes} />
       {:else if sid === 'keys'}
         <HotkeySettings
           {registry}
