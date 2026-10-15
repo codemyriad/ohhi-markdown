@@ -201,14 +201,18 @@ const composerTheme = EditorView.theme({
   // One line, however long the hint: a wrapping placeholder would make the
   // empty field taller than its first typed line, and the caret would jump
   // when the field shrinks (the composer is anchored at the pane's foot).
+  // `contain: inline-size` keeps the hint from widening CM's content box
+  // (a flex item that never shrinks below its content), which would make
+  // the scroller scroll sideways — axe's scrollable-region-focusable.
   '.cm-placeholder': {
     color: 'var(--ed-ink-muted)',
     display: 'inline-block',
-    maxWidth: '100%',
+    width: '100%',
+    contain: 'inline-size',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    verticalAlign: 'bottom',
+    verticalAlign: 'top',
   },
   '.ohhi-chip': {
     display: 'inline',
