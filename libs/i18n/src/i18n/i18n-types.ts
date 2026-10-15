@@ -7465,7 +7465,7 @@ export type NamespaceWebTranslation = {
 			 */
 			label: string
 			/**
-			 * A​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​ ​—​ ​@​ ​t​o​ ​r​e​f​e​r​e​n​c​e​,​ ​/​ ​f​o​r​ ​a​ ​s​k​i​l​l
+			 * A​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​ ​—​ ​@​n​o​t​e​,​ ​@​f​o​l​d​e​r​ ​o​r​ ​@​n​o​t​e​#​h​e​a​d​i​n​g​ ​t​o​ ​r​e​f​e​r​e​n​c​e​;​ ​s​e​l​e​c​t​ ​t​e​x​t​ ​f​o​r​ ​l​i​n​e​s​;​ ​/​ ​f​o​r​ ​a​ ​s​k​i​l​l
 			 */
 			placeholder: string
 			/**
@@ -15775,7 +15775,7 @@ export type TranslationFunctions = {
 				 */
 				label: () => LocalizedString
 				/**
-				 * Ask about your notes — @ to reference, / for a skill
+				 * Ask about your notes — @note, @folder or @note#heading to reference; select text for lines; / for a skill
 				 */
 				placeholder: () => LocalizedString
 				/**

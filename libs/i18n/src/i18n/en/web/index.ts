@@ -2609,7 +2609,7 @@ const ai = {
   },
   composer: {
     label: 'Message the agent',
-    placeholder: 'Ask about your notes — @ to reference, / for a skill',
+    placeholder: 'Ask about your notes — @note, @folder or @note#heading to reference; select text for lines; / for a skill',
     send: 'Send',
     hint: 'Enter to send · Shift+Enter for a new line',
     /** The provider picker at the composer's foot: who the next message goes to. */
