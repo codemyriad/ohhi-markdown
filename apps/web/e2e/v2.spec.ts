@@ -4,7 +4,23 @@
  * uses, so it needs no real folder and no share.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, closeSettings, openApp, openByQuickOpen, settingsView, severableRelay, splitRight } from './fixtures.js'
+import { BUILTIN_THEMES, DARK_THEMES } from '../../../libs/ui/src/tokens.js'
+import {
+  appUrl,
+  closeSettings,
+  openApp,
+  openByQuickOpen,
+  openSettings,
+  settingsView,
+  severableRelay,
+  splitRight,
+} from './fixtures.js'
+
+/** Band C's two sets, as computed colours, by `data-status` (sync-tokens.css). */
+const SYNC_STROKE = {
+  light: { green: 'rgb(47, 125, 63)', yellow: 'rgb(138, 99, 0)', red: 'rgb(179, 39, 30)', offline: 'rgb(107, 118, 132)' },
+  dark: { green: 'rgb(86, 185, 111)', yellow: 'rgb(217, 164, 65)', red: 'rgb(224, 82, 82)', offline: 'rgb(139, 150, 166)' },
+} as const
 
 async function type(page: Page, text: string): Promise<void> {
   const content = page.locator('[data-testid="editor-pane"] .cm-content')
@@ -118,6 +134,86 @@ test('the theme drives chrome and editor together, and survives a reload', async
 
   await page.getByTestId('file-item:notes/welcome.md').click()
   expect(await surfaceOf()).toBe('rgb(46, 52, 64)')
+})
+
+test('every built-in theme applies, and the sync colours follow its polarity (band C)', async ({ page }) => {
+  // The themes review (2026-10-15): ten built-ins from one registry, and
+  // band C chosen per POLARITY by `data-polarity`, never per theme.
+  await openApp(page, 'v2-theme-loop')
+  await page.getByTestId('file-item:notes/welcome.md').click()
+  await expect(page.getByTestId('sync-pill-note')).toHaveAttribute('data-status', /.+/)
+  const look = () =>
+    page.evaluate(() => {
+      const editor = document.querySelector('[data-testid="editor-pane"] .cm-editor')!
+      const content = editor.querySelector('.cm-content')!
+      const host = document.querySelector('[data-testid="sync-pill-note"]')!
+      return {
+        surface: getComputedStyle(editor).backgroundColor,
+        ink: getComputedStyle(content).color,
+        status: host.getAttribute('data-status') as 'green' | 'yellow' | 'red' | 'offline',
+        stroke: getComputedStyle(host.querySelector('.ed-sync-icon')!).stroke,
+      }
+    })
+  const seen = new Set<string>()
+  for (const theme of BUILTIN_THEMES) {
+    await openSettings(page, 'appearance')
+    await settingsView(page).getByTestId(`theme-${theme}`).click()
+    const polarity = DARK_THEMES.has(theme) ? 'dark' : 'light'
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+    await expect(page.locator('html')).toHaveAttribute('data-polarity', polarity)
+    await closeSettings(page)
+    const now = await look()
+    expect(now.stroke, `${theme}: the sync icon is not the ${polarity} ${now.status}`).toBe(
+      SYNC_STROKE[polarity][now.status]
+    )
+    seen.add(`${now.surface} ${now.ink}`)
+  }
+  // Every theme's tokens reach CodeMirror: ten different pages.
+  expect(seen.size).toBe(BUILTIN_THEMES.length)
+})
+
+test('a custom dark theme gets the dark sync colours, from the first frame after a reload', async ({ page }) => {
+  // Fork 3-B's point: with band C per theme a custom DARK theme kept the
+  // light green and amber. The polarity is read off its `color-scheme`.
+  await page.goto('/')
+  await page.getByTestId('start-browser-vault').click()
+  await page.getByTestId('new-vault-name').fill('Themes')
+  await page.getByTestId('create-vault').click()
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory()
+    const vaults = await root.getDirectoryHandle('vaults')
+    for await (const [, vault] of (vaults as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
+      if (vault.kind !== 'directory') continue
+      let dir = vault as FileSystemDirectoryHandle
+      for (const seg of ['.ohhi', 'themes', 'night']) dir = await dir.getDirectoryHandle(seg, { create: true })
+      const w = await (await dir.getFileHandle('theme.css', { create: true })).createWritable()
+      await w.write('[data-theme="night"] { color-scheme: dark; --color-base-100: #101010; --ed-surface: #101010; --ed-ink: #eeeeee; }')
+      await w.close()
+    }
+  })
+  const syncOk = () =>
+    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ed-sync-ok').trim())
+
+  await openSettings(page, 'appearance')
+  await expect(page.locator('html')).toHaveAttribute('data-polarity', 'light')
+  expect(await syncOk()).toBe('#2f7d3f')
+  await page.getByTestId('custom-theme-name').fill('night')
+  await page.getByTestId('custom-theme-load').click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
+  await expect(page.locator('html')).toHaveAttribute('data-polarity', 'dark')
+  expect(await syncOk()).toBe('#56b96f')
+
+  // The pre-paint script restores the polarity before the vault (and so the
+  // theme's CSS) is read: the attribute is dark in the very first document.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  expect(await page.evaluate(() => document.documentElement.getAttribute('data-polarity'))).toBe('dark')
+  // …and stays dark through the boot (the app does not overwrite it with
+  // the OS's before the theme's CSS is read) and after the vault opens.
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'night')
+  await expect(page.locator('html')).toHaveAttribute('data-polarity', 'dark')
+  expect(await page.evaluate(() => localStorage.getItem('editor:polarity'))).toBe('dark')
 })
 
 test('a theme cannot repaint or hide the sync icon', async ({ page }) => {

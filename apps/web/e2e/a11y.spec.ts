@@ -38,6 +38,7 @@ import {
   test as withMockLlm,
 } from './fixtures.js'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
+import { BUILTIN_THEMES } from '../../../libs/ui/src/tokens.js'
 
 test('the default layout (no columns) is accessible', async ({ page }) => {
   // Every other scan boots `dense` (fixtures.ts); this is the shell a new
@@ -299,6 +300,38 @@ test('the Live surface, a Reading tab and the mode menu are accessible', async (
   await page.keyboard.press('ControlOrMeta+e')
   await expect(page.locator('[data-testid="editor-pane"] .cm-content[contenteditable="true"]')).toHaveCount(0)
   await expectAccessible(page, 'reading view')
+})
+
+/**
+ * Every built-in theme (themes review, 2026-10-15): the scans above run on
+ * the default, so a theme whose chrome or Live surface misses a contrast
+ * floor would pass them all. Each theme is scanned on the Live surface (the
+ * read fixture: headings, links, tags, code, a fence, tasks) and on
+ * Settings › Appearance, where its own picker row is the pressed one.
+ *
+ * The Nord port is left out, by name — findings about the port that predate
+ * the themes review, which left Nord as it was (its Fork 4 not taken):
+ * nord-light's chrome ink (`--color-base-content: #434c5e`, Nord's dark2) at
+ * the shell's `/70` muted opacity is 3.87:1 on white; nord-dark's tag
+ * (`#8fbcbb` on `#434c5e`, 4.14:1), link orange (`#d08770`, 4.39:1) and
+ * fence keyword (`#81a1c1` on nord1, 3.73:1) sit under 4.5:1 — the review's
+ * own checks found the same. Lift this when the port takes those
+ * corrections as documented deviations.
+ */
+const A11Y_THEME_EXEMPT: ReadonlySet<string> = new Set(['nord-light', 'nord-dark'])
+
+test('every built-in theme is accessible', async ({ page }) => {
+  test.setTimeout(180_000)
+  await seedReadNote(page, 'a11y-themes')
+  await expect(page.locator('input.cm-task')).toHaveCount(2)
+  for (const theme of BUILTIN_THEMES.filter((t) => !A11Y_THEME_EXEMPT.has(t))) {
+    await openSettings(page, 'appearance')
+    await settingsView(page).getByTestId(`theme-${theme}`).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+    await expectAccessible(page, `Settings › Appearance in ${theme}`)
+    await closeSettings(page)
+    await expectAccessible(page, `live preview in ${theme}`)
+  }
 })
 
 test('the palette, a dialog, a menu and settings are accessible', async ({ page }) => {
