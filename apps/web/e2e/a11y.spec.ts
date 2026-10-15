@@ -630,9 +630,8 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await expect(page.getByTestId('agents-can-do')).toBeVisible()
   await expectAccessible(page, 'settings › AI › what an agent can do')
   await page.keyboard.press('Escape')
-  await page.getByTestId('agents-route:terminal').click()
-  await expect(page.getByTestId('agents-code:terminal')).toBeVisible()
-  await expectAccessible(page, 'settings › AI › outside agents, terminal')
+  // A browser vault: no agent reaches it, and the group says so (the routes are scanned on the manager's page).
+  await expect(page.getByTestId('agents-unreachable')).toBeVisible()
   await closeSettings(page)
 
   await page.getByTestId('file-item:notes/welcome.md').click()

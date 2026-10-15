@@ -222,8 +222,10 @@
             >
           </span>
           <p class="col-start-2 col-end-4 m-0 -mt-0.5 pb-1 {META}" data-testid="ai-provider-egress:{row.id}">
-            {#if row.isDefault}<span class="font-medium text-base-content">{t.default()}</span> ·
-            {/if}{t.egress({ name: row.name, host: row.host })}
+            {#if row.isDefault}<span class="font-medium text-base-content">{t.default()}</span>{' · '}{/if}{t.egress({
+              name: row.name,
+              host: row.host,
+            })}
           </p>
           {#if confirmDelete === row.id}
             <div role="alert" class="col-start-2 col-end-4 flex flex-wrap items-center gap-2 pb-2 text-xs text-base-content">
