@@ -677,13 +677,19 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('skill-import-dialog')).toHaveCount(0)
   await page.getByTestId('ai-skills-new').click()
-  await page.getByTestId('ai-skills-create-name').fill('tighten')
+  // The name as a person types it; the folder it becomes is said under the field.
+  await page.getByTestId('ai-skills-create-name').fill('Tighten prose')
+  await expect(page.getByTestId('ai-skills-create-folder')).toHaveText('Folder: tighten-prose')
+  await expect(page.getByTestId('ai-skills-create-rule')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › new skill')
   await page.getByTestId('ai-skills-create-submit').click()
-  // The new SKILL.md opens in the pane, over the Settings tab (a view tab
-  // since settings-shaping ST1); back in Settings › AI › Skills it is trusted.
-  await expect(settingsView(page)).toBeHidden()
-  await openSettings(page, 'ai')
-  await expect(page.getByTestId('ai-skill-trust:tighten')).toHaveAttribute('data-trusted', 'true')
+  // The new SKILL.md opens BESIDE the Settings tab (a view tab since
+  // settings-shaping ST1), not behind it; Settings lists it as trusted.
+  await expect(page.locator('[data-testid^="tab:"][data-path=".agents/skills/tighten-prose/SKILL.md"]')).toBeVisible()
+  await expect(settingsView(page)).toBeVisible()
+  await expect(page.getByTestId('ai-skill-trust:tighten-prose')).toHaveAttribute('data-trusted', 'true')
+  // The new note's pane has the focus now; a click hands it back to Settings to close it.
+  await settingsView(page).getByTestId('settings-tab:ai').click()
   await closeSettings(page)
 
   // The skill picker, over a selection (the template takes one).

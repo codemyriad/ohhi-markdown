@@ -41,7 +41,7 @@
   } from '../ui/styles.js'
   import { isTauri } from '../platform.js'
   import { getViewShell } from '../views.js'
-  import { isValidSkillName } from '@ohhi/harness/skills'
+  import { isValidSkillName, skillSlug } from '@ohhi/harness/skills'
   import { currentSkills, problemText, type SkillRow, type SkillsStore } from '../skills.svelte.js'
   import { pickLocalSkillFolder, type ImportCandidate } from '../skill-import.js'
   import SkillImportDialog from './SkillImportDialog.svelte'
@@ -73,22 +73,29 @@
     void store?.refresh()
   })
 
+  // The field takes whatever is typed; the folder (and the frontmatter `name`,
+  // which the format requires to equal it) is its slug, shown live under it.
+  // Refused only when nothing usable is left, the slug is a reserved word, or
+  // the vault already has it.
   // svelte-ignore state_referenced_locally -- the rule's words are built once per panel
   const schema = z.object({
     name: z
       .string()
-      .trim()
-      .refine(isValidSkillName, $LL.web.ai.skills.create.name_invalid())
+      .transform(skillSlug)
+      .refine((n) => n !== '', $LL.web.ai.skills.create.name_empty())
+      .refine((n) => n === '' || isValidSkillName(n), $LL.web.ai.skills.create.name_reserved())
       .refine((n) => !store?.rows.some((r) => r.id === n), $LL.web.ai.skills.create.name_taken()),
   })
   const form = createForm(schema, { name: '' })
+  const slug = $derived(skillSlug(form.data.name))
 
   async function create(): Promise<void> {
     if (!store) return
     const ok = await form.submit(async ({ name }) => {
-      const path = await store.create(name.trim())
+      const path = await store.create(name)
       if (!path) throw new Error(t.create.failed())
-      shell?.openPath(path)
+      // Beside Settings, not behind it: Settings is the view in the focused pane.
+      shell?.openPath(path, { beside: true })
     })
     if (ok) {
       creating = false
@@ -160,7 +167,14 @@
             onblur={() => form.touch('name')}
             testid="ai-skills-create-name"
           />
-          <Description>{t.create.name_hint()}</Description>
+          {#if slug}
+            <!-- The folder as it will be created; the rule only when the slug had to change what was typed. -->
+            <Description>
+              <span data-testid="ai-skills-create-folder">{t.create.folder({ folder: slug })}</span>{#if slug !== form.data.name}<span
+                  data-testid="ai-skills-create-rule"> · {t.create.folder_rule()}</span
+                >{/if}
+            </Description>
+          {/if}
           <FieldErrors />
         </Field>
         {#if form.formError}
@@ -223,7 +237,7 @@
                   type="button"
                   data-testid="ai-skill-open:{row.id}"
                   aria-label={t.open({ name: row.meta.name })}
-                  onclick={() => shell.openPath(`${row.meta.dir}/SKILL.md`)}
+                  onclick={() => shell.openPath(`${row.meta.dir}/SKILL.md`, { beside: true })}
                   class="{BUTTON_SM} ms-1"
                 >
                   {t.open_short()}

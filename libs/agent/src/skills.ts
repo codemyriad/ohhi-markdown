@@ -218,6 +218,27 @@ export function skillNameProblems(name: string): SkillProblem[] {
 /** A name a skill may have (and a folder under `.agents/skills/` or `.claude/skills/` may be called). */
 export const isValidSkillName = (name: string): boolean => skillNameProblems(name).length === 0
 
+/** Letters NFKD does not take apart, folded the simple way. */
+const FOLD: Record<string, string> = { ß: 'ss', æ: 'ae', œ: 'oe', ø: 'o', đ: 'd', ð: 'd', ł: 'l', þ: 'th', ı: 'i' }
+
+/**
+ * What a person typed as a skill's name, as the folder it becomes: lowercase,
+ * accents folded where simple (`é` → `e`, `ß` → `ss`), apostrophes dropped,
+ * every other run of spaces and punctuation one hyphen, no hyphen at either
+ * end, cut at 64. `''` when nothing usable is left. The reserved words are
+ * not this function's business: a slug may still fail `isValidSkillName`.
+ */
+export function skillSlug(text: string): string {
+  const folded = text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .replace(/[ßæœøđðłþı]/g, (c) => FOLD[c] ?? c)
+    .replace(/['’‘`]/g, '')
+  const slug = folded.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return slug.slice(0, MAX_NAME).replace(/-+$/, '')
+}
+
 const asString = (v: FmValue | undefined): string | undefined =>
   typeof v === 'string' ? v : Array.isArray(v) ? v.join(' ') : undefined
 

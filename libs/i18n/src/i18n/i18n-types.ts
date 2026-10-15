@@ -7788,13 +7788,22 @@ export type NamespaceWebTranslation = {
 				 */
 				name: string
 				/**
-				 * L​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​h​y​p​h​e​n​s​.​ ​I​t​ ​i​s​ ​a​l​s​o​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​n​a​m​e​.
+				 * F​o​l​d​e​r​:​ ​{​f​o​l​d​e​r​}
+				 * @param {string} folder
 				 */
-				name_hint: string
+				folder: RequiredParams<'folder'>
 				/**
-				 * U​s​e​ ​l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​s​i​n​g​l​e​ ​h​y​p​h​e​n​s​,​ ​u​p​ ​t​o​ ​6​4​ ​c​h​a​r​a​c​t​e​r​s​.
+				 * l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​h​y​p​h​e​n​s
 				 */
-				name_invalid: string
+				folder_rule: string
+				/**
+				 * T​y​p​e​ ​a​ ​n​a​m​e
+				 */
+				name_empty: string
+				/**
+				 * A​ ​s​k​i​l​l​’​s​ ​n​a​m​e​ ​c​a​n​’​t​ ​u​s​e​ ​a​n​t​h​r​o​p​i​c​,​ ​c​l​a​u​d​e​ ​o​r​ ​s​y​n​c​e​d​.
+				 */
+				name_reserved: string
 				/**
 				 * T​h​i​s​ ​v​a​u​l​t​ ​a​l​r​e​a​d​y​ ​h​a​s​ ​a​ ​s​k​i​l​l​ ​w​i​t​h​ ​t​h​a​t​ ​n​a​m​e​.
 				 */
@@ -16078,13 +16087,21 @@ export type TranslationFunctions = {
 					 */
 					name: () => LocalizedString
 					/**
-					 * Lowercase letters, numbers and hyphens. It is also the folder’s name.
+					 * Folder: {folder}
 					 */
-					name_hint: () => LocalizedString
+					folder: (arg: { folder: string }) => LocalizedString
 					/**
-					 * Use lowercase letters, numbers and single hyphens, up to 64 characters.
+					 * lowercase letters, numbers and hyphens
 					 */
-					name_invalid: () => LocalizedString
+					folder_rule: () => LocalizedString
+					/**
+					 * Type a name
+					 */
+					name_empty: () => LocalizedString
+					/**
+					 * A skill’s name can’t use anthropic, claude or synced.
+					 */
+					name_reserved: () => LocalizedString
 					/**
 					 * This vault already has a skill with that name.
 					 */

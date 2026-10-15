@@ -2685,8 +2685,10 @@ const ai = {
     create: {
       title: 'New skill',
       name: 'Name',
-      name_hint: 'Lowercase letters, numbers and hyphens. It is also the folder’s name.',
-      name_invalid: 'Use lowercase letters, numbers and single hyphens, up to 64 characters.',
+      folder: 'Folder: {folder:string}',
+      folder_rule: 'lowercase letters, numbers and hyphens',
+      name_empty: 'Type a name',
+      name_reserved: 'A skill’s name can’t use anthropic, claude or synced.',
       name_taken: 'This vault already has a skill with that name.',
       submit: 'Create',
       cancel: 'Cancel',
