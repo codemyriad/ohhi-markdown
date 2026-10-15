@@ -34,15 +34,20 @@
    *    the registry's caret rows — the same path as the pair and the keys
    *  - anything else → "Used ohhi_links"
    *
-   * *Details* folds the input and output away for the curious. Opening a note
+   * One quiet row (QA round 1, feedback 13): a glyph per tool kind, the
+ * summary, and *Details* ▸ at the right end — a real button with
+ * `aria-expanded` that unfolds the input and output in a compact monospace
+ * block under the row. Hits, a proposal's diff and its verbs sit indented
+ * under the row. Opening a note
    * is the shell's verb (`ViewShell.openPath`); with no shell it is text.
    */
-  import { FileText } from '@lucide/svelte'
+  import { ChevronRight, FileText, FolderTree, Link, PencilLine, Search, Sparkles, Wrench } from '@lucide/svelte'
   import { isProposalResult } from '@ohhi/harness'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { formatBytes } from '../storage-persistence.js'
   import { harnessWorkspace } from '../sessions.svelte.js'
   import { getViewShell } from '../views.js'
+  import { META } from '../ui/styles.js'
 
   interface Props {
     part: ToolPart
@@ -51,6 +56,9 @@
   let { part }: Props = $props()
 
   const shell = getViewShell()
+  const detailsId = $props.id()
+  /** *Details* open: per card, for as long as the transcript keeps it mounted. */
+  let expanded = $state(false)
   const t = $derived($LL.web.ai.session.tool)
   const name = $derived(toolNameOf(part))
   const input = $derived((part.input ?? {}) as Record<string, unknown>)
@@ -134,43 +142,77 @@
       return String(v)
     }
   }
+  /** The row's glyph, by what the tool does: find, read, list, write, a skill, links; else a wrench. */
+  const Icon = $derived(
+    proposal || /_(patch|write|append)$/.test(name)
+      ? PencilLine
+      : name === 'ohhi_search'
+        ? Search
+        : name === 'ohhi_read'
+          ? FileText
+          : name === 'ohhi_ls'
+            ? FolderTree
+            : name === 'ohhi_skill'
+              ? Sparkles
+              : /links/.test(name)
+                ? Link
+                : Wrench
+  )
+  /** The *Details* toggle: small, muted, at the row's right end. */
+  const toggle =
+    'inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary'
   const link = 'text-xs text-base-content/80 underline hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary'
   const verb =
     'rounded border border-base-300 bg-base-100 px-2 py-0.5 text-xs font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
-<div
-  data-testid="tool-card"
-  data-tool={name}
-  data-state={part.state}
-  class="rounded-md border border-base-300 bg-base-100 px-2.5 py-1.5 text-xs text-base-content/80"
->
-  <p class="m-0 flex items-center gap-1.5 {failed ? 'text-error' : ''}">
-    <span data-testid="tool-summary">{summary}</span>
+<div data-testid="tool-card" data-tool={name} data-state={part.state} class="{META} flex flex-col">
+  <div class="flex min-h-5 items-center gap-1.5 {failed ? 'text-error' : ''}">
+    <Icon size={14} class="shrink-0" aria-hidden="true" />
+    <span data-testid="tool-summary" class="min-w-0 truncate">{summary}</span>
     {#if hits.length}
-      <span class="text-base-content/70">· {t.results({ count: hits.length })}</span>
+      <span class="shrink-0">· {t.results({ count: hits.length })}</span>
     {/if}
     {#if reviewable}
       <span
         data-testid="proposal-status"
         data-status={status}
-        class="ml-auto shrink-0 rounded-full bg-base-200 px-2 py-0.5 text-[11px] text-base-content"
+        class="ms-auto shrink-0 rounded-full bg-base-200 px-2 text-[11px] text-base-content"
       >
         {t.proposal_status[status]()}
       </span>
     {:else if proposal?.proposed && shell}
       <button type="button" class={link} data-testid="tool-open" onclick={() => shell.openPath(proposal.path, { beside: true })}>{t.open()}</button>
     {/if}
-  </p>
+    {#if done || failed}
+      <button
+        type="button"
+        class="{reviewable ? '' : 'ms-auto'} {toggle}"
+        aria-expanded={expanded}
+        aria-controls={detailsId}
+        data-testid="tool-details-toggle"
+        onclick={() => (expanded = !expanded)}
+        >{t.details()}<ChevronRight size={12} aria-hidden="true" class="transition-transform {expanded ? 'rotate-90' : ''}" /></button
+      >
+    {/if}
+  </div>
+  {#if (done || failed) && expanded}
+    <div id={detailsId} data-testid="tool-details" class="ms-5 mt-0.5 mb-1 flex flex-col gap-1 rounded bg-base-200 px-2 py-1 text-base-content">
+      <pre class="m-0 max-h-48 overflow-auto font-ed-mono text-[11px] whitespace-pre-wrap">{json(part.input)}</pre>
+      {#if done}
+        <pre class="m-0 max-h-48 overflow-auto border-t border-base-300 pt-1 font-ed-mono text-[11px] whitespace-pre-wrap">{json(part.output)}</pre>
+      {/if}
+    </div>
+  {/if}
   {#if reviewable && record}
-    <p class="proposal-diff m-0 mt-1 border-l-2 border-base-300 bg-ed-surface py-0.5 pl-2 font-ed-mono text-[11px] whitespace-pre-wrap" data-testid="proposal-diff">
+    <p class="proposal-diff m-0 ms-5 mt-0.5 border-l-2 border-base-300 bg-ed-surface py-0.5 pl-2 font-ed-mono text-[11px] whitespace-pre-wrap" data-testid="proposal-diff">
       {#if record.baseText}<del class:stale={status === 'stale'}>{clip(record.baseText)}</del>{/if}
       {#if record.baseText && record.proposedText}{' '}{/if}
       {#if record.proposedText}<ins class:stale={status === 'stale'}>{clip(record.proposedText)}</ins>{/if}
     </p>
   {/if}
   {#if reviewable && shell}
-    <div class="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="proposal-actions">
+    <div class="ms-5 mt-1 mb-0.5 flex flex-wrap items-center gap-1.5" data-testid="proposal-actions">
       {#if status === 'pending'}
         <button type="button" class={verb} data-testid="proposal-accept" disabled={acting} onclick={() => void act('ai.accept-suggestion')}
           >{t.accept()}</button
@@ -185,7 +227,7 @@
     </div>
   {/if}
   {#if hits.length}
-    <ul class="m-0 mt-1 flex list-none flex-col gap-0.5 p-0" data-testid="tool-hits">
+    <ul class="m-0 ms-5 mt-0.5 flex list-none flex-col gap-0.5 p-0" data-testid="tool-hits">
       {#each hits.slice(0, 8) as hit (hit.path)}
         <li class="flex items-center gap-1.5">
           <FileText size={12} aria-hidden="true" />
@@ -196,15 +238,6 @@
         </li>
       {/each}
     </ul>
-  {/if}
-  {#if done || failed}
-    <details class="mt-1">
-      <summary class="cursor-pointer text-base-content/70">{t.details()}</summary>
-      <pre class="m-0 mt-1 max-h-48 overflow-auto font-ed-mono text-[11px] whitespace-pre-wrap">{json(part.input)}</pre>
-      {#if done}
-        <pre class="m-0 mt-1 max-h-48 overflow-auto font-ed-mono text-[11px] whitespace-pre-wrap">{json(part.output)}</pre>
-      {/if}
-    </details>
   {/if}
 </div>
 

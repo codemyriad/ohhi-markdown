@@ -203,6 +203,48 @@ describe('SessionView', () => {
     expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
   })
 
+  it('thinking and tool calls form one run of rows, each folding its own Details / Thinking by a real toggle', async () => {
+    const chunks: UIMessageChunk[] = [
+      { type: 'start' },
+      { type: 'reasoning-start', id: 'r0' },
+      { type: 'reasoning-end', id: 'r0' },
+      { type: 'reasoning-start', id: 'r1' },
+      { type: 'reasoning-delta', id: 'r1', delta: 'Look at the note first.' },
+      { type: 'reasoning-end', id: 'r1' },
+      { type: 'tool-input-available', toolCallId: 'c1', toolName: 'ohhi_read', input: { path: 'plan.md' } },
+      { type: 'tool-output-available', toolCallId: 'c1', output: { schema: 'ohhi.read.v1', path: 'plan.md', text: 'Plan' } },
+      { type: 'tool-input-available', toolCallId: 'c2', toolName: 'ohhi_ls', input: {} },
+      { type: 'tool-output-available', toolCallId: 'c2', output: { schema: 'ohhi.ls.v1', entries: [] } },
+      ...say('Read it.').slice(1),
+    ]
+    const { user } = setup({ agent: agentOf(chunks) })
+    await startRun({ sessionId: 's1', instruction: 'Read the plan', open: false })
+    await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
+    // One run: the empty reasoning draws nothing, the other a row, then both calls.
+    const run = screen.getByTestId('session-tool-run')
+    expect(within(run).getAllByTestId('session-reasoning')).toHaveLength(1)
+    expect(within(run).getAllByTestId('tool-card')).toHaveLength(2)
+
+    const thinking = within(run).getByRole('button', { name: getLL().web.ai.session.reasoning() })
+    expect(thinking).toHaveAttribute('aria-expanded', 'false')
+    expect(run).not.toHaveTextContent('Look at the note first.')
+    await user.click(thinking)
+    expect(thinking).toHaveAttribute('aria-expanded', 'true')
+    expect(run).toHaveTextContent('Look at the note first.')
+
+    const [read, ls] = within(run).getAllByTestId('tool-card')
+    const toggle = within(read).getByRole('button', { name: t.tool.details() })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(within(read).queryByTestId('tool-details')).toBeNull()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(within(read).getByTestId('tool-details')).toHaveTextContent('"path": "plan.md"')
+    // Per card: the other stays folded.
+    expect(within(ls).getByRole('button', { name: t.tool.details() })).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(within(read).queryByTestId('tool-details')).toBeNull()
+  })
+
   it('a proposal renders as “proposed an edit in <note>” with Show in note; an empty one says so', async () => {
     const proposal = (id: string, out: Record<string, unknown>): UIMessageChunk[] => [
       { type: 'tool-input-available', toolCallId: id, toolName: 'ohhi_patch', input: { path: 'plan.md', old: 'a', new: 'b' } },

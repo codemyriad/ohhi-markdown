@@ -7,8 +7,11 @@
    *  - `text` → the person's words as typed (their chips are `@label` text,
    *    with the references listed under them); the agent's through
    *    `SessionMarkdown`, streaming while it is the open message
-   *  - `reasoning` → folded into a `<details>`
-   *  - `tool-*` / `dynamic-tool` → `ToolCard`, keyed on its state
+   *  - `reasoning` → a *Thinking* ▸ row (`ThinkingRow`), folded; an empty one, nothing
+   *  - `tool-*` / `dynamic-tool` → a `ToolCard` row, keyed on its state
+   *
+   *    Consecutive reasoning and tool rows form ONE tight run (QA round 1,
+   *    feedback 13: one line per call, not a stack of boxes).
    *  - anything else (step boundaries, sources, data parts) → nothing
    *
    * A turn a comment asked (*Send to agent*, `metadata.threadId`) says so
@@ -24,6 +27,7 @@
   import type { Mention } from '@ohhi/harness'
   import { getViewShell } from '../views.js'
   import SessionMarkdown from './SessionMarkdown.svelte'
+  import ThinkingRow from './ThinkingRow.svelte'
   import ToolCard, { type ToolPart } from './ToolCard.svelte'
 
   interface Props {
@@ -38,7 +42,31 @@
   const c = $derived($LL.web.ai.comments)
   const shell = getViewShell()
 
+  type Part = UIMessage['parts'][number]
   const isTool = (part: { type: string }): boolean => part.type.startsWith('tool-') || part.type === 'dynamic-tool'
+  /** A row in a run: a tool call, or reasoning with something in it (an empty one is not worth a row). */
+  const isRow = (part: Part): boolean => isTool(part) || (part.type === 'reasoning' && part.text.trim() !== '')
+  /**
+   * A message's parts as the transcript lays them out: each text part on its
+   * own, and every stretch of tool calls and reasoning between them as ONE
+   * tight run of rows. Keyed by the first part's index, which only appending
+   * never moves — a row keeps its *Details* open while the stream grows.
+   */
+  type Segment =
+    | { kind: 'text'; j: number; part: Extract<Part, { type: 'text' }> }
+    | { kind: 'run'; j: number; items: { j: number; part: Part }[] }
+  const segmentsOf = (parts: Part[]): Segment[] => {
+    const out: Segment[] = []
+    parts.forEach((part, j) => {
+      if (part.type === 'text') out.push({ kind: 'text', j, part })
+      else if (isRow(part)) {
+        const last = out.at(-1)
+        if (last?.kind === 'run') last.items.push({ j, part })
+        else out.push({ kind: 'run', j, items: [{ j, part }] })
+      }
+    })
+    return out
+  }
   /** The comment thread a turn answers, and its note (the turn's first reference). */
   const threadOf = (m: UIMessage): { id: string; path: string } | null => {
     const id = (m.metadata as { threadId?: string } | undefined)?.threadId
@@ -62,20 +90,23 @@
         ? 'self-end max-w-[85%] rounded-lg bg-base-200 px-3 py-2 text-sm text-base-content'
         : 'flex flex-col gap-2'}
     >
-      {#each message.parts as part, j (j)}
-        {#if part.type === 'text'}
+      {#each segmentsOf(message.parts) as seg (seg.j)}
+        {#if seg.kind === 'text'}
           {#if message.role === 'user'}
-            <p class="m-0 whitespace-pre-wrap">{part.text}</p>
+            <p class="m-0 whitespace-pre-wrap">{seg.part.text}</p>
           {:else}
-            <SessionMarkdown source={part.text} streaming={open && j === message.parts.length - 1} />
+            <SessionMarkdown source={seg.part.text} streaming={open && seg.j === message.parts.length - 1} />
           {/if}
-        {:else if part.type === 'reasoning'}
-          <details class="text-xs text-base-content/80" data-testid="session-reasoning">
-            <summary class="cursor-pointer text-base-content/70">{t.reasoning()}</summary>
-            <p class="m-0 mt-1 whitespace-pre-wrap">{part.text}</p>
-          </details>
-        {:else if isTool(part)}
-          <ToolCard part={part as unknown as ToolPart} />
+        {:else}
+          <div class="flex flex-col gap-0.5" data-testid="session-tool-run">
+            {#each seg.items as item (item.j)}
+              {#if item.part.type === 'reasoning'}
+                <ThinkingRow text={(item.part as { text: string }).text} />
+              {:else}
+                <ToolCard part={item.part as unknown as ToolPart} />
+              {/if}
+            {/each}
+          </div>
         {/if}
       {/each}
       {#if message.role === 'user' && threadOf(message)}
