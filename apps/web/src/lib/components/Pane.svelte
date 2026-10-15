@@ -473,14 +473,22 @@
   }
 
   /**
-   * The inline title (P3): mounted INTO the view's scroller, just before
-   * `.cm-content`, so it scrolls with the note while staying outside the
+   * The inline title (P3): mounted INTO the view's scroller, as its FIRST
+   * child, so it scrolls with the note while staying outside the
    * document — CM6 listens on its content element only, so the title's keys,
    * clicks and selection never reach the editor, and the resume point (the
    * scroller's `scrollTop`) still means the same place. It is mounted
    * imperatively rather than rendered and moved: a Svelte block whose nodes
    * were moved into CM6's DOM would tear down by walking CM6's siblings.
    * Only a note gets one — a view tab and the empty tab never reach here.
+   *
+   * First, not "before `.cm-content`": CM6 puts its gutters there too (a
+   * comment thread's marker column), and a view built with a thread already
+   * in the note has them before this effect runs. Slotted between the
+   * gutters and the content, the title wrapped onto a second row and left
+   * the full-height gutter column alone on the first — a pane-high gap above
+   * the note, its marker stranded at the top (QA round 1, after *Send to
+   * agent* split the pane and rebuilt the note's view).
    */
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
   const desktop = isTauri()
@@ -492,7 +500,7 @@
     const scroller = view.scrollDOM
     const slot = document.createElement('div')
     slot.className = 'ed-inline-title'
-    scroller.insertBefore(slot, view.contentDOM)
+    scroller.prepend(slot)
     scroller.classList.add('ed-titled')
     const title = mount(InlineTitle, {
       target: slot,

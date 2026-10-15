@@ -8,7 +8,8 @@
  *  - `Mod+Shift+L` on a selection → a session with the chip; a tool-calling
  *    turn reads the vault and answers;
  *  - a scripted `ohhi_patch` → a suggestion in the note, accepted with `Mod+Enter`;
- *  - a comment sent to the agent → its reply in the thread.
+ *  - a comment sent to the agent → its reply in the thread; with the session
+ *    opened below, the note keeps its first line at the top.
  */
 import { expect, type Page } from '@playwright/test'
 import { closeSettings, editors, openApp, openSettings, paneContent, panes, seedProvider, selectLine, test } from './fixtures.js'
@@ -282,4 +283,53 @@ test('a comment sent to the agent gets its reply in the thread', async ({ page, 
   expect(req.lastUser).toContain('What does this mean in practice?')
   expect(req.system).toContain('## A comment asked')
   expect(req.system).toContain(LINE)
+})
+
+test('a note with a comment thread keeps its first line at the top when the session opens below it, the marker beside its passage', async ({ page, mockLlm }) => {
+  // QA round 1: a comment sent to the agent, then the session opened below
+  // the note, left a pane-high gap above it — the note's view, rebuilt with
+  // the thread's gutter already in it, had the inline title slotted after the
+  // gutter column, which then took a row of its own. Typewriter on, as Chris
+  // may have it (its bottom padding makes that row taller still).
+  const mock = await mockLlm([{ text: 'That looks like a stray keystroke.' }])
+  await seedProvider(page, `${mock.url}/v1`, {
+    layout: { overrides: { regions: { header: 'toolbar', rail: 'dock' }, editor: { typewriter: true } } },
+  })
+  // Narrow enough that the split puts the session BELOW the note.
+  await page.setViewportSize({ width: 1100, height: 900 })
+  await openApp(page, 'harness-comment-below')
+  await openNote(page)
+  await selectLine(page, LINE)
+  await page.keyboard.press('ControlOrMeta+Shift+m')
+  const bubble = page.getByTestId('comment-bubble')
+  await bubble.getByTestId('comment-body').fill('jiaosdjas')
+  await bubble.getByTestId('comment-send-agent').check()
+  await bubble.getByTestId('comment-submit').click()
+  await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+  // The session, opened from the note: below it.
+  await paneContent(page).getByText('syncs through').click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(below!.y).toBeGreaterThanOrEqual(top!.y + top!.height - 1)
+
+  const note = panes(page).nth(0)
+  const box = async (selector: string) => (await note.locator(selector).first().boundingBox())!
+  const marker = note.locator('.ed-comment-marker')
+  await expect(marker).toBeVisible()
+  const scroller = await box('.cm-scroller')
+  const title = await box('.ed-inline-title')
+  const firstLine = await box('.cm-line')
+  // The title at the top of the scroller, the first line right under it (within a line height), on screen.
+  expect(Math.abs(title.y - scroller.y)).toBeLessThan(2)
+  expect(firstLine.y - (title.y + title.height)).toBeLessThan(firstLine.height)
+  expect(firstLine.y + firstLine.height).toBeLessThan(scroller.y + scroller.height)
+  // The thread's marker sits beside its passage, on the passage's line.
+  const passage = await box('.ed-comment')
+  const dot = (await marker.boundingBox())!
+  expect(dot.x).toBeLessThan(passage.x)
+  const mid = dot.y + dot.height / 2
+  expect(mid).toBeGreaterThan(passage.y - 6)
+  expect(mid).toBeLessThan(passage.y + passage.height + 6)
 })
