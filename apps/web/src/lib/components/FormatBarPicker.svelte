@@ -12,6 +12,11 @@
    * through the device-override store — config, never a layout file. *Reset
    * to layout file* drops just that override. The list logic is
    * `format-bar-picker.ts`.
+   *
+   * `bar="selection"` (selection explorations, shape B) is the same picker
+   * over the selection handle, `bars.selection`: its own words and testids
+   * (`selection-bar-*`), its own candidates (the comment, the agent's
+   * selection verbs, the format commands).
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { tick } from 'svelte'
@@ -22,6 +27,7 @@
   import { COMMAND_ICONS, PARAGRAPH_STYLE_ICON } from '../command-icons.js'
   import { TOOLBAR_ITEM_IDS } from '../command-ids.js'
   import {
+    CANDIDATES,
     barOverridden,
     hideAt,
     moveBy,
@@ -31,6 +37,7 @@
     showAt,
     withFormatBar,
     withoutFormatBar,
+    type PickerBar,
   } from '../format-bar-picker.js'
   import { SEPARATOR, type LayoutFile, type ShellSpec } from '../layout-spec.js'
   import type { SettingsLayout } from '../settings-host.js'
@@ -41,14 +48,18 @@
   interface Props {
     layout: SettingsLayout
     registry?: CommandRegistry
+    /** Which bar: the format bar (default) or the selection row. */
+    bar?: PickerBar
   }
 
-  let { layout, registry }: Props = $props()
+  let { layout, registry, bar = 'format' }: Props = $props()
 
-  const t = $derived($LL.web.settings.layout.bar)
-  const rows = $derived(pickerRows(layout.ownSpec.bars.format))
+  const t = $derived(bar === 'format' ? $LL.web.settings.layout.bar : $LL.web.settings.layout.selection_bar)
+  /** Every testid and element id is the bar's: `format-bar-*` (E6's, kept) or `selection-bar-*`. */
+  const p = $derived(bar === 'format' ? 'format-bar' : 'selection-bar')
+  const rows = $derived(pickerRows(layout.ownSpec.bars[bar], CANDIDATES[bar]))
   const shownKeys = $derived(pillKeys(rows.shown))
-  const overridden = $derived(barOverridden(layout.overrides))
+  const overridden = $derived(barOverridden(layout.overrides, bar))
 
   /** The one grouped entry (`TOOLBAR_ITEM_IDS`): the paragraph-style menu. */
   const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
@@ -73,11 +84,11 @@
   function write(list: readonly string[]): void {
     const overrides = $state.snapshot(layout.overrides) as LayoutFile
     const file = $state.snapshot(layout.fileSpec) as ShellSpec
-    layout.setOverrides(withFormatBar(overrides, file, list))
+    layout.setOverrides(withFormatBar(overrides, file, list, bar))
   }
 
   function reset(): void {
-    layout.setOverrides(withoutFormatBar($state.snapshot(layout.overrides) as LayoutFile))
+    layout.setOverrides(withoutFormatBar($state.snapshot(layout.overrides) as LayoutFile, bar))
   }
 
   /** After a change from the keyboard: focus where the pill went, and say so. */
@@ -184,14 +195,14 @@
     'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
-<div bind:this={root} class="mt-4 space-y-2" data-testid="format-bar-picker">
+<div bind:this={root} class="mt-4 space-y-2" data-testid="{p}-picker">
   <h3 class="text-[13px] font-semibold text-base-content">{t.title()}</h3>
   <p class="text-xs text-base-content/70">{t.intro()}</p>
 
-  <p class="text-xs text-base-content/70" id="format-bar-shown-label">{t.shown()}</p>
+  <p class="text-xs text-base-content/70" id="{p}-shown-label">{t.shown()}</p>
   <ul
-    aria-labelledby="format-bar-shown-label"
-    data-testid="format-bar-shown"
+    aria-labelledby="{p}-shown-label"
+    data-testid="{p}-shown"
     class="{rowCls} {drag ? 'border-primary' : 'border-base-300'}"
     ondragover={overShownRow}
     ondragleave={() => (dropAt = null)}
@@ -210,13 +221,13 @@
           ? 'border-r-2 border-primary pr-0.5'
           : ''}"
       >
-        <DropdownMenu placement="bottom-start" testid="format-bar-pill-menu:{key}">
+        <DropdownMenu placement="bottom-start" testid="{p}-pill-menu:{key}">
           {#snippet trigger(attrs)}
             <button
               use:melt={attrs}
               type="button"
               data-pill="shown:{key}"
-              data-testid="format-bar-pill:{key}"
+              data-testid="{p}-pill:{key}"
               aria-label={t.pill_shown({ name: nameOf(id), n: index + 1, total: rows.shown.length })}
               class="{pillCls} cursor-grab border-base-300 bg-base-100 text-base-content"
             >
@@ -229,18 +240,18 @@
             </button>
           {/snippet}
           {#snippet children(menu)}
-            <MenuItem item={menu.item} disabled={index === 0} testid="format-bar-left:{key}" onSelect={() => move(index, -1)}>
+            <MenuItem item={menu.item} disabled={index === 0} testid="{p}-left:{key}" onSelect={() => move(index, -1)}>
               {t.move_left()}
             </MenuItem>
             <MenuItem
               item={menu.item}
               disabled={index === rows.shown.length - 1}
-              testid="format-bar-right:{key}"
+              testid="{p}-right:{key}"
               onSelect={() => move(index, 1)}
             >
               {t.move_right()}
             </MenuItem>
-            <MenuItem item={menu.item} testid="format-bar-hide:{key}" onSelect={() => hide(index)}>
+            <MenuItem item={menu.item} testid="{p}-hide:{key}" onSelect={() => hide(index)}>
               {id === SEPARATOR ? t.remove() : t.hide()}
             </MenuItem>
           {/snippet}
@@ -251,10 +262,10 @@
     {/each}
   </ul>
 
-  <p class="text-xs text-base-content/70" id="format-bar-hidden-label">{t.hidden()}</p>
+  <p class="text-xs text-base-content/70" id="{p}-hidden-label">{t.hidden()}</p>
   <ul
-    aria-labelledby="format-bar-hidden-label"
-    data-testid="format-bar-hidden"
+    aria-labelledby="{p}-hidden-label"
+    data-testid="{p}-hidden"
     class="{rowCls} {overHidden ? 'border-primary' : 'border-base-300'}"
     ondragover={overHiddenRow}
     ondragleave={() => (overHidden = false)}
@@ -263,13 +274,13 @@
     {#each [...rows.hidden, SEPARATOR] as id (id)}
       {@const Icon = iconOf(id)}
       <li draggable="true" ondragstart={(e) => start(e, { from: 'hidden', id })} ondragend={end} class="flex">
-        <DropdownMenu placement="bottom-start" testid="format-bar-pill-menu:hidden:{id}">
+        <DropdownMenu placement="bottom-start" testid="{p}-pill-menu:hidden:{id}">
           {#snippet trigger(attrs)}
             <button
               use:melt={attrs}
               type="button"
               data-pill="hidden:{id}"
-              data-testid="format-bar-pill:hidden:{id}"
+              data-testid="{p}-pill:hidden:{id}"
               aria-label={t.pill_hidden({ name: nameOf(id) })}
               class="{pillCls} cursor-grab border-dashed border-base-300 bg-base-200 text-base-content/70"
             >
@@ -278,7 +289,7 @@
             </button>
           {/snippet}
           {#snippet children(menu)}
-            <MenuItem item={menu.item} testid="format-bar-show:{id}" onSelect={() => show(id)}>{t.show()}</MenuItem>
+            <MenuItem item={menu.item} testid="{p}-show:{id}" onSelect={() => show(id)}>{t.show()}</MenuItem>
           {/snippet}
         </DropdownMenu>
       </li>
@@ -286,11 +297,11 @@
   </ul>
   {#if rows.hidden.length === 0}<p class="text-xs text-base-content/70">{t.empty_hidden()}</p>{/if}
 
-  <p class="sr-only" aria-live="polite" data-testid="format-bar-announce">{announce}</p>
+  <p class="sr-only" aria-live="polite" data-testid="{p}-announce">{announce}</p>
 
   <button
     type="button"
-    data-testid="format-bar-reset"
+    data-testid="{p}-reset"
     disabled={!overridden}
     onclick={reset}
     class="{OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-base-content disabled:opacity-50"

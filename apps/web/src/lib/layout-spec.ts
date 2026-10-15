@@ -23,6 +23,9 @@ import { RESOURCE_NAME, parseJsonFile, walkExtends } from './resource-kind.js'
 import defaultPreset from './layouts/default.json'
 import denseExample from './layouts/examples/dense.json'
 
+/** The built-in selection handle's items, for a complete file that predates `bars.selection`. */
+const defaultSelection: readonly string[] = defaultPreset.bars.selection
+
 export const LAYOUT_SCHEMA_ID = 'ohhi.layout.v1'
 export const SEPARATOR = '|'
 
@@ -71,14 +74,15 @@ const ALIAS_TARGETS = new Set<string>(Object.values(READOUT_ALIASES))
 export const REGION_IDS = ['toolbar', 'header', 'navigator', 'rail', 'tabs', 'statusbar', 'format', 'status'] as const
 export type RegionId = (typeof REGION_IDS)[number]
 
-export const BAR_IDS = ['toolbar.left', 'toolbar.center', 'toolbar.right', 'format', 'statusbar', 'status', 'tabs'] as const
+export const BAR_IDS = ['toolbar.left', 'toolbar.center', 'toolbar.right', 'format', 'statusbar', 'status', 'tabs', 'selection'] as const
 export type BarId = (typeof BAR_IDS)[number]
 
 /**
- * The bars that hold COMMAND ids, drawn as buttons (`format`, and the tab
- * strip's end, `tabs` — E6's split buttons); every other bar holds readout ids.
+ * The bars that hold COMMAND ids, drawn as buttons (`format`, the tab
+ * strip's end, `tabs` — E6's split buttons — and the selection handle,
+ * `selection`); every other bar holds readout ids.
  */
-export const COMMAND_BARS: readonly BarId[] = ['format', 'tabs']
+export const COMMAND_BARS: readonly BarId[] = ['format', 'tabs', 'selection']
 
 /** The toolbar's three readout groups: merged readouts may ride any of them. */
 export const TOOLBAR_BARS = ['toolbar.left', 'toolbar.center', 'toolbar.right'] as const
@@ -133,6 +137,12 @@ const regions = {
   format: z.enum(['bottom', 'top', 'off']),
   /** Round 3, Q4: `bars.status` floating at the editor's bottom right (Obsidian's word count), or none. */
   status: z.enum(['corner', 'off']),
+  /**
+   * The selection handle (selection explorations, shape B): `bars.selection`
+   * on a small pill at the end of a settled selection, or none. Beside the
+   * format bar, never instead of it.
+   */
+  selection: z.enum(['on', 'off']),
 }
 const toolbar = { position: z.enum(['top', 'bottom']) }
 const dock = { position: z.enum(['top-right', 'bottom-right']) }
@@ -255,6 +265,7 @@ export const ShellSpecSchema = z.preprocess(
         statusbar: readoutList,
         status: readoutList,
         tabs: commandList,
+        selection: commandList,
       }),
       toolbar: z.strictObject(toolbar),
       dock: z.strictObject(dock),
@@ -353,6 +364,7 @@ export const LayoutFileSchema = z.preprocess(
         statusbar: listOf(READOUT_IDS),
         status: listOf(READOUT_IDS),
         tabs: listOf(),
+        selection: listOf(),
       })
       .partial()
       .optional(),
@@ -450,10 +462,11 @@ function merge(base: Loose, file: LayoutFile): Loose {
  * before them (no `extends`) still resolves.
  */
 const defaultsLayer = (): Loose => ({
-  regions: { format: 'bottom', status: 'corner' },
+  regions: { format: 'bottom', status: 'corner', selection: 'on' },
   dock: { position: 'top-right' },
   editor: { inlineTitle: true },
-  bars: { 'toolbar.center': [], format: [], status: ['words', 'chars'], tabs: [] },
+  // A complete file written before the selection handle gets the built-in's items.
+  bars: { 'toolbar.center': [], format: [], status: ['words', 'chars'], tabs: [], selection: [...defaultSelection] },
 })
 
 /**

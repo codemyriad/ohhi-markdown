@@ -30,6 +30,31 @@ export const BAR_CANDIDATES: readonly string[] = [
   ...BAR_EXTRA_IDS,
 ]
 
+/**
+ * The bars this picker edits: the format bar, and the selection handle
+ * (selection explorations, shape B) — the same two rows over `bars.selection`.
+ */
+export type PickerBar = 'format' | 'selection'
+
+/**
+ * Everything the selection handle can show: the comment and the agent's
+ * selection verbs (drawn only with a provider), then the format commands
+ * for a layout that wants them near the words.
+ */
+export const SELECTION_CANDIDATES: readonly string[] = [
+  'note.comment',
+  'ai.ask-selection',
+  'ai.add-selection',
+  'ai.run-skill',
+  ...COMMAND_IDS.filter((id) => id.startsWith('format.')),
+]
+
+/** What each bar's hidden row offers. */
+export const CANDIDATES: Readonly<Record<PickerBar, readonly string[]>> = {
+  format: BAR_CANDIDATES,
+  selection: SELECTION_CANDIDATES,
+}
+
 /** Separators collapsed and trimmed, as `applyList` resolves a list. */
 export function tidyBar(list: readonly string[]): string[] {
   const out: string[] = []
@@ -93,30 +118,41 @@ const sameList = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((x, i) => x === b[i])
 
 /**
- * The device overrides with `bars.format` set to `list` as a plain list —
- * or dropped, when `list` is the file's own bar. Every other override stays
- * as it was.
+ * The device overrides with `bars[which]` (`format` unless said) set to
+ * `list` as a plain list — or dropped, when `list` is the file's own bar.
+ * Every other override stays as it was.
  */
-export function withFormatBar(overrides: LayoutFile, fileSpec: Pick<ShellSpec, 'bars'>, list: readonly string[]): LayoutFile {
+export function withFormatBar(
+  overrides: LayoutFile,
+  fileSpec: Pick<ShellSpec, 'bars'>,
+  list: readonly string[],
+  which: PickerBar = 'format'
+): LayoutFile {
   const bar = tidyBar(list)
   const { bars, ...rest } = overrides
   const others = { ...bars }
-  delete others.format
+  delete others[which]
   const next: LayoutFile = { ...rest }
-  if (!sameList(bar, tidyBar(fileSpec.bars.format))) others.format = bar
+  if (!sameList(bar, tidyBar(fileSpec.bars[which]))) others[which] = bar
   if (Object.keys(others).length > 0) next.bars = others
   return next
 }
 
+/** The overrides with both picker bars kept as the plain lists the spec draws (after any other field changed). */
+export function withPickerBars(overrides: LayoutFile, fileSpec: Pick<ShellSpec, 'bars'>, spec: Pick<ShellSpec, 'bars'>): LayoutFile {
+  return withFormatBar(withFormatBar(overrides, fileSpec, spec.bars.format), fileSpec, spec.bars.selection, 'selection')
+}
+
 /** True when this device's overrides change the bar. */
-export const barOverridden = (overrides: LayoutFile): boolean => overrides.bars?.format !== undefined
+export const barOverridden = (overrides: LayoutFile, which: PickerBar = 'format'): boolean =>
+  overrides.bars?.[which] !== undefined
 
 /** The overrides without the bar: *Reset to layout file*. */
-export function withoutFormatBar(overrides: LayoutFile): LayoutFile {
-  if (!barOverridden(overrides)) return overrides
+export function withoutFormatBar(overrides: LayoutFile, which: PickerBar = 'format'): LayoutFile {
+  if (!barOverridden(overrides, which)) return overrides
   const { bars, ...rest } = overrides
   const others = { ...bars }
-  delete others.format
+  delete others[which]
   return Object.keys(others).length > 0 ? { ...rest, bars: others } : rest
 }
 

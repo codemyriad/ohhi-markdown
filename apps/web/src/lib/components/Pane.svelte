@@ -54,6 +54,9 @@
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
+  import type { SelectionRender } from './PaneTree.svelte'
+  import SelectionBar from './SelectionBar.svelte'
+  import { selectionBar } from '@ohhi/editor'
   // Comment threads — not AI-gated; only *Send to agent* is.
   import { commentsExtension } from '@ohhi/editor'
   import { bindEditor, focusEditor } from '../focused-editor.svelte.js'
@@ -100,6 +103,8 @@
     moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
     /** Which chrome the layout gives this pane (spike S21); absent → today's. */
     chrome?: PaneChrome
+    /** The selection handle's items and registry (selection explorations); absent → none. */
+    selection?: SelectionRender
   }
 
   let {
@@ -125,6 +130,7 @@
     tabMenuGroupItems,
     moreMenuItems,
     chrome = DENSE_CHROME,
+    selection,
     typewriter = false,
     inlineTitle = true,
   }: Props = $props()
@@ -245,6 +251,26 @@
         () => untrack(() => doc)
       )
     ),
+    // The selection handle (selection explorations, shape B): the editor
+    // decides when and where, this pane draws the layout's `bars.selection`
+    // into it. Untracked like the hosts above; the settle delay runs on the
+    // shell's clock.
+    selectionBar({
+      schedule: (fn, ms) => pasteClock.schedule(fn, ms),
+      host: {
+        offered: () => untrack(() => (selection?.ids().length ?? 0) > 0),
+        mount: (dom, view, form) => {
+          const render = untrack(() => selection)
+          if (!render) return {}
+          const app = mount(SelectionBar, {
+            target: dom,
+            props: { ids: render.ids(), registry: render.registry, form, view },
+            ...(shell ? { context: viewShellContext(shell) } : {}),
+          })
+          return { destroy: () => void unmount(app) }
+        },
+      },
+    }),
   ]
 
   // ---- the shell (verbs and the index) this pane's widgets reach ----

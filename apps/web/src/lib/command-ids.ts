@@ -152,6 +152,7 @@ export const COMMAND_IDS = [
   'app.session',
   'ai.new-session',
   'ai.add-selection',
+  'ai.ask-selection',
   'ai.run-skill',
   'ai.stop-run',
   'ai.accept-suggestion',

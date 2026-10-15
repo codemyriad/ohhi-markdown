@@ -28,7 +28,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { CommandRegistry } from '../commands.js'
   import { PANE_HINTS, type PaneHints } from '../config.js'
-  import { withFormatBar, withoutFormatBar } from '../format-bar-picker.js'
+  import { withPickerBars, withoutFormatBar } from '../format-bar-picker.js'
   import { paneHints } from '../pane-hints.svelte.js'
   import FormatBarPicker from './FormatBarPicker.svelte'
   import { hasOverrides, overridesFor, type ShellSpec } from '../layout-spec.js'
@@ -73,6 +73,7 @@
     { id: 'toolbar', section: 'toolbar', key: 'position', options: ['top', 'bottom'], part: 'shell' },
     { id: 'format', section: 'regions', key: 'format', options: ['bottom', 'top', 'off'], part: 'shell' },
     { id: 'status', section: 'regions', key: 'status', options: ['corner', 'off'], part: 'shell' },
+    { id: 'selection', section: 'regions', key: 'selection', options: ['on', 'off'], part: 'shell' },
     { id: 'open', section: 'panes', key: 'open', options: ['replace', 'tab'], part: 'editor' },
     { id: 'measure', section: 'editor', key: 'measure', options: ['narrow', 'comfortable', 'wide'], part: 'editor' },
   ]
@@ -106,15 +107,15 @@
     const own = $state.snapshot(layout.ownSpec) as ShellSpec
     const next = { ...own, [section]: { ...(own[section] as object), [key]: value } } as ShellSpec
     const file = $state.snapshot(layout.fileSpec) as ShellSpec
-    // The bar stays the plain list the picker wrote, never a delta (E6).
-    layout.setOverrides(withFormatBar(overridesFor(file, next), file, next.bars.format))
+    // The bars stay the plain lists the pickers wrote, never deltas (E6).
+    layout.setOverrides(withPickerBars(overridesFor(file, next), file, next))
   }
 
   /** Any of this part's fields differ from the file's own value. */
   const changed = $derived(
     hasOverrides(layout.overrides) &&
       (fields.some(([section, key]) => valueOf(layout.ownSpec, section, key) !== valueOf(layout.fileSpec, section, key)) ||
-        (part === 'shell' && layout.overrides.bars?.format !== undefined))
+        (part === 'shell' && (layout.overrides.bars?.format !== undefined || layout.overrides.bars?.selection !== undefined)))
   )
 
   /** Put this part's fields back to the file's values; the other part's overrides stay. */
@@ -125,8 +126,8 @@
       next[section] = { ...next[section], [key]: valueOf(file, section, key) }
     }
     const own = next as unknown as ShellSpec
-    const kept = withFormatBar(overridesFor(file, own), file, own.bars.format)
-    layout.setOverrides(part === 'shell' ? withoutFormatBar(kept) : kept)
+    const kept = withPickerBars(overridesFor(file, own), file, own)
+    layout.setOverrides(part === 'shell' ? withoutFormatBar(withoutFormatBar(kept), 'selection') : kept)
   }
 
   const hintLabel = (value: PaneHints): string => say(`hints_${value}`, value)
@@ -217,6 +218,7 @@
       </select>
     </label>
     <FormatBarPicker {layout} {registry} />
+    <FormatBarPicker {layout} {registry} bar="selection" />
   {/if}
 
   <div class="mt-4 border-t border-base-300 pt-3">

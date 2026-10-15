@@ -7,7 +7,8 @@
     "tabs": "always",
     "statusbar": "merged",
     "format": "bottom",
-    "status": "corner"
+    "status": "corner",
+    "selection": "on"
   },
   "bars": {
     "toolbar.left": [
@@ -59,6 +60,10 @@
     "tabs": [
       "workspace.split-right",
       "workspace.split-down"
+    ],
+    "selection": [
+      "note.comment",
+      "ai.ask-selection"
     ]
   },
   "toolbar": {

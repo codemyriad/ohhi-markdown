@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BAR_CANDIDATES,
+  CANDIDATES,
   barOverridden,
   hideAt,
   moveBy,
@@ -10,6 +11,7 @@ import {
   showAt,
   tidyBar,
   withFormatBar,
+  withPickerBars,
   withoutFormatBar,
 } from './format-bar-picker.js'
 import { applyOverrides, LAYOUT_SCHEMA_ID, PRESETS, type LayoutFile } from './layout-spec.js'
@@ -96,5 +98,26 @@ describe('the device override it writes', () => {
     const o = withFormatBar(none, file, ['format.bold'])
     expect(withoutFormatBar(o)).toEqual(none)
     expect(withoutFormatBar(none)).toBe(none)
+  })
+})
+
+describe('the selection handle’s picker (selection explorations, shape B)', () => {
+  it('offers the comment and the agent’s selection verbs first, then the format commands', () => {
+    expect(CANDIDATES.selection.slice(0, 4)).toEqual(['note.comment', 'ai.ask-selection', 'ai.add-selection', 'ai.run-skill'])
+    expect(pickerRows(file.bars.selection, CANDIDATES.selection).shown).toEqual(['note.comment', 'ai.ask-selection'])
+    expect(pickerRows(file.bars.selection, CANDIDATES.selection).hidden).not.toContain('note.comment')
+  })
+  it('writes bars.selection as a plain list and leaves the format bar alone', () => {
+    const o = withFormatBar(none, file, ['ai.ask-selection', 'note.comment'], 'selection')
+    expect(o).toEqual({ $schema, bars: { selection: ['ai.ask-selection', 'note.comment'] } })
+    expect(applyOverrides(file, o).bars.selection).toEqual(['ai.ask-selection', 'note.comment'])
+    expect(applyOverrides(file, o).bars.format).toEqual(file.bars.format)
+    expect(barOverridden(o, 'selection')).toBe(true)
+    expect(barOverridden(o)).toBe(false)
+    expect(withoutFormatBar(o, 'selection')).toEqual(none)
+  })
+  it('keeps both bars plain after another field changes', () => {
+    const spec = { ...file, bars: { ...file.bars, format: ['format.bold'], selection: ['note.comment'] } }
+    expect(withPickerBars(none, file, spec).bars).toEqual({ format: ['format.bold'], selection: ['note.comment'] })
   })
 })

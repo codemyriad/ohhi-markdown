@@ -253,6 +253,64 @@ test('a session opens beside the note, never over it: right in a wide pane, belo
   expect(Math.abs(below!.x - top!.x)).toBeLessThan(2)
 })
 
+test('the selection handle with a provider: Comment | Ask; Ask opens the session beside the note with the chip, the composer focused, nothing sent', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-handle-ask')
+  await openNote(page)
+  await selectLine(page, LINE)
+  const handle = page.getByTestId('selection-handle')
+  await expect(handle).toBeVisible()
+  await expect(handle.getByRole('button')).toHaveText(['Comment', 'Ask'])
+  await handle.getByRole('button', { name: 'Ask' }).click()
+  // Beside the note, never over it; the selection as a chip; the composer takes the keyboard.
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const chip = page.getByTestId('mention-chip')
+  await expect(chip).toHaveCount(1)
+  await expect(chip).toContainText('welcome')
+  await expect(page.getByTestId('session-composer-input')).toBeFocused()
+  // Not a stock prompt: nothing went to the provider, and the handle is gone with the focus.
+  expect(mock.requests.filter((r) => r.wire === 'openai')).toHaveLength(0)
+  await expect(handle).toHaveCount(0)
+})
+
+test('no selection handle inside a proposal: its own Accept / Reject pair is the only control there', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Proposed a comma.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-handle-proposal')
+  await openNote(page)
+  await runFromPalette(page, 'Open AI session', 'app.session')
+  await send(page, 'Add a comma before honestly.')
+  const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
+  await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  await card.getByRole('button', { name: 'Show in note' }).click()
+  await expect(page.locator('[data-testid="editor-pane"] .ed-suggest-add').first()).toBeVisible()
+  const handle = page.getByTestId('selection-handle')
+  // Select across the proposal's text, from the keyboard (the caret is in it).
+  const text = await docText(page)
+  const from = text.indexOf(OLD)
+  await page.getByRole('textbox', { name: 'Note text' }).evaluate(
+    (el, { from, to }) => {
+      type View = { dispatch(tr: unknown): void; focus(): void }
+      const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+      view?.focus()
+      view?.dispatch({ selection: { anchor: from, head: to }, userEvent: 'select' })
+    },
+    { from, to: from + OLD.length }
+  )
+  await page.waitForTimeout(600)
+  await expect(handle).toHaveCount(0)
+  // Outside it, the handle comes back.
+  await selectLine(page, LINE)
+  await expect(handle).toBeVisible()
+})
+
 test('a session’s first screen: starts above a focused composer, the provider at its foot, the egress said on the first session', async ({ page, mockLlm }) => {
   const mock = await mockLlm([{ text: 'The note welcomes you and explains the relay.' }])
   await seedProvider(page, `${mock.url}/v1`)

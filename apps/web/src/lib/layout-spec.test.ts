@@ -69,6 +69,8 @@ describe('the built-in and the example', () => {
       statusbar: 'pane',
       format: 'off',
       status: 'off',
+      // Its own: the selection handle, from the built-in it extends.
+      selection: 'on',
     })
     expect(d.bars.format).toEqual([])
     expect(d.panes.open).toBe('tab')
@@ -89,6 +91,8 @@ describe('the built-in and the example', () => {
       statusbar: 'merged',
       format: 'bottom',
       status: 'corner',
+      // The selection handle at a selection's end (selection explorations, shape B).
+      selection: 'on',
     })
     expect(d.toolbar.position).toBe('top')
     expect(d.dock.position).toBe('top-right')
@@ -111,6 +115,8 @@ describe('the built-in and the example', () => {
     expect(d.bars.format.slice(0, -2).filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
     expect(d.bars.format.slice(-2)).toEqual(['|', 'note.comment'])
     expect(d.bars.statusbar).toEqual(['pane.lead', '|', 'sync'])
+    // Chris, 2026-10-15: Comment | Ask on the handle; formatting stays on the bar.
+    expect(d.bars.selection).toEqual(['note.comment', 'ai.ask-selection'])
     expect(d.panes.open).toBe('replace')
     expect(d.editor).toEqual({ measure: 'comfortable', typewriter: false, inlineTitle: true })
     // The format bar is a region: Focus mode hides it in default.

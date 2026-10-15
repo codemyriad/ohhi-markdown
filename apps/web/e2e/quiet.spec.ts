@@ -403,6 +403,87 @@ test.describe('toolbar and focus', () => {
 })
 
 /**
+ * The selection handle (selection explorations, shape B as Chris chose it,
+ * 2026-10-15): a small pill at the end of a settled selection — *Comment*,
+ * and *Ask* once a provider exists (`harness.spec.ts`). Formatting stays on
+ * the format bar, whose buttons say their key in a tooltip.
+ */
+test.describe('the selection handle', () => {
+  const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
+  const handle = (page: Page) => page.getByTestId('selection-handle')
+
+  async function boot(page: Page, room: string): Promise<void> {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.goto(appUrl({ room, layout: null }))
+    await expect(page.getByRole('toolbar', { name: 'Note toolbar' })).toBeVisible({ timeout: 15_000 })
+    await openByQuickOpen(page, 'welcome')
+    await expect(paneContent(page)).toContainText(LINE)
+  }
+
+  /** The selected text's boxes on screen (the DOM selection CodeMirror keeps in step). */
+  const selectionRects = (page: Page) =>
+    page.evaluate(() => {
+      const sel = document.getSelection()
+      if (!sel || sel.rangeCount === 0) return []
+      return [...sel.getRangeAt(0).getClientRects()].map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }))
+    })
+
+  test('settles at the selection’s end with Comment alone (no provider), never over the words; Comment opens the bubble', async ({ page }) => {
+    await boot(page, 'quiet-handle')
+    await paneContent(page).getByText(LINE).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('Shift+End')
+    await expect(handle(page)).toBeVisible()
+    // Comment, and nothing AI-shaped without a provider.
+    await expect(handle(page).getByRole('button')).toHaveText(['Comment'])
+    await expect(handle(page).getByTestId('selection-handle:ai.ask-selection')).toHaveCount(0)
+    // At the end: right of (or below) the last selected box, overlapping none of them.
+    const box = (await handle(page).boundingBox())!
+    const rects = await selectionRects(page)
+    expect(rects.length).toBeGreaterThan(0)
+    const last = rects[rects.length - 1]!
+    expect(box.x >= last.right - 1 || box.y >= last.bottom - 1).toBe(true)
+    for (const r of rects) {
+      const overlaps = box.x < r.right && r.left < box.x + box.width && box.y < r.bottom && r.top < box.y + box.height
+      expect(overlaps).toBe(false)
+    }
+    // Its tooltip names the command and its key.
+    await handle(page).getByRole('button', { name: 'Comment' }).hover()
+    await expect(page.getByRole('tooltip')).toHaveText('Comment on selection · Ctrl+Shift+M')
+    await expectAccessible(page, 'the selection handle')
+    // Comment: the new-comment bubble, as the key does.
+    await handle(page).getByRole('button', { name: 'Comment' }).click()
+    await expect(page.getByTestId('comment-bubble')).toBeVisible()
+  })
+
+  test('hides on typing and on Escape, and never shows during a drag', async ({ page }) => {
+    await boot(page, 'quiet-handle-hide')
+    await paneContent(page).getByText(LINE).click()
+    await page.keyboard.press('End')
+    for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+    await expect(handle(page)).toBeVisible()
+    // Escape: down, the selection kept.
+    await page.keyboard.press('Escape')
+    await expect(handle(page)).toHaveCount(0)
+    // A new selection brings it back; typing over it takes it down.
+    await page.keyboard.press('Shift+ArrowLeft')
+    await expect(handle(page)).toBeVisible()
+    await page.keyboard.type('x')
+    await expect(handle(page)).toHaveCount(0)
+    // A drag: nothing while the button is down, then the handle once it is released.
+    const text = (await paneContent(page).getByText('CRDT and syncs').boundingBox())!
+    await page.mouse.move(text.x + 4, text.y + text.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(text.x + 80, text.y + text.height / 2, { steps: 4 })
+    await page.mouse.move(text.x + 160, text.y + text.height / 2, { steps: 4 })
+    await page.waitForTimeout(600)
+    await expect(handle(page)).toHaveCount(0)
+    await page.mouse.up()
+    await expect(handle(page)).toBeVisible()
+  })
+})
+
+/**
  * The pane chrome in the default layout (spike S21, foundations Stage 2b):
  * no strip until a pane holds two tabs, the focus edge only when there are
  * two panes to tell apart, opens that replace the note in place, and the

@@ -3721,6 +3721,18 @@ export type NamespaceWebTranslation = {
 			 */
 			status_off: string
 			/**
+			 * S​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+			 */
+			selection: string
+			/**
+			 * A​t​ ​t​h​e​ ​e​n​d​ ​o​f​ ​a​ ​s​e​l​e​c​t​i​o​n
+			 */
+			selection_on: string
+			/**
+			 * H​i​d​d​e​n
+			 */
+			selection_off: string
+			/**
 			 * O​p​e​n​i​n​g​ ​a​ ​n​o​t​e
 			 */
 			open: string
@@ -3873,6 +3885,89 @@ export type NamespaceWebTranslation = {
 				shown_now: RequiredParams<'name'>
 				/**
 				 * {​n​a​m​e​}​ ​i​s​ ​o​f​f​ ​t​h​e​ ​b​a​r
+				 * @param {string} name
+				 */
+				hidden_now: RequiredParams<'name'>
+			}
+			selection_bar: {
+				/**
+				 * S​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​ ​b​u​t​t​o​n​s
+				 */
+				title: string
+				/**
+				 * W​h​a​t​ ​t​h​e​ ​h​a​n​d​l​e​ ​a​t​ ​t​h​e​ ​e​n​d​ ​o​f​ ​a​ ​s​e​l​e​c​t​e​d​ ​p​a​s​s​a​g​e​ ​o​f​f​e​r​s​,​ ​i​n​ ​o​r​d​e​r​.​ ​D​r​a​g​ ​t​o​ ​r​e​o​r​d​e​r​,​ ​o​r​ ​d​r​a​g​ ​a​ ​b​u​t​t​o​n​ ​t​o​ ​t​h​e​ ​o​t​h​e​r​ ​r​o​w​ ​t​o​ ​s​h​o​w​ ​o​r​ ​h​i​d​e​ ​i​t​;​ ​e​a​c​h​ ​b​u​t​t​o​n​’​s​ ​m​e​n​u​ ​d​o​e​s​ ​t​h​e​ ​s​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​k​e​y​b​o​a​r​d​.​ ​A​I​ ​b​u​t​t​o​n​s​ ​s​h​o​w​ ​o​n​l​y​ ​o​n​c​e​ ​a​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​a​d​d​e​d​.​ ​Y​o​u​r​ ​c​h​a​n​g​e​s​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+				 */
+				intro: string
+				/**
+				 * O​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				shown: string
+				/**
+				 * N​o​t​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				hidden: string
+				/**
+				 * N​o​t​h​i​n​g​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​:​ ​i​t​ ​i​s​ ​h​i​d​d​e​n​.
+				 */
+				empty_shown: string
+				/**
+				 * E​v​e​r​y​ ​b​u​t​t​o​n​ ​i​s​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​.
+				 */
+				empty_hidden: string
+				/**
+				 * S​e​p​a​r​a​t​o​r
+				 */
+				separator: string
+				/**
+				 * {​n​a​m​e​}​,​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				pill_shown: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​,​ ​n​o​t​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {string} name
+				 */
+				pill_hidden: RequiredParams<'name'>
+				/**
+				 * M​o​v​e​ ​l​e​f​t
+				 */
+				move_left: string
+				/**
+				 * M​o​v​e​ ​r​i​g​h​t
+				 */
+				move_right: string
+				/**
+				 * H​i​d​e
+				 */
+				hide: string
+				/**
+				 * R​e​m​o​v​e
+				 */
+				remove: string
+				/**
+				 * A​d​d​ ​t​o​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				show: string
+				/**
+				 * R​e​s​e​t​ ​t​o​ ​l​a​y​o​u​t​ ​f​i​l​e
+				 */
+				reset: string
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​n​o​w​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				moved: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {string} name
+				 */
+				shown_now: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​f​f​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
 				 * @param {string} name
 				 */
 				hidden_now: RequiredParams<'name'>
@@ -6917,6 +7012,18 @@ export type NamespaceWebTranslation = {
 		 */
 		hint: RequiredParams<'binding' | 'title'>
 		/**
+		 * S​e​l​e​c​t​i​o​n
+		 */
+		selection_group: string
+		/**
+		 * C​o​m​m​e​n​t
+		 */
+		selection_comment: string
+		/**
+		 * A​s​k
+		 */
+		selection_ask: string
+		/**
 		 * F​i​l​e​s
 		 */
 		files: string
@@ -8455,6 +8562,10 @@ export type NamespaceWebTranslation = {
 			 */
 			add_selection: string
 			/**
+			 * A​s​k​ ​a​b​o​u​t​ ​t​h​i​s
+			 */
+			ask_selection: string
+			/**
 			 * R​u​n​ ​a​ ​s​k​i​l​l​…
 			 */
 			run_skill: string
@@ -8498,6 +8609,10 @@ export type NamespaceWebTranslation = {
 			 * O​p​e​n​ ​A​I​ ​s​e​s​s​i​o​n
 			 */
 			session: string
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​t​o​ ​a​s​k​ ​a​b​o​u​t​ ​i​t
+			 */
+			ask_needs_selection: string
 		}
 	}
 	collections: {
@@ -12369,6 +12484,18 @@ export type TranslationFunctions = {
 				 */
 				status_off: () => LocalizedString
 				/**
+				 * Selection handle
+				 */
+				selection: () => LocalizedString
+				/**
+				 * At the end of a selection
+				 */
+				selection_on: () => LocalizedString
+				/**
+				 * Hidden
+				 */
+				selection_off: () => LocalizedString
+				/**
 				 * Opening a note
 				 */
 				open: () => LocalizedString
@@ -12511,6 +12638,80 @@ export type TranslationFunctions = {
 					shown_now: (arg: { name: string }) => LocalizedString
 					/**
 					 * {name} is off the bar
+					 */
+					hidden_now: (arg: { name: string }) => LocalizedString
+				}
+				selection_bar: {
+					/**
+					 * Selection handle buttons
+					 */
+					title: () => LocalizedString
+					/**
+					 * What the handle at the end of a selected passage offers, in order. Drag to reorder, or drag a button to the other row to show or hide it; each button’s menu does the same from the keyboard. AI buttons show only once a provider is added. Your changes stay on this device.
+					 */
+					intro: () => LocalizedString
+					/**
+					 * On the selection handle
+					 */
+					shown: () => LocalizedString
+					/**
+					 * Not on the selection handle
+					 */
+					hidden: () => LocalizedString
+					/**
+					 * Nothing on the selection handle: it is hidden.
+					 */
+					empty_shown: () => LocalizedString
+					/**
+					 * Every button is on the selection handle.
+					 */
+					empty_hidden: () => LocalizedString
+					/**
+					 * Separator
+					 */
+					separator: () => LocalizedString
+					/**
+					 * {name}, {n} of {total} on the selection handle
+					 */
+					pill_shown: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name}, not on the selection handle
+					 */
+					pill_hidden: (arg: { name: string }) => LocalizedString
+					/**
+					 * Move left
+					 */
+					move_left: () => LocalizedString
+					/**
+					 * Move right
+					 */
+					move_right: () => LocalizedString
+					/**
+					 * Hide
+					 */
+					hide: () => LocalizedString
+					/**
+					 * Remove
+					 */
+					remove: () => LocalizedString
+					/**
+					 * Add to the selection handle
+					 */
+					show: () => LocalizedString
+					/**
+					 * Reset to layout file
+					 */
+					reset: () => LocalizedString
+					/**
+					 * {name} is now {n} of {total}
+					 */
+					moved: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name} is on the selection handle
+					 */
+					shown_now: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} is off the selection handle
 					 */
 					hidden_now: (arg: { name: string }) => LocalizedString
 				}
@@ -15354,6 +15555,18 @@ export type TranslationFunctions = {
 			 */
 			hint: (arg: { binding: string, title: string }) => LocalizedString
 			/**
+			 * Selection
+			 */
+			selection_group: () => LocalizedString
+			/**
+			 * Comment
+			 */
+			selection_comment: () => LocalizedString
+			/**
+			 * Ask
+			 */
+			selection_ask: () => LocalizedString
+			/**
 			 * Files
 			 */
 			files: () => LocalizedString
@@ -16755,6 +16968,10 @@ export type TranslationFunctions = {
 				 */
 				add_selection: () => LocalizedString
 				/**
+				 * Ask about this
+				 */
+				ask_selection: () => LocalizedString
+				/**
 				 * Run a skill…
 				 */
 				run_skill: () => LocalizedString
@@ -16798,6 +17015,10 @@ export type TranslationFunctions = {
 				 * Open AI session
 				 */
 				session: () => LocalizedString
+				/**
+				 * Select some text to ask about it
+				 */
+				ask_needs_selection: () => LocalizedString
 			}
 		}
 		collections: {

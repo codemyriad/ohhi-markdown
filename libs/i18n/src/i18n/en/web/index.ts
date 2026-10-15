@@ -1348,6 +1348,10 @@ const settings = {
     status: 'Word count',
     status_corner: 'Bottom right',
     status_off: 'Hidden',
+    /** Selection explorations (shape B): the handle at the end of a settled selection — Comment | Ask. */
+    selection: 'Selection handle',
+    selection_on: 'At the end of a selection',
+    selection_off: 'Hidden',
     open: 'Opening a note',
     open_replace: 'Replaces the current tab',
     open_tab: 'Opens a new tab',
@@ -1391,6 +1395,28 @@ const settings = {
       moved: '{name:string} is now {n:number} of {total:number}',
       shown_now: '{name:string} is on the bar',
       hidden_now: '{name:string} is off the bar',
+    },
+    /** The selection handle's buttons, the same picker over `bars.selection`. */
+    selection_bar: {
+      title: 'Selection handle buttons',
+      intro:
+        'What the handle at the end of a selected passage offers, in order. Drag to reorder, or drag a button to the other row to show or hide it; each button’s menu does the same from the keyboard. AI buttons show only once a provider is added. Your changes stay on this device.',
+      shown: 'On the selection handle',
+      hidden: 'Not on the selection handle',
+      empty_shown: 'Nothing on the selection handle: it is hidden.',
+      empty_hidden: 'Every button is on the selection handle.',
+      separator: 'Separator',
+      pill_shown: '{name:string}, {n:number} of {total:number} on the selection handle',
+      pill_hidden: '{name:string}, not on the selection handle',
+      move_left: 'Move left',
+      move_right: 'Move right',
+      hide: 'Hide',
+      remove: 'Remove',
+      show: 'Add to the selection handle',
+      reset: 'Reset to layout file',
+      moved: '{name:string} is now {n:number} of {total:number}',
+      shown_now: '{name:string} is on the selection handle',
+      hidden_now: '{name:string} is off the selection handle',
     },
   },
   /** Settings › Keys (settings-shaping ST3, K1): the chips are the control, changes write through. */
@@ -2417,6 +2443,10 @@ const toolbar = {
   with_binding: '{title:string} ({binding:string})',
   /** A bar button's tooltip (Chris, 2026-10-15): the command's title and its key as bound now. */
   hint: '{title:string} · {binding:string}',
+  /** Selection explorations (shape B): the handle at a selection's end and its two short verbs. */
+  selection_group: 'Selection',
+  selection_comment: 'Comment',
+  selection_ask: 'Ask',
   files: 'Files',
   reading_time: '{minutes:number} min read',
   reading_time_none: 'Nothing to read',
@@ -2874,6 +2904,8 @@ const ai = {
   commands: {
     new_session: 'New AI session',
     add_selection: 'Add selection to AI session',
+    /** The selection handle's door — the session beside the note, the selection as a chip, the composer focused. */
+    ask_selection: 'Ask about this',
     run_skill: 'Run a skill…',
     stop_run: 'Stop the AI run',
     accept_suggestion: 'Accept suggestion',
@@ -2885,6 +2917,8 @@ const ai = {
     undo_agent: 'Undo the agent’s last edit',
     comment: 'Comment on selection',
     session: 'Open AI session',
+    /** `ai.ask-selection` run with nothing selected (from the palette). */
+    ask_needs_selection: 'Select some text to ask about it',
   },
 }
 

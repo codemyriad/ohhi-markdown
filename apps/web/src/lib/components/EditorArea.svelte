@@ -333,6 +333,16 @@
     tabMenuGroupItems,
     moreMenuItems,
     chrome,
+    // The selection handle: read when one shows, so a layout change
+    // reaches the next one without rebuilding any editor.
+    ...(layout
+      ? {
+          selection: {
+            ids: () => (layout.spec.regions.selection === 'on' ? layout.spec.bars.selection : []),
+            registry: nav.registry,
+          },
+        }
+      : {}),
   })
   /** Zoom mounts one pane and nothing else — that is the whole memory story. */
   const treeRoot = $derived(

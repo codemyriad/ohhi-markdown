@@ -388,6 +388,23 @@ export function harnessCommands(
       },
     },
     {
+      // The selection handle's *Ask* (selection explorations; Chris's
+      // answer 3): the session beside the note, the selection queued as a
+      // chip, the composer focused — nothing is sent. What `ai.add-selection`
+      // does, with a selection required: it is about THIS passage.
+      id: 'ai.ask-selection',
+      title: t.ask_selection(),
+      group,
+      when: () => aiEnabled(),
+      run: async () => {
+        const mention = await capture()
+        if (!mention) return deps.flash?.({ level: 'info', text: t.ask_needs_selection() })
+        const id = harness.current ?? newSessionId()
+        queueMention(id, mention)
+        open(id)
+      },
+    },
+    {
       id: 'ai.stop-run',
       title: t.stop_run(),
       group,

@@ -67,7 +67,9 @@ layout file, then this device's **overrides**, then its **pins**:
   Settings › Editor edit: Layout has the shell's options (files drawer or
   column, sidebar dock or column and its corner, tabs, toolbar position,
   format bar and **which buttons it shows** — a picker that writes
-  `bars.format` as a plain list, with *Reset to layout file* — word count),
+  `bars.format` as a plain list, with *Reset to layout file* — word count,
+  the selection handle on or off and its buttons, the same picker over
+  `bars.selection`),
   Editor the note's (how notes open, line width, typewriter, inline title).
   Each change applies at once — split Settings beside a note to watch it —
   and is kept on this device as the difference from the file; each
@@ -147,14 +149,28 @@ say only what differs. Resolving it yields the complete shell spec.
 |---|---|
 | `$schema` | always `"ohhi.layout.v1"` |
 | `extends` | a layout by name (`default` or a file's name); a file that extends its own name (`.ohhi/layouts/default.json` with `"extends": "default"`) extends the one it shadows |
-| `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right) |
-| `bars` | seven lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`, `tabs`. `format` and `tabs` hold **command ids** (`format`: by default the `format.*` buttons and, last, `note.comment` — the comment button; `tabs`: faint buttons at the end of every pane's tab strip — by default `workspace.split-right` and `workspace.split-down`); the others hold **readout ids** |
+| `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right), `selection` (`on`/`off` — the selection handle: `bars.selection` on a small pill at the end of a settled selection) |
+| `bars` | eight lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`, `tabs`, `selection`. `format`, `tabs` and `selection` hold **command ids** (`format`: by default the `format.*` buttons and, last, `note.comment` — the comment button; `tabs`: faint buttons at the end of every pane's tab strip — by default `workspace.split-right` and `workspace.split-down`; `selection`: the selection handle — by default `note.comment` and `ai.ask-selection`, drawn as *Comment* and *Ask*); the others hold **readout ids** |
 | `toolbar` | `position`: `top`/`bottom` |
 | `dock` | `position`: `top-right`/`bottom-right` — where the dock's icon strip floats |
 | `panes` | `borders` (`hairline`/`none`), `focusMark`, `lead` (booleans), `open` (`tab`/`replace`) |
 | `views` | the view ids whose commands the palette offers (`inspector`, `log`, `shared`); an empty list offers every registered view. `settings` is always offered, listed or not: it is where a layout is changed back |
 | `editor` | `measure` (`narrow`/`comfortable`/`wide`), `typewriter` (boolean), `inlineTitle` (boolean — the note's name as an editable heading at the top of its body; editing it renames the file) |
 | `focus` | `keep`: the region ids Focus mode leaves on screen |
+
+**The selection handle** (`regions.selection`, `bars.selection`) is a small
+pill that appears at the end of a selection once it settles — never during a
+drag — beside the last selected character, or just below that line when the
+line has no room; never over the selected words. Typing, Escape, an empty
+selection or the focus leaving the note takes it down, and it never appears
+while the selection overlaps an agent's proposal (the proposal's own
+*Accept* / *Reject* pair is the control there). An item whose command cannot
+run is left out: *Ask* (`ai.ask-selection`) appears only once a provider is
+added in Settings › AI. Under a finger the same pill sits below the end
+line, clear of the system's selection handle and away from the system's own
+menu above the words. `Alt+F10` from the text moves the keyboard onto it.
+Formatting stays on the format bar, whose buttons name their command and key
+in a tooltip ("Bold · Ctrl+B").
 
 The floating format bar, the `status` corner and the dock's icon strip are a
 note's chrome: a view tab (Inspector, Log, Shared) or an empty tab focused
@@ -315,7 +331,7 @@ they drift, and another fails if this page names an id the app does not have.
 ### Command ids
 
 Every key in a keymap's `bindings`, and every entry of a layout's
-`bars.format` and `bars.tabs`, is one of these.
+`bars.format`, `bars.tabs` and `bars.selection`, is one of these.
 
 <!-- generated:command-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav.quick-open`
@@ -443,6 +459,7 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `app.session`
 - `ai.new-session`
 - `ai.add-selection`
+- `ai.ask-selection`
 - `ai.run-skill`
 - `ai.stop-run`
 - `ai.accept-suggestion`
@@ -511,6 +528,7 @@ The keys of `bars`.
 - `statusbar`
 - `status`
 - `tabs`
+- `selection`
 <!-- /generated -->
 
 ### Region ids
