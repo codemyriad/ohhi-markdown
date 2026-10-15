@@ -216,8 +216,10 @@ describe('CollectionView', () => {
     const { store } = setup()
     const user = userEvent.setup()
     await screen.findByTestId('collection-table')
-    await user.selectOptions(screen.getByTestId('collection-group'), 'threat')
+    await user.click(screen.getByTestId('collection-group'))
+    await user.click(await screen.findByTestId('collection-group:threat'))
     expect(store.get('Competitors.base')).toContain('    groupBy:\n      property: threat\n      direction: ASC\n')
+    await waitFor(() => expect(screen.getByTestId('collection-group')).toHaveAccessibleName('Group by: Threat'))
   })
 
   it('says when the file is not a collection, and offers a first view when it has none', async () => {
@@ -553,5 +555,104 @@ describe('CollectionView columns that follow the notes (QA round 1)', () => {
     await user.click(screen.getByTestId('collection-add-view'))
     await user.click(await screen.findByTestId('collection-add-view:list'))
     expect(store.get('Competitors.base')).toBe(`${AUTO}  - type: list\n    name: List\n`)
+  })
+})
+
+describe('CollectionView view menu (QA round 1)', () => {
+  it('the toolbar: tabs, then the view menu and +, then count, grouping, columns, New — the tablist holds tabs only', async () => {
+    setup()
+    await screen.findByTestId('collection-table')
+    const tablist = screen.getByRole('tablist')
+    expect(within(tablist).queryAllByRole('button')).toHaveLength(0)
+    const order = ['collection-view-menu-trigger', 'collection-add-view', 'collection-count', 'collection-group', 'collection-columns', 'collection-new'].map((id) =>
+      screen.getByTestId(id)
+    )
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(screen.getByTestId('collection-add-view')).toHaveAccessibleName('Add a view')
+    expect(screen.getByTestId('collection-view-menu-trigger')).toHaveAccessibleName('Options for the view All')
+  })
+
+  it('renames a view: one field, Enter commits, a taken name is refused inline', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'Direct' }))
+    await user.click(screen.getByTestId('collection-view-menu-trigger'))
+    await user.click(await screen.findByTestId('collection-view-rename'))
+    const input = await screen.findByTestId('collection-rename-input')
+    await user.clear(input)
+    await user.type(input, 'all')
+    expect(screen.getByTestId('collection-rename-error')).toHaveTextContent('Another view is already called all.')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByTestId('collection-rename-confirm')).toBeDisabled()
+    await user.clear(input)
+    await user.type(input, 'Threat Watch{Enter}')
+    expect(store.get('Competitors.base')).toContain('  - type: table\n    name: Threat Watch\n    filters:')
+    // Only that view's node moved: everything before it and from the next view on is byte-identical.
+    const text = store.get('Competitors.base')!
+    const cut = (t: string, from: string) => t.slice(0, t.indexOf(from))
+    expect(cut(text, '  - type: table\n    name: Threat Watch')).toBe(cut(BASE, '  - type: table\n    name: Direct'))
+    expect(text.slice(text.indexOf('  - type: kanban\n    name: Board\n'))).toBe(BASE.slice(BASE.indexOf('  - type: kanban\n    name: Board\n')))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Threat Watch' })).toHaveAttribute('aria-selected', 'true'))
+  })
+
+  it('Escape cancels a rename', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByTestId('collection-view-menu-trigger'))
+    await user.click(await screen.findByTestId('collection-view-rename'))
+    await user.type(await screen.findByTestId('collection-rename-input'), 'x{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('collection-rename-input')).toBeNull())
+    expect(store.get('Competitors.base')).toBe(BASE)
+  })
+
+  it('deletes a view after a confirm and shows its neighbour', async () => {
+    const { store } = setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.click(screen.getByRole('tab', { name: 'Direct' }))
+    await user.click(screen.getByTestId('collection-view-menu-trigger'))
+    await user.click(await screen.findByTestId('collection-view-delete'))
+    // Cancel leaves the file alone.
+    await user.click(await screen.findByTestId('collection-delete-cancel'))
+    expect(store.get('Competitors.base')).toBe(BASE)
+    await user.click(screen.getByTestId('collection-view-menu-trigger'))
+    await user.click(await screen.findByTestId('collection-view-delete'))
+    await user.click(await screen.findByTestId('collection-delete-confirm'))
+    const text = store.get('Competitors.base')!
+    expect(text).not.toContain('name: Direct')
+    expect(text).toBe(BASE.replace(/  - type: table\n    name: Direct\n[\s\S]*?(?=  - type: kanban\n    name: Board\n)/, ''))
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Board' })).toHaveAttribute('aria-selected', 'true'))
+    expect(screen.queryByRole('tab', { name: 'Direct' })).toBeNull()
+  })
+
+  it('a right-click on a tab selects it and opens its menu', async () => {
+    setup()
+    const user = userEvent.setup()
+    await screen.findByTestId('collection-table')
+    await user.pointer({ keys: '[MouseRight]', target: screen.getByRole('tab', { name: 'Quick' }) })
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Quick' })).toHaveAttribute('aria-selected', 'true'))
+    expect(await screen.findByTestId('collection-view-menu')).toBeInTheDocument()
+  })
+
+  it('deleting the last view falls into the "no views" state', async () => {
+    const store = new Map([['One.base', 'views:\n  - type: table\n    name: Only\n']])
+    const index = new MemoryIndex()
+    const workspace = {
+      ui: { files: [] },
+      docForPath: (path: string) => (store.has(path) ? fakeDoc(path, index, store) : null),
+      createFile: vi.fn(),
+      flash: vi.fn(),
+    } as unknown as Workspace
+    render(CollectionView, { props: { workspace, path: 'One.base' }, context: viewShellContext(fakeViewShell(0, { index: () => index })) })
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('collection-view-menu-trigger'))
+    await user.click(await screen.findByTestId('collection-view-delete'))
+    await user.click(await screen.findByTestId('collection-delete-confirm'))
+    expect(store.get('One.base')).toBe('views:\n')
+    await screen.findByTestId('collection-add-table')
   })
 })

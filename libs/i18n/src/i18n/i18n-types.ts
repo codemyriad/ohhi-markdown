@@ -8184,6 +8184,11 @@ export type NamespaceWebTranslation = {
 		 */
 		group_none: string
 		/**
+		 * G​r​o​u​p​ ​b​y​:​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		group_menu: RequiredParams<'name'>
+		/**
 		 * N​o​ ​v​a​l​u​e
 		 */
 		group_empty: string
@@ -8243,6 +8248,58 @@ export type NamespaceWebTranslation = {
 		 * A​d​d​ ​a​ ​v​i​e​w
 		 */
 		add_view: string
+		/**
+		 * O​p​t​i​o​n​s​ ​f​o​r​ ​t​h​e​ ​v​i​e​w​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		view_menu: RequiredParams<'name'>
+		/**
+		 * R​e​n​a​m​e​…
+		 */
+		view_rename: string
+		/**
+		 * D​e​l​e​t​e​…
+		 */
+		view_delete: string
+		/**
+		 * R​e​n​a​m​e​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		rename_title: RequiredParams<'name'>
+		/**
+		 * V​i​e​w​ ​n​a​m​e
+		 */
+		rename_label: string
+		/**
+		 * N​o​t​e​s​ ​t​h​a​t​ ​e​m​b​e​d​ ​t​h​i​s​ ​v​i​e​w​ ​b​y​ ​n​a​m​e​ ​w​i​l​l​ ​n​e​e​d​ ​t​h​e​ ​n​e​w​ ​n​a​m​e​.
+		 */
+		rename_hint: string
+		/**
+		 * A​ ​v​i​e​w​ ​n​e​e​d​s​ ​a​ ​n​a​m​e​.
+		 */
+		rename_empty: string
+		/**
+		 * A​n​o​t​h​e​r​ ​v​i​e​w​ ​i​s​ ​a​l​r​e​a​d​y​ ​c​a​l​l​e​d​ ​{​n​a​m​e​}​.
+		 * @param {string} name
+		 */
+		rename_taken: RequiredParams<'name'>
+		/**
+		 * R​e​n​a​m​e
+		 */
+		rename_confirm: string
+		/**
+		 * D​e​l​e​t​e​ ​t​h​e​ ​v​i​e​w​ ​{​n​a​m​e​}​?
+		 * @param {string} name
+		 */
+		delete_title: RequiredParams<'name'>
+		/**
+		 * O​n​l​y​ ​t​h​e​ ​v​i​e​w​ ​g​o​e​s​ ​—​ ​i​t​s​ ​f​i​l​t​e​r​s​,​ ​c​o​l​u​m​n​s​ ​a​n​d​ ​s​o​r​t​.​ ​T​h​e​ ​n​o​t​e​s​ ​i​t​ ​s​h​o​w​s​ ​a​r​e​ ​n​o​t​ ​t​o​u​c​h​e​d​.
+		 */
+		delete_body: string
+		/**
+		 * D​e​l​e​t​e​ ​v​i​e​w
+		 */
+		delete_confirm: string
 		/**
 		 * T​a​b​l​e
 		 */
@@ -16057,6 +16114,10 @@ export type TranslationFunctions = {
 			 */
 			group_none: () => LocalizedString
 			/**
+			 * Group by: {name}
+			 */
+			group_menu: (arg: { name: string }) => LocalizedString
+			/**
 			 * No value
 			 */
 			group_empty: () => LocalizedString
@@ -16108,6 +16169,54 @@ export type TranslationFunctions = {
 			 * Add a view
 			 */
 			add_view: () => LocalizedString
+			/**
+			 * Options for the view {name}
+			 */
+			view_menu: (arg: { name: string }) => LocalizedString
+			/**
+			 * Rename…
+			 */
+			view_rename: () => LocalizedString
+			/**
+			 * Delete…
+			 */
+			view_delete: () => LocalizedString
+			/**
+			 * Rename {name}
+			 */
+			rename_title: (arg: { name: string }) => LocalizedString
+			/**
+			 * View name
+			 */
+			rename_label: () => LocalizedString
+			/**
+			 * Notes that embed this view by name will need the new name.
+			 */
+			rename_hint: () => LocalizedString
+			/**
+			 * A view needs a name.
+			 */
+			rename_empty: () => LocalizedString
+			/**
+			 * Another view is already called {name}.
+			 */
+			rename_taken: (arg: { name: string }) => LocalizedString
+			/**
+			 * Rename
+			 */
+			rename_confirm: () => LocalizedString
+			/**
+			 * Delete the view {name}?
+			 */
+			delete_title: (arg: { name: string }) => LocalizedString
+			/**
+			 * Only the view goes — its filters, columns and sort. The notes it shows are not touched.
+			 */
+			delete_body: () => LocalizedString
+			/**
+			 * Delete view
+			 */
+			delete_confirm: () => LocalizedString
 			/**
 			 * Table
 			 */

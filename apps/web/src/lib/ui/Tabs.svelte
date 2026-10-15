@@ -46,6 +46,18 @@
     size?: 'md' | 'sm'
     /** Controls at the compact row's right end (outside the tablist). */
     end?: Snippet
+    /**
+     * Compact only: controls right after the last tab, outside the tablist
+     * (a collection's view menu and its "+ add a view", like a browser's
+     * new-tab button). The row's free space then sits between them and `end`.
+     */
+    after?: Snippet
+    /**
+     * Compact only: room the row keeps free at its right edge, as a CSS
+     * length — what floats over it there (the dock's closed strip,
+     * `var(--ed-dock-clear)`).
+     */
+    endInset?: string
     /** Vertical only: below a 32rem-wide container the list becomes a `<select>`. */
     collapse?: boolean
   }
@@ -59,6 +71,8 @@
     panel,
     size = 'md',
     end,
+    after,
+    endInset,
     collapse = false,
   }: Props = $props()
 
@@ -103,7 +117,7 @@
     class="flex shrink-0 {vertical
       ? `w-40 flex-col gap-0.5 ${collapsing ? '@max-[32rem]:hidden' : ''}`
       : compact
-        ? 'min-w-0 flex-1 flex-row items-stretch gap-0.5'
+        ? `min-w-0 flex-row items-stretch gap-0.5 overflow-x-auto [scrollbar-width:none] ${after ? '' : 'flex-1'}`
         : 'flex-row gap-1 border-b border-base-300'}"
   >
     {#each tabs as tab (tab.value)}
@@ -149,8 +163,12 @@
       </select>
     {/if}
     {#if compact}
-      <div class="flex h-8 shrink-0 items-stretch border-b border-base-300">
+      <div class="flex h-8 shrink-0 items-stretch border-b border-base-300" style:padding-right={endInset}>
         {@render tabList()}
+        {#if after}
+          <div class="flex shrink-0 items-center gap-0.5 px-1">{@render after()}</div>
+          <div class="min-w-0 flex-1"></div>
+        {/if}
         {#if end}
           <div class="flex shrink-0 items-center gap-0.5 px-1">{@render end()}</div>
         {/if}

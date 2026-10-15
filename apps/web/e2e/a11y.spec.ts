@@ -690,6 +690,25 @@ test('a collection tab is accessible', async ({ page }) => {
   await expect(page.getByTestId('collection-table')).toBeVisible()
   await expectAccessible(page, 'collection tab')
 
+  // The dock's closed strip floats at the pane's top right; the toolbar
+  // keeps that corner free, so "+ New" is never under it (QA round 1).
+  // (This fixture's layout may pin the rail as a column: then there is no strip.)
+  if (await page.getByTestId('rail-expand').count()) {
+    const strip = await page.getByTestId('rail-expand').boundingBox()
+    const newRow = await page.getByTestId('collection-new').boundingBox()
+    expect(strip && newRow && newRow.x + newRow.width <= strip.x).toBe(true)
+  }
+
+  // The view's own menu (rename, delete) and the rename dialog.
+  await page.getByTestId('collection-view-menu-trigger').click()
+  await expect(page.getByTestId('collection-view-menu')).toBeVisible()
+  await expectAccessible(page, 'collection view menu')
+  await page.getByTestId('collection-view-rename').click()
+  await expect(page.getByTestId('collection-rename-input')).toBeFocused()
+  await expectAccessible(page, 'collection rename dialog')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('collection-rename-input')).toHaveCount(0)
+
   // The columns popover: a checkbox list anchored to its button. Adding a
   // column writes the view's node in the file; the table follows.
   await page.getByTestId('collection-columns').click()

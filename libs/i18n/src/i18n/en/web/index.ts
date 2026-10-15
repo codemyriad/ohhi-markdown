@@ -2741,6 +2741,8 @@ const collections = {
   columns_dynamic: 'Showing every property these notes have. Changing one pins the list.',
   group_by: 'Group by',
   group_none: 'No grouping',
+  /** The grouping menu's button: "Group by: Threat". */
+  group_menu: 'Group by: {name:string}',
   group_empty: 'No value',
   sort_by: 'Sort by {name:string}',
   /** The first column, when the file gives `file.name` no display name. */
@@ -2757,6 +2759,20 @@ const collections = {
   no_views: 'This collection has no views yet.',
   add_table: 'Add a table view',
   add_view: 'Add a view',
+  /** A view's own menu (the button after the tabs, or a right-click on a tab). */
+  view_menu: 'Options for the view {name:string}',
+  view_rename: 'Rename…',
+  view_delete: 'Delete…',
+  rename_title: 'Rename {name:string}',
+  rename_label: 'View name',
+  /** A rename changes what `![[X.base#View]]` embeds resolve. */
+  rename_hint: 'Notes that embed this view by name will need the new name.',
+  rename_empty: 'A view needs a name.',
+  rename_taken: 'Another view is already called {name:string}.',
+  rename_confirm: 'Rename',
+  delete_title: 'Delete the view {name:string}?',
+  delete_body: 'Only the view goes — its filters, columns and sort. The notes it shows are not touched.',
+  delete_confirm: 'Delete view',
   add_view_table: 'Table',
   add_view_board: 'Board',
   add_view_list: 'List',
