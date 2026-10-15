@@ -7387,6 +7387,36 @@ export type NamespaceWebTranslation = {
 				 */
 				proposal_applied: RequiredParams<'path'>
 				/**
+				 * A​c​c​e​p​t
+				 */
+				accept: string
+				/**
+				 * R​e​j​e​c​t
+				 */
+				reject: string
+				/**
+				 * S​h​o​w​ ​i​n​ ​n​o​t​e
+				 */
+				show_in_note: string
+				proposal_status: {
+					/**
+					 * P​e​n​d​i​n​g
+					 */
+					pending: string
+					/**
+					 * C​h​a​n​g​e​d​ ​s​i​n​c​e​ ​p​r​o​p​o​s​e​d
+					 */
+					stale: string
+					/**
+					 * A​p​p​l​i​e​d
+					 */
+					accepted: string
+					/**
+					 * N​o​ ​l​o​n​g​e​r​ ​p​r​o​p​o​s​e​d
+					 */
+					gone: string
+				}
+				/**
 				 * U​s​e​d​ ​{​n​a​m​e​}
 				 * @param {string} name
 				 */
@@ -15593,6 +15623,36 @@ export type TranslationFunctions = {
 					 * Edited {path} directly
 					 */
 					proposal_applied: (arg: { path: string }) => LocalizedString
+					/**
+					 * Accept
+					 */
+					accept: () => LocalizedString
+					/**
+					 * Reject
+					 */
+					reject: () => LocalizedString
+					/**
+					 * Show in note
+					 */
+					show_in_note: () => LocalizedString
+					proposal_status: {
+						/**
+						 * Pending
+						 */
+						pending: () => LocalizedString
+						/**
+						 * Changed since proposed
+						 */
+						stale: () => LocalizedString
+						/**
+						 * Applied
+						 */
+						accepted: () => LocalizedString
+						/**
+						 * No longer proposed
+						 */
+						gone: () => LocalizedString
+					}
 					/**
 					 * Used {name}
 					 */

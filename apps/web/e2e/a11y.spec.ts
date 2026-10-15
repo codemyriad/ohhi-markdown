@@ -728,10 +728,13 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // The proposal, pending in the note.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
-  await card.getByTestId('tool-open').click()
+  await expect(card.getByTestId('proposal-actions')).toBeVisible()
+  await expectAccessible(page, 'session card with a pending proposal')
+  await card.getByRole('button', { name: 'Show in note' }).click()
   const added = page.locator('[data-testid="editor-pane"] .ed-suggest-add')
   await expect(added.first()).toBeVisible()
-  await expectAccessible(page, 'note with a pending suggestion')
+  await expect(page.getByTestId('suggestion-pair')).toBeVisible()
+  await expectAccessible(page, 'note with a pending suggestion, its pair and its gutter mark')
 
   // Accepted: the readout names the agent's edit.
   await paneContent(page).evaluate((el, text) => {

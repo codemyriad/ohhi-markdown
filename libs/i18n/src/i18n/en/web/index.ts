@@ -2581,6 +2581,17 @@ const ai = {
       proposed: 'Proposed an edit in {path:string}',
       proposal_none: 'Nothing to propose in {path:string}: it already says that',
       proposal_applied: 'Edited {path:string} directly',
+      /** A proposal card's verbs (QA round 1): the same as the pair on the proposal in the note. */
+      accept: 'Accept',
+      reject: 'Reject',
+      show_in_note: 'Show in note',
+      /** A proposal card's status, read from the suggestion record. */
+      proposal_status: {
+        pending: 'Pending',
+        stale: 'Changed since proposed',
+        accepted: 'Applied',
+        gone: 'No longer proposed',
+      },
       used: 'Used {name:string}',
       failed: '{name:string} failed: {message:string}',
       details: 'Details',

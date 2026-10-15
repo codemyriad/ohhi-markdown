@@ -56,6 +56,7 @@
   import { sharedSnapshot } from '@ohhi/workspace'
   import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
+  import { nextFrame, revealSuggestionIn } from './lib/suggestion-reveal.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
@@ -360,6 +361,12 @@
       if (command && (!command.when || command.when())) void command.run()
     },
     commandKeys: (id) => nav.registry.binding(id),
+    revealSuggestion: (path, id, opts = {}) =>
+      revealSuggestionIn(path, id, opts, {
+        open: (p) => openPath(p, { beside: true }),
+        focusPane: (paneId) => panes.focusPane(paneId),
+        frame: nextFrame,
+      }),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,

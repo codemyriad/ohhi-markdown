@@ -64,6 +64,8 @@ function setup(opts: { agent?: AgentFactory; files?: Record<string, string>; vie
     listAppDir: app.listAppDir,
     onAppFileChange: () => () => {},
     flash: vi.fn(),
+    suggestionsFor: () => [],
+    subscribeSuggestions: () => () => {},
   } as unknown as Workspace
   const openView = vi.fn()
   attachHarness({ workspace: () => workspace, index: new MemoryIndex(), clock: new SimClock(), openView, agentFactory: opts.agent ?? agentOf(say('Hi from the agent.')) })
@@ -137,7 +139,7 @@ describe('SessionView', () => {
     expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
   })
 
-  it('a proposal renders as “proposed an edit in <note>” whose Open opens the note; an empty one says so', async () => {
+  it('a proposal renders as “proposed an edit in <note>” with Show in note; an empty one says so', async () => {
     const proposal = (id: string, out: Record<string, unknown>): UIMessageChunk[] => [
       { type: 'tool-input-available', toolCallId: id, toolName: 'ohhi_patch', input: { path: 'plan.md', old: 'a', new: 'b' } },
       { type: 'tool-output-available', toolCallId: id, output: { schema: 'ohhi.proposal.v1', path: 'plan.md', message: 'm', ...out } },
@@ -155,8 +157,39 @@ describe('SessionView', () => {
     await waitFor(() => expect(within(made).getByTestId('tool-summary')).toHaveTextContent(t.tool.proposed({ path: 'plan.md' })))
     await waitFor(() => expect(within(none).getByTestId('tool-summary')).toHaveTextContent(getLL().web.ai.session.tool.proposal_none({ path: 'plan.md' })))
     expect(within(none).queryByTestId('tool-open')).toBeNull()
-    await user.click(within(made).getByTestId('tool-open'))
-    expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
+    expect(within(none).queryByTestId('proposal-actions')).toBeNull()
+    // Its record is not in any open note here: it says so, and offers only Show in note.
+    expect(within(made).getByTestId('proposal-status')).toHaveAttribute('data-status', 'gone')
+    expect(within(made).getByTestId('proposal-status')).toHaveTextContent(t.tool.proposal_status.gone())
+    expect(within(made).queryByTestId('proposal-accept')).toBeNull()
+    await user.click(within(made).getByRole('button', { name: t.tool.show_in_note() }))
+    expect(shell.revealSuggestion).toHaveBeenCalledWith('plan.md', 'sg-1', { focus: true })
+  })
+
+  it('a proposal’s card reads its record: Accept reveals it in the note, then runs the registry’s accept row', async () => {
+    const chunks: UIMessageChunk[] = [
+      { type: 'start' },
+      { type: 'tool-input-available', toolCallId: 'c1', toolName: 'ohhi_patch', input: { path: 'plan.md', old: 'Plan', new: 'Roadmap' } },
+      {
+        type: 'tool-output-available',
+        toolCallId: 'c1',
+        output: { schema: 'ohhi.proposal.v1', path: 'plan.md', message: 'm', proposed: true, suggestionId: 'sg-1', from: 2, to: 6 },
+      },
+      ...say('Proposed.').slice(1),
+    ]
+    const { shell, workspace, user } = setup({ agent: agentOf(chunks) })
+    // The note's one record, as the workspace answers it.
+    const record = { id: 'sg-1', path: 'plan.md', status: 'pending', baseText: 'Plan', proposedText: 'Roadmap' }
+    Object.assign(workspace, { suggestionsFor: () => [record], subscribeSuggestions: () => () => {} })
+    await startRun({ sessionId: 's1', instruction: 'Rename it', open: false })
+    const card = await screen.findByTestId('tool-card')
+    await waitFor(() => expect(within(card).getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending'))
+    expect(within(card).getByTestId('proposal-diff')).toHaveTextContent('Plan Roadmap')
+    await user.click(within(card).getByRole('button', { name: t.tool.accept() }))
+    await waitFor(() => expect(shell.runCommand).toHaveBeenCalledWith('ai.accept-suggestion'))
+    expect(shell.revealSuggestion).toHaveBeenCalledWith('plan.md', 'sg-1')
+    await user.click(within(card).getByRole('button', { name: t.tool.reject() }))
+    await waitFor(() => expect(shell.runCommand).toHaveBeenLastCalledWith('ai.reject-suggestion'))
   })
 
   it('a handed-over mention becomes a chip; Backspace removes it whole', async () => {

@@ -71,6 +71,14 @@ export interface ViewShell {
   runCommand(id: string): void
   /** A command's key as it is pressed here (`Ctrl+Enter`), '' when it has none. */
   commandKeys(id: string): string
+  /**
+   * Bring an agent's suggestion into view (QA round 1, *Show in note*): its
+   * note where it already is, else opened beside the companion view; the
+   * caret at the suggestion's start, scrolled to the middle, and that
+   * editor the one note-acting commands mean. `focus` also gives it the
+   * keyboard. Resolves false when the note never drew the suggestion.
+   */
+  revealSuggestion(path: string, id: string, opts?: { focus?: boolean }): Promise<boolean>
   /** *Create* for an unresolved link (the Note menu's Links). */
   createFromLink(target: string): void
   /**

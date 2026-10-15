@@ -73,6 +73,7 @@ function setup(over: {
     openView: vi.fn(),
     runCommand: vi.fn(),
     commandKeys: () => '',
+    revealSuggestion: vi.fn(async () => true),
     createFromLink: vi.fn(),
     renameNote: vi.fn(async (path: string) => path),
     pin: vi.fn(),

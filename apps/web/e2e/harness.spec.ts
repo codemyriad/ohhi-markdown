@@ -49,18 +49,6 @@ function docText(page: Page): Promise<string> {
   })
 }
 
-/** Put the note's caret right after the first `text`, through CodeMirror's own view. */
-async function caretAfter(page: Page, text: string): Promise<void> {
-  await paneContent(page).evaluate((el, text) => {
-    const view = (el as unknown as { cmTile?: { root?: { view?: EditorView } } }).cmTile?.root?.view
-    if (!view) throw new Error('caretAfter: no CodeMirror view')
-    const at = view.state.doc.toString().indexOf(text)
-    if (at === -1) throw new Error(`caretAfter: no “${text}” in the note`)
-    view.dispatch({ selection: { anchor: at + text.length } })
-    view.focus()
-  }, text)
-}
-
 /** Where the note's caret is, and its text, through CodeMirror's own view (the note's pane, focused or not). */
 function caretOf(page: Page): Promise<{ head: number; text: string }> {
   return page.getByRole('textbox', { name: 'Note text' }).evaluate((el) => {
@@ -256,22 +244,65 @@ test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts
   await page.keyboard.press('Enter')
   await send(page, 'Add a comma before honestly.')
 
-  // The transcript links to the note; the suggestion is reviewed THERE.
+  // The card's *Show in note* puts the caret IN the suggestion, in the note's pane.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
-  await card.getByTestId('tool-open').click()
+  await expect(card.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
+  await card.getByRole('button', { name: 'Show in note' }).click()
   // In the note: the comma drawn as a proposed insertion; the text itself unchanged.
   const added = page.locator('[data-testid="editor-pane"] .ed-suggest-add')
   await expect(added.first()).toBeVisible()
   await expect(added.first()).toHaveText(',')
   expect(await docText(page)).toContain(OLD)
 
-  // The caret on the suggestion (where the comma goes), then Mod+Enter.
-  await caretAfter(page, 'the pill goes offline')
+  // The keys act at once: no hunting for the caret.
   await page.keyboard.press('ControlOrMeta+Enter')
   await expect(added).toHaveCount(0)
   await expect.poll(() => docText(page)).toContain(NEW)
   await expect(page.getByTestId('last-agent-write')).toContainText('welcome')
+  // The card read the same record: applied.
+  await expect(card.getByTestId('proposal-status')).toHaveAttribute('data-status', 'accepted')
+})
+
+test('the session card accepts and rejects a proposal over the same record, scrolling the note to it', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: 'Everything you type here', new: 'Everything you write here' } } },
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Two small edits proposed.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-card')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await send(page, 'Two small edits.')
+  const cards = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
+  await expect(cards).toHaveCount(2, { timeout: 15_000 })
+  const [first, second] = [cards.nth(0), cards.nth(1)]
+  await expect(first.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
+  await expect(first.getByTestId('proposal-diff')).toContainText('writ')
+  const added = page.locator('[data-testid^="editor-pane"] .ed-suggest-add')
+  await expect(added).toHaveCount(2)
+
+  // Reject on the first card: the note keeps its text, the card says it is gone.
+  await first.getByRole('button', { name: 'Reject' }).click()
+  await expect(added).toHaveCount(1)
+  await expect(first.getByTestId('proposal-status')).toHaveAttribute('data-status', 'gone')
+  await expect(first.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+  // Accept on the second: applied in the note, and the card follows the record.
+  await second.getByRole('button', { name: 'Accept' }).click()
+  await expect(added).toHaveCount(0)
+  await expect(second.getByTestId('proposal-status')).toHaveAttribute('data-status', 'accepted')
+  const text = await page.getByRole('textbox', { name: 'Note text' }).evaluate((el) => {
+    const view = (el as unknown as { cmTile?: { root?: { view?: EditorView } } }).cmTile?.root?.view
+    return view ? view.state.doc.toString() : ''
+  })
+  expect(text).toContain(NEW)
+  expect(text).toContain('Everything you type here')
+  // The session kept the keyboard: the card's verbs do not move it to the note.
+  await expect(page.getByTestId('session-view')).toBeVisible()
 })
 
 test('the pair on a proposal rejects and accepts it by click; next / previous and a gutter mark per proposal take the caret there', async ({ page, mockLlm }) => {

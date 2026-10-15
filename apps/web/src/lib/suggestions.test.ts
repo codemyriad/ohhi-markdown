@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event } from './readouts.fixture.js'
 import { bindEditor, resetEditors } from './focused-editor.svelte.js'
 import { lastAgentWrite, noteSuggestions, suggestionCommands, type SuggestionWorkspace } from './suggestions.svelte.js'
+import { revealSuggestionIn } from './suggestion-reveal.js'
 
 vi.mock('./ai-config.svelte.js', async (orig) => ({ ...(await orig<typeof import('./ai-config.svelte.js')>()), aiEnabled: () => true }))
 
@@ -320,6 +321,28 @@ describe('the pair on a proposal, and stepping', () => {
     expect(view.state.selection.main.head).toBe(4)
     await run('ai.previous-suggestion')
     expect(view.state.selection.main.head).toBe(15)
+  })
+})
+
+describe('revealSuggestionIn (Show in note)', () => {
+  it('puts the caret at the suggestion in the note already on screen, opening nothing', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const b = f.propose(15, 19, 'land')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    const open = vi.fn()
+    expect(await revealSuggestionIn(PATH, b.id, {}, { open, frame: async () => {} })).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(view.state.selection.main.head).toBe(15)
+  })
+
+  it('opens a note that is not on screen, and says false when it never draws the suggestion', async () => {
+    const open = vi.fn()
+    const frame = vi.fn(async () => {})
+    expect(await revealSuggestionIn('elsewhere.md', 'nope', {}, { open, frame, tries: 3 })).toBe(false)
+    expect(open).toHaveBeenCalledWith('elsewhere.md')
+    expect(frame).toHaveBeenCalledTimes(3)
   })
 })
 
