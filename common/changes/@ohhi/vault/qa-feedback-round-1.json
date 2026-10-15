@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "Every adapter can list the folders inside one of the app's own directories (`listAppDirs`), which the app uses to list a vault's theme folders.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

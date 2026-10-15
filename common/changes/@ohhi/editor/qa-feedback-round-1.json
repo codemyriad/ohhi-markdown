@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor",
+      "comment": "A proposal in the note carries an Accept / Reject pair and a gutter mark; comment threads keep their gutter below the inline title.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor"
+}

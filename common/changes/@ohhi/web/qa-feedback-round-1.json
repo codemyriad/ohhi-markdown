@@ -1,0 +1,35 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Settings is reorganised: Customise is the umbrella for Editor, Layout, Appearance and Keys; your display name lives under Sync & devices; AI is one page with providers, the vault's skills and outside agents; a narrow pane shows an icon rail instead of a dropdown; the whole view uses one type scale.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Themes: Appearance lists Built in and In this vault separately, the vault's theme folders are listed, and Nord ships as an example theme you can add to a vault with one click (a saved Nord choice keeps working and says so once if the folder is missing).",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Collections: a view that pins no columns shows the notes' own properties; views can be renamed and deleted from their tab; the new-view button sits after the tabs; a board with nothing to group by offers the properties; the properties form no longer jumps while you edit; the toolbar stays clear of the sidebar toggle.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The agent: a session opens beside its note (right when wide, below when narrow) and has a toolbar door; Mod+Shift+L works with nothing selected; proposals carry Accept and Reject on the text and on the session card, with next/previous commands and a gutter mark; the session's first screen offers starts above a focused composer; Send to agent says which session it uses and links thread and session both ways; the accept/reject keys show in Keys and the palette.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Comments: a comment button on the formatting bar and in the Comments panel, an empty state that names the key, and a tighter panel; a note with a comment thread no longer opens with a blank band above its title.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Small screens: the opening page replaces the connecting splash; the formatting bar scrolls across the row with the word count as a chip; a tap in the note closes the drawers; pins are kept but not applied; a wikilink opens only from a tap on its text, with a card to open or create the note; a note made from a wikilink is created empty.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

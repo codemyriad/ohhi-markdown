@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/collections",
+      "comment": "A view that writes no `order` shows the name plus every property its notes hold; new collections and views write no `order`, so their columns follow the notes.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/collections"
+}

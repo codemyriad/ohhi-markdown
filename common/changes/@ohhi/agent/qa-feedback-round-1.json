@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/agent",
+      "comment": "`ohhi rows` follows the same column rule as the app: a view with no `order` returns the name plus every property its notes hold.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/agent"
+}
