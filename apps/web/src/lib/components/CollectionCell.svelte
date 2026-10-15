@@ -115,25 +115,31 @@
     onchange={onCheck}
   />
 {:else if editing}
-  <input
-    bind:this={input}
-    value={draft}
-    type={inputType}
-    step={kind === 'number' ? 'any' : undefined}
-    list={kind === 'text' && options.length ? `${uid}-options` : undefined}
-    class={field}
-    aria-label={t.edit_cell({ column, name: row })}
-    data-testid={testid ? `${testid}:input` : undefined}
-    onkeydown={onKey}
-    onblur={commit}
-  />
-  {#if kind === 'text' && options.length}
-    <datalist id="{uid}-options">
-      {#each options as option (option)}
-        <option value={option}></option>
-      {/each}
-    </datalist>
-  {/if}
+  <!-- A flex box, so the whitespace between the field and its suggestion
+       list is never a line of its own: inside the editor (the properties
+       form, an embed) CodeMirror's surface preserves whitespace, and a
+       stray line there grew the row the moment a field opened. -->
+  <div class="flex">
+    <input
+      bind:this={input}
+      value={draft}
+      type={inputType}
+      step={kind === 'number' ? 'any' : undefined}
+      list={kind === 'text' && options.length ? `${uid}-options` : undefined}
+      class={field}
+      aria-label={t.edit_cell({ column, name: row })}
+      data-testid={testid ? `${testid}:input` : undefined}
+      onkeydown={onKey}
+      onblur={commit}
+    />
+    {#if kind === 'text' && options.length}
+      <datalist id="{uid}-options">
+        {#each options as option (option)}
+          <option value={option}></option>
+        {/each}
+      </datalist>
+    {/if}
+  </div>
 {:else}
   <button
     bind:this={button}

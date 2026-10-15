@@ -752,8 +752,12 @@ test('a collection tab is accessible', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+e')
   // Back in Live, a key is a door into the YAML, where the form gives way
   // to the text (R4.1.1).
+  // Opening the field moves nothing: the row keeps its height (QA round 1).
+  const formRow = page.getByTestId('properties-form').locator('.ed-properties-row').first()
+  const restHeight = (await formRow.boundingBox())!.height
   await page.getByTestId('property:status').click()
   await expect(page.getByTestId('property:status:input')).toBeVisible()
+  expect((await formRow.boundingBox())!.height).toBe(restHeight)
   await expectAccessible(page, 'properties form cell editor')
   await page.keyboard.press('Escape')
   await page.getByTestId('property-key:status').click()
