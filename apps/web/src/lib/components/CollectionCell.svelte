@@ -90,11 +90,19 @@
 
   /** A date that carries a time is edited as text: a date field would drop the time. */
   const inputType = $derived(kind === 'number' ? 'number' : kind === 'date' && !/[T ]\d/.test(cellDraft(value)) ? 'date' : 'text')
-  const field = 'w-full rounded border border-base-300 bg-base-100 px-1.5 py-0.5 text-xs text-base-content focus-visible:outline-2 focus-visible:outline-primary'
+  /**
+   * ONE box for the value at rest and in edit — the same height, padding
+   * and border width (transparent at rest) — so opening the editor moves
+   * nothing around it: not the table's row, not the properties form's
+   * next line (QA round 1). A fixed height, because a date or number field
+   * draws its own inner chrome and would otherwise grow the row.
+   */
+  const box = 'box-border block h-6 w-full rounded border px-1.5 py-0 text-xs leading-[1.375rem]'
+  const field = `${box} border-base-300 bg-base-100 text-base-content focus-visible:outline-2 focus-visible:outline-primary`
 </script>
 
 {#if !editable}
-  <span class="block truncate px-1.5 py-0.5 text-xs {text ? 'text-base-content' : 'text-base-content/70'}" data-testid={testid}>
+  <span class="{box} truncate border-transparent {text ? 'text-base-content' : 'text-base-content/70'}" data-testid={testid}>
     {text || t.empty_cell()}
   </span>
 {:else if kind === 'boolean'}
@@ -130,7 +138,7 @@
   <button
     bind:this={button}
     type="button"
-    class="block w-full truncate rounded px-1.5 py-0.5 text-left text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary {text ? 'text-base-content' : 'text-base-content/70'}"
+    class="{box} truncate border-transparent text-left hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary {text ? 'text-base-content' : 'text-base-content/70'}"
     aria-label={t.edit_cell({ column, name: row })}
     data-testid={testid}
     onclick={open}
