@@ -380,6 +380,37 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
 })
 
 /**
+ * Settings' nav at both widths (QA round 1): the labelled tree in a wide
+ * pane, and below 32rem the icon rail (N3) — every tab named (its
+ * `aria-label`), its tooltip on keyboard focus, every section scanned with
+ * the rail beside it.
+ */
+test('settings: the wide tree and the narrow icon rail are accessible', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 })
+  await page.goto(appUrl({ room: 'a11y-settings-rail', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await page.keyboard.press('ControlOrMeta+,')
+  await expect(settingsView(page)).toBeVisible()
+  const rail = settingsView(page).getByRole('tablist', { name: 'Settings sections' })
+  expect(await rail.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(48)
+  await expect(rail.getByRole('tab')).toHaveCount(9)
+  for (const tab of await rail.getByRole('tab').all()) expect(await tab.getAttribute('aria-label')).toBeTruthy()
+  await rail.getByRole('tab', { name: 'Customise', exact: true }).focus()
+  await expect(page.getByRole('tooltip')).toHaveText('Customise')
+  await expectAccessible(page, 'settings rail, a tooltip on focus')
+  for (const section of ['customise', 'editor', 'layout', 'appearance', 'keys', 'sync', 'ai', 'developer', 'about']) {
+    await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+    await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
+    await expectAccessible(page, `settings ${section} beside the rail`)
+  }
+
+  // Wide: the tree, labels drawn, no tooltip.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect.poll(() => rail.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(150)
+  await expectAccessible(page, 'settings tree (wide)')
+})
+
+/**
  * The sharing overlays (device-link N1–N3). Each is a place a person is asked
  * to paste a credential or is made to wait, which is exactly where an
  * unlabelled field or an unannounced error costs the most.

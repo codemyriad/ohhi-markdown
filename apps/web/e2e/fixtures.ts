@@ -314,20 +314,15 @@ export async function openSettings(page: Page, section?: string): Promise<void> 
   await page.keyboard.press('ControlOrMeta+,')
   await expect(settingsView(page)).toBeVisible()
   if (!section) return
-  // In a pane narrower than 32rem the nav is a select (Tabs' `collapse`).
-  const select = settingsView(page).getByTestId('settings-tabs-select')
-  if (await select.isVisible()) await select.selectOption(section)
-  else await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+  // One tablist at every width: a labelled tree, or (below 32rem) an icon rail.
+  await settingsView(page).getByTestId(`settings-tab:${section}`).click()
   await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
 }
 
 /** Close the Settings tab like any tab: `Mod+W` with the tab focused (a field in a pane does not claim it). */
 export async function closeSettings(page: Page): Promise<void> {
-  // In a pane narrower than 32rem the nav is a select, the tabs hidden.
-  const select = settingsView(page).getByTestId('settings-tabs-select')
-  if (await select.isVisible()) await select.focus()
-  // The nav's own tab: a section may hold tabs of its own (Settings › AI's Providers/Skills).
-  else await settingsView(page).locator('[data-testid^="settings-tab:"][aria-selected="true"]').focus()
+  // The nav's own tab (wide or rail): a section may hold tabs of its own (AI's route picker).
+  await settingsView(page).locator('[data-testid^="settings-tab:"][aria-selected="true"]').focus()
   await page.keyboard.press('ControlOrMeta+w')
   await expect(settingsView(page)).toHaveCount(0)
 }

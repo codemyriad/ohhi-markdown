@@ -9,11 +9,9 @@
    * icon, with `end` (the row's own controls) at its right end, outside the
    * tablist so the list holds tabs and nothing else.
    *
-   * `collapse` (vertical only; Settings in a narrow pane): the tabs measure
-   * their own width (a container, not the viewport — a split pane is narrow
-   * on a wide screen). Below 32rem the side list gives way to a native
-   * `<select>` above the panel, holding the same choices; the panel then has
-   * the full width.
+   * Settings' own nav is `SettingsNav.svelte` (a tree, with an icon rail in a
+   * narrow pane — QA round 1), so the vertical form here has no group rules
+   * and no narrow form of its own any more.
    */
   import type { LucideIcon } from '@lucide/svelte'
   import { createTabs, melt } from '@melt-ui/svelte'
@@ -25,12 +23,6 @@
     testid?: string
     /** Drawn beside the label (`aria-hidden`); the label still names the tab. */
     icon?: LucideIcon
-    /**
-     * Vertical only: a rule above this tab, starting a new group (Settings'
-     * three groups). Drawn by the tab's own `::before`, so the tablist holds
-     * tabs and nothing else.
-     */
-    separated?: boolean
   }
 
   interface Props {
@@ -58,8 +50,6 @@
      * `var(--ed-dock-clear)`).
      */
     endInset?: string
-    /** Vertical only: below a 32rem-wide container the list becomes a `<select>`. */
-    collapse?: boolean
   }
 
   let {
@@ -73,11 +63,9 @@
     end,
     after,
     endInset,
-    collapse = false,
   }: Props = $props()
 
   const vertical = $derived(orientation === 'vertical')
-  const collapsing = $derived(vertical && collapse)
   const compact = $derived(!vertical && size === 'sm')
   // Melt 0.86 emits role/tabindex/data-state but no aria-selected, and points
   // the panel's aria-labelledby at the bare value string; the ids below make
@@ -115,7 +103,7 @@
     use:melt={$list}
     aria-label={label}
     class="flex shrink-0 {vertical
-      ? `w-40 flex-col gap-0.5 ${collapsing ? '@max-[32rem]:hidden' : ''}`
+      ? 'w-40 flex-col gap-0.5'
       : compact
         ? `min-w-0 flex-row items-stretch gap-0.5 overflow-x-auto [scrollbar-width:none] ${after ? '' : 'flex-1'}`
         : 'flex-row gap-1 border-b border-base-300'}"
@@ -130,7 +118,7 @@
         data-testid={tab.testid}
         class={compact
           ? 'inline-flex items-center gap-1 border-b-2 border-transparent px-1.5 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary data-[state=active]:border-primary data-[state=active]:font-medium data-[state=active]:text-base-content'
-          : `rounded px-3 py-1.5 text-left text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary data-[state=active]:bg-primary data-[state=active]:font-medium data-[state=active]:text-primary-content ${vertical ? '' : 'rounded-b-none'} ${vertical && tab.separated ? "relative mt-3 before:pointer-events-none before:absolute before:inset-x-2 before:-top-2 before:border-t before:border-base-300 before:content-['']" : ''}`}
+          : `rounded px-3 py-1.5 text-left text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary data-[state=active]:bg-primary data-[state=active]:font-medium data-[state=active]:text-primary-content ${vertical ? '' : 'rounded-b-none'}`}
       >
         {#if tab.icon}<tab.icon size={14} strokeWidth={1.75} aria-hidden="true" />{/if}
         {tab.label}
@@ -139,29 +127,16 @@
   </div>
 {/snippet}
 
-<div class={collapsing ? '@container h-full min-h-0' : 'contents'}>
+<div class="contents">
   <div
     use:melt={$root}
     data-testid={testid}
     class="flex min-h-0 {vertical
-      ? `flex-row gap-4 ${collapsing ? '@max-[32rem]:flex-col @max-[32rem]:gap-3' : ''}`
+      ? 'flex-row gap-4'
       : compact
         ? 'flex-col'
         : 'flex-col gap-4'}"
   >
-    {#if collapsing}
-      <select
-        aria-label={label}
-        data-testid={testid ? `${testid}-select` : undefined}
-        value={$current}
-        onchange={(e) => current.set(e.currentTarget.value)}
-        class="hidden w-full rounded border border-base-300 bg-base-100 px-2 py-1.5 text-sm text-base-content focus:border-primary focus:outline-none @max-[32rem]:block"
-      >
-        {#each tabs as tab (tab.value)}
-          <option value={tab.value}>{tab.label}</option>
-        {/each}
-      </select>
-    {/if}
     {#if compact}
       <div class="flex h-8 shrink-0 items-stretch border-b border-base-300" style:padding-right={endInset}>
         {@render tabList()}

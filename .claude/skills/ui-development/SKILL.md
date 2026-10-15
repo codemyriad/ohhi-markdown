@@ -40,6 +40,7 @@ This project uses:
 | `Tooltip` | a label on hover **and keyboard focus**; the child spreads the trigger attrs itself (`focus` does not bubble) | `title=` as the only label |
 | `IconButton` | an icon-only control: `aria-label` + tooltip from one `label`; `showLabel` for rail rows | an `<button>` with only an SVG in it |
 | `Tabs` | one tab stop, arrows move, only the active panel in the DOM | a row of buttons toggling `{#if}`s |
+| `SettingsNav` | Settings' tree nav (one tablist; an icon rail below 32rem, each tab named and tooltipped) | a second nav inside a section |
 | `Toaster` + `toast()` | announcing a notice without stealing focus (`role=status`, polite) | an inline error string in the header |
 | `createForm` + `Field` / `TextControl` / `CheckControl` / `FieldErrors` / `Description` | any form with a rule in it — the field wires `aria-invalid`, `aria-required` and `aria-describedby` (description + errors) exactly as Edible's `form-field` builder does | inputs with ad-hoc `error` spans |
 
@@ -291,12 +292,15 @@ applies as it changes; a text field that validates (the name, the relay)
 commits on Enter or blur; Keys writes each change through to a keymap file,
 with Undo. File-backed sections carry a `ResourceSource` line (the file in
 use and its root). The nav and the sections measure their own width
-(container queries): below 32rem the nav is a `<select>` (`Tabs`'
-`collapse`), and a section's grids use `@md:`-style container breakpoints,
-never `sm:`, so a split pane gets the narrow layout. Test ids:
-`settings-view` / `settings-page`, `settings` (with `data-section`),
-`settings-tab:<id>`, `settings-section:<id>`, `settings-needs-vault:<id>`,
-`settings-tabs-select`. Add a setting to the section it belongs to.
+(container queries; Settings is the `settings` container): the nav is
+`ui/SettingsNav.svelte`, one tablist drawn as the labelled tree, and below
+32rem as an icon rail — each tab its glyph, named by its `aria-label` and a
+`Tooltip` drawn only in the rail (`Tooltip`'s `triggerId` / `contentClass`).
+A section's grids use `@md:`-style container breakpoints, never `sm:`, so a
+split pane gets the narrow layout. Test ids: `settings-view` /
+`settings-page`, `settings` (with `data-section`), `settings-tab:<id>` (wide
+and rail alike, with `data-depth` and `data-group-start`),
+`settings-section:<id>`, `settings-needs-vault:<id>`. Add a setting to the section it belongs to.
 
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 

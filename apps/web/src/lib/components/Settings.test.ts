@@ -78,12 +78,50 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
     expect(tabs.map((tab) => tab.textContent!.trim())).toEqual([
       'Customise', 'Editor', 'Layout', 'Appearance', 'Keys', 'Sync & devices', 'AI', 'Developer', 'About',
     ])
-    // A rule starts the second and third groups (drawn by the tab itself: the list holds tabs only).
-    const separated = tabs.filter((tab) => tab.className.includes('before:border-t')).map((tab) => tab.dataset.testid)
-    expect(separated).toEqual(['settings-tab:sync', 'settings-tab:developer'])
+    // A gap starts the second and third groups (drawn by the tab itself: the list holds tabs only);
+    // Customise's four parts sit under it.
+    const starts = tabs.filter((tab) => tab.hasAttribute('data-group-start')).map((tab) => tab.dataset.testid)
+    expect(starts).toEqual(['settings-tab:sync', 'settings-tab:developer'])
+    const parts = tabs.filter((tab) => tab.dataset.depth === '1').map((tab) => tab.dataset.testid)
+    expect(parts).toEqual(['settings-tab:editor', 'settings-tab:layout', 'settings-tab:appearance', 'settings-tab:keys'])
 
     await user.click(screen.getByTestId('settings-tab:about'))
     expect(onSection).toHaveBeenCalledWith('about')
+  })
+
+  it('the nav is one tablist: one tab stop, arrows move and select, Home/End; every tab named, with a tooltip for the rail', async () => {
+    const user = userEvent.setup()
+    const onSection = vi.fn()
+    const view = render(Settings, { section: 'customise', onSection, vault: VAULT, registry: registryWith() })
+    const list = screen.getByRole('tablist', { name: LL.web.settings.sections() })
+    const tabs = screen.getAllByRole('tab')
+    // One tab stop: the active tab.
+    expect(tabs.filter((tab) => tab.tabIndex === 0).map((tab) => tab.dataset.testid)).toEqual(['settings-tab:customise'])
+    // The panel names its tab, and the active tab controls the panel.
+    const panel = screen.getByRole('tabpanel')
+    expect(panel).toHaveAttribute('aria-labelledby', tabs[0]!.id)
+    expect(tabs[0]).toHaveAttribute('aria-controls', panel.id)
+    // Every tab has its name (the rail draws only the glyph, so the name never rides on the visible text alone).
+    for (const tab of tabs) expect(tab).toHaveAttribute('aria-label', tab.textContent!.trim())
+
+    await user.tab()
+    expect(tabs[0]).toHaveFocus()
+    // Its name as a tooltip on keyboard focus (CSS hides it while the labels show).
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(LL.web.settings.nav.customise())
+    await user.keyboard('{ArrowDown}')
+    expect(onSection).toHaveBeenLastCalledWith('editor')
+    expect(tabs[1]).toHaveFocus()
+    // The host moves; the active tab and the tab stop follow.
+    await view.rerender({ section: 'editor', onSection, vault: VAULT, registry: registryWith() })
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]!.tabIndex).toBe(0)
+    await user.keyboard('{End}')
+    expect(onSection).toHaveBeenLastCalledWith('about')
+    await user.keyboard('{Home}')
+    expect(onSection).toHaveBeenLastCalledWith('customise')
+    await user.keyboard('{ArrowUp}')
+    expect(onSection).toHaveBeenLastCalledWith('about')
+    expect(list).toBeInTheDocument()
   })
 
   it('follows the host: a new section prop shows that section', async () => {

@@ -1,8 +1,7 @@
 <script lang="ts">
   import Tabs from '../Tabs.svelte'
 
-  let { orientation = 'horizontal', collapse = false }: { orientation?: 'horizontal' | 'vertical'; collapse?: boolean } =
-    $props()
+  let { orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' } = $props()
   let value = $state('general')
 </script>
 
@@ -15,7 +14,6 @@
   ]}
   bind:value
   {orientation}
-  {collapse}
   testid="tabs"
 >
   {#snippet panel(v)}

@@ -11,6 +11,14 @@
   interface Props {
     text: string
     placement?: Placement
+    /**
+     * The trigger's id, when the trigger needs a known one (a tab, whose panel
+     * points back at it). Melt finds the trigger by this id, so the child must
+     * not set a different one.
+     */
+    triggerId?: string
+    /** Extra classes for the label (Settings' rail draws it only while narrow). */
+    contentClass?: string
     children: Snippet<[TooltipTrigger]>
   }
 
@@ -20,7 +28,7 @@
     ? V
     : never
 
-  let { text, placement = 'bottom', children }: Props = $props()
+  let { text, placement = 'bottom', triggerId, contentClass = '', children }: Props = $props()
 
   const {
     elements: { trigger, content },
@@ -35,6 +43,8 @@
     closeOnPointerDown: true,
     forceVisible: true,
     group: true,
+    // svelte-ignore state_referenced_locally -- the id is fixed at mount
+    ...(triggerId ? { ids: { trigger: triggerId } } : {}),
   })
 </script>
 
@@ -43,7 +53,7 @@
 {#if $open}
   <div
     use:melt={$content}
-    class="z-[60] rounded bg-neutral px-2 py-1 text-xs text-neutral-content shadow-lg"
+    class="z-[60] rounded bg-neutral px-2 py-1 text-xs text-neutral-content shadow-lg {contentClass}"
   >
     {text}
   </div>
