@@ -115,42 +115,51 @@
     })
   }
 
-  // The view: created once per session id, destroyed with the component. The
-  // callbacks read state through closures, never props tracked by this effect.
+  // The view: created once per session id, destroyed with the component.
+  // Only `host` and `sessionId` are tracked; the rest runs under `untrack`.
+  // Restoring a draft's chips dispatches synchronously inside
+  // `createComposer`, so `onChange` — and `persist`, which reads `text`,
+  // `chips` and `composer` — runs INSIDE this effect. Tracked, those reads
+  // would make the effect depend on the very state it writes below, and
+  // Svelte stops it (`effect_update_depth_exceeded`) the moment a session is
+  // reopened with a chip in its draft, taking the shell's effects with it.
   $effect(() => {
     const parent = host
     const id = sessionId
     if (!parent) return
-    const draft = untrack(() => readDraft(id))
-    mentions.clear()
-    skills.clear()
-    for (const [k, v] of Object.entries(draft?.mentions ?? {})) mentions.set(k, v)
-    for (const [k, v] of Object.entries(draft?.skills ?? {})) skills.set(k, v)
-    const handle = createComposer({
-      parent,
-      doc: draft?.text ?? '',
-      chips: (draft?.chips ?? []).filter((c) => mentions.has(c.id) || skills.has(c.id)),
-      ariaLabel: untrack(() => $LL.web.ai.composer.label()),
-      placeholder: untrack(() => $LL.web.ai.composer.placeholder()),
-      contentAttributes: { 'data-testid': 'session-composer-input' },
-      renderChip: (chip) => renderMentionChip(chip, { changed: untrack(() => changed.has(chip.id)) }),
-      onSubmit: () => void send(),
-      onChange: (s) => {
-        text = s.text
-        chips = s.chips
-        trigger = s.trigger
-        if (dismissed !== null && dismissed !== s.trigger?.from) dismissed = null
-        persist()
-      },
-      onMenuKey: (key) => menuKey(key),
+    return untrack(() => {
+      const draft = readDraft(id)
+      mentions.clear()
+      skills.clear()
+      for (const [k, v] of Object.entries(draft?.mentions ?? {})) mentions.set(k, v)
+      for (const [k, v] of Object.entries(draft?.skills ?? {})) skills.set(k, v)
+      const handle = createComposer({
+        parent,
+        doc: draft?.text ?? '',
+        chips: (draft?.chips ?? []).filter((c) => mentions.has(c.id) || skills.has(c.id)),
+        ariaLabel: $LL.web.ai.composer.label(),
+        placeholder: $LL.web.ai.composer.placeholder(),
+        contentAttributes: { 'data-testid': 'session-composer-input' },
+        // Drawn by CodeMirror during any dispatch, other effects' included: `changed` stays untracked there.
+        renderChip: (chip) => renderMentionChip(chip, { changed: untrack(() => changed.has(chip.id)) }),
+        onSubmit: () => void send(),
+        onChange: (s) => {
+          text = s.text
+          chips = s.chips
+          trigger = s.trigger
+          if (dismissed !== null && dismissed !== s.trigger?.from) dismissed = null
+          persist()
+        },
+        onMenuKey: (key) => menuKey(key),
+      })
+      composer = handle
+      text = handle.text()
+      chips = handle.chips()
+      return () => {
+        handle.destroy()
+        composer = null
+      }
     })
-    composer = handle
-    text = handle.text()
-    chips = handle.chips()
-    return () => {
-      handle.destroy()
-      composer = null
-    }
   })
 
   // Mentions handed over by a command become chips at the caret.

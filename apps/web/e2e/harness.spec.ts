@@ -138,6 +138,34 @@ test('Mod+Shift+L on a selection opens a session with its chip; a tool-calling t
   expect(second.toolResults[0].output).toContain(NOTE)
 })
 
+test('a session left for the note and reopened keeps the chip in its draft, and the shell stays responsive', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-draft')
+  const errors: string[] = []
+  page.on('pageerror', (err) => errors.push(err.message))
+  await openNote(page)
+  await selectLine(page, LINE)
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('mention-chip')).toHaveCount(1)
+
+  // Over to the note's tab and back: the Session view is re-created and its
+  // composer restores the draft — chip included — from sessionStorage. That
+  // restore dispatches inside the effect creating the composer; untracked,
+  // it is one update, not a loop (effect_update_depth_exceeded, 2026-10-15).
+  const tabs = page.locator('[data-testid^="tab:"]')
+  await expect(tabs).toHaveCount(2)
+  await tabs.first().click()
+  await expect(page.getByTestId('session-view')).toBeHidden()
+  await tabs.nth(1).click()
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('mention-chip')).toHaveCount(1)
+  await page.getByTestId(`file-item:${NOTE}`).click()
+  await expect(paneContent(page)).toContainText(LINE)
+  expect(errors).toEqual([])
+})
+
 test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts it and the readout names the agent', async ({ page, mockLlm }) => {
   const OLD = 'the pill goes offline honestly'
   const NEW = 'the pill goes offline, honestly'
