@@ -6911,6 +6911,12 @@ export type NamespaceWebTranslation = {
 		 */
 		with_binding: RequiredParams<'binding' | 'title'>
 		/**
+		 * {​t​i​t​l​e​}​ ​·​ ​{​b​i​n​d​i​n​g​}
+		 * @param {string} binding
+		 * @param {string} title
+		 */
+		hint: RequiredParams<'binding' | 'title'>
+		/**
 		 * F​i​l​e​s
 		 */
 		files: string
@@ -15343,6 +15349,10 @@ export type TranslationFunctions = {
 			 * {title} ({binding})
 			 */
 			with_binding: (arg: { binding: string, title: string }) => LocalizedString
+			/**
+			 * {title} · {binding}
+			 */
+			hint: (arg: { binding: string, title: string }) => LocalizedString
 			/**
 			 * Files
 			 */

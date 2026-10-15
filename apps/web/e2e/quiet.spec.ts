@@ -97,6 +97,18 @@ test.describe('toolbar and focus', () => {
     await expect(paneContent(page)).toBeFocused()
   })
 
+  test('the format bar’s buttons say their command and key in a tooltip on hover', async ({ page }) => {
+    // Chris, 2026-10-15: "Formatting options should have a little tooltip if I hover them."
+    await boot(page, 'quiet-format-tip')
+    await openByQuickOpen(page, 'welcome')
+    const bold = formatBar(page).getByTestId('toolbar:format.bold')
+    await expect(bold).toHaveAccessibleName('Bold')
+    await expect(bold).not.toHaveAttribute('title')
+    await bold.hover()
+    await expect(page.getByRole('tooltip')).toHaveText('Bold · Ctrl+B')
+    await expect(page.getByRole('tooltip')).toBeVisible()
+  })
+
   test('the doors to a comment: the format bar’s button and the Comments panel’s run note.comment', async ({ page }) => {
     const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
     const selectLine = async (): Promise<void> => {

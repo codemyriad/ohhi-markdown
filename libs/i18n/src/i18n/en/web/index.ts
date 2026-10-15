@@ -2415,6 +2415,8 @@ const toolbar = {
   nav_label: 'Back and forward',
   paragraph_style: 'Paragraph style',
   with_binding: '{title:string} ({binding:string})',
+  /** A bar button's tooltip (Chris, 2026-10-15): the command's title and its key as bound now. */
+  hint: '{title:string} · {binding:string}',
   files: 'Files',
   reading_time: '{minutes:number} min read',
   reading_time_none: 'Nothing to read',

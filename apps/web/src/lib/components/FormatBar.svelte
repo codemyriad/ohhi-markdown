@@ -32,6 +32,7 @@
   import type { CommandRegistry } from '../commands.js'
   import { SEPARATOR } from '../layout-spec.js'
   import { focusedOf } from '../readout-state.js'
+  import { commandHint } from '../command-hint.js'
   import type { ReadoutContext } from '../readouts.js'
   import DropdownMenu, { type MenuItemAttrs } from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
@@ -115,8 +116,6 @@
   const t = $derived($LL.web.toolbar)
   const tip = $derived(sideAwayFrom(edge))
   const menuAt = $derived(menuPlacement(tip, 'start'))
-  const named = (e: { title: string; binding: string }): string =>
-    e.binding ? t.with_binding({ title: e.title, binding: e.binding }) : e.title
 
   function run(id: string): void {
     void registry.get(id)?.run()
@@ -204,8 +203,12 @@
           {#if entry.kind === 'separator'}
             <span role="separator" aria-orientation="vertical" class="mx-1 h-4 w-px bg-base-300"></span>
           {:else if entry.kind === 'command'}
+            <!-- Named by the title; the tooltip adds the key ("Bold · Ctrl+B"),
+                 drawn on the bar itself, out of the masked scroller that clipped it. -->
             <IconButton
-              label={named(entry)}
+              label={entry.title}
+              hint={commandHint(entry.title, entry.binding)}
+              tooltipPortal={'[data-testid="format-bar"][data-position="' + edge + '"]'}
               icon={entry.icon}
               placement={tip}
               disabled={!enabled(entry.id)}

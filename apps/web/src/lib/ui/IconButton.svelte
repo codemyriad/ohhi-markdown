@@ -27,6 +27,13 @@
      * sync icon's popover): no tooltip, the `aria-label` alone names it.
      */
     tooltip?: boolean
+    /** The tooltip's text when it says more than the name (a command's key: "Bold · Ctrl+B"). Default: `label`. */
+    hint?: string
+    /**
+     * Where the tooltip is drawn, as an ancestor selector (`Tooltip`'s
+     * `portal`): out of a scrolling, masked row that would clip it.
+     */
+    tooltipPortal?: string
   }
 
   let {
@@ -39,6 +46,8 @@
     testid,
     iconClass,
     tooltip = true,
+    hint,
+    tooltipPortal,
     class: klass = '',
     ...rest
   }: Props = $props()
@@ -61,7 +70,7 @@
     <Icon size={px} strokeWidth={1.75} aria-hidden="true" class={iconClass} />
   </button>
 {:else}
-  <Tooltip text={label} {placement}>
+  <Tooltip text={hint ?? label} {placement} portal={tooltipPortal}>
     {#snippet children(trigger)}
       <button
         use:melt={trigger}
