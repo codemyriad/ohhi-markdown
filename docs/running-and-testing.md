@@ -803,7 +803,7 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 
 | Symptom | Cause & fix |
 |---|---|
-| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager** (and "connecting…" has a Cancel). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
+| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager**, and an open still going after 5 s offers **Back to your vaults** (the opening page says "Opening your notes…" since QA round 1 — it waits for the vault's own files, never the relay). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
 | Boot error mentioning **"relay rejected this token"** | The token isn't a valid share on the relay. Check `SEED_SHARE`, or list shares: `cd apps/relay && node --experimental-strip-types src/cli.ts share-list`. |
 | Need to reset a vault's durable sync state | The per-vault stores (doc blobs, LCA, journal, `mounts.json`) live at `~/.local/share/md.ohhi.desktop/stores/<room>` (desktop; `dev.chris.editor` before the rename) or OPFS `stores/<room>` (browser). Deleting a vault's store dir forces a fresh enroll (local vault) or a clean rejoin (shared vault) on next launch — file contents on disk are never touched. |
 | Nothing loads, the **vault manager** shows | No `mode` param. Use the full URLs in §4. |

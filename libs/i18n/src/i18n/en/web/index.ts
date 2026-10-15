@@ -11,7 +11,16 @@ import type { BaseTranslation } from '../../i18n-types.js'
  */
 
 const shell = {
-  connecting: 'connecting…',
+  /**
+   * While a vault opens (`BootSplash.svelte`, QA round 1): it waits for the
+   * vault's own files, never the relay — so "opening", not "connecting".
+   */
+  boot: {
+    label: 'Opening your vault',
+    opening: 'Opening your notes…',
+    /** Offered only once an open has taken several seconds: back to the vault list. */
+    back_to_vaults: 'Back to your vaults',
+  },
   show_navigator: 'Show file navigator',
   hide_navigator: 'Hide file navigator',
   show_sidebar: 'Show sidebar',

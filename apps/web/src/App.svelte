@@ -4,6 +4,7 @@
   import { configForMemory, configForSession } from './lib/boot.js'
   import DeviceLinkDialog from './lib/components/DeviceLinkDialog.svelte'
   import JoinProgress from './lib/components/JoinProgress.svelte'
+  import BootSplash from './lib/components/BootSplash.svelte'
   import JoinPage from './lib/components/JoinPage.svelte'
   import LinkDeviceDialog from './lib/components/LinkDeviceDialog.svelte'
   import {
@@ -594,21 +595,9 @@
       onCancel={() => session.cancel()}
     />
   {:else}
-    <main
-      class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/70"
-      data-testid="connecting"
-    >
-      <span>{$LL.web.shell.connecting()}</span>
-      {#if memConfig.kind !== 'memory'}
-        <button
-          data-testid="boot-cancel"
-          onclick={() => session.cancel()}
-          class="rounded border border-base-300 px-3 py-1 text-xs text-base-content/70 hover:bg-base-200"
-        >
-          {$LL.common.cancel()}
-        </button>
-      {/if}
-    </main>
+    <!-- A vault's own files opening (never the relay): nothing for 300 ms,
+         then a quiet branded line; the way back only for a slow open. -->
+    <BootSplash clock={realClock} onCancel={memConfig.kind !== 'memory' ? () => session.cancel() : undefined} />
   {/if}
 {:else}
   <div class="flex h-screen flex-col bg-base-100 text-base-content">

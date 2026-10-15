@@ -60,10 +60,20 @@ type RootTranslation = {
 
 export type NamespaceWebTranslation = {
 	shell: {
-		/**
-		 * c​o​n​n​e​c​t​i​n​g​…
-		 */
-		connecting: string
+		boot: {
+			/**
+			 * O​p​e​n​i​n​g​ ​y​o​u​r​ ​v​a​u​l​t
+			 */
+			label: string
+			/**
+			 * O​p​e​n​i​n​g​ ​y​o​u​r​ ​n​o​t​e​s​…
+			 */
+			opening: string
+			/**
+			 * B​a​c​k​ ​t​o​ ​y​o​u​r​ ​v​a​u​l​t​s
+			 */
+			back_to_vaults: string
+		}
 		/**
 		 * S​h​o​w​ ​f​i​l​e​ ​n​a​v​i​g​a​t​o​r
 		 */
@@ -8517,10 +8527,20 @@ export type TranslationFunctions = {
 	}
 	web: {
 		shell: {
-			/**
-			 * connecting…
-			 */
-			connecting: () => LocalizedString
+			boot: {
+				/**
+				 * Opening your vault
+				 */
+				label: () => LocalizedString
+				/**
+				 * Opening your notes…
+				 */
+				opening: () => LocalizedString
+				/**
+				 * Back to your vaults
+				 */
+				back_to_vaults: () => LocalizedString
+			}
 			/**
 			 * Show file navigator
 			 */
