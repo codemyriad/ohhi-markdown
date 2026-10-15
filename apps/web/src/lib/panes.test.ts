@@ -1157,10 +1157,11 @@ describe('openView (devtools-shaping D1-A: a shell surface as a tab)', () => {
 })
 
 describe('a companion beside a pane (the Session beside its note, Chris 2026-10-15)', () => {
-  it('besideDir: to the right while both halves keep 32rem, else below; no rect → right', () => {
-    expect(besideDir({ width: 1024 })).toBe('row')
-    expect(besideDir({ width: 1400 })).toBe('row')
-    expect(besideDir({ width: 1023 })).toBe('col')
+  it('besideDir: to the right while both halves keep 40rem, else below; no rect → right', () => {
+    expect(besideDir({ width: 1280 })).toBe('row')
+    expect(besideDir({ width: 1600 })).toBe('row')
+    expect(besideDir({ width: 1279 })).toBe('col')
+    expect(besideDir({ width: 1024 })).toBe('col')
     expect(besideDir({ width: 480 })).toBe('col')
     expect(besideDir({ width: 600 }, 300)).toBe('row')
     expect(besideDir(null)).toBe('row')

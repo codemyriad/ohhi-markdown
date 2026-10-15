@@ -74,7 +74,7 @@ only once a provider exists), *Open AI session* and *New AI session* in the
 palette (`app.session`, `ai.new-session`), and `Mod+Shift+L`, which opens the
 current session — starting one if there is none — carrying the selection
 along as a reference when there is one. A session opens **beside** the note it
-was opened from, never over it: to the right while both halves keep 32rem,
+was opened from, never over it: to the right while both halves keep 40rem,
 below in a narrower pane; a second open goes to the pane already there rather
 than splitting again, and *Open* on a session card brings the note back where
 it already is. The composer

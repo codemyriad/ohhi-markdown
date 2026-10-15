@@ -766,10 +766,12 @@ export function paneShowing(l: Layout, path: string): { pane: Pane; tab: Tab } |
 }
 
 /**
- * The width below which a pane is narrow — 32rem, the width Settings' nav
- * folds at — so a companion goes beside a pane only while both halves keep it.
+ * The width below which a pane is narrow — 40rem, the shell's small-screen
+ * breakpoint (`small-screen.svelte.ts`) — so a companion goes beside a pane
+ * only while both halves keep it (Chris, 2026-10-15: a session should still
+ * open below at widths where 32rem halves put it to the right).
  */
-export const BESIDE_MIN_WIDTH = 512
+export const BESIDE_MIN_WIDTH = 640
 
 /**
  * Which way a pane splits for a COMPANION (the harness's Session beside the

@@ -176,11 +176,11 @@ test('a session opens beside the note, never over it: right in a wide pane, belo
   // header and draws its right end as the default layout does (`session` is
   // the Session view's door, `help` the Help menu). The rail becomes the
   // dock so the pane, beside the navigator column, is wide enough for two
-  // halves of 32rem at 1600 px (the split rule is the pane's width).
+  // halves of 40rem at 1800 px (the split rule is the pane's width).
   await seedProvider(page, `${mock.url}/v1`, {
     layout: { overrides: { regions: { header: 'toolbar', rail: 'dock' }, bars: { 'toolbar.right': ['sync', 'session', 'help'] } } },
   })
-  await page.setViewportSize({ width: 1600, height: 900 })
+  await page.setViewportSize({ width: 1800, height: 900 })
   await openApp(page, 'harness-beside')
   // The door on the toolbar, drawn now that a provider exists.
   const door = page.getByTestId('session-open')
