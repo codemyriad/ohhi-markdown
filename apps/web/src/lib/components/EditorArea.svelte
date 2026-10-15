@@ -223,6 +223,26 @@
     target?.focus()
   }
 
+  /**
+   * A small screen (QA round 1): a tap — or focus — in a note closes the
+   * navigator drawer and the dock's floating panel, which would otherwise
+   * cover most of the note being edited. On a wide screen they stay open
+   * (Chris, 2026-10-06: a click in the editor leaves the drawer open).
+   */
+  $effect(() => {
+    const el = stage
+    if (!el || !layout || !screen.small) return
+    const intoNote = (e: Event): void => {
+      if ((e.target as Element | null)?.closest?.('.cm-editor')) layout.collapseOverlays()
+    }
+    el.addEventListener('pointerdown', intoNote, true)
+    el.addEventListener('focusin', intoNote)
+    return () => {
+      el.removeEventListener('pointerdown', intoNote, true)
+      el.removeEventListener('focusin', intoNote)
+    }
+  })
+
   /** The two floating stacks, for the focus handoff below. */
   let floatTop = $state<HTMLElement>()
   let floatBottom = $state<HTMLElement>()

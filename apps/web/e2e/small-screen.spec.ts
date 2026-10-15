@@ -60,3 +60,30 @@ test('the format bar scrolls across most of the row, and the word count is a chi
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
   await expect(paneContent(page)).toBeVisible()
 })
+
+test('a tap in the note closes the file drawer and the dock panel', async ({ page }) => {
+  await boot(page, 'small-collapse')
+  await openByQuickOpen(page, 'welcome')
+  const note = paneContent(page)
+  const box = (await note.boundingBox())!
+
+  // The drawer floats over the note's left: tap the note beside it.
+  await toolbar(page).getByTestId('toggle-tree').tap()
+  await expect(page.getByTestId('navigator-drawer')).toBeVisible()
+  await page.touchscreen.tap(box.x + box.width - 12, box.y + 12)
+  await expect(page.getByTestId('navigator-drawer')).toHaveCount(0)
+
+  // The dock's panel floats over its right.
+  await page.getByTestId('dock').locator('button').first().tap()
+  await expect(page.getByTestId('dock-panel')).toBeVisible()
+  await page.touchscreen.tap(box.x + 12, box.y + 12)
+  await expect(page.getByTestId('dock-panel')).toHaveCount(0)
+
+  // A wide screen keeps today's rule: a click in the note leaves the drawer open.
+  await page.setViewportSize({ width: 1100, height: 780 })
+  await toolbar(page).getByTestId('toggle-tree').click()
+  await expect(page.getByTestId('navigator-drawer')).toBeVisible()
+  const wide = (await note.boundingBox())!
+  await page.mouse.click(wide.x + wide.width - 12, wide.y + 12)
+  await expect(page.getByTestId('navigator-drawer')).toBeVisible()
+})

@@ -163,7 +163,9 @@ counts (`words`, `chars`, `reading-time`) fold into one chip at the bar's
 right end showing the first count's number alone ("1,204"); a tap shows them
 in full. Any other readout in `bars.status` is drawn as it is — `sync` is
 never folded away. (On a wider screen the bar still folds into the menu when
-the pane it floats over is under 30rem.)
+the pane it floats over is under 30rem.) A tap in a note closes the
+navigator drawer and the dock's floating panel, which would otherwise cover
+most of it; on a wider screen they stay open until closed.
 
 **Older names still load.** Files written before 2026-10-06 are read as
 today's shape: `extends: "light"` → `"default"`, `regions.rail: "menu"` →

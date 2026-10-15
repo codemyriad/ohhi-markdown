@@ -26,7 +26,7 @@ import {
   setLayoutPins,
   setLayoutPrefs,
 } from './config.js'
-import { layoutName, railSection, type LayoutChoice, type RailSectionId } from './layout.js'
+import { layoutName, railForm, railSection, type LayoutChoice, type RailSectionId } from './layout.js'
 import {
   NO_OVERRIDES,
   PRESETS,
@@ -227,6 +227,12 @@ export interface ShellLayout {
    * panes' dots stay honest.
    */
   readonly paneChrome: PaneChrome
+  /**
+   * Close whatever floats over the editor — the navigator drawer and the
+   * dock's floating panel; a column (pinned or the layout's own) stays. A
+   * tap in a note does this on a small screen (QA round 1, `EditorArea`).
+   */
+  collapseOverlays(): void
 }
 
 /**
@@ -656,6 +662,10 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
     },
     get paneChrome() {
       return chrome
+    },
+    collapseOverlays() {
+      if (spec.regions.navigator === 'drawer') treeOpen = false
+      if (railForm(spec.regions) === 'dock') railOpen = false
     },
   }
 }

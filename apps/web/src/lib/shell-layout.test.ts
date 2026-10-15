@@ -381,6 +381,31 @@ describe('createShellLayout — the layout spec', () => {
   })
 })
 
+describe('createShellLayout — a tap in a note on a small screen (QA round 1)', () => {
+  beforeEach(() => sessionStorage.clear())
+
+  it('collapseOverlays closes the drawer and the floating dock panel', () => {
+    setLayoutPrefs({ active: 'default' })
+    build()
+    layout.treeOpen = true
+    layout.railOpen = true
+    layout.collapseOverlays()
+    expect(layout.treeOpen).toBe(false)
+    expect(layout.railOpen).toBe(false)
+  })
+
+  it('leaves a column open: only what floats over the note closes', () => {
+    setLayoutPins({ navigator: 'column', rail: 'column' })
+    setLayoutPrefs({ active: 'default' })
+    build()
+    expect(layout.treeOpen).toBe(true)
+    expect(layout.railOpen).toBe(true)
+    layout.collapseOverlays()
+    expect(layout.treeOpen).toBe(true)
+    expect(layout.railOpen).toBe(true)
+  })
+})
+
 describe('createShellLayout — pins are device overrides (Round 2, P7)', () => {
   beforeEach(() => sessionStorage.clear())
 

@@ -290,7 +290,8 @@ back.
 `e2e/small-screen.spec.ts` (QA round 1) boots the default layout at a phone's
 width (390 px) with touch on: the format bar scrolls across most of the row
 instead of folding, with the word count as a number chip at its right end
-that a tap expands.
+that a tap expands; a tap in the note closes the file drawer and the dock panel
+(a click on a wide window still leaves the drawer open).
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server
