@@ -8287,6 +8287,14 @@ export type NamespaceWebTranslation = {
 			 */
 			reject_all: string
 			/**
+			 * N​e​x​t​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			next_suggestion: string
+			/**
+			 * P​r​e​v​i​o​u​s​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			previous_suggestion: string
+			/**
 			 * U​n​d​o​ ​t​h​e​ ​a​g​e​n​t​’​s​ ​l​a​s​t​ ​e​d​i​t
 			 */
 			undo_agent: string
@@ -16410,6 +16418,14 @@ export type TranslationFunctions = {
 				 * Reject all suggestions
 				 */
 				reject_all: () => LocalizedString
+				/**
+				 * Next suggestion
+				 */
+				next_suggestion: () => LocalizedString
+				/**
+				 * Previous suggestion
+				 */
+				previous_suggestion: () => LocalizedString
 				/**
 				 * Undo the agent’s last edit
 				 */

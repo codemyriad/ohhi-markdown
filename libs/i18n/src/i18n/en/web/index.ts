@@ -2808,6 +2808,8 @@ const ai = {
     reject_suggestion: 'Reject suggestion',
     accept_all: 'Accept all suggestions',
     reject_all: 'Reject all suggestions',
+    next_suggestion: 'Next suggestion',
+    previous_suggestion: 'Previous suggestion',
     undo_agent: 'Undo the agent’s last edit',
     comment: 'Comment on selection',
     session: 'Open AI session',

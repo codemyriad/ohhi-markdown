@@ -203,8 +203,12 @@ describe('the commands', () => {
       'ai.reject-suggestion',
       'ai.accept-all',
       'ai.reject-all',
+      'ai.next-suggestion',
+      'ai.previous-suggestion',
       'ai.undo-agent',
     ])
+    // Stepping ships unbound (Explorations Fork 4: no default keys until Chris picks them).
+    expect(rows.filter((r) => /^ai\.(next|previous)-suggestion$/.test(r.id)).map((r) => r.keys)).toEqual([undefined, undefined])
     // The note-wide rows need only a provider; the two caret rows also need the caret in a suggestion (below).
     expect(rows.slice(2).every((r) => r.when?.() === true)).toBe(true)
   })
@@ -234,7 +238,7 @@ describe('the commands', () => {
   })
 })
 
-describe('the pair on a proposal', () => {
+describe('the pair on a proposal, and stepping', () => {
   /** An editor whose pair runs commands through `run` (as the pane's does through the shell). */
   function controlled(f: ReturnType<typeof fixture>, run: (id: string) => void) {
     const parent = document.createElement('div')
@@ -296,6 +300,26 @@ describe('the pair on a proposal', () => {
     expect(marks[1].getAttribute('aria-label')).toBe(t.marker({ n: 2, total: 2, name: 'Tighten' }))
     parent.querySelector<HTMLButtonElement>(`[data-testid="suggestion-marker:${b.id}"]`)!.click()
     expect(view.state.selection.main.head).toBe(8)
+  })
+
+  it('next / previous step the caret through the note’s proposals, wrapping; none says so', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const run = commands(f)
+    await run('ai.next-suggestion')
+    expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.none_in_note() })
+    f.propose(4, 8, 'roadmap')
+    f.propose(15, 19, 'land')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(4)
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(15)
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(4)
+    await run('ai.previous-suggestion')
+    expect(view.state.selection.main.head).toBe(15)
   })
 })
 

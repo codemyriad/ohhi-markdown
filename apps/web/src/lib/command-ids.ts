@@ -158,6 +158,8 @@ export const COMMAND_IDS = [
   'ai.reject-suggestion',
   'ai.accept-all',
   'ai.reject-all',
+  'ai.next-suggestion',
+  'ai.previous-suggestion',
   'ai.undo-agent',
   'note.comment',
 ] as const

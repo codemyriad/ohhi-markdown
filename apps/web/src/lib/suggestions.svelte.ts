@@ -3,7 +3,9 @@
  * extension on every open editor, fed with its note's records from the
  * workspace facade (`MountSession` holds them), and the five commands that
  * act on them — `ai.accept-suggestion` / `ai.reject-suggestion` (the one
- * under the caret), `ai.accept-all` / `ai.reject-all` (the note) and
+ * under the caret), `ai.accept-all` / `ai.reject-all` (the note),
+ * `ai.next-suggestion` / `ai.previous-suggestion` (the caret to the next
+ * or previous one, scrolled into view; unbound by default) and
  * `ai.undo-agent` (the agent's last run).
  *
  * The controls on the screen are these same rows: the pair the editor draws
@@ -22,6 +24,7 @@
  * otherwise. Every row is listed only while a provider exists (R1).
  */
 import {
+  stepSuggestion,
   suggestionAt,
   suggestions,
   suggestionsCompartment,
@@ -165,7 +168,7 @@ export function noteSuggestions(
 }
 
 /**
- * The five `ai.*` suggestion rows, over the focused editor's note.
+ * The seven `ai.*` suggestion rows, over the focused editor's note.
  * `workspace` is the open vault's facade (the harness's by default).
  */
 export function suggestionCommands(
@@ -227,6 +230,22 @@ export function suggestionCommands(
         say(n ? s.rejected_all({ count: n }) : s.none_in_note())
       },
     },
+    // Stepping (Explorations Fork 4): the caret to the next / previous
+    // proposal, scrolled into view, so the keys act on it. Unbound until
+    // Chris picks keys; the palette and Settings › Keys list them.
+    ...([
+      ['ai.next-suggestion', t.next_suggestion(), 1],
+      ['ai.previous-suggestion', t.previous_suggestion(), -1],
+    ] as const).map(([id, title, dir]) => ({
+      id,
+      title,
+      group,
+      when: aiEnabled,
+      run: () => {
+        const e = focusedEditor()
+        if (!e || !stepSuggestion(e.view, dir, { focus: true })) say(s.none_in_note())
+      },
+    })),
     {
       id: 'ai.undo-agent',
       title: t.undo_agent(),

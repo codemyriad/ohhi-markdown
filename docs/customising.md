@@ -449,6 +449,8 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `ai.reject-suggestion`
 - `ai.accept-all`
 - `ai.reject-all`
+- `ai.next-suggestion`
+- `ai.previous-suggestion`
 - `ai.undo-agent`
 - `note.comment`
 <!-- /generated -->

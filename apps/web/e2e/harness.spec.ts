@@ -61,6 +61,23 @@ async function caretAfter(page: Page, text: string): Promise<void> {
   }, text)
 }
 
+/** Where the note's caret is, and its text, through CodeMirror's own view (the note's pane, focused or not). */
+function caretOf(page: Page): Promise<{ head: number; text: string }> {
+  return page.getByRole('textbox', { name: 'Note text' }).evaluate((el) => {
+    type View = { state: { doc: { toString(): string }; selection: { main: { head: number } } } }
+    const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+    return view ? { head: view.state.selection.main.head, text: view.state.doc.toString() } : { head: -1, text: '' }
+  })
+}
+
+/** Run a palette row by its title, checking it is the row `id`. */
+async function runFromPalette(page: Page, title: string, id: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill(title)
+  await expect(page.locator(`[data-testid="command-palette-row"][data-row-id="${id}"]`)).toBeVisible()
+  await page.keyboard.press('Enter')
+}
+
 /** Send `text` from the open session's composer. */
 async function send(page: Page, text: string): Promise<void> {
   const input = page.getByTestId('session-composer-input')
@@ -257,7 +274,7 @@ test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts
   await expect(page.getByTestId('last-agent-write')).toContainText('welcome')
 })
 
-test('the pair on a proposal rejects and accepts it by click; a gutter mark per proposal takes the caret there', async ({ page, mockLlm }) => {
+test('the pair on a proposal rejects and accepts it by click; next / previous and a gutter mark per proposal take the caret there', async ({ page, mockLlm }) => {
   const OLD = 'the pill goes offline honestly'
   const NEW = 'the pill goes offline, honestly'
   const mock = await mockLlm([
@@ -283,17 +300,32 @@ test('the pair on a proposal rejects and accepts it by click; a gutter mark per 
   const pair = page.locator('[data-testid="suggestion-pair"]')
   await expect(pair).toHaveCount(1)
 
-  // The first mark takes the caret to the first proposal; its pair rejects it, the text untouched.
+  // The first mark takes the caret to the first proposal; next / previous
+  // from the palette (unbound by default) step through them, wrapping round.
+  const at = async (): Promise<string> => {
+    const c = await caretOf(page)
+    if (c.head === c.text.indexOf('type here')) return 'first'
+    return c.head === c.text.indexOf('the pill goes offline') + 'the pill goes offline'.length ? 'second' : String(c.head)
+  }
   await marks.nth(0).click()
+  await expect.poll(at).toBe('first')
+  await runFromPalette(page, 'Next suggestion', 'ai.next-suggestion')
+  await expect.poll(at).toBe('second')
+  await runFromPalette(page, 'Next suggestion', 'ai.next-suggestion')
+  await expect.poll(at).toBe('first')
+  await runFromPalette(page, 'Previous suggestion', 'ai.previous-suggestion')
+  await expect.poll(at).toBe('second')
+
+  // The pair is on the current proposal (the comma): Reject drops it, the text untouched.
   await expect(pair).toHaveAttribute('aria-label', /^Suggestion by /)
   await pair.getByRole('button', { name: 'Reject' }).click()
   await expect(added).toHaveCount(1)
-  expect(await docText(page)).toContain('Everything you type here')
-  // The pair is on the one left; Accept applies it.
+  expect((await caretOf(page)).text).toContain(OLD)
+  // The pair moves to the one left; Accept applies it.
   await expect(pair).toHaveCount(1)
   await pair.getByRole('button', { name: 'Accept' }).click()
   await expect(added).toHaveCount(0)
-  await expect.poll(() => docText(page)).toContain(NEW)
+  await expect.poll(async () => (await caretOf(page)).text).toContain('Everything you write here')
   await expect(marks).toHaveCount(0)
   await expect(pair).toHaveCount(0)
 })
