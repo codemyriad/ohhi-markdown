@@ -169,7 +169,7 @@
         <button
           type="button"
           class="rounded border border-base-300 px-2 py-1 text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
-          onclick={() => shell.openSettings()}>{t.open_settings()}</button
+          onclick={() => shell.openSettings('ai')}>{t.open_settings()}</button
         >
       {/if}
     </div>

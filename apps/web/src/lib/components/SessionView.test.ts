@@ -86,11 +86,13 @@ afterEach(() => {
 })
 
 describe('SessionView', () => {
-  it('without a provider, says where to add one instead of offering a composer', () => {
+  it('without a provider, says where to add one instead of offering a composer — and opens Settings › AI', async () => {
     setAiConfig({ providers: [] })
-    setup()
+    const { shell, user } = setup()
     expect(screen.getByTestId('session-no-provider')).toHaveTextContent(t.no_provider())
     expect(screen.queryByTestId('session-composer')).toBeNull()
+    await user.click(screen.getByRole('button', { name: t.open_settings() }))
+    expect(shell.openSettings).toHaveBeenCalledExactlyOnceWith('ai')
   })
 
   it('an empty session lists the vault’s other sessions, and one opens its tab', async () => {
