@@ -584,7 +584,8 @@ manager, the remote carets and `git diff` never see it
   new token; if it does, the contract file and its test come first. A token
   whose value derives from DaisyUI's colours (`--ed-popover-*`, `--ed-drop-*`,
   `--ed-task-done-*`) lives **only in `_contract.css`** — a built-in theme
-  restates a token only when its value differs (Nord's done-task grey). Every
+  restates a token only when its value differs (a custom theme may too: the
+  Nord example's done-task grey). Every
   card the editor draws (code card, callout, popover, table hint, drop
   target) takes `--ed-card-radius`; every button a widget owns takes the one
   `--ed-focus-ring` rule; a state gets a semantic token (`--ed-code-copied`)

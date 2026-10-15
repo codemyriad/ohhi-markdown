@@ -23,7 +23,7 @@ tools — this page is everything it needs. Ground truth for the decisions:
 | Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Customise › Layout names the file in use and edits this device's overrides on top |
 | Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Customise › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
-| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Customise › Appearance (by name, beside the ten built-in themes; the folder is not listed). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Customise › Appearance, under *In this vault* (every theme folder, by name — apart from the eight under *Built in*); Customise's Theme row lists them too. *Add to this vault* writes a shipped example ([`examples/themes/`](../examples/themes/): Nord Light and Dark, built in until 2026-10-15). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
 
 **Settings › Customise** is the overview of all four, and the parent of
 the sections that choose them (Editor, Layout, Appearance, Keys — QA round
