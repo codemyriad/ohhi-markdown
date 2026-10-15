@@ -8156,6 +8156,50 @@ export type NamespaceWebTranslation = {
 			 */
 			send_agent: string
 			/**
+			 * S​e​n​d​ ​t​o
+			 */
+			send_to: string
+			/**
+			 * T​h​i​s​ ​s​e​s​s​i​o​n​:​ ​{​t​i​t​l​e​}
+			 * @param {string} title
+			 */
+			send_to_current: RequiredParams<'title'>
+			/**
+			 * A​ ​n​e​w​ ​s​e​s​s​i​o​n
+			 */
+			send_to_new: string
+			/**
+			 * O​p​e​n​ ​s​e​s​s​i​o​n
+			 */
+			open_session: string
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			session_title: RequiredParams<'note'>
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}​ ​(​l​i​n​e​ ​{​l​i​n​e​}​)
+			 * @param {number} line
+			 * @param {string} note
+			 */
+			session_title_line: RequiredParams<'line' | 'note'>
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}​ ​(​l​i​n​e​s​ ​{​f​r​o​m​}​–​{​t​o​}​)
+			 * @param {number} from
+			 * @param {string} note
+			 * @param {number} to
+			 */
+			session_title_lines: RequiredParams<'from' | 'note' | 'to'>
+			/**
+			 * F​r​o​m​ ​a​ ​c​o​m​m​e​n​t​ ​i​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			from_comment: RequiredParams<'note'>
+			/**
+			 * S​h​o​w​ ​t​h​r​e​a​d
+			 */
+			show_thread: string
+			/**
 			 * R​e​p​l​y
 			 */
 			reply_field: string
@@ -16356,6 +16400,42 @@ export type TranslationFunctions = {
 				 * Send to agent
 				 */
 				send_agent: () => LocalizedString
+				/**
+				 * Send to
+				 */
+				send_to: () => LocalizedString
+				/**
+				 * This session: {title}
+				 */
+				send_to_current: (arg: { title: string }) => LocalizedString
+				/**
+				 * A new session
+				 */
+				send_to_new: () => LocalizedString
+				/**
+				 * Open session
+				 */
+				open_session: () => LocalizedString
+				/**
+				 * Comment on {note}
+				 */
+				session_title: (arg: { note: string }) => LocalizedString
+				/**
+				 * Comment on {note} (line {line})
+				 */
+				session_title_line: (arg: { line: number, note: string }) => LocalizedString
+				/**
+				 * Comment on {note} (lines {from}–{to})
+				 */
+				session_title_lines: (arg: { from: number, note: string, to: number }) => LocalizedString
+				/**
+				 * From a comment in {note}
+				 */
+				from_comment: (arg: { note: string }) => LocalizedString
+				/**
+				 * Show thread
+				 */
+				show_thread: () => LocalizedString
 				/**
 				 * Reply
 				 */

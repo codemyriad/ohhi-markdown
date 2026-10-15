@@ -48,6 +48,7 @@ export function fakeViewShell(now = 0, over: Partial<ViewShell> = {}): ViewShell
     runCommand: vi.fn(),
     commandKeys: () => '',
     revealSuggestion: vi.fn(async () => true),
+    revealThread: vi.fn(async () => true),
     createFromLink: vi.fn(),
     renameNote: vi.fn(async (path: string) => path),
     pin: vi.fn(),

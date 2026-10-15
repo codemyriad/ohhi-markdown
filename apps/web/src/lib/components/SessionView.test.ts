@@ -235,6 +235,21 @@ describe('SessionView', () => {
     await waitFor(() => expect(shell.runCommand).toHaveBeenLastCalledWith('ai.reject-suggestion'))
   })
 
+  it('a turn a comment asked says so, and Show thread brings the thread back in its note', async () => {
+    const { shell, user } = setup()
+    await startRun({
+      sessionId: 's1',
+      instruction: 'Which day?',
+      refs: [mentionOf({ kind: 'lines', path: 'notes/plan.md', lines: { from: 1, to: 1 } })],
+      threadId: 'th-1',
+      open: false,
+    })
+    const row = await screen.findByTestId('session-message-thread')
+    expect(row).toHaveTextContent(getLL().web.ai.comments.from_comment({ note: 'plan.md' }))
+    await user.click(within(row).getByRole('button', { name: getLL().web.ai.comments.show_thread() }))
+    expect(shell.revealThread).toHaveBeenCalledWith('notes/plan.md', 'th-1')
+  })
+
   it('a handed-over mention becomes a chip; Backspace removes it whole', async () => {
     setup()
     queueMention('s1', mentionOf({ kind: 'file', path: 'notes/plan.md' }))

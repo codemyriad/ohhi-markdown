@@ -2778,6 +2778,19 @@ const ai = {
     field: 'Comment',
     comment: 'Comment',
     send_agent: 'Send to agent',
+    /** Where *Send to agent* goes (QA round 1): a choice between the current session and a new one. */
+    send_to: 'Send to',
+    send_to_current: 'This session: {title:string}',
+    send_to_new: 'A new session',
+    /** After sending: the session the thread went to. */
+    open_session: 'Open session',
+    /** A new session's title for a comment: where it is, never what it says. */
+    session_title: 'Comment on {note:string}',
+    session_title_line: 'Comment on {note:string} (line {line:number})',
+    session_title_lines: 'Comment on {note:string} (lines {from:number}–{to:number})',
+    /** A comment's turn in the session transcript, and the way back to its thread. */
+    from_comment: 'From a comment in {note:string}',
+    show_thread: 'Show thread',
     reply_field: 'Reply',
     reply: 'Reply',
     resolve: 'Resolve',

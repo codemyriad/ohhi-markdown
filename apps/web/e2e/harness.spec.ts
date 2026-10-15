@@ -401,7 +401,7 @@ test('the pair on a proposal rejects and accepts it by click; next / previous an
   await expect(pair).toHaveCount(0)
 })
 
-test('a comment sent to the agent gets its reply in the thread', async ({ page, mockLlm }) => {
+test('a comment sent to the agent says where it goes, gets its reply in the thread, and links to and from its session', async ({ page, mockLlm }) => {
   const mock = await mockLlm([{ text: 'It means every keystroke is shared with the room.' }])
   await seedProvider(page, `${mock.url}/v1`)
   await openApp(page, 'harness-comment')
@@ -412,6 +412,8 @@ test('a comment sent to the agent gets its reply in the thread', async ({ page, 
   await expect(bubble).toBeVisible()
   await bubble.getByTestId('comment-body').fill('What does this mean in practice?')
   await bubble.getByTestId('comment-send-agent').check()
+  // No session yet: the bubble says it goes to a new one.
+  await expect(bubble.getByTestId('comment-send-target-new')).toHaveText('A new session')
   await bubble.getByTestId('comment-submit').click()
   await expect(bubble).toHaveCount(0)
 
@@ -427,6 +429,16 @@ test('a comment sent to the agent gets its reply in the thread', async ({ page, 
   expect(req.lastUser).toContain('What does this mean in practice?')
   expect(req.system).toContain('## A comment asked')
   expect(req.system).toContain(LINE)
+
+  // The thread links to the session it went to — named after the comment's
+  // place, not its words — and that session's turn links back to the thread.
+  await thread.getByTestId('comment-open-session').first().click()
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('session-title')).toHaveValue('Comment on welcome.md (line 4)')
+  const from = page.getByTestId('session-message-thread')
+  await expect(from).toContainText('From a comment in welcome.md')
+  await from.getByRole('button', { name: 'Show thread' }).click()
+  await expect(page.getByTestId('comment-thread')).toContainText('every keystroke is shared with the room')
 })
 
 test('a note with a comment thread keeps its first line at the top when the session opens below it, the marker beside its passage', async ({ page, mockLlm }) => {

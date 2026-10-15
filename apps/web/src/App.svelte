@@ -56,7 +56,7 @@
   import { sharedSnapshot } from '@ohhi/workspace'
   import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
-  import { nextFrame, revealSuggestionIn } from './lib/suggestion-reveal.js'
+  import { nextFrame, revealSuggestionIn, revealThreadIn } from './lib/suggestion-reveal.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
@@ -352,6 +352,12 @@
     void nav.revision
     membership.invalidate()
   })
+  /** How a suggestion or a thread is brought into view from a companion view (`suggestion-reveal.ts`). */
+  const revealDeps = {
+    open: (p: string) => openPath(p, { beside: true }),
+    focusPane: (paneId: string) => panes.focusPane(paneId),
+    frame: nextFrame,
+  }
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
@@ -361,12 +367,8 @@
       if (command && (!command.when || command.when())) void command.run()
     },
     commandKeys: (id) => nav.registry.binding(id),
-    revealSuggestion: (path, id, opts = {}) =>
-      revealSuggestionIn(path, id, opts, {
-        open: (p) => openPath(p, { beside: true }),
-        focusPane: (paneId) => panes.focusPane(paneId),
-        frame: nextFrame,
-      }),
+    revealSuggestion: (path, id, opts = {}) => revealSuggestionIn(path, id, opts, revealDeps),
+    revealThread: (path, threadId) => revealThreadIn(path, threadId, revealDeps),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,

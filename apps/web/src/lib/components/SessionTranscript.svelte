@@ -11,12 +11,18 @@
    *  - `tool-*` / `dynamic-tool` → `ToolCard`, keyed on its state
    *  - anything else (step boundaries, sources, data parts) → nothing
    *
+   * A turn a comment asked (*Send to agent*, `metadata.threadId`) says so
+   * under it, with *Show thread*: the thread's bubble in its note, the note
+   * opened beside when it is not on screen (`ViewShell.revealThread`, the
+   * path *Show in note* takes).
+   *
    * A `log` region, so a screen reader hears new turns without the stream
    * being read character by character (the log role's polite default).
    */
   import type { UIMessage } from 'ai'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Mention } from '@ohhi/harness'
+  import { getViewShell } from '../views.js'
   import SessionMarkdown from './SessionMarkdown.svelte'
   import ToolCard, { type ToolPart } from './ToolCard.svelte'
 
@@ -29,8 +35,16 @@
   let { messages, streaming = false }: Props = $props()
 
   const t = $derived($LL.web.ai.session)
+  const c = $derived($LL.web.ai.comments)
+  const shell = getViewShell()
 
   const isTool = (part: { type: string }): boolean => part.type.startsWith('tool-') || part.type === 'dynamic-tool'
+  /** The comment thread a turn answers, and its note (the turn's first reference). */
+  const threadOf = (m: UIMessage): { id: string; path: string } | null => {
+    const id = (m.metadata as { threadId?: string } | undefined)?.threadId
+    const path = refsOf(m)[0]?.ref.path
+    return typeof id === 'string' && path ? { id, path } : null
+  }
   const refsOf = (m: UIMessage): Mention[] => {
     const refs = (m.metadata as { refs?: Mention[] } | undefined)?.refs
     return Array.isArray(refs) ? refs : []
@@ -64,6 +78,20 @@
           <ToolCard part={part as unknown as ToolPart} />
         {/if}
       {/each}
+      {#if message.role === 'user' && threadOf(message)}
+        {@const th = threadOf(message)!}
+        <p class="m-0 mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-base-content/80" data-testid="session-message-thread">
+          <span>{c.from_comment({ note: th.path.split('/').pop() ?? th.path })}</span>
+          {#if shell}
+            <button
+              type="button"
+              class="underline hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+              data-testid="session-show-thread"
+              onclick={() => void shell.revealThread(th.path, th.id)}>{c.show_thread()}</button
+            >
+          {/if}
+        </p>
+      {/if}
       {#if message.role === 'user' && refsOf(message).length}
         <ul class="m-0 mt-1 flex list-none flex-wrap gap-1 p-0" data-testid="session-message-refs">
           {#each refsOf(message) as ref (ref.id)}

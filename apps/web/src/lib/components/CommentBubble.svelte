@@ -11,6 +11,10 @@
    *   and any edit the agent proposed answering it (a suggestion carrying
    *   the thread's id) with *Accept* / *Reject*.
    *
+   * *Send to agent* says where it goes — the current session by its title,
+   * else a new one — with a choice of the other (QA round 1); once sent, the
+   * thread's "Sent to the agent" / "Answered" carries *Open session*.
+   *
    * *Send to agent* starts the run from here — the gesture, never a store
    * change, so a synced copy of the comment does not start a second one
    * (`thread-agent.ts`).
@@ -25,7 +29,8 @@
   import TextControl from '../ui/TextControl.svelte'
   import { OUTLINE_BUTTON } from '../ui/styles.js'
   import { liveThreads, type BubbleRequest } from '../threads.svelte.js'
-  import { sendThreadToAgent } from '../thread-agent.js'
+  import { currentAgentSession, sendThreadToAgent, sessionForThread, type AgentTarget } from '../thread-agent.js'
+  import { openSession } from '../sessions.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
 
   type SuggestionVerbs = 'suggestionsFor' | 'acceptSuggestion' | 'rejectSuggestion' | 'subscribeSuggestions' | 'flash'
@@ -37,7 +42,7 @@
     ai: boolean
     onClose: () => void
     /** Ask the agent about a new thread; the app's run door (`thread-agent.ts`) unless a test hands one in. */
-    onSendToAgent?: (path: string, threadId: string) => void
+    onSendToAgent?: (path: string, threadId: string, target: AgentTarget) => void
   }
 
   let { request, workspace, ai, onClose, onSendToAgent }: Props = $props()
@@ -69,6 +74,12 @@
 
   let body = $state('')
   let sendToAgent = $state(false)
+  /** Where it goes: the current session when there is one, else a new one. */
+  const current = $derived(ai ? currentAgentSession() : null)
+  let target = $state<AgentTarget>('current')
+  const goesTo = $derived<AgentTarget>(current ? target : 'new')
+  /** The session the thread was sent to, for *Open session*. */
+  const sentTo = $derived(thread ? sessionForThread(thread.id) : null)
 
   const primary = 'rounded bg-primary px-3 py-1 text-xs text-primary-content hover:bg-primary/90 disabled:opacity-50'
   const outline = `${OUTLINE_BUTTON} px-3 py-1 text-xs`
@@ -86,8 +97,8 @@
         ...(asking ? { sendTo: ['agent'] as 'agent'[] } : {}),
       })
       if (added && asking) {
-        if (onSendToAgent) onSendToAgent(request.path, added.id)
-        else void sendThreadToAgent(workspace, request.path, added.id, workspace.flash)
+        if (onSendToAgent) onSendToAgent(request.path, added.id, goesTo)
+        else void sendThreadToAgent(workspace, request.path, added.id, workspace.flash, goesTo)
       }
       onClose()
     } else if (thread) {
@@ -127,6 +138,18 @@
                   <span class="text-base-content/70">{t.answered()}</span>
                 {:else if c.to?.includes('agent')}
                   <span class="text-base-content/70">{t.sent_to_agent()}</span>
+                {/if}
+                {#if (c.answered || c.to?.includes('agent')) && sentTo && ai}
+                  <span class="text-base-content/70" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    class="text-xs text-base-content/80 underline hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+                    data-testid="comment-open-session"
+                    onclick={() => {
+                      openSession(sentTo)
+                      onClose()
+                    }}>{t.open_session()}</button
+                  >
                 {/if}
               </span>
               <span class="whitespace-pre-wrap">{c.body}</span>
@@ -193,6 +216,23 @@
         <Field name="send-to-agent">
           <CheckControl label={t.send_agent()} bind:checked={sendToAgent} testid="comment-send-agent" />
         </Field>
+        {#if sendToAgent}
+          <label class="flex items-center gap-2 text-xs text-base-content/80">
+            <span class="shrink-0">{t.send_to()}</span>
+            {#if current}
+              <select
+                bind:value={target}
+                data-testid="comment-send-target"
+                class="min-w-0 flex-1 truncate rounded border border-base-300 bg-base-100 px-1 py-0.5 text-xs text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <option value="current">{t.send_to_current({ title: current.title })}</option>
+                <option value="new">{t.send_to_new()}</option>
+              </select>
+            {:else}
+              <span class="text-base-content" data-testid="comment-send-target-new">{t.send_to_new()}</span>
+            {/if}
+          </label>
+        {/if}
       {/if}
       <div class="flex items-center justify-end gap-2">
         <button type="button" class={outline} onclick={onClose}>{$LL.common.cancel()}</button>

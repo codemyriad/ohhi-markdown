@@ -55,6 +55,8 @@ export interface HarnessShell {
 export interface StartRunInput extends RunInput {
   /** The session to run in; absent → a new session, titled from the instruction. */
   sessionId?: string
+  /** A new session's title, instead of one cut from the instruction (*Send to agent*'s "Comment on …"). */
+  title?: string
   /** Open the session's tab (default true). */
   open?: boolean
 }
@@ -348,7 +350,7 @@ export async function startRun(input: StartRunInput): Promise<RunHandle | null> 
   }
   const sessionId = input.sessionId ?? newSessionId()
   if (isLive(v.registry.current(sessionId))) return null
-  await ensureSession(v, sessionId, titleFrom(input.instruction))
+  await ensureSession(v, sessionId, input.title ?? titleFrom(input.instruction))
   const refs = await resolveAtSend(input.refs ?? [])
   const handle = await v.registry.start(sessionId, { ...input, refs })
   harness.current = sessionId

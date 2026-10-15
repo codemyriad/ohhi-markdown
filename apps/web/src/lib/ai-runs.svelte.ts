@@ -40,10 +40,12 @@ export interface RunHandle {
   done: Promise<RunRecord>
 }
 
-/** Message metadata the composer's turn carries: the references it sent. */
+/** Message metadata the composer's turn carries: the references it sent, and the comment thread that asked. */
 export interface TurnMetadata {
   refs?: Mention[]
   runId?: string
+  /** A comment's *Send to agent*: the thread, so the transcript can show it (QA round 1). */
+  threadId?: string
 }
 
 export interface RunRegistryDeps {
@@ -288,7 +290,11 @@ export function createRunRegistry(deps: RunRegistryDeps): RunRegistry {
         runs[sessionId] = { ...run, status: 'failed', endedAt: deps.clock.now(), error: err instanceof Error ? err.message : String(err) }
         return null
       }
-      const metadata: TurnMetadata = { runId, ...(input.refs?.length ? { refs: input.refs } : {}) }
+      const metadata: TurnMetadata = {
+        runId,
+        ...(input.refs?.length ? { refs: input.refs } : {}),
+        ...(input.threadId ? { threadId: input.threadId } : {}),
+      }
       // `sendMessage` resolves when the turn is over; `onFinish` has settled it
       // by then — unless the transport threw before a response existed.
       void c

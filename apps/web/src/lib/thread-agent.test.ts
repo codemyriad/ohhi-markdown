@@ -8,7 +8,7 @@ import type { RunRecord } from '@ohhi/harness'
 import { describe, expect, it, vi } from 'vitest'
 import { mentionOf } from './references.js'
 import type { RunHandle, StartRunInput } from './sessions.svelte.js'
-import { askAgent, type AskAgentDeps } from './thread-agent.js'
+import { askAgent, commentSessionTitle, type AskAgentDeps } from './thread-agent.js'
 
 import { threadsFixture } from './harness.fixture.js'
 
@@ -50,6 +50,8 @@ describe('askAgent', () => {
     expect(run?.status).toBe('successful')
     expect(started).toHaveLength(1)
     expect(started[0]).toMatchObject({ instruction: 'Which day?', threadId: t.id, sessionId: 's-current', open: false })
+    // Were it a new session, it would be named after the comment's place, not its words.
+    expect(started[0].title).toBe(getLL().web.ai.comments.session_title_line({ note: PATH, line: 1 }))
     expect(started[0].refs?.[0]).toMatchObject({ ref: { kind: 'lines', path: PATH }, snapshot: 'March' })
     const thread = store.get(t.id)!
     expect(thread.comments).toHaveLength(2)
@@ -62,6 +64,22 @@ describe('askAgent', () => {
     const t = store.add({ from: 0, to: 3, author: 'Ana', body: 'Why?', sendTo: ['agent'] })
     await askAgent(deps, PATH, t.id)
     expect(started.map((s) => s.sessionId)).toEqual(['s-current', undefined])
+  })
+
+  it('asked for a new session, it never uses the current one', async () => {
+    const { store, deps, started } = setup()
+    const t = store.add({ from: 0, to: 3, author: 'Ana', body: 'jiaosdjas', sendTo: ['agent'] })
+    await askAgent(deps, PATH, t.id, 'new')
+    expect(started.map((s) => s.sessionId)).toEqual([undefined])
+    expect(started[0].title).not.toContain('jiaosdjas')
+  })
+
+  it('a new session’s title says where the comment is: the note, and its line or lines', () => {
+    const w = getLL().web.ai.comments
+    const lines = (from: number, to: number) => mentionOf({ kind: 'lines', path: 'notes/plan.md', lines: { from, to } })
+    expect(commentSessionTitle('notes/plan.md', lines(3, 4))).toBe(w.session_title_lines({ note: 'plan.md', from: 3, to: 4 }))
+    expect(commentSessionTitle('notes/plan.md', lines(3, 3))).toBe(w.session_title_line({ note: 'plan.md', line: 3 }))
+    expect(commentSessionTitle('notes/plan.md', mentionOf({ kind: 'file', path: 'notes/plan.md' }))).toBe(w.session_title({ note: 'plan.md' }))
   })
 
   it('a failed run posts nothing, leaves the comment unanswered and says why', async () => {

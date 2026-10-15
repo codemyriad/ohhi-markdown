@@ -79,6 +79,8 @@ export interface ViewShell {
    * keyboard. Resolves false when the note never drew the suggestion.
    */
   revealSuggestion(path: string, id: string, opts?: { focus?: boolean }): Promise<boolean>
+  /** *Show thread*: a comment thread's bubble over its passage, the note opened beside when it is not on screen. */
+  revealThread(path: string, threadId: string): Promise<boolean>
   /** *Create* for an unresolved link (the Note menu's Links). */
   createFromLink(target: string): void
   /**

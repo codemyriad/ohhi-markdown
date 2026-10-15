@@ -64,7 +64,8 @@ describe('CommentBubble', () => {
     expect(ws.addThread).toHaveBeenCalledWith(PATH, { from: 4, to: 8, body: 'Rewrite this', sendTo: ['agent'] })
     const [thread] = store().threads()
     expect(thread.comments[0].to).toEqual(['agent'])
-    expect(onSendToAgent).toHaveBeenCalledWith(PATH, thread.id)
+    // No session is current here: it goes to a new one, and the bubble said so.
+    expect(onSendToAgent).toHaveBeenCalledWith(PATH, thread.id, 'new')
   })
 
   it('a plain comment asks no one', async () => {
