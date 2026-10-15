@@ -155,6 +155,16 @@ The floating format bar, the `status` corner and the dock's icon strip are a
 note's chrome: a view tab (Inspector, Log, Shared) or an empty tab focused
 draws none of them, and focusing a note brings them back.
 
+**On a small screen** (a window under 40rem — 640 px — wide; one breakpoint,
+`apps/web/src/lib/small-screen.svelte.ts`) the same layout file draws a
+phone's shell. The format bar never folds into its *Format* menu: it fills
+the row and scrolls sideways, every command a button. The `status` corner's
+counts (`words`, `chars`, `reading-time`) fold into one chip at the bar's
+right end showing the first count's number alone ("1,204"); a tap shows them
+in full. Any other readout in `bars.status` is drawn as it is — `sync` is
+never folded away. (On a wider screen the bar still folds into the menu when
+the pane it floats over is under 30rem.)
+
 **Older names still load.** Files written before 2026-10-06 are read as
 today's shape: `extends: "light"` → `"default"`, `regions.rail: "menu"` →
 `"dock"`, `bars["toolbar.format"]` → `bars.format`, and the readout ids

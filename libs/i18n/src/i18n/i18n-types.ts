@@ -352,6 +352,11 @@ export type NamespaceWebTranslation = {
 		 *  ​·​ 
 		 */
 		join: string
+		/**
+		 * {​c​o​u​n​t​|​i​n​t​}
+		 * @param {number} count
+		 */
+		count: RequiredParams<'count|int'>
 	}
 	panes: {
 		/**
@@ -8789,6 +8794,10 @@ export type TranslationFunctions = {
 			 *  · 
 			 */
 			join: () => LocalizedString
+			/**
+			 * {count|int}
+			 */
+			count: (arg: { count: number }) => LocalizedString
 		}
 		panes: {
 			/**

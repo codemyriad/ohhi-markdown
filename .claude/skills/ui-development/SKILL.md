@@ -159,7 +159,10 @@ picker and the strip all read; an id without one is skipped with one warning) �
 focused, hidden in a strip under 36rem (a container query on the strip). **The
 format bar is one row that never wraps** (`FormatBar.svelte`): it scrolls
 sideways with a mask fade at whichever end has more, the wheel mapped to
-horizontal; under 30rem it folds into one *Format* menu; which buttons it
+horizontal; under 30rem it folds into one *Format* menu — except below the
+shell's small-screen breakpoint (`lib/small-screen.svelte.ts`, 40rem of
+window), where it never folds, fills the row and the corner's counts fold into
+a number chip (`CornerStatus` `compact`); which buttons it
 shows is `FormatBarPicker` in Settings › Layout, writing `overrides.bars.format`.
 **Pane keys** (`config.paneHints`, `pane-hints.svelte.ts`: `subtle` default ·
 `full` · `off`): *Full* is `ModeBar.svelte` along the bottom; *Subtle* / *Off*

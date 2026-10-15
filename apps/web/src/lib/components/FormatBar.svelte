@@ -45,11 +45,17 @@
     ids: readonly string[]
     /** Which edge of the editor area the bar floats at: its overlays open away from it. */
     edge: Side
+    /**
+     * A small screen (QA round 1): the bar never folds into its *Format*
+     * menu — it fills the row the host gives it and scrolls, every command
+     * a button. Absent → it folds below the floating layer's 30rem.
+     */
+    fill?: boolean
     ctx: ReadoutContext
     registry: CommandRegistry
   }
 
-  let { ids, edge, ctx, registry }: Props = $props()
+  let { ids, edge, ctx, registry, fill = false }: Props = $props()
 
   /** The one grouped entry (Fork 4's "paragraph style"): a menu of the block styles. */
   const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
@@ -174,9 +180,9 @@
     aria-orientation="horizontal"
     data-testid="format-bar"
     data-position={edge}
-    class="pointer-events-auto flex h-9 max-w-full shrink-0 items-center justify-center rounded-lg border border-base-300 bg-base-100 px-1 text-xs text-base-content/70 shadow-sm"
+    class="pointer-events-auto flex h-9 max-w-full items-center rounded-lg {fill ? 'w-full min-w-0 justify-start' : 'shrink-0 justify-center'} border border-base-300 bg-base-100 px-1 text-xs text-base-content/70 shadow-sm"
   >
-    <div data-testid="toolbar-format" class="flex min-w-0 items-center">
+    <div data-testid="toolbar-format" class="flex min-w-0 items-center {fill ? 'flex-1' : ''}">
       <!-- Wide: every command its own button, on ONE row that never wraps
            (E6): it grows to the pane's width, then scrolls sideways — no
            scrollbar, a fade at whichever end has more, the wheel mapped
@@ -189,7 +195,7 @@
         onscroll={measureScroll}
         style:mask-image={fade}
         style:-webkit-mask-image={fade}
-        class="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] @max-[30rem]:hidden [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+        class="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 {fill ? 'flex-1' : '@max-[30rem]:hidden'}">
         {#each entries as entry (entry.key)}
           {#if entry.kind === 'separator'}
             <span role="separator" aria-orientation="vertical" class="mx-1 h-4 w-px bg-base-300"></span>
@@ -209,7 +215,7 @@
         {/each}
       </div>
       <!-- Narrow: one menu. -->
-      <div class="hidden @max-[30rem]:flex">
+      <div class={fill ? 'hidden' : 'hidden @max-[30rem]:flex'}>
         <DropdownMenu placement={menuAt} testid="toolbar-format-menu-list">
           {#snippet trigger(attrs)}
             <button

@@ -127,6 +127,8 @@ const status_bar = {
   /** The corner's readouts (`bars.status`): one item and the next, "412 words · 2,301 characters". */
   corner: 'Note status',
   join: ' · ',
+  /** A count on its own (QA round 1): the small screen's corner chip, "1,204". */
+  count: '{count:number|int}',
 }
 
 /**

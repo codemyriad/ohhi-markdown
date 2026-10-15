@@ -267,7 +267,7 @@ note, its `+` right after the tab (`tabs: auto` hides it until a second tab); `f
 from the format bar, with the word count following the selection; the format
 bar floating bottom centre with the word-count corner on its row, never
 covering the last line, and `top` floating under the header; the *Format*
-menu at a narrow width; `view.focus` (`Mod+.`) and `Escape`, and the `leave-focus`
+menu in a narrow split pane on a wide window; `view.focus` (`Mod+.`) and `Escape`, and the `leave-focus`
 way out when the toolbar is hidden too; a saved layout with the toolbar at the
 bottom, the format bar and the mode bar above it; the header at 480 px
 (arrows, the right end, nothing overflowing); opening from the drawer
@@ -286,6 +286,11 @@ its expand button, and Focus mode hides it. A view tab draws neither the strip
 nor the format bar and corner (devtools-shaping D7); `e2e/chrome.spec.ts`
 checks it over the Log and the Inspector, and that a note's tab brings them
 back.
+
+`e2e/small-screen.spec.ts` (QA round 1) boots the default layout at a phone's
+width (390 px) with touch on: the format bar scrolls across most of the row
+instead of folding, with the word count as a number chip at its right end
+that a tap expands.
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server

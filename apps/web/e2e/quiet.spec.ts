@@ -139,10 +139,15 @@ test.describe('toolbar and focus', () => {
     expect(last.y + last.height).toBeLessThanOrEqual(barNow.y)
   })
 
-  test('at a narrow width the format bar folds into one Format menu', async ({ page }) => {
-    await page.setViewportSize({ width: 400, height: 720 })
+  test('in a narrow split pane on a wide screen the format bar folds into one Format menu', async ({ page }) => {
+    // A window above the small-screen breakpoint (40rem): the fold follows the
+    // PANE's width. Below it the bar scrolls instead (small-screen.spec.ts).
+    await page.setViewportSize({ width: 900, height: 720 })
     await boot(page, 'quiet-narrow')
     await openByQuickOpen(page, 'welcome')
+    await expect(formatBar(page).getByTestId('toolbar:format.bold')).toBeVisible()
+    await paneContent(page).click()
+    await splitRight(page)
     await expect(formatBar(page).getByTestId('toolbar:format.bold')).toBeHidden()
     await formatBar(page).getByTestId('toolbar-format-menu').click()
     const list = page.getByTestId('toolbar-format-menu-list')
@@ -304,7 +309,7 @@ test.describe('toolbar and focus', () => {
     await expect(toolbar(page).getByTestId('nav:back')).toBeVisible()
     await expect(toolbar(page).getByTestId('nav:forward')).toBeVisible()
     await expect(toolbar(page).getByTestId('drawer-bell')).toBeVisible()
-    // Narrow: the folded bar shifts over so the corner keeps its row — never on it.
+    // Small screen: the scrolling bar fills the row and the count is a chip at its right end — never on it.
     const fmt = (await page.getByTestId('format-bar').boundingBox())!
     const cnr = (await corner(page).boundingBox())!
     expect(cnr.y + cnr.height <= fmt.y || cnr.x >= fmt.x + fmt.width).toBe(true)
