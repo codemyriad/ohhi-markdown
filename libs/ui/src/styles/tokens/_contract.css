@@ -219,7 +219,7 @@
      *
      * These :root values are the light set every built-in default shares
      * (themes review Fork 5-A); the dark defaults share one dark set, and
-     * the Nord port restates the band in its own family. */
+     * a custom theme may restate the band (the Nord example does). */
     --ed-group-1: #1d7f9c;
     --ed-group-2: #4a7a2e;
     --ed-group-3: #7d3fa8;

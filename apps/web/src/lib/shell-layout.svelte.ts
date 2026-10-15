@@ -536,13 +536,21 @@ export function createShellLayout(host: LayoutHost): ShellLayout {
     for (const e of fresh.reverse()) {
       if (!toastsWhenLogged(e)) continue
       const LL = getLL()
-      // A file that can't be used (ST6): *Show problems* opens Settings › Customise, where it stays listed.
+      // A file that can't be used (ST6): *Show problems* opens Settings › Customise, where it stays listed;
+      // a theme the vault does not hold: *Show themes* opens Appearance, where it can be added.
       const opens = host.openSettings ? noticeOpens(e) : null
       toast({
         level: e.level,
         title: LL.web.notices.toast_title[e.level](),
         description: describeEvent(e, LL),
-        ...(opens ? { action: { label: LL.web.resources.show_problems(), run: () => host.openSettings?.(opens) } } : {}),
+        ...(opens
+          ? {
+              action: {
+                label: opens === 'appearance' ? LL.web.theme.show_themes() : LL.web.resources.show_problems(),
+                run: () => host.openSettings?.(opens),
+              },
+            }
+          : {}),
       })
     }
   })

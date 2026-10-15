@@ -17,7 +17,10 @@ import { touchVault } from './config.js'
 import { getLL } from '@ohhi/i18n'
 import { isAccessRefused } from './fs-access.js'
 import type { AppConfig, MemoryModeConfig } from './params.js'
-import { themePath, installUserTheme, themeState } from './theme.svelte.js'
+import { markThemeNoticeShown, themeNoticeShown } from './config.js'
+import { restoreVaultTheme, themeState } from './theme.svelte.js'
+import { exampleSource, isExampleTheme } from './theme-examples.js'
+import { themePath } from './theme-files.js'
 
 export type SessionView = 'manager' | 'connecting' | 'workspace'
 
@@ -184,21 +187,26 @@ export function createSession(host: SessionHost): Session {
   }
 
   /**
-   * The pre-paint script restores the `data-theme` attribute, but a custom
-   * theme's CSS lives in the vault and cannot be read until one is open. Fetch
-   * and install it as soon as it can be; a missing file leaves the attribute
-   * pointing at nothing, which resolves to the contract defaults rather than
-   * to a broken page.
+   * The pre-paint script shows the stand-in for a vault theme (the default
+   * of its polarity), because the theme's CSS lives in the vault and cannot
+   * be read until one is open. Fetch and install it as soon as it can be; a
+   * vault without the folder keeps the stand-in (`restoreVaultTheme`).
+   *
+   * Nord Light and Dark were built-ins until Fork 4-A moved them into the
+   * vault: a device that chose one finds its preference naming a vault theme
+   * (`custom:nord-dark`), and the first vault it opens without the folder is
+   * said ONCE per name, ever — the example to add and how (`theme_retired`).
    */
   async function restoreCustomTheme(ws: Workspace): Promise<void> {
-    if (!themeState.pref.startsWith('custom:')) return
-    const name = themeState.pref.slice('custom:'.length)
-    try {
-      const css = await ws.readAppFile(themePath(name))
-      if (css) installUserTheme(css)
-    } catch {
-      // A vault without the theme file: the built-in defaults still apply.
-    }
+    const outcome = await restoreVaultTheme((path) => ws.readAppFile(path))
+    const name = themeState.fellBackFrom
+    if (outcome !== 'missing' || name === null || !isExampleTheme(name) || themeNoticeShown(name)) return
+    markThemeNoticeShown(name)
+    ws.notify({
+      level: 'warn',
+      code: 'theme_retired',
+      params: { name, path: themePath(name), example: exampleSource(name) },
+    })
   }
 
   return {

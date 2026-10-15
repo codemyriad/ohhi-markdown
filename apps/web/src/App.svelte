@@ -59,6 +59,7 @@
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
+  import { restoreVaultTheme } from './lib/theme.svelte.js'
   import { attachWritingHarness } from './lib/skills.svelte.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -219,6 +220,14 @@
     openSettings: (section) => openSettings(section),
   })
   const { resources, keymap, templates } = customise
+  // A vault theme in use follows its folder (quiet-shell F9): an edit on
+  // disk, *Reload files*, or the folder just added (an example from
+  // Settings › Appearance) re-reads it — or brings back the stand-in when
+  // the folder went away.
+  resources.onChange('themes', (why) => {
+    const ws = workspace
+    if (ws && why !== 'open') void restoreVaultTheme((path) => ws.readAppFile(path))
+  })
   // Each row names its root (settings-shaping ST6), as the layout picker's do.
   nav.setTemplates({
     rows: () => templates.rows.map((r) => ({ ...r, root: r.entry.root })),
@@ -480,6 +489,10 @@
     get readAppFile() {
       const ws = workspace
       return ws ? (p: string) => ws.readAppFile(p) : undefined
+    },
+    get writeAppFile() {
+      const ws = workspace
+      return ws ? (p: string, text: string) => ws.writeAppFile(p, text) : undefined
     },
     get vault() {
       if (!workspace) return null

@@ -18,7 +18,9 @@
  * and "Oh hi Dark": the ids are plumbing kept from before the themes review
  * (2026-10-15, v2-shaping Fork 2 amendment, 2-A), so a stored preference keeps
  * working while the values are the Ledger direction's. Graphite, Fjord and
- * Iris are the review's other three directions; Nord is the Obsidian port.
+ * Iris are the review's other three directions. Nord, the Obsidian port, is
+ * no longer built in (Fork 4-A, 2026-10-15): it ships as an example custom
+ * theme, `examples/themes/nord-*`, that a vault holds — see RETIRED_THEMES.
  */
 export const BUILTIN_THEMES = [
   'editor-light',
@@ -29,8 +31,6 @@ export const BUILTIN_THEMES = [
   'fjord-dark',
   'iris-light',
   'iris-dark',
-  'nord-light',
-  'nord-dark',
 ] as const
 
 export type BuiltinTheme = (typeof BUILTIN_THEMES)[number]
@@ -45,7 +45,6 @@ export const DARK_THEMES: ReadonlySet<string> = new Set([
   'graphite-dark',
   'fjord-dark',
   'iris-dark',
-  'nord-dark',
 ])
 
 /**
@@ -69,11 +68,26 @@ export const THEME_LABEL_KEYS = {
   'fjord-dark': 'fjord_dark',
   'iris-light': 'iris_light',
   'iris-dark': 'iris_dark',
-  'nord-light': 'nord_light',
-  'nord-dark': 'nord_dark',
 } as const satisfies Record<BuiltinTheme, string>
 
 export type ThemeLabelKey = (typeof THEME_LABEL_KEYS)[BuiltinTheme]
+
+/**
+ * Built-ins that left, each → the built-in that stands in for it (the default
+ * of its polarity). Nord Light and Dark moved out of the app into a vault
+ * (v2-shaping Fork 2, Fork 4-A, 2026-10-15): they ship as example custom
+ * themes, `examples/themes/<id>/theme.css`. A stored preference naming one
+ * (device config from before the move) is read as the vault theme of the
+ * same name, `custom:<id>`; where the open vault has no such folder, the
+ * stand-in is shown and the app says so once. The pre-paint script in
+ * `apps/web/index.html` carries the same list (theme.test.ts keeps it equal).
+ */
+export const RETIRED_THEMES = {
+  'nord-light': 'editor-light',
+  'nord-dark': 'editor-dark',
+} as const satisfies Record<string, BuiltinTheme>
+
+export type RetiredTheme = keyof typeof RETIRED_THEMES
 
 /** How many presence slots a theme defines (--ed-presence-1 … -8). */
 export const PRESENCE_SLOTS = 8

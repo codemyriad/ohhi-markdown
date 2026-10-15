@@ -1,0 +1,205 @@
+/*
+ * Nord Light — an example custom theme for Oh hi markdown.
+ *
+ * It was a built-in until 2026-10-15 (the themes review, v2-shaping Fork 2,
+ * Fork 4-A): it now lives in a vault, as any theme of your own does. Copy this
+ * folder to <vault>/.ohhi/themes/nord-light/ — or use Settings › Appearance ›
+ * In this vault › Add to this vault, which writes the same file — then pick
+ * "nord-light" under In this vault.
+ *
+ * The custom-theme format (docs/theming.md, libs/ui/src/styles/_template.css):
+ * one [data-theme] block, bands A (chrome, DaisyUI) and B (the editor) only.
+ * Band C — the sync colours — is one set per polarity and out of any theme's
+ * reach; this file's color-scheme picks which set it gets. The people and
+ * group colours are restated here because Nord has its own.
+ *
+ * The port, as it was written:
+ *
+ * nord-light — "Obsidian Nord" (.theme-light), ported with LUMINANCE
+ * CORRECTIONS. The upstream light theme reuses the same aurora hues on a
+ * white page, where several are unreadable: --code-normal #88c0d0 is 1.9:1
+ * and --h2-color #ebcb8b is 1.6:1 against #ffffff. Every hue is preserved;
+ * lightness is corrected. Corrected rows are marked ⚠ with the measured
+ * contrast ratio, and the full list is in docs/theming.md so a difference
+ * from Obsidian never reads as a porting bug.
+ *
+ * Same deliberate deviation as nord-dark: aurora red is reserved for
+ * divergence and excluded from --ed-presence-*.
+ */
+[data-theme="nord-light"] {
+  color-scheme: light;
+
+  /* --- band A: chrome (DaisyUI semantics) --------------------------- */
+  --color-base-100: #ffffff;             /* --background-primary (light3) */
+  --color-base-200: #eceff4;             /* --background-secondary (light2) */
+  --color-base-300: #e5e9f0;             /* --background-secondary-alt */
+  --color-base-content: #434c5e;         /* --text-normal (dark2) */
+
+  --color-primary: #5e81ac;              /* frost3 */
+  --color-primary-content: #ffffff;
+  --color-secondary: #81a1c1;
+  --color-secondary-content: #2e3440;
+  --color-accent: #9c5335;               /* --text-accent, darkened ⚠ */
+  --color-accent-content: #ffffff;
+
+  --color-neutral: #2e3440;
+  --color-neutral-content: #eceff4;
+
+  --color-info: #5e81ac;
+  --color-info-content: #ffffff;
+  --color-success: #4a7a2e;
+  --color-success-content: #ffffff;
+  --color-warning: #8a6300;
+  --color-warning-content: #ffffff;
+  --color-error: #b3271e;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  /* --- band B: the editor ------------------------------------------- */
+  --ed-surface: #ffffff;
+  --ed-scrim: #2e34404d; /* dialog scrim */
+  --ed-ink: #434c5e;                   /* --text-normal (dark2), 8.6:1 */
+  --ed-ink-muted: #4c566a;             /* ⚠ 7.3:1 */
+  /* ⚠ upstream inverted --text-faint (dark0) darker than --text-normal */
+  --ed-ink-faint: #6b7690;             /* ⚠ 4.6:1 */
+
+  --ed-h1: #a54e56;                    /* ⚠ nord11 darkened, 5.5:1 */
+  --ed-h2: #a17c2f;                    /* ⚠ nord13 darkened, 3.9:1 */
+  --ed-h3: #6a8a52;                    /* ⚠ nord14 darkened, 3.9:1 */
+  --ed-h4: #8c5f86;                    /* ⚠ nord15 darkened, 4.7:1 */
+  --ed-h5: #4f7a79;                    /* ⚠ nord7 darkened, 4.3:1 */
+  --ed-h6: #4c6f8e;                    /* ⚠ nord9 darkened, 4.8:1 */
+  --ed-title: #a17c2f;                 /* ⚠ --inline-title-color */
+
+  --ed-bold: #5f7a48;                  /* ⚠ --bold-color (green), 4.3:1 */
+  --ed-italic: #5f7a48;                /* ⚠ --italic-color */
+  --ed-strike: #a8b1c2;
+  --ed-mark-bg: #ebcb8b;               /* --text-highlight-bg, verbatim */
+  --ed-mark-fg: #2e3440;
+
+  --ed-code-fg: #3b6e7d;               /* ⚠ --code-normal, 1.9:1 → 5.7:1 */
+  --ed-code-bg: #eceff4;               /* --code-background (light2) */
+  --ed-code-block-fg: #434c5e;
+  --ed-code-block-bg: #eceff4;
+  --ed-code-border: #e5e9f0;
+
+  --ed-syn-keyword: #5e81ac;
+  --ed-syn-string: #6a8a52;
+  --ed-syn-number: #8c5f86;
+  --ed-syn-comment: #7b88a1;
+  --ed-syn-function: #3b6e7d;
+  --ed-syn-type: #4f7a79;
+  --ed-syn-variable: #434c5e;
+  --ed-syn-operator: #5e81ac;
+  --ed-syn-invalid: #a54e56;
+
+  --ed-link: #9c5335;                  /* ⚠ --text-accent, 5.6:1 */
+  --ed-link-hover: #5e81ac;            /* ⚠ --text-accent-hover */
+  --ed-url: #7d5a78;                   /* ⚠ --link-url, 5.9:1 */
+  --ed-wikilink: #5e81ac;
+  /* NOT #bf616a: aurora red is reserved for divergence in every Editor
+   * theme (nord-dark uses #a05359 for the same reason). A desaturated,
+   * darkened rust, still clearly "unfinished" without being the conflict
+   * colour. Guarded by theme-contract.test.ts. */
+  --ed-wikilink-unresolved: #9a5b3d;
+  --ed-wikilink-punct: #a8b1c2;
+
+  --ed-tag-fg: #4c566a;                /* --tag-color (dark3) */
+  --ed-tag-bg: #e5e9f0;                /* --tag-background */
+  --ed-tag-bg-hover: #d8dee9;
+  --ed-tag-radius: 0.5em;
+  --ed-frontmatter-fg: #5e81ac;
+  --ed-frontmatter-bg: #f5f7fa;
+  --ed-frontmatter-border: #e5e9f0;
+
+  --ed-quote-fg: #4c566a;
+  --ed-quote-border: #d8dee9;
+  --ed-hr: #d8dee9;
+  --ed-bullet: #5e81ac;
+  --ed-marker: #a8b1c2;
+  --ed-checkbox: #5e81ac;              /* ⚠ --checkbox-color (frost2) */
+
+  /* The same grey as nord-dark's (the comment colour), so a done task
+   * fades as far in both: 3.6:1 on the surface, against the ink's 8.6:1. */
+  --ed-task-done-fg: #7b88a1;
+
+  --ed-table-header-bg: #eceff4;       /* ⚠ source rgba(light2,.2) ≈ invisible */
+  --ed-table-row-alt-bg: #f4f6f9;
+  --ed-table-border: #e5e9f0;
+
+  /* ⚠ --text-selection is 60% red upstream; 60% over white drops body text
+   * to ~3.1:1, so light uses 30%. Dark keeps the 60% verbatim. */
+  --ed-selection: #bf616a4d;
+  --ed-selection-blur: #bf616a26;
+  --ed-caret: #bf616a;
+  --ed-active-line: #bf616a1a;         /* --cursor-line-background, verbatim */
+  --ed-gutter-bg: transparent;
+  --ed-gutter-fg: #a8b1c2;
+  --ed-gutter-active-fg: #bf616a;
+  --ed-bracket-match-bg: #5e81ac33;
+  --ed-search-match-bg: #ebcb8b80;
+  --ed-search-match-active-bg: #ebcb8b;
+  --ed-suggest-del: #7b5aa6;
+  --ed-suggest-add: #2f6f7e;
+  --ed-suggest-stale: #6b7690;
+  --ed-comment-bg: #b48ead38;
+  --ed-comment-resolved-bg: #4c566a1f;
+  --ed-agent-working-bg: #2b8a9a2e;
+
+  --ed-presence-1: #2b7f8a;
+  /* Slot 2 is the ported green again (it was #2f7a5a while nord-light had
+   * its own sync ok, #4a7a2e; since band C went per polarity the light ok is
+   * #2f7d3f, which the port's green clears and #2f7a5a did not). Slot 4 is
+   * not the ported amber: #8a6300 IS --ed-sync-pending; a peer must never
+   * read as a sync state (sharing R5). */
+  --ed-presence-2: #4d7c2f;
+  --ed-presence-3: #7d3fa8;
+  --ed-presence-4: #8f5a2b;
+  --ed-presence-5: #3b6e7d;
+  --ed-presence-6: #4c6f8e;
+  --ed-presence-7: #365a86;
+  /* Not the ported #9c5335: it sits ~55 units from the diverged red, close
+   * enough for a peer's caret to read as a conflict marker. */
+  --ed-presence-8: #a8327d;
+  --ed-presence-fg-1: #ffffff;
+  --ed-presence-fg-2: #ffffff;
+  --ed-presence-fg-3: #ffffff;
+  --ed-presence-fg-4: #ffffff;
+  --ed-presence-fg-5: #ffffff;
+  --ed-presence-fg-6: #ffffff;
+  --ed-presence-fg-7: #ffffff;
+  --ed-presence-fg-8: #ffffff;
+
+  /* Tab-group slots (W2): the same eight hues this file already darkens for
+   * headings and links (h6 blue, h3 green, h4 purple, h2 yellow, a deeper
+   * teal, frost3, the accent rust, and presence's magenta), so a chip reads
+   * as part of the theme. Every one clears 3:1 on white and stays clear of
+   * the aurora red. */
+  --ed-group-1: #4c6f8e;
+  --ed-group-2: #6a8a52;
+  --ed-group-3: #8c5f86;
+  --ed-group-4: #a17c2f;
+  --ed-group-5: #2f6f6e;
+  --ed-group-6: #5e81ac;
+  --ed-group-7: #9c5335;
+  --ed-group-8: #a8327d;
+
+  /* --- callouts (E3): the nine type colours (see the contract) --- */
+  --ed-callout-note: #5e81ac;
+  --ed-callout-tip: #2f6f6e;
+  --ed-callout-success: #4a7a2e;
+  --ed-callout-warning: #8a6300;
+  --ed-callout-danger: #b3271e;
+  --ed-callout-question: #9c5335;
+  --ed-callout-bug: #b3271e;
+  --ed-callout-example: #8c5f86;
+  --ed-callout-quote: #7b88a1;          /* faded like a done task, not the near-ink faint */
+}

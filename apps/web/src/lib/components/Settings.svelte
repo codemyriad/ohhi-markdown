@@ -87,6 +87,7 @@
     resources,
     keymap,
     readAppFile,
+    writeAppFile,
     vault,
     relays,
     onLinkDevice,
@@ -215,7 +216,7 @@
         {/if}
         {#if layout}<LayoutSettings {layout} {registry} />{/if}
       {:else if sid === 'appearance'}
-        <AppearanceSettings {readAppFile} themes={resources?.themes} />
+        <AppearanceSettings {readAppFile} {writeAppFile} themes={resources?.themes} />
       {:else if sid === 'keys'}
         <HotkeySettings
           {registry}

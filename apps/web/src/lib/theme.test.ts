@@ -7,9 +7,17 @@
  */
 import { readFileSync } from 'node:fs'
 import { getLL } from '@ohhi/i18n'
-import { BUILTIN_THEMES, DARK_THEMES, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME } from '@ohhi/ui/tokens'
+import {
+  BUILTIN_THEMES,
+  DARK_THEMES,
+  DEFAULT_DARK_THEME,
+  DEFAULT_LIGHT_THEME,
+  RETIRED_THEMES,
+} from '@ohhi/ui/tokens'
 import { describe, expect, it } from 'vitest'
+import { migrateThemePref } from './config.js'
 import { builtinThemeLabel, sanitizeThemeCss } from './theme.svelte.js'
+import { EXAMPLE_THEMES, THEME_EXAMPLES, isExampleTheme } from './theme-examples.js'
 
 describe('the built-in theme registry', () => {
   it('labels every built-in from the dictionary, and no custom theme', () => {
@@ -35,6 +43,37 @@ describe('the built-in theme registry', () => {
     expect(new Set(dark)).toEqual(new Set(DARK_THEMES))
     expect(html).toContain(`osDark ? '${DEFAULT_DARK_THEME}' : '${DEFAULT_LIGHT_THEME}'`)
     expect(html).toContain("setAttribute('data-polarity'")
+    // …and the built-ins that moved into the vault.
+    const retired = [...(html.match(/var RETIRED = \[([^\]]*)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+    expect(new Set(retired)).toEqual(new Set(Object.keys(RETIRED_THEMES)))
+  })
+})
+
+describe('Nord out of the built-ins (Fork 4-A)', () => {
+  it('no retired id is a built-in any more; each stands in with the default of its polarity', () => {
+    for (const [id, standIn] of Object.entries(RETIRED_THEMES)) {
+      expect((BUILTIN_THEMES as readonly string[]).includes(id), id).toBe(false)
+      expect(standIn).toBe(id.endsWith('-dark') ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME)
+    }
+  })
+
+  it('a stored nord-dark / nord-light preference names the vault theme of the same name', () => {
+    expect(migrateThemePref('nord-dark')).toBe('custom:nord-dark')
+    expect(migrateThemePref('nord-light')).toBe('custom:nord-light')
+    expect(migrateThemePref('fjord-dark')).toBe('fjord-dark')
+    expect(migrateThemePref('custom:nord-dark')).toBe('custom:nord-dark')
+    expect(migrateThemePref('system')).toBe('system')
+  })
+
+  it('ships an example for every retired id, and the sanitizer strips nothing from it but comments', () => {
+    expect(new Set(EXAMPLE_THEMES)).toEqual(new Set(Object.keys(RETIRED_THEMES)))
+    for (const name of EXAMPLE_THEMES) {
+      expect(isExampleTheme(name)).toBe(true)
+      const css = THEME_EXAMPLES[name]
+      expect(css).toContain(`[data-theme="${name}"]`)
+      expect(sanitizeThemeCss(css)).toBe(css.replace(/\/\*[\s\S]*?\*\//g, ''))
+    }
+    expect(isExampleTheme('fjord-dark')).toBe(false)
   })
 })
 

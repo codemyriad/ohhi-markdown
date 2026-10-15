@@ -309,22 +309,15 @@ test('the Live surface, a Reading tab and the mode menu are accessible', async (
  * read fixture: headings, links, tags, code, a fence, tasks) and on
  * Settings › Appearance, where its own picker row is the pressed one.
  *
- * The Nord port is left out, by name — findings about the port that predate
- * the themes review, which left Nord as it was (its Fork 4 not taken):
- * nord-light's chrome ink (`--color-base-content: #434c5e`, Nord's dark2) at
- * the shell's `/70` muted opacity is 3.87:1 on white; nord-dark's tag
- * (`#8fbcbb` on `#434c5e`, 4.14:1), link orange (`#d08770`, 4.39:1) and
- * fence keyword (`#81a1c1` on nord1, 3.73:1) sit under 4.5:1 — the review's
- * own checks found the same. Lift this when the port takes those
- * corrections as documented deviations.
+ * Every built-in, with no exemption: the Nord port, whose findings stood here
+ * by name, is no longer built in (Fork 4-A) — it is an example theme a vault
+ * holds, and docs/theming.md lists what it misses.
  */
-const A11Y_THEME_EXEMPT: ReadonlySet<string> = new Set(['nord-light', 'nord-dark'])
-
 test('every built-in theme is accessible', async ({ page }) => {
   test.setTimeout(180_000)
   await seedReadNote(page, 'a11y-themes')
   await expect(page.locator('input.cm-task')).toHaveCount(2)
-  for (const theme of BUILTIN_THEMES.filter((t) => !A11Y_THEME_EXEMPT.has(t))) {
+  for (const theme of BUILTIN_THEMES) {
     await openSettings(page, 'appearance')
     await settingsView(page).getByTestId(`theme-${theme}`).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)

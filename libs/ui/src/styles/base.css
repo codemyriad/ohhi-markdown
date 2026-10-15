@@ -25,7 +25,7 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: editor-light --default, editor-dark, graphite-light, graphite-dark, fjord-light, fjord-dark, iris-light, iris-dark, nord-light, nord-dark;
+  themes: editor-light --default, editor-dark, graphite-light, graphite-dark, fjord-light, fjord-dark, iris-light, iris-dark;
   prefix: dui-;
   logs: false;
 }
@@ -45,8 +45,6 @@
 @import "./tokens/fjord-dark.css";
 @import "./tokens/iris-light.css";
 @import "./tokens/iris-dark.css";
-@import "./tokens/nord-light.css";
-@import "./tokens/nord-dark.css";
 
 /* Band C last, and unlayered. */
 @import "./sync-tokens.css";

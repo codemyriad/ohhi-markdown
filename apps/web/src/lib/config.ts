@@ -17,7 +17,7 @@ import { normalizePins, type LayoutPins } from './pin-layout.js'
 import { normalizeOverrides as normalizeLayoutOverrides, type LayoutFile } from './layout-spec.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
-import type { BuiltinTheme } from '@ohhi/ui/tokens'
+import { RETIRED_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
 import type { AiConfig, ProviderConfig, ProviderView } from '@ohhi/harness'
 import { normalizeAiConfig } from '@ohhi/harness/config'
 
@@ -174,6 +174,12 @@ interface AppConfigV2 {
    * collaborator's aesthetics another's problem.
    */
   theme?: ThemePref
+  /**
+   * The retired built-in themes (`RETIRED_THEMES`: Nord Light and Dark) this
+   * device has already been told about — that they now live in a vault, and
+   * that the open one did not have the folder. Said once per name, ever.
+   */
+  themeNotices?: string[]
   /**
    * The active layout file (quiet-shell F2: `default` or `custom:<name>`,
    * chosen by the palette's *Use layout file…*), plus the navigator width
@@ -600,7 +606,32 @@ export function providerView(provider: ProviderConfig): ProviderView {
 // ---- theme (V2a) ----
 
 export function themePref(): ThemePref {
-  return loadConfig().theme ?? 'system'
+  return migrateThemePref(loadConfig().theme ?? 'system')
+}
+
+/**
+ * A stored preference as this build reads it. A retired built-in's id
+ * (`nord-dark`, stored before Nord moved into the vault — Fork 4-A) names
+ * the vault theme of the same name, `custom:nord-dark`: the example files
+ * keep the id as their folder name, so adding one to a vault brings the
+ * preference back to life. Nothing is rewritten here; the next pick does.
+ */
+export function migrateThemePref(raw: string): ThemePref {
+  if (Object.hasOwn(RETIRED_THEMES, raw)) return `custom:${raw}`
+  return raw as ThemePref
+}
+
+/** Has this device been told once that the retired theme `name` was not in the vault? */
+export function themeNoticeShown(name: string): boolean {
+  return loadConfig().themeNotices?.includes(name) ?? false
+}
+
+/** Remember that it has (`themeNoticeShown`). */
+export function markThemeNoticeShown(name: string): void {
+  const cfg = loadConfig()
+  if (cfg.themeNotices?.includes(name)) return
+  cfg.themeNotices = [...(cfg.themeNotices ?? []), name]
+  save(cfg)
 }
 
 export function setThemePref(pref: ThemePref): void {

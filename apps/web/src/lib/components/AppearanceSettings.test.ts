@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
 import { BUILTIN_THEMES } from '@ohhi/ui/tokens'
 import { settingsEnvContext, type SettingsEnv } from '../settings-host.js'
-import { applyTheme, themeState } from '../theme.svelte.js'
+import { applyTheme, restoreVaultTheme, themeState } from '../theme.svelte.js'
+import { THEME_EXAMPLES } from '../theme-examples.js'
 import AppearanceSettings from './AppearanceSettings.svelte'
 
 const t = getLL().web.settings.appearance
@@ -102,5 +103,60 @@ describe('Settings › Appearance — Built in and In this vault', () => {
     await user.type(screen.getByTestId('custom-theme-name'), 'gone')
     await user.click(screen.getByTestId('custom-theme-load'))
     expect(screen.getByTestId('custom-theme-error')).toHaveTextContent('.ohhi/themes/gone/theme.css')
+  })
+})
+
+describe('Settings › Appearance — the example themes (Nord out of the built-ins, Fork 4-A)', () => {
+  it('lists no Nord among the built-ins', () => {
+    render(AppearanceSettings, { props: { readAppFile, themes: [] }, context: settingsEnvContext(env(true)) })
+    expect(screen.queryByTestId('theme-nord-dark')).toBeNull()
+    expect(screen.queryByTestId('theme-nord-light')).toBeNull()
+  })
+
+  it('offers each example the vault lacks; Add writes the bundled file through the app-file writer', async () => {
+    const user = userEvent.setup()
+    const disk: Record<string, string> = {}
+    const writeAppFile = vi.fn(async (path: string, text: string) => void (disk[path] = text))
+    const read = async (path: string) => disk[path] ?? null
+    render(AppearanceSettings, {
+      props: { readAppFile: read, writeAppFile, themes: [THEMES[1]!] },
+      context: settingsEnvContext(env(true)),
+    })
+    expect(screen.getByTestId('theme-example:nord-light')).toBeVisible()
+    await user.click(screen.getByTestId('theme-example-add:nord-dark'))
+    expect(writeAppFile).toHaveBeenCalledWith('.ohhi/themes/nord-dark/theme.css', THEME_EXAMPLES['nord-dark'])
+    expect(screen.getByTestId('theme-example-status')).toHaveTextContent('Added .ohhi/themes/nord-dark/theme.css')
+    // Not the preference: added, listed once the loader re-lists, not applied.
+    expect(themeState.pref).toBe('system')
+
+    // A file already there is someone's: never written over.
+    await user.click(screen.getByTestId('theme-example-add:nord-dark'))
+    expect(writeAppFile).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('theme-example-error')).toHaveTextContent('already has .ohhi/themes/nord-dark/theme.css')
+  })
+
+  it('a stored nord-dark: the vault without the folder shows Oh hi Dark standing in; Add applies Nord Dark at once', async () => {
+    const user = userEvent.setup()
+    const disk: Record<string, string> = {}
+    const read = async (path: string) => disk[path] ?? null
+    const writeAppFile = vi.fn(async (path: string, text: string) => void (disk[path] = text))
+    themeState.pref = 'custom:nord-dark'
+    expect(await restoreVaultTheme(read)).toBe('missing')
+    expect(themeState.fellBackFrom).toBe('nord-dark')
+    expect(document.documentElement.getAttribute('data-theme')).toBe('editor-dark')
+    expect(document.documentElement.getAttribute('data-polarity')).toBe('dark')
+
+    render(AppearanceSettings, { props: { readAppFile: read, writeAppFile, themes: [] }, context: settingsEnvContext(env(true)) })
+    expect(screen.getByTestId('theme-source-name')).toHaveTextContent('Oh hi Dark')
+    expect(screen.getByTestId('theme-source-fallback')).toHaveTextContent('nord-dark')
+    await user.click(screen.getByTestId('theme-example-add:nord-dark'))
+    expect(document.documentElement.getAttribute('data-theme')).toBe('nord-dark')
+    expect(themeState.pref).toBe('custom:nord-dark')
+    expect(themeState.fellBackFrom).toBeNull()
+    expect(screen.queryByTestId('theme-source-fallback')).toBeNull()
+    // A later vault open finds it and installs it again.
+    document.getElementById('ed-user-theme')?.remove()
+    expect(await restoreVaultTheme(read)).toBe('installed')
+    expect(document.getElementById('ed-user-theme')?.textContent).toContain('#2e3440')
   })
 })

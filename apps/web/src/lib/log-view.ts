@@ -39,7 +39,7 @@ export interface LogFilter {
 }
 
 /**
- * The notices about the app's own files — layouts, keymaps, templates
+ * The notices about the app's own files — layouts, keymaps, templates, themes
  * (settings-shaping ST6): what the Log's *Customise* chip keeps. A reload of
  * a file in use, a file that can't be used, the keymap migration, a template
  * that could not insert.
@@ -51,6 +51,7 @@ export const CUSTOMISE_CODES: readonly string[] = [
   'keymap_migrated',
   'keymap_migrate_failed',
   'template_failed',
+  'theme_retired',
 ]
 
 function codeMatches(e: AppEvent, codes: readonly string[] | null): boolean {

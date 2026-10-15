@@ -23,6 +23,7 @@ import {
   DARK_THEMES,
   DEFAULT_DARK_THEME as DEFAULT_DARK,
   DEFAULT_LIGHT_THEME as DEFAULT_LIGHT,
+  RETIRED_THEMES,
   THEME_LABEL_KEYS,
   type BuiltinTheme,
   type Polarity,
@@ -106,7 +107,25 @@ export const themeState = $state({
   name: DEFAULT_LIGHT as string,
   /** Resolved polarity: CM6's darkTheme facet, and `data-polarity` (band C). */
   dark: false,
+  /**
+   * The vault theme the preference names, when the open vault has no such
+   * folder and the built-in default of its polarity stands in; else null.
+   * The preference is kept, so the theme comes back once the folder is there.
+   */
+  fellBackFrom: null as string | null,
 })
+
+/** The built-in shown while a vault theme cannot be: the default of the polarity. */
+const standIn = (dark: boolean): string => (dark ? DEFAULT_DARK : DEFAULT_LIGHT)
+
+/** Is the preference a vault theme whose CSS is installed now? */
+const userThemeInstalled = (): boolean => {
+  try {
+    return document.getElementById('ed-user-theme') !== null
+  } catch {
+    return false
+  }
+}
 
 /**
  * Set band C's `data-polarity` on <html> (sync-tokens.css picks the light or
@@ -126,6 +145,7 @@ function setPolarity(dark: boolean): void {
 
 export function applyTheme(pref: ThemePref): void {
   const name = resolveTheme(pref)
+  themeState.fellBackFrom = null
   try {
     document.documentElement.setAttribute('data-theme', name)
   } catch {
@@ -137,18 +157,26 @@ export function applyTheme(pref: ThemePref): void {
   setThemePref(pref)
 }
 
-/** Apply the stored preference and start following the OS while on `system`. */
+/**
+ * Apply the stored preference and start following the OS while on `system`.
+ *
+ * A vault theme's CSS cannot be read before its vault opens, so until it is
+ * installed the built-in default of the polarity the app last resolved for
+ * it stands in (the pre-paint script does the same) — a dark theme's first
+ * frames are dark, not the contract's light defaults.
+ */
 export function initTheme(): void {
   const pref = themePref()
-  const name = resolveTheme(pref)
+  themeState.pref = pref
+  const dark = resolveDark(pref)
+  const name = pref.startsWith('custom:') && !userThemeInstalled() ? standIn(dark) : resolveTheme(pref)
   try {
     document.documentElement.setAttribute('data-theme', name)
   } catch {
     /* no DOM */
   }
-  themeState.pref = pref
   themeState.name = name
-  setPolarity(resolveDark(pref))
+  setPolarity(dark)
 
   try {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -202,9 +230,75 @@ export function installUserTheme(css: string): void {
     document.head.append(el)
   }
   el.textContent = `@layer editor.user {\n${sanitizeThemeCss(css)}\n}`
+  // The preference's theme can now be shown: until this, its stand-in was.
+  if (themeState.pref.startsWith('custom:')) {
+    const name = resolveTheme(themeState.pref)
+    try {
+      document.documentElement.setAttribute('data-theme', name)
+    } catch {
+      /* no DOM */
+    }
+    themeState.name = name
+    themeState.fellBackFrom = null
+  }
   // The CSS only exists now, so the polarity probe can finally answer — the
   // boot script set the attribute long before the vault could be read.
   setPolarity(resolveDark(themeState.pref))
+}
+
+/**
+ * The open vault has no folder for the vault theme the preference names:
+ * drop any theme CSS another vault left installed and show the built-in
+ * default of the polarity last resolved for it. The preference is kept
+ * (`themeState.fellBackFrom` says what stands in for what), so the theme
+ * returns when a vault with the folder opens, or the folder is added.
+ */
+export function standInFor(name: string): void {
+  try {
+    document.getElementById('ed-user-theme')?.remove()
+  } catch {
+    /* no DOM */
+  }
+  // A retired built-in (Nord) stands in with the default of its own polarity.
+  const shown = Object.hasOwn(RETIRED_THEMES, name)
+    ? RETIRED_THEMES[name as keyof typeof RETIRED_THEMES]
+    : standIn(themeState.dark)
+  try {
+    document.documentElement.setAttribute('data-theme', shown)
+  } catch {
+    /* no DOM */
+  }
+  themeState.name = shown
+  themeState.fellBackFrom = name
+  setPolarity(DARK_THEMES.has(shown))
+}
+
+/**
+ * Read the vault theme the preference names from the open vault and install
+ * it — or, when the vault has no such file, show the stand-in. Called when a
+ * vault opens and whenever its theme folders change (a watcher event, *Reload
+ * files*, an example just added), which is how an edited theme reloads.
+ */
+export async function restoreVaultTheme(
+  read: (path: string) => Promise<string | null>
+): Promise<'none' | 'installed' | 'missing'> {
+  const pref = themeState.pref
+  if (!pref.startsWith('custom:')) return 'none'
+  const name = pref.slice('custom:'.length)
+  let css: string | null = null
+  try {
+    css = THEME_NAME.test(name) ? await read(themePath(name)) : null
+  } catch {
+    css = null
+  }
+  // Another pick landed while this read: it is that pick's to apply.
+  if (themeState.pref !== pref) return 'none'
+  if (css !== null) {
+    installUserTheme(css)
+    return 'installed'
+  }
+  standInFor(name)
+  return 'missing'
 }
 
 /**

@@ -3505,7 +3505,7 @@ export type NamespaceWebTranslation = {
 			 */
 			system: string
 			/**
-			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​h​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​h​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​;​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​.
+			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​h​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​h​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​.
 			 * @param {string} system
 			 */
 			theme_help: RequiredParams<'system'>
@@ -3542,14 +3542,6 @@ export type NamespaceWebTranslation = {
 				 * I​r​i​s​ ​D​a​r​k
 				 */
 				iris_dark: string
-				/**
-				 * N​o​r​d​ ​L​i​g​h​t
-				 */
-				nord_light: string
-				/**
-				 * N​o​r​d​ ​D​a​r​k
-				 */
-				nord_dark: string
 			}
 			/**
 			 * B​u​i​l​t​ ​i​n
@@ -3568,6 +3560,25 @@ export type NamespaceWebTranslation = {
 			 * @param {string} path
 			 */
 			vault_empty: RequiredParams<'path'>
+			/**
+			 * E​x​a​m​p​l​e​s​ ​t​h​a​t​ ​s​h​i​p​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​.​ ​A​d​d​ ​o​n​e​ ​a​n​d​ ​i​t​ ​i​s​ ​l​i​s​t​e​d​ ​a​b​o​v​e​.
+			 */
+			examples_intro: string
+			/**
+			 * A​d​d​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			add_example: string
+			/**
+			 * A​d​d​ ​{​l​a​b​e​l​}​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​a​s​ ​{​p​a​t​h​}
+			 * @param {string} label
+			 * @param {string} path
+			 */
+			add_example_label: RequiredParams<'label' | 'path'>
+			/**
+			 * A​d​d​e​d​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			example_added: RequiredParams<'path'>
 			/**
 			 * A​ ​t​h​e​m​e​ ​f​o​l​d​e​r​ ​t​h​e​ ​l​i​s​t​ ​d​o​e​s​ ​n​o​t​ ​s​h​o​w
 			 */
@@ -6678,6 +6689,33 @@ export type NamespaceWebTranslation = {
 		 * @param {string} path
 		 */
 		missing: RequiredParams<'path'>
+		/**
+		 * {​l​a​b​e​l​}​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​b​u​i​l​t​ ​i​n​:​ ​i​t​ ​i​s​ ​a​ ​t​h​e​m​e​ ​a​ ​v​a​u​l​t​ ​h​o​l​d​s​,​ ​a​n​d​ ​t​h​i​s​ ​v​a​u​l​t​ ​h​a​s​ ​n​o​ ​{​p​a​t​h​}​,​ ​s​o​ ​{​s​t​a​n​d​_​i​n​}​ ​s​t​a​n​d​s​ ​i​n​.​ ​A​d​d​ ​i​t​ ​f​r​o​m​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​p​p​e​a​r​a​n​c​e​,​ ​o​r​ ​c​o​p​y​ ​{​e​x​a​m​p​l​e​}​ ​t​h​e​r​e​.
+		 * @param {string} example
+		 * @param {string} label
+		 * @param {string} path
+		 * @param {string} stand_in
+		 */
+		retired: RequiredParams<'example' | 'label' | 'path' | 'stand_in'>
+		/**
+		 * S​h​o​w​ ​t​h​e​m​e​s
+		 */
+		show_themes: string
+		examples: {
+			/**
+			 * N​o​r​d​ ​L​i​g​h​t
+			 */
+			nord_light: string
+			/**
+			 * N​o​r​d​ ​D​a​r​k
+			 */
+			nord_dark: string
+		}
+		/**
+		 * T​h​i​s​ ​v​a​u​l​t​ ​a​l​r​e​a​d​y​ ​h​a​s​ ​{​p​a​t​h​}​;​ ​i​t​ ​w​a​s​ ​l​e​f​t​ ​a​s​ ​i​t​ ​i​s​.
+		 * @param {string} path
+		 */
+		example_exists: RequiredParams<'path'>
 	}
 	layouts: {
 		/**
@@ -11905,7 +11943,7 @@ export type TranslationFunctions = {
 				 */
 				system: () => LocalizedString
 				/**
-				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too; Nord reproduces the Obsidian theme it is named after.
+				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.
 				 */
 				theme_help: (arg: { system: string }) => LocalizedString
 				theme_names: {
@@ -11941,14 +11979,6 @@ export type TranslationFunctions = {
 					 * Iris Dark
 					 */
 					iris_dark: () => LocalizedString
-					/**
-					 * Nord Light
-					 */
-					nord_light: () => LocalizedString
-					/**
-					 * Nord Dark
-					 */
-					nord_dark: () => LocalizedString
 				}
 				/**
 				 * Built in
@@ -11966,6 +11996,22 @@ export type TranslationFunctions = {
 				 * This vault has no themes yet. A theme is a folder holding one stylesheet, {path}.
 				 */
 				vault_empty: (arg: { path: string }) => LocalizedString
+				/**
+				 * Examples that ship with the app. Add one and it is listed above.
+				 */
+				examples_intro: () => LocalizedString
+				/**
+				 * Add to this vault
+				 */
+				add_example: () => LocalizedString
+				/**
+				 * Add {label} to this vault, as {path}
+				 */
+				add_example_label: (arg: { label: string, path: string }) => LocalizedString
+				/**
+				 * Added {path}
+				 */
+				example_added: (arg: { path: string }) => LocalizedString
 				/**
 				 * A theme folder the list does not show
 				 */
@@ -14889,6 +14935,28 @@ export type TranslationFunctions = {
 			 * No theme at {path}
 			 */
 			missing: (arg: { path: string }) => LocalizedString
+			/**
+			 * {label} is no longer built in: it is a theme a vault holds, and this vault has no {path}, so {stand_in} stands in. Add it from Settings › Appearance, or copy {example} there.
+			 */
+			retired: (arg: { example: string, label: string, path: string, stand_in: string }) => LocalizedString
+			/**
+			 * Show themes
+			 */
+			show_themes: () => LocalizedString
+			examples: {
+				/**
+				 * Nord Light
+				 */
+				nord_light: () => LocalizedString
+				/**
+				 * Nord Dark
+				 */
+				nord_dark: () => LocalizedString
+			}
+			/**
+			 * This vault already has {path}; it was left as it is.
+			 */
+			example_exists: (arg: { path: string }) => LocalizedString
 		}
 		layouts: {
 			/**

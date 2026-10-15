@@ -417,8 +417,8 @@ describe('presence colours (band B)', () => {
  *  - none of them is the diverged red. Red means "your document diverged" in
  *    every Editor theme (the same reservation the presence band carries).
  *
- * NOT asserted: separation from ok / pending / offline. In nord-* the theme's
- * own green and yellow ARE its sync ok and pending, and a named chip that
+ * NOT asserted: separation from ok / pending / offline. A palette's own
+ * green and yellow (the Nord example's) may sit near sync ok and pending, and a named chip that
  * carries its name is not the pill in the status bar. (Presence, an unlabelled
  * avatar beside the dots, does assert it — above.) Red is the reservation that matters, and it is checked here.
  */
@@ -440,9 +440,9 @@ describe('tab-group colours (band B)', () => {
   })
 
   it('keeps the eight slots distinguishable from each other', () => {
-    // 20 is a "not the same colour" floor, not a design target: nord-dark's
-    // tightest pair is Nord's own two frost blues (#88c0d0 / #8fbcbb, 22
-    // units), and a faithful port is worth more than a rounder number.
+    // 20 is a "not the same colour" floor, not a design target: the Nord
+    // example's tightest pair is Nord's own two frost blues (#88c0d0 /
+    // #8fbcbb, 22 units), and a custom theme is held to the same floor.
     for (const theme of BUILTIN_THEMES) {
       const values = slots(theme)
       for (let i = 0; i < values.length; i++) {
@@ -459,8 +459,8 @@ describe('tab-group colours (band B)', () => {
   it('never puts a group colour near the diverged colour', () => {
     // Looser than presence's 60 on purpose: a peer's caret is an unlabelled
     // 2px bar that can appear anywhere in the text, while a group chip always
-    // carries the name you gave it. nord-dark's Nord orange (#d08770) sits 42
-    // units from Nord's aurora red and is the closest any theme comes.
+    // carries the name you gave it. The Nord example's orange (#d08770) sits
+    // 42 units from Nord's aurora red, the closest any theme comes.
     for (const theme of BUILTIN_THEMES) {
       const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       slots(theme).forEach((value, i) => {
@@ -549,16 +549,12 @@ describe('editor readability', () => {
    * asserted either. The five syntax colours a reader reads are text (4.5:1,
    * WCAG 1.4.3) on `--ed-code-block-bg`, the slab they sit on, not the page;
    * the comment is allowed to recede, to the 3:1 the docs give marks.
-   *
-   * Nord is a faithful port of another theme's syntax palette and keeps it
-   * (docs/theming.md, the Nord deviations): its frost and comment greys on
-   * nord1 sit under both floors, and the port is listed here rather than
-   * repainted.
+   * Every built-in clears it; the Nord port, which did not, is no longer
+   * built in (Fork 4-A) — `example-themes.test.ts` names what it misses.
    */
-  const FENCE_EXEMPT: ReadonlySet<string> = new Set(['nord-light', 'nord-dark'])
 
   it('keeps the syntax colours readable on the fence they sit on', () => {
-    for (const theme of BUILTIN_THEMES.filter((t) => !FENCE_EXEMPT.has(t))) {
+    for (const theme of BUILTIN_THEMES) {
       const block = themeBlock(THEME_CSS[theme], theme)
       const slab = tokenValue(block, '--ed-code-block-bg') ?? tokenValue(CONTRACT, '--ed-code-block-bg')!
       for (const slot of ['keyword', 'string', 'number', 'function', 'type']) {
@@ -572,8 +568,8 @@ describe('editor readability', () => {
   })
 
   it('keeps every heading level at AA-large or better', () => {
-    // Headings are large text, so 3:1 is the bar — but nord-light's faithful
-    // port would land at 1.6:1, which is why it carries corrections.
+    // Headings are large text, so 3:1 is the bar — Nord Light's faithful
+    // port would land at 1.6:1, which is why its example carries corrections.
     for (const theme of BUILTIN_THEMES) {
       const block = themeBlock(THEME_CSS[theme], theme)
       const surface = tokenValue(block, '--ed-surface') ?? tokenValue(CONTRACT, '--ed-surface')!
@@ -588,7 +584,7 @@ describe('editor readability', () => {
   it('never paints an unresolved wikilink in the diverged colour', () => {
     // Aurora red is reserved for divergence in EVERY theme. An unresolved
     // link is a note you have not written yet — not a conflict — and the two
-    // must never look the same. (nord-light shipped this bug once.)
+    // must never look the same. (Nord Light shipped this bug once.)
     for (const theme of BUILTIN_THEMES) {
       const diverged = tokenValue(syncFor(theme), '--ed-sync-diverged')!
       const block = themeBlock(THEME_CSS[theme], theme)

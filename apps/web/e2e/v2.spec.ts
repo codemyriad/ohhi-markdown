@@ -121,19 +121,87 @@ test('the theme drives chrome and editor together, and survives a reload', async
 
   await page.getByTestId('open-settings').click()
   await settingsView(page).getByTestId('settings-tab:appearance').click()
-  await page.getByTestId('theme-nord-dark').click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  await page.getByTestId('theme-fjord-dark').click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'fjord-dark')
   // Settings is a tab beside the note: close it to look at the note again.
   await closeSettings(page)
-  // Nord's --background-primary, resolved through --ed-surface into CM6.
-  expect(await surfaceOf()).toBe('rgb(46, 52, 64)')
+  // Fjord Dark's surface, resolved through --ed-surface into CM6.
+  expect(await surfaceOf()).toBe('rgb(33, 37, 46)')
 
   await page.reload()
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'fjord-dark')
 
   await page.getByTestId('file-item:notes/welcome.md').click()
-  expect(await surfaceOf()).toBe('rgb(46, 52, 64)')
+  expect(await surfaceOf()).toBe('rgb(33, 37, 46)')
+})
+
+test('Nord Dark is a vault theme now: a stored nord-dark stands in, says so once, and comes back when added', async ({
+  page,
+}) => {
+  // Chris reads Nord Dark daily: a device whose config says `nord-dark` (a
+  // built-in until Fork 4-A) opening a vault with no `.ohhi/themes/nord-dark/`.
+  await page.goto('/')
+  await page.getByTestId('start-browser-vault').click()
+  await page.getByTestId('new-vault-name').fill('Nord')
+  await page.getByTestId('create-vault').click()
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  await page.evaluate(() => {
+    const cfg = JSON.parse(localStorage.getItem('editor:config') ?? '{}')
+    cfg.theme = 'nord-dark'
+    localStorage.setItem('editor:config', JSON.stringify(cfg))
+    localStorage.setItem('editor:theme', 'nord-dark')
+    localStorage.setItem('editor:polarity', 'dark')
+  })
+  const look = () =>
+    page.evaluate(() => ({
+      theme: document.documentElement.getAttribute('data-theme'),
+      polarity: document.documentElement.getAttribute('data-polarity'),
+      chrome: getComputedStyle(document.body).backgroundColor,
+    }))
+
+  // First launch after the move. The first frame is already dark: the
+  // pre-paint script reads `nord-dark` as the vault theme and shows the
+  // dark default until the vault can be read.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  // The vault has no folder: Oh hi Dark stands in, and the app says so — once.
+  const notice = page.getByTestId('toast').filter({ hasText: 'Nord Dark is no longer built in' })
+  await expect(notice).toHaveCount(1)
+  await expect(notice).toContainText('.ohhi/themes/nord-dark/theme.css')
+  await expect(notice).toContainText('Oh hi Dark stands in')
+  await expect(notice).toContainText('examples/themes/nord-dark/theme.css')
+  expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
+
+  // *Show themes* opens Appearance, which says what stands in for what…
+  await notice.getByTestId('toast-action').click()
+  const settings = settingsView(page)
+  await expect(settings.getByTestId('theme-source-fallback')).toContainText('nord-dark')
+  await expect(settings.getByTestId('theme-vault-empty')).toBeVisible()
+  // …and offers the example. Adding it writes the folder and, because the
+  // preference already names it, applies it.
+  await settings.getByTestId('theme-example-add:nord-dark').click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  await expect(page.locator('html')).toHaveAttribute('data-polarity', 'dark')
+  await expect(settings.getByTestId('theme-custom:nord-dark')).toHaveAttribute('aria-pressed', 'true')
+  await expect(settings.getByTestId('theme-example:nord-dark')).toHaveCount(0)
+  // Nord's own chrome (band A from the file): --color-base-100 #2e3440.
+  expect((await look()).chrome).toBe('rgb(46, 52, 64)')
+
+  // The next pick: away to a built-in, and back from In this vault.
+  await settings.getByTestId('theme-fjord-dark').click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'fjord-dark')
+  await settings.getByTestId('theme-custom:nord-dark').click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  await closeSettings(page)
+
+  // And on reload: Nord Dark again, and no second notice.
+  await page.reload()
+  await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'nord-dark')
+  expect(await look()).toMatchObject({ theme: 'nord-dark', polarity: 'dark', chrome: 'rgb(46, 52, 64)' })
+  await expect(page.getByTestId('toast').filter({ hasText: 'no longer built in' })).toHaveCount(0)
 })
 
 test('every built-in theme applies, and the sync colours follow its polarity (band C)', async ({ page }) => {

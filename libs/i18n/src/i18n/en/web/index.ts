@@ -1269,7 +1269,7 @@ const settings = {
     lede: 'How the app looks on this device. A theme of your own lives in this vault.',
     system: 'System',
     theme_help:
-      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too; Nord reproduces the Obsidian theme it is named after.',
+      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.',
     /**
      * The built-in themes' names, keyed by `THEME_LABEL_KEYS` in
      * `libs/ui/src/tokens.ts` (the theme id with `_` for `-`).
@@ -1283,8 +1283,6 @@ const settings = {
       fjord_dark: 'Fjord Dark',
       iris_light: 'Iris Light',
       iris_dark: 'Iris Dark',
-      nord_light: 'Nord Light',
-      nord_dark: 'Nord Dark',
     },
     /** The picker's two groups: the themes that ship with the app, and the vault's own theme folders. */
     builtin: 'Built in',
@@ -1293,6 +1291,11 @@ const settings = {
     vault_none: 'Open a vault to use the themes in it.',
     /** The vault group when the open vault has no theme folder. */
     vault_empty: 'This vault has no themes yet. A theme is a folder holding one stylesheet, {path:string}.',
+    /** The example themes the app ships (Nord, built in until Fork 4-A), under the vault group. */
+    examples_intro: 'Examples that ship with the app. Add one and it is listed above.',
+    add_example: 'Add to this vault',
+    add_example_label: 'Add {label:string} to this vault, as {path:string}',
+    example_added: 'Added {path:string}',
     /** The fallback field under the vault group; the path and the rules are its hint line (QA round 1). */
     custom_label: 'A theme folder the list does not show',
     custom_placeholder: 'my-theme',
@@ -2416,6 +2419,20 @@ const toolbar = {
 const theme = {
   bad_name: 'Theme names may contain letters, numbers, spaces, - and _ only.',
   missing: 'No theme at {path:string}',
+  /**
+   * Nord Light and Dark left the built-ins (v2-shaping Fork 2, Fork 4-A): the
+   * one-time notice when the preference names one and the open vault has no
+   * folder for it, and the toast's button.
+   */
+  retired:
+    '{label:string} is no longer built in: it is a theme a vault holds, and this vault has no {path:string}, so {stand_in:string} stands in. Add it from Settings › Appearance, or copy {example:string} there.',
+  show_themes: 'Show themes',
+  /** The shipped example themes, by folder name. */
+  examples: {
+    nord_light: 'Nord Light',
+    nord_dark: 'Nord Dark',
+  },
+  example_exists: 'This vault already has {path:string}; it was left as it is.',
 }
 
 /**

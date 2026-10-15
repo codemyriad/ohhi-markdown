@@ -59,8 +59,14 @@ export interface Resolved {
   error: string | null
 }
 
-/** The theme the device uses: a built-in by label, or a vault theme by folder name. */
-export type ThemeInUse = { builtin: true; name: string } | { builtin: false; name: string; path: string }
+/**
+ * The theme the device uses: a built-in by label, or a vault theme by folder
+ * name — or a built-in standing in for a vault theme this vault does not hold
+ * (`fellBackFrom`, the folder name the device chose).
+ */
+export type ThemeInUse =
+  | { builtin: true; name: string; fellBackFrom?: string | null }
+  | { builtin: false; name: string; path: string }
 
 /** A loader entry as "in use"; a built-in has no file to show. */
 export function inUseOf(entry: ResourceEntry): InUse {
@@ -111,7 +117,7 @@ export function kindRows(input: {
       inUse: theme.builtin
         ? { name: theme.name, root: 'builtin', path: null, shadows: [] }
         : { name: theme.name, root: 'vault', path: theme.path, shadows: [] },
-      fellBackFrom: null,
+      fellBackFrom: theme.builtin ? (theme.fellBackFrom ?? null) : null,
       others: otherThemes,
       total: folders.length,
     },

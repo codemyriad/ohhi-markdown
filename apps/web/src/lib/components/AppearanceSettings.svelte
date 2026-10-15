@@ -11,6 +11,11 @@
    *    `resources.themes`), by its folder's name. The typed-name field stays
    *    under it as a fallback, for a folder the list does not show.
    *
+   * Under the vault group, the example themes the app ships (Nord Light and
+   * Dark, built in until Fork 4-A) that this vault does not hold yet, each
+   * with *Add to this vault*: a write the person asks for, into `.ohhi/`,
+   * journaled and atomic (quiet-shell F8; `theme-examples.ts`).
+   *
    * Every pick applies at once. It opens with the theme's one source line
    * (settings-shaping Fork 4): the theme in use and where it came from.
    */
@@ -21,17 +26,33 @@
   import type { ThemeEntry } from '../resources.svelte.js'
   import { getSettingsEnv } from '../settings-host.js'
   import { applyTheme, builtinThemeLabel, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
-  import { BUTTON, CHOICE, CHOICE_OFF, CHOICE_ON, EYEBROW, GROUP, GROUP_ROW, META, ROW_SETTING } from '../ui/styles.js'
+  import { EXAMPLE_THEMES, addExampleTheme, exampleLabel } from '../theme-examples.js'
+  import {
+    BUTTON,
+    BUTTON_SM,
+    CHOICE,
+    CHOICE_OFF,
+    CHOICE_ON,
+    EYEBROW,
+    GROUP,
+    GROUP_ROW,
+    META,
+    ROW,
+    ROW_SETTING,
+    ROW_THING,
+  } from '../ui/styles.js'
   import ResourceSource from './ResourceSource.svelte'
 
   interface Props {
     /** Reads the vault's `.ohhi/`; absent with no vault open (no vault theme then). */
     readAppFile?: (path: string) => Promise<string | null>
+    /** Writes under the vault's `.ohhi/`, journaled and atomic; absent → no example can be added. */
+    writeAppFile?: (path: string, text: string) => Promise<void>
     /** The open vault's theme folders (`resources.themes`); absent or empty → none listed. */
     themes?: readonly ThemeEntry[]
   }
 
-  let { readAppFile, themes = [] }: Props = $props()
+  let { readAppFile, writeAppFile, themes = [] }: Props = $props()
 
   const env = getSettingsEnv()
   const t = $derived($LL.web.settings.appearance)
@@ -52,8 +73,35 @@
     customError = (await useCustomTheme(name, readAppFile)) ?? ''
   }
 
-  /** The theme in use as a source line: a vault folder, or built in. */
+  /** The examples this vault does not hold yet. */
+  const examples = $derived(EXAMPLE_THEMES.filter((name) => !themes.some((th) => th.name === name)))
+  /** What *Add to this vault* last said (`added` / an error), for the live region beside the list. */
+  let added = $state<{ name: string; text: string; ok: boolean } | null>(null)
+
+  async function addExample(name: (typeof EXAMPLE_THEMES)[number]): Promise<void> {
+    if (!readAppFile || !writeAppFile) return
+    try {
+      const path = await addExampleTheme(name, { readAppFile, writeAppFile })
+      added = { name, text: t.example_added({ path }), ok: true }
+      // The preference already names it (a device that chose Nord when it was
+      // built in): it applies now, without a second pick.
+      if (themeState.pref === `custom:${name}`) await useVaultTheme(name)
+    } catch (err) {
+      added = { name, text: err instanceof Error ? err.message : String(err), ok: false }
+    }
+  }
+
+  /** The theme in use as a source line: a vault folder, or built in — or the built-in standing in for a vault theme. */
   const source = $derived.by(() => {
+    if (customInUse && themeState.fellBackFrom === customInUse) {
+      return {
+        name: builtinThemeLabel($LL, themeState.name) ?? themeState.name,
+        root: 'builtin' as const,
+        path: null,
+        shadows: [],
+        fellBackFrom: customInUse,
+      }
+    }
     return customInUse
       ? { name: customInUse, root: 'vault' as const, path: themePath(customInUse), shadows: [], fellBackFrom: null }
       : {
@@ -123,6 +171,34 @@
         </button>
       {/each}
     </div>
+  {/if}
+
+  <!-- The examples that ship with the app and this vault lacks: added on request, journaled. -->
+  {#if env.vaultOpen && writeAppFile && examples.length > 0}
+    <p class="mt-4 mb-1 {META}">{t.examples_intro()}</p>
+    <ul class="m-0 max-w-md list-none p-0" data-testid="theme-examples">
+      {#each examples as name (name)}
+        <li class="grid grid-cols-[minmax(0,1fr)_auto] {ROW}" data-testid="theme-example:{name}">
+          <span class="min-w-0">
+            <span class={ROW_THING}>{exampleLabel($LL, name)}</span>
+            <code class="ms-2 font-ed-mono text-[11.5px] {META}">{themePath(name)}</code>
+          </span>
+          <button
+            type="button"
+            class={BUTTON_SM}
+            data-testid="theme-example-add:{name}"
+            aria-label={t.add_example_label({ label: exampleLabel($LL, name), path: themePath(name) })}
+            onclick={() => void addExample(name)}
+          >
+            {t.add_example()}
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <p class="sr-only" role="status" data-testid="theme-example-status">{added?.ok ? added.text : ''}</p>
+  {#if added && !added.ok}
+    <p class="mt-1.5 text-xs text-error" role="alert" data-testid="theme-example-error">{added.text}</p>
   {/if}
 
   <!-- The fallback (QA round 1's field): a folder the list does not show —

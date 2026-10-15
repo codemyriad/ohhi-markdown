@@ -102,7 +102,13 @@
 
   // ---- what is in use ----
   const theme = $derived<ThemeInUse>(
-    themeState.pref.startsWith('custom:')
+    themeState.fellBackFrom
+      ? {
+          builtin: true,
+          name: builtinThemeLabel($LL, themeState.name) ?? themeState.name,
+          fellBackFrom: themeState.fellBackFrom,
+        }
+      : themeState.pref.startsWith('custom:')
       ? {
           builtin: false,
           name: themeState.pref.slice('custom:'.length),

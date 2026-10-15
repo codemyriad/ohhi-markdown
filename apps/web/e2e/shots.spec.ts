@@ -57,7 +57,7 @@ test('shot quick-open', async ({ page }) => {
   await boot(page, 'shot-qo')
   await page.getByTestId('open-settings').click()
   await settingsView(page).getByTestId('settings-tab:appearance').click()
-  await page.getByTestId('theme-nord-dark').click()
+  await page.getByTestId('theme-fjord-dark').click()
   await closeSettings(page)
   await page.keyboard.press('ControlOrMeta+o')
   await page.getByTestId('quick-open-input').fill('note')
