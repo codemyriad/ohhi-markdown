@@ -225,6 +225,46 @@ test('a session opens beside the note, never over it: right in a wide pane, belo
   expect(Math.abs(below!.x - top!.x)).toBeLessThan(2)
 })
 
+test('a session’s first screen: starts above a focused composer, the provider at its foot, the egress said on the first session', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([{ text: 'The note welcomes you and explains the relay.' }])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-first')
+  await openNote(page)
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Open AI session')
+  await expect(page.locator('[data-testid="command-palette-row"][data-row-id="app.session"]')).toBeVisible()
+  await page.keyboard.press('Enter')
+
+  // The composer is in view and holds the keyboard; the starts sit above it.
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeFocused()
+  await expect(composer).toBeInViewport()
+  const starts = page.getByTestId('session-starts')
+  await expect(starts.getByRole('button')).toHaveText(['Ask about welcome.md', 'Summarise welcome.md', 'Run a skill…'])
+  // The provider is a picker at the composer's foot; the header has none.
+  await expect(page.getByTestId('session-composer-foot').getByTestId('session-provider')).toBeVisible()
+  await expect(page.getByTestId('session-header').getByTestId('session-provider')).toHaveCount(0)
+  // The vault's first session says where the words go.
+  await expect(page.getByTestId('session-egress')).toContainText('is sent to')
+
+  // *Ask about* hands the note over as a chip; *Run a skill…* types the `/`.
+  await starts.getByRole('button', { name: 'Ask about welcome.md' }).click()
+  await expect(page.getByTestId('mention-chip')).toContainText('welcome')
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.press('Backspace')
+  await starts.getByRole('button', { name: 'Run a skill…' }).click()
+  await expect(page.getByTestId('mention-menu')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Backspace')
+
+  // *Summarise* sends a turn with the note as its reference.
+  await starts.getByRole('button', { name: 'Summarise welcome.md' }).click()
+  await expect(page.getByTestId('session-message').first()).toContainText('Summarise this note.')
+  await expect(page.getByTestId('session-markdown').last()).toContainText('welcomes you')
+  const [req] = mock.requests.filter((r) => r.wire === 'openai')
+  expect(req.system).toContain(`### ${NOTE}`)
+})
+
 test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts it and the readout names the agent', async ({ page, mockLlm }) => {
   const OLD = 'the pill goes offline honestly'
   const NEW = 'the pill goes offline, honestly'

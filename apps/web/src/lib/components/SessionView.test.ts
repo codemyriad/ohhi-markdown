@@ -20,6 +20,11 @@ import SessionView from './SessionView.svelte'
 
 const t = getLL().web.ai.session
 
+// jsdom has no layout: a focused CM6 view measures text through Range rects.
+const emptyRects = (): DOMRectList => Object.assign([], { item: () => null }) as unknown as DOMRectList
+Range.prototype.getClientRects ??= emptyRects
+Range.prototype.getBoundingClientRect ??= () => new DOMRect()
+
 // The transcript's first render pulls in the markdown renderer; under a full,
 // parallel suite that alone can outlast the default 1 s wait.
 configure({ asyncUtilTimeout: 5000 })
@@ -50,12 +55,12 @@ const say = (text: string): UIMessageChunk[] => [
   { type: 'finish' },
 ]
 
-function setup(opts: { agent?: AgentFactory; files?: Record<string, string>; viewArg?: string } = {}) {
+function setup(opts: { agent?: AgentFactory; files?: Record<string, string>; viewArg?: string; note?: string } = {}) {
   const app = memAppFiles(opts.files)
   const files = app.files
   const workspace = {
     room: 'room-1',
-    ui: { files: [{ path: 'plan.md', guid: 'g1', kind: 'text' }], selectedPath: null },
+    ui: { files: [{ path: 'plan.md', guid: 'g1', kind: 'text' }], selectedPath: opts.note ?? null },
     docForPath: () => ({ getText: () => '# Plan\n' }),
     readFileBytes: async () => null,
     journalFor: () => null,
@@ -97,14 +102,52 @@ describe('SessionView', () => {
     expect(shell.openSettings).toHaveBeenCalledExactlyOnceWith('ai')
   })
 
-  it('an empty session lists the vault’s other sessions, and one opens its tab', async () => {
+  it('an empty session lists the vault’s other sessions — the note each was about, its provider — and one opens its tab', async () => {
     const header = JSON.stringify({ type: 'session', version: 1, id: 'old', created: 1, vault: 'room-1', title: 'Draft review' })
-    const { openView, user } = setup({ files: { '.ohhi/sessions/old.jsonl': `${header}\n` } })
-    expect(screen.getByTestId('session-empty')).toHaveTextContent(t.empty())
+    const run = {
+      type: 'run',
+      id: 'e1',
+      parentId: null,
+      at: 2,
+      run: { runId: 'r1', status: 'successful', input: { refs: [mentionOf({ kind: 'file', path: 'notes/plan.md' })], instruction: 'x' }, provider: 'p1', model: 'm' },
+    }
+    const { openView, user } = setup({ files: { '.ohhi/sessions/old.jsonl': `${header}\n${JSON.stringify(run)}\n` } })
     const row = await screen.findByTestId('session-recent:old')
     expect(row).toHaveTextContent('Draft review')
+    expect(row).toHaveTextContent('plan.md')
+    expect(row).toHaveTextContent('Local')
+    // …and *Continue* is a start for the newest one.
+    expect(screen.getByTestId('session-start-continue')).toHaveTextContent(t.starts.continue({ title: 'Draft review' }))
+    // Not the vault's first session: the egress sentence is not repeated.
+    expect(screen.queryByTestId('session-egress')).toBeNull()
     await user.click(row)
     expect(openView).toHaveBeenCalledWith('session', 'old')
+  })
+
+  it('the first screen: starts for the note you came from, the composer focused, the provider at its foot, the egress said once', async () => {
+    const { user } = setup({ note: 'notes/plan.md' })
+    // The composer takes the keyboard on a new session.
+    await waitFor(() => expect(content()).toHaveFocus())
+    // The vault's first session: where words go is said, under the starts.
+    expect(await screen.findByTestId('session-egress')).toHaveTextContent(getLL().web.ai.providers.egress({ name: 'Local', host: 'localhost:11434' }))
+    // The provider is a picker at the composer's foot, not in the header.
+    expect(within(screen.getByTestId('session-header')).queryByTestId('session-provider')).toBeNull()
+    expect(within(screen.getByTestId('session-composer-foot')).getByTestId('session-provider')).toHaveTextContent('Local')
+    expect(screen.queryByTestId('session-start-continue')).toBeNull()
+    // *Ask about* hands the note to the composer as a chip.
+    await user.click(screen.getByRole('button', { name: t.starts.ask({ note: 'plan.md' }) }))
+    expect(await screen.findByTestId('mention-chip')).toHaveTextContent('@plan.md')
+    // *Run a skill…* types the `/` that opens the skills menu.
+    await user.click(screen.getByRole('button', { name: t.starts.skill() }))
+    await waitFor(() => expect(content()).toHaveTextContent('/'))
+  })
+
+  it('Summarise sends a turn of its own with the note as its reference', async () => {
+    const { user } = setup({ note: 'notes/plan.md' })
+    await user.click(screen.getByRole('button', { name: t.starts.summarise({ note: 'plan.md' }) }))
+    const messages = await screen.findAllByTestId('session-message')
+    expect(messages[0]).toHaveTextContent(t.starts.summarise_prompt())
+    expect(await screen.findByTestId('session-message-refs')).toHaveTextContent('@plan.md')
   })
 
   it('a sent message renders as the person’s turn, then the agent’s', async () => {

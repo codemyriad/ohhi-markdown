@@ -53,8 +53,19 @@
    * A picked reference becomes a `Mention` held here by chip id; a `lines`
    * pick captures the selection NOW (snapshot + hash). The draft (text,
    * chips, their mentions) is kept per session in `sessionStorage`.
+   *
+   * Its foot (QA round 1, Explorations S1 / Fork 6): the provider the NEXT
+   * run goes to, as a picker — always shown, the egress promise made
+   * visible; re-resolved from settings every run (Cassini's rule), this
+   * only chooses which — beside the key hint. `autofocus` takes the
+   * keyboard once the view exists; `begin(text)` types a start into it.
    */
-  import { SendHorizontal } from '@lucide/svelte'
+  import { ChevronDown, SendHorizontal, Sparkles } from '@lucide/svelte'
+  import { melt } from '@melt-ui/svelte'
+  import type { ProviderView } from '@ohhi/harness'
+  import DropdownMenu from '../ui/DropdownMenu.svelte'
+  import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSeparator from '../ui/MenuSeparator.svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { createComposer, type ChipRange, type ComposerHandle, type ComposerTrigger } from '@ohhi/editor/src/composer.js'
   import type { Mention, SkillMeta } from '@ohhi/harness'
@@ -80,9 +91,40 @@
     checkChanged?(refs: Mention[]): Promise<Set<string>>
     /** Send; resolve false to keep the draft (nothing was started). */
     onSend(send: ComposerSend): Promise<boolean> | boolean
+    /** The providers, and the one the next run goes to: the picker at the foot. */
+    providers?: ProviderView[]
+    providerId?: string
+    onProvider?(id: string): void
+    /** *Manage providers…*: Settings › AI. */
+    onManageProviders?(): void
+    /** Take the keyboard once the composer exists (a new session's first screen). */
+    autofocus?: boolean
   }
 
-  let { sessionId, busy = false, sources, captureLines, incoming = [], onTaken, checkChanged, onSend }: Props = $props()
+  let {
+    sessionId,
+    busy = false,
+    sources,
+    captureLines,
+    incoming = [],
+    onTaken,
+    checkChanged,
+    onSend,
+    providers = [],
+    providerId = '',
+    onProvider,
+    onManageProviders,
+    autofocus = false,
+  }: Props = $props()
+
+  const provider = $derived(providers.find((p) => p.id === providerId) ?? providers[0] ?? null)
+
+  /** Type `text` at the caret and take the keyboard: a start (`/` opens the skills). */
+  export function begin(text: string): void {
+    if (!composer) return
+    composer.focus()
+    if (text) composer.insertText(text)
+  }
 
   const t = $derived($LL.web.ai.composer)
   const uid = $props.id()
@@ -155,6 +197,7 @@
       composer = handle
       text = handle.text()
       chips = handle.chips()
+      if (autofocus) handle.focus()
       return () => {
         handle.destroy()
         composer = null
@@ -311,5 +354,36 @@
       class="m-1"
     />
   </div>
-  <p class="m-0 text-[11px] text-base-content/70">{t.hint()}</p>
+  <div class="flex min-w-0 items-center gap-2 text-[11px] text-base-content/70" data-testid="session-composer-foot">
+    {#if provider}
+      <DropdownMenu testid="session-provider-menu" placement="top-start">
+        {#snippet trigger(attrs)}
+          <button
+            use:melt={attrs}
+            type="button"
+            data-testid="session-provider"
+            aria-label={t.provider_label({ name: provider.name, model: provider.model })}
+            class="inline-flex min-w-0 items-center gap-1 rounded border border-base-300 px-1.5 py-0.5 text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <Sparkles size={12} aria-hidden="true" />
+            <span class="truncate">{provider.name}</span>
+            <span class="truncate font-ed-mono text-[10.5px] text-base-content/70">{provider.model}</span>
+            <ChevronDown size={12} aria-hidden="true" />
+          </button>
+        {/snippet}
+        {#snippet children({ item, separator })}
+          {#each providers as p (p.id)}
+            <MenuItem {item} testid="session-provider:{p.id}" checked={p.id === provider.id} onSelect={() => onProvider?.(p.id)}>
+              {$LL.web.ai.session.provider_option({ name: p.name, model: p.model })}
+            </MenuItem>
+          {/each}
+          {#if onManageProviders}
+            <MenuSeparator {separator} />
+            <MenuItem {item} testid="session-provider-manage" onSelect={onManageProviders}>{t.manage_providers()}</MenuItem>
+          {/if}
+        {/snippet}
+      </DropdownMenu>
+    {/if}
+    <p class="m-0 ml-auto min-w-0 truncate">{t.hint()}</p>
+  </div>
 </div>

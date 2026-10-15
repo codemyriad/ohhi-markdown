@@ -2538,7 +2538,6 @@ const ai = {
   session: {
     title: 'Session',
     title_named: 'Session: {name:string}',
-    empty: 'No session yet. Start one from a selection, or ask about your notes.',
     untitled: 'Untitled session',
     menu: 'Sessions',
     recent: 'Recent sessions',
@@ -2547,8 +2546,19 @@ const ai = {
     rename: 'Rename…',
     rename_label: 'Session title',
     archive: 'Archive',
-    provider_label: 'Provider',
     provider_option: '{name:string} · {model:string}',
+    /** The first screen (QA round 1, S1): starts above the composer. */
+    starts: {
+      title: 'Start',
+      ask: 'Ask about {note:string}',
+      summarise: 'Summarise {note:string}',
+      /** What *Summarise* sends, with the note as its reference. */
+      summarise_prompt: 'Summarise this note.',
+      skill: 'Run a skill…',
+      continue: 'Continue “{title:string}”',
+    },
+    /** A recent session about several notes. */
+    recent_notes: '{count:number} notes',
     no_provider: 'Add a provider in Settings › AI to talk to an agent.',
     open_settings: 'Open Settings',
     transcript: 'Transcript',
@@ -2558,7 +2568,7 @@ const ai = {
     stop: 'Stop',
     retry: 'Retry',
     nothing_running: 'No AI run is in progress.',
-    provider_gone: 'The provider this session was using is gone. Pick another in the session’s header.',
+    provider_gone: 'The provider this session was using is gone. Pick another below the message box.',
     failed: 'The run failed: {message:string}',
     run: '{status:string} · {elapsed:string}',
     elapsed_seconds: '{n:number}s',
@@ -2602,6 +2612,9 @@ const ai = {
     placeholder: 'Ask about your notes — @ to reference, / for a skill',
     send: 'Send',
     hint: 'Enter to send · Shift+Enter for a new line',
+    /** The provider picker at the composer's foot: who the next message goes to. */
+    provider_label: 'Provider: {name:string}, {model:string}. Change',
+    manage_providers: 'Manage providers…',
     menu: 'Suggestions',
     no_matches: 'No matches',
     kind: {

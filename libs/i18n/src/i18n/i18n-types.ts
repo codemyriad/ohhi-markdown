@@ -7204,10 +7204,6 @@ export type NamespaceWebTranslation = {
 			 */
 			title_named: RequiredParams<'name'>
 			/**
-			 * N​o​ ​s​e​s​s​i​o​n​ ​y​e​t​.​ ​S​t​a​r​t​ ​o​n​e​ ​f​r​o​m​ ​a​ ​s​e​l​e​c​t​i​o​n​,​ ​o​r​ ​a​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​.
-			 */
-			empty: string
-			/**
 			 * U​n​t​i​t​l​e​d​ ​s​e​s​s​i​o​n
 			 */
 			untitled: string
@@ -7240,15 +7236,45 @@ export type NamespaceWebTranslation = {
 			 */
 			archive: string
 			/**
-			 * P​r​o​v​i​d​e​r
-			 */
-			provider_label: string
-			/**
 			 * {​n​a​m​e​}​ ​·​ ​{​m​o​d​e​l​}
 			 * @param {string} model
 			 * @param {string} name
 			 */
 			provider_option: RequiredParams<'model' | 'name'>
+			starts: {
+				/**
+				 * S​t​a​r​t
+				 */
+				title: string
+				/**
+				 * A​s​k​ ​a​b​o​u​t​ ​{​n​o​t​e​}
+				 * @param {string} note
+				 */
+				ask: RequiredParams<'note'>
+				/**
+				 * S​u​m​m​a​r​i​s​e​ ​{​n​o​t​e​}
+				 * @param {string} note
+				 */
+				summarise: RequiredParams<'note'>
+				/**
+				 * S​u​m​m​a​r​i​s​e​ ​t​h​i​s​ ​n​o​t​e​.
+				 */
+				summarise_prompt: string
+				/**
+				 * R​u​n​ ​a​ ​s​k​i​l​l​…
+				 */
+				skill: string
+				/**
+				 * C​o​n​t​i​n​u​e​ ​“​{​t​i​t​l​e​}​”
+				 * @param {string} title
+				 */
+				'continue': RequiredParams<'title'>
+			}
+			/**
+			 * {​c​o​u​n​t​}​ ​n​o​t​e​s
+			 * @param {number} count
+			 */
+			recent_notes: RequiredParams<'count'>
 			/**
 			 * A​d​d​ ​a​ ​p​r​o​v​i​d​e​r​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​I​ ​t​o​ ​t​a​l​k​ ​t​o​ ​a​n​ ​a​g​e​n​t​.
 			 */
@@ -7286,7 +7312,7 @@ export type NamespaceWebTranslation = {
 			 */
 			nothing_running: string
 			/**
-			 * T​h​e​ ​p​r​o​v​i​d​e​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​w​a​s​ ​u​s​i​n​g​ ​i​s​ ​g​o​n​e​.​ ​P​i​c​k​ ​a​n​o​t​h​e​r​ ​i​n​ ​t​h​e​ ​s​e​s​s​i​o​n​’​s​ ​h​e​a​d​e​r​.
+			 * T​h​e​ ​p​r​o​v​i​d​e​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​w​a​s​ ​u​s​i​n​g​ ​i​s​ ​g​o​n​e​.​ ​P​i​c​k​ ​a​n​o​t​h​e​r​ ​b​e​l​o​w​ ​t​h​e​ ​m​e​s​s​a​g​e​ ​b​o​x​.
 			 */
 			provider_gone: string
 			/**
@@ -7450,6 +7476,16 @@ export type NamespaceWebTranslation = {
 			 * E​n​t​e​r​ ​t​o​ ​s​e​n​d​ ​·​ ​S​h​i​f​t​+​E​n​t​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​e
 			 */
 			hint: string
+			/**
+			 * P​r​o​v​i​d​e​r​:​ ​{​n​a​m​e​}​,​ ​{​m​o​d​e​l​}​.​ ​C​h​a​n​g​e
+			 * @param {string} model
+			 * @param {string} name
+			 */
+			provider_label: RequiredParams<'model' | 'name'>
+			/**
+			 * M​a​n​a​g​e​ ​p​r​o​v​i​d​e​r​s​…
+			 */
+			manage_providers: string
 			/**
 			 * S​u​g​g​e​s​t​i​o​n​s
 			 */
@@ -15461,10 +15497,6 @@ export type TranslationFunctions = {
 				 */
 				title_named: (arg: { name: string }) => LocalizedString
 				/**
-				 * No session yet. Start one from a selection, or ask about your notes.
-				 */
-				empty: () => LocalizedString
-				/**
 				 * Untitled session
 				 */
 				untitled: () => LocalizedString
@@ -15497,13 +15529,39 @@ export type TranslationFunctions = {
 				 */
 				archive: () => LocalizedString
 				/**
-				 * Provider
-				 */
-				provider_label: () => LocalizedString
-				/**
 				 * {name} · {model}
 				 */
 				provider_option: (arg: { model: string, name: string }) => LocalizedString
+				starts: {
+					/**
+					 * Start
+					 */
+					title: () => LocalizedString
+					/**
+					 * Ask about {note}
+					 */
+					ask: (arg: { note: string }) => LocalizedString
+					/**
+					 * Summarise {note}
+					 */
+					summarise: (arg: { note: string }) => LocalizedString
+					/**
+					 * Summarise this note.
+					 */
+					summarise_prompt: () => LocalizedString
+					/**
+					 * Run a skill…
+					 */
+					skill: () => LocalizedString
+					/**
+					 * Continue “{title}”
+					 */
+					'continue': (arg: { title: string }) => LocalizedString
+				}
+				/**
+				 * {count} notes
+				 */
+				recent_notes: (arg: { count: number }) => LocalizedString
 				/**
 				 * Add a provider in Settings › AI to talk to an agent.
 				 */
@@ -15541,7 +15599,7 @@ export type TranslationFunctions = {
 				 */
 				nothing_running: () => LocalizedString
 				/**
-				 * The provider this session was using is gone. Pick another in the session’s header.
+				 * The provider this session was using is gone. Pick another below the message box.
 				 */
 				provider_gone: () => LocalizedString
 				/**
@@ -15684,6 +15742,14 @@ export type TranslationFunctions = {
 				 * Enter to send · Shift+Enter for a new line
 				 */
 				hint: () => LocalizedString
+				/**
+				 * Provider: {name}, {model}. Change
+				 */
+				provider_label: (arg: { model: string, name: string }) => LocalizedString
+				/**
+				 * Manage providers…
+				 */
+				manage_providers: () => LocalizedString
 				/**
 				 * Suggestions
 				 */
