@@ -164,7 +164,17 @@ A never-shared note has no awareness and shows nothing.
 
 ## 6. Comments, and *Send to agent*
 
-`Mod+Shift+M` (*Comment on selection*) opens a thread on the selected text.
+*Comment on selection* (`note.comment`, `Mod+Shift+M`) opens a thread on the
+selected text; a bare caret inside a commented passage opens that thread, and
+with nothing selected it says to select the text first. The command has three
+doors, all the same registry command: the key, the comment button at the end
+of the default format bar (`bars.format` ends `"|", "note.comment"`; it is
+pressable whenever a note is open, Reading included, and Settings › Layout's
+formatting-bar picker can take it off), and the *Comment on selection* button
+at the top of the dock's **Comments** tab. That tab lists the note's threads
+behind an *Open n · Resolved n · All* segmented filter; its empty state names
+the key in force and the bar button, and *Export as CriticMarkup* shows only
+while there are open threads.
 Threads live in the note's Y.Doc (`comments`) and are materialised to
 `.ohhi/comments/<guid>.json`; they can be exported as CriticMarkup for review
 elsewhere. Comments are not edits: writing, replying to or resolving one

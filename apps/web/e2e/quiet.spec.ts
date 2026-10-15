@@ -97,6 +97,53 @@ test.describe('toolbar and focus', () => {
     await expect(paneContent(page)).toBeFocused()
   })
 
+  test('the doors to a comment: the format bar’s button and the Comments panel’s run note.comment', async ({ page }) => {
+    const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
+    const selectLine = async (): Promise<void> => {
+      await paneContent(page).getByText(LINE).click()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('Shift+End')
+    }
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await boot(page, 'quiet-comment-doors')
+    await openByQuickOpen(page, 'welcome')
+    // QA round 1: last on the default bar, after its own separator.
+    const button = formatBar(page).getByTestId('toolbar:note.comment')
+    await expect(button).toBeEnabled()
+    await expect(button).toHaveAccessibleName(/Comment on selection/)
+
+    // A bare caret: the panel's door says what the key says.
+    await paneContent(page).getByText(LINE).click()
+    await page.getByTestId('rail-icon:comments').click()
+    const list = page.getByTestId('thread-list')
+    await expect(list.getByTestId('thread-how')).toContainText('use the comment button on the formatting bar')
+    const door = list.getByTestId('thread-comment')
+    await expect(door).toHaveText('Comment on selection')
+    await door.click()
+    await expect(page.getByText('Select the text to comment on first.')).toBeVisible()
+    const bubble = page.getByTestId('comment-bubble')
+    await expect(bubble).toHaveCount(0)
+
+    // A selection: the panel's door opens the new-comment bubble…
+    await selectLine()
+    await door.click()
+    await expect(bubble).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(bubble).toHaveCount(0)
+
+    // …and so does the bar's button.
+    await selectLine()
+    await button.click()
+    await expect(bubble).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Settings › Layout's formatting-bar picker lists it among the bar's buttons, by name.
+    await openSettings(page, 'layout')
+    await expect(page.getByTestId('format-bar-shown').getByTestId('format-bar-pill:note.comment')).toHaveText(
+      'Comment on selection'
+    )
+  })
+
   test('the format bar floats over the editor, bottom centre, with the corner on its row — and never covers the last line', async ({
     page,
   }) => {

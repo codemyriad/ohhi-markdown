@@ -2740,7 +2740,14 @@ const ai = {
     filter_open: 'Open',
     filter_resolved: 'Resolved',
     filter_all: 'All',
-    empty_open: 'No open comments on this note. Select some text and choose Comment on selection.',
+    /** A filter's label with its count: “Open 2”. */
+    filter_count: '{label:string} {count:number}',
+    empty_open: 'No open comments on this note.',
+    /** Under the empty state: where the door is. `key` is the binding in force, as this platform prints it. */
+    how_with_key: 'Select some text and press {key:string}, or use the comment button on the formatting bar.',
+    how: 'Select some text, then use the comment button on the formatting bar.',
+    /** The panel's door: runs `note.comment`. */
+    door: 'Comment on selection',
     empty_resolved: 'No resolved comments on this note.',
     empty_all: 'No comments on this note yet.',
     no_note: 'Open a note to see its comments.',

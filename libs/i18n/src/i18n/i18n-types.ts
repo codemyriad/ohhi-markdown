@@ -8084,9 +8084,28 @@ export type NamespaceWebTranslation = {
 			 */
 			filter_all: string
 			/**
-			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.​ ​S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​a​n​d​ ​c​h​o​o​s​e​ ​C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n​.
+			 * {​l​a​b​e​l​}​ ​{​c​o​u​n​t​}
+			 * @param {number} count
+			 * @param {string} label
+			 */
+			filter_count: RequiredParams<'count' | 'label'>
+			/**
+			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.
 			 */
 			empty_open: string
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​a​n​d​ ​p​r​e​s​s​ ​{​k​e​y​}​,​ ​o​r​ ​u​s​e​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​b​u​t​t​o​n​ ​o​n​ ​t​h​e​ ​f​o​r​m​a​t​t​i​n​g​ ​b​a​r​.
+			 * @param {string} key
+			 */
+			how_with_key: RequiredParams<'key'>
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​,​ ​t​h​e​n​ ​u​s​e​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​b​u​t​t​o​n​ ​o​n​ ​t​h​e​ ​f​o​r​m​a​t​t​i​n​g​ ​b​a​r​.
+			 */
+			how: string
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n
+			 */
+			door: string
 			/**
 			 * N​o​ ​r​e​s​o​l​v​e​d​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.
 			 */
@@ -16147,9 +16166,25 @@ export type TranslationFunctions = {
 				 */
 				filter_all: () => LocalizedString
 				/**
-				 * No open comments on this note. Select some text and choose Comment on selection.
+				 * {label} {count}
+				 */
+				filter_count: (arg: { count: number, label: string }) => LocalizedString
+				/**
+				 * No open comments on this note.
 				 */
 				empty_open: () => LocalizedString
+				/**
+				 * Select some text and press {key}, or use the comment button on the formatting bar.
+				 */
+				how_with_key: (arg: { key: string }) => LocalizedString
+				/**
+				 * Select some text, then use the comment button on the formatting bar.
+				 */
+				how: () => LocalizedString
+				/**
+				 * Comment on selection
+				 */
+				door: () => LocalizedString
 				/**
 				 * No resolved comments on this note.
 				 */

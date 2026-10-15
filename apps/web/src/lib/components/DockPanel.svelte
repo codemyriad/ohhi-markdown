@@ -165,6 +165,7 @@
             {:else if id === 'comments'}
               <!-- Comment threads (writing-harness B8): not AI-gated. -->
               <ThreadList
+                registry={nav.registry}
                 path={selectedPath}
                 {workspace}
                 onOpen={(thread) => selectedPath && openThread(selectedPath, thread)}

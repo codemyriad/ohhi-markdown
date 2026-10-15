@@ -708,6 +708,7 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // The dock's Comments tab, on the open note.
   await page.getByTestId('rail-tab:comments').click()
   await expect(page.getByTestId('thread-list')).toBeVisible()
+  await expect(page.getByTestId('thread-comment')).toBeVisible()
   await expectAccessible(page, 'comments dock tab')
 
   // A session: its menu, and the composer's `@` listbox open.
