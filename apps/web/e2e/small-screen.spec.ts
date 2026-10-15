@@ -61,6 +61,35 @@ test('the format bar scrolls across most of the row, and the word count is a chi
   await expect(paneContent(page)).toBeVisible()
 })
 
+test('a selection made under a finger: the handle below the end line, clear of the words and of the OS’s end knob', async ({ page }) => {
+  await boot(page, 'small-handle')
+  await openByQuickOpen(page, 'welcome')
+  // A finger puts the caret in the line; the selection is then made to its end.
+  await paneContent(page).getByText('CRDT and syncs').tap()
+  await page.keyboard.press('End')
+  for (let i = 0; i < 'the room.'.length; i++) await page.keyboard.press('Shift+ArrowLeft')
+  const handle = page.getByTestId('selection-handle')
+  await expect(handle).toBeVisible()
+  await expect(handle).toHaveAttribute('data-form', 'coarse')
+  await expect(handle.getByRole('button')).toHaveText(['Comment'])
+  const box = (await handle.boundingBox())!
+  const rects = await page.evaluate(() => {
+    const sel = document.getSelection()!
+    return [...sel.getRangeAt(0).getClientRects()].map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }))
+  })
+  const last = rects[rects.length - 1]!
+  // Below the end line (the OS's own menu goes above), and clear of every selected box.
+  expect(box.y).toBeGreaterThan(last.bottom)
+  for (const r of rects) {
+    expect(box.x < r.right && r.left < box.x + box.width && box.y < r.bottom && r.top < box.y + box.height).toBe(false)
+  }
+  // Clear of the end knob: ~12 px around the end, just under the line.
+  const knob = { left: last.right - 7, right: last.right + 7, top: last.bottom, bottom: last.bottom + 12 }
+  expect(box.x < knob.right && knob.left < box.x + box.width && box.y < knob.bottom && knob.top < box.y + box.height).toBe(false)
+  // Thumb-sized.
+  expect((await handle.getByRole('button').boundingBox())!.height).toBeGreaterThanOrEqual(36)
+})
+
 test('a tap in the note closes the file drawer and the dock panel', async ({ page }) => {
   await boot(page, 'small-collapse')
   await openByQuickOpen(page, 'welcome')
