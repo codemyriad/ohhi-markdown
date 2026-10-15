@@ -18,6 +18,7 @@
       "sync",
       "drawer",
       "inspector",
+      "session",
       "help"
     ],
     "format": [

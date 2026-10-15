@@ -199,7 +199,32 @@ describe('the five commands', () => {
     expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.nothing_to_undo() })
     const rows = suggestionCommands(undefined, () => null)
     expect(rows.map((r) => r.id)).toEqual(['ai.accept-suggestion', 'ai.reject-suggestion', 'ai.accept-all', 'ai.reject-all', 'ai.undo-agent'])
-    expect(rows.every((r) => r.when?.() === true)).toBe(true)
+    // The note-wide rows need only a provider; the two caret rows also need the caret in a suggestion (below).
+    expect(rows.slice(2).every((r) => r.when?.() === true)).toBe(true)
+  })
+
+  it('accept/reject at the caret carry Mod+Enter / Mod+Backspace, offered only while the caret is in a suggestion', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const rows = suggestionCommands(f.flash, () => f.ws)
+    const accept = rows.find((r) => r.id === 'ai.accept-suggestion')!
+    const reject = rows.find((r) => r.id === 'ai.reject-suggestion')!
+    expect(accept.keys).toBe('Mod+Enter')
+    expect(reject.keys).toBe('Mod+Backspace')
+    // No suggestion in the note: the rows are off, so the registry leaves the
+    // keys to CodeMirror (`Mod-Enter` is its blank line).
+    expect(accept.when?.()).toBe(false)
+    expect(reject.when?.()).toBe(false)
+    f.propose(4, 8, 'roadmap')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    expect(accept.when?.()).toBe(false)
+    view.dispatch({ selection: { anchor: 5 } })
+    expect(accept.when?.()).toBe(true)
+    expect(reject.when?.()).toBe(true)
+    await accept.run()
+    expect(f.doc.getText()).toBe('The roadmap is to ship in March.\n')
+    expect(accept.when?.()).toBe(false)
   })
 })
 

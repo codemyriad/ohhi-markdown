@@ -7386,10 +7386,6 @@ export type NamespaceWebTranslation = {
 			 * @param {string} label
 			 */
 			skill_chip: RequiredParams<'label'>
-			/**
-			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​i​n​ ​a​ ​n​o​t​e​ ​f​i​r​s​t​.
-			 */
-			no_selection: string
 		}
 		skills: {
 			/**
@@ -15431,10 +15427,6 @@ export type TranslationFunctions = {
 				 * Skill: {label}
 				 */
 				skill_chip: (arg: { label: string }) => LocalizedString
-				/**
-				 * Select some text in a note first.
-				 */
-				no_selection: () => LocalizedString
 			}
 			skills: {
 				/**

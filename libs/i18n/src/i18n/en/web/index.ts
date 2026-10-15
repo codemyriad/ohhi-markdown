@@ -2556,7 +2556,6 @@ const ai = {
     chip: 'Reference: {label:string}',
     chip_changed: 'Reference: {label:string} (changed since you referenced it)',
     skill_chip: 'Skill: {label:string}',
-    no_selection: 'Select some text in a note first.',
   },
   skills: {
     title: 'Skills',

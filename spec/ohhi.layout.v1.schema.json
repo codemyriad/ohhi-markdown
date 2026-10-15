@@ -103,6 +103,7 @@
               "inspector",
               "help",
               "last-agent-write",
+              "session",
               "note.pill",
               "people",
               "+nav",
@@ -121,6 +122,7 @@
               "+inspector",
               "+help",
               "+last-agent-write",
+              "+session",
               "+note.pill",
               "+people",
               "-nav",
@@ -139,6 +141,7 @@
               "-inspector",
               "-help",
               "-last-agent-write",
+              "-session",
               "-note.pill",
               "-people"
             ]
@@ -169,6 +172,7 @@
               "inspector",
               "help",
               "last-agent-write",
+              "session",
               "note.pill",
               "people",
               "+nav",
@@ -187,6 +191,7 @@
               "+inspector",
               "+help",
               "+last-agent-write",
+              "+session",
               "+note.pill",
               "+people",
               "-nav",
@@ -205,6 +210,7 @@
               "-inspector",
               "-help",
               "-last-agent-write",
+              "-session",
               "-note.pill",
               "-people"
             ]
@@ -235,6 +241,7 @@
               "inspector",
               "help",
               "last-agent-write",
+              "session",
               "note.pill",
               "people",
               "+nav",
@@ -253,6 +260,7 @@
               "+inspector",
               "+help",
               "+last-agent-write",
+              "+session",
               "+note.pill",
               "+people",
               "-nav",
@@ -271,6 +279,7 @@
               "-inspector",
               "-help",
               "-last-agent-write",
+              "-session",
               "-note.pill",
               "-people"
             ]
@@ -1129,6 +1138,7 @@
               "inspector",
               "help",
               "last-agent-write",
+              "session",
               "note.pill",
               "people",
               "+nav",
@@ -1147,6 +1157,7 @@
               "+inspector",
               "+help",
               "+last-agent-write",
+              "+session",
               "+note.pill",
               "+people",
               "-nav",
@@ -1165,6 +1176,7 @@
               "-inspector",
               "-help",
               "-last-agent-write",
+              "-session",
               "-note.pill",
               "-people"
             ]
@@ -1195,6 +1207,7 @@
               "inspector",
               "help",
               "last-agent-write",
+              "session",
               "note.pill",
               "people",
               "+nav",
@@ -1213,6 +1226,7 @@
               "+inspector",
               "+help",
               "+last-agent-write",
+              "+session",
               "+note.pill",
               "+people",
               "-nav",
@@ -1231,6 +1245,7 @@
               "-inspector",
               "-help",
               "-last-agent-write",
+              "-session",
               "-note.pill",
               "-people"
             ]

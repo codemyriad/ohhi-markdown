@@ -10,8 +10,10 @@
  * one whose pane last had the focus.
  *
  * `Mod-Enter` / `Mod-Backspace` are the editor's own keymap (they fall
- * through when the caret is in no suggestion); the commands are the same
- * acts from the palette, listed only while a provider exists (R1).
+ * through when the caret is in no suggestion); the two caret rows carry the
+ * same keys, guarded on the caret being in a suggestion, so the Keys table
+ * shows them and the registry never takes the key from the editor
+ * otherwise. Every row is listed only while a provider exists (R1).
  */
 import {
   suggestionAt,
@@ -142,9 +144,22 @@ export function suggestionCommands(
     if (act === 'accept') at.host.accept(hit.id)
     else at.host.reject(hit.id)
   }
+  /**
+   * The focused editor's caret is in a suggestion: the one case the two
+   * keys are these rows' and not CodeMirror's (`Mod-Enter` is its
+   * `insertBlankLine`). Guarded, the registry skips them otherwise, so the
+   * key falls through to the editor (`CommandRegistry.match`) — and the
+   * Keys table and the palette can at last SHOW the keys (Chris,
+   * 2026-10-15: "it was not obvious").
+   */
+  const caretInSuggestion = (): boolean => {
+    const e = focusedEditor()
+    return !!e && suggestionAt(e.view.state, e.view.state.selection.main.head) !== null
+  }
+  const onSuggestion = (): boolean => aiEnabled() && caretInSuggestion()
   return [
-    { id: 'ai.accept-suggestion', title: t.accept_suggestion(), group, when: aiEnabled, run: () => atCaret('accept') },
-    { id: 'ai.reject-suggestion', title: t.reject_suggestion(), group, when: aiEnabled, run: () => atCaret('reject') },
+    { id: 'ai.accept-suggestion', title: t.accept_suggestion(), group, keys: 'Mod+Enter', when: onSuggestion, run: () => atCaret('accept') },
+    { id: 'ai.reject-suggestion', title: t.reject_suggestion(), group, keys: 'Mod+Backspace', when: onSuggestion, run: () => atCaret('reject') },
     {
       id: 'ai.accept-all',
       title: t.accept_all(),

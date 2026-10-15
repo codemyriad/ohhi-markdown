@@ -38,6 +38,7 @@ import Mode from './components/readouts/ModeReadout.svelte'
 import Nav from './components/readouts/Nav.svelte'
 import PaneLead from './components/readouts/PaneLead.svelte'
 import ReadingTime from './components/readouts/ReadingTime.svelte'
+import Session from './components/readouts/Session.svelte'
 import Sync from './components/readouts/Sync.svelte'
 import Title from './components/readouts/Title.svelte'
 import Words from './components/readouts/Words.svelte'
@@ -171,5 +172,7 @@ export const READOUTS: Record<ReadoutId, Readout> = {
   help: Help,
   // Writing-harness B7: "Tighten edited Plan 3 min ago"; nothing until the in-app agent has written.
   'last-agent-write': LastAgentWrite,
+  // Chris, 2026-10-15: the Session view's door, between the inspector's and Help; nothing without a provider.
+  session: Session,
   people: Sync,
 }

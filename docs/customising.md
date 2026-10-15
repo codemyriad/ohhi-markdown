@@ -468,7 +468,10 @@ menu (the default layout's last `toolbar.right` item): its rows are the
 `help.sharing`, `help.customise`, `help.agents`, `help.changes`,
 `help.report` — which the palette lists and a
 keymap can bind; `help.menu` opens the menu itself, and is offered only while
-a layout draws the `help` readout.
+a layout draws the `help` readout. `session` is the Session view's door (the
+default layout draws it between `inspector` and `help`): it opens the current
+AI session beside the note, and draws nothing until a provider is added in
+Settings › AI, as `inspector` draws nothing while developer tools are off.
 
 <!-- generated:readout-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav`
@@ -487,6 +490,7 @@ a layout draws the `help` readout.
 - `inspector`
 - `help`
 - `last-agent-write`
+- `session`
 - `note.pill`
 - `people`
 <!-- /generated -->
