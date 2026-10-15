@@ -36,7 +36,7 @@ describe('Settings › AI', () => {
 
   it('with no provider: the egress rule and Providers, no Skills', () => {
     renderAt('ai')
-    expect(screen.getByTestId('ai-settings-egress')).toHaveTextContent(t.settings.egress())
+    expect(screen.getByTestId('settings-lede:ai')).toHaveTextContent(t.settings.egress())
     expect(screen.getByTestId('ai-providers')).toBeInTheDocument()
     expect(screen.queryByTestId('ai-settings-tab:skills')).toBeNull()
   })

@@ -25,7 +25,6 @@
 </script>
 
 <div data-testid="ai-settings" class="space-y-3">
-  <p data-testid="ai-settings-egress" class="m-0 text-sm text-base-content/80">{t.egress()}</p>
   <Tabs tabs={TABS} bind:value={() => tab, (v) => (chosen = v)} label={t.sections()} testid="ai-settings-tabs">
     {#snippet panel(id)}
       <div class="pt-3">

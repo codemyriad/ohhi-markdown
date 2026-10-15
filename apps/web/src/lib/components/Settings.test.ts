@@ -162,7 +162,9 @@ describe('Settings: the nav and its hosts (ST1/ST2)', () => {
 
   it('Customise renders with a vault open; AI holds the outside agents (Agents folded into AI)', async () => {
     const view = render(Settings, { section: 'customise', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
-    expect(screen.getByTestId('settings-customise')).toHaveTextContent(LL.web.settings.customise.intro())
+    expect(screen.getByTestId('settings-customise')).toBeVisible()
+    // The section's one lede, under its title (QA4).
+    expect(screen.getByTestId('settings-lede:customise')).toHaveTextContent(LL.web.settings.customise.intro())
     await view.rerender({ section: 'ai', onSection: vi.fn(), vault: VAULT, registry: registryWith() })
     expect(await screen.findByTestId('settings-agents')).toHaveTextContent(LL.web.settings.agents.intro())
   })

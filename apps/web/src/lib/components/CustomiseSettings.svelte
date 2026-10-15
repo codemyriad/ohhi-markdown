@@ -168,8 +168,6 @@
 </script>
 
 <div data-testid="settings-customise" class="space-y-5">
-  <p class="text-xs text-base-content/70">{t.intro()}</p>
-
   <!-- The roots, in precedence order (Fork 8: the vault wins). -->
   <section aria-labelledby="customise-roots-h" data-testid="customise-roots">
     <h3 id="customise-roots-h" class={HEADING}>{t.roots()}</h3>

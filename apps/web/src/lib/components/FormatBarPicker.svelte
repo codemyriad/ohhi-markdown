@@ -182,10 +182,10 @@
 </script>
 
 <div bind:this={root} class="mt-4 space-y-2" data-testid="format-bar-picker">
-  <h3 class="text-sm font-semibold text-base-content">{t.title()}</h3>
+  <h3 class="text-[13px] font-semibold text-base-content">{t.title()}</h3>
   <p class="text-xs text-base-content/70">{t.intro()}</p>
 
-  <p class="text-xs text-base-content/80" id="format-bar-shown-label">{t.shown()}</p>
+  <p class="text-xs text-base-content/70" id="format-bar-shown-label">{t.shown()}</p>
   <ul
     aria-labelledby="format-bar-shown-label"
     data-testid="format-bar-shown"
@@ -248,7 +248,7 @@
     {/each}
   </ul>
 
-  <p class="text-xs text-base-content/80" id="format-bar-hidden-label">{t.hidden()}</p>
+  <p class="text-xs text-base-content/70" id="format-bar-hidden-label">{t.hidden()}</p>
   <ul
     aria-labelledby="format-bar-hidden-label"
     data-testid="format-bar-hidden"
@@ -290,7 +290,7 @@
     data-testid="format-bar-reset"
     disabled={!overridden}
     onclick={reset}
-    class="{OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-base-content/80 disabled:opacity-50"
+    class="{OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-base-content disabled:opacity-50"
   >
     <Undo2 size={12} aria-hidden="true" />
     {t.reset()}

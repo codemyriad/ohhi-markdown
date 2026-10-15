@@ -38,7 +38,7 @@
 <section
   data-testid="settings-view"
   aria-label={$LL.web.settings.title()}
-  class="h-full min-h-0 overflow-y-auto bg-base-100 text-sm text-base-content"
+  class="h-full min-h-0 overflow-y-auto bg-base-100 text-[13px] text-base-content"
 >
   {#if host}
     <Settings {...host} section={local ?? section} onSection={move} host="view" />

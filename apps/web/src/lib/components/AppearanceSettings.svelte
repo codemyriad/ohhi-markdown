@@ -10,7 +10,7 @@
   import type { ThemePref } from '../config.js'
   import { escapeHtml } from '../html.js'
   import { applyTheme, builtinThemeLabel, themePath, themeState, useCustomTheme } from '../theme.svelte.js'
-  import { HEADING } from '../ui/styles.js'
+  import { BUTTON, CHOICE, CHOICE_OFF, CHOICE_ON, EYEBROW, GROUP, META, ROW_SETTING } from '../ui/styles.js'
   import ResourceSource from './ResourceSource.svelte'
 
   interface Props {
@@ -56,7 +56,7 @@
 
 <ResourceSource label={$LL.web.settings.customise.source.theme()} testid="theme-source" {source} />
 <fieldset>
-  <legend class={HEADING}>{t.theme()}</legend>
+  <legend class={EYEBROW}>{t.theme()}</legend>
   <div class="mt-2 flex flex-wrap gap-2" data-testid="theme-picker">
     {#each options as option (option.value)}
       <button
@@ -64,10 +64,7 @@
         data-testid="theme-{option.value}"
         aria-pressed={themeState.pref === option.value}
         onclick={() => applyTheme(option.value)}
-        class="rounded border px-3 py-1.5 text-xs font-medium
-          {themeState.pref === option.value
-          ? 'border-primary bg-primary text-primary-content'
-          : 'border-base-300 text-base-content/80 hover:bg-base-200'}"
+        class="{CHOICE} {themeState.pref === option.value ? CHOICE_ON : CHOICE_OFF}"
       >
         {option.label}
       </button>
@@ -75,34 +72,39 @@
   </div>
   <!-- Sentences with inline markup render as html, the markup passed as
        arguments — the Edible pattern; user-derived text is escaped. -->
-  <p class="mt-1 text-xs text-base-content/70">
+  <p class="mt-2 {META}">
     {@html t.theme_help({ system: `<em>${t.system()}</em>` })}
   </p>
 </fieldset>
-<div class="mt-4">
-  <label for="custom-theme-name" class={HEADING}>{t.custom_theme()}</label>
-  <div class="mt-1 flex gap-2">
+<!-- A theme of your own (QA round 1): the field, its Use button on the same
+     line, and the path and the rules as ONE hint line under them — the
+     input's description — never a wrapped label beside it. -->
+<div class={GROUP}>
+  <h3 class={EYEBROW}>{t.custom_theme()}</h3>
+  <label for="custom-theme-name" class="mt-2 block {ROW_SETTING}">{t.custom_label()}</label>
+  <div class="mt-1 flex max-w-md gap-2">
     <input
       id="custom-theme-name"
       data-testid="custom-theme-name"
       bind:value={customName}
       placeholder={t.custom_placeholder()}
-      class="min-w-0 flex-1 rounded border border-base-300 px-2 py-1 text-xs focus:border-primary focus:outline-none"
+      aria-describedby="custom-theme-hint"
+      class="h-7 min-w-0 flex-1 rounded-md border border-base-300 bg-base-100 px-2 font-ed-mono text-xs text-base-content focus:border-primary focus:outline-none"
     />
     <button
       type="button"
       data-testid="custom-theme-load"
       onclick={() => void loadCustom()}
       disabled={!customName.trim()}
-      class="rounded border border-base-300 px-3 py-1 text-xs font-medium text-base-content/80 hover:bg-base-200 disabled:opacity-50"
+      class="{BUTTON} h-7"
     >
       {t.use_custom()}
     </button>
   </div>
   {#if customError}
-    <p data-testid="custom-theme-error" class="mt-1 text-xs text-error" role="alert">{customError}</p>
+    <p id="custom-theme-hint" data-testid="custom-theme-error" class="mt-1.5 text-xs text-error" role="alert">{customError}</p>
   {:else}
-    <p class="mt-1 text-xs text-base-content/70">
+    <p id="custom-theme-hint" data-testid="custom-theme-hint" class="mt-1.5 {META}">
       {@html t.custom_help({
         path: code(themePath(customName || '<name>')),
         template: code('libs/ui/src/styles/_template.css'),

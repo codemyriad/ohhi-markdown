@@ -134,7 +134,7 @@
   const selectCls =
     'mt-1 w-full rounded border border-base-300 bg-base-100 px-2 py-1 text-xs focus:border-primary focus:outline-none'
   const smallBtn =
-    'rounded border border-base-300 px-2 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+    'rounded border border-base-300 px-2 py-0.5 text-xs font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
 <section data-testid={part === 'shell' ? 'settings-layout' : 'settings-editor-layout'}>
@@ -151,13 +151,12 @@
       {$LL.web.settings.customise.source.layout_overrides()}
     </ResourceSource>
   {/if}
-  {#if part === 'shell'}<p class="text-xs text-base-content/70">{t.intro()}</p>{/if}
 
   <div class="mt-3 grid grid-cols-1 gap-3 @md:grid-cols-2">
     {#each SELECTS as field (field.id)}
       {#if pinned(field)}
         <div class="block">
-          <span class="text-xs text-base-content/80">{say(field.id, field.id)}</span>
+          <span class="text-xs text-base-content">{say(field.id, field.id)}</span>
           <div class="mt-1 flex items-center gap-2">
             <span class="text-xs text-base-content" data-testid="layout-pinned:{field.id}">
               {t.pinned({ value: optionLabel(field, 'column') })}
@@ -175,7 +174,7 @@
         </div>
       {:else}
         <label class="block">
-          <span class="text-xs text-base-content/80">{say(field.id, field.id)}</span>
+          <span class="text-xs text-base-content">{say(field.id, field.id)}</span>
           <select
             data-testid="layout-field:{field.id}"
             value={valueOf(layout.ownSpec, field.section, field.key)}
@@ -192,7 +191,7 @@
   </div>
 
   {#each CHECKS as field (field.id)}
-    <label class="mt-2 flex items-center gap-2 text-sm text-base-content/80">
+    <label class="mt-2 flex items-center gap-2 text-[13px] text-base-content">
       <input
         type="checkbox"
         data-testid="layout-field:{field.id}"
@@ -205,7 +204,7 @@
 
   {#if part === 'shell'}
     <label class="mt-3 block @md:w-1/2 @md:pr-1.5">
-      <span class="text-xs text-base-content/80">{t.hints()}</span>
+      <span class="text-xs text-base-content">{t.hints()}</span>
       <select
         data-testid="layout-field:hints"
         value={paneHints.value}

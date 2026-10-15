@@ -81,7 +81,7 @@ test('quiet by default: no provider, no AI command and no Session view; Settings
   await expect(page.getByTestId('session-view')).toHaveCount(0)
 
   await openAiSettings(page)
-  await expect(page.getByTestId('ai-settings-egress')).not.toBeEmpty()
+  await expect(page.getByTestId('settings-lede:ai')).not.toBeEmpty()
   await expect(page.getByTestId('ai-providers-empty')).toBeVisible()
 })
 

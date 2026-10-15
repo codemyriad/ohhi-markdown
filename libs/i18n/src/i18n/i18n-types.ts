@@ -3497,6 +3497,10 @@ export type NamespaceWebTranslation = {
 		}
 		appearance: {
 			/**
+			 * H​o​w​ ​t​h​e​ ​a​p​p​ ​l​o​o​k​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​A​ ​t​h​e​m​e​ ​o​f​ ​y​o​u​r​ ​o​w​n​ ​l​i​v​e​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​.
+			 */
+			lede: string
+			/**
 			 * T​h​e​m​e
 			 */
 			theme: string
@@ -3555,6 +3559,10 @@ export type NamespaceWebTranslation = {
 			 * C​u​s​t​o​m​ ​t​h​e​m​e
 			 */
 			custom_theme: string
+			/**
+			 * T​h​e​m​e​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			custom_label: string
 			/**
 			 * m​y​-​t​h​e​m​e
 			 */
@@ -4068,6 +4076,10 @@ export type NamespaceWebTranslation = {
 			needs_modifier: string
 		}
 		sync: {
+			/**
+			 * Y​o​u​r​ ​n​a​m​e​ ​a​s​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​ ​i​t​,​ ​t​h​e​ ​r​e​l​a​y​ ​y​o​u​r​ ​s​h​a​r​e​s​ ​g​o​ ​t​h​r​o​u​g​h​,​ ​a​n​d​ ​y​o​u​r​ ​d​e​v​i​c​e​s​.
+			 */
+			lede: string
 			/**
 			 * Y​o​u​r​ ​n​a​m​e​,​ ​a​s​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​ ​i​t
 			 */
@@ -4583,6 +4595,10 @@ export type NamespaceWebTranslation = {
 		}
 		about: {
 			/**
+			 * T​h​e​ ​v​e​r​s​i​o​n​ ​y​o​u​ ​a​r​e​ ​r​u​n​n​i​n​g​,​ ​h​o​w​ ​i​t​ ​u​p​d​a​t​e​s​,​ ​a​n​d​ ​t​h​e​ ​g​u​i​d​e​s​.
+			 */
+			lede: string
+			/**
 			 * U​p​d​a​t​e​s
 			 */
 			updates: string
@@ -4604,6 +4620,10 @@ export type NamespaceWebTranslation = {
 			guide_relay: string
 		}
 		developer: {
+			/**
+			 * T​o​o​l​s​ ​f​o​r​ ​l​o​o​k​i​n​g​ ​u​n​d​e​r​ ​t​h​e​ ​h​o​o​d​.​ ​O​f​f​ ​u​n​l​e​s​s​ ​y​o​u​ ​t​u​r​n​ ​t​h​e​m​ ​o​n​.
+			 */
+			lede: string
 			/**
 			 * D​e​v​e​l​o​p​e​r​ ​t​o​o​l​s
 			 */
@@ -11834,6 +11854,10 @@ export type TranslationFunctions = {
 			}
 			appearance: {
 				/**
+				 * How the app looks on this device. A theme of your own lives in this vault.
+				 */
+				lede: () => LocalizedString
+				/**
 				 * Theme
 				 */
 				theme: () => LocalizedString
@@ -11891,6 +11915,10 @@ export type TranslationFunctions = {
 				 * Custom theme
 				 */
 				custom_theme: () => LocalizedString
+				/**
+				 * Theme folder in this vault
+				 */
+				custom_label: () => LocalizedString
 				/**
 				 * my-theme
 				 */
@@ -12357,6 +12385,10 @@ export type TranslationFunctions = {
 				needs_modifier: () => LocalizedString
 			}
 			sync: {
+				/**
+				 * Your name as collaborators see it, the relay your shares go through, and your devices.
+				 */
+				lede: () => LocalizedString
 				/**
 				 * Your name, as collaborators see it
 				 */
@@ -12860,6 +12892,10 @@ export type TranslationFunctions = {
 			}
 			about: {
 				/**
+				 * The version you are running, how it updates, and the guides.
+				 */
+				lede: () => LocalizedString
+				/**
 				 * Updates
 				 */
 				updates: () => LocalizedString
@@ -12881,6 +12917,10 @@ export type TranslationFunctions = {
 				guide_relay: () => LocalizedString
 			}
 			developer: {
+				/**
+				 * Tools for looking under the hood. Off unless you turn them on.
+				 */
+				lede: () => LocalizedString
 				/**
 				 * Developer tools
 				 */

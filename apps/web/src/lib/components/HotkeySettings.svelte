@@ -275,8 +275,6 @@
 </script>
 
 <section bind:this={root} data-testid="settings-hotkeys" class="space-y-3">
-  <p class="text-xs text-base-content/70">{t.intro()}</p>
-
   {#if keymap}
     <div data-testid="keymap-file">
       {#if source}
@@ -297,7 +295,7 @@
         </p>
       {/if}
       <label class="flex items-center gap-1.5 text-xs">
-        <span class="text-base-content/80">{t.pick()}</span>
+        <span class="text-base-content">{t.pick()}</span>
         <select
           data-testid="keymap-pick"
           value={keymap.legacy ? '' : keymap.active}
@@ -347,7 +345,7 @@
         data-testid="hotkey-press-keys"
         aria-pressed={byKeys}
         onclick={() => void togglePressKeys()}
-        class="{OUTLINE_BUTTON} inline-flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-base-content/80 aria-pressed:bg-base-200 aria-pressed:text-base-content"
+        class="{OUTLINE_BUTTON} inline-flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-base-content aria-pressed:bg-base-200 aria-pressed:text-base-content"
       >
         <Keyboard size={14} aria-hidden="true" />
         {t.press_keys()}
@@ -373,7 +371,7 @@
           data-testid="hotkey-filter:{f}"
           aria-pressed={filter === f}
           onclick={() => (filter = f)}
-          class="rounded-full border border-base-300 px-2.5 py-0.5 text-xs text-base-content/80 hover:bg-base-200 aria-pressed:border-primary aria-pressed:bg-base-200 aria-pressed:text-base-content"
+          class="rounded-full border border-base-300 px-2.5 py-0.5 text-xs text-base-content hover:bg-base-200 aria-pressed:border-primary aria-pressed:bg-base-200 aria-pressed:text-base-content"
         >
           {t.filter[f]()} <span class="tabular-nums text-base-content/70">{counts[f]}</span>
         </button>
@@ -422,7 +420,7 @@
             {@const rec = recording?.id === row.id ? recording : null}
             <li data-testid="hotkey-row:{row.id}" class="group/row flex flex-wrap items-start gap-x-3 gap-y-1 py-1">
               <div class="min-w-0 flex-1 py-0.5">
-                <span class="text-sm text-base-content/90">{row.title}</span>
+                <span class="text-[13px] text-base-content">{row.title}</span>
                 <span
                   data-testid="hotkey-id:{row.id}"
                   class="ml-1 font-ed-mono text-[11px] text-base-content/70 {text.trim() && row.id.includes(text.trim().toLowerCase())
@@ -440,7 +438,7 @@
                       aria-label={t.reset_for({ command: row.title })}
                       disabled={!writer.canWrite}
                       onclick={() => void reset(row)}
-                      class="rounded px-1 text-base-content/80 underline-offset-2 hover:underline disabled:opacity-50"
+                      class="rounded px-1 text-base-content underline-offset-2 hover:underline disabled:opacity-50"
                     >
                       {t.reset()}
                     </button>
@@ -531,13 +529,13 @@
     data-testid="keymap-status"
   >
     <p role="alert" class="text-error {alert ? 'flex-1' : ''}" data-testid="keymap-save-error">{alert}</p>
-    <p role="status" class="text-base-content/80 {status ? 'flex-1' : ''}" data-testid="keymap-saved">{status}</p>
+    <p role="status" class="text-base-content/70 {status ? 'flex-1' : ''}" data-testid="keymap-saved">{status}</p>
     {#if writer.canUndo}
       <button
         type="button"
         data-testid="keymap-undo"
         onclick={() => void undo()}
-        class="{OUTLINE_BUTTON} px-2 py-1 text-xs font-medium text-base-content/80"
+        class="{OUTLINE_BUTTON} px-2 py-1 text-xs font-medium text-base-content"
       >
         {t.undo()}
       </button>

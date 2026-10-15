@@ -46,7 +46,7 @@
   import { NEEDS_VAULT, settingsRows, type SettingsSection } from '../settings.js'
   import { setSettingsEnv, type SettingsHost } from '../settings-host.js'
   import { getViewShell } from '../views.js'
-  import { OUTLINE_BUTTON } from '../ui/styles.js'
+  import { BUTTON, LEDE, META, TITLE } from '../ui/styles.js'
   import SettingsNav, { type NavRow } from '../ui/SettingsNav.svelte'
   import AboutSettings from './AboutSettings.svelte'
   import AgentSettings from './AgentSettings.svelte'
@@ -159,6 +159,23 @@
 
   const sid = $derived(section)
 
+  /** One lede per section, under its title (QA round 1, the tighten-up). */
+  const lede = $derived(
+    (
+      {
+        customise: t.customise.intro,
+        editor: t.editor.intro,
+        layout: t.layout.intro,
+        appearance: t.appearance.lede,
+        keys: t.keys.intro,
+        sync: t.sync.lede,
+        ai: $LL.web.ai.settings.egress,
+        developer: t.developer.lede,
+        about: t.about.lede,
+      } satisfies Record<SettingsSection, () => string>
+    )[sid]()
+  )
+
   /** A pick goes to the host; the host's move comes back as `section`. */
   function select(next: string): void {
     if (next !== section) onSection(next as SettingsSection)
@@ -174,20 +191,19 @@
     class="min-w-0 flex-1 px-7 pt-5.5 @max-[32rem]/settings:px-4 @max-[32rem]/settings:pt-4"
   >
     <div class="@container max-w-2xl pb-8" data-testid="settings-section:{sid}">
-      <h2 class="mb-3 text-base font-semibold text-base-content">{t.nav[sid]()}</h2>
+      <h2 class={TITLE}>{t.nav[sid]()}</h2>
+      <p class="mt-1.5 mb-6 {LEDE}" data-testid="settings-lede:{sid}">{lede}</p>
       {#if NEEDS_VAULT.has(sid) && !vaultOpen}
-        <div data-testid="settings-needs-vault:{sid}" class="space-y-2">
-          <p class="text-sm text-base-content/80">{t.needs_vault.body()}</p>
-          <p class="text-xs text-base-content/70">
-            {sid === 'keys' ? t.needs_vault.keys() : t.needs_vault.customise()}
-          </p>
+        <div
+          data-testid="settings-needs-vault:{sid}"
+          class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-base-300 px-3 py-2.5"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="text-[13px] text-base-content">{t.needs_vault.body()}</p>
+            <p class={META}>{sid === 'keys' ? t.needs_vault.keys() : t.needs_vault.customise()}</p>
+          </div>
           {#if onManageVaults}
-            <button
-              type="button"
-              data-testid="settings-needs-vault-open"
-              onclick={onManageVaults}
-              class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs font-medium text-base-content/80"
-            >
+            <button type="button" data-testid="settings-needs-vault-open" onclick={onManageVaults} class={BUTTON}>
               {t.needs_vault.open()}
             </button>
           {/if}
@@ -196,7 +212,7 @@
         <EditorSettings {registry} {layout} />
       {:else if sid === 'layout'}
         {#if !vaultOpen}
-          <p class="mb-3 text-xs text-base-content/70" data-testid="settings-layout-no-vault">{t.layout.no_vault()}</p>
+          <p class="mb-3 {META}" data-testid="settings-layout-no-vault">{t.layout.no_vault()}</p>
         {/if}
         {#if layout}<LayoutSettings {layout} {registry} />{/if}
       {:else if sid === 'appearance'}

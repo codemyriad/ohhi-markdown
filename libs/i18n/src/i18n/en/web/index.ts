@@ -1266,6 +1266,7 @@ const settings = {
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
   },
   appearance: {
+    lede: 'How the app looks on this device. A theme of your own lives in this vault.',
     theme: 'Theme',
     system: 'System',
     theme_help:
@@ -1287,6 +1288,8 @@ const settings = {
       nord_dark: 'Nord Dark',
     },
     custom_theme: 'Custom theme',
+    /** The field's label; the path and the rules are its hint line, under it (QA round 1). */
+    custom_label: 'Theme folder in this vault',
     custom_placeholder: 'my-theme',
     use_custom: 'Use custom',
     custom_help:
@@ -1437,6 +1440,8 @@ const settings = {
     needs_modifier: 'Add Ctrl, Alt or Cmd — on its own, that key would stop you typing it.',
   },
   sync: {
+    /** The section's lede (QA round 1: one lede per section, under its title). */
+    lede: 'Your name as collaborators see it, the relay your shares go through, and your devices.',
     /** The display name (Settings › You until QA round 1): Sync & devices' first row, where it is used. */
     name: 'Your name, as collaborators see it',
     name_placeholder: 'Anonymous',
@@ -1607,6 +1612,7 @@ const settings = {
   },
   /** Settings › About: the running build, the updater's last outcome, the guides. */
   about: {
+    lede: 'The version you are running, how it updates, and the guides.',
     updates: 'Updates',
     web_updates: 'This web app updates when the page is reloaded.',
     guides: 'Guides',
@@ -1614,6 +1620,7 @@ const settings = {
     guide_relay: 'Running your own relay',
   },
   developer: {
+    lede: 'Tools for looking under the hood. Off unless you turn them on.',
     devtools: 'Developer tools',
     devtools_help:
       "Enables the inspector — a tab showing the disk ↔ CRDT state of every mount and file — in the command palette. {flag:string} forces it on and opens it for one session.",
