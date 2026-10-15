@@ -36,6 +36,7 @@ import {
   settingsView,
   tabNamed,
   test as withMockLlm,
+  unfoldRuns,
 } from './fixtures.js'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
 import { BUILTIN_THEMES } from '../../../libs/ui/src/tokens.js'
@@ -647,6 +648,8 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful', { timeout: 15_000 })
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-state', 'output-available')
   await expectAccessible(page, 'session view with a message')
+  await unfoldRuns(page)
+  await expectAccessible(page, 'session view with its run unfolded')
 })
 
 /**
@@ -734,6 +737,7 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // The proposal, pending in the note.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  await unfoldRuns(page)
   await expect(card.getByTestId('proposal-actions')).toBeVisible()
   await expectAccessible(page, 'session card with a pending proposal')
   await card.getByRole('button', { name: 'Show in note' }).click()

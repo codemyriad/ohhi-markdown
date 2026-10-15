@@ -243,6 +243,21 @@ export async function expectAccessible(page: Page, surface: string): Promise<voi
   expect(results.violations, `${surface}\n${report}`).toEqual([])
 }
 
+/**
+ * A session's turn once it is done: each run of tool calls is folded to one
+ * line then (`ToolRun`); unfold every one, as a person would to see the rows.
+ */
+export async function unfoldRuns(page: Page): Promise<void> {
+  await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful', { timeout: 15_000 })
+  const toggles = page.getByTestId('session-run-toggle')
+  for (let i = 0, n = await toggles.count(); i < n; i++) {
+    const toggle = toggles.nth(i)
+    if ((await toggle.getAttribute('aria-expanded')) !== 'false') continue
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  }
+}
+
 /** Close every toast on screen (an unseeded room's relay refusal can sit over a target). */
 export async function dismissToasts(page: Page): Promise<void> {
   for (const toast of await page.getByTestId('toast').all()) await toast.getByRole('button').first().click()

@@ -7484,6 +7484,47 @@ export type NamespaceWebTranslation = {
 				 */
 				details: string
 			}
+			run_line: {
+				/**
+				 * r​e​a​d​ ​{​{​a​ ​n​o​t​e​|​?​?​ ​n​o​t​e​s​}​}
+				 */
+				read: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​o​n​c​e
+				 */
+				search_once: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​t​w​i​c​e
+				 */
+				search_twice: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​{​c​o​u​n​t​}​ ​t​i​m​e​s
+				 * @param {number} count
+				 */
+				search_many: RequiredParams<'count'>
+				/**
+				 * l​i​s​t​e​d​ ​{​{​a​ ​f​o​l​d​e​r​|​?​?​ ​f​o​l​d​e​r​s​}​}
+				 */
+				list: string
+				/**
+				 * p​r​o​p​o​s​e​d​ ​{​c​o​u​n​t​}​ ​e​d​i​t​{​{​s​}​}
+				 * @param {number} count
+				 */
+				proposed: RequiredParams<'count'>
+				/**
+				 * e​d​i​t​e​d​ ​{​{​a​ ​n​o​t​e​|​?​?​ ​n​o​t​e​s​}​}
+				 */
+				edited: string
+				/**
+				 * u​s​e​d​ ​{​{​a​ ​t​o​o​l​|​?​?​ ​t​o​o​l​s​}​}
+				 */
+				other: string
+				/**
+				 * {​c​o​u​n​t​}​ ​c​a​l​l​{​{​s​}​}​ ​f​a​i​l​e​d
+				 * @param {number} count
+				 */
+				failed: RequiredParams<'count'>
+			}
 		}
 		composer: {
 			/**
@@ -15824,6 +15865,44 @@ export type TranslationFunctions = {
 					 * Details
 					 */
 					details: () => LocalizedString
+				}
+				run_line: {
+					/**
+					 * read {{a note|?? notes}}
+					 */
+					read: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * searched once
+					 */
+					search_once: () => LocalizedString
+					/**
+					 * searched twice
+					 */
+					search_twice: () => LocalizedString
+					/**
+					 * searched {count} times
+					 */
+					search_many: (arg: { count: number }) => LocalizedString
+					/**
+					 * listed {{a folder|?? folders}}
+					 */
+					list: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * proposed {count} edit{{s}}
+					 */
+					proposed: (arg: { count: number }) => LocalizedString
+					/**
+					 * edited {{a note|?? notes}}
+					 */
+					edited: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * used {{a tool|?? tools}}
+					 */
+					other: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * {count} call{{s}} failed
+					 */
+					failed: (arg: { count: number }) => LocalizedString
 				}
 			}
 			composer: {

@@ -2621,6 +2621,22 @@ const ai = {
       failed: '{name:string} failed: {message:string}',
       details: 'Details',
     },
+    /**
+     * A run of tool calls folded to one line (QA round 1): a phrase per kind,
+     * in the order the agent first did each, joined by " · ", its first
+     * letter capitalised. Thinking is never counted.
+     */
+    run_line: {
+      read: 'read {{count:a note|?? notes}}',
+      search_once: 'searched once',
+      search_twice: 'searched twice',
+      search_many: 'searched {count:number} times',
+      list: 'listed {{count:a folder|?? folders}}',
+      proposed: 'proposed {count:number} edit{{s}}',
+      edited: 'edited {{count:a note|?? notes}}',
+      other: 'used {{count:a tool|?? tools}}',
+      failed: '{count:number} call{{s}} failed',
+    },
   },
   composer: {
     label: 'Message the agent',

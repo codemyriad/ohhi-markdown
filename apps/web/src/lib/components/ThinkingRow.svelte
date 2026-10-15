@@ -8,7 +8,7 @@
    */
   import { Brain, ChevronRight } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { META } from '../ui/styles.js'
+  import { META, MUTED } from '../ui/styles.js'
 
   interface Props {
     text: string
@@ -22,7 +22,7 @@
 
 <div data-testid="session-reasoning" class="{META} flex flex-col">
   <div class="flex min-h-5 items-center gap-1.5">
-    <Brain size={14} class="shrink-0" aria-hidden="true" />
+    <Brain size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
     <button
       type="button"
       class="inline-flex items-center gap-0.5 rounded text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"

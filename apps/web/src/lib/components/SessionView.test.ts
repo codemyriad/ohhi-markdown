@@ -82,6 +82,12 @@ function setup(opts: { agent?: AgentFactory; files?: Record<string, string>; vie
 
 const content = (): HTMLElement => screen.getByTestId('session-composer-input')
 
+/** Once the turn is done its runs are folded to a line: unfold each, as a person would to see the rows. */
+async function unfoldRuns(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await waitFor(() => expect(screen.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful'))
+  for (const b of screen.queryAllByTestId('session-run-toggle')) if (b.getAttribute('aria-expanded') === 'false') await user.click(b)
+}
+
 beforeEach(() => {
   localStorage.clear()
   sessionStorage.clear()
@@ -137,6 +143,9 @@ describe('SessionView', () => {
     expect(within(screen.getByTestId('session-header')).queryByTestId('session-provider')).toBeNull()
     expect(within(screen.getByTestId('session-composer-foot')).getByTestId('session-provider')).toHaveTextContent('Local')
     expect(screen.queryByTestId('session-start-continue')).toBeNull()
+    // From the top, under the header — nothing pushes it to the foot — and the starts a quiet list, no boxes.
+    expect(screen.getByTestId('session-empty')).not.toHaveClass('mt-auto')
+    for (const b of within(screen.getByTestId('session-starts')).getAllByRole('button')) expect(b.className).not.toMatch(/\bborder\b/)
     // *Ask about* hands the note to the composer as a chip.
     await user.click(screen.getByRole('button', { name: t.starts.ask({ note: 'plan.md' }) }))
     expect(await screen.findByTestId('mention-chip')).toHaveTextContent('@plan.md')
@@ -202,7 +211,8 @@ describe('SessionView', () => {
     ]
     const { shell, user } = setup({ agent: agentOf(chunks) })
     await startRun({ sessionId: 's1', instruction: 'Find the harness', open: false })
-    const card = await screen.findByTestId('tool-card')
+    await unfoldRuns(user)
+    const card = (await screen.findAllByTestId('tool-card'))[0]!
     await waitFor(() => expect(card).toHaveAttribute('data-state', 'output-available'))
     expect(within(card).getByTestId('tool-summary')).toHaveTextContent(t.tool.search({ query: 'harness' }))
     // The hit's row is the one control: no separate Open, and its name says where it goes.
@@ -222,6 +232,61 @@ describe('SessionView', () => {
     expect(shell.openPath).toHaveBeenCalledWith('roadmap.md', { beside: true })
   })
 
+  it('a finished run folds to one line counting its calls by kind, the failed apart; the live run is open', async () => {
+    const call = (id: string, toolName: string, output: unknown, input: unknown = {}): UIMessageChunk[] => [
+      { type: 'tool-input-available', toolCallId: id, toolName, input },
+      { type: 'tool-output-available', toolCallId: id, output } as UIMessageChunk,
+    ]
+    const chunks: UIMessageChunk[] = [
+      { type: 'start' },
+      { type: 'reasoning-start', id: 'r1' },
+      { type: 'reasoning-delta', id: 'r1', delta: 'Look first.' },
+      { type: 'reasoning-end', id: 'r1' },
+      ...call('c1', 'ohhi_read', { schema: 'ohhi.read.v1', path: 'a.md', text: 'A' }, { path: 'a.md' }),
+      ...call('c2', 'ohhi_search', { schema: 'ohhi.search.v1', query: 'x', hits: [] }, { query: 'x' }),
+      ...call('c3', 'ohhi_read', { schema: 'ohhi.read.v1', path: 'b.md', text: 'B' }, { path: 'b.md' }),
+      ...call('c4', 'ohhi_search', { schema: 'ohhi.search.v1', query: 'y', hits: [] }, { query: 'y' }),
+      ...call('c5', 'ohhi_ls', { schema: 'ohhi.ls.v1', entries: [] }),
+      ...call('c6', 'ohhi_read', { schema: 'ohhi.read.v1', path: 'c.md', text: 'C' }, { path: 'c.md' }),
+      { type: 'tool-input-available', toolCallId: 'c7', toolName: 'ohhi_changes', input: { since: '1h' } },
+      { type: 'tool-output-error', toolCallId: 'c7', errorText: 'usage: since' },
+      ...call('c8', 'ohhi_patch', { schema: 'ohhi.proposal.v1', path: 'a.md', message: 'm', proposed: true, suggestionId: 'sg-1', from: 0, to: 1 }, { path: 'a.md' }),
+    ]
+    // Held open: the run is live, so it is unfolded to watch.
+    setup({ agent: agentOf(chunks, true) })
+    await startRun({ sessionId: 's1', instruction: 'Look around', open: false })
+    await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(8))
+    const liveToggle = screen.getByTestId('session-run-toggle')
+    expect(liveToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('session-run-rows')).toBeVisible()
+    cleanup()
+    attachHarness(null)
+
+    // Finished: one line, Thinking never in it; the rows behind the toggle.
+    const { user } = setup({ agent: agentOf([...chunks, ...say('Done.').slice(1)]) })
+    await startRun({ sessionId: 's1', instruction: 'Look around', open: false })
+    await waitFor(() => expect(screen.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful'))
+    const toggle = screen.getByTestId('session-run-toggle')
+    const r = t.run_line
+    expect(screen.getByTestId('session-run-summary')).toHaveTextContent(
+      `Read 3 notes · ${r.search_twice()} · ${r.list({ count: 1 })} · ${r.proposed({ count: 1 })}`
+    )
+    expect(screen.getByTestId('session-run-failed')).toHaveTextContent(r.failed({ count: 1 }))
+    expect(screen.getByTestId('session-run-failed')).toHaveClass('text-error')
+    expect(toggle).not.toHaveTextContent(t.reasoning())
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByTestId('session-run-rows')).not.toBeVisible()
+    expect(screen.queryByRole('button', { name: t.reasoning() })).toBeNull()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('session-run-rows')).toBeVisible()
+    expect(screen.getByRole('button', { name: t.reasoning() })).toBeVisible()
+    expect(screen.getAllByRole('button', { name: t.tool.details() })).toHaveLength(8)
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('thinking and tool calls form one run of rows, each folding its own Details / Thinking by a real toggle', async () => {
     const chunks: UIMessageChunk[] = [
       { type: 'start' },
@@ -238,6 +303,7 @@ describe('SessionView', () => {
     ]
     const { user } = setup({ agent: agentOf(chunks) })
     await startRun({ sessionId: 's1', instruction: 'Read the plan', open: false })
+    await unfoldRuns(user)
     await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
     // One run: the empty reasoning draws nothing, the other a row, then both calls.
     const run = screen.getByTestId('session-tool-run')
@@ -277,6 +343,7 @@ describe('SessionView', () => {
     ]
     const { shell, user } = setup({ agent: agentOf(chunks) })
     await startRun({ sessionId: 's1', instruction: 'Fix it', open: false })
+    await unfoldRuns(user)
     await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
     const [made, none] = screen.getAllByTestId('tool-card')
     await waitFor(() => expect(within(made).getByTestId('tool-summary')).toHaveTextContent(t.tool.proposed({ path: 'plan.md' })))
@@ -312,6 +379,7 @@ describe('SessionView', () => {
     const record = { id: 'sg-1', path: 'plan.md', status: 'pending', baseText: 'Plan', proposedText: 'Roadmap' }
     Object.assign(workspace, { suggestionsFor: () => [record], subscribeSuggestions: () => () => {} })
     await startRun({ sessionId: 's1', instruction: 'Rename it', open: false })
+    await unfoldRuns(user)
     const card = await screen.findByTestId('tool-card')
     await waitFor(() => expect(within(card).getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending'))
     expect(within(card).getByTestId('proposal-diff')).toHaveTextContent('Plan Roadmap')

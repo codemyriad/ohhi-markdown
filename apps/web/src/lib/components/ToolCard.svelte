@@ -35,10 +35,11 @@
    *    the registry's caret rows — the same path as the pair and the keys
    *  - anything else → "Used ohhi_links"
    *
-   * One quiet row (QA round 1, feedback 13): a glyph per tool kind, the
- * summary, and *Details* ▸ at the right end — a real button with
- * `aria-expanded` that unfolds the input and output in a compact monospace
- * block under the row. A proposal's verbs (Accept · Reject · Show in note)
+   * One quiet row (QA round 1, feedback 13): a muted glyph per tool kind, the
+ * summary (a failure's in the error tone, the glyph not), and › at the right
+ * end — *Details*, a real button with `aria-expanded` whose target is the
+ * whole row and whose word shows on hover or keyboard focus; it unfolds the
+ * input and output in a compact monospace block under the row. A proposal's verbs (Accept · Reject · Show in note)
  * sit before *Details* in the same small muted voice, wrapping under the
  * summary in a narrow card; its diff and a search's hits sit indented under
  * the row. Opening a note
@@ -50,7 +51,7 @@
   import { formatBytes } from '../storage-persistence.js'
   import { harnessWorkspace } from '../sessions.svelte.js'
   import { getViewShell } from '../views.js'
-  import { META } from '../ui/styles.js'
+  import { META, MUTED } from '../ui/styles.js'
 
   interface Props {
     part: ToolPart
@@ -161,11 +162,21 @@
                 ? Link
                 : Wrench
   )
-  /** The row's verbs (*Details*, a proposal's Accept · Reject · Show in note): small, muted, at its right end. */
-  const toggle =
+  /** The row's verbs (a proposal's Accept · Reject · Show in note, *Details*): small, muted, at its right end. */
+  const verb =
     'inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
-  /** The " · " between two verbs. */
+  /** A verb sits above the *Details* toggle's stretched target, so it takes its own press. */
+  const toggle = `${verb} relative z-10`
+  /**
+   * *Details*: the whole row is its target (a stretched ::after over the row,
+   * so no button nests another); at rest only its › shows, the word on the
+   * row's hover or keyboard focus — its name is always "Details".
+   */
+  const detailsToggle = `${verb} after:absolute after:inset-0 after:rounded after:content-['']`
+  const detailsWord = 'sr-only group-hover/row:not-sr-only group-focus-within/row:not-sr-only'
+  /** The " · " between two verbs; the one before *Details* only while its word shows. */
   const sep = 'text-[11px] text-base-content/70 select-none'
+  const detailsSep = `${sep} hidden group-hover/row:inline group-focus-within/row:inline`
   /** A search hit's row: the icon and path:line, full width so the whole row is the target. */
   const hitRow = 'flex w-full min-w-0 items-center gap-1.5 rounded px-1 text-start'
 
@@ -179,10 +190,12 @@
 
 <div data-testid="tool-card" data-tool={name} data-state={part.state} class="{META} @container/tool flex flex-col">
   <div
-    class="flex min-h-5 items-center gap-x-1.5 {reviewable ? 'flex-wrap @min-[28rem]/tool:flex-nowrap' : ''} {failed ? 'text-error' : ''}"
+    class="group/row relative flex min-h-5 items-center gap-x-1.5 rounded hover:bg-base-200 {reviewable
+      ? 'flex-wrap @min-[28rem]/tool:flex-nowrap'
+      : ''}"
   >
-    <Icon size={14} class="shrink-0" aria-hidden="true" />
-    <span data-testid="tool-summary" class="min-w-0 truncate {reviewable ? 'flex-1' : ''}">{summary}</span>
+    <Icon size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
+    <span data-testid="tool-summary" class="min-w-0 truncate {reviewable ? 'flex-1' : ''} {failed ? 'text-error' : ''}">{summary}</span>
     {#if hits.length}
       <span class="shrink-0">· {t.results({ count: hits.length })}</span>
     {/if}
@@ -213,21 +226,21 @@
           ><span class={sep} aria-hidden="true">·</span>
         {/if}
         <button type="button" class={toggle} data-testid="proposal-show" onclick={() => void show()}>{t.show_in_note()}</button>
-        {#if done || failed}<span class={sep} aria-hidden="true">·</span>{/if}
+        {#if done || failed}<span class={detailsSep} aria-hidden="true">·</span>{/if}
       {:else if !reviewable && proposal?.proposed && shell}
         <button type="button" class={toggle} data-testid="tool-open" onclick={() => shell.openPath(proposal.path, { beside: true })}
           >{t.open()}</button
-        ><span class={sep} aria-hidden="true">·</span>
+        ><span class={detailsSep} aria-hidden="true">·</span>
       {/if}
       {#if done || failed}
         <button
           type="button"
-          class={toggle}
+          class={detailsToggle}
           aria-expanded={expanded}
           aria-controls={detailsId}
           data-testid="tool-details-toggle"
           onclick={() => (expanded = !expanded)}
-          >{t.details()}<ChevronRight size={12} aria-hidden="true" class="transition-transform {expanded ? 'rotate-90' : ''}" /></button
+          ><span class={detailsWord}>{t.details()}</span><ChevronRight size={12} aria-hidden="true" class="transition-transform {expanded ? 'rotate-90' : ''}" /></button
         >
       {/if}
     </span>

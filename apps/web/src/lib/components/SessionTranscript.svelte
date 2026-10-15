@@ -10,8 +10,9 @@
    *  - `reasoning` → a *Thinking* ▸ row (`ThinkingRow`), folded; an empty one, nothing
    *  - `tool-*` / `dynamic-tool` → a `ToolCard` row, keyed on its state
    *
-   *    Consecutive reasoning and tool rows form ONE tight run (QA round 1,
-   *    feedback 13: one line per call, not a stack of boxes).
+   *    Consecutive reasoning and tool rows form ONE run (`ToolRun`): folded
+   *    to one quiet line of what the agent did, open while it is the live
+   *    one (QA round 1: one line per call, then one line per run).
    *  - anything else (step boundaries, sources, data parts) → nothing
    *
    * A turn a comment asked (*Send to agent*, `metadata.threadId`) says so
@@ -27,8 +28,7 @@
   import type { Mention } from '@ohhi/harness'
   import { getViewShell } from '../views.js'
   import SessionMarkdown from './SessionMarkdown.svelte'
-  import ThinkingRow from './ThinkingRow.svelte'
-  import ToolCard, { type ToolPart } from './ToolCard.svelte'
+  import ToolRun from './ToolRun.svelte'
 
   interface Props {
     messages: UIMessage[]
@@ -98,15 +98,7 @@
             <SessionMarkdown source={seg.part.text} streaming={open && seg.j === message.parts.length - 1} />
           {/if}
         {:else}
-          <div class="flex flex-col gap-0.5" data-testid="session-tool-run">
-            {#each seg.items as item (item.j)}
-              {#if item.part.type === 'reasoning'}
-                <ThinkingRow text={(item.part as { text: string }).text} />
-              {:else}
-                <ToolCard part={item.part as unknown as ToolPart} />
-              {/if}
-            {/each}
-          </div>
+          <ToolRun runKey="{message.id}:{seg.j}" items={seg.items} live={open && !message.parts.slice(seg.j).some((p) => p.type === 'text')} />
         {/if}
       {/each}
       {#if message.role === 'user' && threadOf(message)}

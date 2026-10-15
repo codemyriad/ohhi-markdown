@@ -61,6 +61,7 @@
   import SessionComposer, { type ComposerSend } from './SessionComposer.svelte'
   import SessionHeader from './SessionHeader.svelte'
   import SessionTranscript from './SessionTranscript.svelte'
+  import { EYEBROW, META, MUTED } from '../ui/styles.js'
 
   interface Props extends ViewProps {
     /** Injected for the tests; the shell's clock otherwise. */
@@ -212,9 +213,15 @@
 
   const incoming = $derived(harness.inbox[sessionId] ?? [])
   const lastAt = (at: number): string => relativeTime(at, $tick, $LL)
-  const eyebrow = 'm-0 text-[11px] font-semibold tracking-wide text-base-content/70 uppercase'
-  const start =
-    'flex w-full items-center gap-2 rounded-md border border-base-300 px-2.5 py-1.5 text-left text-sm text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+  /**
+   * The first screen's rhythm (QA round 1, "empty space feels off"): the
+   * settings' 8 px grid — an eyebrow with 16 px above the first and 24 px
+   * above the next, 8 px under it — and quiet list rows, no boxes: a hover
+   * tint, a muted icon, the label, the time at the right in META.
+   */
+  const eyebrow = `m-0 mb-2 px-2 ${EYEBROW}`
+  const listRow =
+    'flex w-full min-h-8 items-center gap-2 rounded px-2 py-1 text-left text-[13px] text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
 <section
@@ -248,64 +255,64 @@
       onStop={() => stopRun(sessionId)}
       onRetry={() => void retry()}
     />
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 {messages.length === 0 ? 'pt-4 pb-3' : 'py-3'}">
       {#if messages.length === 0}
-        <!-- The first screen, bottom-anchored over the composer (S1). -->
-        <div data-testid="session-empty" class="mt-auto flex flex-col gap-3">
-          <section aria-labelledby="{tab.id}-starts" class="flex flex-col gap-1">
+        <!-- The first screen (S1): from the top, under the header; the composer stays at the foot. -->
+        <div data-testid="session-empty" class="flex flex-col">
+          <section aria-labelledby="{tab.id}-starts" class="flex flex-col">
             <h2 id="{tab.id}-starts" class={eyebrow}>{t.starts.title()}</h2>
-            <ul class="m-0 flex list-none flex-col gap-1 p-0" data-testid="session-starts">
+            <ul class="m-0 flex list-none flex-col p-0" data-testid="session-starts">
               {#if lastNote}
                 <li>
-                  <button type="button" class={start} data-testid="session-start-ask" onclick={askAbout}>
-                    <AtSign size={14} aria-hidden="true" />
+                  <button type="button" class={listRow} data-testid="session-start-ask" onclick={askAbout}>
+                    <AtSign size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
                     <span class="min-w-0 truncate">{t.starts.ask({ note: noteName })}</span>
                   </button>
                 </li>
                 <li>
-                  <button type="button" class={start} data-testid="session-start-summarise" disabled={busy} onclick={summarise}>
-                    <FileText size={14} aria-hidden="true" />
+                  <button type="button" class={listRow} data-testid="session-start-summarise" disabled={busy} onclick={summarise}>
+                    <FileText size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
                     <span class="min-w-0 truncate">{t.starts.summarise({ note: noteName })}</span>
                   </button>
                 </li>
               {/if}
               <li>
-                <button type="button" class={start} data-testid="session-start-skill" onclick={() => composerRef?.begin('/')}>
-                  <Slash size={14} aria-hidden="true" />
+                <button type="button" class={listRow} data-testid="session-start-skill" onclick={() => composerRef?.begin('/')}>
+                  <Slash size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
                   <span class="min-w-0 truncate">{t.starts.skill()}</span>
                 </button>
               </li>
               {#if others.length}
                 <li>
-                  <button type="button" class={start} data-testid="session-start-continue" onclick={() => openSession(others[0].id)}>
-                    <History size={14} aria-hidden="true" />
+                  <button type="button" class={listRow} data-testid="session-start-continue" onclick={() => openSession(others[0].id)}>
+                    <History size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
                     <span class="min-w-0 truncate">{t.starts.continue({ title: others[0].title ?? t.untitled() })}</span>
-                    <span class="ml-auto shrink-0 text-[11px] text-base-content/70">{lastAt(others[0].lastAt)}</span>
+                    <span class="ml-auto shrink-0 {META}">{lastAt(others[0].lastAt)}</span>
                   </button>
                 </li>
               {/if}
             </ul>
           </section>
           {#if others.length}
-            <section aria-labelledby="{tab.id}-recent" class="flex flex-col gap-1">
+            <section aria-labelledby="{tab.id}-recent" class="mt-6 flex flex-col">
               <h2 id="{tab.id}-recent" class={eyebrow}>{t.recent()}</h2>
               <ul class="m-0 flex list-none flex-col p-0" data-testid="session-recent">
                 {#each others.slice(0, 8) as s (s.id)}
                   {@const about = aboutOf(s)}
                   {@const via = providerName(s.provider)}
-                  <li class="border-b border-base-200 last:border-b-0">
+                  <li>
                     <button
                       type="button"
                       data-testid="session-recent:{s.id}"
-                      class="flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+                      class="{listRow} flex-col items-stretch gap-0"
                       onclick={() => openSession(s.id)}
                     >
                       <span class="flex w-full items-baseline gap-2">
-                        <span class="min-w-0 flex-1 truncate font-medium">{s.title ?? t.untitled()}</span>
-                        <span class="shrink-0 text-[11px] text-base-content/70">{lastAt(s.lastAt)}</span>
+                        <span class="min-w-0 flex-1 truncate">{s.title ?? t.untitled()}</span>
+                        <span class="shrink-0 {META}">{lastAt(s.lastAt)}</span>
                       </span>
                       {#if about || via}
-                        <span class="flex min-w-0 gap-2 text-[11px] text-base-content/70">
+                        <span class="flex min-w-0 gap-2 {META}">
                           {#if about}<span class="min-w-0 truncate font-ed-mono">{about}</span>{/if}
                           {#if via}<span class="shrink-0">{via}</span>{/if}
                         </span>
@@ -317,7 +324,7 @@
             </section>
           {/if}
           {#if firstEver && egress}
-            <p class="m-0 text-xs text-base-content/80" data-testid="session-egress">{egress}</p>
+            <p class="m-0 mt-6 px-2 text-xs text-base-content/80" data-testid="session-egress">{egress}</p>
           {/if}
         </div>
       {:else}

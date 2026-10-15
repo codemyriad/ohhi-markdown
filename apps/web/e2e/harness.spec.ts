@@ -12,7 +12,7 @@
  *    opened below, the note keeps its first line at the top.
  */
 import { expect, type Page } from '@playwright/test'
-import { closeSettings, editors, openApp, openSettings, paneContent, panes, seedProvider, selectLine, test } from './fixtures.js'
+import { closeSettings, editors, openApp, openSettings, paneContent, panes, seedProvider, selectLine, test, unfoldRuns } from './fixtures.js'
 
 const NOTE = 'notes/welcome.md'
 const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
@@ -152,7 +152,16 @@ test('Mod+Shift+L on a selection opens a session with its chip; a tool-calling t
   await send(page, 'What does this say about sync?')
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_search"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  // Done, the run is one folded line saying what the agent did; unfolded, its rows.
+  await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful')
+  const run = page.getByTestId('session-run-toggle')
+  await expect(run).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByTestId('session-run-summary')).toHaveText('Searched once')
+  await expect(card).toBeHidden()
+  await unfoldRuns(page)
+  await expect(card).toBeVisible()
   await expect(card.getByTestId('tool-hits')).toContainText(NOTE)
+  await expect(card.getByTestId('tool-hit').first()).toBeVisible()
   await expect(page.getByTestId('session-markdown').last()).toContainText('edits sync through the relay')
   await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful')
 
@@ -347,6 +356,7 @@ test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts
   // The card's *Show in note* puts the caret IN the suggestion, in the note's pane.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  await unfoldRuns(page)
   await expect(card.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
   await card.getByRole('button', { name: 'Show in note' }).click()
   // In the note: the comma drawn as a proposed insertion; the text itself unchanged.
@@ -380,6 +390,7 @@ test('the session card accepts and rejects a proposal over the same record, scro
   await send(page, 'Two small edits.')
   const cards = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(cards).toHaveCount(2, { timeout: 15_000 })
+  await unfoldRuns(page)
   const [first, second] = [cards.nth(0), cards.nth(1)]
   await expect(first.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
   await expect(first.getByTestId('proposal-diff')).toContainText('writ')
