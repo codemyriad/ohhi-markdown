@@ -2597,6 +2597,9 @@ const ai = {
       search: 'Searched for “{query:string}”',
       results: '{count:number} result{{s}}',
       open: 'Open',
+      /** A search hit's row is one button: its name says where it goes. */
+      open_hit: 'Open {path:string} at line {line:number}',
+      open_note: 'Open {path:string}',
       read: 'Read {what:string} ({size:string})',
       read_section: '§{section:string} of {path:string}',
       read_lines: 'lines {from:number}–{to:number} of {path:string}',

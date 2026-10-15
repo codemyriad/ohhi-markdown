@@ -79,6 +79,12 @@ export interface ViewShell {
    * keyboard. Resolves false when the note never drew the suggestion.
    */
   revealSuggestion(path: string, id: string, opts?: { focus?: boolean }): Promise<boolean>
+  /**
+   * A search hit's row in a session card: the note opened beside (as
+   * `openPath` with `beside`), the caret at the start of 1-based `line`.
+   * Resolves false when the note never reached that line.
+   */
+  revealLine(path: string, line: number): Promise<boolean>
   /** *Show thread*: a comment thread's bubble over its passage, the note opened beside when it is not on screen. */
   revealThread(path: string, threadId: string): Promise<boolean>
   /** *Create* for an unresolved link (the Note menu's Links). */

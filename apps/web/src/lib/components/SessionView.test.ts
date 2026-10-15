@@ -192,6 +192,12 @@ describe('SessionView', () => {
         toolCallId: 'c1',
         output: { schema: 'ohhi.search.v1', query: 'harness', hits: [{ path: 'plan.md', line: 3, tier: 'body', score: 1, snippets: [] }] },
       },
+      { type: 'tool-input-available', toolCallId: 'c2', toolName: 'ohhi_search', input: { query: 'title' } },
+      {
+        type: 'tool-output-available',
+        toolCallId: 'c2',
+        output: { schema: 'ohhi.search.v1', query: 'title', hits: [{ path: 'roadmap.md', line: null, tier: 'title', score: 1, snippets: [] }] },
+      },
       ...say('Found it.').slice(1),
     ]
     const { shell, user } = setup({ agent: agentOf(chunks) })
@@ -199,8 +205,21 @@ describe('SessionView', () => {
     const card = await screen.findByTestId('tool-card')
     await waitFor(() => expect(card).toHaveAttribute('data-state', 'output-available'))
     expect(within(card).getByTestId('tool-summary')).toHaveTextContent(t.tool.search({ query: 'harness' }))
-    await user.click(within(within(card).getByTestId('tool-hits')).getByRole('button', { name: t.tool.open() }))
-    expect(shell.openPath).toHaveBeenCalledWith('plan.md', { beside: true })
+    // The hit's row is the one control: no separate Open, and its name says where it goes.
+    const hits = within(card).getByTestId('tool-hits')
+    expect(within(hits).queryByRole('button', { name: t.tool.open() })).toBeNull()
+    const hit = within(hits).getByRole('button', { name: t.tool.open_hit({ path: 'plan.md', line: 3 }) })
+    expect(hit).toHaveAttribute('data-testid', 'tool-hit')
+    expect(hit).toHaveTextContent('plan.md:3')
+    expect(hit.querySelector('button')).toBeNull()
+    await user.click(hit)
+    expect(shell.revealLine).toHaveBeenCalledWith('plan.md', 3)
+    // A hit with no line (a title match) opens its note beside.
+    await waitFor(() => expect(screen.getAllByTestId('tool-card')).toHaveLength(2))
+    const titled = screen.getAllByTestId('tool-card')[1]!
+    await waitFor(() => expect(titled).toHaveAttribute('data-state', 'output-available'))
+    await user.click(within(titled).getByRole('button', { name: t.tool.open_note({ path: 'roadmap.md' }) }))
+    expect(shell.openPath).toHaveBeenCalledWith('roadmap.md', { beside: true })
   })
 
   it('thinking and tool calls form one run of rows, each folding its own Details / Thinking by a real toggle', async () => {
@@ -268,6 +287,11 @@ describe('SessionView', () => {
     expect(within(made).getByTestId('proposal-status')).toHaveAttribute('data-status', 'gone')
     expect(within(made).getByTestId('proposal-status')).toHaveTextContent(t.tool.proposal_status.gone())
     expect(within(made).queryByTestId('proposal-accept')).toBeNull()
+    // Show in note sits in the row, one voice with Details, right before it.
+    const actions = within(made).getByTestId('proposal-actions')
+    const verbs = within(actions).getAllByRole('button').map((b) => b.textContent?.trim())
+    expect(verbs).toEqual([t.tool.show_in_note(), t.tool.details()])
+    expect(actions).toHaveTextContent(`${t.tool.show_in_note()} · ${t.tool.details()}`)
     await user.click(within(made).getByRole('button', { name: t.tool.show_in_note() }))
     expect(shell.revealSuggestion).toHaveBeenCalledWith('plan.md', 'sg-1', { focus: true })
   })
@@ -291,6 +315,9 @@ describe('SessionView', () => {
     const card = await screen.findByTestId('tool-card')
     await waitFor(() => expect(within(card).getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending'))
     expect(within(card).getByTestId('proposal-diff')).toHaveTextContent('Plan Roadmap')
+    // Live: Accept · Reject · Show in note · Details, all in the row.
+    const verbs = within(within(card).getByTestId('proposal-actions')).getAllByRole('button').map((b) => b.textContent?.trim())
+    expect(verbs).toEqual([t.tool.accept(), t.tool.reject(), t.tool.show_in_note(), t.tool.details()])
     await user.click(within(card).getByRole('button', { name: t.tool.accept() }))
     await waitFor(() => expect(shell.runCommand).toHaveBeenCalledWith('ai.accept-suggestion'))
     expect(shell.revealSuggestion).toHaveBeenCalledWith('plan.md', 'sg-1')

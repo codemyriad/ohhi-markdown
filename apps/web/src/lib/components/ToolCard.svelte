@@ -22,7 +22,8 @@
    * `part.state`: working while the input streams, then a one-line account
    * of what the agent did — never the raw payload up front.
    *
-   *  - `ohhi_search` → "Searched for “q”", its hits as references with *Open*
+   *  - `ohhi_search` → "Searched for “q”", its hits as references, each row
+   *    one button that opens its note at its line (`ViewShell.revealLine`)
    *  - `ohhi_read` → "Read §Decisions of plan.md (1.2 kB)"
    *  - a proposal (`ohhi.proposal.v1`) → "Proposed an edit in plan.md",
    *    with the change as a diff, its status read from the ONE suggestion
@@ -37,8 +38,10 @@
    * One quiet row (QA round 1, feedback 13): a glyph per tool kind, the
  * summary, and *Details* ▸ at the right end — a real button with
  * `aria-expanded` that unfolds the input and output in a compact monospace
- * block under the row. Hits, a proposal's diff and its verbs sit indented
- * under the row. Opening a note
+ * block under the row. A proposal's verbs (Accept · Reject · Show in note)
+ * sit before *Details* in the same small muted voice, wrapping under the
+ * summary in a narrow card; its diff and a search's hits sit indented under
+ * the row. Opening a note
    * is the shell's verb (`ViewShell.openPath`); with no shell it is text.
    */
   import { ChevronRight, FileText, FolderTree, Link, PencilLine, Search, Sparkles, Wrench } from '@lucide/svelte'
@@ -158,18 +161,28 @@
                 ? Link
                 : Wrench
   )
-  /** The *Details* toggle: small, muted, at the row's right end. */
+  /** The row's verbs (*Details*, a proposal's Accept · Reject · Show in note): small, muted, at its right end. */
   const toggle =
-    'inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary'
-  const link = 'text-xs text-base-content/80 underline hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary'
-  const verb =
-    'rounded border border-base-300 bg-base-100 px-2 py-0.5 text-xs font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+    'inline-flex shrink-0 items-center gap-0.5 rounded px-1 text-[11px] text-base-content/70 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+  /** The " · " between two verbs. */
+  const sep = 'text-[11px] text-base-content/70 select-none'
+  /** A search hit's row: the icon and path:line, full width so the whole row is the target. */
+  const hitRow = 'flex w-full min-w-0 items-center gap-1.5 rounded px-1 text-start'
+
+  /** A hit opens its note beside the session, the caret at its line when it has one. */
+  function openHit(hit: { path: string; line: number | null }): void {
+    if (!shell) return
+    if (hit.line) void shell.revealLine(hit.path, hit.line)
+    else shell.openPath(hit.path, { beside: true })
+  }
 </script>
 
-<div data-testid="tool-card" data-tool={name} data-state={part.state} class="{META} flex flex-col">
-  <div class="flex min-h-5 items-center gap-1.5 {failed ? 'text-error' : ''}">
+<div data-testid="tool-card" data-tool={name} data-state={part.state} class="{META} @container/tool flex flex-col">
+  <div
+    class="flex min-h-5 items-center gap-x-1.5 {reviewable ? 'flex-wrap @min-[28rem]/tool:flex-nowrap' : ''} {failed ? 'text-error' : ''}"
+  >
     <Icon size={14} class="shrink-0" aria-hidden="true" />
-    <span data-testid="tool-summary" class="min-w-0 truncate">{summary}</span>
+    <span data-testid="tool-summary" class="min-w-0 truncate {reviewable ? 'flex-1' : ''}">{summary}</span>
     {#if hits.length}
       <span class="shrink-0">· {t.results({ count: hits.length })}</span>
     {/if}
@@ -177,24 +190,47 @@
       <span
         data-testid="proposal-status"
         data-status={status}
-        class="ms-auto shrink-0 rounded-full bg-base-200 px-2 text-[11px] text-base-content"
+        class="shrink-0 rounded-full bg-base-200 px-2 text-[11px] text-base-content"
       >
         {t.proposal_status[status]()}
       </span>
-    {:else if proposal?.proposed && shell}
-      <button type="button" class={link} data-testid="tool-open" onclick={() => shell.openPath(proposal.path, { beside: true })}>{t.open()}</button>
     {/if}
-    {#if done || failed}
-      <button
-        type="button"
-        class="{reviewable ? '' : 'ms-auto'} {toggle}"
-        aria-expanded={expanded}
-        aria-controls={detailsId}
-        data-testid="tool-details-toggle"
-        onclick={() => (expanded = !expanded)}
-        >{t.details()}<ChevronRight size={12} aria-hidden="true" class="transition-transform {expanded ? 'rotate-90' : ''}" /></button
-      >
-    {/if}
+    <!-- The row's verbs, one voice with *Details*: small muted text buttons, " · " between.
+         A proposal's wrap under the summary when the card is narrow, never far from it. -->
+    <span
+      class="ms-auto flex shrink-0 items-center {reviewable ? 'basis-full ps-4 @min-[28rem]/tool:basis-auto @min-[28rem]/tool:ps-0' : ''}"
+      data-testid={reviewable && shell ? 'proposal-actions' : undefined}
+    >
+      {#if reviewable && shell}
+        {#if status === 'pending'}
+          <button type="button" class={toggle} data-testid="proposal-accept" disabled={acting} onclick={() => void act('ai.accept-suggestion')}
+            >{t.accept()}</button
+          ><span class={sep} aria-hidden="true">·</span>
+        {/if}
+        {#if status === 'pending' || status === 'stale'}
+          <button type="button" class={toggle} data-testid="proposal-reject" disabled={acting} onclick={() => void act('ai.reject-suggestion')}
+            >{t.reject()}</button
+          ><span class={sep} aria-hidden="true">·</span>
+        {/if}
+        <button type="button" class={toggle} data-testid="proposal-show" onclick={() => void show()}>{t.show_in_note()}</button>
+        {#if done || failed}<span class={sep} aria-hidden="true">·</span>{/if}
+      {:else if !reviewable && proposal?.proposed && shell}
+        <button type="button" class={toggle} data-testid="tool-open" onclick={() => shell.openPath(proposal.path, { beside: true })}
+          >{t.open()}</button
+        ><span class={sep} aria-hidden="true">·</span>
+      {/if}
+      {#if done || failed}
+        <button
+          type="button"
+          class={toggle}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          data-testid="tool-details-toggle"
+          onclick={() => (expanded = !expanded)}
+          >{t.details()}<ChevronRight size={12} aria-hidden="true" class="transition-transform {expanded ? 'rotate-90' : ''}" /></button
+        >
+      {/if}
+    </span>
   </div>
   {#if (done || failed) && expanded}
     <div id={detailsId} data-testid="tool-details" class="ms-5 mt-0.5 mb-1 flex flex-col gap-1 rounded bg-base-200 px-2 py-1 text-base-content">
@@ -211,29 +247,27 @@
       {#if record.proposedText}<ins class:stale={status === 'stale'}>{clip(record.proposedText)}</ins>{/if}
     </p>
   {/if}
-  {#if reviewable && shell}
-    <div class="ms-5 mt-1 mb-0.5 flex flex-wrap items-center gap-1.5" data-testid="proposal-actions">
-      {#if status === 'pending'}
-        <button type="button" class={verb} data-testid="proposal-accept" disabled={acting} onclick={() => void act('ai.accept-suggestion')}
-          >{t.accept()}</button
-        >
-      {/if}
-      {#if status === 'pending' || status === 'stale'}
-        <button type="button" class={verb} data-testid="proposal-reject" disabled={acting} onclick={() => void act('ai.reject-suggestion')}
-          >{t.reject()}</button
-        >
-      {/if}
-      <button type="button" class="{link} ml-auto" data-testid="proposal-show" onclick={() => void show()}>{t.show_in_note()}</button>
-    </div>
-  {/if}
   {#if hits.length}
-    <ul class="m-0 ms-5 mt-0.5 flex list-none flex-col gap-0.5 p-0" data-testid="tool-hits">
-      {#each hits.slice(0, 8) as hit (hit.path)}
-        <li class="flex items-center gap-1.5">
-          <FileText size={12} aria-hidden="true" />
-          <span class="min-w-0 flex-1 truncate">{hit.path}{hit.line ? `:${hit.line}` : ''}</span>
+    <ul class="m-0 ms-4 mt-0.5 flex list-none flex-col gap-0.5 p-0" data-testid="tool-hits">
+      {#each hits.slice(0, 8) as hit, i (`${i}:${hit.path}`)}
+        <li>
           {#if shell}
-            <button type="button" class={link} onclick={() => shell.openPath(hit.path, { beside: true })}>{t.open()}</button>
+            <!-- The row is the control: the whole hit opens its note, at its line. -->
+            <button
+              type="button"
+              class="{hitRow} hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+              data-testid="tool-hit"
+              aria-label={hit.line ? t.open_hit({ path: hit.path, line: hit.line }) : t.open_note({ path: hit.path })}
+              onclick={() => openHit(hit)}
+            >
+              <FileText size={12} class="shrink-0" aria-hidden="true" />
+              <span class="min-w-0 truncate">{hit.path}{hit.line ? `:${hit.line}` : ''}</span>
+            </button>
+          {:else}
+            <span class={hitRow}>
+              <FileText size={12} class="shrink-0" aria-hidden="true" />
+              <span class="min-w-0 truncate">{hit.path}{hit.line ? `:${hit.line}` : ''}</span>
+            </span>
           {/if}
         </li>
       {/each}

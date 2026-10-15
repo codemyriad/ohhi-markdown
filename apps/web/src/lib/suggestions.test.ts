@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event } from './readouts.fixture.js'
 import { bindEditor, resetEditors } from './focused-editor.svelte.js'
 import { lastAgentWrite, noteSuggestions, suggestionCommands, type SuggestionWorkspace } from './suggestions.svelte.js'
-import { revealSuggestionIn } from './suggestion-reveal.js'
+import { revealLineIn, revealSuggestionIn } from './suggestion-reveal.js'
 
 vi.mock('./ai-config.svelte.js', async (orig) => ({ ...(await orig<typeof import('./ai-config.svelte.js')>()), aiEnabled: () => true }))
 
@@ -343,6 +343,18 @@ describe('revealSuggestionIn (Show in note)', () => {
     expect(await revealSuggestionIn('elsewhere.md', 'nope', {}, { open, frame, tries: 3 })).toBe(false)
     expect(open).toHaveBeenCalledWith('elsewhere.md')
     expect(frame).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('revealLineIn (a search hit)', () => {
+  it('puts the caret at the start of the line in the note on screen; false past its end', async () => {
+    const f = fixture('one\ntwo\nthree\n')
+    const { view } = editorOver(f)
+    const open = vi.fn()
+    expect(await revealLineIn(PATH, 3, { open, frame: async () => {} })).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(view.state.selection.main.head).toBe(8)
+    expect(await revealLineIn(PATH, 9, { open, frame: async () => {}, tries: 2 })).toBe(false)
   })
 })
 

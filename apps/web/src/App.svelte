@@ -57,7 +57,7 @@
   import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
   import { requestComposerFocus } from './lib/sessions.svelte.js'
-  import { nextFrame, revealSuggestionIn, revealThreadIn } from './lib/suggestion-reveal.js'
+  import { nextFrame, revealLineIn, revealSuggestionIn, revealThreadIn } from './lib/suggestion-reveal.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
@@ -370,6 +370,7 @@
     commandKeys: (id) => nav.registry.binding(id),
     revealSuggestion: (path, id, opts = {}) => revealSuggestionIn(path, id, opts, revealDeps),
     revealThread: (path, threadId) => revealThreadIn(path, threadId, revealDeps),
+    revealLine: (path, line) => revealLineIn(path, line, revealDeps),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,

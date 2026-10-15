@@ -7394,6 +7394,17 @@ export type NamespaceWebTranslation = {
 				 */
 				open: string
 				/**
+				 * O​p​e​n​ ​{​p​a​t​h​}​ ​a​t​ ​l​i​n​e​ ​{​l​i​n​e​}
+				 * @param {number} line
+				 * @param {string} path
+				 */
+				open_hit: RequiredParams<'line' | 'path'>
+				/**
+				 * O​p​e​n​ ​{​p​a​t​h​}
+				 * @param {string} path
+				 */
+				open_note: RequiredParams<'path'>
+				/**
 				 * R​e​a​d​ ​{​w​h​a​t​}​ ​(​{​s​i​z​e​}​)
 				 * @param {string} size
 				 * @param {string} what
@@ -15739,6 +15750,14 @@ export type TranslationFunctions = {
 					 * Open
 					 */
 					open: () => LocalizedString
+					/**
+					 * Open {path} at line {line}
+					 */
+					open_hit: (arg: { line: number, path: string }) => LocalizedString
+					/**
+					 * Open {path}
+					 */
+					open_note: (arg: { path: string }) => LocalizedString
 					/**
 					 * Read {what} ({size})
 					 */

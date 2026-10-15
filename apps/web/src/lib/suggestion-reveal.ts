@@ -14,6 +14,9 @@
  * A comment thread comes back the same way (*Show thread* on a comment's
  * turn in the session): `revealThreadIn` opens the note and the thread's
  * bubble over its passage (`threads.svelte.ts` `openThread`).
+ *
+ * A search hit comes back by line (a session card's hit row): `revealLineIn`
+ * opens the note and puts the caret at the start of that line.
  */
 import { revealSuggestion } from '@ohhi/editor'
 import { commentRanges } from '@ohhi/editor'
@@ -67,6 +70,21 @@ export async function revealThreadIn(path: string, threadId: string, deps: Revea
   focusEditor(e.paneId)
   deps.focusPane?.(e.paneId)
   return openThread(path, threadId)
+}
+
+/**
+ * Open `path` with the caret at the start of 1-based `line`, scrolled into
+ * view, and that pane the focused one; false when the note never grew that
+ * many lines (it is open all the same).
+ */
+export async function revealLineIn(path: string, line: number, deps: RevealDeps): Promise<boolean> {
+  const e = await whenShown(path, (x) => x.view.state.doc.lines >= line, deps)
+  if (!e) return false
+  const anchor = e.view.state.doc.line(Math.max(1, line)).from
+  e.view.dispatch({ selection: { anchor }, scrollIntoView: true })
+  focusEditor(e.paneId)
+  deps.focusPane?.(e.paneId)
+  return true
 }
 
 /** The browser's next frame. */
