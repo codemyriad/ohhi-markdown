@@ -46,7 +46,7 @@
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { textPaths, type Workspace } from '../workspace.svelte.js'
   import CornerStatus from './CornerStatus.svelte'
-  import Dock from './Dock.svelte'
+  import Dock, { DOCK_CLEAR_PX } from './Dock.svelte'
   import FormatBar from './FormatBar.svelte'
   import GroupChip from './GroupChip.svelte'
   import ModeBar from './ModeBar.svelte'
@@ -104,6 +104,14 @@
   const corner = $derived(
     onNote && layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
   )
+  /**
+   * The closed dock strip floats at the top right over a file's tab. A
+   * note's text sits in the measure's margin, clear of it; a view that
+   * fills its pane (a collection's toolbar) reads `--ed-dock-clear` and
+   * keeps that much of its first row free, so the strip never covers a
+   * control. Zero when no strip floats there.
+   */
+  const dockClear = $derived(floatingDock && onNote && layout?.spec.dock.position === 'top-right' ? DOCK_CLEAR_PX : 0)
 
   /** The pane container the layer floats in, and what it must clear at its edges. */
   let stage = $state<HTMLElement | null>(null)
@@ -313,6 +321,7 @@
     style:--ed-measure={editor ? MEASURES[editor.measure] : undefined}
     style:--ed-float-bottom="{padBottom}px"
     style:--ed-float-top="{padTop}px"
+    style:--ed-dock-clear="{dockClear}px"
   >
     <div bind:this={stage} class="relative flex min-h-0 min-w-0 flex-1 bg-base-200">
       <PaneTree node={treeRoot} {ctx} />

@@ -6,7 +6,7 @@
  * `dense` — every test boots the device's own choice, `light`'s dock.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings } from './fixtures.js'
+import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings, runCommand } from './fixtures.js'
 
 async function boot(page: Page, room: string): Promise<void> {
   await page.goto(appUrl({ room, layout: null }))
@@ -248,4 +248,19 @@ test('at a narrow width the strip shrinks to its expand button; Focus mode hides
   await expect(page.getByTestId('dock')).toHaveCount(0)
   await page.keyboard.press('ControlOrMeta+.')
   await expect(page.getByTestId('dock')).toBeVisible()
+})
+
+test('over a collection the strip keeps clear of the toolbar: "+ New" is never under it (QA round 1)', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 700 })
+  await boot(page, 'dock-collection')
+  await openByQuickOpen(page, 'welcome')
+  await runCommand(page, 'New collection')
+  await expect(page.getByTestId('collection-view')).toBeVisible()
+  const strip = page.getByTestId('dock')
+  await expect(strip).toBeVisible()
+  const s = (await strip.boundingBox())!
+  const n = (await page.getByTestId('collection-new').boundingBox())!
+  // Side by side on the same row, the button wholly left of the strip.
+  expect(n.y < s.y + s.height && s.y < n.y + n.height).toBe(true)
+  expect(n.x + n.width).toBeLessThanOrEqual(s.x)
 })
