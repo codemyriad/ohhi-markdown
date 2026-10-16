@@ -4,7 +4,7 @@
 // flattened assets folder; see docs/desktop-builds.md ("Updates").
 //
 //   node updater-manifest.mjs --dir assets --version 0.1.42 \
-//     --base-url https://ohhi.example.ts.net/updates/v0.1.42 [--notes "…"] [--out assets/latest.json]
+//     --base-url https://ohhi.example.com/updates/v0.1.42 [--notes "…"] [--out assets/latest.json]
 //
 // Platforms: linux-x86_64 and linux-x86_64-appimage → the one *.AppImage;
 // linux-x86_64-deb → the one *.deb, only when its .sig exists (the updater

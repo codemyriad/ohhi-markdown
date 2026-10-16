@@ -1,14 +1,20 @@
 # The public deployment: app.ohhi.md and dist.ohhi.md
 
-Oh hi markdown ships in two **flavours** of one build. The team flavour is the
-one the team host serves over the company tailnet
-([deploy-tailnet.md](deploy-tailnet.md)), and it is unchanged. The public flavour is for everyone else:
+Oh hi markdown ships in two **flavours** of one build. The **public** flavour is
+the one that is deployed:
 
 ```
 https://app.ohhi.md     the web app (Cloudflare Pages, project ohhi-web)
 https://dist.ohhi.md      the desktop downloads and update feed (R2 bucket ohhi-dist)
-https://ohhi.md           the landing page, later (apps/site)
+https://ohhi.md           the landing page (apps/site)
 ```
+
+The **team** flavour is a self-hosted build: a team host serves the web app
+and the relay from one origin, the CSP is pinned to that host and the desktop
+app updates from it. It was built for a company deployment on a private
+network, which was abandoned on 2026-10-16: the team uses the public flavour
+with the company relay (below), and the team flavour is no longer deployed.
+Its code and workflow path remain in the tree until they are removed.
 
 The flavour is build config, not a fork. One variable, `VITE_FLAVOUR`, selects it
 ([`apps/web/scripts/flavour.mjs`](../apps/web/scripts/flavour.mjs)), and
@@ -21,18 +27,19 @@ fails, for example a public build given a team host, or a team build whose
 | | **team** | **public** |
 | --- | --- | --- |
 | Switch | `VITE_FLAVOUR=team`, set by `desktop-release.yml` when `TEAM_HOST` is set | `VITE_FLAVOUR=public` (`web-deploy.yml`, and *Run workflow* › channel `public`) |
-| Web app | `https://<team host>/`, served by the team host's Caddy from the release's `web.tar.gz` | `https://app.ohhi.md` on Cloudflare Pages, deployed on every push to `main` |
+| Web app | `https://<team host>/`, served by the team host's reverse proxy from the release's `web.tar.gz` | `https://app.ohhi.md` on Cloudflare Pages, deployed on every push to `main` |
 | Content Security Policy | `connect-src` pinned to `wss://<host> https://<host>` (`pin-csp.mjs`) | unpinned: `wss: https:`, so any relay and the AI providers the harness calls (Anthropic, OpenAI, OpenRouter, any OpenAI-compatible URL) stay reachable |
-| Default relay | `wss://<team host>/relay`, baked in. No other relay is offered. | none. The person enters one in Settings › Sync & devices, or opens a share link, which carries its relay. |
+| Default relay | `wss://<team host>/relay`, baked in. No other relay is offered. | none. The person enters one in Settings › Sync & devices (the team's is `wss://ohhi-relay.codemyriad.io`), or opens a share link, which carries its relay. |
 | Team sentences | `TEAM_SECRET_HINT`, `TEAM_NETWORK_NOTE` | none (the build refuses them) |
 | Desktop update feed | `https://<team host>/updates/latest.json` | `https://dist.ohhi.md/stable/latest.json` |
 | *Get the desktop app* list | `https://<team host>/updates/downloads.json` | `https://dist.ohhi.md/stable/downloads.json` |
 | Desktop share links | `https://<team host>/join#…` for the team relay, else the bare `editor1:` link | `https://app.ohhi.md/join#…` for any `wss:` relay, else the bare link |
-| Release tag | `v<version>`, which the team host's `ohhi-pull` deploys | `public-v<version>`, which `ohhi-pull` ignores |
+| Release tag | `v<version>`, which the team host's pull script deploys | `public-v<version>`, which that script ignores |
 
 Both flavours bake in the same `public/_headers`. It is Cloudflare Pages' own
-`_headers` format, so Pages applies it as is. `ohhi-pull` turns its `/*` rule
-into Caddy `header` lines. Only the public flavour leaves the CSP unpinned.
+`_headers` format, so Pages applies it as is; a team host's deploy script turns
+its `/*` rule into its reverse proxy's header lines. Only the public flavour
+leaves the CSP unpinned.
 
 The build-time values behind it (`apps/web/.env.example`):
 
@@ -115,7 +122,7 @@ Cloudflare step with a warning instead of failing.
 The **web app** follows `main` on every push. The **public desktop builds**
 ship only when someone runs the public channel, because of Actions minutes
 (macOS is billed at a multiple). Installed public apps update from
-`stable/latest.json` the same way team apps update from the team host.
+`stable/latest.json` the same way team apps update from their team host.
 
 ## *Get the desktop app*
 
@@ -138,12 +145,19 @@ cookies and no referrer.
 
 ## Open questions
 
-- **A public relay, or none?** The public build has no relay of its own: a
-  person runs one or joins through a share link. A hosted public relay
-  (`relay.ohhi.md`) would need abuse limits, an operator-secret story for
-  strangers and a cost owner. If one is decided, the flavour would set
-  `VITE_DEFAULT_RELAY` (today the build refuses it) and the no-relay copy
-  would change with it.
+- **A public relay, or none?** For the team, answered on 2026-10-16: the
+  company relay, `wss://ohhi-relay.codemyriad.io`, a relay the company runs
+  and publishes through a Cloudflare Tunnel (documented in the private
+  `codemyriad/systems` repository; the generic recipe is
+  [guide/relay.md](guide/relay.md)). The public build still bakes in no
+  relay: a teammate enters that URL in Settings › Sync & devices, or opens a
+  share link, which carries it. It had to be a public hostname: Chrome's
+  Local Network Access check blocks a page on `app.ohhi.md` from connecting
+  to a relay on a private address at all. A relay for strangers
+  (`relay.ohhi.md`) stays open: it would need abuse limits, an
+  operator-secret story for strangers and a cost owner. If one is decided,
+  the flavour would set `VITE_DEFAULT_RELAY` (today the build refuses it) and
+  the no-relay copy would change with it.
 - **A private repo behind a public dist.** The repository is private, so
   the GitHub release is only the build's record. Everything public comes from
   R2. Release notes ("What changed") open the bundled guide page, which works.
@@ -154,7 +168,7 @@ cookies and no referrer.
   ID certificate and notarization (the commented `APPLE_*` secrets in
   `desktop-release.yml`). Windows has no build at all, so *Get the desktop
   app* says so to Windows visitors and lists what there is.
-- **Two download hosts.** Team apps update from the team host and public apps from
+- **Two download hosts.** Team apps update from their team host and public apps from
   dist.ohhi.md, and their tags differ. A teammate who installs the public
   build gets public updates (no pin, no team relay). That is a different app
   in all but name, so the two should not be mixed on one machine.

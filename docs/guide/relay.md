@@ -66,12 +66,40 @@ The relay's address is then `wss://relay.example.com`. Each person sets it
 once in **Settings › Sync & devices**; every link made after that carries it, so the
 people you share with never type it.
 
-With the relay at the root path like this, links stay bare text starting with
-`editor1:`: the people you share with paste them into the app (*Add a folder
-someone shared with you*). Clickable `https://<host>/join#…` links need the
-web app served on the same host with the relay under `/relay`
-(`wss://<host>/relay`); then a link opens the join page on that host. The
-repository's `docs/deploy-tailnet.md` shows that layout.
+Links made in the web app at `app.ohhi.md` are clickable
+`https://app.ohhi.md/join#…` URLs for any `wss://` relay: the relay's address
+rides inside the link, and the join page checks that the relay answers before
+anyone joins. A desktop app that has no web origin to point at makes a bare
+link starting with `editor1:` instead, which the person you share with pastes
+into the app (*Add a folder someone shared with you*).
+
+## Behind a Cloudflare Tunnel
+
+If the machine sits behind a home or office router, a tunnel beats opening a
+port: `cloudflared` dials out to Cloudflare, and your public hostname routes
+back through it, so nothing listens on your network and your address is not
+published. Create a tunnel in the Cloudflare dashboard (Zero Trust › Networks
+› Tunnels), add a public hostname with service URL `http://relay:8787` (the
+relay service's name in `apps/relay/compose.yaml` and its port, at the root
+path), and run the connector beside the relay with its token:
+
+```yaml
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0   # pin it; --no-autoupdate below
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    env_file: cloudflared.env                 # TUNNEL_TOKEN=…, mode 600
+```
+
+WebSockets pass through a tunnel as they are, and the relay's own pings keep
+an idle connection alive under Cloudflare's hundred-second idle limit. The
+relay's address is then `wss://<your hostname>`, with no path.
+
+One caution about private addresses in general: a relay reachable only on a
+private network (a VPN, a home LAN) does not work from the web app at
+`app.ohhi.md` in Chrome, whose Local Network Access check blocks a public page
+from connecting to a private address. Firefox has no such check. A public
+hostname, or the desktop app, has no such limit.
 
 If the relay is reachable from the internet, it is reachable by anyone. Each
 folder is still protected by its links, but consider keeping the admin

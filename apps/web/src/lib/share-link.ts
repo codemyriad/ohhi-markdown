@@ -35,9 +35,9 @@
  * Which origin a URL link points at is the CALLER's choice: a browser can use
  * its own `location.origin`; the desktop can use `originForRelay`, which
  * derives `https://<host>` from a relay at `wss://<host>/relay`. That
- * derivation holds only because the team host serves the web app and the
- * relay from one origin (Caddy routes `/relay` to the relay, everything else
- * to the app — docs/deploy-tailnet.md). Any other relay shape (ws://,
+ * derivation holds only because such a team host serves the web app and the
+ * relay from one origin (its reverse proxy routes `/relay` to the relay,
+ * everything else to the app). Any other relay shape (ws://,
  * localhost, another path) has no known join page, so `originForRelay`
  * returns null and the caller falls back to the bare `editor1:` link.
  *
@@ -244,7 +244,7 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
  * The join page's origin for a relay, when it can be derived: a relay of the
  * team-host shape `wss://<host>/relay` (secure, path `/relay`, one trailing
  * slash tolerated, no query or fragment) → `https://<host>`, because the team
- * host serves the app and the relay from one origin (docs/deploy-tailnet.md).
+ * host serves the app and the relay from one origin (see the file comment).
  * Anything else — `ws://`, a loopback host, another path, an unparseable
  * string — is null, and the caller falls back to the bare `editor1:` link.
  */

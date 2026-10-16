@@ -9,7 +9,7 @@
 #   minutes are spent only when someone ships: `git push origin main:release`.
 #   Version
 #   <major>.<minor>.<run number> from tauri.conf.json, tag v<version>, a
-#   PUBLISHED prerelease. the team host's pull script picks it up (latest.json, the web
+#   PUBLISHED prerelease. The team host's pull script picks it up (latest.json, the web
 #   app) and installed desktop apps update from it. Bursts collapse:
 #   cancel-in-progress keeps only the newest release build running.
 # - tag v*: the version in tauri.conf.json (must match the tag), a DRAFT
@@ -57,7 +57,7 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: 'Which build: team (pinned to TEAM_HOST, the team host) or public (dist.ohhi.md)'
+        description: 'Which build: team (pinned to TEAM_HOST) or public (dist.ohhi.md)'
         type: choice
         options: [team, public]
         default: team
@@ -381,7 +381,7 @@ jobs:
           name: release-tools
           path: tools
 
-      # the team host fetches every asset from https://<team host>/updates/<tag>/, so
+      # The team host fetches every asset from https://<team host>/updates/<tag>/, so
       # a team latest.json's URLs point there, not at GitHub (a private repo's
       # assets need credentials the updater doesn't have); a public one's
       # point at https://dist.ohhi.md/<version>/, where the dist job puts them.

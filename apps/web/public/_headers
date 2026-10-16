@@ -1,7 +1,7 @@
 # Response headers for the hosted web app, in Cloudflare Pages' `_headers`
 # format: Pages (the public build, docs/public-deploy.md) reads this file as
-# is; the team host's ohhi-pull turns the `/*` rule — only that one — into
-# Caddy `header` lines (docs/deploy-tailnet.md). One source for both. Policy
+# is; a self-hosted team host's deploy script turns the `/*` rule — only that
+# one — into its reverse proxy's header lines. One source for both. Policy
 # and threat model: docs/desktop-builds.md. Must match the desktop policy in
 # apps/desktop/src-tauri/tauri.conf.json apart from Tauri's IPC sources
 # (apps/desktop/scripts/check-csp.mjs enforces it).
