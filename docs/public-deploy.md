@@ -106,6 +106,7 @@ Cloudflare step with a warning instead of failing.
   | Key | What | `Cache-Control` |
   | --- | --- | --- |
   | `<version>/<file>` | every asset but `web.tar.gz` (the installers, updater bundles, `.sig`s, both manifests, `SHA256SUMS.txt`) | `public, max-age=31536000, immutable` |
+  | `stable/latest/<file>` | the newest installers under version-less names (`ohhi_universal.dmg`, `ohhi_amd64.AppImage`, `ohhi_amd64.deb`) and a `SHA256SUMS.txt` listing those names, so `sha256sum -c` works on them: what [ohhi.md/download](https://ohhi.md/download) links (`apps/site/src/links.ts`) | `no-store` |
   | `stable/downloads.json` | the installers for *Get the desktop app* | `no-store` |
   | `stable/latest.json` | the updater feed, uploaded **last** | `no-store` |
 

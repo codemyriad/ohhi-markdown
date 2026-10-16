@@ -7,7 +7,8 @@
  * the release assets are `ohhi_<version>_universal.dmg`,
  * `ohhi_<version>_amd64.AppImage` and `ohhi_<version>_amd64.deb`
  * (.github/workflows/desktop-release.yml), and the alias drops the version.
- * Until that bucket exists these links are the plan, not a download.
+ * The workflow's `dist` job writes the aliases, and a SHA256SUMS.txt of
+ * them, on every public release (docs/public-deploy.md).
  */
 export const APP = 'https://app.ohhi.md'
 
