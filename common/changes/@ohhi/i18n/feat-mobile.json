@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Wording for the phone app: a vault on this phone, and how the phone app updates.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}
