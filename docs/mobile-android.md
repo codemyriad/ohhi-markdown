@@ -189,7 +189,7 @@ rewrites that file from the config and drops it.
 - **The emulator image's WebView is old** (128). A phone's WebView updates
   through the Play Store; what was checked here was checked on 128.
 - **Debug APKs only.** No release keystore, no store listing; CI
-  (`mobile.yml`, [mobile-builds.md](mobile-builds.md)) makes the same debug
+  (`mobile.yml`, [mobile-builds.md](mobile-builds.md)) makes an arm64 debug
   APK on every app push to `main`.
 - **`gen/android` is behind the CLI's template.** The project was generated
   by `@tauri-apps/cli` 2.11 (Gradle 8.14.3, AGP 8.11, Kotlin 1.9.25,

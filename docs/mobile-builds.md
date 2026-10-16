@@ -36,9 +36,9 @@ from iOS 26, so iOS 26.0 is the minimum.
 `libs/**` or the workflow builds both apps** (kind `debug`). Actions →
 **Mobile builds** → *Run workflow* builds on demand and asks for the kind:
 
-- **`debug`** (pushes, and the default): a debug-signed Android APK that
-  installs on any device or emulator, and an unsigned iOS Simulator app. No
-  secrets needed.
+- **`debug`** (pushes, and the default): a debug-signed arm64 Android APK
+  that installs on any phone (an x86_64 emulator wants a local build or a
+  `release` run), and an unsigned iOS Simulator app. No secrets needed.
 - **`release`**: a release Android APK (unsigned for now, so it does not
   install as is; see *Not done yet*) and, when all the Apple secrets below
   exist, a signed App Store build uploaded to TestFlight. Without them the iOS
@@ -56,9 +56,12 @@ The run number is this workflow's own; once it passes 999, bump `version`'s
 minor in `tauri.conf.json` (or set `bundle.android.versionCode`), or Android
 version codes start to overlap.
 
-Cost: the Android job compiles Rust four times (one per ABI, for the
-universal APK) on Linux minutes; the iOS job compiles once for the Simulator
-(twice for `release` with secrets) on macOS minutes, billed at a multiple. If
+Cost: the Android job compiles Rust once for `debug` (arm64 only: every
+phone, and a quarter of the time and disk of the universal APK, whose debug
+symbols overflowed a hosted runner on the first run) and four times for
+`release` (one per ABI, the universal APK) on Linux minutes; the iOS job
+compiles once for the Simulator (3 minutes on 2026-10-16; twice for `release`
+with secrets) on macOS minutes, billed at a multiple. If
 the budget bites, drop the push trigger to a path filter on
 `apps/desktop/**` or a nightly schedule.
 
@@ -69,7 +72,7 @@ release or sent to the team host.
 
 | Artifact | Contents |
 | --- | --- |
-| `ohhi-android-<kind>-<sha>` | `ohhi-<sha7>-universal-debug.apk` (or `-universal-release-unsigned.apk`): all four ABIs in one APK |
+| `ohhi-android-<kind>-<sha>` | `ohhi-<sha7>-arm64-debug.apk` (arm64 only), or `ohhi-<sha7>-universal-release-unsigned.apk` (all four ABIs in one APK) |
 | `ohhi-ios-simulator-<sha>` | `ohhi-<sha7>-ios-simulator-arm64.zip`: `ohhi.app` for an Apple-silicon Simulator |
 | `ohhi-ios-appstore-<sha>` | `ohhi-<sha7>-ios.ipa`, the signed App Store build (only for `release` with secrets); the same build goes to TestFlight |
 
