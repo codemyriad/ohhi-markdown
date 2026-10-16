@@ -33,6 +33,12 @@ export interface BootFailure {
    * offers "Allow access to this folder again" instead of a broken vault.
    */
   access?: true
+  /**
+   * Another tab of this browser holds the vault (one tab per browser vault,
+   * join-share-brief P3): nothing is wrong with the entry, so the manager
+   * says only that, with *Try again* for once the other tab has closed.
+   */
+  elsewhere?: true
 }
 
 /** A whole vault arriving (device-link N2): the two-phase panel's subject. */
@@ -150,7 +156,7 @@ export function createSession(host: SessionHost): Session {
         return
       }
       if (release === null) {
-        failure = { room: entry.room, message: getLL().web.manager.open_elsewhere({ name: entry.name }) }
+        failure = { room: entry.room, message: getLL().web.manager.open_elsewhere({ name: entry.name }), elsewhere: true }
         joining = null
         view = 'manager'
         busy = false

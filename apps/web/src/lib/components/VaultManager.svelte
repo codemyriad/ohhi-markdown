@@ -655,7 +655,7 @@
             {#if failed && failure}
               <div class="px-3 pb-2 pl-11">
                 <p role="alert" data-testid="vault-error:{entry.room}" class="text-xs text-error">
-                  {failure.access ? failure.message : t.vault_error({ message: failure.message })}
+                  {failure.access || failure.elsewhere ? failure.message : t.vault_error({ message: failure.message })}
                 </p>
                 <div class="mt-1.5 flex flex-wrap gap-2">
                   {#if failure.access}

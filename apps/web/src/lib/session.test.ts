@@ -93,7 +93,7 @@ describe('createSession', () => {
     expect(claims).toEqual(['room-a'])
     expect(session.view).toBe('manager')
     expect(session.busy).toBe(false)
-    expect(session.failure).toEqual({ room: 'room-a', message: getLL().web.manager.open_elsewhere({ name: A.name }) })
+    expect(session.failure).toEqual({ room: 'room-a', message: getLL().web.manager.open_elsewhere({ name: A.name }), elsewhere: true })
     expect(pending).toHaveLength(0) // nothing was read
 
     free = true
