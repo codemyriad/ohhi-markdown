@@ -118,8 +118,12 @@ list…*, then **Remove?** to confirm.
 
 This is desktop only, and a last resort. Oh hi markdown keeps its own data in:
 
-- Linux: `~/.local/share/md.ohhi.desktop/`
-- macOS: `~/Library/Application Support/md.ohhi.desktop/`
+- Linux: `~/.local/share/md.ohhi/`
+- macOS: `~/Library/Application Support/md.ohhi/`
+
+A version saved by a build from before 16 October 2026 may also be in the
+older folder in the same place, `md.ohhi.desktop`, which the app copied from
+and kept.
 
 Each saved version is one file under `stores/…/journal/`. The file is named
 `<n>.<time>.<size>-<path>.bin` (older versions may lack the `.<size>` part):
@@ -133,7 +137,7 @@ it to `.md`, and restore it like any other file. An empty file means the note
 didn't exist before that write.
 
 ```sh
-find ~/.local/share/md.ohhi.desktop/stores -path '*journal*' -name '*plan.md.bin' | sort
+find ~/.local/share/md.ohhi/stores -path '*journal*' -name '*plan.md.bin' | sort
 ```
 
 Only the newest 20 versions per note are kept. Copy the ones you need before
