@@ -22,6 +22,7 @@
   import { isMobile } from '../platform.js'
   import { clockTick } from '../relative-time.js'
   import DesktopDownload from './DesktopDownload.svelte'
+  import Wordmark from '../ui/Wordmark.svelte'
   import { BUTTON, EYEBROW, GROUP, META } from '../ui/styles.js'
 
   interface Props {
@@ -56,6 +57,7 @@
 </script>
 
 <section data-testid="settings-about">
+  <Wordmark as="p" class="mb-4" testid="settings-about-wordmark" />
   <h3 class={EYEBROW}>{t.updates()}</h3>
   <p class="mt-1 text-[13px] text-base-content/70" data-testid="settings-version">{version}</p>
   {#if mobile}

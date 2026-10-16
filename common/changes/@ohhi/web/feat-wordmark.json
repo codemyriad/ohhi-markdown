@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The name is drawn as the wordmark — \"Oh Hi\" on the highlighter, then \"markdown\" with its \"mark\" leaning — throughout the chrome, not only on the splash: the vault list's header and heading, the welcome heading (now the full name, in place of \"Oh Hi.\"), the Settings header, Settings › About and the join page's brand line. The welcome's subline reads \"A markdown editor for personal and collaborative notes.\"",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}
