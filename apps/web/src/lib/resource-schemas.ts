@@ -143,7 +143,7 @@ export function generateResourceSchemas(): Map<string, string> {
       toSchema(
         LayoutDocSchema,
         LAYOUT_SCHEMA_ID,
-        'An Oh hi markdown layout file: <vault>/.ohhi/layouts/<name>.json (or ~/.config/ohhi/layouts/ on desktop). A partial over the layout it extends. See docs/customising.md.'
+        'An Oh Hi markdown layout file: <vault>/.ohhi/layouts/<name>.json (or ~/.config/ohhi/layouts/ on desktop). A partial over the layout it extends. See docs/customising.md.'
       ),
     ],
     [
@@ -151,7 +151,7 @@ export function generateResourceSchemas(): Map<string, string> {
       toSchema(
         KeymapDocSchema,
         KEYMAP_SCHEMA_ID,
-        'An Oh hi markdown keymap file: <vault>/.ohhi/keymaps/<name>.json (or ~/.config/ohhi/keymaps/ on desktop). Overrides over the command table\'s default keys: a chord, several, or [] to unbind. See docs/customising.md.'
+        'An Oh Hi markdown keymap file: <vault>/.ohhi/keymaps/<name>.json (or ~/.config/ohhi/keymaps/ on desktop). Overrides over the command table\'s default keys: a chord, several, or [] to unbind. See docs/customising.md.'
       ),
     ],
   ])

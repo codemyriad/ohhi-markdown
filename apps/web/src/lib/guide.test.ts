@@ -20,7 +20,7 @@ describe('openGuide', () => {
   it('opens one window per page on the desktop, on the bundled copy', async () => {
     const o = openers(true)
     await openGuide('recovery', { openers: o })
-    expect(o.openWindow).toHaveBeenCalledWith('guide-recovery', guideHref('recovery'), 'Oh hi markdown guide')
+    expect(o.openWindow).toHaveBeenCalledWith('guide-recovery', guideHref('recovery'), 'Oh Hi markdown guide')
     expect(o.openTab).not.toHaveBeenCalled()
   })
 

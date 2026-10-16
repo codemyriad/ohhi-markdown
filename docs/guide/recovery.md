@@ -6,8 +6,8 @@ date: 2026-10-10
 
 # When something goes wrong
 
-This page is for everyone using Oh hi markdown day to day. The short version: your notes are
-ordinary files on disk, and Oh hi markdown never holds the only copy of them. Nearly
+This page is for everyone using Oh Hi markdown day to day. The short version: your notes are
+ordinary files on disk, and Oh Hi markdown never holds the only copy of them. Nearly
 everything that can go wrong can be undone, **as long as you set up snapshots
 first**.
 
@@ -29,7 +29,7 @@ first**.
    ```
 
    Every 10 minutes, this commits the vault to a history kept *outside* the
-   vault. The script lives in the Oh hi markdown repository, under
+   vault. The script lives in the Oh Hi markdown repository, under
    `scripts/vault-snapshot/`; its README covers every command.
 
 ## What keeps your notes safe
@@ -38,7 +38,7 @@ first**.
 |---|---|---|---|
 | **Your files** | the notes themselves | your vault folder | any app |
 | **Snapshots** (once installed) | the whole vault, every 10 minutes | `~/.local/share/ohhi-snapshots/` (Linux), `~/Library/Application Support/ohhi-snapshots/` (macOS) | `vault-snapshot.sh log / show / restore` |
-| **Pre-image journal** | a note's previous content, saved before *every* write or delete Oh hi markdown makes to it; the newest 20 per note | Oh hi markdown's app data (see [below](#getting-a-version-out-of-the-journal)) | by hand only |
+| **Pre-image journal** | a note's previous content, saved before *every* write or delete Oh Hi markdown makes to it; the newest 20 per note | Oh Hi markdown's app data (see [below](#getting-a-version-out-of-the-journal)) | by hand only |
 | **Synced copies** | shared folders only | teammates' devices, and the relay | re-join the folder |
 
 Snapshots are the recovery tool. The journal is the last resort, and it has
@@ -51,9 +51,9 @@ versions each file has, but restoring is the History section's job.
 
 ## Undo a change with your snapshots
 
-This works the same whether you broke the note yourself, Oh hi markdown did, or a
+This works the same whether you broke the note yourself, Oh Hi markdown did, or a
 teammate's edit or delete synced in. Put the good version back on disk, and
-Oh hi markdown treats it as an edit you made, which then syncs to everyone sharing the
+Oh Hi markdown treats it as an edit you made, which then syncs to everyone sharing the
 folder.
 
 ```sh
@@ -62,27 +62,27 @@ vault-snapshot.sh restore ~/Notes projects/plan.md 3f2a1c9
 vault-snapshot.sh restore ~/Notes projects 3f2a1c9        # or a whole folder
 ```
 
-**Then quit Oh hi markdown and open it again.** Here is why:
+**Then quit Oh Hi markdown and open it again.** Here is why:
 
-- **The note still exists** (you're undoing an edit). Oh hi markdown notices the file
+- **The note still exists** (you're undoing an edit). Oh Hi markdown notices the file
   change straight away and takes it in as an ordinary edit. Reopening does no
   harm.
-- **The note had been deleted.** Oh hi markdown only picks up *new* files when it opens
+- **The note had been deleted.** Oh Hi markdown only picks up *new* files when it opens
   a vault, not while it is running. Reopening brings the note back into the
   vault, and it syncs to the folder as a new note.
-- **Big differences ask first.** Oh hi markdown opens a review instead of applying the
-  restore in two cases: the restored version differs from what Oh hi markdown last saw
+- **Big differences ask first.** Oh Hi markdown opens a review instead of applying the
+  restore in two cases: the restored version differs from what Oh Hi markdown last saw
   by more than about 60% (on notes over about 240 characters), or the note also
-  changed in Oh hi markdown in the meantime. **Keep theirs** takes the version on disk,
+  changed in Oh Hi markdown in the meantime. **Keep theirs** takes the version on disk,
   which is your restore.
-- **Many files at once.** If more than 20 files changed while Oh hi markdown was
+- **Many files at once.** If more than 20 files changed while Oh Hi markdown was
   closed, it stops at a *"N files changed at once"* dialog before syncing any
   of them. **Apply changes** goes ahead. **Not now** leaves them alone for this
   session.
 
-For a big restore, **quit Oh hi markdown first, then restore, then open it**. You get
+For a big restore, **quit Oh Hi markdown first, then restore, then open it**. You get
 one dialog listing everything, instead of the changes flowing out one note at a
-time while Oh hi markdown runs.
+time while Oh Hi markdown runs.
 
 A restore never deletes anything, and it snapshots the vault first, so you can
 undo a restore the same way.
@@ -91,10 +91,10 @@ undo a restore the same way.
 
 | What happened | What survives | What to do |
 |---|---|---|
-| **Oh hi markdown wrote something wrong into a note** (garbled, cut short, a bad merge) | the previous version, in your snapshots and in the journal | Restore it from a snapshot (above). No snapshots? Take it from the [journal](#getting-a-version-out-of-the-journal). Then [report it](#reporting-a-problem). |
-| **A teammate's edit or delete synced to you** | your snapshots; the journal also holds the version Oh hi markdown overwrote or removed on your disk | Restore the note or folder from a snapshot, then quit and reopen Oh hi markdown. Your restored version syncs back to everyone. Let the teammate know. |
-| **You deleted a note outside Oh hi markdown** (file manager, terminal) | the synced content | Oh hi markdown asks what to do. **Restore file** puts it back from the synced copy. **Confirm removal** deletes it for everyone sharing the folder, and journals a copy first. |
-| **Oh hi markdown's sync state is broken** (a vault won't open, or errors appear on every note) | your files: sync state is kept separately | Take a snapshot, then [report it](#reporting-a-problem) before anything else. The last resort is in [Resetting a vault's sync state](#resetting-a-vaults-sync-state). |
+| **Oh Hi markdown wrote something wrong into a note** (garbled, cut short, a bad merge) | the previous version, in your snapshots and in the journal | Restore it from a snapshot (above). No snapshots? Take it from the [journal](#getting-a-version-out-of-the-journal). Then [report it](#reporting-a-problem). |
+| **A teammate's edit or delete synced to you** | your snapshots; the journal also holds the version Oh Hi markdown overwrote or removed on your disk | Restore the note or folder from a snapshot, then quit and reopen Oh Hi markdown. Your restored version syncs back to everyone. Let the teammate know. |
+| **You deleted a note outside Oh Hi markdown** (file manager, terminal) | the synced content | Oh Hi markdown asks what to do. **Restore file** puts it back from the synced copy. **Confirm removal** deletes it for everyone sharing the folder, and journals a copy first. |
+| **Oh Hi markdown's sync state is broken** (a vault won't open, or errors appear on every note) | your files: sync state is kept separately | Take a snapshot, then [report it](#reporting-a-problem) before anything else. The last resort is in [Resetting a vault's sync state](#resetting-a-vaults-sync-state). |
 | **The relay is lost** | everything: every device keeps full copies, and the files are on disk | Keep working. Edits sync once the relay is back, and the sync pill won't show green until then. Restoring the relay from its backup is the operator's job. If it comes back without its data, or from a backup older than a share, those links stop working. The operator then creates the shares again and sends new links. Ask before re-joining: joining needs a new or empty folder. |
 | **Browser storage was cleared** | shared folders, on teammates' devices and the relay | Re-join your shared folders from their links. Notes that lived only in that browser vault are gone, which is why your own notes belong in the desktop app. |
 | **A lost machine or dead disk** | shared folders, on teammates' devices and the relay | Re-join shared folders on the new machine. Your private notes and your snapshots were on that disk, so only an off-machine backup brings them back. The snapshot script doesn't make one. |
@@ -116,7 +116,7 @@ list…*, then **Remove?** to confirm.
 
 ## Getting a version out of the journal
 
-This is desktop only, and a last resort. Oh hi markdown keeps its own data in:
+This is desktop only, and a last resort. Oh Hi markdown keeps its own data in:
 
 - Linux: `~/.local/share/md.ohhi.desktop/`
 - macOS: `~/Library/Application Support/md.ohhi.desktop/`
@@ -137,14 +137,14 @@ find ~/.local/share/md.ohhi.desktop/stores -path '*journal*' -name '*plan.md.bin
 ```
 
 Only the newest 20 versions per note are kept. Copy the ones you need before
-Oh hi markdown writes that note many more times, and don't edit anything else in this
+Oh Hi markdown writes that note many more times, and don't edit anything else in this
 folder. A browser vault's journal is inside the browser and can't be reached.
 
-## Where Oh hi markdown keeps its state
+## Where Oh Hi markdown keeps its state
 
 - **Desktop:** the app data folder above. `stores/<vault>/` holds the vault's
   folder list (`mounts.json`). For the vault and for each shared folder, it
-  also holds the sync state, what Oh hi markdown last saw on disk (`lca.json`), the
+  also holds the sync state, what Oh Hi markdown last saw on disk (`lca.json`), the
   journal, and `events.json` — that folder's recent changes and connection
   history as the Log view and the Shared view's Changes show them (capped, and
   safe to delete: it only empties those lists). The vault list, settings and share tokens live in the app's own

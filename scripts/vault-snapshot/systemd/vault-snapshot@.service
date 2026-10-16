@@ -3,7 +3,7 @@
 # ~/.config/systemd/user/ by `vault-snapshot.sh install`, which fills in the
 # @…@ placeholders.
 [Unit]
-Description=Snapshot Oh hi markdown vault %f into its local history
+Description=Snapshot Oh Hi markdown vault %f into its local history
 
 [Service]
 Type=oneshot

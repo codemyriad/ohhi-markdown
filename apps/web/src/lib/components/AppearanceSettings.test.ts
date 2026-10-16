@@ -135,7 +135,7 @@ describe('Settings › Appearance — the example themes (Nord out of the built-
     expect(screen.getByTestId('theme-example-error')).toHaveTextContent('already has .ohhi/themes/nord-dark/theme.css')
   })
 
-  it('a stored nord-dark: the vault without the folder shows Oh hi Dark standing in; Add applies Nord Dark at once', async () => {
+  it('a stored nord-dark: the vault without the folder shows Oh Hi Dark standing in; Add applies Nord Dark at once', async () => {
     const user = userEvent.setup()
     const disk: Record<string, string> = {}
     const read = async (path: string) => disk[path] ?? null
@@ -147,7 +147,7 @@ describe('Settings › Appearance — the example themes (Nord out of the built-
     expect(document.documentElement.getAttribute('data-polarity')).toBe('dark')
 
     render(AppearanceSettings, { props: { readAppFile: read, writeAppFile, themes: [] }, context: settingsEnvContext(env(true)) })
-    expect(screen.getByTestId('theme-source-name')).toHaveTextContent('Oh hi Dark')
+    expect(screen.getByTestId('theme-source-name')).toHaveTextContent('Oh Hi Dark')
     expect(screen.getByTestId('theme-source-fallback')).toHaveTextContent('nord-dark')
     await user.click(screen.getByTestId('theme-example-add:nord-dark'))
     expect(document.documentElement.getAttribute('data-theme')).toBe('nord-dark')

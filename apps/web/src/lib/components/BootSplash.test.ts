@@ -39,7 +39,7 @@ describe('BootSplash', () => {
     expect(screen.queryByRole('status')).toBeNull()
 
     clock.advance(1)
-    expect(screen.getByText('Oh hi markdown')).toBeInTheDocument()
+    expect(screen.getByText('Oh Hi markdown')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Opening your notes…')
     // Never "connecting": the relay is not what an open waits for.
     expect(screen.getByTestId('connecting')).not.toHaveTextContent(/connecting/i)

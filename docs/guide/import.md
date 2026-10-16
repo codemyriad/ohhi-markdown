@@ -6,7 +6,7 @@ date: 2026-10-10
 
 # Bringing notes from another app
 
-Oh hi markdown works on a folder of plain markdown (`.md`) files. Anything you
+Oh Hi markdown works on a folder of plain markdown (`.md`) files. Anything you
 can turn into that folder, you can open. Nothing is imported into a database:
 the folder *is* your notes.
 
@@ -15,7 +15,7 @@ the folder *is* your notes.
 Open the vault folder itself: *Open a folder of notes*, then pick it. That is
 all.
 
-- Nothing in it is rewritten or moved. Obsidian and Oh hi markdown can both
+- Nothing in it is rewritten or moved. Obsidian and Oh Hi markdown can both
   open the same folder.
 - Obsidian's settings folder (`.obsidian/`) is left alone. Your daily-note
   settings are read from it, so *Today's daily note* lands where Obsidian
@@ -27,7 +27,7 @@ all.
 1. In Notion: **Settings → Export**, or a page's **⋯ → Export**. Choose
    **Markdown & CSV**, include subpages, and download the zip.
 2. Unzip it into a new folder.
-3. In Oh hi markdown: *Open a folder of notes* and pick that folder.
+3. In Oh Hi markdown: *Open a folder of notes* and pick that folder.
 
 Pages become notes and subpages become folders. A Notion **database** comes
 out as a folder of notes plus a CSV file; for now it stays that way — a folder

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ohhi.md/schema/ohhi.layout.v1.schema.json",
   "title": "ohhi.layout.v1",
-  "description": "An Oh hi markdown layout file: <vault>/.ohhi/layouts/<name>.json (or ~/.config/ohhi/layouts/ on desktop). A partial over the layout it extends. See docs/customising.md.",
+  "description": "An Oh Hi markdown layout file: <vault>/.ohhi/layouts/<name>.json (or ~/.config/ohhi/layouts/ on desktop). A partial over the layout it extends. See docs/customising.md.",
   "type": "object",
   "properties": {
     "$schema": {

@@ -3,7 +3,7 @@ status: current
 date: 2026-10-06
 ---
 
-# Customising Oh hi markdown — layouts, keymaps, templates
+# Customising Oh Hi markdown — layouts, keymaps, templates
 
 Everything you can change about the shell's shape is a **file**: JSON for
 layouts and keymaps, markdown for templates, CSS for themes. Files are data,

@@ -14,8 +14,8 @@
  * Built-in themes, in the order Settings › Appearance lists them. `system` is
  * a preference, not a theme — see ThemePref.
  *
- * `editor-light` / `editor-dark` are the default pair, labelled "Oh hi Light"
- * and "Oh hi Dark": the ids are plumbing kept from before the themes review
+ * `editor-light` / `editor-dark` are the default pair, labelled "Oh Hi Light"
+ * and "Oh Hi Dark": the ids are plumbing kept from before the themes review
  * (2026-10-15, v2-shaping Fork 2 amendment, 2-A), so a stored preference keeps
  * working while the values are the Ledger direction's. Graphite, Fjord and
  * Iris are the review's other three directions. Nord, the Obsidian port, is

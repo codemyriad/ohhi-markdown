@@ -6,8 +6,8 @@ date: 2026-10-10
 
 # Getting started
 
-Oh hi markdown is a notes app for a folder of plain markdown files. Your notes
-stay ordinary files on your disk: any other app can open them, and Oh hi
+Oh Hi markdown is a notes app for a folder of plain markdown files. Your notes
+stay ordinary files on your disk: any other app can open them, and Oh Hi
 markdown never keeps the only copy. When you want to, you can share one folder
 with other people and edit it together, live.
 
@@ -21,7 +21,7 @@ notes inside the browser (see [the browser](#or-use-a-browser) below).
 **Where the builds are.** In the browser app, Settings › About › *Desktop
 app* links the newest build for your computer (so does the palette's *Get the
 desktop app*). The public builds are at `https://dist.ohhi.md`. If your team
-runs its own host for Oh hi markdown, that host serves every release under
+runs its own host for Oh Hi markdown, that host serves every release under
 `/updates/`, and the person who set it up has the link. Releases are also
 attached in the repository, for those who have access to it.
 

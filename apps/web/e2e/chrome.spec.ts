@@ -655,7 +655,7 @@ test('the vault manager welcomes, then lists its vaults with their facts, and re
 }) => {
   // A fresh install: the welcome, which asks for no name (first-run A1, Fork 5-A).
   await page.goto(MANAGER_URL)
-  await expect(page.getByRole('heading', { name: 'Oh hi.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Oh Hi.' })).toBeVisible()
   await expect(page.getByTestId('manager-name')).toHaveCount(0)
   await createBrowserVault(page, 'Polish')
   await openManager(page)

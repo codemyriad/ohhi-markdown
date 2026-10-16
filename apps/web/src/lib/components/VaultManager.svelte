@@ -3,7 +3,7 @@
    * The vault manager (first-run A1/B1, superseding shell-polish P4's two
    * columns). Two states of one screen:
    *
-   *  - **the welcome** — no vault registered: "Oh hi.", one sentence and the
+   *  - **the welcome** — no vault registered: "Oh Hi.", one sentence and the
    *    doors worded as the thing you have (a folder of notes / a vault in
    *    this browser, a folder someone shared, your vault on another device);
    *  - **the list** — one row per vault with what it is (kind, where, when

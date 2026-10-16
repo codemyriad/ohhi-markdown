@@ -9099,7 +9099,7 @@ type DisallowNamespaces = {
 export type TranslationFunctions = {
 	common: {
 		/**
-		 * Oh hi markdown
+		 * Oh Hi markdown
 		 */
 		app_name: () => LocalizedString
 		/**
@@ -10932,7 +10932,7 @@ export type TranslationFunctions = {
 		}
 		daily: {
 			/**
-			 * Obsidian’s daily-note format “{format}” uses {tokens}, which Oh hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.
+			 * Obsidian’s daily-note format “{format}” uses {tokens}, which Oh Hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.
 			 */
 			unsupported_format: (arg: { format: string, tokens: string }) => LocalizedString
 		}
@@ -10942,7 +10942,7 @@ export type TranslationFunctions = {
 			 */
 			no_note: () => LocalizedString
 			/**
-			 * No earlier versions yet — Oh hi markdown saves one every time it writes this file.
+			 * No earlier versions yet — Oh Hi markdown saves one every time it writes this file.
 			 */
 			empty: () => LocalizedString
 			/**
@@ -11131,7 +11131,7 @@ export type TranslationFunctions = {
 			}
 			report: {
 				/**
-				 * Oh hi markdown — log ({count} event{{s}}, copied {time})
+				 * Oh Hi markdown — log ({count} event{{s}}, copied {time})
 				 */
 				header: (arg: { count: number, time: string }) => LocalizedString
 				/**
@@ -11883,7 +11883,7 @@ export type TranslationFunctions = {
 			no_vaults: () => LocalizedString
 			welcome: {
 				/**
-				 * Oh hi.
+				 * Oh Hi.
 				 */
 				title: () => LocalizedString
 				/**
@@ -12146,7 +12146,7 @@ export type TranslationFunctions = {
 			 */
 			open_folder: () => LocalizedString
 			/**
-			 * This browser doesn't support the private file storage (OPFS) Oh hi markdown needs — try a recent Chrome, Edge, or Firefox.
+			 * This browser doesn't support the private file storage (OPFS) Oh Hi markdown needs — try a recent Chrome, Edge, or Firefox.
 			 */
 			no_opfs: () => LocalizedString
 			/**
@@ -12242,7 +12242,7 @@ export type TranslationFunctions = {
 			 */
 			guide: () => LocalizedString
 			/**
-			 * Everything you open stays where it is on disk. Oh hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.
+			 * Everything you open stays where it is on disk. Oh Hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.
 			 */
 			foot: () => LocalizedString
 		}
@@ -12523,16 +12523,16 @@ export type TranslationFunctions = {
 				 */
 				system: () => LocalizedString
 				/**
-				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.
+				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh Hi Light or Oh Hi Dark, our defaults. Graphite, Fjord and Iris are our own too.
 				 */
 				theme_help: (arg: { system: string }) => LocalizedString
 				theme_names: {
 					/**
-					 * Oh hi Light
+					 * Oh Hi Light
 					 */
 					editor_light: () => LocalizedString
 					/**
-					 * Oh hi Dark
+					 * Oh Hi Dark
 					 */
 					editor_dark: () => LocalizedString
 					/**
@@ -13111,7 +13111,7 @@ export type TranslationFunctions = {
 				 */
 				conflict: (arg: { commands: string }) => LocalizedString
 				/**
-				 * Your desktop takes this key before Oh hi markdown can see it.
+				 * Your desktop takes this key before Oh Hi markdown can see it.
 				 */
 				reserved: () => LocalizedString
 				/**
@@ -13459,7 +13459,7 @@ export type TranslationFunctions = {
 				 */
 				agent: () => LocalizedString
 				/**
-				 * In the Oh hi vault at "{vault}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.
+				 * In the Oh Hi vault at "{vault}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh Hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.
 				 */
 				agent_prompt: (arg: { vault: string }) => LocalizedString
 				/**
@@ -13729,7 +13729,7 @@ export type TranslationFunctions = {
 				 */
 				missing_fields: () => LocalizedString
 				/**
-				 * That link was made by a newer version of Oh hi markdown — update this device first.
+				 * That link was made by a newer version of Oh Hi markdown — update this device first.
 				 */
 				unknown_kind: () => LocalizedString
 				/**
@@ -14009,11 +14009,11 @@ export type TranslationFunctions = {
 				 */
 				copy_message_for: (arg: { name: string }) => LocalizedString
 				/**
-				 * I shared {folder} with you in Oh hi markdown. Open this link: {link}
+				 * I shared {folder} with you in Oh Hi markdown. Open this link: {link}
 				 */
 				message: (arg: { folder: string, link: string }) => LocalizedString
 				/**
-				 * I shared {folder} with you in Oh hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link}
+				 * I shared {folder} with you in Oh Hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link}
 				 */
 				message_bare: (arg: { folder: string, link: string }) => LocalizedString
 				/**
@@ -14126,7 +14126,7 @@ export type TranslationFunctions = {
 		}
 		join_page: {
 			/**
-			 * Oh hi markdown · a folder shared with you
+			 * Oh Hi markdown · a folder shared with you
 			 */
 			brand: () => LocalizedString
 			/**
@@ -14218,11 +14218,11 @@ export type TranslationFunctions = {
 			 */
 			copy: () => LocalizedString
 			/**
-			 * Copied. Open Oh hi markdown on this computer and choose Add a folder someone shared.
+			 * Copied. Open Oh Hi markdown on this computer and choose Add a folder someone shared.
 			 */
 			copied: () => LocalizedString
 			/**
-			 * This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Add a folder someone shared.
+			 * This browser would not copy it. Select the link below and copy it, then open Oh Hi markdown on this computer and choose Add a folder someone shared.
 			 */
 			copy_failed: () => LocalizedString
 			/**
@@ -14262,7 +14262,7 @@ export type TranslationFunctions = {
 			 */
 			error_heading: () => LocalizedString
 			/**
-			 * Ask for the link again, or paste it in the app: open Oh hi markdown and choose Add a folder someone shared.
+			 * Ask for the link again, or paste it in the app: open Oh Hi markdown and choose Add a folder someone shared.
 			 */
 			error_fallback: () => LocalizedString
 			/**
@@ -14278,15 +14278,15 @@ export type TranslationFunctions = {
 			 */
 			device_vault: () => LocalizedString
 			/**
-			 * Copy it, then in Oh hi markdown on that computer choose Link this device.
+			 * Copy it, then in Oh Hi markdown on that computer choose Link this device.
 			 */
 			device_desktop_hint: () => LocalizedString
 			/**
-			 * Copied. Open Oh hi markdown on this computer and choose Link this device.
+			 * Copied. Open Oh Hi markdown on this computer and choose Link this device.
 			 */
 			device_copied: () => LocalizedString
 			/**
-			 * This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Link this device.
+			 * This browser would not copy it. Select the link below and copy it, then open Oh Hi markdown on this computer and choose Link this device.
 			 */
 			device_copy_failed: () => LocalizedString
 			/**
@@ -14638,7 +14638,7 @@ export type TranslationFunctions = {
 			 */
 			description: (arg: { reason: string }) => LocalizedString
 			/**
-			 * This file was deleted on disk outside Oh hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).
+			 * This file was deleted on disk outside Oh Hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).
 			 */
 			vanished: () => LocalizedString
 			/**
@@ -14771,7 +14771,7 @@ export type TranslationFunctions = {
 				 */
 				fallback_label: () => LocalizedString
 				/**
-				 * Oh hi inspector report
+				 * Oh Hi inspector report
 				 */
 				report_title: () => LocalizedString
 			}
@@ -15386,7 +15386,7 @@ export type TranslationFunctions = {
 				report: () => LocalizedString
 			}
 			/**
-			 * Oh hi markdown guide
+			 * Oh Hi markdown guide
 			 */
 			window_title: () => LocalizedString
 			report: {
@@ -15431,7 +15431,7 @@ export type TranslationFunctions = {
 				 */
 				fallback_label: () => LocalizedString
 				/**
-				 * Oh hi markdown — problem report ({time})
+				 * Oh Hi markdown — problem report ({time})
 				 */
 				header: (arg: { time: string }) => LocalizedString
 				/**
@@ -15443,7 +15443,7 @@ export type TranslationFunctions = {
 				 */
 				what_empty: () => LocalizedString
 				/**
-				 * App: Oh hi markdown {version} · {platform}
+				 * App: Oh Hi markdown {version} · {platform}
 				 */
 				app: (arg: { platform: string, version: string }) => LocalizedString
 				/**
@@ -16503,7 +16503,7 @@ export type TranslationFunctions = {
 				 */
 				untrusted: () => LocalizedString
 				/**
-				 * It arrived by sync or was written outside Oh hi, or changed there since you trusted it. The agent is not offered it until you review it.
+				 * It arrived by sync or was written outside Oh Hi, or changed there since you trusted it. The agent is not offered it until you review it.
 				 */
 				untrusted_hint: () => LocalizedString
 				/**
@@ -16515,7 +16515,7 @@ export type TranslationFunctions = {
 				 */
 				scripts: () => LocalizedString
 				/**
-				 * It ships a scripts/ folder. Oh hi never runs scripts; an agent on your computer, like Claude Code, might.
+				 * It ships a scripts/ folder. Oh Hi never runs scripts; an agent on your computer, like Claude Code, might.
 				 */
 				scripts_hint: () => LocalizedString
 				/**
@@ -16710,7 +16710,7 @@ export type TranslationFunctions = {
 					 */
 					label: () => LocalizedString
 					/**
-					 * Copies trusted, enabled skills into .claude/skills/, where Claude Code looks. A folder there that Oh hi did not make is never touched.
+					 * Copies trusted, enabled skills into .claude/skills/, where Claude Code looks. A folder there that Oh Hi did not make is never touched.
 					 */
 					hint: () => LocalizedString
 					/**
@@ -16796,7 +16796,7 @@ export type TranslationFunctions = {
 					 */
 					binary_listed: (arg: { count: number }) => LocalizedString
 					/**
-					 * It ships scripts. Oh hi never runs them, but read them before you trust it: an agent on your computer might.
+					 * It ships scripts. Oh Hi never runs them, but read them before you trust it: an agent on your computer might.
 					 */
 					scripts: () => LocalizedString
 					/**

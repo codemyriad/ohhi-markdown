@@ -278,7 +278,7 @@ describe('createSession — a vault theme the vault does not hold (Nord out of t
     applyTheme('system')
   })
 
-  it('a stored nord-dark and no folder: Oh hi Dark stands in, the preference is kept, and it is said once — ever', async () => {
+  it('a stored nord-dark and no folder: Oh Hi Dark stands in, the preference is kept, and it is said once — ever', async () => {
     themeState.pref = 'custom:nord-dark'
     const a = vaultWith('room-a', {})
     const done = session.boot(A)

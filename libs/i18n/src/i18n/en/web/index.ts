@@ -705,7 +705,7 @@ const commands = {
  */
 const history = {
   no_note: 'Open a note to see its history.',
-  empty: 'No earlier versions yet — Oh hi markdown saves one every time it writes this file.',
+  empty: 'No earlier versions yet — Oh Hi markdown saves one every time it writes this file.',
   loading: 'Reading the journal…',
   list_label: 'Earlier versions of {name:string}',
   restore: 'Restore',
@@ -727,7 +727,7 @@ const history = {
  */
 const daily = {
   unsupported_format:
-    'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Oh hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
+    'Obsidian’s daily-note format “{format:string}” uses {tokens:string}, which Oh Hi markdown does not understand yet and prints as written. Today’s note may not be the one Obsidian would open.',
 }
 
 /**
@@ -782,7 +782,7 @@ const log = {
   },
   /** The plain-text bug report "Copy as text" produces. */
   report: {
-    header: 'Oh hi markdown — log ({count:number} event{{s}}, copied {time:string})',
+    header: 'Oh Hi markdown — log ({count:number} event{{s}}, copied {time:string})',
     hint: 'hint: {hint:string}',
   },
   level_name: {
@@ -1081,7 +1081,7 @@ const manager = {
   no_vaults: 'No vaults yet. Add a folder, link a device, or add a shared folder to get started.',
   // ---- the welcome: the manager with no vault registered (first-run A1) ----
   welcome: {
-    title: 'Oh hi.',
+    title: 'Oh Hi.',
     lede: 'Your notes stay plain markdown files, and the app never holds the only copy. Pick how you want to start.',
     doors: 'Ways to start',
     folder: 'Open a folder of notes',
@@ -1169,7 +1169,7 @@ const manager = {
   pick_folder: "Pick a folder on disk (use the dialog's New Folder to create a fresh vault).",
   open_folder: 'Open folder as vault…',
   no_opfs:
-    "This browser doesn't support the private file storage (OPFS) Oh hi markdown needs — try a recent Chrome, Edge, or Firefox.",
+    "This browser doesn't support the private file storage (OPFS) Oh Hi markdown needs — try a recent Chrome, Edge, or Firefox.",
   browser_vault_hint: 'A new vault stored privately in this browser.',
   vault_name_placeholder: 'Vault name',
   create_vault: 'Create vault',
@@ -1211,7 +1211,7 @@ const import_app = {
   other_body:
     'Export to Markdown, put the files in a folder, open the folder. Images come along as files; they are not synced to shared folders yet.',
   guide: 'Read the import guide',
-  foot: 'Everything you open stays where it is on disk. Oh hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.',
+  foot: 'Everything you open stays where it is on disk. Oh Hi markdown adds a .ohhi/ folder beside your notes for its own settings and nothing else.',
 }
 
 const vault_switcher = {
@@ -1331,14 +1331,14 @@ const settings = {
     lede: 'How the app looks on this device. A theme of your own lives in this vault.',
     system: 'System',
     theme_help:
-      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.',
+      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh Hi Light or Oh Hi Dark, our defaults. Graphite, Fjord and Iris are our own too.',
     /**
      * The built-in themes' names, keyed by `THEME_LABEL_KEYS` in
      * `libs/ui/src/tokens.ts` (the theme id with `_` for `-`).
      */
     theme_names: {
-      editor_light: 'Oh hi Light',
-      editor_dark: 'Oh hi Dark',
+      editor_light: 'Oh Hi Light',
+      editor_dark: 'Oh Hi Dark',
       graphite_light: 'Graphite Light',
       graphite_dark: 'Graphite Dark',
       fjord_light: 'Fjord Light',
@@ -1521,7 +1521,7 @@ const settings = {
     reset: 'Reset',
     reset_for: 'Reset {command:string} to its default keys',
     conflict: 'Also runs {commands:string}, so only one of them works. Change one of the two keys.',
-    reserved: 'Your desktop takes this key before Oh hi markdown can see it.',
+    reserved: 'Your desktop takes this key before Oh Hi markdown can see it.',
     /** After a change. */
     created: '{command:string}: {keys:string}. Your keys are now saved in {path:string}.',
     saved: '{command:string}: {keys:string}. Saved to {path:string}.',
@@ -1641,7 +1641,7 @@ const settings = {
       'The desktop app reloads a file when it changes on disk. Reload reads every root again, here and in the shell.',
     agent: 'Ask an agent to make one',
     agent_prompt:
-      'In the Oh hi vault at "{vault:string}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.',
+      'In the Oh Hi vault at "{vault:string}", write .ohhi/layouts/<name>.json extending "default". The format, every readout, bar and command id, and two worked examples are in docs/customising.md in the Oh Hi markdown repository, and the schema is its spec/ohhi.layout.v1.schema.json (with the ohhi-vault skill installed, it can find both there). The app picks the file up when it lands, or on Reload files in Settings › Customise.',
     agent_browser:
       'Agents reach folders on disk. This vault lives in this browser, so its .ohhi is reachable only from here.',
     copy_prompt: 'Copy prompt',
@@ -1748,7 +1748,7 @@ const link_error = {
   malformed: 'That link is damaged — copy it again from the device that made it.',
   missing_fields:
     'That link is incomplete: it does not say which relay, folder or key it is for. Copy it again from the device that made it.',
-  unknown_kind: 'That link was made by a newer version of Oh hi markdown — update this device first.',
+  unknown_kind: 'That link was made by a newer version of Oh Hi markdown — update this device first.',
   bad_grant:
     'That link is damaged: one of the shared folders it carries is missing its relay, folder or key. Make a new link on the device that produced it.',
   grants_on_folder_link:
@@ -1854,10 +1854,10 @@ const share = {
     /** C4: the link wrapped in a sentence, ready to paste into a chat. */
     copy_message: 'Copy message',
     copy_message_for: 'Copy message for {name:string}',
-    message: 'I shared {folder:string} with you in Oh hi markdown. Open this link: {link:string}',
+    message: 'I shared {folder:string} with you in Oh Hi markdown. Open this link: {link:string}',
     /** C4 with no join page to point at (the desktop, off the team host): the bare link, pasted in the app. */
     message_bare:
-      'I shared {folder:string} with you in Oh hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link:string}',
+      'I shared {folder:string} with you in Oh Hi markdown. Open the app, choose Add a folder someone shared with you, and paste this link: {link:string}',
     message_guide: 'New to the app? {url:string}',
     just_made: 'Link for {name:string}',
     copied: 'Copied',
@@ -1910,7 +1910,7 @@ const share = {
  * is valid.
  */
 const join_page = {
-  brand: 'Oh hi markdown · a folder shared with you',
+  brand: 'Oh Hi markdown · a folder shared with you',
   heading_from: '{from:string} shared {label:string} with you',
   heading_anon: 'Someone shared {label:string} with you',
   a_folder: 'a folder',
@@ -2098,7 +2098,7 @@ const review = {
   title: 'Divergence review — {path:string}',
   description: 'reason: {reason:string}. Nothing is written to disk until you resolve.',
   vanished:
-    'This file was deleted on disk outside Oh hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).',
+    'This file was deleted on disk outside Oh Hi markdown, but its synced content still exists. Restore it, or confirm the deletion — confirming removes it for everyone sharing this folder (a recovery copy is journaled).',
   confirm_removal: 'Confirm removal',
   restore: 'Restore file',
   mine: 'mine (editor)',
@@ -2140,7 +2140,7 @@ const devtools = {
     copied: 'Inspector report copied',
     failed: 'The clipboard refused the report. Select it below and copy it by hand.',
     fallback_label: 'Inspector report',
-    report_title: 'Oh hi inspector report',
+    report_title: 'Oh Hi inspector report',
   },
   /** The mount strip (All mounts) and the mount card (one mount). */
   mount: {
@@ -2352,7 +2352,7 @@ const help = {
     report: 'Report a problem…',
   },
   /** The desktop's guide window title. */
-  window_title: 'Oh hi markdown guide',
+  window_title: 'Oh Hi markdown guide',
   report: {
     title: 'Report a problem',
     description: 'Say what happened in a sentence. The facts below are copied with it; paste the whole thing wherever you ask for help.',
@@ -2365,10 +2365,10 @@ const help = {
     copy_failed: 'The clipboard is blocked. The report is selected below: copy it by hand.',
     fallback_label: 'The report as text',
     /** The copied text, line by line. */
-    header: 'Oh hi markdown — problem report ({time:string})',
+    header: 'Oh Hi markdown — problem report ({time:string})',
     what: 'What happened: {text:string}',
     what_empty: 'What happened: (not filled in)',
-    app: 'App: Oh hi markdown {version:string} · {platform:string}',
+    app: 'App: Oh Hi markdown {version:string} · {platform:string}',
     version_unknown: 'version not known',
     platform: {
       desktop: 'desktop app',
@@ -2765,10 +2765,10 @@ const ai = {
     trusted: 'Trusted',
     untrusted: 'Needs review',
     untrusted_hint:
-      'It arrived by sync or was written outside Oh hi, or changed there since you trusted it. The agent is not offered it until you review it.',
+      'It arrived by sync or was written outside Oh Hi, or changed there since you trusted it. The agent is not offered it until you review it.',
     invalid: 'Not valid',
     scripts: 'Has scripts',
-    scripts_hint: 'It ships a scripts/ folder. Oh hi never runs scripts; an agent on your computer, like Claude Code, might.',
+    scripts_hint: 'It ships a scripts/ folder. Oh Hi never runs scripts; an agent on your computer, like Claude Code, might.',
     shape: '{kind:string} · {input:string} → {output:string}',
     any: 'any',
     kind: { check: 'Check', transform: 'Transform', generate: 'Generate', research: 'Research' },
@@ -2810,7 +2810,7 @@ const ai = {
     farm: {
       title: 'Claude Code',
       label: 'Export for Claude Code',
-      hint: 'Copies trusted, enabled skills into .claude/skills/, where Claude Code looks. A folder there that Oh hi did not make is never touched.',
+      hint: 'Copies trusted, enabled skills into .claude/skills/, where Claude Code looks. A folder there that Oh Hi did not make is never touched.',
       browser: 'This vault lives in the browser, where no other app can read it, so there is nothing to export for Claude Code.',
       unavailable: 'Exporting for Claude Code is not available for this vault yet.',
       result: '{written:number} exported · {blocked:number} left alone',
@@ -2833,7 +2833,7 @@ const ai = {
       allowed_tools: 'Pre-approved tools: {tools:string}',
       pinned: 'Pinned to commit {sha:string}',
       binary_listed: '{count:number} binary file{{s}}, listed above: imported as {{it is|they are}}, not shown here.',
-      scripts: 'It ships scripts. Oh hi never runs them, but read them before you trust it: an agent on your computer might.',
+      scripts: 'It ships scripts. Oh Hi never runs them, but read them before you trust it: an agent on your computer might.',
       problems: 'Problems',
       exists: 'A skill named {name:string} is already in this vault.',
       trust: 'Trust and enable',

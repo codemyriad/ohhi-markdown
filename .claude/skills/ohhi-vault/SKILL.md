@@ -1,12 +1,12 @@
 ---
 name: ohhi-vault
-description: Search, read and edit a markdown vault — Oh hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, collections (`.base` files: saved views over notes whose frontmatter properties are the columns — list them, query a view, filter by a property), what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", "which notes have status X", a table, database, collection or base of notes, or asks you to add to, patch, rename, move or restore a note.
+description: Search, read and edit a markdown vault — Oh Hi markdown or Obsidian — with the `ohhi` CLI: ranked search that returns references not bodies, a note's outline, one section or a line range, wikilinks and backlinks, tags, collections (`.base` files: saved views over notes whose frontmatter properties are the columns — list them, query a view, filter by a property), what changed since, and journaled atomic writes. Use when the user asks about "my notes", "my vault", "my second brain", an Obsidian vault, a note by name, wikilinks or backlinks, "what did I write about X", "find the note where I…", "which notes have status X", a table, database, collection or base of notes, or asks you to add to, patch, rename, move or restore a note.
 ---
 
 # Read and edit a markdown vault with `ohhi`
 
 `ohhi` reads a vault's **plain `.md` files on disk** — the canonical copy, the
-same bytes Oh hi markdown, Obsidian and git see. It adds the editor's own index
+same bytes Oh Hi markdown, Obsidian and git see. It adds the editor's own index
 (ranked search, the wikilink graph, tags, headings) and the editor's own write
 discipline (a pre-image journal, then an atomic write), and nothing else (see
 **Boundaries**).
@@ -371,7 +371,7 @@ responses — so branch on `code`, never on the exit code alone.
 CRDT or run a reconciler. It reads and writes the canonical `.md` files, and
 that is the whole mechanism.
 
-**It works whether or not Oh hi markdown is running.** When the app *is* open, it
+**It works whether or not Oh Hi markdown is running.** When the app *is* open, it
 notices your write through its own file watcher and ingests it — into the open
 note, live in the pane, if the user is looking at it, and without rewriting your
 bytes. If the user had unsaved edits to the same note, the divergence lands in

@@ -15,7 +15,7 @@
   --ed-measure: 44rem;
 }
 
-/* Oh hi Light — the default. */
+/* Oh Hi Light — the default. */
 :root,
 [data-theme="editor-light"] {
   color-scheme: light;
@@ -53,7 +53,7 @@
   --ed-bullet: #857c72;
 }
 
-/* Oh hi Dark — the OS's choice, unless the page pins light. */
+/* Oh Hi Dark — the OS's choice, unless the page pins light. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="editor-light"]) {
     color-scheme: dark;

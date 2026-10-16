@@ -212,7 +212,7 @@ The CLI an external agent drives a vault with — `ohhi search`, `ohhi read
 canonical `.md` files and writes them journaled + atomic, joins no relay and owns
 no CRDT, so it works whether or not the app is running. `apps/cli` over
 `libs/agent`, whose `contract.ts` declares every operation once. The product name
-behind it is *Oh hi markdown*. See [agent-access.md](agent-access.md).
+behind it is *Oh Hi markdown*. See [agent-access.md](agent-access.md).
 
 ### Search tier
 Why a search hit is where it is, and the first thing ranking sorts on:

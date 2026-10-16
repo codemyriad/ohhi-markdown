@@ -16,7 +16,7 @@
  *    `VITE_WEB_ORIGIN`, e.g. `https://app.ohhi.md`): its CSP is unpinned, so
  *    its join page can reach any `wss:` relay, and the link points there.
  *  - `presentLink`: the URL form when an origin is known, else the bare link.
- *  - `shareMessage`: "I shared <folder> with you in Oh hi markdown. Open this
+ *  - `shareMessage`: "I shared <folder> with you in Oh Hi markdown. Open this
  *    link: <link>" (with no origin, the bare link and how to paste it in the
  *    app instead), then the build's network sentence when the relay is the
  *    team's, then "New to the app? <guide>" when there is an origin to put

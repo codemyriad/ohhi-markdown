@@ -166,11 +166,11 @@ test('Nord Dark is a vault theme now: a stored nord-dark stands in, says so once
   await page.reload({ waitUntil: 'domcontentloaded' })
   expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
   await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
-  // The vault has no folder: Oh hi Dark stands in, and the app says so — once.
+  // The vault has no folder: Oh Hi Dark stands in, and the app says so — once.
   const notice = page.getByTestId('toast').filter({ hasText: 'Nord Dark is no longer built in' })
   await expect(notice).toHaveCount(1)
   await expect(notice).toContainText('.ohhi/themes/nord-dark/theme.css')
-  await expect(notice).toContainText('Oh hi Dark stands in')
+  await expect(notice).toContainText('Oh Hi Dark stands in')
   await expect(notice).toContainText('examples/themes/nord-dark/theme.css')
   expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
 

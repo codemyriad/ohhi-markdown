@@ -473,7 +473,7 @@ These are the real, URL-param-free flows (onboarding-shaping.md, extended by
 dogfood-shaping M2 and first-run-shaping A1/B1/F1). With no URL params the app
 shows the **vault manager**, in one of two states:
 
-- **The welcome** (no vault registered yet): "Oh hi.", one sentence, and three
+- **The welcome** (no vault registered yet): "Oh Hi.", one sentence, and three
   doors worded as the thing you have — *Open a folder of notes* (desktop; an
   Obsidian vault opens as it is) or *Start a vault in this browser* (browser:
   a named, OPFS-backed private vault, offered only when the browser supports
@@ -557,7 +557,7 @@ Links leave the sheet in the URL form when an origin is known
 `originForRelay(<room relay>)`; else the bare `editor1:` link), carrying
 `label` (the folder) and `from` (the name typed). After Share and on every
 link row there are *Copy link* and *Copy message*; the message is "I shared
-<folder> with you in Oh hi markdown. Open this link: <link>", then the network
+<folder> with you in Oh Hi markdown. Open this link: <link>", then the network
 sentence for the team's relay, then "New to the app? <origin>/guide/start.html"
 when there is an origin. The e2e relay runs without an operator secret, so
 specs see the secret answer "this relay has no admin API".
