@@ -13,7 +13,7 @@
  *    else's `wss://<host>/relay` may serve no app at all, so otherwise there
  *    is no origin, and the link stays the bare `editor1:` form — unless the
  *    build names a public web app (`webOrigin`, the public flavour's
- *    `VITE_WEB_ORIGIN`, e.g. `https://hi.ohhi.md`): its CSP is unpinned, so
+ *    `VITE_WEB_ORIGIN`, e.g. `https://write.ohhi.md`): its CSP is unpinned, so
  *    its join page can reach any `wss:` relay, and the link points there.
  *  - `presentLink`: the URL form when an origin is known, else the bare link.
  *  - `shareMessage`: "I shared <folder> with you in Oh hi markdown. Open this

@@ -681,10 +681,10 @@ describe('resolveDownloadsUrl (VITE_DOWNLOADS_URL)', () => {
 describe('resolveWebOrigin (VITE_WEB_ORIGIN)', () => {
   it('is an https origin, lower-cased, no trailing slash; a path or another scheme reads as unset', () => {
     expect(resolveWebOrigin(undefined)).toBe('')
-    expect(resolveWebOrigin(' https://Hi.Ohhi.md/ ')).toBe('https://hi.ohhi.md')
+    expect(resolveWebOrigin(' https://Write.Ohhi.md/ ')).toBe('https://write.ohhi.md')
     expect(resolveWebOrigin('https://app.ohhi.md:8443')).toBe('https://app.ohhi.md:8443')
-    expect(resolveWebOrigin('https://hi.ohhi.md/join')).toBe('')
-    expect(resolveWebOrigin('http://hi.ohhi.md')).toBe('')
-    expect(resolveWebOrigin('hi.ohhi.md')).toBe('')
+    expect(resolveWebOrigin('https://write.ohhi.md/join')).toBe('')
+    expect(resolveWebOrigin('http://write.ohhi.md')).toBe('')
+    expect(resolveWebOrigin('write.ohhi.md')).toBe('')
   })
 })
