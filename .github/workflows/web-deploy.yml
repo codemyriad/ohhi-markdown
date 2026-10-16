@@ -1,0 +1,160 @@
+# Web deploy: builds the web app in the PUBLIC flavour and deploys it to
+# Cloudflare Pages (project `ohhi-web`, custom domains hi.ohhi.md and
+# app.ohhi.md). What the flavour changes and the one-time Cloudflare setup:
+# docs/public-deploy.md. The team build (desktop-release.yml, served by the
+# team host) is untouched by this workflow.
+#
+# - push to main touching the web app or anything it bundles: a production
+#   deploy. Bursts collapse (cancel-in-progress): only the newest deploys.
+# - Run workflow: on main, a production deploy; on any other branch, a Pages
+#   PREVIEW deploy (<branch>.ohhi-web.pages.dev), never the custom domains.
+#
+# Security shape (as desktop-release.yml): the build job runs third-party
+# code (npm deps) with a read-only token and NO Cloudflare secret; the small
+# deploy job checks nothing out and builds nothing — it uploads the built
+# dist/ with the Cloudflare token. Third-party actions are pinned to a full
+# commit SHA (tag in the comment).
+#
+# Needs (docs/public-deploy.md, "Once, in Cloudflare and GitHub"):
+#   secrets   CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
+#   variable  PUBLIC_WEB_HOST (optional, default hi.ohhi.md)
+# Without the secrets the build still runs and the deploy job is skipped with
+# a warning, so a fork or a fresh repo is not red.
+name: Web deploy
+
+on:
+  push:
+    branches: [main]
+    # The web app and everything it bundles: its libs, the guide pages
+    # (docs/guide → dist/guide), the example themes, the dependency set and
+    # this workflow. Not the desktop shell, the relay, the CLI or other docs.
+    paths:
+      - 'apps/web/**'
+      - 'libs/**'
+      - 'docs/guide/**'
+      - 'examples/themes/**'
+      - 'common/config/rush/**'
+      - 'rush.json'
+      - '.nvmrc'
+      - '.github/workflows/web-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: build (public flavour)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+
+      # VITE_FLAVOUR=public is the whole switch (apps/web/scripts/flavour.mjs):
+      # no team host, no built-in relay, the unpinned CSP; it derives the
+      # downloads list (dist.ohhi.md) and the web origin from PUBLIC_WEB_HOST,
+      # and fails the build if dist/_headers is pinned. VERSION is what the
+      # Help menu shows: <major>.<minor>-web.<run>, never mistaken for a
+      # desktop release's semver.
+      - name: Build web app
+        working-directory: apps/web
+        env:
+          VITE_FLAVOUR: public
+          PUBLIC_WEB_HOST: ${{ vars.PUBLIC_WEB_HOST }}
+        run: |
+          base=$(node -p "require('../desktop/src-tauri/tauri.conf.json').version" | cut -d. -f1,2)
+          export VERSION="${base}-web.${GITHUB_RUN_NUMBER}"
+          echo "::notice::public web build $VERSION of ${GITHUB_SHA::12}"
+          node ../../common/scripts/install-run-rushx.js build
+
+      - name: CSP guard
+        run: node apps/desktop/scripts/check-csp.mjs
+
+      # Pages reads dist/_headers (the CSP & co.) as it is. Pages serves
+      # index.html for any path without a file as long as there is no
+      # top-level 404.html, which is the SPA fallback /join needs — so no
+      # _redirects (a `/* /index.html 200` rule is refused as a loop anyway).
+      - name: Check the Pages files
+        working-directory: apps/web/dist
+        run: |
+          test -f index.html
+          test -f _headers
+          if [ -e 404.html ]; then
+            echo "::error::dist/404.html would turn off Pages' SPA fallback (/join would 404)"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-dist
+          path: apps/web/dist/
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    name: deploy to Cloudflare Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - name: Cloudflare secrets present?
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; nothing deployed (docs/public-deploy.md)"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: env.HAS_TOKEN == 'true'
+        with:
+          name: web-dist
+          path: dist
+
+      # Pages' branch: main is the project's production branch (the custom
+      # domains); any other name makes a preview deployment. Reduced to the
+      # characters a Pages alias keeps, so a branch name never reaches the
+      # command line as anything but one word.
+      - name: Pages branch
+        id: branch
+        if: env.HAS_TOKEN == 'true'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy
+        id: deploy
+        if: env.HAS_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.145.0'
+          packageManager: npm
+          command: pages deploy dist --project-name ohhi-web --branch ${{ steps.branch.outputs.name }} --commit-hash ${{ github.sha }} --commit-dirty=true
+
+      - name: Where it went
+        if: env.HAS_TOKEN == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        run: echo "::notice::Deployed ${GITHUB_SHA::12} to $URL ${ALIAS:+(alias $ALIAS)}"
