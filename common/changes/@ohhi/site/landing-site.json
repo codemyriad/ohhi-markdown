@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/site",
+      "comment": "The ohhi.md landing page: a static Astro site in the app's own light and dark themes, with the web app at app.ohhi.md and a download page for the desktop builds.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/site"
+}

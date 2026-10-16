@@ -50,6 +50,14 @@ every user-facing string in `apps/web` is a `$LL.…()` / `getLL()` key — see
 primitives (Melt UI + lucide: `Dialog`, menus, `Tooltip`, `IconButton`,
 `Tabs`, `Toaster`, `Popover`, form fields) live in `apps/web/src/lib/ui/` (chrome U1).
 
+`apps/site` is the **`ohhi.md` landing page** (Astro, static, no client
+script): the apex names the web app at `app.ohhi.md` and the desktop
+downloads at `dist.ohhi.md`, every outbound URL in `src/links.ts`. Its colours
+are the app's own default pair, generated from `@ohhi/ui`'s `editor-light` /
+`editor-dark` tokens by `cd apps/site && rushx gen-tokens` into
+`src/styles/tokens.generated.css` — regenerate it, never hand-edit it
+(`rushx check` fails on drift).
+
 **The app's own folder in a vault is `.ohhi/`** (renamed from `.editor/`;
 `.editor` and `.editor-cache` stay in `IGNORED_DIRS` as legacy ignores). It
 holds **resources — data, never code**: `layouts/*.json`, `keymaps/*.json`,

@@ -1,0 +1,23 @@
+{
+  "name": "@ohhi/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The ohhi.md landing page: a static Astro site, no client script, in the app's own themes.",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "dev": "node scripts/gen-tokens.mjs && astro dev",
+    "build": "node scripts/gen-tokens.mjs && astro build",
+    "preview": "astro preview",
+    "check": "node scripts/gen-tokens.mjs --check && astro check",
+    "gen-tokens": "node scripts/gen-tokens.mjs"
+  },
+  "dependencies": {
+    "astro": "~6.4.8"
+  },
+  "devDependencies": {
+    "@astrojs/check": "~0.9.10",
+    "@ohhi/ui": "workspace:*",
+    "typescript": "^5.8.0"
+  }
+}

@@ -6,6 +6,8 @@
   "exports": {
     "./styles/base.css": "./src/styles/base.css",
     "./styles/_template.css": "./src/styles/_template.css",
+    "./styles/fonts.css": "./src/styles/fonts.css",
+    "./styles/tokens/*": "./src/styles/tokens/*",
     "./tokens": "./src/tokens.ts"
   },
   "scripts": {
