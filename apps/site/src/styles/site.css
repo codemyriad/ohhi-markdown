@@ -105,6 +105,20 @@ main {
   font-weight: 400;
   color: var(--ed-ink-muted);
 }
+/* The name's "mark" leans wherever the name is set in running text and in the
+ * wordmark (Chris, 2026-10-16): Public Sans's real 400 italic. A heading is
+ * 600, and there is no 600 italic to lean with — the fallback would drop the
+ * weight mid-word — so headings keep it upright. */
+.wordmark .md em,
+.mk {
+  font-style: italic;
+  font-weight: inherit;
+}
+h1 .mk,
+h2 .mk,
+h3 .mk {
+  font-style: normal;
+}
 .foot .wordmark {
   font-size: inherit;
 }

@@ -2,7 +2,7 @@
   "changes": [
     {
       "packageName": "@ohhi/site",
-      "comment": "The landing page's copy pass: the lede, the Early-days callout (with a construction sign), the editor, relay and agents lines; \"Open the app\" leaves the nav and footer; the footer carries the Codemyriad and Open source chips; the Download page's For agents section gives the install steps for the ohhi command, the skill and MCP; the favicon is the highlighter tile with \"Hi\" in ink; the description says the editor runs at app.ohhi.md.",
+      "comment": "The landing page's copy pass: the lede, the Early-days callout (with a construction sign), the editor, relay and agents lines; \"Open the app\" leaves the nav and footer; the footer carries the Codemyriad and Open source chips; the Download page's For agents section gives the install steps for the ohhi command, the skill and MCP; the favicon is the highlighter tile with \"Hi\" in ink; the description says the editor runs at app.ohhi.md. The name is set with \"mark\" in italic, in the wordmark and in running text.",
       "type": "minor"
     }
   ],
