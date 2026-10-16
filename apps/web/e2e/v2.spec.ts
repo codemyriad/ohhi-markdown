@@ -407,11 +407,14 @@ test("Mod+[ and Mod+] walk the tab's own trail", async ({ page }) => {
   await page.locator('.cm-wikilink').first().click({ modifiers: ['ControlOrMeta'] })
   await expect(editor).toContainText('Welcome to Editor')
 
-  await page.keyboard.press('ControlOrMeta+[')
+  // Back / Forward are `Ctrl+Mod+Arrow` (Obsidian's), pressed as Alt+Arrow off
+  // a Mac (commands.ts); the app takes the key before the browser's own
+  // history does.
+  await page.keyboard.press('Alt+ArrowLeft')
   // Back in the note that links out — and in Live the link reads as its
   // target, not as its brackets.
   await expect(editor).toContainText('see welcome')
-  await page.keyboard.press('ControlOrMeta+]')
+  await page.keyboard.press('Alt+ArrowRight')
   await expect(editor).toContainText('Welcome to Editor')
 })
 

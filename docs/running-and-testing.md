@@ -233,7 +233,7 @@ the web app is built and served on `localhost:4173`, the relay on
 by fuzzy path; search answers from the index with highlighted snippets, reflects
 an edit **without a reload**, and lands the caret on the matching line; wikilinks
 resolve, decorate, Mod-click through, and an unresolved one creates the note;
-`Mod+[`/`Mod+]` walk the visited notes; the word count tracks the open note; the
+Back / Forward (`Ctrl+Mod+Arrow`, pressed as Alt+Arrow off a Mac) walk the visited notes; the word count tracks the open note; the
 theme retints chrome and the CodeMirror surface together and survives a reload;
 the command palette lists its bindings; the tree's **right-click menu renames a
 note, drag-and-drop moves it between folders, and a folder's disabled Share…
@@ -315,14 +315,15 @@ outage; a vault that shares nothing opens Shared on its onboarding.
 
 `e2e/chrome.spec.ts` covers the shell (chrome U2+): the pinned rail is the
 dock panel (its tabs, unpin only — no collapse — one open state and one tab,
-`Mod+ArrowRight` focusing its tab); the
+the sidebar key — `Mod+ArrowRight`, bound through the spec's `withObsidianKeys`
+fixture since the default ships none — focusing its tab); the
 navigator resizes from the keyboard (its handle is a valued `separator`),
-hides on `Mod+ArrowLeft`, and the layout survives a reload; the breadcrumb
+hides on *Toggle file navigator*, and the layout survives a reload; the breadcrumb
 names the open note and reveals its folder in the tree; the status bar carries
 the word count and the note's own pill. The tree test (U3) needs the
 `chrome-tree` room: a synced note is green in the status bar and carries no
 dot in the tree; the toolbar is icons with names; collapse-all, the filter
-menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
+menu (radio items), F2 rename, *Delete current note* with its confirm, a refused
 drop's reason on the hovered row, and *Add a shared folder* (disabled with its
 rule in a root-shared vault; reachable from the palette). The where-am-I test
 (sharing E6, *This note* dissolved) checks the breadcrumb's folder popover and

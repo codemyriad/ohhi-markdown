@@ -110,7 +110,7 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   // bars, a separator between them — and a second tab, so the strip is
   // scanned with a roving tab stop rather than a single tab.
   await page.getByTestId('file-item:notes/ideas.md').click()
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(page.locator('[data-pane-id]')).toHaveCount(2)
   await expectAccessible(page, 'pane tree')
 
@@ -190,7 +190,7 @@ test('the tab-group chrome is accessible', async ({ page }) => {
   // The popover again with somewhere to send the group: its *Move to pane*
   // section (the keyboard equivalent of a chip drag, R8) only exists when
   // there is a second pane.
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(page.locator('[data-pane-id]')).toHaveCount(2)
   await page.locator('[data-testid^="group-chip:"]').first().click({ button: 'right' })
   await expect(page.getByTestId('group-manage')).toBeVisible()
