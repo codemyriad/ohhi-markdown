@@ -1,0 +1,26 @@
+# gitleaks configuration (https://github.com/gitleaks/gitleaks): the default
+# rules plus an allowlist for the three things in this tree that look like
+# secrets and are not. Run `gitleaks git .` over the history or
+# `gitleaks dir .` over a checkout; both must come back clean.
+title = "Oh hi markdown"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The desktop updater's minisign PUBLIC key (apps/desktop/src-tauri/tauri.conf.json): what installed apps verify releases against, not a secret"
+condition = "AND"
+paths = ['''apps/desktop/src-tauri/tauri\.conf\.json''']
+regexTarget = "line"
+regexes = ['''"pubkey":''', '''minisign public key''']
+
+[[allowlists]]
+description = "Keyboard shortcuts in the pane commands (Ctrl+Shift+Tab and friends) are not API keys"
+condition = "AND"
+paths = ['''apps/web/src/lib/pane-commands\.ts''']
+regexTarget = "line"
+regexes = ['''keys: ''']
+
+[[allowlists]]
+description = "A made-up provider key the writing-harness tests use to check that an invalid key is reported without echoing it"
+regexes = ['''sk-live-SECRET123456''']
