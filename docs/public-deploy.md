@@ -142,6 +142,35 @@ files. The browser-storage note (the vault manager's card and Settings › Sync
 `VITE_DOWNLOADS_URL`. The list is fetched once, on first need, with no
 cookies and no referrer.
 
+## The repository
+
+`codemyriad/ohhi-markdown` is public. Its history was filtered before the
+flip, so the team host's runbook and the private design notes never shipped;
+host material lives in the private `codemyriad/systems` repository. A public
+repository whose pushes deploy needs these settings, and this is why:
+
+- **Branch protection on `main` and `release`.** A push to `main` deploys
+  app.ohhi.md and ohhi.md, and a push to `release` cuts a desktop release, so
+  both branches take changes only through a reviewed pull request: no force
+  pushes, no deletion, status checks (`CI`) required.
+- **Workflow approval for outside contributors.** Settings › Actions ›
+  General › *Require approval for all outside collaborators* (at least for
+  first-time contributors): a pull request from a fork must not run CI until
+  a maintainer has read it. Fork runs get no secrets anyway, and no workflow
+  uses `pull_request_target`; keep it that way.
+- **The Cloudflare secrets in an environment**, optionally.
+  `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` can move from
+  repository secrets into a GitHub environment restricted to `main` and
+  `release`, so no run on another branch can ever read them; the deploy jobs
+  then gain an `environment:` line. Today they are repository secrets, and
+  only the small deploy jobs (which check nothing out and run no third-party
+  code) receive them.
+- **Private vulnerability reporting on**, so the channel `SECURITY.md` names
+  exists. Secret scanning with push protection on; both are free for a public
+  repository.
+- **Dependabot alerts on.** Whether to take its pull requests is a separate
+  choice: Rush wants `rush update` after a bump, which Dependabot does not run.
+
 ## Open questions
 
 - **A public relay, or none?** For the team, answered on 2026-10-16: the
@@ -157,10 +186,12 @@ cookies and no referrer.
   operator-secret story for strangers and a cost owner. If one is decided,
   the flavour would set `VITE_DEFAULT_RELAY` (today the build refuses it) and
   the no-relay copy would change with it.
-- **A private repo behind a public dist.** The repository is private, so
-  the GitHub release is only the build's record. Everything public comes from
-  R2. Release notes ("What changed") open the bundled guide page, which works.
-  A public changelog would need its own home (the landing page).
+- **A public repo and a public dist.** The repository is public, so a GitHub
+  release is public too. `dist.ohhi.md` stays the download host the app and
+  the landing page point at (stable aliases, `downloads.json`); the release
+  page is the build's record and a second place to find the files. Release
+  notes ("What changed") open the bundled guide page, which works. A public
+  changelog would still need its own home (the landing page).
 - **Apple signing.** macOS builds are ad-hoc signed and not notarized, so a
   stranger's first launch is blocked by Gatekeeper and needs the
   `xattr`/*Open Anyway* step. For a public download this needs a Developer
