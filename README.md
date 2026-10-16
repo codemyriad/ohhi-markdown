@@ -28,4 +28,4 @@ Rush monorepo (same conventions as Edible): `apps/` for applications, `libs/` fo
 
 ## Licence
 
-Oh hi markdown is free software under the [GNU Affero General Public License v3](LICENSE) (AGPL-3.0).
+Oh Hi markdown is free software under the [GNU Affero General Public License v3](LICENSE) (AGPL-3.0).

@@ -5,6 +5,7 @@
  * what a late `setup` is allowed to do afterwards (nothing).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getLL } from '@ohhi/i18n'
 import { upsertVault, type VaultEntry } from './config.js'
 import { createSession, type Session, type SessionHost } from './session.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
@@ -77,6 +78,36 @@ afterEach(() => {
 })
 
 describe('createSession', () => {
+  it('one tab per browser vault (P3): a refused claim fails the boot against the entry; a claim is held until close', async () => {
+    const h = host()
+    const claims: string[] = []
+    let free = true
+    h.claimVault = async (entry) => {
+      claims.push(entry.room)
+      return free ? () => calls.push(`release:${entry.room}`) : null
+    }
+    session = createSession(h)
+
+    free = false
+    await session.boot(A)
+    expect(claims).toEqual(['room-a'])
+    expect(session.view).toBe('manager')
+    expect(session.busy).toBe(false)
+    expect(session.failure).toEqual({ room: 'room-a', message: getLL().web.manager.open_elsewhere({ name: A.name }), elsewhere: true })
+    expect(pending).toHaveLength(0) // nothing was read
+
+    free = true
+    const done = session.boot(A)
+    await tick()
+    await tick()
+    pending[0]!.resolve(fakeWorkspace('room-a'))
+    await done
+    expect(session.view).toBe('workspace')
+    expect(calls).not.toContain('release:room-a')
+    session.close()
+    expect(calls).toContain('release:room-a')
+  })
+
   it('boots: connecting and busy until setup resolves, then the workspace with everything attached', async () => {
     const done = session.boot(A)
     await tick()
@@ -278,7 +309,7 @@ describe('createSession — a vault theme the vault does not hold (Nord out of t
     applyTheme('system')
   })
 
-  it('a stored nord-dark and no folder: Oh hi Dark stands in, the preference is kept, and it is said once — ever', async () => {
+  it('a stored nord-dark and no folder: Oh Hi Dark stands in, the preference is kept, and it is said once — ever', async () => {
     themeState.pref = 'custom:nord-dark'
     const a = vaultWith('room-a', {})
     const done = session.boot(A)

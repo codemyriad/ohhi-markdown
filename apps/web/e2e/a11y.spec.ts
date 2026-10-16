@@ -110,7 +110,7 @@ test('the workspace with a note open is accessible', async ({ page }) => {
   // bars, a separator between them — and a second tab, so the strip is
   // scanned with a roving tab stop rather than a single tab.
   await page.getByTestId('file-item:notes/ideas.md').click()
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(page.locator('[data-pane-id]')).toHaveCount(2)
   await expectAccessible(page, 'pane tree')
 
@@ -190,7 +190,7 @@ test('the tab-group chrome is accessible', async ({ page }) => {
   // The popover again with somewhere to send the group: its *Move to pane*
   // section (the keyboard equivalent of a chip drag, R8) only exists when
   // there is a second pane.
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(page.locator('[data-pane-id]')).toHaveCount(2)
   await page.locator('[data-testid^="group-chip:"]').first().click({ button: 'right' })
   await expect(page.getByTestId('group-manage')).toBeVisible()
@@ -459,6 +459,20 @@ test('the join page is accessible', async ({ page }) => {
   await expect(page.getByTestId('join-device-body')).toBeVisible()
   await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
   await expectAccessible(page, 'join page (device link)')
+
+  // The browser has vaults (join-share-brief P1): the card is a choice with a
+  // picker, the folder and the name — scanned with "inside" and with "own".
+  await page.goto('about:blank')
+  await page.goto(MANAGER_URL)
+  await createBrowserVault(page, 'Mine')
+  await openManager(page)
+  await createBrowserVault(page, 'Other')
+  await page.goto(`/join#${payload}`)
+  await expect(page.getByTestId('join-vault-picker')).toBeVisible()
+  await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
+  await expectAccessible(page, 'join page (inside a vault)')
+  await page.getByTestId('join-where-own').check()
+  await expectAccessible(page, 'join page (own vault, with vaults)')
 })
 
 /**

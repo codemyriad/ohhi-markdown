@@ -13,9 +13,14 @@
    * product does. As its own vault, the manager's join already routes a
    * device link to *Link this device*.
    *
-   * "As its own vault" says what happens next on this platform (first-run
-   * F1): on the desktop an OS folder picker opens with no sentence of its
-   * own, so the dialog explains it before it does.
+   * "As a shared vault of its own" (amended 2026-10-16,
+   * `plans/join-share-brief.md`) says what that IS — everything in it is
+   * shared with whoever holds a link — and then what happens next on this
+   * platform (first-run F1): on the desktop an OS folder picker opens with no
+   * sentence of its own, so the dialog explains it before it does. With no
+   * vault open, "inside a vault" is disabled and the hint names the way out:
+   * open one of the browser's vaults when it has any, make one when it has
+   * none — the join page is where a link lands inside a vault directly.
    *
    * Under a valid paste (first-run C3) the link says what it is — its label,
    * its sender as "the name they typed" (never a verified account, R5), its
@@ -46,6 +51,15 @@
   interface Props {
     /** The open vault's name; null when none is open (only "as its own vault" then). */
     vaultName: string | null
+    /** The browser has remembered vaults (none open): the disabled hint says to open one. */
+    anyVaults?: boolean
+    /**
+     * A refusal to show at open — the join page's pending join, which the
+     * vault turned down once it was live (the folder was not empty, the
+     * share was already there): the paste and the folder are kept, the
+     * reason is the first thing read.
+     */
+    initialError?: string
     /** Existing dirs of the open vault, offered as destination suggestions. */
     dirs?: string[]
     /** Prefilled destination ('team/' when opened from the tree on 'team'). */
@@ -79,9 +93,11 @@
 
   let {
     vaultName,
+    anyVaults = false,
     dirs = [],
     initialDest = '',
     initialLink = '',
+    initialError = '',
     initialWhere,
     onJoinIntoVault,
     onJoinAsVault,
@@ -95,6 +111,9 @@
 
   const t = $derived($LL.web.share.add)
   const canJoinInto = $derived(vaultName !== null && onJoinIntoVault !== null)
+  /** The handed-over refusal, shown until the next attempt replaces it with its own outcome. */
+  // svelte-ignore state_referenced_locally -- seed only
+  let handedError = $state(initialError)
 
   /** A link we cannot decode is the FIRST rule's business, not this one's. */
   function isDeviceLink(link: string): boolean {
@@ -169,6 +188,7 @@
 
   async function join(): Promise<void> {
     let keepOpen = false
+    handedError = ''
     const ok = await form.submit(async ({ link, where, dest, name }) => {
       // Saved when the join starts (Fork 5-A); a blank name keeps the saved one.
       saveUser(name)
@@ -241,7 +261,7 @@
         <span class="min-w-0">
           <span class="block text-sm">{vaultName !== null ? t.into_vault({ vault: vaultName }) : t.into_a_vault()}</span>
           <span class="block text-xs text-base-content/70">
-            {canJoinInto ? t.into_vault_hint() : t.into_vault_unavailable()}
+            {canJoinInto ? t.into_vault_hint() : anyVaults ? t.into_vault_open_one() : t.into_vault_unavailable()}
           </span>
         </span>
       </label>
@@ -299,8 +319,8 @@
 
     <p class="text-xs text-base-content/80" data-testid="add-share-trust">{t.trust()}</p>
 
-    {#if form.formError}
-      <p class="text-xs text-error" role="alert" data-testid="add-share-error">{form.formError}</p>
+    {#if form.formError || handedError}
+      <p class="text-xs text-error" role="alert" data-testid="add-share-error">{form.formError || handedError}</p>
     {/if}
 
     <div class="flex justify-end gap-2">

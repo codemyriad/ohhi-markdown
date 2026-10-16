@@ -347,7 +347,7 @@ describe('ShareSheet — shared', () => {
     await user.click(await screen.findByRole('button', { name: t.copy_message_for({ name: 'Team' }) }))
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
-    expect(writeText.mock.calls[0]![0]).toMatch(/^I shared notes with you in Oh hi markdown\. Open this link: https:\/\//)
+    expect(writeText.mock.calls[0]![0]).toMatch(/^I shared notes with you in Oh Hi markdown\. Open this link: https:\/\//)
   })
 
   it('on the desktop the link points at the team host derived from the relay; elsewhere it is bare', async () => {

@@ -134,13 +134,17 @@ export function folderShareFacts(
   dir: string,
   mounts: readonly { path: string; provenance: MountLike['provenance']; foreign: boolean; relay: string; status: MountLike['status'] }[],
   rootLinked: boolean,
-  rootRelay: string | null
+  rootRelay: string | null,
+  /** The root is a share someone opened as a vault (`config.rootShareKind` = 'joined'): "shared with you", not "on your devices". */
+  rootJoined = false
 ): { kind: 'local' } | { kind: 'shared'; tone: 'yours' | 'theirs' | 'devices'; host: string; status: string } {
   const m = mounts.find((mo) => mo.path !== '' && mo.provenance !== 'local' && under(dir, mo.path))
   if (m) {
     return { kind: 'shared', tone: mountTone(m.provenance, m.foreign), host: relayHost(m.relay) ?? '', status: m.status ?? 'active' }
   }
-  if (rootLinked) return { kind: 'shared', tone: 'devices', host: relayHost(rootRelay) ?? '', status: 'active' }
+  if (rootLinked) {
+    return { kind: 'shared', tone: rootJoined ? 'theirs' : 'devices', host: relayHost(rootRelay) ?? '', status: 'active' }
+  }
   return { kind: 'local' }
 }
 

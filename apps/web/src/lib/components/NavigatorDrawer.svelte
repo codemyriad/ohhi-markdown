@@ -8,7 +8,7 @@
    * shadowed, 6 px in), NOT a modal: no scrim, no focus trap, the panes stay
    * live under and beside it, so a tree row drags onto a pane as from the
    * column. Open is `layout.treeOpen`, exactly as the column's is, so
-   * `Mod+ArrowLeft`, the toolbar's files button and a breadcrumb reveal all
+   * `view.sidebar`, the toolbar's files button and a breadcrumb reveal all
    * reach it. Like the dock's panel it is a floating SECTION, not a menu: a
    * click into the editor leaves it open (Chris, 2026-10-06). It closes on
    * its toggle, on Escape from inside it (focus back to the files button),

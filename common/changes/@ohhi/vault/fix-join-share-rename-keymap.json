@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "Renaming a note no longer kicks its tab back to an empty tab, and no longer raises a spurious \"Divergence review — vanished\" for the note that was merely renamed (seen on the desktop, where the file watcher reports the rename while it is still being recorded).",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

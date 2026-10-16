@@ -61,7 +61,8 @@ function open(over: Partial<ComponentProps<typeof AddSharedFolderDialog>> = {}) 
   return props
 }
 
-const linkField = (): HTMLElement => screen.getByLabelText(t.link(), { exact: false })
+// By role: the own-vault option's hint now says "link" too (its label wraps the hint).
+const linkField = (): HTMLElement => screen.getByRole('textbox', { name: t.link() })
 const destField = (): HTMLElement => screen.getByRole('combobox', { name: t.dest() })
 const intoVault = (name = 'Myriad'): HTMLElement => screen.getByRole('radio', { name: new RegExp(t.into_vault({ vault: name })) })
 const ownVault = (): HTMLElement => screen.getByRole('radio', { name: new RegExp(t.own_vault()) })
@@ -315,6 +316,38 @@ describe('AddSharedFolderDialog', () => {
     // A device link as its own vault is the manager's to route (to Link this device).
     await user.click(screen.getByRole('button', { name: t.join() }))
     await waitFor(() => expect(props.onJoinAsVault).toHaveBeenCalledWith(deviceLink, expect.any(String)))
+  })
+
+  it('from the manager with vaults but none open: the hint says to open one, not to make another', () => {
+    open({ vaultName: null, onJoinIntoVault: null, anyVaults: true })
+    expect(screen.getByRole('radio', { name: new RegExp(t.into_a_vault()) })).toBeDisabled()
+    expect(screen.getByText(t.into_vault_open_one())).toBeVisible()
+    expect(screen.queryByText(t.into_vault_unavailable())).toBeNull()
+  })
+
+  it('"as a shared vault of its own" says that everything in it is shared, before the platform line', async () => {
+    const user = userEvent.setup()
+    open({ isTauri: false })
+    await user.click(ownVault())
+    expect(screen.getByText(t.own_vault())).toBeVisible()
+    expect(screen.getByText(t.own_vault_hint())).toBeVisible()
+    expect(screen.getByTestId('add-share-own-platform')).toHaveTextContent(t.own_vault_browser())
+    expect(t.own_vault()).toMatch(/shared vault/)
+  })
+
+  it('a refusal handed over at open (the join page’s pending join) is the first thing read, and the paste and folder are kept', async () => {
+    const user = userEvent.setup()
+    const props = open({ initialLink: folderLink, initialDest: 'HackMD notes', initialError: 'HackMD notes is not empty' })
+    expect(screen.getByTestId('add-share-error')).toHaveTextContent('HackMD notes is not empty')
+    expect(linkField()).toHaveValue(folderLink)
+    expect(destField()).toHaveValue('HackMD notes')
+    expect(intoVault()).toBeChecked()
+    // The next attempt replaces it with its own outcome.
+    await user.clear(destField())
+    await user.type(destField(), 'HackMD')
+    await user.click(screen.getByRole('button', { name: t.join() }))
+    await waitFor(() => expect(props.onJoinIntoVault).toHaveBeenCalledWith(folderLink, 'HackMD'))
+    expect(screen.queryByTestId('add-share-error')).toBeNull()
   })
 
   it('keeps the paste and shows the reason when the workspace refuses', async () => {

@@ -52,9 +52,14 @@ Clicked, it opens a page on your team's host that says who sent it (the name
 they typed), what they get, and whether the relay answers from where they
 are. They then choose:
 
-- *In the desktop app*: **Copy link**, then in Oh hi markdown choose
+- *In the desktop app*: **Copy link**, then in Oh Hi markdown choose
   *Add a folder someone shared with you* and paste it;
-- *In this browser*: **Add here**.
+- *In this browser*: **Inside \<vault\>**, when this browser already has a
+  vault — the folder lands inside it, beside their own notes, which stay
+  private — or **As a shared vault of its own**. A vault of its own is a
+  shared vault: everything they put in it syncs to whoever holds a link, and
+  the app says so before and after. *Inside your vault* is the choice for
+  keeping private notes beside the shared folder.
 
 The part after `#` never reaches the host: the page reads it in the browser.
 

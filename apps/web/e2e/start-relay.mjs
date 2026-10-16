@@ -29,11 +29,13 @@ const child = spawn('node', ['--experimental-strip-types', 'src/main.ts'], {
     // fonts-build / fonts-dev: fonts.spec, which asserts ZERO console errors
     // on load — an unauthorised room logs the relay's refusal as one.
     // join-page: join.spec — a room seeded by one context and joined from
-    // the /join page by another (first-run C2).
+    // the /join page by another (first-run C2). join-inside / join-closed:
+    // the same, landing INSIDE a browser vault — the one held by another tab,
+    // and one held by none (join-share-brief P1/P3).
     // agent-peer: collab.spec's agent-as-a-peer case, in a room no earlier
     // case has edited (a re-seed over e2eroom doubles the note's text).
     SEED_SHARE:
-      'e2eroom:e2e-token,agent-peer:agent-peer-token,chrome-tree:chrome-token,panes-sync:panes-token,quiet-sync:quiet-token,shared-a:shared-a-token,shared-cs:shared-cs-token,fonts-build:fonts-build-token,fonts-dev:fonts-dev-token,join-page:join-token',
+      'e2eroom:e2e-token,agent-peer:agent-peer-token,chrome-tree:chrome-token,panes-sync:panes-token,quiet-sync:quiet-token,shared-a:shared-a-token,shared-cs:shared-cs-token,fonts-build:fonts-build-token,fonts-dev:fonts-dev-token,join-page:join-token,join-inside:join-inside-token,join-closed:join-closed-token',
   },
   stdio: 'inherit',
 })

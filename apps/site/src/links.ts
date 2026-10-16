@@ -14,6 +14,9 @@ export const APP = 'https://app.ohhi.md'
 /** The repository. Private today; Chris opens it later. */
 export const GITHUB = 'https://github.com/codemyriad/ohhi-markdown'
 
+/** Who makes it: the footer's chip, as on the Cassini site. */
+export const CODEMYRIAD = 'https://codemyriad.io'
+
 export const DIST = 'https://dist.ohhi.md/stable/latest'
 
 export const CHECKSUMS = `${DIST}/SHA256SUMS.txt`

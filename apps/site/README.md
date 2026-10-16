@@ -2,7 +2,7 @@
 
 A static [Astro](https://astro.build) site, two pages, no client script:
 
-- `/` — what Oh hi markdown is and what it does differently, with the two
+- `/` — what Oh Hi markdown is and what it does differently, with the two
   doors: open the web app, get the desktop app.
 - `/download` — the desktop builds, first-launch notes, the browser and the
   `ohhi` command.
@@ -23,7 +23,7 @@ stable alias is for.
 
 ## The app's themes, not a copy of them
 
-The site renders in **Oh hi Light** and **Oh hi Dark** (the wordmark reads **Oh Hi markdown**, the capital H chosen for the site on 2026-10-16), the app's default
+The site renders in **Oh Hi Light** and **Oh Hi Dark** (the wordmark reads **Oh Hi markdown**, the capital H chosen for the site on 2026-10-16), the app's default
 pair, following the visitor's `prefers-color-scheme`. The values are not
 copied by hand: `scripts/gen-tokens.mjs` reads `@ohhi/ui`'s
 `tokens/editor-light.css`, `tokens/editor-dark.css` and `tokens/_contract.css`

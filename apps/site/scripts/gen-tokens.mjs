@@ -141,13 +141,13 @@ const output = `/*
 ${pick(decls(block(contract.css, ':root', contract.file)), CONTRACT, contract.file)}
 }
 
-/* Oh hi Light — the default. */
+/* Oh Hi Light — the default. */
 :root,
 [data-theme="editor-light"] {
 ${light.body}
 }
 
-/* Oh hi Dark — the OS's choice, unless the page pins light. */
+/* Oh Hi Dark — the OS's choice, unless the page pins light. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="editor-light"]) {
 ${dark.body}

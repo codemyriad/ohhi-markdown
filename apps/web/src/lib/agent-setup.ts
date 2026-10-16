@@ -37,7 +37,7 @@ export const AGENT_CAPABILITIES: readonly { id: AgentCapability; ops: readonly s
 export const PLACEHOLDER_VAULT_PATH = '/path/to/your/vault'
 
 /**
- * Where `ohhi` comes from today: the Oh hi markdown repository on GitHub. It
+ * Where `ohhi` comes from today: the Oh Hi markdown repository on GitHub. It
  * is PRIVATE — the setup can only be followed with access to it, and every
  * surface that names it says so.
  */

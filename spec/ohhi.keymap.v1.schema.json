@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ohhi.md/schema/ohhi.keymap.v1.schema.json",
   "title": "ohhi.keymap.v1",
-  "description": "An Oh hi markdown keymap file: <vault>/.ohhi/keymaps/<name>.json (or ~/.config/ohhi/keymaps/ on desktop). Overrides over the command table's default keys: a chord, several, or [] to unbind. See docs/customising.md.",
+  "description": "An Oh Hi markdown keymap file: <vault>/.ohhi/keymaps/<name>.json (or ~/.config/ohhi/keymaps/ on desktop). Overrides over the command table's default keys: a chord, several, or [] to unbind. See docs/customising.md.",
   "type": "object",
   "properties": {
     "$schema": {

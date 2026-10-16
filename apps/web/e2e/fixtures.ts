@@ -61,6 +61,45 @@ export async function openApp(
   await expect(page.getByTestId('file-tree')).toBeVisible({ timeout: 15_000 })
 }
 
+/**
+ * The sidebar and pane-focus keys from Chris's own Obsidian rebinds — the
+ * built-in defaults until QA round 2 (2026-10-16; `docs/customising.md` §3
+ * has the rule the defaults follow now). The specs that drive the sidebars,
+ * the dock and pane focus BY KEY are about what a key does (focus follows
+ * it, Escape after it), so they keep those keys through the real keymap
+ * path: the legacy per-device map `config.hotkeys`, which the keymap
+ * migration applies and writes into the vault as `.ohhi/keymaps/device.json`
+ * on the first open (idempotently). Back / Forward move off the arrows with
+ * them, as in his keymap; every other default (the split, the tabs) stays.
+ */
+export const OBSIDIAN_REBINDS: Record<string, string> = {
+  'nav.back': 'Mod+[',
+  'nav.forward': 'Mod+]',
+  'view.rail': 'Mod+ArrowRight',
+  'view.sidebar': 'Mod+ArrowLeft',
+  'workspace.focus-down': 'Ctrl+Mod+ArrowDown',
+  'workspace.focus-left': 'Ctrl+Mod+ArrowLeft',
+  'workspace.focus-right': 'Ctrl+Mod+ArrowRight',
+  'workspace.focus-up': 'Ctrl+Mod+ArrowUp',
+}
+
+/** Bind `OBSIDIAN_REBINDS` for every page this one navigates to, before the app reads its config. */
+export async function withObsidianKeys(page: Page): Promise<void> {
+  await page.addInitScript((keys: Record<string, string>) => {
+    let cfg: Record<string, unknown> = {}
+    try {
+      cfg = JSON.parse(localStorage.getItem('editor:config') ?? '{}') as Record<string, unknown>
+    } catch {
+      cfg = {}
+    }
+    if (cfg['version'] !== 2) {
+      cfg = { version: 2, vaults: [], shares: [], defaultRelay: '', tokensByRoom: {}, relayByRoom: {} }
+    }
+    cfg['hotkeys'] = { ...((cfg['hotkeys'] as Record<string, string> | undefined) ?? {}), ...keys }
+    localStorage.setItem('editor:config', JSON.stringify(cfg))
+  }, OBSIDIAN_REBINDS)
+}
+
 /** A pointer drag with enough steps to cross the 6 px threshold and settle. */
 export async function dragTo(page: Page, from: Locator, x: number, y: number): Promise<void> {
   const box = (await from.boundingBox())!
@@ -281,9 +320,9 @@ export async function runCommand(page: Page, query: string): Promise<void> {
   await page.keyboard.press('Enter')
 }
 
-/** Split the focused pane to the right (`Alt+=`) and wait for `count` panes. */
+/** Split the focused pane to the right (`Mod+\`) and wait for `count` panes. */
 export async function splitRight(page: Page, count = 2): Promise<void> {
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(count)
 }
 

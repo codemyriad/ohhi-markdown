@@ -41,7 +41,7 @@ describe('resolveVault', () => {
     expect(chosen).toEqual({ root: join(root, 'vault'), source: 'marker', marker: '.obsidian' })
   })
 
-  it("finds a vault by Oh hi markdown's own .ohhi/ folder", async () => {
+  it("finds a vault by Oh Hi markdown's own .ohhi/ folder", async () => {
     const root = await tree({ vault: '.ohhi', 'vault/Areas': null })
     const chosen = await resolveVault({ env: {}, cwd: join(root, 'vault/Areas') })
     expect(chosen).toEqual({ root: join(root, 'vault'), source: 'marker', marker: '.ohhi' })

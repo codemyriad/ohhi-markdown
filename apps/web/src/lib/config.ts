@@ -841,6 +841,23 @@ export function roomTokenKind(room: string): ShareKind | '' {
   return held.kind ?? 'folder'
 }
 
+/**
+ * What a vault's ROOT is, as far as sharing goes (`plans/join-share-brief.md`
+ * P2): `'joined'` when the vault was opened from a folder share — its token is
+ * a folder's, or the share is remembered for this room — so everything in it
+ * is someone else's shared folder; `'devices'` when the root is on a relay for
+ * any other reason (a device link: "on your devices", never "shared");
+ * `'none'` when the root is local. `linked` is `workspace.ui.linked`.
+ */
+export function rootShareKind(room: string, linked: boolean): 'none' | 'devices' | 'joined' {
+  if (!linked) return 'none'
+  const cfg = loadConfig()
+  const held = cfg.tokensByRoom[room]
+  if (held && (held.kind ?? 'folder') === 'folder') return 'joined'
+  if (!held && cfg.shares.some((s) => s.room === room)) return 'joined'
+  return 'devices'
+}
+
 /** Relay the room's token belongs to ('' = unknown; see relayByRoom). */
 export function roomRelay(room: string): string {
   return loadConfig().relayByRoom[room] ?? ''

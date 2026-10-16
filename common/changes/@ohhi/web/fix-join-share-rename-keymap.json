@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A share link opened in a browser that already has a vault can now land the folder inside that vault: the join page offers \"Inside <vault>\" (with a picker when there are several) and a folder named after the link, and opens the vault or hands the join to the tab that already has it. \"As a shared vault of its own\" now says that everything in such a vault is shared, and a vault opened from a share carries a \"Shared with you\" badge and a \"This whole vault\" row in the Shared view. A browser vault opens in one tab at a time; a second tab is told it is open elsewhere instead of silently overwriting edits. The default keyboard shortcuts no longer take keys the editor or the browser already use (Ctrl/Cmd+Arrows, Ctrl/Cmd+[ and ], zoom keys): Back and Forward are Obsidian's Ctrl+Alt+Arrows, split right is Ctrl/Cmd+\\, and the sidebars, daily notes, delete, move and the pane verbs are palette rows until a keymap binds them. The app is spelled \"Oh Hi markdown\" everywhere. The opening splash draws the landing site's wordmark: \"Oh Hi\" on the highlighter, then \"markdown\". The browser tab reads \"Oh Hi markdown editor\", telling the app apart from ohhi.md. The editor has a favicon: the same highlighter tile as the site.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

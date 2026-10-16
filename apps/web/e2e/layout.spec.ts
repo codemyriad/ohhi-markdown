@@ -8,7 +8,7 @@
  * other spec boots the `dense` example (fixtures.ts forces `?layout=dense`).
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings, settingsView } from './fixtures.js'
+import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings, settingsView, withObsidianKeys } from './fixtures.js'
 
 const openLayoutSettings = async (page: Page): Promise<void> => {
   await openSettings(page, 'layout')
@@ -170,6 +170,7 @@ test('the palette’s Use layout file… lists a vault file beside Default and a
 test('the navigator’s pin lives in a header row the tab strip’s height, in the drawer and as a column (Chris, 2026-10-06)', async ({
   page,
 }) => {
+  await withObsidianKeys(page)
   await page.goto(appUrl({ room: 'layout-nav-header', layout: null }))
   await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
   await openByQuickOpen(page, 'welcome')
