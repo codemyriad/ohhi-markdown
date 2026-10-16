@@ -1,4 +1,5 @@
 ---
+import Wordmark from '../components/Wordmark.astro'
 import '../styles/site.css'
 import { CODEMYRIAD, GITHUB } from '../links'
 
@@ -30,11 +31,8 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
   <body>
     <div class="page">
       <header class="top">
-        <!-- The wordmark: "Oh Hi" is ink on the highlighter, the voice drops on "markdown",
-             and "mark" leans (Public Sans's real 400 italic, never synthesised). -->
-        <a class="wordmark" href="/" aria-label="Oh Hi markdown, home">
-          <span class="hi">Oh Hi</span> <span class="md"><em>mark</em>down</span>
-        </a>
+        <!-- The name as components/Wordmark.astro sets it, at the masthead's size. -->
+        <a class="brand" href="/" aria-label="Oh Hi markdown, home"><Wordmark /></a>
         <nav aria-label="Site">
           <a href="/download">Download</a>
           <a href={GITHUB}>GitHub</a>
@@ -44,7 +42,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
         <slot />
       </main>
       <footer class="foot">
-        <span class="wordmark"><span class="hi">Oh Hi</span> <span class="md"><em>mark</em>down</span></span>
+        <Wordmark />
         <a href="/download">Download</a>
         <a href={GITHUB}>GitHub</a>
         <!-- Who makes it, as the Cassini site says it: two chips at the row's end. -->

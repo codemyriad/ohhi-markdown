@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/site",
+      "comment": "The name is set the same way everywhere on the site, headings included: \"Oh Hi\" on the highlighter, then \"markdown\" with its \"mark\" leaning. The download page's heading leans too.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/site"
+}

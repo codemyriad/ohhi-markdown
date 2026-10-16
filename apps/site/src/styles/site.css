@@ -83,18 +83,18 @@ main {
   padding: 1.5rem 0 3.5rem;
 }
 
+/* The name, wherever it is set (components/Wordmark.astro): it takes the size
+ * of its line — the masthead link, a heading, the lede — and brings its own
+ * voice. "Oh Hi" sits on the theme's own ==highlight== pair, so it holds in
+ * dark mode; "markdown" drops the voice: regular weight, muted ink; and its
+ * "mark" leans in Public Sans's real 400 italic. Because "markdown" is always
+ * 400, there is always a real italic to lean with, headings included — no
+ * synthesised slant, no weight change mid-word. */
 .wordmark {
   font-weight: 600;
-  font-size: 1.25rem;
   letter-spacing: -0.01em;
   color: var(--ed-ink);
-  text-decoration: none;
 }
-.wordmark:hover {
-  color: var(--ed-ink);
-}
-/* "Oh Hi" sits on the theme's own ==highlight== pair, so it holds in dark mode;
- * "markdown" drops the voice: regular weight, muted ink. */
 .wordmark .hi {
   color: var(--ed-mark-fg);
   background: var(--ed-mark-bg);
@@ -105,22 +105,18 @@ main {
   font-weight: 400;
   color: var(--ed-ink-muted);
 }
-/* The name's "mark" leans wherever the name is set in running text and in the
- * wordmark (Chris, 2026-10-16): Public Sans's real 400 italic. A heading is
- * 600, and there is no 600 italic to lean with — the fallback would drop the
- * weight mid-word — so headings keep it upright. */
-.wordmark .md em,
-.mk {
+.wordmark .md em {
   font-style: italic;
   font-weight: inherit;
 }
-h1 .mk,
-h2 .mk,
-h3 .mk {
-  font-style: normal;
+/* The masthead link draws the name at its own size. */
+.brand {
+  font-size: 1.25rem;
+  color: var(--ed-ink);
+  text-decoration: none;
 }
-.foot .wordmark {
-  font-size: inherit;
+.brand:hover {
+  color: var(--ed-ink);
 }
 
 .top nav {
