@@ -4,10 +4,15 @@
 # docs/public-deploy.md. The team build (desktop-release.yml, served by the
 # team host) is untouched by this workflow.
 #
-# - push to main touching the web app or anything it bundles: a production
-#   deploy. Bursts collapse (cancel-in-progress): only the newest deploys.
-# - Run workflow: on main, a production deploy; on any other branch, a Pages
-#   PREVIEW deploy (<branch>.ohhi-web.pages.dev), never the custom domains.
+# - push to `production` touching the web app or anything it bundles: the
+#   production deploy of app.ohhi.md. Shipping is one push:
+#   `git push origin main:production`.
+# - push to `main` touching the same: a Pages PREVIEW deploy
+#   (preview-main.ohhi-web.pages.dev, see PAGES_PRODUCTION_BRANCH below), so
+#   every merge gets a URL to look at and nothing goes live by accident.
+# - Run workflow: on `production`, the production deploy; on any other
+#   branch, a preview (<branch>.ohhi-web.pages.dev), never the custom domain.
+# Bursts collapse (cancel-in-progress): only the newest deploy per branch.
 #
 # Security shape (as desktop-release.yml): the build job runs third-party
 # code (npm deps) with a read-only token and NO Cloudflare secret; the small
@@ -24,10 +29,10 @@ name: Web deploy
 
 on:
   push:
-    branches: [main]
-    # The web app and everything it bundles: its libs, the guide pages
-    # (docs/guide → dist/guide), the example themes, the dependency set and
-    # this workflow. Not the desktop shell, the relay, the CLI or other docs.
+    branches: [production, main]
+    # On both branches, the web app and everything it bundles: its libs, the
+    # guide pages (docs/guide → dist/guide), the example themes, the
+    # dependency set and this workflow. Not the desktop shell, the relay, the CLI or other docs.
     paths:
       - 'apps/web/**'
       - 'libs/**'
@@ -38,6 +43,13 @@ on:
       - '.nvmrc'
       - '.github/workflows/web-deploy.yml'
   workflow_dispatch:
+
+# The branch name the Pages project treats as production, as configured in
+# Cloudflare; the git branch that ships is `production`. The "Pages branch" step
+# maps one onto the other. If the Cloudflare setting is later changed to
+# `production`, this becomes `production` and the mapping is the identity.
+env:
+  PAGES_PRODUCTION_BRANCH: main
 
 permissions:
   contents: read
@@ -73,8 +85,10 @@ jobs:
       # no team host, no built-in relay, the unpinned CSP; it derives the
       # downloads list (dist.ohhi.md) and the web origin from PUBLIC_WEB_HOST,
       # and fails the build if dist/_headers is pinned. VERSION is what the
-      # Help menu shows: <major>.<minor>-web.<run>, never mistaken for a
-      # desktop release's semver.
+      # Help menu and Settings › About show: <major>.<minor>-web.<run>+<sha>
+      # (e.g. 0.1-web.57+4208dff), never mistaken for a desktop release's
+      # semver; the build metadata names the commit, so a preview and the
+      # production deploy of the same commit read alike.
       - name: Build web app
         working-directory: apps/web
         env:
@@ -82,7 +96,7 @@ jobs:
           PUBLIC_WEB_HOST: ${{ vars.PUBLIC_WEB_HOST }}
         run: |
           base=$(node -p "require('../desktop/src-tauri/tauri.conf.json').version" | cut -d. -f1,2)
-          export VERSION="${base}-web.${GITHUB_RUN_NUMBER}"
+          export VERSION="${base}-web.${GITHUB_RUN_NUMBER}+${GITHUB_SHA::7}"
           echo "::notice::public web build $VERSION of ${GITHUB_SHA::12}"
           node ../../common/scripts/install-run-rushx.js build
 
@@ -130,16 +144,26 @@ jobs:
           name: web-dist
           path: dist
 
-      # Pages' branch: main is the project's production branch (the custom
-      # domain); any other name makes a preview deployment. Reduced to the
-      # characters a Pages alias keeps, so a branch name never reaches the
-      # command line as anything but one word.
+      # Pages' branch. Git `production` deploys as $PAGES_PRODUCTION_BRANCH, the
+      # project's production branch (the custom domain); any other ref whose
+      # name would be that branch deploys as preview-<name>, so git `main` can
+      # never land as production; every other ref is a preview under its own
+      # name. Reduced to the characters a Pages alias keeps, so a branch name
+      # never reaches the command line as anything but one word.
       - name: Pages branch
         id: branch
         if: env.HAS_TOKEN == 'true'
         env:
           REF_NAME: ${{ github.ref_name }}
-        run: echo "name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')" >> "$GITHUB_OUTPUT"
+        run: |
+          name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')
+          if [ "$GITHUB_REF" = refs/heads/production ]; then
+            name="$PAGES_PRODUCTION_BRANCH"
+          elif [ "$name" = "$PAGES_PRODUCTION_BRANCH" ]; then
+            name="preview-$name"
+          fi
+          echo "::notice::git ${GITHUB_REF} deploys as Pages branch $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Deploy
         id: deploy

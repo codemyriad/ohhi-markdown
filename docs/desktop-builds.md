@@ -12,22 +12,23 @@ deployed.
 
 ## How releases happen
 
-**Every push to the `release` branch is a release.** Pushing to `main` runs CI
-only; to ship, move `release` to the commit you want:
+**Every push to the `release` branch is a public release.** Pushing to `main`
+runs CI only; to ship, move `release` to the commit you want:
 
 ```sh
 git push origin main:release          # ship what's on main
 git push -f origin <sha>:release      # ship (or go back to) a specific commit
 ```
 
-Actions → **Desktop release** then builds
-Linux and macOS in parallel, then publishes a **prerelease** `v<major>.<minor>.<run>`,
-for example `v0.1.42`: major and minor come from `version` in
-`apps/desktop/src-tauri/tauri.conf.json`, and the patch is the workflow's run
-number, so every build counts up, which the updater needs. The version is
-injected at build time (`tauri build --config`), and `tauri.conf.json` keeps
-its base. About five minutes later the team host's pull picks the release up:
-the web app switches over and installed desktop apps offer the update.
+Actions → **Desktop release** then builds Linux and macOS in parallel in the
+**public** flavour, publishes a **prerelease** `public-v<major>.<minor>.<run>`,
+for example `public-v0.1.42`, and its `dist` job uploads it to
+`dist.ohhi.md` ([public-deploy.md](public-deploy.md)). Major and minor come
+from `version` in `apps/desktop/src-tauri/tauri.conf.json`, and the patch is
+the workflow's run number, so every build counts up, which the updater needs.
+The version is injected at build time (`tauri build --config`), and
+`tauri.conf.json` keeps its base. Installed public apps offer the update as
+soon as the upload has finished.
 
 - **Shipping is a deliberate step.** Each build costs about 20 Linux minutes
   plus about 3 macOS minutes (billed at a multiple) of the org's Actions
@@ -42,26 +43,30 @@ the web app switches over and installed desktop apps offer the update.
 - **The release is atomic.** It is created as a draft, every asset is
   attached, and only then is it published. A run cancelled in that window
   leaves an orphan draft: delete it in the Releases page.
-- **Run workflow** on `release` behaves like a push. On any other branch it makes
-  a **draft** prerelease that the team host never sees, for trying a build by hand.
+- **Run workflow** on `release` with the default channel (`public`) behaves
+  like a push. On any other branch it makes a **draft** prerelease that is
+  uploaded nowhere, for trying a build by hand.
 
-**Two flavours.** Everything above is the **team** flavour (pinned to
-`TEAM_HOST`, deployed by a team host), which every push and tag builds. *Run
-workflow* has a **channel** input: `team` (the default) or `public`. A public
-build has no pin, no relay and no team sentences, updates from
+**Two flavours.** *Run workflow* has a **channel** input: `public` (the
+default, and what a push to `release` builds) or `team`. A public build has
+no pin, no relay and no team sentences, updates from
 `https://dist.ohhi.md/stable/latest.json`, and is tagged `public-v<version>`,
-which a team host never deploys. Run on `release` it is published and the `dist`
-job uploads it to the R2 bucket behind `dist.ohhi.md`; on another branch it
-stays a draft. The two run in separate concurrency groups, so neither cancels
-the other. What differs and the Cloudflare setup are in
-[public-deploy.md](public-deploy.md).
+which a team host never deploys. Run on `release` it is published and the
+`dist` job uploads it to the R2 bucket behind `dist.ohhi.md`; on another
+branch it stays a draft. The **team** flavour (pinned to `TEAM_HOST`, tagged
+`v<version>`, deployed by a team host, as the rest of this page describes)
+is built only by *Run workflow* › channel `team` and by a tag push. The
+company's team host was retired on 2026-10-16, so nothing deploys a team
+build any more; the flavour stays in the code until a later cleanup. The two
+run in separate concurrency groups, so neither cancels the other. What
+differs and the Cloudflare setup are in [public-deploy.md](public-deploy.md).
 
 **Tagged releases** are still possible: bump `version` in `tauri.conf.json`,
 then `git tag v0.2.0 && git push origin v0.2.0`. The build fails if the tag and
 the version disagree, and the result is a **draft** release to check and publish
-by hand. Mind the ordering: `v0.2.0` sorts *below* the `v0.2.<run>` builds
-that follow it on `release`, so a tag marks a milestone; it is not the update
-channel.
+by hand. A tag push is always a team build. Mind the ordering: `v0.2.0`
+sorts *below* the `0.2.<run>` builds that follow it on `release`, so a tag
+marks a milestone; it is not the update channel.
 
 ### Build settings
 

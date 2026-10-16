@@ -26,8 +26,8 @@ fails, for example a public build given a team host, or a team build whose
 
 | | **team** | **public** |
 | --- | --- | --- |
-| Switch | `VITE_FLAVOUR=team`, set by `desktop-release.yml` when `TEAM_HOST` is set | `VITE_FLAVOUR=public` (`web-deploy.yml`, and *Run workflow* › channel `public`) |
-| Web app | `https://<team host>/`, served by the team host's reverse proxy from the release's `web.tar.gz` | `https://app.ohhi.md` on Cloudflare Pages, deployed on every push to `main` |
+| Switch | `VITE_FLAVOUR=team`, set by `desktop-release.yml` when `TEAM_HOST` is set | `VITE_FLAVOUR=public` (`web-deploy.yml`, and `desktop-release.yml` by default) |
+| Web app | `https://<team host>/`, served by the team host's reverse proxy from the release's `web.tar.gz` | `https://app.ohhi.md` on Cloudflare Pages, deployed on a push to `production` (a push to `main` makes a preview) |
 | Content Security Policy | `connect-src` pinned to `wss://<host> https://<host>` (`pin-csp.mjs`) | unpinned: `wss: https:`, so any relay and the AI providers the harness calls (Anthropic, OpenAI, OpenRouter, any OpenAI-compatible URL) stay reachable |
 | Default relay | `wss://<team host>/relay`, baked in. No other relay is offered. | none. The person enters one in Settings › Sync & devices (the team's is `wss://ohhi-relay.codemyriad.io`), or opens a share link, which carries its relay. |
 | Team sentences | `TEAM_SECRET_HINT`, `TEAM_NETWORK_NOTE` | none (the build refuses them) |
@@ -98,17 +98,30 @@ Cloudflare step with a warning instead of failing.
 
 ## What each push then does
 
+Every merge to `main` gets a preview to look at; nothing goes live until
+someone pushes it to the branch that ships.
+
 - **Push to `main`** that touches the web app or what it bundles (`apps/web`,
   `libs`, `docs/guide`, `examples/themes`, the dependency set): the **Web
   deploy** workflow builds with `VITE_FLAVOUR=public`, runs the CSP guard and
-  deploys `dist/` to Pages as production (`app.ohhi.md`). *Run workflow* on
-  another branch makes a preview at `<branch>.ohhi-web.pages.dev`.
-- **Push to `release`**: the team release, exactly as before
-  ([desktop-builds.md](desktop-builds.md)).
-- **Actions → Desktop release → Run workflow on `release`, channel
-  `public`**: builds Linux and macOS in the public flavour and publishes the
-  prerelease `public-v<version>` on GitHub. The `dist` job then reads that
-  release back, checks `SHA256SUMS.txt`, and uploads to R2:
+  deploys `dist/` to Pages as a **preview**, at
+  `preview-main.ohhi-web.pages.dev`. One that touches the landing page
+  (`apps/site`, the `@ohhi/ui` styles it reads) does the same for the site,
+  at `preview-main.ohhi-site.pages.dev`.
+- **Push to `production`** (`git push origin main:production`) with the same
+  paths: the production deploy of `app.ohhi.md`.
+- **Push to `site`** (`git push origin main:site`): the production deploy of
+  `ohhi.md`.
+- *Run workflow* on Web deploy or Site deploy: on `production` (or `site`),
+  the production deploy; on any other branch, a preview at
+  `<branch>.ohhi-web.pages.dev` (or `.ohhi-site.`), never the custom domains. If the first push that creates `production` or `site` does not deploy (a
+  branch's first push gives the paths filter little to compare against), *Run
+  workflow* on the new branch does.
+- **Push to `release`** (`git push origin main:release`): the **Desktop
+  release** workflow builds Linux and macOS in the public flavour, the
+  default, and publishes the prerelease `public-v<version>` on GitHub. The
+  `dist` job then reads that release back, checks `SHA256SUMS.txt`, and
+  uploads to R2:
 
   | Key | What | `Cache-Control` |
   | --- | --- | --- |
@@ -117,12 +130,22 @@ Cloudflare step with a warning instead of failing.
   | `stable/downloads.json` | the installers for *Get the desktop app* | `no-store` |
   | `stable/latest.json` | the updater feed, uploaded **last** | `no-store` |
 
-  Run on any other branch, the public build stays a draft and uploads nothing.
+  The same push runs the mobile builds ([mobile-builds.md](mobile-builds.md)).
+  *Run workflow* on any other branch builds a public draft that uploads
+  nothing. *Run workflow* › channel `team` builds the retired team flavour
+  ([desktop-builds.md](desktop-builds.md)); nothing deploys it any more.
 
-The **web app** follows `main` on every push. The **public desktop builds**
-ship only when someone runs the public channel, because of Actions minutes
-(macOS is billed at a multiple). Installed public apps update from
-`stable/latest.json` the same way team apps update from their team host.
+The **web app** and the **landing page** go live when someone pushes to
+`production` or `site`; `main` only ever makes previews. The **public desktop
+builds** ship only on a push to `release`, because of Actions minutes (macOS
+is billed at a multiple). Installed public apps update from
+`stable/latest.json`.
+
+The Pages projects' production branch is `main` in Cloudflare (step 2
+above), so the workflows map git branches onto Pages branches
+(`PAGES_PRODUCTION_BRANCH`): git `production` (or `site`) deploys as Pages'
+`main`, git `main` as `preview-main`, and any other branch under its own
+name.
 
 ## *Get the desktop app*
 
@@ -150,10 +173,12 @@ flip, so the team host's runbook and the private design notes never shipped;
 host material lives in the private `codemyriad/systems` repository. A public
 repository whose pushes deploy needs these settings, and this is why:
 
-- **Branch protection on `main` and `release`.** A push to `main` deploys
-  app.ohhi.md and ohhi.md, and a push to `release` cuts a desktop release, so
-  both branches take changes only through a reviewed pull request: no force
-  pushes, no deletion, status checks (`CI`) required.
+- **Branch protection on `main`, `release`, `production` and `site`.** A
+  push to `production` deploys app.ohhi.md, a push to `site` deploys
+  ohhi.md, a push to `release` cuts a desktop release, and `main` is what
+  all three are pushed from, so each takes changes only from a maintainer
+  (`main` through a reviewed pull request): no force pushes, no deletion,
+  status checks (`CI`) required.
 - **Workflow approval for outside contributors.** Settings › Actions ›
   General › *Require approval for all outside collaborators* (at least for
   first-time contributors): a pull request from a fork must not run CI until
@@ -161,8 +186,9 @@ repository whose pushes deploy needs these settings, and this is why:
   uses `pull_request_target`; keep it that way.
 - **The Cloudflare secrets in an environment**, optionally.
   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` can move from
-  repository secrets into a GitHub environment restricted to `main` and
-  `release`, so no run on another branch can ever read them; the deploy jobs
+  repository secrets into a GitHub environment restricted to `main`,
+  `production`, `site` and `release` (`main` deploys previews), so no run on
+  another branch can ever read them; the deploy jobs
   then gain an `environment:` line. Today they are repository secrets, and
   only the small deploy jobs (which check nothing out and run no third-party
   code) receive them.
@@ -203,5 +229,11 @@ repository whose pushes deploy needs these settings, and this is why:
   dist.ohhi.md, and their tags differ. A teammate who installs the public
   build gets public updates (no pin, no team relay). That is a different app
   in all but name, so the two should not be mixed on one machine.
+- **The Pages production branch.** Both Pages projects (`ohhi-web`,
+  `ohhi-site`) still have `main` as their production branch in Cloudflare;
+  the workflows map git `production` and `site` onto it. Switching the
+  Cloudflare setting to `production` (and `site`) and setting
+  `PAGES_PRODUCTION_BRANCH` to match in each workflow is an optional
+  tidy-up that turns the mapping into the identity.
 - **The join page's Download link** still goes to the guide's install
   section. It could link the right file from the same `downloads.json`.

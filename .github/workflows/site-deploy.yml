@@ -4,10 +4,15 @@
 # a build job that runs third-party code with no Cloudflare secret, and a
 # small deploy job that uploads the built dist/ with the token.
 #
-# - push to main touching the site, the theme tokens it reads (@ohhi/ui) or
-#   this workflow: a production deploy. Bursts collapse (cancel-in-progress).
-# - Run workflow: on main, a production deploy; on any other branch, a Pages
-#   PREVIEW deploy (<branch>.ohhi-site.pages.dev), never the custom domains.
+# - push to `site` touching the site, the theme tokens it reads (@ohhi/ui) or
+#   this workflow: the production deploy of ohhi.md. Shipping is one push:
+#   `git push origin main:site`.
+# - push to `main` touching the same: a Pages PREVIEW deploy
+#   (preview-main.ohhi-site.pages.dev, see PAGES_PRODUCTION_BRANCH below), so
+#   nothing goes live by accident.
+# - Run workflow: on `site`, the production deploy; on any other branch, a
+#   preview (<branch>.ohhi-site.pages.dev), never the custom domains.
+# Bursts collapse (cancel-in-progress): only the newest deploy per branch.
 #
 # Needs (docs/public-deploy.md): secrets CLOUDFLARE_API_TOKEN (Pages: Edit)
 # and CLOUDFLARE_ACCOUNT_ID. Without them the build still runs and the
@@ -16,7 +21,9 @@ name: Site deploy
 
 on:
   push:
-    branches: [main]
+    branches: [site, main]
+    # On both branches: the site, the @ohhi/ui files it reads, the dependency
+    # set and this workflow.
     paths:
       - 'apps/site/**'
       - 'libs/ui/src/styles/**'
@@ -27,6 +34,13 @@ on:
       - '.nvmrc'
       - '.github/workflows/site-deploy.yml'
   workflow_dispatch:
+
+# The branch name the Pages project treats as production, as configured in
+# Cloudflare; the git branch that ships is `site`. The "Pages branch" step
+# maps one onto the other. If the Cloudflare setting is later changed to
+# `site`, this becomes `site` and the mapping is the identity.
+env:
+  PAGES_PRODUCTION_BRANCH: main
 
 permissions:
   contents: read
@@ -102,12 +116,26 @@ jobs:
           name: site-dist
           path: dist
 
+      # Pages' branch. Git `site` deploys as $PAGES_PRODUCTION_BRANCH, the
+      # project's production branch (the custom domains); any other ref whose
+      # name would be that branch deploys as preview-<name>, so git `main` can
+      # never land as production; every other ref is a preview under its own
+      # name. Reduced to the characters a Pages alias keeps, so a branch name
+      # never reaches the command line as anything but one word.
       - name: Pages branch
         id: branch
         if: env.HAS_TOKEN == 'true'
         env:
           REF_NAME: ${{ github.ref_name }}
-        run: echo "name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')" >> "$GITHUB_OUTPUT"
+        run: |
+          name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')
+          if [ "$GITHUB_REF" = refs/heads/site ]; then
+            name="$PAGES_PRODUCTION_BRANCH"
+          elif [ "$name" = "$PAGES_PRODUCTION_BRANCH" ]; then
+            name="preview-$name"
+          fi
+          echo "::notice::git ${GITHUB_REF} deploys as Pages branch $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Deploy
         id: deploy

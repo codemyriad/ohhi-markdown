@@ -7,25 +7,28 @@
 # - push to the `release` branch (or Run workflow on it): the CONTINUOUS
 #   channel. Pushing to main builds nothing here (CI still runs), so Actions
 #   minutes are spent only when someone ships: `git push origin main:release`.
-#   Version
-#   <major>.<minor>.<run number> from tauri.conf.json, tag v<version>, a
-#   PUBLISHED prerelease. The team host's pull script picks it up (latest.json, the web
-#   app) and installed desktop apps update from it. Bursts collapse:
-#   cancel-in-progress keeps only the newest release build running.
+#   Version <major>.<minor>.<run number> from tauri.conf.json, a PUBLISHED
+#   prerelease (tag public-v<version>, or v<version> for team); a public one (the default, below) is then uploaded
+#   to dist.ohhi.md by the `dist` job and installed desktop apps update from
+#   it. Bursts collapse: cancel-in-progress keeps only the newest release
+#   build running.
 # - tag v*: the version in tauri.conf.json (must match the tag), a DRAFT
 #   release to check and publish by hand. Never cancelled.
-# - Run workflow on any other branch: a DRAFT prerelease, never seen by the team host.
+# - Run workflow on any other branch: a DRAFT prerelease, uploaded nowhere.
 #
-# Two flavours (the `channel` input of Run workflow; pushes and tags are
-# always `team`). apps/web/scripts/flavour.mjs and docs/public-deploy.md:
-# - team (default): what the three channels above describe — the CSP pinned
-#   to TEAM_HOST, its relay baked in, the feed on the team host. Unchanged.
-# - public: no pin, no relay, the updater feed at
+# Two flavours (the `channel` input of Run workflow). A push to `release`, and
+# Run workflow with no channel chosen, build `public`; a tag push is always
+# `team`. apps/web/scripts/flavour.mjs and docs/public-deploy.md:
+# - public (default): no pin, no relay, the updater feed at
 #   https://dist.ohhi.md/stable/latest.json. Tagged `public-v<version>`, so
-#   the team host's pull (which takes only `v<semver>` tags) never deploys it. Run on
-#   `release` it is published and the `dist` job uploads it to the R2 bucket
-#   behind dist.ohhi.md; on any other branch it stays a draft and uploads
-#   nothing.
+#   a team host's pull (which takes only `v<semver>` tags) never deploys it.
+#   On `release` it is published and the `dist` job uploads it to the R2
+#   bucket behind dist.ohhi.md; on any other branch it stays a draft and
+#   uploads nothing. So a release is one push: `git push origin main:release`.
+# - team (Run workflow › channel `team`, or a tag push): the CSP pinned to
+#   TEAM_HOST, its relay baked in, the feed on the team host, tagged
+#   v<version>. The company's team host was retired on 2026-10-16; the
+#   flavour stays in the code until a later cleanup removes it.
 #
 # Security shape:
 # - Build jobs run third-party code (npm deps, cargo build scripts, the Tauri
@@ -57,17 +60,19 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: 'Which build: team (pinned to TEAM_HOST) or public (dist.ohhi.md)'
+        description: 'Which build: public (dist.ohhi.md) or team (pinned to TEAM_HOST)'
         type: choice
-        options: [team, public]
-        default: team
+        options: [public, team]
+        default: public
 
 permissions:
   contents: read
 
 concurrency:
   # Per flavour: a public build must never cancel the team's (or the reverse).
-  group: desktop-release-${{ github.ref }}-${{ inputs.channel || 'team' }}
+  # The same expression as CHANNEL_INPUT below, so the group names the
+  # flavour actually built: a branch push is public, a tag push team.
+  group: desktop-release-${{ github.ref }}-${{ inputs.channel || (github.ref_type == 'tag' && 'team' || 'public') }}
   cancel-in-progress: ${{ github.ref == 'refs/heads/release' }}
 
 defaults:
@@ -104,7 +109,9 @@ jobs:
           DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
           TEAM_SECRET_HINT: ${{ vars.TEAM_SECRET_HINT }}
           TEAM_NETWORK_NOTE: ${{ vars.TEAM_NETWORK_NOTE }}
-          CHANNEL_INPUT: ${{ inputs.channel || 'team' }}
+          # Run workflow's choice; a push has none: a tag push builds team,
+          # a branch push (`release`) public.
+          CHANNEL_INPUT: ${{ inputs.channel || (github.ref_type == 'tag' && 'team' || 'public') }}
           PUBLIC_WEB_HOST: ${{ vars.PUBLIC_WEB_HOST }}
           PUBLIC_DIST_HOST: ${{ vars.PUBLIC_DIST_HOST }}
         run: |
@@ -444,7 +451,8 @@ jobs:
 
   # The public channel's download host: the R2 bucket `ohhi-dist` behind
   # https://dist.ohhi.md (docs/public-deploy.md). Runs only for a PUBLISHED
-  # public build (Run workflow on `release` with channel = public). It uploads
+  # public build: a push to `release` (or Run workflow on it with channel
+  # public, the default). It uploads
   # what the release job published — read back from the release, checked
   # against its SHA256SUMS.txt — so the bucket never holds a file GitHub
   # doesn't:
