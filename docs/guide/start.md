@@ -18,10 +18,12 @@ This page takes about two minutes.
 Use the desktop app for your own notes. A browser works too, but keeps its
 notes inside the browser (see [the browser](#or-use-a-browser) below).
 
-**Where the builds are.** If your team runs its own host for Oh hi markdown,
-that host serves every release under `/updates/` — the person who set it up
-has the link. Releases are also attached in the repository, for those who
-have access to it. Download the newest one for your computer.
+**Where the builds are.** In the browser app, Settings › About › *Desktop
+app* links the newest build for your computer (so does the palette's *Get the
+desktop app*). The public builds are at `https://dist.ohhi.md`. If your team
+runs its own host for Oh hi markdown, that host serves every release under
+`/updates/`, and the person who set it up has the link. Releases are also
+attached in the repository, for those who have access to it.
 
 **macOS**
 

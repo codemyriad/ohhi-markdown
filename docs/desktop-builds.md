@@ -6,7 +6,9 @@ Security Policy. Workflow:
 [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
 — its comments cover the job layout, token permissions and signing placeholders.
 The team host it publishes to (the team host, over the company tailnet) is described in
-[`deploy-tailnet.md`](deploy-tailnet.md).
+[`deploy-tailnet.md`](deploy-tailnet.md); the public flavour, published to
+`dist.ohhi.md` (and the web app on `write.ohhi.md`), in
+[`public-deploy.md`](public-deploy.md).
 
 ## How releases happen
 
@@ -43,6 +45,17 @@ app switches over and installed desktop apps offer the update.
 - **Run workflow** on `release` behaves like a push. On any other branch it makes
   a **draft** prerelease that the team host never sees, for trying a build by hand.
 
+**Two flavours.** Everything above is the **team** flavour (pinned to
+`TEAM_HOST`, deployed by the team host), which every push and tag builds. *Run
+workflow* has a **channel** input: `team` (the default) or `public`. A public
+build has no pin, no relay and no team sentences, updates from
+`https://dist.ohhi.md/stable/latest.json`, and is tagged `public-v<version>`,
+which the team host never deploys. Run on `release` it is published and the `dist`
+job uploads it to the R2 bucket behind `dist.ohhi.md`; on another branch it
+stays a draft. The two run in separate concurrency groups, so neither cancels
+the other. What differs and the Cloudflare setup are in
+[public-deploy.md](public-deploy.md).
+
 **Tagged releases** are still possible: bump `version` in `tauri.conf.json`,
 then `git tag v0.2.0 && git push origin v0.2.0`. The build fails if the tag and
 the version disagree, and the result is a **draft** release to check and publish
@@ -59,6 +72,8 @@ channel.
 | `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
 | `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the company tailnet.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
 | `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, the relay field in Settings › Sync & devices read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
+| `PUBLIC_WEB_HOST`, `PUBLIC_DIST_HOST` | repository variables | Public channel only, both optional: the public web app's host (default `write.ohhi.md`, where a public desktop build points its share links) and the download host (default `dist.ohhi.md`: the update feed, `downloads.json` and the R2 keys' URLs). Defaults live in `apps/web/scripts/flavour.mjs`. |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | secrets | Public channel's `dist` job (R2: Edit) and the Web deploy workflow (Pages: Edit). Unset → both skip the upload with a warning. |
 | `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
 
 A relay saved in Settings › Sync & devices always wins over the build's default. The
@@ -80,7 +95,8 @@ Each release carries, flat:
 | `ohhi_<version>_universal.app.tar.gz` | macOS updater bundle (the bundler's `ohhi.app.tar.gz`, renamed) |
 | `ohhi_<version>_universal.app.tar.gz.sig` | its updater signature |
 | `web.tar.gz` | the web app's `dist/`, with `index.html` and `_headers` at the archive root (as `./…`) |
-| `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set; its URLs point at `https://<host>/updates/<tag>/<file>` |
+| `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set (team) or for a public build; its URLs point at `https://<host>/updates/<tag>/<file>` (team) or `https://dist.ohhi.md/<version>/<file>` (public) |
+| `downloads.json` | the installers (`.dmg`, `.AppImage`, `.deb`) with URL, size and sha256, at the same base as `latest.json`: what Settings › About's *Get the desktop app* reads (`apps/web/scripts/downloads-manifest.mjs`). the team host serves it as `/updates/downloads.json`, R2 as `stable/downloads.json` |
 | `SHA256SUMS.txt` | checksums of all the above |
 
 The build artifacts also stay in the workflow run for 14 days. There are no
@@ -98,7 +114,8 @@ match the public key it was built with.
 ### Updates
 
 On launch and every 6 hours, installed apps check
-`https://<team host>/updates/latest.json` (Settings › About shows the version
+`https://<team host>/updates/latest.json` (a public build:
+`https://dist.ohhi.md/stable/latest.json`) (Settings › About shows the version
 you're running and the last check's outcome). A newer build downloads and installs in the background, then a
 toast offers **Restart** and **What changed**. *What changed* opens the
 `changes` guide page in a guide window: on a team build it is read from
@@ -298,6 +315,11 @@ of these would close it:
    `connect-src` shrinks to `'self' ipc: http://ipc.localhost`. With a scoped
    filesystem grant, an injected script could then neither read much nor send
    it anywhere.
+
+**Public builds are not pinned** ([public-deploy.md](public-deploy.md)): any
+relay may be chosen, and the AI providers the harness calls need `https:`
+anyway. `VITE_FLAVOUR=public` checks after the build that `dist/_headers`
+still allows `wss: https:`, so a stray pin can't reach `write.ohhi.md`.
 
 **Team builds are pinned (option 1).** When the repository variable
 `TEAM_HOST` is set, the release workflow runs
