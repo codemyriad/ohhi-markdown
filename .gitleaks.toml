@@ -15,9 +15,9 @@ regexTarget = "line"
 regexes = ['''"pubkey":''', '''minisign public key''']
 
 [[allowlists]]
-description = "Keyboard shortcuts in the pane commands (Ctrl+Shift+Tab and friends) are not API keys"
+description = "Keyboard shortcuts in the pane and navigation commands (Ctrl+Shift+Tab, Ctrl+Mod+ArrowLeft and friends) are not API keys"
 condition = "AND"
-paths = ['''apps/web/src/lib/pane-commands\.ts''']
+paths = ['''apps/web/src/lib/(pane-commands\.ts|navigation\.svelte\.ts)''']
 regexTarget = "line"
 regexes = ['''keys: ''']
 
