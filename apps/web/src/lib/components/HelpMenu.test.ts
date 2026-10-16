@@ -3,7 +3,7 @@ import { SimClock } from '@ohhi/testkit'
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { help, setHelpHost, versionLine } from '../help.svelte.js'
+import { currentVersion, help, loadVersion, setHelpHost, versionLine } from '../help.svelte.js'
 import HelpMenu from './HelpMenu.svelte'
 
 const H = 60 * 60 * 1000
@@ -110,5 +110,55 @@ describe('versionLine (honest, R5)', () => {
   })
   it('no version known says so', () => {
     expect(versionLine(null, { kind: 'unchecked' }, now)).toBe('Version not known')
+  })
+})
+
+describe('currentVersion / loadVersion (one source for every surface)', () => {
+  const WEB = '0.1-web.57+4208dff'
+
+  it('a browser names the version the bundle was built with', async () => {
+    expect(await currentVersion({ tauri: false, build: WEB })).toBe(WEB)
+  })
+
+  it('a browser build without a version (a local build) knows none', async () => {
+    expect(await currentVersion({ tauri: false, build: '' })).toBeNull()
+  })
+
+  it('the Tauri app names its own version, not the bundle’s', async () => {
+    expect(await currentVersion({ tauri: true, build: WEB, tauriVersion: async () => '0.1.42' })).toBe('0.1.42')
+  })
+
+  it('a Tauri read that fails falls back to the build’s version, else none', async () => {
+    const fail = async (): Promise<string> => {
+      throw new Error('no ipc')
+    }
+    expect(await currentVersion({ tauri: true, build: WEB, tauriVersion: fail })).toBe(WEB)
+    expect(await currentVersion({ tauri: true, build: '', tauriVersion: fail })).toBeNull()
+  })
+
+  it('the Help menu’s foot names a browser build’s version', async () => {
+    help.version = null
+    await loadVersion({ tauri: false, build: WEB })
+    expect(help.version).toBe(WEB)
+    const user = userEvent.setup()
+    render(HelpMenu, { clock: new SimClock() })
+    await user.click(screen.getByTestId('help-menu'))
+    expect(await screen.findByTestId('help-version')).toHaveTextContent(`Version ${WEB}`)
+  })
+
+  it('a browser build without a version leaves the foot as today: not known', async () => {
+    help.version = null
+    await loadVersion({ tauri: false, build: '' })
+    expect(help.version).toBeNull()
+    const user = userEvent.setup()
+    render(HelpMenu, { clock: new SimClock() })
+    await user.click(screen.getByTestId('help-menu'))
+    expect(await screen.findByTestId('help-version')).toHaveTextContent('Version not known')
+  })
+
+  it('the desktop fills it from Tauri, unchanged', async () => {
+    help.version = null
+    await loadVersion({ tauri: true, build: '', tauriVersion: async () => '0.1.42' })
+    expect(help.version).toBe('0.1.42')
   })
 })

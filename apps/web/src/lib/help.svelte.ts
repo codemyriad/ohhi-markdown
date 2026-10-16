@@ -54,8 +54,8 @@ export const HELP_GUIDES = {
 
 /**
  * The build's version, inlined by Vite (`define` in vite.config.ts, from the
- * release workflow's `VERSION`); '' in a local build. The desktop reads its
- * own from Tauri instead (`loadVersion`).
+ * deploy workflow's `VERSION`, e.g. `0.1-web.57+4208dff`); '' in a local
+ * build. The Tauri app reads its own instead (`currentVersion`).
  */
 declare const __OHHI_VERSION__: string | undefined
 export const BUILD_VERSION: string = typeof __OHHI_VERSION__ === 'string' ? __OHHI_VERSION__.trim() : ''
@@ -125,15 +125,39 @@ export function runHelp(id: HelpCommandId): void {
   }
 }
 
-/** Read the desktop build's own version (Settings › About shows the same). */
-export async function loadVersion(): Promise<void> {
-  if (!isTauri()) return
+/** Where the running build's version comes from; injected by the tests. */
+export interface VersionSource {
+  /** Running in the Tauri app (desktop or phone). Default: `isTauri()`. */
+  tauri?: boolean
+  /** The version the bundle was built with. Default: `BUILD_VERSION` ('' in a local build). */
+  build?: string
+  /** The Tauri app's own version. Default: `getVersion` from `@tauri-apps/api/app`. */
+  tauriVersion?: () => Promise<string>
+}
+
+/**
+ * The running build's version, one answer for every surface (the Help menu's
+ * foot, Settings › About, the manager's header): the Tauri app's own version,
+ * else the version the web bundle was built with; null when neither is known
+ * (a local build in a browser) — never a guess.
+ */
+export async function currentVersion(source: VersionSource = {}): Promise<string | null> {
+  const build = (source.build ?? BUILD_VERSION).trim() || null
+  if (!(source.tauri ?? isTauri())) return build
   try {
-    const { getVersion } = await import('@tauri-apps/api/app')
-    help.version = await getVersion()
+    const read =
+      source.tauriVersion ?? (async () => (await import('@tauri-apps/api/app')).getVersion())
+    return (await read()) || build
   } catch {
-    // Not known: the line says so rather than guessing.
+    // Not known from Tauri: the build's own, or the line says so.
+    return build
   }
+}
+
+/** Fill `help.version` from `currentVersion` (App.svelte calls it at start). */
+export async function loadVersion(source: VersionSource = {}): Promise<void> {
+  const version = await currentVersion(source)
+  if (version) help.version = version
 }
 
 /**

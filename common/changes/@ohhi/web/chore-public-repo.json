@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The browser build names its version — in the Help menu's foot, Settings › About and the vault list's header — as the deploy stamps it (0.1-web.<run>+<commit>), the way the desktop app always has.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

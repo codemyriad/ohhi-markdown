@@ -33,6 +33,7 @@
   import { LL, locale } from '@ohhi/i18n/i18n-svelte'
   import type { StoredShare, VaultEntry } from '../config.js'
   import { guideHref, openGuide } from '../guide.js'
+  import { currentVersion } from '../help.svelte.js'
   import type { JoinOutcome } from '../manager.svelte.js'
   import type { SettingsSection } from '../settings.js'
   import { realClock } from '../real-clock.js'
@@ -120,6 +121,8 @@
     now?: () => number
     /** The Add dialog's relay health check; tests hand in a fake (default: the network). */
     probe?: Probe
+    /** The running build's version; tests hand in a fake (default: `currentVersion`). */
+    readVersion?: () => Promise<string | null>
   }
 
   let {
@@ -154,6 +157,7 @@
     onDismissStorage,
     now = () => realClock.now(),
     probe,
+    readVersion = () => currentVersion(),
   }: Props = $props()
 
   const t = $derived($LL.web.manager)
@@ -180,15 +184,12 @@
   let renameValue = $state('')
   let rememberedAnchor = $state<HTMLElement | null>(null)
 
-  /** The desktop build's version, from the same source Settings › About reads. */
+  /** The running build's version, from the same source Settings › About reads (`currentVersion`). */
   let appVersion = $state<string | null>(null)
-  // svelte-ignore state_referenced_locally -- the platform is fixed for the page's life
-  if (isTauri) {
-    void import('@tauri-apps/api/app')
-      .then(({ getVersion }) => getVersion())
-      .then((v) => (appVersion = v))
-      .catch(() => {})
-  }
+  // svelte-ignore state_referenced_locally -- the reader is fixed for the page's life
+  void readVersion()
+    .then((v) => (appVersion = v))
+    .catch(() => {})
 
   // The list's facts are read when it shows, and again when the rows change.
   $effect(() => {

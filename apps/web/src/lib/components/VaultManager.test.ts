@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLL } from '@ohhi/i18n'
 import type { VaultEntry } from '../config.js'
 import { guideHref, openGuide } from '../guide.js'
-import { help } from '../help.svelte.js'
+import { currentVersion, help } from '../help.svelte.js'
 import type { Probe } from '../relay-check.js'
 import { encodeShareLink } from '../share-link.js'
 import VaultManager from './VaultManager.svelte'
@@ -405,5 +405,30 @@ describe('the welcome’s agent door (settings-shaping ST6)', () => {
   it('in a browser it is not drawn: no agent reaches a vault kept in the browser', () => {
     setup()
     expect(screen.queryByTestId('manager-agents')).toBeNull()
+  })
+})
+
+describe('the version in the header', () => {
+  it('a browser build names its version', async () => {
+    setup({ readVersion: () => currentVersion({ tauri: false, build: '0.1-web.57+4208dff' }) })
+    expect(await screen.findByTestId('manager-version')).toHaveTextContent(
+      t.version({ version: '0.1-web.57+4208dff' })
+    )
+  })
+
+  it('a browser build without a version shows no line, as before', async () => {
+    const read = vi.fn(() => currentVersion({ tauri: false, build: '' }))
+    setup({ readVersion: read })
+    await waitFor(() => expect(read).toHaveBeenCalled())
+    await Promise.resolve()
+    expect(screen.queryByTestId('manager-version')).toBeNull()
+  })
+
+  it('the desktop names the Tauri app’s version', async () => {
+    setup({
+      isTauri: true,
+      readVersion: () => currentVersion({ tauri: true, build: '', tauriVersion: async () => '0.1.42' }),
+    })
+    expect(await screen.findByTestId('manager-version')).toHaveTextContent(t.version({ version: '0.1.42' }))
   })
 })
