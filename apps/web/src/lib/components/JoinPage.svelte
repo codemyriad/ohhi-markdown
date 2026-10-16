@@ -21,7 +21,7 @@
    * health check, never "the link is valid"). Then where it should go: *In
    * the desktop app* copies the link for the app's *Add a folder someone
    * shared* (Fork 3-B — no deep link yet); *In this browser* is the choice
-   * itself (amended 2026-10-16, `plans/join-share-brief.md`): **inside one
+   * itself (amended 2026-10-16, `join-share-brief`): **inside one
    * of the browser's vaults** — the tab can read the browser's vault list
    * even though it has no vault open — with a picker when there are several
    * and a folder that defaults to the link's label; or **as a shared vault

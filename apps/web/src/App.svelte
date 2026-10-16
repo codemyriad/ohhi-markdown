@@ -98,7 +98,7 @@
   /** A device link handed over by the join page, for *Link this device*. */
   let deviceLinkPrefill = $state('')
   /**
-   * *Inside <vault>* on the join page (`plans/join-share-brief.md` P1, option
+   * *Inside <vault>* on the join page (`join-share-brief` P1, option
    * a): the page opens the vault and this is the mount to make once it is
    * live — run from `onOpened`, for that room only (any other open drops it).
    * A refusal (the folder is not empty, the share is already there) reopens

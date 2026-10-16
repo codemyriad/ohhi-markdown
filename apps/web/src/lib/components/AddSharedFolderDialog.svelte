@@ -14,7 +14,7 @@
    * device link to *Link this device*.
    *
    * "As a shared vault of its own" (amended 2026-10-16,
-   * `plans/join-share-brief.md`) says what that IS — everything in it is
+   * `join-share-brief`) says what that IS — everything in it is
    * shared with whoever holds a link — and then what happens next on this
    * platform (first-run F1): on the desktop an OS folder picker opens with no
    * sentence of its own, so the dialog explains it before it does. With no

@@ -842,7 +842,7 @@ export function roomTokenKind(room: string): ShareKind | '' {
 }
 
 /**
- * What a vault's ROOT is, as far as sharing goes (`plans/join-share-brief.md`
+ * What a vault's ROOT is, as far as sharing goes (`join-share-brief`
  * P2): `'joined'` when the vault was opened from a folder share — its token is
  * a folder's, or the share is remembered for this room — so everything in it
  * is someone else's shared folder; `'devices'` when the root is on a relay for

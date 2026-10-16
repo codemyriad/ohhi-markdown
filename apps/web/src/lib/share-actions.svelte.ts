@@ -58,7 +58,7 @@ export interface ShareActions {
   /**
    * Join-a-share dialog, with the folder it was asked from ('' = vault root).
    * A pending join the join page handed over and the vault refused reopens
-   * it with the link, the folder and the refusal (`plans/join-share-brief.md`).
+   * it with the link, the folder and the refusal (`join-share-brief`).
    */
   addShareOpen: { dir: string; link?: string; dest?: string; error?: string } | null
   /** Add-link dialog for a `needs-token` mount: the mount is already here, only its key is missing. */

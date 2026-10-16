@@ -13,7 +13,7 @@ Every outbound URL is in `src/links.ts`:
 
 | What | URL | Status |
 |---|---|---|
-| Web app | `https://app.ohhi.md` | the apex is this site, so the app takes `app.` (`plans/naming.md`) |
+| Web app | `https://app.ohhi.md` | the apex is this site, so the app takes `app.` (`naming`) |
 | Desktop downloads | `https://dist.ohhi.md/stable/latest/<file>` | the R2 bucket the `dist` job of `.github/workflows/desktop-release.yml` uploads every public release to; `stable/latest/` holds the newest installers under these stable aliases (`docs/public-deploy.md`) |
 | Checksums | `https://dist.ohhi.md/stable/latest/SHA256SUMS.txt` | beside the builds, listing the alias names |
 

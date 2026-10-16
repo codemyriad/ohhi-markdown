@@ -177,7 +177,7 @@ describe('JoinPage', () => {
     expect(props.onLinkHere).not.toHaveBeenCalled()
   })
 
-  // ---- the browser has a vault (C2 amended 2026-10-16, plans/join-share-brief.md) ----
+  // ---- the browser has a vault (C2 amended 2026-10-16, join-share-brief) ----
   const VAULTS = [
     { name: 'Work', vault: { kind: 'opfs' as const, id: 'v1' }, room: 'room-work', lastOpenedAt: 2 },
     { name: 'Play', vault: { kind: 'opfs' as const, id: 'v2' }, room: 'room-play', lastOpenedAt: 1 },

@@ -1,5 +1,5 @@
 /**
- * One tab per browser vault (`plans/join-share-brief.md` P3, settled
+ * One tab per browser vault (`join-share-brief` P3, settled
  * 2026-10-16). Two tabs on the same OPFS vault each run a full session over
  * the same files with nothing between them — no relay for an unshared vault,
  * no watcher on OPFS — so the second tab opens on a stale copy, neither sees
