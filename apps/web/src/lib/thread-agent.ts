@@ -100,11 +100,16 @@ export async function askAgent(
 
   const range = store.rangeOf(thread)
   const ref = range ? await deps.mention(path, store, range) : mentionOf({ kind: 'file', path })
-  const title = commentSessionTitle(path, ref)
-  const input = { instruction: comment.body, refs: [ref], threadId, open: false, title } satisfies StartRunInput
+  const input = { instruction: comment.body, refs: [ref], threadId, open: false } satisfies StartRunInput
   // The session asked for (the current one by default) when it is free; a new one otherwise.
+  // Only a NEW session is named after the comment's place: one the person
+  // already has open keeps its name (an untitled one stays untitled), so
+  // its tab is still the tab they had — never retitled into what looks like
+  // a different session (QA round 2, "I had a session open in a tab, now I don't").
   const current = target === 'new' ? null : target === 'current' ? deps.session() : target.sessionId
-  const handle = (current ? await deps.startRun({ ...input, sessionId: current }) : null) ?? (await deps.startRun(input))
+  const handle =
+    (current ? await deps.startRun({ ...input, sessionId: current, title: null }) : null) ??
+    (await deps.startRun({ ...input, title: commentSessionTitle(path, ref) }))
   if (!handle) {
     deps.flash?.({ level: 'info', text: w.thread_not_started() })
     return null
