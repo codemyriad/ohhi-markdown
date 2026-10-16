@@ -20,8 +20,9 @@
    * wordmark is the landing site's (`apps/site` `Base.astro`, `site.css`
    * `.wordmark`): "Oh Hi" as ink on the theme's own ==highlight== pair
    * (`--ed-mark-bg` / `--ed-mark-fg`, so it holds in every theme), the
-   * voice dropping on "markdown" — the first surface in the app to draw it
-   * (Chris, 2026-10-16: "only there for now"). Only
+   * voice dropping on "markdown" with "mark" in the real 400 italic — the
+   * first surface in the app to draw it (Chris, 2026-10-16: "only there for
+   * now"). Only
    * an open that is still going after {SPLASH_ESCAPE_MS} ms offers a way out
    * — back to the vault list (`session.cancel()`), the one thing a person
    * can usefully do about a stalled open. The memory URL contract (dev, the
@@ -57,7 +58,7 @@
   {#if shown}
     <p class="ed-wordmark m-0 text-xl font-semibold tracking-tight" data-testid="boot-wordmark">
       <span class="ed-wordmark-hi">{$LL.common.wordmark.hi()}</span>
-      <span class="ed-wordmark-rest">{$LL.common.wordmark.rest()}</span>
+      <span class="ed-wordmark-rest"><em class="ed-wordmark-mark">{$LL.common.wordmark.mark()}</em>{$LL.common.wordmark.down()}</span>
     </p>
     <p role="status" class="m-0 text-sm text-base-content/70">{t.opening()}</p>
     {#if slow && onCancel}
@@ -88,5 +89,9 @@
   .ed-wordmark-rest {
     font-weight: 400;
     color: var(--ed-ink-muted);
+  }
+  .ed-wordmark-mark {
+    font-style: italic;
+    font-weight: 400;
   }
 </style>

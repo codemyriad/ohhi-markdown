@@ -27,9 +27,13 @@ type RootTranslation = {
 			 */
 			hi: string
 			/**
-			 * m​a​r​k​d​o​w​n
+			 * m​a​r​k
 			 */
-			rest: string
+			mark: string
+			/**
+			 * d​o​w​n
+			 */
+			down: string
 		}
 		/**
 		 * C​a​n​c​e​l
@@ -9187,9 +9191,13 @@ export type TranslationFunctions = {
 			 */
 			hi: () => LocalizedString
 			/**
-			 * markdown
+			 * mark
 			 */
-			rest: () => LocalizedString
+			mark: () => LocalizedString
+			/**
+			 * down
+			 */
+			down: () => LocalizedString
 		}
 		/**
 		 * Cancel

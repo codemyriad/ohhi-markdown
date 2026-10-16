@@ -44,6 +44,7 @@ describe('BootSplash', () => {
     expect(wordmark).toHaveTextContent('Oh Hi markdown')
     expect(wordmark.querySelector('.ed-wordmark-hi')).toHaveTextContent('Oh Hi')
     expect(wordmark.querySelector('.ed-wordmark-rest')).toHaveTextContent('markdown')
+    expect(wordmark.querySelector('.ed-wordmark-mark')).toHaveTextContent('mark')
     expect(screen.getByRole('status')).toHaveTextContent('Opening your notes…')
     // Never "connecting": the relay is not what an open waits for.
     expect(screen.getByTestId('connecting')).not.toHaveTextContent(/connecting/i)
