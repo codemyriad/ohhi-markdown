@@ -7,7 +7,7 @@
  * The trust gate. A skill the person made here (*New skill…*) or imported
  * after reviewing it (*Trust and enable*) is trusted — pinned to the hash of
  * its WHOLE folder as it was reviewed (`hashSkillFolder`). Any other skill
- * this device first sees — it arrived by sync, or something outside Oh hi
+ * this device first sees — it arrived by sync, or something outside Oh Hi
  * wrote it — is listed `trusted: false` and is NOT offered to the agent
  * until the person reviews it. A trusted skill whose folder then changes is
  * re-pinned when the change was this person's, and loses its trust when the

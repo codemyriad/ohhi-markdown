@@ -166,11 +166,11 @@ test('Nord Dark is a vault theme now: a stored nord-dark stands in, says so once
   await page.reload({ waitUntil: 'domcontentloaded' })
   expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
   await expect(page.getByTestId('toggle-tree')).toBeVisible({ timeout: 15_000 })
-  // The vault has no folder: Oh hi Dark stands in, and the app says so — once.
+  // The vault has no folder: Oh Hi Dark stands in, and the app says so — once.
   const notice = page.getByTestId('toast').filter({ hasText: 'Nord Dark is no longer built in' })
   await expect(notice).toHaveCount(1)
   await expect(notice).toContainText('.ohhi/themes/nord-dark/theme.css')
-  await expect(notice).toContainText('Oh hi Dark stands in')
+  await expect(notice).toContainText('Oh Hi Dark stands in')
   await expect(notice).toContainText('examples/themes/nord-dark/theme.css')
   expect(await look()).toMatchObject({ theme: 'editor-dark', polarity: 'dark' })
 
@@ -407,11 +407,14 @@ test("Mod+[ and Mod+] walk the tab's own trail", async ({ page }) => {
   await page.locator('.cm-wikilink').first().click({ modifiers: ['ControlOrMeta'] })
   await expect(editor).toContainText('Welcome to Editor')
 
-  await page.keyboard.press('ControlOrMeta+[')
+  // Back / Forward are `Ctrl+Mod+Arrow` (Obsidian's), pressed as Alt+Arrow off
+  // a Mac (commands.ts); the app takes the key before the browser's own
+  // history does.
+  await page.keyboard.press('Alt+ArrowLeft')
   // Back in the note that links out — and in Live the link reads as its
   // target, not as its brackets.
   await expect(editor).toContainText('see welcome')
-  await page.keyboard.press('ControlOrMeta+]')
+  await page.keyboard.press('Alt+ArrowRight')
   await expect(editor).toContainText('Welcome to Editor')
 })
 

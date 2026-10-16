@@ -38,7 +38,7 @@ import {
 import { newFolderGuid } from './boot.js'
 import { samePath } from './fs-access.js'
 import type { Session } from './session.svelte.js'
-import { decodeShareLink, shareLinkErrorText } from './share-link.js'
+import { decodeShareLink, folderNameOfLabel, shareLinkErrorText } from './share-link.js'
 import type { MountDesc } from '@ohhi/vault'
 import { readVaultFacts, type VaultFacts } from './vault-facts.js'
 
@@ -244,7 +244,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
    * vault" that every such vault would share.
    */
   function joinedVaultName(target: { relay: string; label?: string | undefined }): string {
-    const folder = target.label?.split('/').filter((s) => s.trim() !== '').pop()?.trim()
+    const folder = folderNameOfLabel(target.label)
     if (folder) return folder
     return getLL().web.manager.joined_vault_name({ host: relayHost(target.relay) ?? target.relay })
   }
@@ -304,6 +304,10 @@ export function createManager(session: Session, host: ManagerHost): Manager {
         }
       }
       upsertVault(entry)
+      // The root's token is a FOLDER share's: what tells the shell, on every
+      // later open, that this vault is a share someone opened as a vault —
+      // "Shared with you", never "on your devices" (`rootShareKind`).
+      setRoomToken(target.room, target.token, target.relay, 'folder')
       // Label the remembered share by the vault it opens as — not the joiner's
       // own name (the "Recent shares show my name" bug).
       addShare({ link, room: target.room, label: entry.name })

@@ -24,7 +24,7 @@ Plans are ground truth. If implementation diverges from a plan, update the plan 
 
 **`plans/` is not in the repo** (git-ignored since 2026-10-07; history up to
 then still has it). The plans are being moved into a team vault managed with
-Oh hi itself. Until then they live in the author's checkout under the same
+Oh Hi itself. Until then they live in the author's checkout under the same
 `plans/…` paths that code and docs cite. If `plans/` is absent, say so and
 work from `docs/` and the code instead; don't recreate plan files.
 

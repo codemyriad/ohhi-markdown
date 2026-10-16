@@ -6,6 +6,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/svelt
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Tab } from '../panes.js'
+import { setRoomToken } from '../config.js'
 import { encodeShareLink } from '../share-link.js'
 import type { ViewShell } from '../views.js'
 import type { MountInfo, Workspace } from '../workspace.svelte.js'
@@ -215,6 +216,25 @@ describe('SharedView (sharing E2)', () => {
     expect(screen.getByTestId('shared-room:CS')).toHaveTextContent(t.folders.notes({ count: 2 }))
     expect(screen.getByTestId('shared-room:Myriad')).toHaveTextContent(t.folders.with_you())
     expect(screen.getByTestId('shared-devices-linked')).toHaveTextContent(t.devices.linked())
+  })
+
+  it('a share opened as a vault: "This whole vault" heads the shared folders, and the devices line is not said (join-share-brief P2)', () => {
+    // The root's token is a FOLDER share's: `rootShareKind` reads it as joined.
+    setRoomToken('root', 'tok', 'wss://relay.ohhi.md', 'folder')
+    try {
+      setup({ linked: true, records: { '//folder:root': rec(true), '//folder:cs': rec(true), '//folder:my': rec(true) } })
+      const folders = screen.getByTestId('shared-folders')
+      expect(within(folders).getAllByRole('listitem').map((li) => li.dataset.testid)).toEqual([
+        'shared-root',
+        'shared-room:CS',
+        'shared-room:Myriad',
+      ])
+      expect(screen.getByTestId('shared-root')).toHaveTextContent(t.folders.whole_vault())
+      expect(screen.getByTestId('shared-root')).toHaveTextContent(t.folders.whole_vault_body())
+      expect(screen.queryByTestId('shared-devices-linked')).toBeNull()
+    } finally {
+      setRoomToken('root', '')
+    }
   })
 
   it('People: one fact per person — the note they are in, with a jump; you are not listed', async () => {

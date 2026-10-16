@@ -6,7 +6,7 @@ date: 2026-10-10
 # The writing harness — an agent inside the editor
 
 The reference for the **in-app agent**: a model you point at your own
-provider, working over the vault from inside Oh hi — in a Session view beside
+provider, working over the vault from inside Oh Hi — in a Session view beside
 your notes, as suggestions in the text, as replies to comments, and as a peer
 other people in a shared note can see. Ground truth for the decisions is
 [`plans/writing-harness-shaping.md`](../plans/writing-harness-shaping.md)
@@ -33,7 +33,7 @@ is added.
 
 **Nothing leaves this device until you add a provider.** With one, the text
 you reference — and what the agent reads with its tools — is sent to that
-endpoint, and nowhere else. There is no Oh hi server in the path: the loop
+endpoint, and nowhere else. There is no Oh Hi server in the path: the loop
 runs in the app (the webview on desktop), and the requests go from it straight
 to the provider's URL.
 

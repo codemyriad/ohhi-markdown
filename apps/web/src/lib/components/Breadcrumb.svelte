@@ -13,6 +13,7 @@
   import { ChevronRight } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { folderShareFacts } from '../shared.svelte.js'
+  import { rootShareKind } from '../config.js'
   import type { MenuPlacement } from '../ui/placement.js'
   import Popover from '../ui/Popover.svelte'
   import { getViewShell } from '../views.js'
@@ -38,7 +39,13 @@
   let open = $state<{ dir: string; anchor: HTMLElement } | null>(null)
   const facts = $derived(
     open && workspace
-      ? folderShareFacts(open.dir, workspace.ui.mounts, workspace.ui.linked, workspace.rootRelayUrl?.() ?? null)
+      ? folderShareFacts(
+          open.dir,
+          workspace.ui.mounts,
+          workspace.ui.linked,
+          workspace.rootRelayUrl?.() ?? null,
+          rootShareKind(workspace.room, workspace.ui.linked) === 'joined'
+        )
       : null
   )
   const line = $derived.by(() => {

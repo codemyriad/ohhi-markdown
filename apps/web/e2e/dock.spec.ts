@@ -16,6 +16,7 @@ import {
   runCommand,
   seedProvider,
   test as withMockLlm,
+  withObsidianKeys,
 } from './fixtures.js'
 
 async function boot(page: Page, room: string): Promise<void> {
@@ -33,6 +34,7 @@ const content = (page: Page) => page.locator('[data-testid="editor-pane"] .cm-co
 test('the strip floats top-right; an icon opens the panel on its tab; Escape and Mod+ArrowRight close it', async ({
   page,
 }) => {
+  await withObsidianKeys(page)
   await page.setViewportSize({ width: 1280, height: 800 })
   await boot(page, 'dock-float')
   // A link INTO welcome, so its Links tab has a backlink to show.
@@ -120,6 +122,7 @@ test('the strip floats top-right; an icon opens the panel on its tab; Escape and
 test('pin opens the dock as the rail column; pinned, it offers unpin only; unpinned, it is the floating strip again', async ({
   page,
 }) => {
+  await withObsidianKeys(page)
   await page.setViewportSize({ width: 1280, height: 800 })
   await boot(page, 'dock-pin')
   await openByQuickOpen(page, 'welcome')

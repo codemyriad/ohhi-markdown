@@ -36,7 +36,7 @@ describe('reportFactLines', () => {
   it('says the build, the vault, the relay, the note in the pill’s words, and the Log', () => {
     const lines = reportFactLines(facts, LL)
     expect(lines.slice(0, 5)).toEqual([
-      'App: Oh hi markdown 0.1.42 · desktop app on Linux x86_64',
+      'App: Oh Hi markdown 0.1.42 · desktop app on Linux x86_64',
       'Vault: Work (a folder on disk)',
       `Relay: ohhi.example.ts.net · Connected · in sync with the relay since ${new Date(NOW - 60_000).toISOString()}`,
       'Open note: team/plan.md · synced (relay) · 2 people online',
@@ -51,7 +51,7 @@ describe('reportFactLines', () => {
   it('is honest about what it does not know: no vault, no relay, no note, no version', () => {
     const lines = reportFactLines({ ...facts, version: null, desktop: false, os: null, vault: null, relays: [], note: null, events: [] }, LL)
     expect(lines).toEqual([
-      'App: Oh hi markdown version not known · browser',
+      'App: Oh Hi markdown version not known · browser',
       'Vault: none open',
       'Relay: none (nothing in this vault is shared or linked)',
       'Open note: none',
@@ -70,7 +70,7 @@ describe('reportFactLines', () => {
   it('the copy starts with the time and the person’s sentence', () => {
     const text = reportText('  It froze\n when I pasted ', facts, NOW, LL)
     expect(text.split('\n').slice(0, 3)).toEqual([
-      `Oh hi markdown — problem report (${new Date(NOW).toISOString()})`,
+      `Oh Hi markdown — problem report (${new Date(NOW).toISOString()})`,
       'What happened: It froze when I pasted',
       '',
     ])
@@ -145,7 +145,7 @@ describe('ReportDialog', () => {
     render(ReportDialog, { facts, now: () => NOW, write, onClose: vi.fn() })
     await user.click(screen.getByTestId('report-copy'))
     const box = (await screen.findByTestId('report-fallback')) as HTMLTextAreaElement
-    expect(box.value).toContain('App: Oh hi markdown 0.1.42')
+    expect(box.value).toContain('App: Oh Hi markdown 0.1.42')
     await waitFor(() => expect(box).toHaveFocus())
     expect(screen.queryByTestId('report-copied')).toBeNull()
   })

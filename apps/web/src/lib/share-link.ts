@@ -347,6 +347,16 @@ export function looksLikeShareLink(s: string): boolean {
  * error — the relay's, the workspace's — and passes through with its own
  * (already translated) message.
  */
+/**
+ * The folder a share's label suggests: the label's last path segment
+ * (`team/notes` → `notes`, `HackMD notes` → `HackMD notes`), trimmed; `''`
+ * when the link carries none. What a vault opened from the share is named
+ * (first-run F1) and what the join page's folder field starts with.
+ */
+export function folderNameOfLabel(label: string | undefined): string {
+  return label?.split('/').filter((s) => s.trim() !== '').pop()?.trim() ?? ''
+}
+
 export function shareLinkErrorText(err: unknown): string {
   if (!(err instanceof ShareLinkError)) {
     return err instanceof Error ? err.message : String(err)

@@ -101,9 +101,10 @@ export interface ShellCommands {
   /**
    * Global hotkeys, to be bound in the CAPTURE phase.
    *
-   * Capture matters: several of Chris's own bindings collide with
-   * CodeMirror's defaults — `Mod+ArrowLeft`/`Mod+ArrowRight` are his Obsidian
-   * sidebar toggles AND `standardKeymap`'s word/line motion. CM6 calls
+   * Capture matters: a keymap file may bind a chord CodeMirror's defaults
+   * also use — Chris's own `Mod+ArrowLeft`/`Mod+ArrowRight` sidebar toggles
+   * are `standardKeymap`'s word/line motion (the built-in defaults take no
+   * such key since QA round 2, 2026-10-16, but a file can). CM6 calls
    * preventDefault but not stopPropagation, so a bubble-phase handler would
    * run the command *and* move the caret. Capturing lets an app command
    * claim the key first and stop it, which is the precedence Obsidian has.

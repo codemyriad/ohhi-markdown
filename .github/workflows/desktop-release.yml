@@ -433,7 +433,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --draft "${pre[@]}" \
             --target "$GITHUB_SHA" \
-            --title "Oh hi markdown $TAG" \
+            --title "Oh Hi markdown $TAG" \
             --notes "$notes"
           if [ "$publish" = true ]; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false

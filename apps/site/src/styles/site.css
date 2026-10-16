@@ -105,6 +105,20 @@ main {
   font-weight: 400;
   color: var(--ed-ink-muted);
 }
+/* The name's "mark" leans wherever the name is set in running text and in the
+ * wordmark (Chris, 2026-10-16): Public Sans's real 400 italic. A heading is
+ * 600, and there is no 600 italic to lean with — the fallback would drop the
+ * weight mid-word — so headings keep it upright. */
+.wordmark .md em,
+.mk {
+  font-style: italic;
+  font-weight: inherit;
+}
+h1 .mk,
+h2 .mk,
+h3 .mk {
+  font-style: normal;
+}
 .foot .wordmark {
   font-size: inherit;
 }
@@ -168,6 +182,9 @@ p {
 .callout strong {
   color: var(--ed-ink);
   font-weight: 600;
+}
+.callout .emoji {
+  margin-right: 0.35em;
 }
 
 .fine {
@@ -281,4 +298,27 @@ section + section {
 }
 .foot a {
   color: var(--ed-ink-muted);
+}
+/* Who makes it: the Cassini site's two pills, in this site's tokens. */
+.foot .chips {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.foot .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--color-base-300);
+  border-radius: 999px;
+  background: var(--color-base-200);
+  color: var(--ed-ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.foot a.chip:hover {
+  color: var(--ed-link);
 }

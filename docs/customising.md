@@ -3,7 +3,7 @@ status: current
 date: 2026-10-06
 ---
 
-# Customising Oh hi markdown — layouts, keymaps, templates
+# Customising Oh Hi markdown — layouts, keymaps, templates
 
 Everything you can change about the shell's shape is a **file**: JSON for
 layouts and keymaps, markdown for templates, CSS for themes. Files are data,
@@ -268,6 +268,22 @@ none.
 - Shortcuts saved on a device before keymaps were files move into
   `.ohhi/keymaps/device.json` (`device-2.json` if that name is taken) the
   first time a vault is open, and that keymap becomes active.
+
+**The default keymap's rule:** no default takes a key the editor, the browser
+or the desktop already uses, and where Obsidian ships a key the default is
+Obsidian's. So `Mod+ArrowLeft` / `Mod+ArrowRight` stay the editor's word and
+line motion, `Mod+[` / `Mod+]` its indent keys and `Mod+-` / `Mod+=` the
+browser's zoom. The shell's bound defaults: quick open `Mod+O`, search
+`Mod+Shift+F`, the command palette `Mod+Shift+P`, new note `Mod+N`, new
+folder `Mod+Shift+N`, Back / Forward `Ctrl+Mod+ArrowLeft` / `ArrowRight`
+(Obsidian's; pressed as Alt+Arrow off a Mac, see above), tabs `Mod+T` /
+`Mod+W` / `Ctrl+Tab` / `Ctrl+Shift+Tab` / `Mod+Shift+T`, split right `Mod+\`
+(VS Code's), the pane mode's leader `Mod+P`, editing ↔ Reading `Mod+E`,
+focus mode `Mod+.`, Settings `Mod+,`, the Shared view `Mod+Shift+S`, tab
+groups `Mod+Shift+G` / `Mod+Shift+E`, a comment `Mod+Shift+M`. Everything
+else — the sidebars, the daily notes, delete and move, the other pane verbs —
+is a palette row and, for the pane verbs, a letter after `Mod+P`, until a
+keymap file gives it a key.
 
 The format commands' default keys (the `default` keymap; every one can be
 rebound or unbound like any other): bold `Mod+B`, italic `Mod+I`, link

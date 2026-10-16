@@ -1,4 +1,4 @@
-# Oh hi markdown relay image. Build from the repo root (the lockfile and
+# Oh Hi markdown relay image. Build from the repo root (the lockfile and
 # rush.json live there); Dockerfile.dockerignore narrows the context:
 #
 #   docker build -f apps/relay/Dockerfile -t ohhi-relay .

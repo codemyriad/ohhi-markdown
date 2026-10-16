@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The window title reads \"Oh Hi markdown\".",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

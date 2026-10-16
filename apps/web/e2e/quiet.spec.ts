@@ -21,6 +21,7 @@ import {
   severableRelay,
   splitRight,
   strips,
+  withObsidianKeys,
 } from './fixtures.js'
 
 test.describe('toolbar and focus', () => {
@@ -495,6 +496,7 @@ test.describe('panes', () => {
 
   /** The default layout: no `?layout=`, so no navigator column to wait for. */
   async function bootDefault(page: Page, room: string, token?: string): Promise<void> {
+    await withObsidianKeys(page) // the drawer, the dock and pane focus by key
     await page.goto(appUrl({ room, layout: null, ...(token ? { token } : {}) }))
     await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
   }

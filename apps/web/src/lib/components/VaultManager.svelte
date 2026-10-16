@@ -3,7 +3,7 @@
    * The vault manager (first-run A1/B1, superseding shell-polish P4's two
    * columns). Two states of one screen:
    *
-   *  - **the welcome** — no vault registered: "Oh hi.", one sentence and the
+   *  - **the welcome** — no vault registered: "Oh Hi.", one sentence and the
    *    doors worded as the thing you have (a folder of notes / a vault in
    *    this browser, a folder someone shared, your vault on another device);
    *  - **the list** — one row per vault with what it is (kind, where, when
@@ -73,7 +73,7 @@
      * `access`: the desktop fs scope refused the folder (DEL-89); the row
      * offers to allow access again.
      */
-    failure: { room: string | null; message: string; access?: true } | null
+    failure: { room: string | null; message: string; access?: true; elsewhere?: true } | null
     busy: boolean
     /** Shown when a workspace is open behind the manager (switcher route). */
     canGoBack: boolean
@@ -661,7 +661,7 @@
             {#if failed && failure}
               <div class="px-3 pb-2 pl-11">
                 <p role="alert" data-testid="vault-error:{entry.room}" class="text-xs text-error">
-                  {failure.access ? failure.message : t.vault_error({ message: failure.message })}
+                  {failure.access || failure.elsewhere ? failure.message : t.vault_error({ message: failure.message })}
                 </p>
                 <div class="mt-1.5 flex flex-wrap gap-2">
                   {#if failure.access}
@@ -806,6 +806,7 @@
 {#if joinOpen}
   <AddSharedFolderDialog
     vaultName={joinInto?.vaultName ?? null}
+    anyVaults={vaults.length > 0}
     dirs={joinInto?.dirs ?? []}
     initialLink={prefillLink}
     initialWhere="own"

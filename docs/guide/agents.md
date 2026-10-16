@@ -34,7 +34,7 @@ Through MCP each of these is a tool of the same name, starting `ohhi_`
   desktop app, or link the desktop app to it from **Settings › Sync &
   devices**, which keeps a copy of the vault as files in a folder you choose.
 - **The `ohhi` command.** It isn't bundled with the app yet: today it
-  installs from a checkout of the Oh hi markdown repository,
+  installs from a checkout of the Oh Hi markdown repository,
   [codemyriad/ohhi-markdown](https://github.com/codemyriad/ohhi-markdown) on
   GitHub. **That repository is private: you need access to it** to follow
   these steps. You also need git and Node 22.
@@ -102,5 +102,5 @@ layout, keymap and template files in the vault's `.ohhi` folder. See
 The full reference for the command — every operation, its flags and its
 output — is
 [`docs/agent-access.md`](https://github.com/codemyriad/ohhi-markdown/blob/main/docs/agent-access.md)
-in the Oh hi markdown repository. The repository is private: the link opens
+in the Oh Hi markdown repository. The repository is private: the link opens
 only for people with access to it.

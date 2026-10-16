@@ -55,8 +55,12 @@ export interface ShareActions {
   touch(): void
 
   // ---- add-share, add-link (M5, N1) ----
-  /** Join-a-share dialog, with the folder it was asked from ('' = vault root). */
-  addShareOpen: { dir: string } | null
+  /**
+   * Join-a-share dialog, with the folder it was asked from ('' = vault root).
+   * A pending join the join page handed over and the vault refused reopens
+   * it with the link, the folder and the refusal (`plans/join-share-brief.md`).
+   */
+  addShareOpen: { dir: string; link?: string; dest?: string; error?: string } | null
   /** Add-link dialog for a `needs-token` mount: the mount is already here, only its key is missing. */
   addLinkPath: string | null
   readonly addLinkMount: MountInfo | null
@@ -88,7 +92,7 @@ export interface ShareActions {
 export function createShareActions(host: ShareHost): ShareActions {
   let folderSharePath = $state<string | null>(null)
   let revision = $state(0)
-  let addShareOpen = $state<{ dir: string } | null>(null)
+  let addShareOpen = $state<{ dir: string; link?: string; dest?: string; error?: string } | null>(null)
   let addLinkPath = $state<string | null>(null)
   let unshareConfirm = $state<{ path: string; provenance: string } | null>(null)
   let unmountConfirm = $state<string | null>(null)

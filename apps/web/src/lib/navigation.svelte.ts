@@ -537,22 +537,29 @@ export function defaultCommands(actions: {
     { id: 'file.new', title: t.new_note(), group: g.file(), keys: 'Mod+n', run: actions.newNote },
     { id: 'file.new-folder', title: t.new_folder(), group: g.file(), keys: 'Mod+Shift+n', run: actions.newFolder },
     { id: 'file.new-collection', title: t.new_collection(), group: g.file(), run: actions.newCollection },
-    // Chris's own Obsidian bindings: app:delete-file and file-explorer:move-file.
-    { id: 'file.delete', title: t.delete_note(), group: g.file(), keys: 'Mod+Shift+r', run: actions.deleteNote, when: actions.hasNote },
-    { id: 'file.move', title: t.move_note(), group: g.file(), keys: 'Mod+Shift+a', run: actions.moveNote, when: actions.hasNote },
+    // Unbound by default, as in Obsidian (QA round 2, 2026-10-16): the tree's
+    // row keys (Delete) and menu carry them; a keymap file binds them.
+    { id: 'file.delete', title: t.delete_note(), group: g.file(), run: actions.deleteNote, when: actions.hasNote },
+    { id: 'file.move', title: t.move_note(), group: g.file(), run: actions.moveNote, when: actions.hasNote },
     { id: 'share.folder', title: t.share_folder(), group: g.share(), run: actions.shareFolder, when: actions.canShareFolder },
     { id: 'share.add', title: t.add_share(), group: g.share(), run: actions.addShare },
     { id: 'share.link-device', title: t.link_device(), group: g.share(), run: actions.linkDevice },
-    // Mod+[ / Mod+] are Chris's own Obsidian bindings for navigation history.
-    { id: 'nav.back', title: t.back(), group: g.navigate(), keys: 'Mod+[', run: actions.back },
-    { id: 'nav.forward', title: t.forward(), group: g.navigate(), keys: 'Mod+]', run: actions.forward },
-    // Chris's own Obsidian bindings for the sidebars (Mod+Left / Mod+Right).
-    { id: 'view.sidebar', title: t.toggle_navigator(), group: g.view(), keys: 'Mod+ArrowLeft', run: actions.toggleSidebar },
-    { id: 'view.rail', title: t.toggle_rail(), group: g.view(), keys: 'Mod+ArrowRight', run: actions.toggleRail },
-    // Chris's own Obsidian bindings for the daily-notes plugin (3 of his 18 rebinds).
-    { id: 'daily.today', title: t.daily_today(), group: g.daily(), keys: 'Mod+\\', run: actions.dailyToday },
-    { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), keys: 'Mod+-', run: actions.dailyPrev, when: actions.hasPrevDaily },
-    { id: 'daily.next', title: t.daily_next(), group: g.daily(), keys: 'Mod+=', run: actions.dailyNext, when: actions.hasNextDaily },
+    // Obsidian's Navigate back / forward (Ctrl+Alt+Arrow; Cmd+Opt on a Mac).
+    // `Ctrl+Mod+Arrow` is how the registry spells that chord: pressed as
+    // Alt+Arrow off a Mac, where Ctrl+Alt+Arrow is the desktop's workspace
+    // switcher (commands.ts). Never `Mod+[` / `Mod+]`: those are the
+    // editor's own indent keys.
+    { id: 'nav.back', title: t.back(), group: g.navigate(), keys: 'Ctrl+Mod+ArrowLeft', run: actions.back },
+    { id: 'nav.forward', title: t.forward(), group: g.navigate(), keys: 'Ctrl+Mod+ArrowRight', run: actions.forward },
+    // No default key for the sidebars, as in Obsidian: `Mod+ArrowLeft` /
+    // `Mod+ArrowRight` are the editor's word and line motion (QA round 2).
+    { id: 'view.sidebar', title: t.toggle_navigator(), group: g.view(), run: actions.toggleSidebar },
+    { id: 'view.rail', title: t.toggle_rail(), group: g.view(), run: actions.toggleRail },
+    // Unbound by default, as Obsidian's daily-notes plugin ships: `Mod+-` /
+    // `Mod+=` are the browser's zoom keys (QA round 2).
+    { id: 'daily.today', title: t.daily_today(), group: g.daily(), run: actions.dailyToday },
+    { id: 'daily.prev', title: t.daily_prev(), group: g.daily(), run: actions.dailyPrev, when: actions.hasPrevDaily },
+    { id: 'daily.next', title: t.daily_next(), group: g.daily(), run: actions.dailyNext, when: actions.hasNextDaily },
     // `app.settings` (Mod+,) is the `settings` view's row, from viewCommands below.
     ...viewCommands(actions.openView, { devtools: actions.devtools, ai: () => aiEnabled() }),
   ]

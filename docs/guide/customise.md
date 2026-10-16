@@ -122,5 +122,5 @@ copy, with your vault's folder filled in. See
 The full reference — every field, every button and readout id, and the JSON
 Schemas a file is checked against — is
 [`docs/customising.md`](https://github.com/codemyriad/ohhi-markdown/blob/main/docs/customising.md)
-in the Oh hi markdown repository. The repository is private: the link opens
+in the Oh Hi markdown repository. The repository is private: the link opens
 only for people with access to it.

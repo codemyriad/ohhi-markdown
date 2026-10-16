@@ -15,7 +15,7 @@
  * editor.user) can override every value. Band C (sync honesty) is NOT here —
  * it is unlayered in sync-tokens.css so no user theme can reach it.
  *
- * The hex defaults ARE the default light theme's (editor-light, "Oh hi
+ * The hex defaults ARE the default light theme's (editor-light, "Oh Hi
  * Light"), so a custom light theme that omits a token gets the default
  * look rather than a palette nothing ships.
  *

@@ -18,6 +18,7 @@ import JoinPage, { DOWNLOAD_HREF } from './JoinPage.svelte'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  localStorage.clear()
 })
 
 const LL = getLL()
@@ -166,12 +167,83 @@ describe('JoinPage', () => {
     expect(screen.getByLabelText(t.link_label())).toHaveValue(props.link)
   })
 
-  it('In this browser: "Add here" hands the link to the manager’s Add dialog', async () => {
+  it('In this browser, with no vault here: "Add here" hands the link to the manager’s Add dialog, and says it makes a shared vault', async () => {
     const user = userEvent.setup()
     const props = open()
+    expect(screen.getByTestId('join-own-only')).toHaveTextContent(t.own_vault_hint())
+    expect(screen.queryByTestId('join-where-vault')).toBeNull()
     await user.click(screen.getByRole('button', { name: t.add_here() }))
     expect(props.onAddHere).toHaveBeenCalledWith(props.link)
     expect(props.onLinkHere).not.toHaveBeenCalled()
+  })
+
+  // ---- the browser has a vault (C2 amended 2026-10-16, plans/join-share-brief.md) ----
+  const VAULTS = [
+    { name: 'Work', vault: { kind: 'opfs' as const, id: 'v1' }, room: 'room-work', lastOpenedAt: 2 },
+    { name: 'Play', vault: { kind: 'opfs' as const, id: 'v2' }, room: 'room-play', lastOpenedAt: 1 },
+  ]
+
+  it('one vault in the browser: "Inside <vault>" is preselected, the folder defaults to the link’s label, Add runs the join into it', async () => {
+    const user = userEvent.setup()
+    const props = open({ vaults: [VAULTS[0]!], lastRoom: null, onAddInto: vi.fn(), initialName: 'Robin' })
+    const inside = screen.getByTestId('join-where-vault')
+    expect(inside).toBeChecked()
+    expect(screen.getByTestId('join-where-own')).not.toBeChecked()
+    expect(screen.getByText(t.inside_vault({ vault: 'Work' }))).toBeVisible()
+    expect(screen.queryByTestId('join-vault-picker')).toBeNull() // one vault: nothing to pick
+    expect(screen.getByTestId('join-dest')).toHaveValue('notes') // `team/notes` → `notes`
+    expect(screen.getByTestId('join-name')).toHaveValue('Robin')
+
+    await user.clear(screen.getByTestId('join-dest'))
+    await user.type(screen.getByTestId('join-dest'), 'HackMD notes')
+    await user.click(screen.getByRole('button', { name: t.add_into({ vault: 'Work' }) }))
+    await waitFor(() => expect(props.onAddInto).toHaveBeenCalledWith(props.link, VAULTS[0], 'HackMD notes', 'Robin'))
+    expect(props.onAddHere).not.toHaveBeenCalled()
+    expect(localStorage.getItem('editor:user')).toBe('Robin')
+  })
+
+  it('several vaults: a picker, the last opened preselected; own-vault is one click away and says it is a shared vault', async () => {
+    const user = userEvent.setup()
+    const props = open({ vaults: VAULTS, lastRoom: 'room-play', onAddInto: vi.fn() })
+    const picker = screen.getByTestId('join-vault-picker')
+    expect(picker).toHaveValue('room-play')
+    expect(screen.getByRole('button', { name: t.add_into({ vault: 'Play' }) })).toBeVisible()
+    await user.selectOptions(picker, 'room-work')
+    expect(screen.getByRole('button', { name: t.add_into({ vault: 'Work' }) })).toBeVisible()
+
+    await user.click(screen.getByTestId('join-where-own'))
+    expect(screen.getByText(t.own_vault())).toBeVisible()
+    expect(screen.getByText(t.own_vault_hint())).toBeVisible()
+    // What the vault will be called (the link's label, `team/notes` → `notes`) and where it lives.
+    expect(screen.getByTestId('join-own-name')).toHaveValue('notes')
+    expect(screen.getByTestId('join-own-name')).toHaveAttribute('readonly')
+    expect(screen.getByTestId('join-own-platform')).toHaveTextContent(t.vault_name_hint())
+    expect(screen.queryByTestId('join-dest')).toBeNull()
+    // The name is asked here too, and travels with the link to the manager's dialog.
+    await user.clear(screen.getByTestId('join-name'))
+    await user.type(screen.getByTestId('join-name'), 'Robin')
+    await user.click(screen.getByRole('button', { name: t.add_here() }))
+    expect(props.onAddHere).toHaveBeenCalledWith(props.link)
+    expect(props.onAddInto).not.toHaveBeenCalled()
+    expect(localStorage.getItem('editor:user')).toBe('Robin')
+  })
+
+  it('inside a vault: an empty or illegal folder is refused at the field, with a plain sentence', async () => {
+    const user = userEvent.setup()
+    const props = open({ vaults: [VAULTS[0]!], onAddInto: vi.fn() })
+    await user.clear(screen.getByTestId('join-dest'))
+    await user.click(screen.getByRole('button', { name: t.add_into({ vault: 'Work' }) }))
+    expect(await screen.findByText(LL.web.share.add.dest_required())).toBeVisible()
+    await user.type(screen.getByTestId('join-dest'), 'bad:name')
+    await user.click(screen.getByRole('button', { name: t.add_into({ vault: 'Work' }) }))
+    expect(await screen.findByText(LL.web.tree_op.invalid_name({ name: 'bad:name' }))).toBeVisible()
+    expect(props.onAddInto).not.toHaveBeenCalled()
+  })
+
+  it('vaults but no way to run the join (no onAddInto): only own-vault is offered', () => {
+    open({ vaults: VAULTS })
+    expect(screen.queryByTestId('join-where-vault')).toBeNull()
+    expect(screen.getByTestId('join-own-only')).toBeVisible()
   })
 
   it('a device link is explained as one and routed to Link this device, never offered as a folder', async () => {

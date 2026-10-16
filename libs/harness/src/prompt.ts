@@ -10,7 +10,7 @@
 import { skillsCatalog } from '@ohhi/agent/skills'
 import type { Mention, SkillMeta } from './types.js'
 
-const DISCIPLINE = `You are the writing assistant inside Oh hi markdown, working in the person's vault of plain markdown notes. The notes are theirs: they are small, many, and the canonical copy lives on disk.
+const DISCIPLINE = `You are the writing assistant inside Oh Hi markdown, working in the person's vault of plain markdown notes. The notes are theirs: they are small, many, and the canonical copy lives on disk.
 
 ## Working with the vault
 

@@ -51,14 +51,16 @@ function groupActions(hasGroup = true): GroupActions {
 }
 
 describe('the pane/tab command table', () => {
-  it("carries Chris's rebinds and Obsidian's unrebound tab defaults, verbatim", () => {
+  it("carries Obsidian's tab defaults and VS Code's split; the rest reach the keyboard through the mode", () => {
     const keys = new Map(paneCommands(actions()).map((c) => [c.id, c.keys ?? '']))
-    expect(keys.get('workspace.split-down')).toBe('Alt+-')
-    expect(keys.get('workspace.split-right')).toBe('Alt+=')
-    expect(keys.get('workspace.close-pane')).toBe('Ctrl+Mod+Backspace')
-    expect(keys.get('workspace.focus-left')).toBe('Ctrl+Mod+ArrowLeft')
-    expect(keys.get('workspace.focus-right')).toBe('Ctrl+Mod+ArrowRight')
-    expect(keys.get('workspace.close-others')).toBe('Ctrl+Mod+-')
+    // QA round 2 (2026-10-16): no default takes a key the editor, the browser
+    // or the desktop already uses — Chris's own rebinds are his keymap file's.
+    expect(keys.get('workspace.split-down')).toBe('')
+    expect(keys.get('workspace.split-right')).toBe('Mod+\\')
+    expect(keys.get('workspace.close-pane')).toBe('')
+    expect(keys.get('workspace.focus-left')).toBe('')
+    expect(keys.get('workspace.focus-right')).toBe('')
+    expect(keys.get('workspace.close-others')).toBe('')
     expect(keys.get('tab.new')).toBe('Mod+t')
     expect(keys.get('tab.close')).toBe('Mod+w')
     expect(keys.get('tab.prev')).toBe('Ctrl+Shift+Tab')

@@ -1,6 +1,6 @@
 # vault-snapshot
 
-A local history for your Oh hi markdown vault. Every few minutes, the vault's files are
+A local history for your Oh Hi markdown vault. Every few minutes, the vault's files are
 committed to a git repository kept **outside** the vault. If a note gets
 damaged or deleted — by the app, by you, or by a teammate's change syncing in —
 you can look at any earlier version and put it back.
@@ -48,7 +48,7 @@ Restoring in place is safe to try:
   original.
 - It never deletes anything.
 
-If Oh hi markdown has the vault open, quit and reopen it afterwards so it picks up
+If Oh Hi markdown has the vault open, quit and reopen it afterwards so it picks up
 every restored file ([why](../../docs/guide/recovery.md#undo-a-change-with-your-snapshots)).
 
 ## What is and isn't captured

@@ -233,7 +233,7 @@ the web app is built and served on `localhost:4173`, the relay on
 by fuzzy path; search answers from the index with highlighted snippets, reflects
 an edit **without a reload**, and lands the caret on the matching line; wikilinks
 resolve, decorate, Mod-click through, and an unresolved one creates the note;
-`Mod+[`/`Mod+]` walk the visited notes; the word count tracks the open note; the
+Back / Forward (`Ctrl+Mod+Arrow`, pressed as Alt+Arrow off a Mac) walk the visited notes; the word count tracks the open note; the
 theme retints chrome and the CodeMirror surface together and survives a reload;
 the command palette lists its bindings; the tree's **right-click menu renames a
 note, drag-and-drop moves it between folders, and a folder's disabled Share…
@@ -315,14 +315,15 @@ outage; a vault that shares nothing opens Shared on its onboarding.
 
 `e2e/chrome.spec.ts` covers the shell (chrome U2+): the pinned rail is the
 dock panel (its tabs, unpin only — no collapse — one open state and one tab,
-`Mod+ArrowRight` focusing its tab); the
+the sidebar key — `Mod+ArrowRight`, bound through the spec's `withObsidianKeys`
+fixture since the default ships none — focusing its tab); the
 navigator resizes from the keyboard (its handle is a valued `separator`),
-hides on `Mod+ArrowLeft`, and the layout survives a reload; the breadcrumb
+hides on *Toggle file navigator*, and the layout survives a reload; the breadcrumb
 names the open note and reveals its folder in the tree; the status bar carries
 the word count and the note's own pill. The tree test (U3) needs the
 `chrome-tree` room: a synced note is green in the status bar and carries no
 dot in the tree; the toolbar is icons with names; collapse-all, the filter
-menu (radio items), F2 rename, `Mod+Shift+R` delete-with-confirm, a refused
+menu (radio items), F2 rename, *Delete current note* with its confirm, a refused
 drop's reason on the hovered row, and *Add a shared folder* (disabled with its
 rule in a root-shared vault; reachable from the palette). The where-am-I test
 (sharing E6, *This note* dissolved) checks the breadcrumb's folder popover and
@@ -473,7 +474,7 @@ These are the real, URL-param-free flows (onboarding-shaping.md, extended by
 dogfood-shaping M2 and first-run-shaping A1/B1/F1). With no URL params the app
 shows the **vault manager**, in one of two states:
 
-- **The welcome** (no vault registered yet): "Oh hi.", one sentence, and three
+- **The welcome** (no vault registered yet): "Oh Hi.", one sentence, and three
   doors worded as the thing you have — *Open a folder of notes* (desktop; an
   Obsidian vault opens as it is) or *Start a vault in this browser* (browser:
   a named, OPFS-backed private vault, offered only when the browser supports
@@ -557,7 +558,7 @@ Links leave the sheet in the URL form when an origin is known
 `originForRelay(<room relay>)`; else the bare `editor1:` link), carrying
 `label` (the folder) and `from` (the name typed). After Share and on every
 link row there are *Copy link* and *Copy message*; the message is "I shared
-<folder> with you in Oh hi markdown. Open this link: <link>", then the network
+<folder> with you in Oh Hi markdown. Open this link: <link>", then the network
 sentence for the team's relay, then "New to the app? <origin>/guide/start.html"
 when there is an origin. The e2e relay runs without an operator secret, so
 specs see the secret answer "this relay has no admin API".
@@ -685,11 +686,23 @@ whoever shared this"), and the relay's health check (`relay-probe.ts`
 check answered, never that the link is valid; "Can't reach the relay from
 here." says what to do, then "reload this page"). Then *In the desktop app* →
 **Copy link** (paste it into the app's *Add a folder someone shared*; no deep
-link yet, Fork 3-B) or *In this browser* → **Add here**, which replaces the
-address with `/` (the token leaves the address bar and Back's history) and
-opens the manager with the Add dialog on the link. A device link is
-explained as one and offered *Link this device* instead; a damaged link
-shows the codec's reason and "paste it in the app". The desktop never shows
+link yet, Fork 3-B) or *In this browser*, which is the choice itself when
+the browser already has a vault (join-share-brief, 2026-10-16): **Inside
+\<vault\>** — a picker when there are several, the last opened preselected;
+the folder from the link's label; the name row — or **As a shared vault of
+its own**, said as a shared vault. *Add to \<vault\>* replaces the address
+with `/` (the token leaves the address bar and Back's history) and either
+hands the join to the tab that holds the vault (`vault-bridge.ts`, one tab
+per browser vault) or opens the vault and mounts the folder once it is live
+(`App.svelte`'s pending join; a refusal reopens the Add dialog inside the
+vault with the link, the folder and the reason). With no vault, **Add here**
+opens the manager with the Add dialog on the link, own-vault preselected. A
+device link is explained as one and offered *Link this device* instead; a
+damaged link shows the codec's reason and "paste it in the app".
+`join.spec.ts` covers the own-vault join (and the *Shared with you* badge
+and *This whole vault* row it leaves behind), the join into a vault held by
+another tab, the join into a vault held by none (and the same link again,
+refused into the reopened dialog), and the one-tab rule itself. The desktop never shows
 the page: there the URL is pasted into the dialogs, which read every
 spelling. To try it locally: `rushx dev` in `apps/relay` with a seeded share,
 then open `http://localhost:5173/join#<editor1:… link>`.

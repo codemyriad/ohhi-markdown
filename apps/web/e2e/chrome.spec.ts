@@ -21,11 +21,13 @@ import {
   runCommand,
   settingsView,
   tabNamed,
+  withObsidianKeys,
 } from './fixtures.js'
 
 test('the pinned rail is the dock panel: tabs, unpin only (no collapse), one open state and one tab, Mod+ArrowRight', async ({
   page,
 }) => {
+  await withObsidianKeys(page)
   await openApp(page, 'chrome-rail')
   // A note open: the floating strip sits in the margin beside its measure
   // (over a view or an empty tab there is no strip at all — devtools D7).
@@ -47,8 +49,9 @@ test('the pinned rail is the dock panel: tabs, unpin only (no collapse), one ope
   await expect(page.getByTestId('history-section')).toBeVisible()
   await expect(page.getByTestId('links-panel')).toHaveCount(0)
 
-  // Chris's own Obsidian key for the right sidebar, on a pinned column:
-  // it does not collapse it — it puts focus on the column's tab.
+  // The sidebar key (bound through the keymap above; the default ships none,
+  // QA round 2) on a pinned column does not collapse it — it puts focus on
+  // the column's tab. By key, because the palette would take focus back.
   await paneContent(page).click()
   await page.keyboard.press('ControlOrMeta+ArrowRight')
   await expect(rail).toHaveAttribute('data-state', 'expanded')
@@ -111,7 +114,7 @@ test('the navigator resizes from the keyboard, collapses by drag, hides on Mod+A
   await openByQuickOpen(page, 'welcome')
   await expect(page.getByTestId('dock')).toBeVisible()
 
-  await page.keyboard.press('ControlOrMeta+ArrowLeft')
+  await runCommand(page, 'Toggle file navigator')
   await expect(page.getByTestId('navigator')).toHaveCount(0)
   await page.getByTestId('toggle-tree').click()
   await expect(page.getByTestId('navigator')).toBeVisible()
@@ -254,9 +257,10 @@ test('the tree: icon toolbar, collapse all, a filter menu, quiet rows, F2 / Mod+
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('tree-op-dialog')).toHaveCount(0)
 
-  // Chris's Mod+Shift+R: delete the OPEN note — it asks first.
+  // Delete the OPEN note from the palette (unbound by default, as in
+  // Obsidian) — it asks first.
   await page.getByTestId('file-item:notes/welcome.md').click()
-  await page.keyboard.press('ControlOrMeta+Shift+r')
+  await runCommand(page, 'Delete current note')
   await expect(page.getByTestId('tree-op-dialog')).toContainText('Delete file welcome.md?')
   await page.getByTestId('tree-op-cancel').click()
 
@@ -655,7 +659,7 @@ test('the vault manager welcomes, then lists its vaults with their facts, and re
 }) => {
   // A fresh install: the welcome, which asks for no name (first-run A1, Fork 5-A).
   await page.goto(MANAGER_URL)
-  await expect(page.getByRole('heading', { name: 'Oh hi.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Oh Hi.' })).toBeVisible()
   await expect(page.getByTestId('manager-name')).toHaveCount(0)
   await createBrowserVault(page, 'Polish')
   await openManager(page)

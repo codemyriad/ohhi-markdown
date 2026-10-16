@@ -1,6 +1,6 @@
 # The public deployment: app.ohhi.md and dist.ohhi.md
 
-Oh hi markdown ships in two **flavours** of one build. The **public** flavour is
+Oh Hi markdown ships in two **flavours** of one build. The **public** flavour is
 the one that is deployed:
 
 ```
