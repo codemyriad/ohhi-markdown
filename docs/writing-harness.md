@@ -220,11 +220,16 @@ Threads live in the note's Y.Doc (`comments`) and are materialised to
 elsewhere. Comments are not edits: writing, replying to or resolving one
 changes no byte of the note and logs no `doc.changed`.
 
-With a provider, a comment can be **sent to the agent**: it starts a run with
-the thread's passage as a line-range reference and the comment as the
-instruction. The bubble says where it goes — the current session, by its
-title, or a new one — and lets you pick the other; a new session is named
-after the comment's place ("Comment on plan.md (lines 3–4)"), not its words.
+With a provider, a comment can be **sent to the agent**. The new-comment
+bubble is a text box and two buttons: *Comment* (saves the thread, nothing
+else) and *Send to agent* (saves it and starts a run with the thread's
+passage as a line-range reference and the comment as the instruction).
+Where it goes is said quietly under the buttons — "Sends to ‹the current
+session›", or "Starts a new session" when there is none; with more than one
+session that line is a small menu of the sessions and *New session*. A new
+session is named after the comment's place ("Comment on plan.md (lines
+3–4)"), not its words; a session you already have open keeps its own name
+(an untitled one stays untitled), so its tab is still the one you had.
 Once sent, the thread's *Sent to the agent* / *Answered* carries *Open
 session*, and in the session the comment's turn says *From a comment in
 plan.md* with *Show thread*, which opens the thread's bubble in its note. A question gets a reply in the thread; a requested

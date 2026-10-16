@@ -49,9 +49,11 @@ describe('askAgent', () => {
     const run = await askAgent(deps, PATH, t.id)
     expect(run?.status).toBe('successful')
     expect(started).toHaveLength(1)
-    expect(started[0]).toMatchObject({ instruction: 'Which day?', threadId: t.id, sessionId: 's-current', open: false })
-    // Were it a new session, it would be named after the comment's place, not its words.
-    expect(started[0].title).toBe(getLL().web.ai.comments.session_title_line({ note: PATH, line: 1 }))
+    expect(started[0]).toMatchObject({ instruction: 'Which day?', threadId: t.id, sessionId: 's-current' })
+    // …and the run opens its session view (no `open: false`): Send to agent shows the session.
+    expect(started[0].open).toBeUndefined()
+    // The session the person has open keeps its name: no title handed in, not even one cut from the comment.
+    expect(started[0].title).toBeNull()
     expect(started[0].refs?.[0]).toMatchObject({ ref: { kind: 'lines', path: PATH }, snapshot: 'March' })
     const thread = store.get(t.id)!
     expect(thread.comments).toHaveLength(2)
@@ -64,6 +66,8 @@ describe('askAgent', () => {
     const t = store.add({ from: 0, to: 3, author: 'Ana', body: 'Why?', sendTo: ['agent'] })
     await askAgent(deps, PATH, t.id)
     expect(started.map((s) => s.sessionId)).toEqual(['s-current', undefined])
+    // The new one is named after the comment's place, not its words.
+    expect(started[1].title).toBe(getLL().web.ai.comments.session_title_line({ note: PATH, line: 1 }))
   })
 
   it('asked for a new session, it never uses the current one', async () => {
@@ -72,6 +76,14 @@ describe('askAgent', () => {
     await askAgent(deps, PATH, t.id, 'new')
     expect(started.map((s) => s.sessionId)).toEqual([undefined])
     expect(started[0].title).not.toContain('jiaosdjas')
+  })
+
+  it('sent to a session the person picked, it runs there, not in the current one', async () => {
+    const { store, deps, started } = setup()
+    const t = store.add({ from: 0, to: 3, author: 'Ana', body: 'Why?', sendTo: ['agent'] })
+    await askAgent(deps, PATH, t.id, { sessionId: 's-picked' })
+    expect(started.map((s) => s.sessionId)).toEqual(['s-picked'])
+    expect(started[0].title).toBeNull()
   })
 
   it('a new session’s title says where the comment is: the note, and its line or lines', () => {

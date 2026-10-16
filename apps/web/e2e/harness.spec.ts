@@ -542,15 +542,18 @@ test('a comment sent to the agent says where it goes, gets its reply in the thre
   const bubble = page.getByTestId('comment-bubble')
   await expect(bubble).toBeVisible()
   await bubble.getByTestId('comment-body').fill('What does this mean in practice?')
-  await bubble.getByTestId('comment-send-agent').check()
-  // No session yet: the bubble says it goes to a new one.
-  await expect(bubble.getByTestId('comment-send-target-new')).toHaveText('A new session')
-  await bubble.getByTestId('comment-submit').click()
+  // No session yet: the bubble says, quietly, that a new one starts.
+  await expect(bubble.getByTestId('comment-send-target')).toHaveText('Starts a new session')
+  await bubble.getByTestId('comment-send-agent').click()
   await expect(bubble).toHaveCount(0)
+  // Send to agent opens its session like every other door: beside the note (QA round 2).
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
 
   // The run answers in the thread: reopen it from the caret inside its passage.
   await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
-  await paneContent(page).getByText('syncs through').click()
+  // The session pane holds the focus now: the note's pane is `editor-pane:<id>`.
+  await page.locator('[data-testid^="editor-pane"] .cm-content').getByText('syncs through').click()
   await page.keyboard.press('ControlOrMeta+Shift+m')
   const thread = page.getByTestId('comment-thread')
   await expect(thread).toContainText('What does this mean in practice?')
@@ -572,6 +575,65 @@ test('a comment sent to the agent says where it goes, gets its reply in the thre
   await expect(page.getByTestId('comment-thread')).toContainText('every keystroke is shared with the room')
 })
 
+for (const where of ['the same pane as the note', 'a pane beside the note'] as const) {
+  test(`a session open in ${where}: Send to agent answers in it, and its tab stays where it was, under its own name`, async ({ page, mockLlm }) => {
+    // QA round 2 (Chris): "I had a session open in a tab, now I don't". The
+    // run went into that session, but it came back named "Comment on
+    // welcome.md (line 4)" — the comment's title for a NEW session was
+    // written over the open, not-yet-sent-from one, so the tab read as a
+    // different session and the one they had looked gone.
+    const mock = await mockLlm([{ text: 'It means every keystroke is shared with the room.' }])
+    await seedProvider(page, `${mock.url}/v1`)
+    await openApp(page, where.startsWith('the same') ? 'harness-comment-tab-same' : 'harness-comment-tab-beside')
+    const sessionTab = page.locator('[data-slot-kind="tab"]', { hasText: 'Session' })
+    if (where.startsWith('the same')) {
+      // The session first, then the note into the same pane: the session tab waits behind it.
+      await runFromPalette(page, 'Open AI session', 'app.session')
+      await expect(page.getByTestId('session-view')).toBeVisible()
+      await openNote(page)
+      await expect(panes(page)).toHaveCount(1)
+    } else {
+      await openNote(page)
+      await runFromPalette(page, 'Open AI session', 'app.session')
+      await expect(page.getByTestId('session-view')).toBeVisible()
+      await expect(panes(page)).toHaveCount(2)
+    }
+    await expect(sessionTab).toHaveCount(1)
+    const tabId = await sessionTab.getAttribute('data-testid')
+    const tabName = (await sessionTab.textContent())?.trim()
+
+    await page.locator('[data-pane-id] .cm-content').getByText(LINE).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('Shift+End')
+    await page.keyboard.press('ControlOrMeta+Shift+m')
+    const bubble = page.getByTestId('comment-bubble')
+    await bubble.getByTestId('comment-body').fill('What does this mean in practice?')
+    // One session: the line names it, plain text.
+    await expect(bubble.getByTestId('comment-send-target')).toHaveText('Sends to Untitled session')
+    await bubble.getByTestId('comment-send-agent').click()
+    await expect(bubble).toHaveCount(0)
+    await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+    // Send to agent shows the session (QA round 2): in the same pane that brings its tab
+    // forward, so go back to the note's tab to read the thread.
+    await expect(page.getByTestId('session-view')).toBeVisible()
+    // The note's tab: "welcome" behind the session in the same pane, "Live editor welcome" when it is the selected one beside.
+    await page.getByRole('tab', { name: /welcome$/ }).click()
+    await page.locator('[data-pane-id] .cm-content').getByText('syncs through').click()
+    await page.keyboard.press('ControlOrMeta+Shift+m')
+    await expect(page.getByTestId('comment-thread')).toContainText('every keystroke is shared with the room', { timeout: 15_000 })
+    await page.keyboard.press('Escape')
+
+    // The same tab, in the same pane, under the same name — and it is the session that answered.
+    await expect(sessionTab).toHaveCount(1)
+    await expect(sessionTab).toHaveAttribute('data-testid', tabId!)
+    expect((await sessionTab.textContent())?.trim()).toBe(tabName)
+    await sessionTab.getByRole('tab').click()
+    const view = page.getByTestId('session-view')
+    await expect(view).toContainText('What does this mean in practice?')
+    await expect(view).toContainText('every keystroke is shared with the room')
+  })
+}
+
 test('a note with a comment thread keeps its first line at the top when the session opens below it, the marker beside its passage', async ({ page, mockLlm }) => {
   // QA round 1: a comment sent to the agent, then the session opened below
   // the note, left a pane-high gap above it — the note's view, rebuilt with
@@ -590,12 +652,9 @@ test('a note with a comment thread keeps its first line at the top when the sess
   await page.keyboard.press('ControlOrMeta+Shift+m')
   const bubble = page.getByTestId('comment-bubble')
   await bubble.getByTestId('comment-body').fill('jiaosdjas')
-  await bubble.getByTestId('comment-send-agent').check()
-  await bubble.getByTestId('comment-submit').click()
+  await bubble.getByTestId('comment-send-agent').click()
   await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
-  // The session, opened from the note: below it.
-  await paneContent(page).getByText('syncs through').click()
-  await page.keyboard.press('ControlOrMeta+Shift+l')
+  // The session, opened by Send to agent (QA round 2): below the note.
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(panes(page)).toHaveCount(2)
   const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * The comment bubble (writing-harness B8): a new comment on a selection, the
- * AI-gated *Send to agent* box, and a thread's reply / resolve.
+ * The comment bubble (writing-harness B8): a new comment on a selection —
+ * *Comment*, and the AI-gated *Send to agent* with the quiet line saying
+ * where it goes — and a thread's reply / resolve.
  */
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
@@ -10,8 +11,14 @@ import { type BubbleRequest } from '../threads.svelte.js'
 import type { SuggestionRecord } from '@ohhi/workspace'
 import type { Workspace } from '../workspace.svelte.js'
 import CommentBubble from './CommentBubble.svelte'
+import { harness } from '../sessions.svelte.js'
+import type { SessionSummary } from '../session-store.js'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  harness.current = null
+  harness.list = []
+})
 
 import { threadsFixture } from '../harness.fixture.js'
 
@@ -33,7 +40,7 @@ function fakeWorkspace() {
 const newRequest: BubbleRequest = { kind: 'new', paneId: 'p1', path: PATH, from: 4, to: 8, anchor: { x: 10, y: 10 } }
 
 describe('CommentBubble', () => {
-  it('comments on the selection, with no Send to agent box when there is no provider', async () => {
+  it('comments on the selection, with no Send to agent when there is no provider', async () => {
     const user = userEvent.setup()
     const { ws, store } = fakeWorkspace()
     const onClose = vi.fn()
@@ -41,6 +48,7 @@ describe('CommentBubble', () => {
     const bubble = await screen.findByTestId('comment-bubble')
     expect(bubble).toHaveAttribute('role', 'dialog')
     expect(screen.queryByTestId('comment-send-agent')).toBeNull()
+    expect(screen.queryByTestId('comment-send-target')).toBeNull()
     expect(screen.getByTestId('comment-submit')).toBeDisabled()
 
     await user.type(screen.getByTestId('comment-body'), 'Too vague')
@@ -52,30 +60,78 @@ describe('CommentBubble', () => {
     expect(t.comments[0].to).toBeUndefined()
   })
 
-  it("offers Send to agent with a provider; ticking it sets to: ['agent'] and asks the agent about that thread", async () => {
+  it("with a provider, Send to agent saves the thread with to: ['agent'] and asks the agent; with no session it says a new one starts", async () => {
+    const user = userEvent.setup()
+    const { ws, store } = fakeWorkspace()
+    const onSendToAgent = vi.fn()
+    const onClose = vi.fn()
+    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose, onSendToAgent })
+    const send = await screen.findByTestId('comment-send-agent')
+    expect(send).toHaveTextContent('Send to agent')
+    expect(send).toBeDisabled()
+    // No checkbox, no select: one quiet line, plain text with no session to choose.
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(screen.queryByRole('combobox')).toBeNull()
+    const where = screen.getByTestId('comment-send-target')
+    expect(where.tagName).toBe('P')
+    expect(where).toHaveTextContent('Starts a new session')
+    await user.type(screen.getByTestId('comment-body'), 'Rewrite this')
+    await user.click(send)
+    expect(ws.addThread).toHaveBeenCalledWith(PATH, { from: 4, to: 8, body: 'Rewrite this', sendTo: ['agent'] })
+    const [thread] = store().threads()
+    expect(thread.comments[0].to).toEqual(['agent'])
+    expect(onSendToAgent).toHaveBeenCalledWith(PATH, thread.id, 'new')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('Comment only saves the thread, even with a provider', async () => {
     const user = userEvent.setup()
     const { ws, store } = fakeWorkspace()
     const onSendToAgent = vi.fn()
     render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
-    const box = await screen.findByTestId('comment-send-agent')
-    await user.type(screen.getByTestId('comment-body'), 'Rewrite this')
-    await user.click(box)
-    await user.click(screen.getByTestId('comment-submit'))
-    expect(ws.addThread).toHaveBeenCalledWith(PATH, { from: 4, to: 8, body: 'Rewrite this', sendTo: ['agent'] })
-    const [thread] = store().threads()
-    expect(thread.comments[0].to).toEqual(['agent'])
-    // No session is current here: it goes to a new one, and the bubble said so.
-    expect(onSendToAgent).toHaveBeenCalledWith(PATH, thread.id, 'new')
-  })
-
-  it('a plain comment asks no one', async () => {
-    const user = userEvent.setup()
-    const { ws } = fakeWorkspace()
-    const onSendToAgent = vi.fn()
-    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
     await user.type(await screen.findByTestId('comment-body'), 'Just a note')
     await user.click(screen.getByTestId('comment-submit'))
+    expect(ws.addThread).toHaveBeenCalledWith(PATH, { from: 4, to: 8, body: 'Just a note' })
+    expect(store().threads()[0].comments[0].to).toBeUndefined()
     expect(onSendToAgent).not.toHaveBeenCalled()
+  })
+
+  it('one session: the line names it, as plain text, and Send to agent goes there', async () => {
+    const user = userEvent.setup()
+    const { ws, store } = fakeWorkspace()
+    harness.current = 's-open'
+    const onSendToAgent = vi.fn()
+    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
+    const where = await screen.findByTestId('comment-send-target')
+    expect(where.tagName).toBe('P')
+    expect(where).toHaveTextContent('Sends to Untitled session')
+    await user.type(screen.getByTestId('comment-body'), 'Why?')
+    await user.click(screen.getByTestId('comment-send-agent'))
+    expect(onSendToAgent).toHaveBeenCalledWith(PATH, store().threads()[0].id, { sessionId: 's-open' })
+  })
+
+  it('more than one session: the line is a menu of the sessions and New session', async () => {
+    const user = userEvent.setup()
+    const { ws, store } = fakeWorkspace()
+    const summary = (id: string, title: string): SessionSummary => ({ id, title, created: 0, lastAt: 0, archived: false })
+    harness.list = [summary('s-a', 'Planning'), summary('s-b', 'Drafting')]
+    harness.current = 's-b'
+    const onSendToAgent = vi.fn()
+    render(CommentBubble, { request: newRequest, workspace: ws, ai: true, onClose: () => {}, onSendToAgent })
+    const trigger = await screen.findByTestId('comment-send-target')
+    expect(trigger.tagName).toBe('BUTTON')
+    expect(trigger).toHaveTextContent('Sends to Drafting')
+    await user.click(trigger)
+    const items = await screen.findAllByRole('menuitemradio')
+    expect(items.map((i) => i.textContent?.trim())).toEqual(['Drafting', 'Planning', 'New session'])
+    await user.click(screen.getByTestId('comment-send-target:new'))
+    await waitFor(() => expect(screen.getByTestId('comment-send-target')).toHaveTextContent('Starts a new session'))
+    await user.click(screen.getByTestId('comment-send-target'))
+    await user.click(await screen.findByTestId('comment-send-target:s-a'))
+    await waitFor(() => expect(screen.getByTestId('comment-send-target')).toHaveTextContent('Sends to Planning'))
+    await user.type(screen.getByTestId('comment-body'), 'Which?')
+    await user.click(screen.getByTestId('comment-send-agent'))
+    expect(onSendToAgent).toHaveBeenCalledWith(PATH, store().threads()[0].id, { sessionId: 's-a' })
   })
 
   it('shows the agent’s proposal answering the thread, with Accept and Reject', async () => {
