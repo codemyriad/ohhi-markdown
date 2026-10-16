@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stand-in so Tauri's iOS tooling finds a `pod` on PATH and does not `brew install`
+# cocoapods: the app uses no pods (gen/apple/Podfile is empty). Last on PATH, so
+# a real `pod` wins. See docs/mobile-builds.md.
+echo "pod: stub from scripts/ios-stubs (no CocoaPods here); args: $*" >&2
+exit 1
