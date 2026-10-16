@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The app is built on Tauri 2.12, so the iOS app launches on iOS 27 (apps built with the iOS 27 SDK need the UIScene life cycle). Building the desktop app now needs Rust 1.90 or newer.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

@@ -31,6 +31,7 @@
     setOperatorSecret,
   } from '../config.js'
   import { guideHref, openGuide } from '../guide.js'
+  import { isMobile } from '../platform.js'
   import { realClock } from '../real-clock.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
   import { formatBytes, notGuaranteed } from '../storage-persistence.js'
@@ -56,6 +57,11 @@
     onConfigChange?: () => void
     /** A browser build (storage is this browser's); the desktop keeps real files. */
     desktop: boolean
+    /**
+     * The phone app (docs/mobile-android.md): the storage is the app's own,
+     * which nothing can be asked to keep; default: the platform's answer.
+     */
+    mobile?: boolean
     // ---- environment, injectable for tests ----
     clock?: Clock
     probe?: (relayUrl: string) => Promise<ProbeResult>
@@ -74,6 +80,7 @@
     onManageVaults,
     onConfigChange,
     desktop,
+    mobile = isMobile(),
     clock = realClock,
     probe,
     verify,
@@ -332,22 +339,24 @@
 {#if !desktop}
   <!-- The status is a live region: an ask made here changes it in place. -->
   <section class={GROUP} data-testid="settings-storage">
-    <h3 class={EYEBROW}>{st.settings.heading()}</h3>
+    <h3 class={EYEBROW}>{mobile ? st.settings.phone_heading() : st.settings.heading()}</h3>
     <div role="status" class="mt-1">
-      <p class="text-[13px] text-base-content/70" data-testid="settings-storage-status">{storageStatus}</p>
+      <p class="text-[13px] text-base-content/70" data-testid="settings-storage-status">
+        {mobile ? st.settings.phone_status() : storageStatus}
+      </p>
       {#if storageState.refused && storageAtRisk}
         <p class="mt-1 {META}">{st.refused()}</p>
       {/if}
     </div>
     {#if storageState.usage}
       <p class="mt-1 {META}" data-testid="settings-storage-usage">
-        {st.settings.usage({
+        {(mobile ? st.settings.phone_usage : st.settings.usage)({
           used: formatBytes(storageState.usage.usage, $locale),
           quota: formatBytes(storageState.usage.quota, $locale),
         })}
       </p>
     {/if}
-    {#if storageAtRisk}
+    {#if storageAtRisk && !mobile}
       <p class="mt-1 {META}">{st.advice()}</p>
       <div class="mt-1 {META}"><DesktopDownload variant="line" /></div>
       {#if storageState.state === 'best-effort'}

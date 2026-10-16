@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "On a phone the app offers a vault on this phone, joining a shared folder and bringing a vault from another device, says what can clear that storage, and no longer offers a folder picker, desktop updates or agent setup there.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

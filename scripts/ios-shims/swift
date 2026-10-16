@@ -1,0 +1,25 @@
+#!/bin/sh
+# `swift build` with SwiftPM's native build system.
+#
+# Tauri's build script compiles its Swift package through swift-rs 1.0.7,
+# which runs `swift build --sdk <iOS SDK> -Xswiftc -target …` and expects
+# SwiftPM's native build system. Since Swift 6.4 (Xcode 27) the default is
+# `swiftbuild`, which adds the host macOS SDK and target after ours, so the
+# iOS build fails in WebKit/AppKit ('OpenGLES/EAGL.h' file not found).
+# scripts/mac-ios-env.sh and the CI iOS job put this directory first on PATH;
+# every other `swift` invocation, and a toolchain whose `swift build` has no
+# --build-system option, passes straight through.
+# Drop it once swift-rs passes --build-system itself (docs/mobile-builds.md).
+real=/usr/bin/swift
+if [ "$1" = build ]; then
+  case " $* " in
+    *" --build-system "*) ;;
+    *)
+      if "$real" build --help 2>/dev/null | grep -q -- '--build-system'; then
+        shift
+        exec "$real" build --build-system native "$@"
+      fi
+      ;;
+  esac
+fi
+exec "$real" "$@"

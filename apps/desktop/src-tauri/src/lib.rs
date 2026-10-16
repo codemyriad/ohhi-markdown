@@ -6,10 +6,18 @@ use tauri::plugin::TauriPlugin;
 use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_fs::FsExt;
 
+#[cfg(desktop)]
+mod app_id_migration;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     configure_webkit_renderer();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // First of all: the folders of the old identifier (`md.ohhi.desktop`)
+    // are copied to the new one's before any plugin reads them.
+    #[cfg(desktop)]
+    let builder = builder.plugin(app_id_migration::plugin());
+    builder
         // Order matters: persisted-scope needs the fs plugin's scope, and
         // granted-folders mirrors what persisted-scope restored.
         .plugin(tauri_plugin_fs::init())

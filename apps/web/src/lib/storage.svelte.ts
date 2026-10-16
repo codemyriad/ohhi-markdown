@@ -4,7 +4,7 @@
  * to the browser profile, not to a vault.
  */
 import { setStorageNoticeDismissed, storageNoticeDismissed } from './config.js'
-import { isTauri } from './platform.js'
+import { isDesktop, isTauri } from './platform.js'
 import {
   browserStorage,
   ensurePersistence,
@@ -33,7 +33,11 @@ export const storageState = $state<StorageStatus>({
 
 /** Launch, browser only: read the browser's decision, and ask once if it has not agreed. */
 export async function initStorage(): Promise<void> {
-  if (isTauri()) return
+  // The phone app's vaults are in the webview's storage too, but nothing
+  // there can be asked: the Android System WebView refuses `persist()`
+  // every time, and the storage goes only with the app's data
+  // (docs/mobile-android.md). So no ask and no warning, only the usage.
+  if (isTauri()) return refreshStorageUsage()
   const state = await ensurePersistence()
   // A click may have answered while the launch check was in flight.
   if (storageState.state === 'unknown') storageState.state = state
@@ -52,7 +56,7 @@ export async function askToKeepStorage(): Promise<void> {
 }
 
 export async function refreshStorageUsage(): Promise<void> {
-  if (isTauri()) return
+  if (isDesktop()) return
   storageState.usage = await estimateUsage(browserStorage())
 }
 

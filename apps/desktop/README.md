@@ -13,7 +13,7 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev
 If `cargo build` still fails at a pkg-config step, install the package it names
 (observed on this machine: `sudo apt install libdbus-1-dev` for `libdbus-sys`).
 
-Plus a Rust toolchain (`rustup`) and the repo toolchain (Node 22.12, Rush, pnpm —
+Plus a Rust toolchain (`rustup`; 1.90 or newer, the `rust-version` in `src-tauri/Cargo.toml`) and the repo toolchain (Node 22.12, Rush, pnpm —
 see the repo root README). Without `libwebkit2gtk-4.1-dev`, `cargo build` /
 `tauri dev` fails at the system-dependency (pkg-config) stage.
 
@@ -81,10 +81,16 @@ picked (DEL-89; `docs/desktop-builds.md` § Installing and § Threat model):
 
 ## Icons
 
-`src-tauri/icons/` was generated from the placeholder `app-icon.png` (indigo
-"E" tile) via `tauri icon`. To replace it with a real icon, drop in a 512x512+
-transparent PNG and re-run:
+`app-icon.png` is the landing page's "hi" favicon (`apps/site/public/favicon.svg`)
+rendered at 1024×1024 by `scripts/app-icon.mjs`; `src-tauri/icons/`,
+`src-tauri/gen/android`'s mipmaps and `src-tauri/gen/apple`'s icon set are
+all generated from it by `tauri icon`. One command does both:
 
 ```sh
-cd apps/desktop && ./node_modules/.bin/tauri icon path/to/icon.png
+cd apps/desktop && rushx icon
 ```
+
+It is a stand-in until there is a brand. To use a real icon, replace the
+script's output with a 1024×1024 transparent PNG, set `bg_color` in
+`app-icon.json` to its background, and run only the second half,
+`tauri icon app-icon.json` (docs/mobile-builds.md, "The iOS project").
