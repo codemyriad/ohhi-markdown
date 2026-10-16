@@ -25,3 +25,7 @@ To change the app's own layout, keys or templates — files under the vault's `.
 ## Repo layout
 
 Rush monorepo (same conventions as Edible): `apps/` for applications, `libs/` for shared libraries, `common/` for Rush config, `.claude/skills/` for agent skills, `/plans` for shaping and slice plans.
+
+## Licence
+
+Oh hi markdown is free software under the [GNU Affero General Public License v3](LICENSE) (AGPL-3.0).
