@@ -46,6 +46,7 @@
   import FieldErrors from '../ui/FieldErrors.svelte'
   import SelectControl from '../ui/SelectControl.svelte'
   import TextControl from '../ui/TextControl.svelte'
+  import Wordmark from '../ui/Wordmark.svelte'
   import { CARD, FACT, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
 
   interface Props {
@@ -191,7 +192,9 @@
 
 <main class="flex min-h-full items-start justify-center bg-base-200 px-4 py-12 text-base-content" data-testid="join-page">
   <div class="w-full max-w-xl space-y-6 {CARD} p-6 shadow-sm">
-    <p class={HEADING} data-testid="join-brand">{t.brand()}</p>
+    <p class="m-0 flex flex-wrap items-baseline gap-x-1.5 text-sm text-base-content/70" data-testid="join-brand">
+      <Wordmark testid="join-wordmark" /> <span>{t.brand_suffix()}</span>
+    </p>
 
     {#if !decoded.ok}
       <section class="space-y-2" data-testid="join-error">

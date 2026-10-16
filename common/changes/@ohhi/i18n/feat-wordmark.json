@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "The welcome heading key gives way to the wordmark; the join page's brand line becomes a suffix after the wordmark; the welcome subline is new.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

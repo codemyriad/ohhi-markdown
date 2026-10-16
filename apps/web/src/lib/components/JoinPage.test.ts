@@ -5,7 +5,7 @@
  * typed", "reachable" is a health check, and a device link is never offered
  * as a folder share.
  */
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -62,7 +62,9 @@ describe('JoinPage', () => {
     open()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(t.heading_from({ from: 'Sam', label: 'team/notes' }))
     expect(screen.getByTestId('join-sender-note')).toHaveTextContent(t.from_note({ from: 'Sam' }))
-    expect(screen.getByTestId('join-brand')).toHaveTextContent(t.brand())
+    const brand = screen.getByTestId('join-brand')
+    expect(within(brand).getByRole('img', { name: LL.common.app_name() })).toBeTruthy()
+    expect(brand).toHaveTextContent(`${LL.common.app_name()} ${t.brand_suffix()}`)
     expect(screen.getByText(t.what_you_get_body())).toBeVisible()
   })
 

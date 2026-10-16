@@ -3000,11 +3000,7 @@ export type NamespaceWebTranslation = {
 		no_vaults: string
 		welcome: {
 			/**
-			 * O​h​ ​H​i​.
-			 */
-			title: string
-			/**
-			 * Y​o​u​r​ ​n​o​t​e​s​ ​s​t​a​y​ ​p​l​a​i​n​ ​m​a​r​k​d​o​w​n​ ​f​i​l​e​s​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​n​e​v​e​r​ ​h​o​l​d​s​ ​t​h​e​ ​o​n​l​y​ ​c​o​p​y​.​ ​P​i​c​k​ ​h​o​w​ ​y​o​u​ ​w​a​n​t​ ​t​o​ ​s​t​a​r​t​.
+			 * A​ ​m​a​r​k​d​o​w​n​ ​e​d​i​t​o​r​ ​f​o​r​ ​p​e​r​s​o​n​a​l​ ​a​n​d​ ​c​o​l​l​a​b​o​r​a​t​i​v​e​ ​n​o​t​e​s​.
 			 */
 			lede: string
 			/**
@@ -5422,9 +5418,9 @@ export type NamespaceWebTranslation = {
 	}
 	join_page: {
 		/**
-		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​·​ ​a​ ​f​o​l​d​e​r​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+		 * ·​ ​a​ ​f​o​l​d​e​r​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
 		 */
-		brand: string
+		brand_suffix: string
 		/**
 		 * {​f​r​o​m​}​ ​s​h​a​r​e​d​ ​{​l​a​b​e​l​}​ ​w​i​t​h​ ​y​o​u
 		 * @param {string} from
@@ -12046,11 +12042,7 @@ export type TranslationFunctions = {
 			no_vaults: () => LocalizedString
 			welcome: {
 				/**
-				 * Oh Hi.
-				 */
-				title: () => LocalizedString
-				/**
-				 * Your notes stay plain markdown files, and the app never holds the only copy. Pick how you want to start.
+				 * A markdown editor for personal and collaborative notes.
 				 */
 				lede: () => LocalizedString
 				/**
@@ -14333,9 +14325,9 @@ export type TranslationFunctions = {
 		}
 		join_page: {
 			/**
-			 * Oh Hi markdown · a folder shared with you
+			 * · a folder shared with you
 			 */
-			brand: () => LocalizedString
+			brand_suffix: () => LocalizedString
 			/**
 			 * {from} shared {label} with you
 			 */
