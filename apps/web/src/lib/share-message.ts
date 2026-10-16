@@ -11,7 +11,10 @@
  *    `https://<TEAM_HOST>` — and ONLY when the room's relay is on the team
  *    host, which serves the app and the relay from one origin. Anyone
  *    else's `wss://<host>/relay` may serve no app at all, so otherwise there
- *    is no origin, and the link stays the bare `editor1:` form.
+ *    is no origin, and the link stays the bare `editor1:` form — unless the
+ *    build names a public web app (`webOrigin`, the public flavour's
+ *    `VITE_WEB_ORIGIN`, e.g. `https://app.ohhi.md`): its CSP is unpinned, so
+ *    its join page can reach any `wss:` relay, and the link points there.
  *  - `presentLink`: the URL form when an origin is known, else the bare link.
  *  - `shareMessage`: "I shared <folder> with you in Oh hi markdown. Open this
  *    link: <link>" (with no origin, the bare link and how to paste it in the
@@ -30,10 +33,15 @@ function webOrigin(origin: string | null | undefined): string | null {
   return o && /^https?:\/\/[^/\s]+$/i.test(o) ? o : null
 }
 
+/** Loopback hosts: a relay there is the sharer's own machine, which nobody else's join page can reach. */
+const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/i
+
 /**
  * The join page's origin for a link to a room on `relayUrl`: the browser's
  * own origin; on the desktop the team host (`teamHost`, the build's
- * `TEAM_HOST`) when the relay is on it; else null (the bare link).
+ * `TEAM_HOST`) when the relay is on it, else the build's public web app
+ * (`publicOrigin`) when the relay is a `wss:` one off this machine; else
+ * null (the bare link).
  */
 export function linkOrigin(env: {
   desktop: boolean
@@ -41,11 +49,25 @@ export function linkOrigin(env: {
   relayUrl: string
   /** The build's team host (`TEAM_HOST`); '' = none, so the desktop has no join page to point at. */
   teamHost?: string
+  /** The build's public web app (`WEB_ORIGIN`); '' = none. */
+  publicOrigin?: string
 }): string | null {
   if (!env.desktop) return webOrigin(env.locationOrigin)
   const team = env.teamHost?.trim().toLowerCase()
-  if (!team || relayHost(env.relayUrl)?.toLowerCase() !== team) return null
-  return originForRelay(env.relayUrl)
+  const host = relayHost(env.relayUrl)?.toLowerCase()
+  if (team && host === team) return originForRelay(env.relayUrl)
+  const open = webOrigin(env.publicOrigin)
+  return open && isRemoteWss(env.relayUrl) ? open : null
+}
+
+/** A `wss:` relay on another machine — one a join page elsewhere can reach. */
+function isRemoteWss(relayUrl: string): boolean {
+  try {
+    const url = new URL(relayUrl.trim())
+    return url.protocol === 'wss:' && !!url.hostname && !LOOPBACK.test(url.hostname)
+  } catch {
+    return false
+  }
 }
 
 /** The link as a person receives it: the URL form when an origin is known, else `editor1:…`. */

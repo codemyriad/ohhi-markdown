@@ -45,6 +45,7 @@ export const COMMAND_IDS = [
   'view.focus',
   'template.insert',
   'layout.use-file',
+  'app.desktop-download',
   // shell-commands.ts › help (first-run E1; help.svelte.ts HELP_COMMAND_IDS)
   'help.menu',
   'help.start',

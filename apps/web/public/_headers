@@ -1,5 +1,8 @@
-# Cloudflare Pages response headers for the hosted web app. Policy and threat
-# model: docs/desktop-builds.md. Must match the desktop policy in
+# Response headers for the hosted web app, in Cloudflare Pages' `_headers`
+# format: Pages (the public build, docs/public-deploy.md) reads this file as
+# is; the team host's ohhi-pull turns the `/*` rule — only that one — into
+# Caddy `header` lines (docs/deploy-tailnet.md). One source for both. Policy
+# and threat model: docs/desktop-builds.md. Must match the desktop policy in
 # apps/desktop/src-tauri/tauri.conf.json apart from Tauri's IPC sources
 # (apps/desktop/scripts/check-csp.mjs enforces it).
 #
@@ -7,9 +10,14 @@
 # editing that script, `rushx build` in apps/web, then `check-csp.mjs --print`.
 # A stale hash only blocks that script (a flash of the wrong theme).
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-jIHxGACQ0V+FGLy0L9RmTTLGQqdtrLFm+C9qjgKEG9c='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-hmCtceMjA9yLAXXRVsslVfJQ0lilMQtwHmXEWSIOPoA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), display-capture=(), browsing-topics=()
+
+# Vite's hashed build output never changes under its name. Pages only: Caddy
+# sets the same on the team host itself and never reads this rule.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

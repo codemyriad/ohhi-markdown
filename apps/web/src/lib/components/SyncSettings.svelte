@@ -40,6 +40,7 @@
   import FieldErrors from '../ui/FieldErrors.svelte'
   import { BUTTON, EYEBROW, GROUP, LINK, META } from '../ui/styles.js'
   import TextControl from '../ui/TextControl.svelte'
+  import DesktopDownload from './DesktopDownload.svelte'
   import RelayCard from './RelayCard.svelte'
   import RelaySecretField from './RelaySecretField.svelte'
   import SecretHelp from './SecretHelp.svelte'
@@ -348,6 +349,7 @@
     {/if}
     {#if storageAtRisk}
       <p class="mt-1 {META}">{st.advice()}</p>
+      <div class="mt-1 {META}"><DesktopDownload variant="line" /></div>
       {#if storageState.state === 'best-effort'}
         <button type="button" data-testid="settings-storage-keep" onclick={() => void askToKeepStorage()} class={button}>
           {st.ask()}

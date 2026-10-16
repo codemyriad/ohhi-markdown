@@ -9,12 +9,18 @@
    * manual check (`updater.ts` returns only a stop function; deferred). There
    * are no release notes here either: the update manifest carries none
    * ("Build <sha> of <ref>"), so *What's new* is the guide page.
+   *
+   * In a browser whose build names a downloads list, *Get the desktop app*
+   * (`DesktopDownload`, docs/public-deploy.md) sits under the updates — where
+   * the `app.desktop-download` command lands.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { Clock } from '@ohhi/vault'
   import { openGuide, type GuidePage } from '../guide.js'
   import { help, openReport, versionLine } from '../help.svelte.js'
+  import { desktopDownloads } from '../downloads.svelte.js'
   import { clockTick } from '../relative-time.js'
+  import DesktopDownload from './DesktopDownload.svelte'
   import { BUTTON, EYEBROW, GROUP, META } from '../ui/styles.js'
 
   interface Props {
@@ -53,6 +59,12 @@
     <p class="mt-1 {META}">{t.web_updates()}</p>
   {/if}
 </section>
+
+{#if !desktop && desktopDownloads.offered()}
+  <div class={GROUP}>
+    <DesktopDownload />
+  </div>
+{/if}
 
 <section class={GROUP}>
   <h3 class={EYEBROW}>{t.guides()}</h3>

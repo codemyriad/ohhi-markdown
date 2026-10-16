@@ -12,6 +12,7 @@ import { getLL } from '@ohhi/i18n'
 import type { Command, CommandRegistry } from './commands.js'
 import { aiEnabled } from './ai-config.svelte.js'
 import type { DailyShell } from './daily.svelte.js'
+import { desktopDownloads } from './downloads.svelte.js'
 import type { FileActions } from './file-actions.svelte.js'
 import type { GroupShell } from './group-ui.svelte.js'
 import { HELP_COMMAND_IDS, type HelpCommandId } from './help.svelte.js'
@@ -229,6 +230,19 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       title: t.layout_use_file(),
       group: t.groups.view(),
       run: () => deps.openPalette('layouts'),
+    })
+  }
+  // *Get the desktop app* (docs/public-deploy.md): Settings › About, where
+  // the file for this computer is. Offered only where the section is — a
+  // browser whose build names a downloads list. App-level: no vault needed.
+  {
+    const t = getLL().web.commands
+    registry.register({
+      id: 'app.desktop-download',
+      title: t.desktop_download(),
+      group: t.groups.app(),
+      when: () => desktopDownloads.offered(),
+      run: () => deps.openView('settings', 'about'),
     })
   }
   // Help (first-run E1): the menu's rows, one command each, so the palette

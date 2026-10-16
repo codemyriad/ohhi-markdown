@@ -12,6 +12,8 @@ import {
   DEFAULT_RELAY_CONFIGURED,
   isDefaultRelayConfigured,
   resolveTeamHost,
+  resolveDownloadsUrl,
+  resolveWebOrigin,
   relayKnown,
   resolveDefaultRelay,
   TEAM_NETWORK_NOTE,
@@ -660,5 +662,29 @@ describe('resolveTeamHost (VITE_TEAM_HOST, first-run R10)', () => {
     // A scheme or a path is not what the workflow's TEAM_HOST is.
     expect(resolveTeamHost('wss://ohhi.example.ts.net/relay')).toBe('')
     expect(resolveTeamHost('ohhi.example.ts.net/relay')).toBe('')
+  })
+})
+
+describe('resolveDownloadsUrl (VITE_DOWNLOADS_URL)', () => {
+  it('is an https URL with a path; anything else reads as unset (no Get the desktop app)', () => {
+    expect(resolveDownloadsUrl(undefined)).toBe('')
+    expect(resolveDownloadsUrl('  https://dist.ohhi.md/stable/downloads.json ')).toBe('https://dist.ohhi.md/stable/downloads.json')
+    expect(resolveDownloadsUrl('https://ohhi.example.ts.net/updates/downloads.json')).toBe(
+      'https://ohhi.example.ts.net/updates/downloads.json'
+    )
+    expect(resolveDownloadsUrl('http://dist.ohhi.md/stable/downloads.json')).toBe('')
+    expect(resolveDownloadsUrl('dist.ohhi.md/stable/downloads.json')).toBe('')
+    expect(resolveDownloadsUrl('https://dist.ohhi.md')).toBe('')
+  })
+})
+
+describe('resolveWebOrigin (VITE_WEB_ORIGIN)', () => {
+  it('is an https origin, lower-cased, no trailing slash; a path or another scheme reads as unset', () => {
+    expect(resolveWebOrigin(undefined)).toBe('')
+    expect(resolveWebOrigin(' https://App.Ohhi.md/ ')).toBe('https://app.ohhi.md')
+    expect(resolveWebOrigin('https://app.ohhi.md:8443')).toBe('https://app.ohhi.md:8443')
+    expect(resolveWebOrigin('https://app.ohhi.md/join')).toBe('')
+    expect(resolveWebOrigin('http://app.ohhi.md')).toBe('')
+    expect(resolveWebOrigin('app.ohhi.md')).toBe('')
   })
 })

@@ -689,6 +689,8 @@ const commands = {
   shared: 'Open Shared',
   /** quiet-shell F9: re-read `.ohhi/` (and the user root) and re-apply the layout. */
   reload_resources: 'Reload layouts and resources',
+  /** Opens Settings › About on *Get the desktop app*; offered only in a browser whose build names a downloads list. */
+  desktop_download: 'Get the desktop app',
   /** quiet-shell F11: pick a template from `.ohhi/templates/` and insert it at the caret. */
   template_insert: 'Insert template…',
   layout_use_file: 'Use layout file…',
@@ -1015,8 +1017,13 @@ const shared = {
 const relay_card = {
   label: 'Relay',
   none_host: 'No relay yet',
+  /**
+   * No relay saved and none in the build — every public build starts here
+   * (docs/public-deploy.md): a share link carries its relay, so opening one
+   * is the other way in.
+   */
   none_body:
-    'Shares need one relay per group. Run your own, or ask the person who shared with you which one they use.',
+    'Shares need one relay per group. Enter the one your group uses, run your own, or open a link someone shared with you: it brings their relay along.',
   guide: 'How to run a relay',
   checking: 'checking…',
   reachable: 'reachable · checked {when:string}',
@@ -1237,6 +1244,49 @@ const storage = {
     usage: 'Using {used:string} of the {quota:string} this browser allows.',
     remind: 'Remind me about this',
   },
+}
+
+/**
+ * *Get the desktop app* (docs/public-deploy.md): Settings › About's section
+ * and the browser-storage note's line. The files come from the build's
+ * `downloads.json`; the page offers the one that fits this computer first.
+ */
+const downloads = {
+  heading: 'Desktop app',
+  lede: 'For your own notes: they stay as files on your disk, and the app updates itself.',
+  /** The primary link: the file for this computer. */
+  for_os: 'Download for {os:string}',
+  /** Under it: the file, its size, the release. */
+  meta: '{name:string} · {size:string} · version {version:string}',
+  meta_unsized: '{name:string} · version {version:string}',
+  loading: 'Looking for the newest build…',
+  failed: 'The list of downloads didn’t load. The getting-started guide says where the builds are.',
+  retry: 'Try again',
+  guide: 'Install notes',
+  none_for_os: 'There is no desktop app for this system yet. These are the builds there are:',
+  others: 'Other downloads',
+  os: {
+    macos: 'macOS',
+    linux: 'Linux',
+    android: 'Android',
+    windows: 'Windows',
+    ios: 'iOS',
+  },
+  kind: {
+    dmg: 'macOS installer (.dmg)',
+    appimage: 'Linux AppImage',
+    deb: 'Debian and Ubuntu package (.deb)',
+    apk: 'Android package (.apk)',
+  },
+  /** One sentence per kind; the guide has the rest. */
+  install: {
+    dmg: 'Open it and drag ohhi into Applications. The app is not notarized yet, so the first launch needs one extra step — the install notes show it.',
+    appimage: 'Make it executable (chmod +x), then run it. It needs FUSE 2: on Ubuntu 24.04, sudo apt install libfuse2t64 (libfuse2 on 22.04). It updates itself.',
+    deb: 'Install it with sudo apt install and the file’s path. It doesn’t always update itself, so prefer the AppImage.',
+    apk: 'Open it, and allow installs from your browser when Android asks.',
+  },
+  /** The browser-storage note's line (the manager and Settings › Sync & devices). */
+  note_link: 'Get the desktop app for {os:string}',
 }
 
 const settings = {
@@ -3063,6 +3113,7 @@ const web = {
   import_app,
   vault_switcher,
   storage,
+  downloads,
   settings,
   share,
   join_page,
