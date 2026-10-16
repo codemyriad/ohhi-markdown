@@ -36,7 +36,7 @@ In practice mature libraries blur the line: Yjs is operation-based but can encod
 
 ## Yjs, concretely
 
-[Yjs](https://github.com/yjs/yjs) is the engine we pinned (v13.6.x, behind the [engine seam](04-engine-seam.md) — see the [crdt-engine research](../../plans/research/crdt-engine.md) and the Decision log in [shaping](../../plans/shaping.md) for why: ~5M downloads/week, pure JS ~18 KB, the richest provider ecosystem, and relay.md proving our exact use case in production).
+[Yjs](https://github.com/yjs/yjs) is the engine we pinned (v13.6.x, behind the [engine seam](04-engine-seam.md) — see the `crdt-engine` research note and the Decision log in `shaping` for why: ~5M downloads/week, pure JS ~18 KB, the richest provider ecosystem, and relay.md proving our exact use case in production).
 
 ### Y.Doc and Y.Text
 
@@ -97,7 +97,7 @@ const after = Y.encodeStateVector(a)
 
 So **a state vector alone cannot tell you whether two docs are in the same state**. Two replicas with equal SVs can differ by any number of deletions. Yjs's own sync protocol survives this (update diffs always carry the full delete set), but *our bookkeeping* would not: if the [LCA record](03-lca-reconciliation.md), the [sync pill](05-sync-and-relay.md), or the test harness's convergence assertion compared SVs only, a delete-only update would be classified as "nothing changed" — stale green pills, LCA records that lie, fuzz tests that pass while replicas disagree.
 
-That's why shape D1 in [shaping](../../plans/shaping.md) defines **heads = state vector + delete-set digest** — equivalent to a Yjs `Y.Snapshot`, which is literally the pair `{sv, ds}`. Anywhere this repo says "heads" or "snapshot", read: *both* halves, never the SV alone. The harness asserts convergence on **encoded state**, not rendered text, for the same reason (cosmetically equal output can hide internal divergence). This fix came out of the distsys attack on the shapes — see the Decision log, "CRDT engine" row.
+That's why shape D1 in `shaping` defines **heads = state vector + delete-set digest** — equivalent to a Yjs `Y.Snapshot`, which is literally the pair `{sv, ds}`. Anywhere this repo says "heads" or "snapshot", read: *both* halves, never the SV alone. The harness asserts convergence on **encoded state**, not rendered text, for the same reason (cosmetically equal output can hide internal divergence). This fix came out of the distsys attack on the shapes — see the Decision log, "CRDT engine" row.
 
 ### Transactions and origins
 
@@ -127,6 +127,6 @@ No full edit history by default (tombstones are garbage-collected; snapshots req
 
 ## Further reading
 
-- [crdt-engine research](../../plans/research/crdt-engine.md) — Yjs vs Automerge vs Loro, verified June 2026
-- [shaping](../../plans/shaping.md) D1 + Decision log — the pin, the seam, the SV+DS fix
+- the `crdt-engine` research note — Yjs vs Automerge vs Loro, verified June 2026
+- `shaping` D1 + Decision log — the pin, the seam, the SV+DS fix
 - Next primer: [why CRDT over the literal markdown bytes](02-plain-text-crdt-over-markdown.md)

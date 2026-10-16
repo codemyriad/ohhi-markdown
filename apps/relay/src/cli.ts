@@ -10,7 +10,7 @@
  *
  * --kind device mints a device token (also reaches rooms carved out of this
  * one); --parent records that <folderGuid> was carved out of <roomGuid>,
- * which is the edge a device token walks (device-link-shaping.md A4-A).
+ * which is the edge a device token walks (device-link-shaping A4-A).
  *
  * `backup` is safe next to the live relay (RelayDb.backup), e.g. from a
  * nightly `docker exec` (apps/relay/README.md).

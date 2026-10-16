@@ -3,7 +3,7 @@
 The sibling of `libs/vault/test/fuzz-crashers/`, for counterexamples found by
 the nested-mount property test (`../l1-nested-fuzz.test.ts`) and by the
 directed race-table fixtures in `../nested.test.ts`. Same rule
-(plans/shaping.md D9, spike S10 Q5 "Where the fixtures go"):
+(shaping D9, spike S10 Q5 "Where the fixtures go"):
 
 1. Reproduce with the printed seed (`fc.assert(..., { seed, path })`).
 2. Translate the shrunk command script into a directed spec here, named

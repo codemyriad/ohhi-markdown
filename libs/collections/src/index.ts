@@ -1,6 +1,6 @@
 /**
  * @ohhi/collections — a collection is a set of notes with properties, seen
- * through saved views (plans/bases-shaping.md, shape A). On disk it is a
+ * through saved views (bases-shaping, shape A). On disk it is a
  * `.base` file in Obsidian's format, read as a documented subset; the rows
  * are notes the index already holds; nothing here is a store.
  *

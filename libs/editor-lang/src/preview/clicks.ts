@@ -1,5 +1,5 @@
 /**
- * What a click does on a rendered note (read-shaping.md B2.2, R2.4).
+ * What a click does on a rendered note (read-shaping B2.2, R2.4).
  *
  * The rule is "brackets visible ⇒ the click edits": where live preview has
  * rendered a link, a PLAIN click follows it, because there is no markup there

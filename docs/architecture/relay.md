@@ -194,7 +194,7 @@ because the operator is us, on our own Fly app, for a test subfolder.
   capability checks.
 
 No E2EE work happens now; the re-evaluation trigger is the public debut or a security
-audit ([slices.md](../../plans/slices.md), Later).
+audit (`slices`, Later).
 
 ## Persistence and deployment
 
@@ -248,8 +248,8 @@ auth upgrade, or E2EE pivot has to carry. V1's relay should stay boring.
   real relay instance.
 - Primers: [05-sync-and-relay](../primers/05-sync-and-relay.md),
   [01-crdts-and-yjs](../primers/01-crdts-and-yjs.md).
-- Plans: [shaping.md](../../plans/shaping.md) D4/D4a, Spikes S1/S4/S5, decision log
-  (Sync server, Sharing/auth); [slices.md](../../plans/slices.md) V1 wiring, V2 scope;
-  [device-link-shaping.md](../../plans/device-link-shaping.md) A4-A/R5 and
-  [spike-s10-nested-mounts.md](../../plans/spike-s10-nested-mounts.md) Q3 for the share
+- Plans: `shaping` D4/D4a, Spikes S1/S4/S5, decision log
+  (Sync server, Sharing/auth); `slices` V1 wiring, V2 scope;
+  `device-link-shaping` A4-A/R5 and
+  `spike-s10-nested-mounts` Q3 for the share
   kinds, the ancestry contract and the token lookup order on the client.

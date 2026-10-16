@@ -15,7 +15,7 @@
     /**
      * Live / Source / Reading. Applied by reconfigure, never by rebuilding:
      * a mode toggle keeps the Y.Text binding, the scroll and the undo stack
-     * (read-shaping.md B3).
+     * (read-shaping B3).
      */
     mode?: ViewMode
     /** Only drives CM6's own dark/light base rules; colours come from CSS. */

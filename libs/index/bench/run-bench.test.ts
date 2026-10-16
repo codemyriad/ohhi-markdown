@@ -3,7 +3,7 @@
  *
  *   EDITOR_BENCH_VAULT="/path/to/vault" rushx test
  *
- * plans/v2-shaping.md defers the sqlite-wasm/rusqlite index behind a MEASURED
+ * v2-shaping defers the sqlite-wasm/rusqlite index behind a MEASURED
  * trigger (>5,000 files, >20 MB, cold build >750 ms, search p95 >50 ms). This
  * is how that gets re-measured rather than assumed. It prints; it asserts only
  * that the trigger has not fired.
@@ -81,7 +81,7 @@ describe.skipIf(!VAULT)('real-vault benchmark', () => {
     )
 
     // The Fork 1 trigger. If any of these fail, the SQLite backend is due —
-    // see plans/v2-shaping.md and shaping.md Spike S5.
+    // see v2-shaping and shaping Spike S5.
     expect(docs.length, 'file-count trigger').toBeLessThan(5000)
     expect(bytes, 'corpus-size trigger').toBeLessThan(20e6)
     expect(buildMs, 'cold-build trigger').toBeLessThan(750)
@@ -93,7 +93,7 @@ describe.skipIf(!VAULT)('real-vault benchmark', () => {
 })
 
 /**
- * THE SEVEN PROBES, on the real vault (plans/agent-surface-shaping.md,
+ * THE SEVEN PROBES, on the real vault (agent-surface-shaping,
  * "Evidence — the real vault, measured for search"; requirement R5).
  *
  * `CORPUS_PROBES` is that list — the exact queries and notes from the evidence

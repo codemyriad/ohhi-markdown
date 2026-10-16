@@ -1,6 +1,6 @@
 /**
  * The three token routes, end to end against the REAL relay (slice N3;
- * device-link-shaping.md A4-A/B/C, decision 3; spike S10 Q2/Q3/Q7).
+ * device-link-shaping A4-A/B/C, decision 3; spike S10 Q2/Q3/Q7).
  *
  * Chris took all three routes deliberately, and each covers a case the others
  * cannot:

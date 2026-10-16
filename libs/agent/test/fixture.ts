@@ -12,7 +12,7 @@
  * and must not have to. Anything that needs a `Clock` or a backend belongs in
  * `test/harness.ts` beside it, not here.
  *
- * The shape is the REAL vault's, measured (agent-surface-shaping.md, evidence
+ * The shape is the REAL vault's, measured (agent-surface-shaping, evidence
  * table), because the behaviour under test is shaped by it:
  *
  *  - short, generic, single-noun titles (`JSON.md`, `HTML.md`, `Docs.md`)

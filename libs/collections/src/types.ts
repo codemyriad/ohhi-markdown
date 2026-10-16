@@ -1,5 +1,5 @@
 /**
- * THE COLLECTION CONTRACT (plans/bases-shaping.md A2; §Provenance and naming).
+ * THE COLLECTION CONTRACT (bases-shaping A2; §Provenance and naming).
  *
  * A collection is a set of notes with properties, seen through saved views.
  * On disk it is a plain vault file in Obsidian's `.base` format — YAML with

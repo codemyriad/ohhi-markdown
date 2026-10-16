@@ -2,7 +2,7 @@
  * Durable-store v0 implementations. The LCA store and pre-image journal live
  * in app-data (NEVER the vault, NEVER droppable cache storage — shaping D5).
  * SQLite would sit behind the same interfaces if the durable side ever needed
- * it — not scheduled: the V2 index decision (plans/v2-shaping.md Fork 1)
+ * it — not scheduled: the V2 index decision (v2-shaping Fork 1)
  * deferred SQLite entirely, behind a measured trigger, and that trigger is
  * about the DROPPABLE index, not this.
  *

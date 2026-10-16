@@ -1,7 +1,7 @@
 /**
  * A SYNTHETIC VAULT SHAPED LIKE THE MEASURED ONE.
  *
- * plans/agent-surface-shaping.md measured `~/Documents/black book` (1,037
+ * agent-surface-shaping measured `~/Documents/black book` (1,037
  * live notes, 3.0 MB) for search and found four things that break a single
  * BM25 number. This generator reproduces all four at 1/50th the size, so the
  * ranking has a regression test that runs in CI without a real vault:

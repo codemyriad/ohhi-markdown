@@ -1,5 +1,5 @@
 /**
- * The Read slice in the shell (read-shaping.md X2/X4): how a tab is read, and
+ * The Read slice in the shell (read-shaping X2/X4): how a tab is read, and
  * the two services a rendered note needs that neither CM6 nor the vault can
  * give it on their own — where an embedded attachment's bytes live, and the
  * way out to a browser.

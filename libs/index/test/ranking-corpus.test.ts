@@ -1,5 +1,5 @@
 /**
- * THE RANKING REGRESSION TEST (plans/agent-surface-shaping.md A10, R5).
+ * THE RANKING REGRESSION TEST (agent-surface-shaping A10, R5).
  *
  * "For an unambiguous query the note the user means is the first result" is a
  * requirement, not a preference, and the way it stops being true is a weight

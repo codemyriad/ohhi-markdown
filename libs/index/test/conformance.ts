@@ -1,7 +1,7 @@
 /**
  * THE BACKEND CONFORMANCE SUITE.
  *
- * plans/v2-shaping.md Fork 1 defers the sqlite-wasm/rusqlite index behind a
+ * v2-shaping Fork 1 defers the sqlite-wasm/rusqlite index behind a
  * measured trigger, and the honest risk it records is that "temporary"
  * becomes permanent by neglect. This suite is the mitigation: it is written
  * against the CONTRACT (types.ts), not against MemoryIndex, so a future
@@ -211,7 +211,7 @@ export function describeIndexConformance(name: string, make: IndexFactory): void
     })
 
     /**
-     * Ranking STRUCTURE (plans/agent-surface-shaping.md A10, Fork 3-B). The
+     * Ranking STRUCTURE (agent-surface-shaping A10, Fork 3-B). The
      * measured vault has hundreds of one-generic-noun filenames whose own word
      * is also its most frequent body term, so "the note called X" can only win
      * by a tier — a weight is always one more mention from being wrong. A

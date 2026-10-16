@@ -1,12 +1,12 @@
 /**
  * THE INDEX CONTRACT.
  *
- * `slices.md` V2 originally shaped this as SQLite/FTS5 (sqlite-wasm on OPFS
+ * `slices` V2 originally shaped this as SQLite/FTS5 (sqlite-wasm on OPFS
  * in the browser, rusqlite under Tauri). Measured against the real vault —
  * 1,144 notes / 3.12 MB, where a brute-force full-vault substring scan takes
  * 3.9 ms and an index build takes ~120 ms over text already resident in RAM —
  * that premise did not hold, and V2 ships an in-memory TypeScript backend.
- * See plans/v2-shaping.md, Fork 1, for the numbers and the trigger that flips
+ * See v2-shaping, Fork 1, for the numbers and the trigger that flips
  * the decision back (>5k files, >20MB, cold build >750ms, or search p95 >50ms).
  *
  * This file is the insurance policy that keeps that swap a day's work rather

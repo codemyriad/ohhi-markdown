@@ -2,7 +2,7 @@
  * Post-session vault audit: after any Editor session over a git-tracked
  * vault, the diff should contain only edits a human/agent actually made —
  * no churn (EOL flips, frontmatter reordering, whitespace noise).
- * V1 precondition (plans/slices.md): test subfolder git-committed clean
+ * V1 precondition (slices): test subfolder git-committed clean
  * before a session; run this after.
  */
 import { execFileSync } from 'node:child_process'

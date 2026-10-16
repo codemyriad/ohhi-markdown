@@ -1,5 +1,5 @@
 /**
- * THE FRONTMATTER CONTRACT (read-shaping.md B4, Fork 4-A).
+ * THE FRONTMATTER CONTRACT (read-shaping B4, Fork 4-A).
  *
  * One patcher serves the widget, the CLI's `fm set/unset` and every agent
  * (R4.5) — there is no second frontmatter writer. Its scope is the FLAT

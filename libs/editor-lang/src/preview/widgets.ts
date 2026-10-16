@@ -1,5 +1,5 @@
 /**
- * The widgets Live and Reading draw in place of markup (read-shaping.md B2.1,
+ * The widgets Live and Reading draw in place of markup (read-shaping B2.1,
  * B2.3, Fork 5-C).
  *
  * Rules that hold for every widget here:

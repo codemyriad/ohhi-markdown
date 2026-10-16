@@ -1,5 +1,5 @@
 /**
- * Spike S14 Q1/Q2 (`plans/spike-s14-agent-origin.md`): the in-app agent as a
+ * Spike S14 Q1/Q2 (`spike-s14-agent-origin`): the in-app agent as a
  * second origin on the live doc.
  *
  * The binding's undo manager is mirrored exactly as `libs/editor` builds it:

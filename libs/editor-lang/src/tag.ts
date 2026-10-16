@@ -1,5 +1,5 @@
 /**
- * `#tag` support for @codemirror/lang-markdown (read-shaping.md B5, Fork 6).
+ * `#tag` support for @codemirror/lang-markdown (read-shaping B5, Fork 6).
  *
  * The grammar itself is NOT defined here: `scanTag` in @ohhi/index is the
  * one definition of what a tag is, and the index scans with the same function.

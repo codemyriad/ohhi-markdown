@@ -1,6 +1,6 @@
 /**
  * The Session view's composer (writing-harness-shaping B4,
- * `plans/research/harness-chat-ui.md` §Composer): a second, tiny CM6 view
+ * the `harness-chat-ui` research note §Composer): a second, tiny CM6 view
  * built from this package's pieces — plain text, no markdown language, no
  * Y.Text — whose one special power is the mention chip.
  *

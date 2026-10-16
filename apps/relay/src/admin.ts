@@ -9,7 +9,7 @@
  *   DELETE /shares/<token>    → { removed: true }
  *
  * `kind` is 'folder' (default — exact-room match) or 'device' (also reaches
- * rooms carved out of this one; device-link-shaping.md A4-A). `parent` names
+ * rooms carved out of this one; device-link-shaping A4-A). `parent` names
  * the room this one was carved out of and records the ancestry edge the
  * device grant walks — a carve sends both `folderGuid` (the new room) and
  * `parent` (the vault room). `parent` with `kind:'device'` is refused: a

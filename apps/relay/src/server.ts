@@ -7,7 +7,7 @@
  * contents. Read-only shares flip `connectionConfig.readOnly`, which makes
  * Hocuspocus drop incoming updates from that connection.
  *
- * Two token kinds (device-link-shaping.md A4-A, R5):
+ * Two token kinds (device-link-shaping A4-A, R5):
  *   - `folder` — exact room match, as it has always been. A folder token
  *     never reaches the vault it was carved out of, nor a sibling room.
  *   - `device` — one person's own device. Exact match *or* any room whose

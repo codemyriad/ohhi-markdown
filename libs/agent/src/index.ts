@@ -1,6 +1,6 @@
 /**
  * @ohhi/agent — the host-neutral command core behind the `ohhi` CLI and the
- * `ohhi mcp` server (plans/agent-surface-shaping.md A1). Files-direct: reads
+ * `ohhi mcp` server (agent-surface-shaping A1). Files-direct: reads
  * the canonical files through @ohhi/vault/node, indexes them with
  * @ohhi/index, journals every write. No relay, no CRDT, no second
  * reconciler — a running app ingests this tool's writes through its own

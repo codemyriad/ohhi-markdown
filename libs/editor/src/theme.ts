@@ -18,7 +18,7 @@
  * selecting CM6's own &dark/&light base rules (scroller, panels, tooltip
  * chrome). It lives in a Compartment and is reconfigured with one dispatch.
  *
- * See docs/theming.md and plans/v2-shaping.md (Fork 2).
+ * See docs/theming.md and v2-shaping (Fork 2).
  */
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { Compartment, type Extension } from '@codemirror/state'
@@ -302,7 +302,7 @@ const editorBaseTheme = EditorView.theme({
   '.cm-link-footer-dot': { padding: '0 2px', color: 'var(--ed-popover-faint)' },
   '.cm-tooltip-autocomplete:not(.cm-link-popover) .cm-link-footer': { display: 'none' },
 
-  // --- live preview (read-shaping.md B2) -----------------------------------
+  // --- live preview (read-shaping B2) -----------------------------------
   // Every class the reveal engine emits is styled HERE, and only here: the
   // engine sets class names and never a colour, so one token layer paints the
   // Svelte chrome and the CM6 surface alike (golden rule 7).
@@ -622,7 +622,7 @@ const editorBaseTheme = EditorView.theme({
   '.cm-highlight': { backgroundColor: 'var(--ed-mark-bg)', color: 'var(--ed-mark-fg)' },
 
   // HTML is styled as code and never rendered: 24 elements in 13 files, 10 of
-  // them <iframe>, in files an agent can write (read-shaping.md B7).
+  // them <iframe>, in files an agent can write (read-shaping B7).
   '.cm-html': { color: 'var(--ed-ink-muted)', fontFamily: 'var(--ed-font-mono)' },
   '.cm-block-id': { color: 'var(--ed-ink-faint)', fontSize: '0.85em' },
 

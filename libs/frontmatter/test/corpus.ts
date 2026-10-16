@@ -1,7 +1,7 @@
 /**
  * The corpus every frontmatter test runs on, and the assertion they share.
  *
- * The corpus is the REAL vault's blocks (read-shaping.md §Evidence — 17
+ * The corpus is the REAL vault's blocks (read-shaping §Evidence — 17
  * blocks over 1,038 notes, measured 2026-09-12), plus the shapes Obsidian
  * 1.4+ writes when its Properties UI rewrites a block. The vault is the
  * evidence that the flat subset covers 17/17 files (Fork 4); the Obsidian

@@ -1,7 +1,7 @@
 /**
- * SPIKE S3 — frontmatter concurrent-edit safety (shaping.md Spike S3, D2e).
+ * SPIKE S3 — frontmatter concurrent-edit safety (shaping Spike S3, D2e).
  *
- * `read-shaping.md` B4.1 answers S3 on paper: because every writer edits only
+ * `read-shaping` B4.1 answers S3 on paper: because every writer edits only
  * the flat subset, and only ONE line-range per op, two concurrent patches on
  * different keys commute as text edits, two on the same key converge to
  * whichever value the CRDT orders last, and anything else degrades to Source
@@ -221,7 +221,7 @@ describe('S3-Q3 — what Obsidian\'s Properties UI rewrites', () => {
   // before/after pairs go in OBSIDIAN_BLOCKS and this test asserts the
   // patcher's output round-trips through them.
   it.skip('round-trips the shapes Obsidian actually writes (needs the scratch-vault experiment)', () => {
-    expect.unreachable('S3-Q3 pending: see read-shaping.md B4.1')
+    expect.unreachable('S3-Q3 pending: see read-shaping B4.1')
   })
 })
 

@@ -8,11 +8,10 @@ date: 2026-10-10
 The reference for the **in-app agent**: a model you point at your own
 provider, working over the vault from inside Oh hi — in a Session view beside
 your notes, as suggestions in the text, as replies to comments, and as a peer
-other people in a shared note can see. Ground truth for the decisions is
-[`plans/writing-harness-shaping.md`](../plans/writing-harness-shaping.md)
-(shape B, forks 1–8) and its build brief
-[`plans/writing-harness-build.md`](../plans/writing-harness-build.md); this
-doc is the operating reference over them.
+other people in a shared note can see. The decisions were made in the team's private design notes,
+`writing-harness-shaping` (shape B, forks 1–8) and its build brief
+`writing-harness-build`; this doc is the operating reference over them, and
+the public record of what they decided.
 
 The harness is the package `libs/harness` (`@ohhi/harness`): providers (Vercel
 AI SDK 7), the tool loop, the system prompt, the skill loader's re-export and

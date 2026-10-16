@@ -28,7 +28,7 @@ This project uses:
 - **DaisyUI v5** – standard CSS components, `dui-` prefixed (the Edible convention). Adopted in slice V2a.
 - **Melt UI** (`@melt-ui/svelte` 0.86 builders + the `@melt-ui/pp` preprocessor, as Edible) – every overlay, menu, tooltip and tab list. Adopted in chrome-shaping slice U1.
 - **lucide** (`@lucide/svelte`) – icons. Always `aria-hidden="true"`, always beside a label (see `IconButton`).
-- **zod** – form schemas; validation state via `createForm` (below). **Not Superforms**: it is built for SvelteKit form actions and this app has none (`plans/chrome-shaping.md` Fork 1).
+- **zod** – form schemas; validation state via `createForm` (below). **Not Superforms**: it is built for SvelteKit form actions and this app has none (`chrome-shaping` Fork 1).
 - **CodeMirror 6** – the editor surface (see the integration pattern below).
 
 ### The primitives — `apps/web/src/lib/ui/` (read before building any chrome)
@@ -176,7 +176,7 @@ draw `ModeCue.svelte` in the focused pane's bottom-right, above the word count
 nothing in it is interactive, the keyboard belongs to the mode).
 
 **The shell's composition (`App.svelte`, split 2026-09-20 — see
-`plans/shell-structure.md`).** `App.svelte` is the composition root and the
+`shell-structure`).** `App.svelte` is the composition root and the
 three-way router (manager / connecting / workspace), ~500 lines, and nothing
 else. Each concern is a runes module in `apps/web/src/lib/` built by a
 `create*(host)` factory that takes what it needs as an explicit object and
@@ -191,7 +191,7 @@ state, toasts), `shell-commands.ts` (the ordered command registrations and
 the capture-phase keydown), and since the foundations build
 `resources.svelte.ts`, `keymap.svelte.ts`, `templates.svelte.ts`,
 `customise.svelte.ts`, `note-count.svelte.ts` and `shared.svelte.ts`
-(`plans/shell-structure.md` lists
+(`shell-structure` lists
 them with their pure halves). The workspace markup is hosts under
 `components/`: `Toolbar`, `Navigator` / `NavigatorDrawer`, `EditorArea`
 (builds the `PaneRender` context and the strip's group snippets), `Rail`,
@@ -322,10 +322,10 @@ Customise is the hub (what is in use first, a door to each part). Add a setting 
 (the CM6 surface and its theme), `libs/editor-lang` (markdown language
 extras), `libs/index` (the derived index), `libs/i18n` (the dictionaries —
 see *Strings and i18n* below), `apps/web/src/lib/components`
-(the shell). Ground truth for UI decisions: `plans/v2-shaping.md`,
-`plans/read-shaping.md` (the editing surface: view modes, live preview,
-frontmatter, tags) and `docs/theming.md`, then `plans/shaping.md` /
-`plans/slices.md`.
+(the shell). Ground truth for UI decisions: `docs/theming.md`, and the
+private design notes `v2-shaping` and `read-shaping` (the editing surface:
+view modes, live preview, frontmatter, tags), then `shaping` / `slices`
+(see `CLAUDE.md`, *The design notes are private*).
 
 Storybook is not set up; add it later if needed.
 
@@ -481,7 +481,7 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
 - **Markdown language extras live in `libs/editor-lang`**:
   - Wikilinks shipped in V2c as a ~120-line `MarkdownConfig` on **upstream**
     `@codemirror/lang-markdown` — explicitly **not** a fork of
-    `lezer-markdown-obsidian` (`plans/v2-shaping.md` Fork 3). Add new syntax
+    `lezer-markdown-obsidian` (`v2-shaping` Fork 3). Add new syntax
     the same way.
   - Host behaviour (resolve / open / create a link target) arrives through the
     `wikiLinkHost` **Facet**, never as a prop: a prop the wrapper tracks would
@@ -497,7 +497,7 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
     teardown (the pane tree's resume point) loops until Svelte throws
     `effect_update_depth_exceeded`.
   - Live-preview decorations (marker hiding, checkbox widgets, image embeds)
-    land here in V2e — sliced X1–X4 in `plans/read-shaping.md`; see the
+    land here in V2e — sliced X1–X4 in `read-shaping`; see the
     block-widget pattern below. Footnotes, math, `%%` comments and
     transclusion stay out: the re-measured vault has **zero** of each.
     Callouts (Obsidian's `> [!type]±`) render as tinted boxes with view-only
@@ -513,7 +513,7 @@ The editor is **not Svelte-rendered DOM**. Svelte wraps and feeds CodeMirror; CM
 Everything Live and Reading render is a **decoration over unchanged bytes**.
 Nothing rendered is ever inserted into the document, so the Y.Text, the undo
 manager, the remote carets and `git diff` never see it
-(`plans/read-shaping.md` B2 and Spike S12). Five rules carry that:
+(`read-shaping` B2 and Spike S12). Five rules carry that:
 
 - **A widget is static DOM built in `toDOM`** — checkbox, bullet, `<hr>`,
   fence badge, image embed, the Reading table, the frontmatter tag strip. No
@@ -524,7 +524,7 @@ manager, the remote carets and `git diff` never see it
   as `wikiLinkHost` does and for the same reason (a prop the wrapper tracks
   would destroy the view).
   **The two exceptions are host-mounted** (collections DB4,
-  `plans/bases-shaping.md` A6/A7): the properties form over a row-note's
+  `bases-shaping` A6/A7): the properties form over a row-note's
   frontmatter (`PropertiesFormWidget`) and an embedded collection
   (`CollectionEmbedWidget`, `![[X.base#View]]`) are applications of their
   own, so `libs/editor-lang` — still Svelte-free — hands the host an
@@ -560,7 +560,7 @@ manager, the remote carets and `git diff` never see it
   (Y.Text → peer → disk → one line in `git diff`). Never mutate a widget's DOM
   to *show* a change; re-render from the document.
 - **List markers are the one exception to the caret's-line rule** (round 4;
-  `plans/read-shaping.md` B2.3 amended): a bullet's `- ` renders as the
+  `read-shaping` B2.3 amended): a bullet's `- ` renders as the
   bullet widget on the caret's line too, once complete, and turns back to
   text only while the selection is on the marker; an empty item hides only
   the dash; Backspace at the text's start first selects the marker; the
@@ -741,7 +741,7 @@ Key UI locations in this repo:
 - **Bundled fonts**: `libs/ui/fonts/` + the generated `libs/ui/src/styles/fonts.css` (`cd libs/ui && rushx fonts`): Public Sans and JetBrains Mono, read through `--ed-font-*` only; no per-device choice. `vite dev` serves them through `server.fs.allow` in `apps/web/vite.config.ts`
 - **Editor wrapper + CM6 integration**: `libs/editor` (vendored y-codemirror.next lives with it)
 - **Sync provider and sync records**: `libs/sync`
-- **Ground truth for UI decisions**: `/plans/shaping.md` (D3 editor, D11 sync state) and `/plans/slices.md` (V1 UI affordances)
+- **Ground truth for UI decisions**: `docs/theming.md`, then the private design notes `shaping` (D3 editor, D11 sync state) and `slices` (V1 UI affordances)
 
 When adding components, prefer `apps/web` for app UI and `libs/editor` for anything touching the editor surface.
 

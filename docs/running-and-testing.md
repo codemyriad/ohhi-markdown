@@ -115,7 +115,7 @@ Two greps, both build gates:
 
 ### The index benchmark (not a CI test)
 
-`libs/index` carries the evidence behind `plans/v2-shaping.md` Fork 1 — the
+`libs/index` carries the evidence behind `v2-shaping` Fork 1 — the
 decision to ship an in-memory index instead of sqlite-wasm/FTS5 — as a
 re-runnable measurement, skipped unless you point it at a real vault:
 
@@ -469,7 +469,7 @@ tab, and a sync pill that goes **green** when synced with the relay.
 
 ## 4b. The vault manager flows (open / create / share / join)
 
-These are the real, URL-param-free flows (onboarding-shaping.md, extended by
+These are the real, URL-param-free flows (onboarding-shaping, extended by
 dogfood-shaping M2 and first-run-shaping A1/B1/F1). With no URL params the app
 shows the **vault manager**, in one of two states:
 
@@ -605,7 +605,7 @@ keyboard on the focused row, ↑/↓/Home/End move, Enter activates, **Escape**
 closes and puts focus back on the row. When an item cannot apply it is shown
 **disabled with the reason printed under it** rather than hidden — most
 importantly *Share…* in a vault that is already shared as a whole, where the
-V1 no-nested-shares guard (`plans/spike-s8-mount-lifecycle.md`, "The mount
+V1 no-nested-shares guard (`spike-s8-mount-lifecycle`, "The mount
 model") forbids folder shares.
 
 **Drag to rearrange.** Drag a file or folder row onto a folder row (or onto the
@@ -734,7 +734,7 @@ every peer; a recovery copy lands in the journal first).
 > added, or deleted while the app was closed are classified by the reconciler
 > at boot — external edits ingest, vanished files raise a review, new files
 > enroll additively; a bulk change (e.g. a git branch switch) pauses for
-> confirmation. See `plans/spike-s8-mount-lifecycle.md`.
+> confirmation. See `spike-s8-mount-lifecycle`.
 
 **Resetting a test vault.** To restart a vault with completely fresh shared
 state while keeping every `.md` on disk: manager → the vault row's **…** → *Remove from

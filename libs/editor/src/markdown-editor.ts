@@ -65,7 +65,7 @@ function editorKeys(bindings: FormatBindings | undefined): Extension {
 }
 
 /**
- * The view mode (read-shaping.md B3): Live / Source / Reading are one view
+ * The view mode (read-shaping B3): Live / Source / Reading are one view
  * reconfigured, never three views. Reading is the only mode that changes
  * editability; the decorations read `previewMode` for the rest.
  */
@@ -193,7 +193,7 @@ export function createMarkdownEditor(
     // card's chip (E3): name + aliases, the two fields completion reads.
     fenceLanguages.of(languages.map((l) => ({ name: l.name, alias: l.alias }))),
     // The vault indents lists with tabs and reads them at four columns, and a
-    // rendered bullet has to sit where the tab put it (read-shaping.md B1).
+    // rendered bullet has to sit where the tab put it (read-shaping B1).
     EditorState.tabSize.of(4),
     indentUnit.of('\t'),
     ...wikiLinkExtensions(),

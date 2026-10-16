@@ -1,6 +1,6 @@
 /**
  * Yjs implementation of the engine seam. The ONLY module (with its tests)
- * that imports `yjs`. Pinned to Yjs 13.6.x — see plans/shaping.md D1 for the
+ * that imports `yjs`. Pinned to Yjs 13.6.x — see shaping D1 for the
  * v14 migration / Loro swap gates.
  */
 import * as Y from 'yjs'

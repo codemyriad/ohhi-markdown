@@ -6,7 +6,7 @@
  * thematic break, `title: x` under it becomes a setext heading, and
  * `tags: [a b]` becomes a markdown link. So the block gets one leaf node whose
  * contents are opaque — the YAML is read by @ohhi/frontmatter, never by this
- * grammar (read-shaping.md B4.2, R4.1.1: the block is ordinary text).
+ * grammar (read-shaping B4.2, R4.1.1: the block is ordinary text).
  *
  *   ---           FrontmatterMark
  *   tags: [a b]   (no children: opaque to markdown)

@@ -1,6 +1,6 @@
 /**
- * Share-link codec (onboarding-shaping.md A4/A5, extended by
- * device-link-shaping.md A4-B). A share link is a single opaque,
+ * Share-link codec (onboarding-shaping A4/A5, extended by
+ * device-link-shaping A4-B). A share link is a single opaque,
  * copy-pasteable string that carries everything a peer needs to join a
  * shared folder: the relay URL, the folder GUID (room), and the bearer token —
  * and, optionally (first-run-shaping C1), a `label` (what the sharer calls the

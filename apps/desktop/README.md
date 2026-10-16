@@ -2,7 +2,7 @@
 
 Tauri 2 desktop shell for Editor. It hosts the `@ohhi/web` frontend in a native
 webview and exposes native filesystem + dialog capabilities (the vault lives on
-disk; see `plans/shaping.md` D6 — Tauri 2 is the V1 tracer client).
+disk; see `shaping` D6 — Tauri 2 is the V1 tracer client).
 
 ## Prerequisites (Linux)
 

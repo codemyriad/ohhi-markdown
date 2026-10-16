@@ -10,7 +10,7 @@ per-doc relay providers, heads encoding, and the `syncRecord` that the sync pill
 It is the **only** package that imports `yjs` — everyone else speaks the engine seam's
 vocabulary (opaque doc handles, encoded updates, heads, origin tags). Ground truth:
 shaping **D1, D2, D5, D11** and the V1 affordances in
-[plans/slices.md](../../plans/slices.md). Background: primers
+`slices`. Background: primers
 [01-crdts-and-yjs](../primers/01-crdts-and-yjs.md) and
 [04-engine-seam](../primers/04-engine-seam.md).
 
@@ -146,5 +146,5 @@ engine must pass the same harness (shaping D1).
 - Primers: [05-sync-and-relay](../primers/05-sync-and-relay.md),
   [04-engine-seam](../primers/04-engine-seam.md),
   [01-crdts-and-yjs](../primers/01-crdts-and-yjs.md).
-- Plans: [shaping.md](../../plans/shaping.md) D1/D5/D11, Spikes S4/S5;
-  [slices.md](../../plans/slices.md) V1 `syncProvider`/`syncRecord`/`docSession`.
+- Plans: `shaping` D1/D5/D11, Spikes S4/S5;
+  `slices` V1 `syncProvider`/`syncRecord`/`docSession`.

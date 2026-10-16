@@ -1,7 +1,7 @@
 /**
  * L1 fixture for spike S11 — agent-write coexistence (agent-surface A11,
  * fork 4-A). The gate on "an agent may write plain files while Editor is
- * running", which `plans/agent-surface-shaping.md` A11 asserts and nothing
+ * running", which `agent-surface-shaping` A11 asserts and nothing
  * had exercised with a pane open and a debounced flush pending.
  *
  * The agent here is `ohhi`: a separate process that writes the vault's files

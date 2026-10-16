@@ -66,7 +66,7 @@ export const wikiLinkHost = Facet.define<WikiLinkHost, WikiLinkHost>({
  *
  * Where live preview has RENDERED the link, there is no markup to put a caret
  * in and a plain click follows it — that rule lives with the rest of the
- * engine, in preview/clicks.ts (read-shaping.md R2.4).
+ * engine, in preview/clicks.ts (read-shaping R2.4).
  */
 const wikiLinkClicks = EditorView.domEventHandlers({
   mousedown(event, view) {

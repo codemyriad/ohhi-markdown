@@ -12,7 +12,7 @@
  * Opaque identity of "what this doc has seen": state vector + delete set.
  * A state vector alone does NOT cover delete-only edits (deletions extend the
  * delete set without advancing clocks), so equality MUST compare both.
- * Decision log: "CRDT engine" row in plans/shaping.md.
+ * Decision log: "CRDT engine" row in shaping.
  */
 export interface Heads {
   /** Encoded state vector — usable as an update-diff target. */

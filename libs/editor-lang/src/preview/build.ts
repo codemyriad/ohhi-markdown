@@ -1,5 +1,5 @@
 /**
- * The reveal engine (read-shaping.md B2 and its construct table).
+ * The reveal engine (read-shaping B2 and its construct table).
  *
  * A walk over the syntax tree turns markup into decorations:
  *

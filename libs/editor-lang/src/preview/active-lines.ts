@@ -1,5 +1,5 @@
 /**
- * The active region (read-shaping.md B2, Spike S12): the lines a selection
+ * The active region (read-shaping B2, Spike S12): the lines a selection
  * touches. A construct whose range meets one of them shows its markers as
  * text; everywhere else the markers are hidden.
  *
@@ -60,7 +60,7 @@ export function inActiveRegion(spans: readonly Span[], from: number, to: number)
  * edited? True when a selection range overlaps it, or a caret sits inside it
  * or immediately BEFORE it; a caret at `to` — anywhere after the marker — is
  * not editing it, so the bullet stays drawn. This is the whole of the list
- * marker's caret-line rule (read-shaping.md B2.3, amended 2026-10-06): unlike
+ * marker's caret-line rule (read-shaping B2.3, amended 2026-10-06): unlike
  * a heading's `#`, a bullet is rendered on the caret's line too.
  */
 export function markerSelected(selection: EditorSelection, from: number, to: number): boolean {

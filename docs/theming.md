@@ -4,8 +4,8 @@ Editor's look is a **design system, not a stylesheet**: one token layer drives
 every surface — the Svelte chrome and the CodeMirror editing surface alike — so
 changing a theme is changing tokens in one place, never editing components.
 
-Shaped in [`plans/v2-shaping.md`](../plans/v2-shaping.md) (Fork 2). Built in
-slice **V2a**.
+Shaped in the private design note `v2-shaping` (Fork 2). Built in slice
+**V2a**.
 
 ## Three bands, two attributes
 
@@ -223,7 +223,7 @@ error or failed request; the desktop build is not yet measured.
 Seventeen contract entries carry a `(V2e)` comment. They were declared in V2a
 with defensible defaults and read by **nothing**, because they describe
 constructs no surface rendered yet — so a theme written in V2a would not need
-editing when live preview landed. **X1–X4 (`plans/read-shaping.md`) are their
+editing when live preview landed. **X1–X4 (`read-shaping`) are their
 first readers** — sixteen of the seventeen, all of them read in
 `libs/editor/src/theme.ts`. That file is the only place CodeMirror's classes
 meet the token layer, which is what makes a rendered markdown surface
@@ -254,7 +254,7 @@ reads it.
 
 ## The editor usability tokens (`--ed-card-radius`, `--ed-focus-ring`, `--ed-popover-*`, `--ed-drop-*`, `--ed-code-copied`, `--ed-callout-*`, `--ed-task-done-*`)
 
-Added by the editor usability pass (`plans/editor-usability-shaping.md`,
+Added by the editor usability pass (`editor-usability-shaping`,
 E1–E5, 2026-10-10). All of them are read only in `libs/editor/src/theme.ts`.
 **A token whose value derives from the DaisyUI colours lives only in the
 contract**: the popover, drop and done-task groups resolve from what every
@@ -407,7 +407,7 @@ the vault can use it; which theme a device *uses* stays device config.
 (The folder was `.editor/themes/` before the rename; a vault made then needs
 its theme folder moved by hand. On the desktop app, reading `.ohhi/` relies on
 a file-access entry for dot-folders that has not yet been checked on a real
-build — `plans/spike-resource-root.md` F0.)
+build — `spike-resource-root` F0.)
 
 **Settings › Appearance shows the difference** (Chris, 2026-10-15): the picker
 is two groups.
@@ -432,7 +432,7 @@ here*.
 **Adding an example writes a file, on your say-so.** *Add to this vault*
 writes the bundled example to `.ohhi/themes/<name>/theme.css` through
 `Workspace.writeAppFile` — the pre-image journaled, then an atomic write
-(golden rule 1; `plans/quiet-shell-shaping.md` F8: writes from Settings go
+(golden rule 1; `quiet-shell-shaping` F8: writes from Settings go
 through the journal like every other app write). It never writes over a file
 already there; it says so instead. The examples live in
 [`examples/themes/`](../examples/themes/) — copying a folder from there into
@@ -644,7 +644,7 @@ It is your file now: change `--ed-selection` in `.ohhi/themes/nord-dark/theme.cs
 
 - **Footnote, math and transclusion tokens** are not shipped: live preview
   does not render those constructs, and the measured vault contains **zero**
-  of each (`plans/read-shaping.md` §Evidence). They arrive with the construct.
+  of each (`read-shaping` §Evidence). They arrive with the construct.
   (Callouts were in this list until 2026-10-10; Chris's editor review brought
   them back, and their tokens are above.)
 - **Tauri window translucency** (Chris's `appearance.json` has

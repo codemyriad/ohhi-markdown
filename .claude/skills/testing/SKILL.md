@@ -14,7 +14,7 @@ Use this skill whenever you:
 - Work on **e2e tests** using Playwright.
 - Need to understand the project's expectations for **determinism**, **fixtures**, **fuzz corpora**, and **assertion style**.
 
-If a task mentions tests (property, fuzz, unit, integration, or e2e), start here. Ground truth for the harness design: `plans/shaping.md` (part D9, Spikes) and `plans/slices.md` (V1 `testkit`).
+If a task mentions tests (property, fuzz, unit, integration, or e2e), start here. The harness design is explained in `docs/architecture/testing.md`; its decisions are in the private design notes `shaping` (part D9, Spikes) and `slices` (V1 `testkit`).
 
 ---
 

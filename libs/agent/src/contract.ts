@@ -1,5 +1,5 @@
 /**
- * THE AGENT-SURFACE CONTRACT (plans/agent-surface-shaping.md A1, A9).
+ * THE AGENT-SURFACE CONTRACT (agent-surface-shaping A1, A9).
  *
  * Every operation the `ohhi` CLI and the `ohhi mcp` server expose is declared
  * here ONCE, as a zod input schema + a zod output schema + a name. The CLI's

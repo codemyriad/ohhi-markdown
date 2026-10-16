@@ -1,5 +1,5 @@
 /**
- * The ONE definition of what an inline `#tag` is (read-shaping.md Fork 6).
+ * The ONE definition of what an inline `#tag` is (read-shaping Fork 6).
  * The index scans with it and the editor's lezer extension decorates with it,
  * so a chip in the note and a hit in search can never disagree.
  *

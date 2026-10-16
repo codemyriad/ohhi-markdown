@@ -7,11 +7,10 @@ date: 2026-10-04
 
 The reference for the **agent surface**: how an external harness (Claude Code
 first, any Agent-Skills- or MCP-capable tool after) finds, reads and edits notes
-in a vault. Ground truth for the decisions is
-[`plans/agent-surface-shaping.md`](../plans/agent-surface-shaping.md) (shape A,
-forks 1–4) and its build brief
-[`plans/agent-surface-build.md`](../plans/agent-surface-build.md); this doc is
-the operating reference over those decisions.
+in a vault. The decisions were made in the team's private design notes,
+`agent-surface-shaping` (shape A, forks 1–4) and its build brief
+`agent-surface-build`; this doc is the operating reference over them, and
+the public record of what they decided.
 
 The agent *inside* the app — the Session view, suggestions in the text,
 comments sent to the agent, skills in `.agents/skills/` — is the **writing
@@ -38,7 +37,7 @@ What it deliberately is **not**:
 | Not | Why |
 |---|---|
 | A relay client | It never joins a room, holds a token or opens a websocket. No network round-trip ever gates a read (R6). |
-| A CRDT peer | It owns no Y.Doc and no LCA store. Two reconcilers over one folder is the configuration `plans/shaping.md`'s decision log killed; the *running app* is the only reconciler over the vault. |
+| A CRDT peer | It owns no Y.Doc and no LCA store. Two reconcilers over one folder is the configuration `shaping`'s decision log killed; the *running app* is the only reconciler over the vault. |
 | A second index | The CLI and the app query the same `libs/index` contract with the same ranking. A ranking fix is made once (golden rule 8: the index is derived, never a system of record). |
 | A system of record | Losing everything `ohhi` stores costs a rebuild and some undo history, never a note. |
 
@@ -56,8 +55,8 @@ person runs *Reload layouts and resources*. The formats, every command,
 readout, region and view id, and worked examples:
 [`customising.md`](customising.md).
 
-**Status.** Slices G1–G4 of `plans/slices.md`, plus the collections series
-(`collections`, `rows`, and `fm`'s write half — `plans/bases-shaping.md`).
+**Status.** Slices G1–G4 of `slices`, plus the collections series
+(`collections`, `rows`, and `fm`'s write half — `bases-shaping`).
 `ohhi` never reserializes a YAML block: `fm --set` moves one value's bytes
 through the flat-subset patcher (golden rule 2).
 
@@ -907,7 +906,7 @@ reconciler re-classifies instead of writing — so an agent's bytes are ingested
 or reviewed, never silently replaced, in every ordering.
 
 The behaviour above is pinned by **Spike S11**,
-[`plans/spike-s11-agent-write-coexistence.md`](../plans/spike-s11-agent-write-coexistence.md),
+`spike-s11-agent-write-coexistence`,
 and by its L1 fixture (`libs/workspace/test/agent-write-coexistence.test.ts`) —
 which is where the answers live for: ingest into an open note without fighting
 the caret (S11-Q1), a pending flush against an agent write (S11-Q2), the

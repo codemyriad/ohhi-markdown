@@ -2,7 +2,7 @@
  * SQLite storage for the relay: the relay-authoritative `shares` table
  * (static per-share bearer tokens — docs/architecture/relay.md, "Auth and
  * the share lifecycle"), the `rooms` ancestry table (which room was carved
- * out of which — device-link-shaping.md A4-A), and the `docs` table (stock
+ * out of which — device-link-shaping A4-A), and the `docs` table (stock
  * doc-state persistence: one opaque Yjs state blob per doc; the append-only
  * update log is V2).
  * WAL mode so the single connection survives reader/writer interleaving.
@@ -11,7 +11,7 @@ import Database from 'better-sqlite3'
 
 /**
  * `folder` — the M4 share token: exact-room match, never grants the vault.
- * `device` — one person's own device (device-link-shaping.md R5): grants the
+ * `device` — one person's own device (device-link-shaping R5): grants the
  * token's room and every room carved out of it (see `ancestorsOf`).
  */
 export type ShareKind = 'folder' | 'device'
@@ -120,7 +120,7 @@ export class RelayDb {
     return this.db.prepare('DELETE FROM shares WHERE token = ?').run(token).changes > 0
   }
 
-  // ---- room ancestry (device-link-shaping.md A4-A) ----
+  // ---- room ancestry (device-link-shaping A4-A) ----
 
   /**
    * Record that `child` was carved out of `parent`. **Write-once.** Idempotent

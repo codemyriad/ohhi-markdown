@@ -20,7 +20,7 @@ Neither side can be ignored, and neither can blindly overwrite the other. The ca
 
 ## The pattern: a shadow copy as merge base
 
-The fix is the classic move every serious file syncer makes (Dropbox-style syncers keep a last-synced snapshot; git merges through a merge base; relay.md proved the same shape works for an Obsidian vault over Yjs — see [research](../../plans/research/file-crdt-reconciliation.md)): **remember what both sides last agreed on**. We call that the **LCA** — last common ancestor — and keep one per enrolled file in `lcaStore`, a durable device-local store (an atomic JSON file in app-data — never the droppable index, never browser-evictable storage; more on why below):
+The fix is the classic move every serious file syncer makes (Dropbox-style syncers keep a last-synced snapshot; git merges through a merge base; relay.md proved the same shape works for an Obsidian vault over Yjs — see the `file-crdt-reconciliation` research note): **remember what both sides last agreed on**. We call that the **LCA** — last common ancestor — and keep one per enrolled file in `lcaStore`, a durable device-local store (an atomic JSON file in app-data — never the droppable index, never browser-evictable storage; more on why below):
 
 ```
 { guid, path, baseText, contentHash, eolFlavor, bom, heads (sv + ds digest), snapshot }
@@ -77,7 +77,7 @@ The LCA for `shopping.md` holds:
 
 Equivalently: an LCA must never *claim* agreement that wasn't actually established as CRDT operations. This sounds pedantic until you watch it kill the design it killed.
 
-Shapes A and C in [shaping](../../plans/shaping.md) proposed a tempting optimization called **dormancy**: when no collab session is live, skip the CRDT entirely — write the file, "bump" the LCA to match the new disk content, and load the Y.Doc lazily later. Cheaper, simpler, and the adversarial distsys review proved it is a *specified data-loss algorithm*:
+Shapes A and C in `shaping` proposed a tempting optimization called **dormancy**: when no collab session is live, skip the CRDT entirely — write the file, "bump" the LCA to match the new disk content, and load the Y.Doc lazily later. Cheaper, simpler, and the adversarial distsys review proved it is a *specified data-loss algorithm*:
 
 ```mermaid
 sequenceDiagram
@@ -124,7 +124,7 @@ Classification bugs are assumed, not hoped away (R1.3). Every Editor-initiated d
 
 ## Further reading
 
-- [file-crdt-reconciliation research](../../plans/research/file-crdt-reconciliation.md) — prior art survey, jupyter counter-example
-- [shaping](../../plans/shaping.md) D2/D2a/D2d + Decision log rows "Offline/collab seam", "Reconciliation"
-- [slices](../../plans/slices.md) V1 — `reconciler`, `lcaStore`, `preImageJournal` affordances
+- the `file-crdt-reconciliation` research note — prior art survey, jupyter counter-example
+- `shaping` D2/D2a/D2d + Decision log rows "Offline/collab seam", "Reconciliation"
+- `slices` V1 — `reconciler`, `lcaStore`, `preImageJournal` affordances
 - Next primer: [the engine seam](04-engine-seam.md)

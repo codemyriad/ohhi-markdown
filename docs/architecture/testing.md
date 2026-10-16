@@ -132,7 +132,7 @@ byte fidelity for untouched content (L1 + git audit), and a pill that never lies
 `f(syncRecord)` unit-tested exhaustively + L2 scenario 4). When the spike results land
 (S1 join/re-seed, S3 frontmatter policy, S6 stale-echo interlock), each arrives with its
 own L1 fixtures — that is the acceptance criterion written into the spikes themselves
-([shaping.md](../../plans/shaping.md), Spikes).
+(`shaping`, Spikes).
 
 ## See also
 
@@ -143,6 +143,6 @@ own L1 fixtures — that is the acceptance criterion written into the spikes the
   kill/restore scenarios.
 - Primers: [01-crdts-and-yjs](../primers/01-crdts-and-yjs.md),
   [03-lca-reconciliation](../primers/03-lca-reconciliation.md).
-- Plans: [shaping.md](../../plans/shaping.md) D9 + Spikes;
-  [slices.md](../../plans/slices.md) V1 `testkit`. Working conventions:
+- Plans: `shaping` D9 + Spikes;
+  `slices` V1 `testkit`. Working conventions:
   `.claude/skills/testing`.

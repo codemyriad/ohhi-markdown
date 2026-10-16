@@ -11,7 +11,7 @@ date: 2026-06-12
 
 The collaborative artifact is a `Y.Text` containing **exactly the characters of the `.md` file** — not a rich-text tree, not a block model. The CRDT merges *the file itself*.
 
-This sounds almost too obvious to state. It isn't: nearly every collaborative editor on the market chose differently, and the choice is the deepest fork in the road for a tool whose hard requirement (R1/R1.1 in [shaping](../../plans/shaping.md)) is that plain files on disk stay canonical and byte-stable under git, Claude Code, and Obsidian.
+This sounds almost too obvious to state. It isn't: nearly every collaborative editor on the market chose differently, and the choice is the deepest fork in the road for a tool whose hard requirement (R1/R1.1 in `shaping`) is that plain files on disk stay canonical and byte-stable under git, Claude Code, and Obsidian.
 
 ## The three candidate document models
 
@@ -53,7 +53,7 @@ Remember the \[\[shopping/stores|usual place\]\] — and *check the dates*.
 
 Three changes you didn't make: bullet markers normalized (`*` → `-`), emphasis style normalized (`_` → `*`), and the wikilink — which isn't standard markdown, so the parser never understood it — escaped into garbage. `git diff` now shows every line of the file changed; Obsidian no longer recognizes the link; the next save from Obsidian flips some of it back. Multiply by every file ever opened.
 
-With plain text, fidelity is not a feature we test for — it's **structurally guaranteed**, because there is no serializer. The string in the editor *is* the file. This is why CodeMirror 6 was the only viable editor component (see [editor-component research](../../plans/research/editor-component.md)): CM6's document model is a plain-text string, and "live preview" — the Obsidian look — is a view-only *decoration layer* over unchanged text. Obsidian itself is CM6 with decorations; so is SilverBullet. We're using the proven pattern, not inventing one.
+With plain text, fidelity is not a feature we test for — it's **structurally guaranteed**, because there is no serializer. The string in the editor *is* the file. This is why CodeMirror 6 was the only viable editor component (see the `editor-component` research note): CM6's document model is a plain-text string, and "live preview" — the Obsidian look — is a view-only *decoration layer* over unchanged text. Obsidian itself is CM6 with decorations; so is SilverBullet. We're using the proven pattern, not inventing one.
 
 ### The same choice decides how external edits merge
 
@@ -68,7 +68,7 @@ The only byte-level wrinkles plain text doesn't cover for free are line endings 
 
 ## The moment.dev critique (part 2): rich-text bindings are the weak joint
 
-The ["Lies I was told" series](../../plans/research/moment-dev-lies.md) (moment.dev, Dec 2024 / Mar 2026) is part of this project's origin story, and part 2 — "Why we don't use Yjs" — reads at first like an argument against our entire stack. Read closely, almost every criticism targets the **y-prosemirror rich-text binding**, not text CRDTs:
+The `moment-dev-lies` research note (moment.dev, Dec 2024 / Mar 2026) is part of this project's origin story, and part 2 — "Why we don't use Yjs" — reads at first like an argument against our entire stack. Read closely, almost every criticism targets the **y-prosemirror rich-text binding**, not text CRDTs:
 
 - The binding can destroy and recreate the document representation on each keystroke, breaking position mapping, comments, presence, and undo.
 - Schema validation failures **silently delete nodes — and propagate the deletion to every peer**. (Marijn Haverbeke, ProseMirror's author, sided with the article on this.)
@@ -104,7 +104,7 @@ AFFiNE and Notion get genuinely nice things from blocks: drag-to-reorder, per-bl
 
 ## Further reading
 
-- [editor-component research](../../plans/research/editor-component.md) — the CM6 decision in full
-- [moment-dev-lies research](../../plans/research/moment-dev-lies.md) — what the articles actually claim
-- [shaping](../../plans/shaping.md) Decision log, "Editor" row
+- the `editor-component` research note — the CM6 decision in full
+- the `moment-dev-lies` research note — what the articles actually claim
+- `shaping` Decision log, "Editor" row
 - Next primer: [LCA reconciliation](03-lca-reconciliation.md) — how disk and CRDT stay honest with each other

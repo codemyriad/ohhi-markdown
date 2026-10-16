@@ -1,5 +1,5 @@
 /**
- * One event log (spike S22, `plans/spike-one-log.md` Q3): the vocabulary the
+ * One event log (spike S22, `spike-one-log` Q3): the vocabulary the
  * Log view, the drawer, the Shared view's Changes feed and the devtools
  * Timeline all read, as filters over one stream.
  *

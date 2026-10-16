@@ -5,7 +5,7 @@
  * `EngineDoc.raw()` and live here, in one clearly-marked file.
  *
  * TODO(V2): vendor y-codemirror.next into libs/editor/vendor/ with its MIT
- * LICENSE before V2 — upstream is dormant (plans/V1-plan.md, Dependencies).
+ * LICENSE before V2 — upstream is dormant (V1-plan, Dependencies).
  */
 import type { Extension } from '@codemirror/state'
 import { keymap } from '@codemirror/view'

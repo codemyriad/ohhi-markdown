@@ -1,5 +1,5 @@
 /**
- * Live preview, assembled (read-shaping.md B2, R7).
+ * Live preview, assembled (read-shaping B2, R7).
  *
  * TWO sources, because CM6 forces the split and performance rewards it:
  *

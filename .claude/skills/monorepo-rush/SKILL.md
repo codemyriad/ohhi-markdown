@@ -18,10 +18,10 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 
 ---
 
-## Plans and context
+## Design notes and context
 
-- Plans live at **`/plans`** in the repo root.
-- Read them in order for context: **`plans/frame.md`** (the problem) → **`plans/shaping.md`** (the shape; part **D10** defines the monorepo) → **`plans/slices.md`** (V1–V4 delivery slices).
+- The design notes are private (see `CLAUDE.md`, *The design notes are private*): code and docs cite them by name and decision id.
+- With the team vault, read them in order for context: **`frame`** (the problem) → **`shaping`** (the shape; part **D10** defines the monorepo) → **`slices`** (V1–V4 delivery slices). Without it, start from `docs/architecture/overview.md` and `docs/README.md`.
 
 ---
 
@@ -33,7 +33,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
   - **Rush config** – Lives at the repo root (`rush.json`, `common/config/**`).
 - **Package naming**: `@ohhi/<name>` (for example `@ohhi/sync`, `@ohhi/vault`).
 
-### V1 packages (per `plans/shaping.md` D10)
+### V1 packages (per `shaping` D10)
 
 | Package | Purpose |
 |---------|---------|
@@ -58,7 +58,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | `libs/harness` | `@ohhi/harness` — the writing harness's runtime core over the AI SDK: the seams every host shares (`src/types.ts`: providers, references, sessions, suggestions, comments, skills, `AgentHost`) and the runtime API (`createModel`, `toolsFromContract`, `systemPrompt`, `createHarnessAgent`); clock- and `fetch`-injected | H1 |
 | `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates the op schemas in `spec/` | G1 |
 
-`apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `plans/slices.md`).
+`apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `slices`).
 
 ### The generated contract (`apps/cli` + `libs/agent`)
 

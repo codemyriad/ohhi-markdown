@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# V2a (plans/v2-shaping.md, Fork 2): the UI renders through design tokens, not
+# V2a (v2-shaping, Fork 2): the UI renders through design tokens, not
 # raw palette utilities. A single `bg-white` is enough to make one panel ignore
 # the theme, and the failure is invisible until someone switches to dark — so
 # this is a build gate, not a review note.

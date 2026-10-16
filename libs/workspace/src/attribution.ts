@@ -25,7 +25,7 @@
  *
  * Never `agent` HERE: this decides who sent a REMOTE update, and an outside
  * agent's write reaches the app as a disk ingest — telling it from Obsidian
- * or git needs the CLI's own journal to correlate (`plans/spike-one-log.md`
+ * or git needs the CLI's own journal to correlate (`spike-one-log`
  * › "Flagged for after" › Agent attribution; TODO(spike S22)). The one
  * honest `agent` source is the in-app agent: its transactions carry an
  * `AgentOrigin` the app set itself, and `MountSession.noteDocChange` names

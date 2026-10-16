@@ -1,5 +1,5 @@
 /**
- * The construct table (read-shaping.md B2), row by row, plus the rules that are
+ * The construct table (read-shaping B2), row by row, plus the rules that are
  * easy to get wrong: what the active region reveals, what each mode hides, and
  * the invariant that the caret can never land inside hidden text.
  *

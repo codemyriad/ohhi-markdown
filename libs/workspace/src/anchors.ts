@@ -8,7 +8,7 @@
  * it. A relative position names the CHARACTER the range starts at (and the
  * one it ends after), so it follows every insert and delete — a peer's, the
  * reconciler's, the agent's — and needs no mapping pass of its own
- * (`plans/research/harness-in-doc-editing.md` §1).
+ * (the `harness-in-doc-editing` research note §1).
  *
  * Engine-coupled by nature, like `libs/editor/src/binding.ts`: a relative
  * position IS a Yjs structure, so this module imports `yjs` and reaches the

@@ -1,7 +1,7 @@
 # fuzz-crashers — permanent regression corpus
 
 When an L0/L1 property test fails, fast-check prints a seed and a shrunk
-minimal counterexample. The rule (plans/shaping.md D9, docs/architecture/testing.md):
+minimal counterexample. The rule (shaping D9, docs/architecture/testing.md):
 
 1. Reproduce with the printed seed.
 2. Translate the shrunk command script into a directed test in this directory,

@@ -41,7 +41,7 @@ export function worstStatus(statuses: PillStatus[]): PillStatus {
  * The pill's copy lives in the dictionary (`web.pill.*`); these read it
  * through `getLL()` because this module is not a component. Green
  * deliberately says "synced (relay)" — relay receipt, not durable ack;
- * durable-ack honesty lands V2 (plans/V1-plan.md, deviations).
+ * durable-ack honesty lands V2 (V1-plan, deviations).
  */
 /** Short inline label beside the dot (the status bar). Same claims as the titles. */
 export function pillLabel(status: PillStatus): string {

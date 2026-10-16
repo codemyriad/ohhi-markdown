@@ -8,7 +8,7 @@
  *
  * Never `unifiedMergeView` over the live doc: its frozen `original` would
  * absorb a peer's edit into "the agent's chunk", and rejecting it would
- * revert the peer (`plans/research/harness-in-doc-editing.md` §2). The
+ * revert the peer (the `harness-in-doc-editing` research note §2). The
  * records — and the accept/reject that changes the text — belong to the host
  * (`@ohhi/workspace`'s `SuggestionStore`); this module only draws them and
  * routes the keys.

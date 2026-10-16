@@ -2,7 +2,7 @@
  * Every outbound URL on the site, in one place.
  *
  * The apex, https://ohhi.md, is this site, so the web app lives at `app.`
- * and the desktop builds at `dist.` (plans/naming.md). `dist.ohhi.md` is the
+ * and the desktop builds at `dist.` (naming). `dist.ohhi.md` is the
  * bucket CI will upload release builds to, with a stable alias per file:
  * the release assets are `ohhi_<version>_universal.dmg`,
  * `ohhi_<version>_amd64.AppImage` and `ohhi_<version>_amd64.deb`

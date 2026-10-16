@@ -1,5 +1,5 @@
 /**
- * The seams the Read slice meets the shell at (read-shaping.md B2/B3).
+ * The seams the Read slice meets the shell at (read-shaping B2/B3).
  *
  * Both are Facets for the same reason `wikiLinkHost` is one: the value is
  * reconfigured through the host compartment, never passed as a prop, so a

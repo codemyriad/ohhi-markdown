@@ -6,7 +6,7 @@
  *
  * **Import** reads a highlight followed by one or more comments, and a bare
  * comment, in the three encodings the Obsidian plugins write
- * (`plans/research/harness-in-doc-editing.md` §1):
+ * (the `harness-in-doc-editing` research note §1):
  *
  * - Review Comments: `{==text==}{>>id|author|date|TYPE: comment<<}`
  * - Relay Comments: `{==text==}{{authorId="…" author="Name">>comment<<}}`

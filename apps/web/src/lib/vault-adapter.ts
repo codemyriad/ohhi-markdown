@@ -1,6 +1,6 @@
 /**
  * VaultAdapter + StoreDir factories for the web shell — build the right
- * backends for a vault source (onboarding-shaping.md A2/A7; spike S8 store
+ * backends for a vault source (onboarding-shaping A2/A7; spike S8 store
  * layout). The Tauri and OPFS modules are dynamically imported so a plain
  * browser never pulls the @tauri-apps modules into its bundle path, and vice
  * versa.

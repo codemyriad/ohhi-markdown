@@ -17,10 +17,10 @@ The enforcement rule is blunt and lintable:
 
 ## Why we pay for this
 
-Seams aren't free — every abstraction layer is code, indirection, and the risk of designing for engines we never use. We bought this one for three specific, dated reasons (Decision log, "CRDT engine" row in [shaping](../../plans/shaping.md)):
+Seams aren't free — every abstraction layer is code, indirection, and the risk of designing for engines we never use. We bought this one for three specific, dated reasons (Decision log, "CRDT engine" row in `shaping`):
 
 1. **The Yjs v14 migration is already on the calendar.** We pinned v13.6.x while v14 sits in RC (it brings AttributionManagers — the history/diff surface agents will want). When v14 goes GA, the migration is gated behind *the seam plus a full harness pass*: swap the implementation, run the same invariant suite, ship. Without the seam, v14 is a repo-wide find-and-fix.
-2. **Loro is a real hedge, not a slogan.** The [crdt-engine research](../../plans/research/crdt-engine.md) found Loro technically strongest (Fugue merge semantics, native history/time-travel) but ecosystem-thin. Its trigger is recorded in [slices](../../plans/slices.md) (Later): conflict-range marking ships, or Yjs maintenance falters. The swap is plausible *only because* both engines bind plain text — the seam's surface is the part they share.
+2. **Loro is a real hedge, not a slogan.** The `crdt-engine` research note found Loro technically strongest (Fugue merge semantics, native history/time-travel) but ecosystem-thin. Its trigger is recorded in `slices` (Later): conflict-range marking ships, or Yjs maintenance falters. The swap is plausible *only because* both engines bind plain text — the seam's surface is the part they share.
 3. **Tests against invariants, not internals.** The harness asserts *convergence on encoded state*, *no disk corruption*, *offline rejoin* — properties any engine must satisfy — rather than Yjs struct-store details. That makes the harness the engine's acceptance test: if a swap passes, we trust it; if the harness only understood Yjs internals, a swap would mean rewriting the safety net at the exact moment we need it most.
 
 There's a quieter fourth reason: the seam keeps *us* honest. The [delete-set lesson](01-crdts-and-yjs.md#delete-sets--and-the-bug-class-heads--sv--ds-prevents) became a seam-level concept — `heads` is defined by our interface as "state vector + delete-set digest", so no caller can accidentally reach for the cheaper, wrong `encodeStateVector` alone.
@@ -99,7 +99,7 @@ A CM6 collab binding is engine-specific by nature — it translates editor chang
 
 ## Further reading
 
-- [crdt-engine research](../../plans/research/crdt-engine.md) — the engines, the hedge, what choosing Yjs forecloses
-- [shaping](../../plans/shaping.md) D1 — the seam's charter
-- [collab-testing research](../../plans/research/collab-testing.md) — invariant-first harness design
+- the `crdt-engine` research note — the engines, the hedge, what choosing Yjs forecloses
+- `shaping` D1 — the seam's charter
+- the `collab-testing` research note — invariant-first harness design
 - Next primer: [sync and the relay, end to end](05-sync-and-relay.md)

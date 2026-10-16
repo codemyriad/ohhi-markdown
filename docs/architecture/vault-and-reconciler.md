@@ -10,7 +10,7 @@ written by git, Claude Code, and Obsidian) and the CRDT world (always-on Y.Docs 
 enrolled files, reached only through the `libs/sync` seam). This doc covers the watcher,
 the reconciler's classification matrix, the LCA store, enrollment, escalation, and
 recovery. Ground truth: shaping **D2, D2a, D2b, D2d, D2f** and the V1 non-UI affordances
-in [plans/slices.md](../../plans/slices.md). Background reading: the
+in `slices`. Background reading: the
 [LCA reconciliation primer](../primers/03-lca-reconciliation.md).
 
 Design lineage note: the reconciler is our own design implementing the general
@@ -249,5 +249,5 @@ clean, the durable LCA store and pre-image journal exist, and the audit script i
 - [testing.md](testing.md) — L1 reconciler fuzz, blocking invariants, `fuzz-crashers/`.
 - Primers: [03-lca-reconciliation](../primers/03-lca-reconciliation.md),
   [02-plain-text-crdt-over-markdown](../primers/02-plain-text-crdt-over-markdown.md).
-- Plans: [shaping.md](../../plans/shaping.md) D2/D2a–D2f, Spikes S1/S2/S3/S6;
-  [slices.md](../../plans/slices.md) V1 non-UI affordances.
+- Plans: `shaping` D2/D2a–D2f, Spikes S1/S2/S3/S6;
+  `slices` V1 non-UI affordances.

@@ -203,7 +203,7 @@ describe('parseFrontmatter — the real vault', () => {
   })
 
   it('reads the vault to 11 distinct frontmatter tags', () => {
-    // read-shaping.md §Evidence: 11 distinct tags in 10 files. The count only
+    // read-shaping §Evidence: 11 distinct tags in 10 files. The count only
     // comes out right if both legacy shapes split.
     const blocks = [
       'tags: [dogfooding communication-structures]\n',

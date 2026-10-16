@@ -1,6 +1,6 @@
 /**
  * R5 through a `MountSession`, and the honesty of revocation (slice N3;
- * device-link-shaping.md R5 + dogfood R4.3; spike S10 Q3).
+ * device-link-shaping R5 + dogfood R4.3; spike S10 Q3).
  *
  * `apps/relay/test/ancestry.test.ts` pins the auth RULE at the relay's own
  * seam: which token kind reaches which room. This file pins what a client does

@@ -1,7 +1,7 @@
 /**
  * Spike S10-Q4 — a synthetic vault shaped like Chris's real one.
  *
- * Shape comes from `plans/v2-shaping.md` §Evidence (the live corpus, measured):
+ * Shape comes from `v2-shaping` §Evidence (the live corpus, measured):
  * 1,029 `.md` / 3.02 MB, wikilinks in 29% of files, frontmatter in 1.5%,
  * checkboxes the highest-count construct, folders 2–4 levels deep.
  *

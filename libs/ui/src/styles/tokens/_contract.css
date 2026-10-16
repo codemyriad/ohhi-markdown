@@ -19,7 +19,7 @@
  * Light"), so a custom light theme that omits a token gets the default
  * look rather than a palette nothing ships.
  *
- * See docs/theming.md and plans/v2-shaping.md (Fork 2).
+ * See docs/theming.md and v2-shaping (Fork 2).
  */
 @layer editor.tokens {
   :root {

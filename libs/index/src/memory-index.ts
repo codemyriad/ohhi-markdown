@@ -3,7 +3,7 @@
  *
  * Why this rather than the shaped sqlite-wasm/rusqlite pair — the numbers, the
  * trigger that flips the decision back, and the ripple — are in
- * plans/v2-shaping.md, Fork 1. The short version: the corpus is 3.12 MB and
+ * v2-shaping, Fork 1. The short version: the corpus is 3.12 MB and
  * already resident in RAM (every enrolled text file has a live Y.Doc), so
  * building the index is a pure CPU pass costing ~120 ms, and a brute-force
  * scan of the whole vault takes 3.9 ms. SQLite would buy latency we already
@@ -14,7 +14,7 @@
  * suite any replacement must pass.
  *
  * ---------------------------------------------------------------------------
- * RANKING (plans/agent-surface-shaping.md A10, Fork 3-B). Measured, not tuned.
+ * RANKING (agent-surface-shaping A10, Fork 3-B). Measured, not tuned.
  * ---------------------------------------------------------------------------
  *
  * The real vault was read for search (1,037 live notes, 3.0 MB) and it has a

@@ -59,14 +59,14 @@ sequenceDiagram
     Note over A,B: identical merged text on both sides; pill green
 ```
 
-Offline → online is *the sync protocol's normal case*, not a transition between architectures. Kill the relay mid-session and both sides keep typing; restore it and they converge: that's literally the V1 demo script in [slices](../../plans/slices.md).
+Offline → online is *the sync protocol's normal case*, not a transition between architectures. Kill the relay mid-session and both sides keep typing; restore it and they converge: that's literally the V1 demo script in `slices`.
 
 This "boring offline" is a survivor of adversarial review, and the original framing it replaced is worth remembering (Decision log, "Offline/collab seam"):
 
 - The **dormant** design (shapes A/C): no live session → no Y.Doc, just file writes + an LCA bump. Proven to be a specified data-loss algorithm — the full autopsy is in [primer 03](03-lca-reconciliation.md#the-iron-rule-and-the-bug-that-forged-it).
 - The **session-scoped** design (shape B): engage collab machinery only when two people open the same note. Its predicate ("is anyone else editing?") is *undecidable while offline*, gets crossed on every network blip, and turns live collab into lossy textual merges at each boundary.
 
-Both flowed from a misreading of moment.dev part 1 — "a lone offline user needs less machinery." The [research](../../plans/research/moment-dev-lies.md) re-read the article: its actual claim is that *automatically merging long-diverged edits* produces results users read as corruption, so divergence needs review UX. The danger axis is not solo-vs-collab; it's **divergence from ANY writer** — and this vault diverges constantly even with one human, via git pulls, Claude Code sessions, and Obsidian. So machinery is always on (cheap, local, no relay needed), and the *review affordance* engages on significant divergence, whoever caused it (R3). Convergence is the CRDT's job; acceptability is the review UI's.
+Both flowed from a misreading of moment.dev part 1 — "a lone offline user needs less machinery." The `moment-dev-lies` research note re-read the article: its actual claim is that *automatically merging long-diverged edits* produces results users read as corruption, so divergence needs review UX. The danger axis is not solo-vs-collab; it's **divergence from ANY writer** — and this vault diverges constantly even with one human, via git pulls, Claude Code sessions, and Obsidian. So machinery is always on (cheap, local, no relay needed), and the *review affordance* engages on significant divergence, whoever caused it (R3). Convergence is the CRDT's job; acceptability is the review UI's.
 
 ## Sync state that never lies
 
@@ -95,11 +95,11 @@ The unit of sharing is a note or a directory (R2) — never all-or-nothing like 
 
 ## What the relay runs
 
-Hocuspocus v4 was chosen as the *thin* option (Decision log, "Sync server"): a maintained Node server speaking the standard y-protocol with hooks for auth and persistence — we add a shares table, SQLite persistence on a Fly volume, litestream replication, and (V2) an append-only update log with snapshot+truncate compaction that doubles as agent-facing history ("what changed since X?"). Alternatives and their disqualifiers — y-sweet (upstream stalled; the maintained fork is our tested plan B), yhub (AGPL + ops-heavy), partykit (platform lock-in) — are in the [sync-server research](../../plans/research/sync-server.md). Self-hosting on a cheap VPS/Fly.io is R2.1: no third-party control plane, which is precisely the part relay.md kept proprietary and we therefore keep tiny and our own.
+Hocuspocus v4 was chosen as the *thin* option (Decision log, "Sync server"): a maintained Node server speaking the standard y-protocol with hooks for auth and persistence — we add a shares table, SQLite persistence on a Fly volume, litestream replication, and (V2) an append-only update log with snapshot+truncate compaction that doubles as agent-facing history ("what changed since X?"). Alternatives and their disqualifiers — y-sweet (upstream stalled; the maintained fork is our tested plan B), yhub (AGPL + ops-heavy), partykit (platform lock-in) — are in the `sync-server` research note. Self-hosting on a cheap VPS/Fly.io is R2.1: no third-party control plane, which is precisely the part relay.md kept proprietary and we therefore keep tiny and our own.
 
 ## Further reading
 
-- [sync-state-ux research](../../plans/research/sync-state-ux.md) — pill prior art (Linear, Figma, relay.md) and the data-layer checklist
-- [moment-dev-lies research](../../plans/research/moment-dev-lies.md) — the divergence-from-any-writer reframing
-- [shaping](../../plans/shaping.md) D4, D4a, D11 + Spikes S1/S4/S5
+- the `sync-state-ux` research note — pill prior art (Linear, Figma, relay.md) and the data-layer checklist
+- the `moment-dev-lies` research note — the divergence-from-any-writer reframing
+- `shaping` D4, D4a, D11 + Spikes S1/S4/S5
 - Back to: [LCA reconciliation](03-lca-reconciliation.md) for the disk half of the story

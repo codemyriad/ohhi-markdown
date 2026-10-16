@@ -7,12 +7,12 @@ date: 2026-10-06
 
 Everything you can change about the shell's shape is a **file**: JSON for
 layouts and keymaps, markdown for templates, CSS for themes. Files are data,
-never code (`plans/quiet-shell-shaping.md` Decision 2): a vault's `.ohhi/`
+never code (`quiet-shell-shaping` Decision 2): a vault's `.ohhi/`
 folder travels by git and by copy, so nothing in it can run. A person edits
 these files in Settings (a view tab — `app.settings`, Mod+, — or, with no
 vault open, the vault manager's settings page); **an agent edits them directly** with its own file
 tools — this page is everything it needs. Ground truth for the decisions:
-`plans/quiet-shell-shaping.md` F1–F16 and `plans/foundations-plan.md` Stage 6.
+`quiet-shell-shaping` F1–F16 and `foundations-plan` Stage 6.
 
 ---
 
@@ -123,7 +123,7 @@ can no longer be used is the fallback notice's alone.
 There is no journaled `ohhi` op for these files yet: `ohhi write` refuses
 non-`.md` paths, and `ohhi resource write` (plus `layout`, `keymap`,
 `templates`, `ui get`) are **reserved names** for the agent layer
-(`plans/quiet-shell-shaping.md` §Later). Until then an agent writes the files
+(`quiet-shell-shaping` §Later). Until then an agent writes the files
 directly with its own tools — validate against the schema in `spec/` first,
 then ask the person to run *Reload layouts and resources*. The person-facing
 version of this page is the **Customising the app** guide

@@ -218,7 +218,7 @@ is the webview's GPU-composited path, which a text editor does not need.
 - To test whether a newer WebKitGTK still needs it, launch with
   `OHHI_WEBKIT_DMABUF=1` (the app then leaves WebKit's default alone).
 - A `WEBKIT_DISABLE_DMABUF_RENDERER` you set yourself is respected as is.
-- Diagnosed 2026-10-07; the evidence is in `plans/foundations-plan.md`
+- Diagnosed 2026-10-07; the evidence is in `foundations-plan`
   (Round 4 build outcome, the open item).
 
 ## Content Security Policy

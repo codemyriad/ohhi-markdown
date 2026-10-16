@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install the `ohhi-vault` skill for Claude Code, as a SYMLINK into
-# ~/.claude/skills (plans/agent-surface-shaping.md A8).
+# ~/.claude/skills (agent-surface-shaping A8).
 #
 # A symlink, not a copy, on purpose: Cassini's one operational gap is a skill
 # that reached ~/.claude/skills as a hand copy and is now stale against its

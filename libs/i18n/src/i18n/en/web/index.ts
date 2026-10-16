@@ -355,7 +355,7 @@ const mode = {
 }
 
 /**
- * The Read slice (read-shaping.md X2/X4): the three view modes, the controls
+ * The Read slice (read-shaping X2/X4): the three view modes, the controls
  * that choose between them, and the one string CM6 needs handed to it —
  * decoration code has no `$LL`, so the missing-attachment placeholder's label
  * travels through the `ReadHost` facet.
@@ -592,7 +592,7 @@ const palette = {
   recent: 'recent',
   filename_match: 'filename match',
   /**
-   * Why a search result is where it is (plans/agent-surface-shaping.md A10).
+   * Why a search result is where it is (agent-surface-shaping A10).
    * Results are ordered by TIER before score, and the tier is the one thing a
    * reader cannot infer from the snippet — a note called `Docs` that never
    * says "docs" shows no snippet at all. Body-tier rows keep their existing

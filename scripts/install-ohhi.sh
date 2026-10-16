@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build the `ohhi` CLI and put it on PATH as a SYMLINK
-# (plans/agent-surface-shaping.md A2/A8).
+# (agent-surface-shaping A2/A8).
 #
 # `rushx build` in apps/cli bundles src/main.ts to apps/cli/dist/ohhi.mjs with
 # esbuild — cold start has to beat ~500 ms (shaping R6), which it cannot do

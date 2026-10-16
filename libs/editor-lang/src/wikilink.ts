@@ -1,9 +1,9 @@
 /**
  * `[[wikilink]]` support for @codemirror/lang-markdown.
  *
- * shaping.md D3 planned a FORK of `lezer-markdown-obsidian`. This is a ~120
+ * shaping D3 planned a FORK of `lezer-markdown-obsidian`. This is a ~120
  * line `MarkdownConfig` on the upstream grammar instead — see
- * plans/v2-shaping.md Fork 3. The reasoning: the forms this vault actually
+ * v2-shaping Fork 3. The reasoning: the forms this vault actually
  * uses are 929 plain targets, 22 aliases and 34 heading refs, all of which an
  * inline parser on `[[` handles; a grammar fork is a permanently maintained
  * third-party surface for the same result. The repo's vendoring rule exists

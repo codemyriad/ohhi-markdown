@@ -1,5 +1,5 @@
 /**
- * The Read slice's shell rules (read-shaping.md X2/X4), none of which needs a
+ * The Read slice's shell rules (read-shaping X2/X4), none of which needs a
  * browser: which mode `Mod+E` lands in, what the command table advertises,
  * which URLs a note may send you to, and where an embed's bytes are looked
  * for. The two that carry a security argument — the scheme allow-list and the

@@ -1,5 +1,5 @@
 /**
- * Device-kind tokens and room ancestry (device-link-shaping.md A4-A, N3).
+ * Device-kind tokens and room ancestry (device-link-shaping A4-A, N3).
  *
  * The rule under test is R5: a *folder* token never grants the vault it was
  * carved out of (nor a sibling carve), while a *device* token — one person's
