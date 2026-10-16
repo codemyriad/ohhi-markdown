@@ -97,12 +97,15 @@ commands do not exist in a Linux build of it), and after:
 cd apps/desktop
 rm -rf src-tauri/gen/apple
 pnpm exec tauri ios init --ci
-pnpm exec tauri icon app-icon.png --ios-color '#4f46e5'   # opaque: the App Store refuses alpha
+rushx icon            # app-icon.png from the site's favicon, then every icon set
 git add src-tauri/gen/apple
 ```
 
-`tauri icon` also rewrites `src-tauri/icons/` (and `gen/android`'s icons if
-present); keep only the `gen/apple` changes if that is all you meant.
+`rushx icon` (`scripts/app-icon.mjs`, then `tauri icon app-icon.png
+--ios-color '#faf8f4'` — opaque, the App Store refuses alpha; the colour is
+the mark's own paper) rewrites `src-tauri/icons/`, `gen/android`'s mipmaps
+and `gen/apple`'s icon set together; keep only the `gen/apple` changes if that
+is all you meant.
 
 **Two quirks, both handled in `scripts/`:**
 
@@ -253,5 +256,7 @@ certificate and profile (Tauri imports them into a temporary keychain), then
   Android shared storage, so no other app or agent on the phone can read them,
   and the OS may clear them (iOS can evict website data). The share link and
   the relay are what keep a copy elsewhere.
-- **Brand icon.** `apps/desktop/app-icon.png` is still the placeholder "E";
-  both mobile icon sets are generated from it.
+- **Brand icon.** `apps/desktop/app-icon.png` is the landing page's "hi"
+  favicon rendered large (`rushx icon` in `apps/desktop`, which regenerates
+  every icon set from it): one mark across ohhi.md and the apps, but still a
+  stand-in until there is a brand.

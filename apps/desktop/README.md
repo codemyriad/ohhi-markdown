@@ -81,10 +81,16 @@ picked (DEL-89; `docs/desktop-builds.md` § Installing and § Threat model):
 
 ## Icons
 
-`src-tauri/icons/` was generated from the placeholder `app-icon.png` (indigo
-"E" tile) via `tauri icon`. To replace it with a real icon, drop in a 512x512+
-transparent PNG and re-run:
+`app-icon.png` is the landing page's "hi" favicon (`apps/site/public/favicon.svg`)
+rendered at 1024×1024 by `scripts/app-icon.mjs`; `src-tauri/icons/`,
+`src-tauri/gen/android`'s mipmaps and `src-tauri/gen/apple`'s icon set are
+all generated from it by `tauri icon`. One command does both:
 
 ```sh
-cd apps/desktop && ./node_modules/.bin/tauri icon path/to/icon.png
+cd apps/desktop && rushx icon
 ```
+
+It is a stand-in until there is a brand. To use a real icon, replace the
+script's output with a 1024×1024 transparent PNG and run only the second
+half, `tauri icon app-icon.png --ios-color '<its background>'`
+(docs/mobile-builds.md, "The iOS project").

@@ -8,7 +8,10 @@
     "build": "tauri build",
     "tauri": "tauri",
     "android:dev": "sh scripts/android-env.sh tauri android dev",
-    "android:build": "sh scripts/android-env.sh tauri android build --debug --apk"
+    "android:build": "sh scripts/android-env.sh tauri android build --debug --apk",
+    "icon": "node scripts/app-icon.mjs && tauri icon app-icon.png --ios-color '#faf8f4'"
   },
-  "devDependencies": { "@tauri-apps/cli": "^2.0.0" }
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
 }
