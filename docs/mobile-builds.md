@@ -122,20 +122,16 @@ is all you meant.
   last on PATH, holds stand-ins that print and exit 1. A real one, if
   installed, wins.
 
-**The iOS 27 SDK needs Tauri 2.12.** Apps built with the iOS 27 SDK (Xcode
-27) must adopt the UIScene life cycle or UIKit aborts them at launch ("UIScene
-life cycle is required for apps built with this SDK"). Tauri 2.11 (tao 0.35)
-does not; Tauri 2.12 (tao 0.37) does, with no change to the project. Until
-the repo's lockfiles move to 2.12, an iOS app built with Xcode 27 builds but
-quits on launch. The bump:
-
-```sh
-cd apps/desktop/src-tauri && cargo update -p tauri --precise 2.12.4   # needs Rust 1.90+
-# and @tauri-apps/cli ^2.12.3 (apps/desktop) + @tauri-apps/api ^2.12.0 (apps/web), then rush update
-```
-
-Tauri 2.12 needs Rust 1.90 or newer, so `rustup update stable` on every
-machine that builds the desktop app.
+**The iOS 27 SDK needs Tauri 2.12, which the repo is on.** Apps built with
+the iOS 27 SDK (Xcode 27) must adopt the UIScene life cycle or UIKit aborts
+them at launch ("UIScene life cycle is required for apps built with this
+SDK"). Tauri 2.11 (tao 0.35) did not; Tauri 2.12 (tao 0.37) does, with no
+change to the project — the lockfiles moved to `tauri` 2.12.4 / `tauri-build`
+2.7.3 / `@tauri-apps/cli` 2.12 / `@tauri-apps/api` 2.12 on 2026-10-16, the
+plugins unchanged. Tauri 2.12 needs **Rust 1.90 or newer**, declared as
+`rust-version` in `src-tauri/Cargo.toml` (cargo says so plainly on an older
+toolchain); `rustup update stable` on a machine that builds the desktop app,
+CI already takes current stable.
 
 ## Building on a Mac
 

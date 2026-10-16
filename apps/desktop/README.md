@@ -13,7 +13,7 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev
 If `cargo build` still fails at a pkg-config step, install the package it names
 (observed on this machine: `sudo apt install libdbus-1-dev` for `libdbus-sys`).
 
-Plus a Rust toolchain (`rustup`) and the repo toolchain (Node 22.12, Rush, pnpm —
+Plus a Rust toolchain (`rustup`; 1.90 or newer, the `rust-version` in `src-tauri/Cargo.toml`) and the repo toolchain (Node 22.12, Rush, pnpm —
 see the repo root README). Without `libwebkit2gtk-4.1-dev`, `cargo build` /
 `tauri dev` fails at the system-dependency (pkg-config) stage.
 

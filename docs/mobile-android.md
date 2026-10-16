@@ -188,4 +188,19 @@ rewrites that file from the config and drops it.
 - **Opening Settings from the drawer** leaves the drawer open over it.
 - **The emulator image's WebView is old** (128). A phone's WebView updates
   through the Play Store; what was checked here was checked on 128.
-- **Debug APKs only.** No release keystore, no store listing, no CI build yet.
+- **Debug APKs only.** No release keystore, no store listing; CI
+  (`mobile.yml`, [mobile-builds.md](mobile-builds.md)) makes the same debug
+  APK on every app push to `main`.
+- **`gen/android` is behind the CLI's template.** The project was generated
+  by `@tauri-apps/cli` 2.11 (Gradle 8.14.3, AGP 8.11, Kotlin 1.9.25,
+  compileSdk 36, `Theme.MaterialComponents`); the 2.12.3 CLI's `tauri android
+  init` writes Gradle 9.6.1, AGP 9.3.1, Kotlin 2.2.10, compileSdk 37,
+  `Theme.Material3`, the configuration cache, and a `buildSrc` that uses
+  `ExecOperations` (Gradle 9 drops `project.exec` at execution time). The
+  committed project still builds and runs with the 2.12 CLI (checked
+  2026-10-16, Tauri 2.12.4), so it was kept as is. Regenerate it the next time
+  the Android project is reworked (release signing is the natural moment):
+  move `gen/android` aside, `tauri android init --ci`, then carry over
+  `MainActivity.kt`'s inset code, `strings.xml`'s labels, `.gitignore`'s
+  `.kotlin/` line and `rushx icon`'s icons, and bump `ANDROID_PLATFORM` in
+  `mobile.yml` to the new compileSdk.

@@ -57,8 +57,9 @@ jobs:
     permissions:
       contents: read
     env:
-      # Versions match docs/mobile-android.md's local toolchain.
-      ANDROID_PLATFORM: android-35
+      # Versions match docs/mobile-android.md's local toolchain; the platform
+      # is gen/android's compileSdk (app/build.gradle.kts).
+      ANDROID_PLATFORM: android-36
       ANDROID_BUILD_TOOLS: 35.0.1
       ANDROID_NDK: 27.2.12479018
     steps:
