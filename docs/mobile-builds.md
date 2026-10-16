@@ -101,11 +101,12 @@ rushx icon            # app-icon.png from the site's favicon, then every icon se
 git add src-tauri/gen/apple
 ```
 
-`rushx icon` (`scripts/app-icon.mjs`, then `tauri icon app-icon.png
---ios-color '#faf8f4'` — opaque, the App Store refuses alpha; the colour is
-the mark's own paper) rewrites `src-tauri/icons/`, `gen/android`'s mipmaps
-and `gen/apple`'s icon set together; keep only the `gen/apple` changes if that
-is all you meant.
+`rushx icon` (`scripts/app-icon.mjs`, which renders the favicon and writes
+`app-icon.json`, then `tauri icon app-icon.json`) rewrites `src-tauri/icons/`,
+`gen/android`'s mipmaps and `gen/apple`'s icon set together; keep only the
+`gen/apple` changes if that is all you meant. The manifest's `bg_color` is the
+favicon tile's own fill: the opaque background iOS needs (the App Store
+refuses alpha) and Android's adaptive-icon background.
 
 **Two quirks, both handled in `scripts/`:**
 

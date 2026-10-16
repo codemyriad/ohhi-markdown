@@ -91,6 +91,6 @@ cd apps/desktop && rushx icon
 ```
 
 It is a stand-in until there is a brand. To use a real icon, replace the
-script's output with a 1024×1024 transparent PNG and run only the second
-half, `tauri icon app-icon.png --ios-color '<its background>'`
-(docs/mobile-builds.md, "The iOS project").
+script's output with a 1024×1024 transparent PNG, set `bg_color` in
+`app-icon.json` to its background, and run only the second half,
+`tauri icon app-icon.json` (docs/mobile-builds.md, "The iOS project").
