@@ -1,0 +1,80 @@
+---
+import Base from '../layouts/Base.astro'
+import { APP, CHECKSUMS, DIST, DOWNLOADS } from '../links'
+---
+
+<Base
+  title="Get Oh Hi markdown"
+  description="Download the Oh Hi markdown desktop app for macOS and Linux, or open it in your browser."
+>
+  <h1>Get Oh Hi markdown</h1>
+  <p class="lede">
+    The desktop app works on folders on your disk and updates itself. A browser is enough for
+    joining a shared folder.
+  </p>
+
+  <section>
+    <h2>Desktop app</h2>
+    <ul class="downloads">
+      {
+        DOWNLOADS.map((d) => (
+          <li>
+            <span class="os">{d.os}</span>
+            <a href={`${DIST}/${d.file}`} download>
+              {d.file}
+            </a>
+            <span class="note">{d.note}</span>
+          </li>
+        ))
+      }
+    </ul>
+    <p class="fine">
+      Check a download against <a href={CHECKSUMS}>SHA256SUMS.txt</a> from the same release.
+    </p>
+
+    <h3>First launch on macOS</h3>
+    <ol class="steps">
+      <li>Open the <code>.dmg</code> and drag <strong>ohhi</strong> into Applications.</li>
+      <li>
+        The first launch is blocked, because the app is not notarized yet. Go to
+        <strong>System Settings → Privacy &amp; Security</strong>, find “ohhi was blocked…” and
+        choose <strong>Open Anyway</strong>. Or, in Terminal:
+        <code>xattr -dr com.apple.quarantine /Applications/ohhi.app</code>
+      </li>
+      <li>Updates after that install themselves. Only the first launch needs this.</li>
+    </ol>
+
+    <h3>First launch on Linux</h3>
+    <ol class="steps">
+      <li>
+        The AppImage needs FUSE 2: <code>sudo apt install libfuse2</code> on Ubuntu 22.04,
+        <code>libfuse2t64</code> on 24.04 and later.
+      </li>
+      <li><code>chmod +x ohhi_amd64.AppImage</code>, then run it. It updates in place.</li>
+      <li>
+        The <code>.deb</code> installs with <code>sudo apt install ./ohhi_amd64.deb</code>, but
+        only updates itself when a release carries its signature. Prefer the AppImage.
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>In your browser</h2>
+    <p>
+      <a href={APP}>app.ohhi.md</a> runs the same app. Notes you make there live in that browser’s
+      storage, not in a folder, and each browser has its own copy. A shared folder also lives on
+      the relay and on every device holding a link to it, so the browser is a fine place to join
+      one. Keep your own notes in the desktop app.
+    </p>
+  </section>
+
+  <section>
+    <h2>For agents</h2>
+    <p>
+      <code>ohhi</code> is the command an agent uses over a vault: ranked search that answers with
+      references, a note’s outline or one section, links and backlinks, collections, what changed
+      since, and journaled writes. <code>ohhi mcp</code> serves the same operations to any MCP
+      client. It is not bundled with the app yet.
+    </p>
+  </section>
+</Base>

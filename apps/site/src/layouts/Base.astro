@@ -1,0 +1,53 @@
+---
+import '../styles/site.css'
+import { APP, GITHUB } from '../links'
+
+interface Props {
+  title: string
+  description: string
+}
+
+const { title, description } = Astro.props
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Paint the canvas at the right polarity before the stylesheet lands. -->
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <!-- The wordmark: "Oh Hi" is ink on the highlighter, the voice drops on "markdown". -->
+        <a class="wordmark" href="/" aria-label="Oh Hi markdown, home">
+          <span class="hi">Oh Hi</span> <span class="md">markdown</span>
+        </a>
+        <nav aria-label="Site">
+          <a href="/download">Download</a>
+          <a href={GITHUB}>GitHub</a>
+          <a href={APP}>Open the app</a>
+        </nav>
+      </header>
+      <main>
+        <slot />
+      </main>
+      <footer class="foot">
+        <span class="wordmark"><span class="hi">Oh Hi</span> <span class="md">markdown</span></span>
+        <a href="/download">Download</a>
+        <a href={GITHUB}>GitHub</a>
+        <a href={APP}>Open the app</a>
+      </footer>
+    </div>
+  </body>
+</html>

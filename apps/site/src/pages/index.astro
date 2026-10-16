@@ -1,0 +1,45 @@
+---
+import Base from '../layouts/Base.astro'
+import { APP } from '../links'
+---
+
+<Base
+  title="Oh Hi markdown"
+  description="An ordinary markdown editor over a vault of plain .md files, with a relay: your own notes stay local, and a shared folder is edited together, live."
+>
+  <h1>Remove the barrier between personal and collaborative notes.</h1>
+  <p class="lede">
+    Oh Hi is an ordinary markdown editor over a vault of plain <code>.md</code> files,
+    <strong>with a relay</strong>. Your own notes stay local. Share a folder when you want company,
+    and edit it together, live, without conflicts.
+  </p>
+  <p class="callout">
+    <strong>Early days.</strong> Oh Hi is in daily use by the team that builds it, and it is not
+    finished.
+  </p>
+  <p class="actions">
+    <a class="button primary" href={APP}>Open in your browser</a>
+    <a class="button" href="/download">Download for macOS and Linux</a>
+  </p>
+
+  <hr />
+
+  <section>
+    <h2>What it is</h2>
+    <ul class="points">
+      <li>
+        <strong>An editor</strong> over a vault of plain <code>.md</code> files. Open it over your
+        existing notes. Wikilinks, tags, frontmatter, daily notes &amp; collections.
+      </li>
+      <li>
+        <strong>A relay</strong>, a small service that sits between you and others. Share a folder
+        through it and whoever holds the link edits it with you, live, without conflicts.
+      </li>
+      <li>
+        <strong>Agents</strong>, in the app and outside it. Inside, an agent edits alongside you
+        once you choose a provider: cloud, local or self-hosted. Outside, the <code>ohhi</code>
+        command and its MCP server give any agent the same vault.
+      </li>
+    </ul>
+  </section>
+</Base>

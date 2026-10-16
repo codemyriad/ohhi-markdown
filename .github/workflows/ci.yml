@@ -23,7 +23,7 @@ jobs:
       - name: Typecheck all packages
         run: |
           for pkg in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/frontmatter libs/index \
-                     libs/agent libs/harness libs/editor-lang libs/editor apps/relay apps/cli apps/web; do
+                     libs/agent libs/harness libs/editor-lang libs/editor apps/relay apps/cli apps/web apps/site; do
             echo "::group::check $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js check)
             echo "::endgroup::"
@@ -44,6 +44,8 @@ jobs:
         run: cd apps/web && node ../../common/scripts/install-run-rushx.js build
       - name: CSP guard (theme-script hash current, no eval/inline script)
         run: node apps/desktop/scripts/check-csp.mjs
+      - name: Build the landing site (ohhi.md)
+        run: cd apps/site && node ../../common/scripts/install-run-rushx.js build
 
   e2e:
     name: L2 two-context smoke (Chromium)

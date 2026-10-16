@@ -352,7 +352,8 @@
     { "packageName": "@ohhi/relay", "projectFolder": "apps/relay" },
     { "packageName": "@ohhi/cli", "projectFolder": "apps/cli" },
     { "packageName": "@ohhi/web", "projectFolder": "apps/web" },
-    { "packageName": "@ohhi/desktop", "projectFolder": "apps/desktop" }
+    { "packageName": "@ohhi/desktop", "projectFolder": "apps/desktop" },
+    { "packageName": "@ohhi/site", "projectFolder": "apps/site" }
     // {
     //   /**
     //    * The NPM package name of the project (must match package.json)

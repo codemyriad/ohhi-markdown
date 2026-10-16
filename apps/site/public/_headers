@@ -1,0 +1,7 @@
+# Served by Cloudflare Pages (or any host that reads _headers). The site has
+# no script at all, so the policy names no script source.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'

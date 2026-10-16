@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "Exports the bundled fonts stylesheet and the theme token files, so the landing site renders in the app's faces and generates its colours from the same themes.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/ui"
+}
