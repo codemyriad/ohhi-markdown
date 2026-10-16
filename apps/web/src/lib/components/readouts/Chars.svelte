@@ -16,6 +16,12 @@
 
 {#if chars.path}
   <span data-testid={readoutTestid(ctx, 'char-count')} class="whitespace-nowrap tabular-nums">
-    {$LL.web.status_bar.chars({ count: chars.value })}
+    {#if ctx.compact}
+      <span aria-hidden="true">{$LL.web.status_bar.count({ count: chars.value })}</span><span class="sr-only"
+        >{$LL.web.status_bar.chars({ count: chars.value })}</span
+      >
+    {:else}
+      {$LL.web.status_bar.chars({ count: chars.value })}
+    {/if}
   </span>
 {/if}

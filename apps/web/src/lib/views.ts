@@ -57,10 +57,36 @@ export interface ViewShell {
   /**
    * Open a note: App's `openPath` — `panes.open: 'replace'`, recents, the
    * navigator drawer closing. `background` is Mod+click (a tab, stay put).
+   * `beside` is a companion view's open (a session card): the note where it
+   * already is, else in the pane beside the companion (`PaneShell.openBeside`).
    */
-  openPath(path: string, opts?: { background?: boolean }): void
-  /** Open another view tab. */
+  openPath(path: string, opts?: { background?: boolean; beside?: boolean }): void
+  /** Open another view tab. A `session` opens BESIDE the focused note (`PaneShell.openViewBeside`). */
   openView(id: TabView, arg?: string): void
+  /**
+   * Run a registry command by id — the one path a button shares with its
+   * key and its palette row (golden rule 7). Nothing when the id is unknown
+   * or its guard refuses.
+   */
+  runCommand(id: string): void
+  /** A command's key as it is pressed here (`Ctrl+Enter`), '' when it has none. */
+  commandKeys(id: string): string
+  /**
+   * Bring an agent's suggestion into view (QA round 1, *Show in note*): its
+   * note where it already is, else opened beside the companion view; the
+   * caret at the suggestion's start, scrolled to the middle, and that
+   * editor the one note-acting commands mean. `focus` also gives it the
+   * keyboard. Resolves false when the note never drew the suggestion.
+   */
+  revealSuggestion(path: string, id: string, opts?: { focus?: boolean }): Promise<boolean>
+  /**
+   * A search hit's row in a session card: the note opened beside (as
+   * `openPath` with `beside`), the caret at the start of 1-based `line`.
+   * Resolves false when the note never reached that line.
+   */
+  revealLine(path: string, line: number): Promise<boolean>
+  /** *Show thread*: a comment thread's bubble over its passage, the note opened beside when it is not on screen. */
+  revealThread(path: string, threadId: string): Promise<boolean>
   /** *Create* for an unresolved link (the Note menu's Links). */
   createFromLink(target: string): void
   /**

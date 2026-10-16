@@ -223,6 +223,18 @@ export class OpfsVaultAdapter implements VaultAdapter {
     }
     return out.sort()
   }
+
+  /** The folders in one ignored app dir (`.ohhi/themes`): the theme folders. */
+  async listAppDirs(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    const handle = await this.resolveDir(rel.split('/').filter((p) => p.length > 0), false)
+    if (!handle) return []
+    const out: string[] = []
+    for await (const entry of handle.values()) {
+      if (entry.kind === 'directory') out.push(`${rel}/${entry.name}`)
+    }
+    return out.sort()
+  }
 }
 
 /**

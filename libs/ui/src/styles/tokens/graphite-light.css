@@ -1,0 +1,164 @@
+/*
+ * graphite-light — "Graphite Light".
+ *
+ * Direction A, "Graphite". A shell with no accent at all: buttons, focus marks and
+ * the caret are ink; the only hue on the page is a link, so the sync colours have
+ * nothing to compete with. Headings by weight and size alone, ink throughout
+ * (Fork 6-A, on purpose). The unresolved link is a grey ghost, not a hue.
+ *
+ * Values from the design review "Oh hi Theme Explorations" (2026-10-15), each
+ * checked there against theme-contract.test.ts's rules and the floors in
+ * docs/theming.md (7:1 ink, 4.5:1 every text colour, 3:1 marks). Band C (the
+ * sync colours) is not here: sync-tokens.css chooses it by polarity. The people
+ * and group colours are the light set every built-in default shares (Fork 5-A),
+ * so a peer keeps their colour when you switch theme.
+ */
+@plugin "daisyui/theme" {
+  name: "graphite-light";
+  default: false;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #f3f4f6;
+  --color-base-300: #dfe2e6;
+  --color-base-content: #1a1c1f;
+  --color-primary: #1a1c1f;
+  --color-primary-content: #ffffff;
+  --color-secondary: #4f545b;
+  --color-secondary-content: #ffffff;
+  --color-accent: #2a5bd7;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1a1c1f;
+  --color-neutral-content: #ffffff;
+  --color-info: #1a1c1f;
+  --color-info-content: #ffffff;
+  --color-success: #3f6f27;
+  --color-success-content: #ffffff;
+  --color-warning: #8a6300;
+  --color-warning-content: #ffffff;
+  --color-error: #b3271e;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@layer editor.tokens {
+  [data-theme="graphite-light"] {
+    --ed-surface: #ffffff;
+    --ed-scrim: #1a1c1f4d;
+    --ed-ink: #1a1c1f;
+    --ed-ink-muted: #4f545b;
+    --ed-ink-faint: #767c84;
+    --ed-h1: #1a1c1f;
+    --ed-h2: #1a1c1f;
+    --ed-h3: #1a1c1f;
+    --ed-h4: #1a1c1f;
+    --ed-h5: #4f545b;
+    --ed-h6: #4f545b;
+    --ed-title: #1a1c1f;
+    --ed-bold: #1a1c1f;
+    --ed-italic: #1a1c1f;
+    --ed-strike: #767c84;
+    --ed-mark-bg: #f7e27a;
+    --ed-mark-fg: #1a1c1f;
+    --ed-code-fg: #1a1c1f;
+    --ed-code-bg: #eef0f2;
+    --ed-code-block-fg: #1a1c1f;
+    --ed-code-block-bg: #f6f7f8;
+    --ed-code-border: #dfe2e6;
+    --ed-syn-keyword: #5b3fa6;
+    --ed-syn-string: #2f6b3a;
+    --ed-syn-number: #8a5a00;
+    --ed-syn-comment: #858b94;
+    --ed-syn-function: #2a5bd7;
+    --ed-syn-type: #0e6f7a;
+    --ed-syn-variable: #1a1c1f;
+    --ed-syn-operator: #4f545b;
+    --ed-syn-invalid: #b3271e;
+    --ed-link: #2a5bd7;
+    --ed-link-hover: #2a5bd7;
+    --ed-url: #4f545b;
+    --ed-wikilink: #2a5bd7;
+    --ed-wikilink-unresolved: #6b7079;
+    --ed-wikilink-punct: #b4b9c0;
+    --ed-tag-fg: #3b4046;
+    --ed-tag-bg: #eceef1;
+    --ed-tag-bg-hover: #dbdde0;
+    --ed-frontmatter-fg: #4f545b;
+    --ed-frontmatter-bg: #f6f7f8;
+    --ed-frontmatter-border: #dfe2e6;
+    --ed-quote-fg: #4f545b;
+    --ed-quote-border: #dfe2e6;
+    --ed-hr: #dfe2e6;
+    --ed-bullet: #767c84;
+    --ed-marker: #b4b9c0;
+    --ed-checkbox: #1a1c1f;
+    --ed-task-done-fg: #767c84;
+
+    --ed-table-header-bg: #f3f4f6;
+    --ed-table-row-alt-bg: #f9fafb;
+    --ed-table-border: #dfe2e6;
+
+    --ed-selection: #2a5bd72e;
+    --ed-selection-blur: #2a5bd717;
+    --ed-caret: #1a1c1f;
+    --ed-active-line: #1a1c1f08;
+    --ed-gutter-bg: transparent;
+    --ed-gutter-fg: #b4b9c0;
+    --ed-gutter-active-fg: #4f545b;
+    --ed-bracket-match-bg: #1a1c1f33;
+    --ed-search-match-bg: #f7e27a80;
+    --ed-search-match-active-bg: #f7e27a;
+    --ed-suggest-del: #8a4f7d;
+    --ed-suggest-add: #1d6a85;
+    --ed-suggest-stale: #66707c;
+    --ed-comment-bg: #7b6fd62e;
+    --ed-comment-resolved-bg: #b0bac52e;
+    --ed-agent-working-bg: #1aa3b82e;
+
+    --ed-presence-1: #2b7f8a;
+    --ed-presence-2: #4d7c2f;
+    --ed-presence-3: #5b55b5;
+    --ed-presence-4: #7d3fa8;
+    --ed-presence-5: #2f6fbf;
+    --ed-presence-6: #a8327d;
+    --ed-presence-7: #1f7a68;
+    --ed-presence-8: #55606f;
+    --ed-peer-label-fg: #ffffff;
+    --ed-presence-fg-1: #ffffff;
+    --ed-presence-fg-2: #ffffff;
+    --ed-presence-fg-3: #ffffff;
+    --ed-presence-fg-4: #ffffff;
+    --ed-presence-fg-5: #ffffff;
+    --ed-presence-fg-6: #ffffff;
+    --ed-presence-fg-7: #ffffff;
+    --ed-presence-fg-8: #ffffff;
+
+    --ed-group-1: #1d7f9c;
+    --ed-group-2: #4a7a2e;
+    --ed-group-3: #7d3fa8;
+    --ed-group-4: #8a6300;
+    --ed-group-5: #0f6e63;
+    --ed-group-6: #2f6fbf;
+    --ed-group-7: #9c5335;
+    --ed-group-8: #a8327d;
+
+    --ed-callout-note: #1a1c1f;
+    --ed-callout-tip: #2a5bd7;
+    --ed-callout-success: #3f6f27;
+    --ed-callout-warning: #8a6300;
+    --ed-callout-danger: #b3271e;
+    --ed-callout-question: #2a5bd7;
+    --ed-callout-bug: #b3271e;
+    --ed-callout-example: #5b3fa6;
+    --ed-callout-quote: #767c84;
+  }
+}

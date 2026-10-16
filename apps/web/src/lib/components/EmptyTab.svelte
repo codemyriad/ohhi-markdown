@@ -40,7 +40,7 @@
     bindings?: { newNote: string; openQuick: string }
     /** Settings › Customise; absent → the row is not drawn. */
     onCustomise?: () => void
-    /** Settings › Agents; absent (the browser, where no agent reaches the vault) → not drawn. */
+    /** Settings › AI (Outside agents); absent (the browser, where no agent reaches the vault) → not drawn. */
     onAgents?: () => void
     testid: string
   }

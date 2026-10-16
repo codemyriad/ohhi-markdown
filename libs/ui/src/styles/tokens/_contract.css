@@ -15,15 +15,19 @@
  * editor.user) can override every value. Band C (sync honesty) is NOT here —
  * it is unlayered in sync-tokens.css so no user theme can reach it.
  *
+ * The hex defaults ARE the default light theme's (editor-light, "Oh hi
+ * Light"), so a custom light theme that omits a token gets the default
+ * look rather than a palette nothing ships.
+ *
  * See docs/theming.md and plans/v2-shaping.md (Fork 2).
  */
 @layer editor.tokens {
   :root {
     /* --- surface & metrics ------------------------------------------- */
-    --ed-surface: #ffffff;
-    --ed-ink: #1f242b;
-    --ed-ink-muted: #4d5765;
-    --ed-ink-faint: #78838f;
+    --ed-surface: #faf8f4;
+    --ed-ink: #2a2521;
+    --ed-ink-muted: #5e564e;
+    --ed-ink-faint: #857c72;
     /* App-wide defaults: the bundled faces first (fonts.css) — Public Sans
      * for notes and the interface, JetBrains Mono for code — the system
      * stack as fallback. A theme may redeclare any of them; there is no
@@ -58,59 +62,59 @@
     --ed-bold: var(--ed-ink);
     --ed-italic: var(--ed-ink);
     --ed-strike: var(--ed-ink-faint);
-    --ed-mark-bg: #ffe08a; /* (V2e) */
-    --ed-mark-fg: #1f242b; /* (V2e) */
+    --ed-mark-bg: #f5dc84; /* (V2e) */
+    --ed-mark-fg: #2a2521; /* (V2e) */
     /* --- code (inline is a chip, a fence is a slab) --------------------- */
-    --ed-code-fg: #0f6e63;
-    --ed-code-bg: #f0f3f6; /* (V2e) */
+    --ed-code-fg: #1e6b66;
+    --ed-code-bg: #efeae1; /* (V2e) */
     --ed-code-block-fg: var(--ed-ink); /* (V2e) */
-    --ed-code-block-bg: #f5f7f9;
-    --ed-code-border: #e3e8ee;
+    --ed-code-block-bg: #f3efe8;
+    --ed-code-border: #e1dbd0;
 
-    --ed-syn-keyword: #7d3fa8;
-    --ed-syn-string: #4a7a2e;
-    --ed-syn-number: #8a6300;
-    --ed-syn-comment: #78838f;
-    --ed-syn-function: #0f6e63;
-    --ed-syn-type: #1d7f9c;
+    --ed-syn-keyword: #7a4b8a;
+    --ed-syn-string: #44703a;
+    --ed-syn-number: #9a5a22;
+    --ed-syn-comment: #8d8377;
+    --ed-syn-function: #2f55a4;
+    --ed-syn-type: #1e6b66;
     --ed-syn-variable: var(--ed-ink);
-    --ed-syn-operator: #55606f;
+    --ed-syn-operator: #5e564e;
     --ed-syn-invalid: #b3271e;
 
     /* --- links ---------------------------------------------------------- */
-    --ed-link: #1d7f9c;
-    --ed-link-hover: #0f6e63; /* (V2e) */
+    --ed-link: #2f55a4;
+    --ed-link-hover: #2f55a4; /* (V2e) */
     /* Separate from --ed-link on purpose: in source mode you see the visible
      * text and the raw URL inside []() at the same time. */
-    --ed-url: #6a4a9c;
-    --ed-wikilink: #0f6e63;
+    --ed-url: #5e564e;
+    --ed-wikilink: #2f55a4;
     /* A broken [[link]] is a data-integrity signal, not decoration — but it
      * is "not written yet", NOT a conflict, so it must stay clear of the
      * diverged red that band C reserves. Guarded by theme-contract.test.ts. */
-    --ed-wikilink-unresolved: #7d5a1f;
-    --ed-wikilink-punct: #b0bac5;
+    --ed-wikilink-unresolved: #8a6224;
+    --ed-wikilink-punct: #c2b9ac;
 
     /* --- tags & frontmatter --------------------------------------------- */
-    --ed-tag-fg: #0f6e63;
-    --ed-tag-bg: #e6f1ef;
-    --ed-tag-bg-hover: #d7e8e5; /* (V2e) */
+    --ed-tag-fg: #6a5634;
+    --ed-tag-bg: #efe5d3;
+    --ed-tag-bg-hover: #dfd6c5; /* (V2e) */
     --ed-tag-radius: 0.5em; /* (V2e) */
     /* Frontmatter is byte-preserved and surgically patched (golden rule 2).
      * Visually fencing it is a correctness affordance, not decoration: if you
      * can't see you've crossed into a structured region you will reformat it
      * by hand and produce exactly the churn diff the rule exists to prevent. */
-    --ed-frontmatter-fg: #55606f;
-    --ed-frontmatter-bg: #f5f7f9; /* (V2e) */
-    --ed-frontmatter-border: #e3e8ee; /* (V2e) */
+    --ed-frontmatter-fg: #5e564e;
+    --ed-frontmatter-bg: #f3efe8; /* (V2e) */
+    --ed-frontmatter-border: #e1dbd0; /* (V2e) */
     /* --- block furniture ------------------------------------------------ */
     --ed-quote-fg: var(--ed-ink-muted);
-    --ed-quote-border: #e3e8ee; /* (V2e) */
-    --ed-hr: #e3e8ee;
+    --ed-quote-border: #d6cfc3; /* (V2e) */
+    --ed-hr: #e1dbd0;
     /* The generic markdown syntax mark: `#`, `*`, `>`, `-`, fence backticks.
      * NOT a per-construct colour — the standard lezer tags cannot tell a
      * heading's hash from a list's dash. */
-    --ed-marker: #b0bac5;
-    --ed-bullet: #78838f; /* (V2e) rendered bullets, once markers are hidden */
+    --ed-marker: #c2b9ac;
+    --ed-bullet: #857c72; /* (V2e) rendered bullets, once markers are hidden */
     /* Lists in Live and Reading: the width of one nesting level (a tab stop,
      * and the bullet's own box), and the hairline guide down each level's
      * children. The guide IS the rule's colour unless a theme says otherwise
@@ -121,33 +125,33 @@
     /* Tasks (E2): the box's border, and its fill + border once checked
      * (the tick is drawn in --ed-surface). Checked is the same colour as
      * the border unless a theme says otherwise. */
-    --ed-checkbox: #1d7f9c;
+    --ed-checkbox: #2f55a4;
     --ed-checkbox-done: var(--ed-checkbox);
     /* --- tasks, done (E2, fork C1) -------------------------------------
      * A checked task's text: the faint ink, with a light strike in a muted
      * mix of it. The decoration is a whole `text-decoration` value. */
     --ed-task-done-fg: var(--ed-ink-faint);
     --ed-task-done-decoration: line-through 1px color-mix(in srgb, var(--ed-task-done-fg) 60%, transparent);
-    --ed-table-header-bg: #f5f7f9; /* (V2e) */
-    --ed-table-row-alt-bg: #fafbfc; /* (V2e) */
-    --ed-table-border: #e3e8ee; /* (V2e) */
+    --ed-table-header-bg: #f1ede6; /* (V2e) */
+    --ed-table-row-alt-bg: #f6f3ed; /* (V2e) */
+    --ed-table-border: #e1dbd0; /* (V2e) */
     /* --- editing-surface state (the two colours a writer stares at) ------ */
-    --ed-selection: #1d7f9c2b;
+    --ed-selection: #2f55a42e;
     /* CM6 draws a distinct unfocused selection; in a two-pane collab app
      * "which pane has focus" must stay legible. */
-    --ed-selection-blur: #1d7f9c14;
-    --ed-caret: #1d7f9c;
-    --ed-active-line: #00000006;
+    --ed-selection-blur: #2f55a417;
+    --ed-caret: #2f55a4;
+    --ed-active-line: #2a252108;
     /* The dialog scrim. A colour of its own because DaisyUI's `neutral` is the
      * INK colour in dark themes — a 40% haze of it over a dark UI reads as fog.
      * Near-black at low alpha in light themes, black at half alpha in dark. */
-    --ed-scrim: #14181d4d;
+    --ed-scrim: #2a25214d;
     --ed-gutter-bg: transparent;
-    --ed-gutter-fg: #b0bac5;
-    --ed-gutter-active-fg: #55606f;
-    --ed-bracket-match-bg: #1d7f9c33;
-    --ed-search-match-bg: #ffe08a80;
-    --ed-search-match-active-bg: #ffc94d;
+    --ed-gutter-fg: #c2b9ac;
+    --ed-gutter-active-fg: #5e564e;
+    --ed-bracket-match-bg: #2f55a433;
+    --ed-search-match-bg: #f5dc8480;
+    --ed-search-match-active-bg: #f5dc84;
     /* An agent's proposed edit, drawn in the note (writing-harness B7):
      * the text it would replace struck in -del, the proposal inserted in
      * -add, and a proposal a peer's edit overtook in -stale. Text colours:
@@ -213,8 +217,9 @@
      * Each slot also clears 3:1 against --color-base-100 (the dot is a 9px
      * fill on the surface) and is distinguishable from the other seven.
      *
-     * These :root values ARE editor-light's, exactly as the presence band
-     * above; the other three themes restate the set in their own family. */
+     * These :root values are the light set every built-in default shares
+     * (themes review Fork 5-A); the dark defaults share one dark set, and
+     * a custom theme may restate the band (the Nord example does). */
     --ed-group-1: #1d7f9c;
     --ed-group-2: #4a7a2e;
     --ed-group-3: #7d3fa8;

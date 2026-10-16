@@ -23,17 +23,22 @@
    * the view does (no sort, grouping, columns, new views or new rows), and
    * `this.file` is the EMBEDDING note, as Obsidian scopes it.
    */
-  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, LayoutGrid } from '@lucide/svelte'
+  import { Plus, Columns3, Group, ArrowUp, ArrowDown, TriangleAlert, Ellipsis, ChevronDown, Kanban } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import {
     addView,
     collectionName,
     compileView,
+    dynamicColumnIds,
     folderOf,
+    labelFor,
     parseCollection,
     patchView,
+    removeView,
+    rowColumns,
     type Column,
     type NewView,
+    type ViewSpec,
     type ViewPatch,
   } from '@ohhi/collections'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -52,6 +57,7 @@
     toggleSort,
     type CellKind,
   } from '../collection-cells.js'
+  import Dialog from '../ui/Dialog.svelte'
   import DropdownMenu from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
   import MenuItem from '../ui/MenuItem.svelte'
@@ -63,6 +69,7 @@
   import CollectionBoard from './CollectionBoard.svelte'
   import CollectionCell from './CollectionCell.svelte'
   import CollectionList from './CollectionList.svelte'
+  import ConfirmDialog from './ConfirmDialog.svelte'
 
   interface Props {
     workspace: Workspace
@@ -158,7 +165,12 @@
     }
   })
 
-  const columns = $derived<Column[]>(compiled?.columns ?? [])
+  /**
+   * The view's written `order`, else (no `order` key at all) the columns
+   * follow the notes: the name plus every property the rows on screen
+   * hold, in order of first appearance as the view sorts them.
+   */
+  const columns = $derived<Column[]>(compiled?.dynamicColumns ? rowColumns(spec, rows) : (compiled?.columns ?? []))
   /** The name is the row's own column, drawn first and never edited here. */
   const nameColumn = $derived(columns.find((c) => c.id === 'file.name' || c.id === 'file.basename') ?? null)
   const dataColumns = $derived(columns.filter((c) => c !== nameColumn))
@@ -209,9 +221,15 @@
     writeView({ groupBy: id ? { property: id, direction: 'asc' } : null })
   }
 
+  /**
+   * Show or hide a column. A view whose columns follow the notes has no
+   * `order` to edit yet: the columns on screen are written first, then the
+   * change applied — from then on the file pins them.
+   */
   function toggleColumn(id: string, on: boolean): void {
     if (!view) return
-    const order = on ? [...view.order, id] : view.order.filter((o) => o !== id)
+    const base = view.order ?? columns.map((c) => c.id)
+    const order = on ? (base.includes(id) ? base : [...base, id]) : base.filter((o) => o !== id)
     writeView({ order })
   }
 
@@ -259,9 +277,15 @@
     const taken = new Set(spec.views.map((v) => v.name))
     let name: string = names[type]
     for (let n = 2; taken.has(name); n++) name = `${names[type]} ${n}`
-    const order = view ? view.order : ['file.name']
+    // The new view pins columns only when the one it copies did; else its columns follow the notes too.
+    const order = view?.order ?? null
     const groupBy = type === 'kanban' ? firstProperty() : null
-    const next: NewView = { type, name, order, ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}) }
+    const next: NewView = {
+      type,
+      name,
+      ...(order ? { order } : {}),
+      ...(groupBy ? { groupBy: { property: groupBy, direction: 'asc' } } : {}),
+    }
     // The new view's index — the sequence's next slot — read before the file changes under the derived chain.
     const index = (spec.views.at(-1)?.index ?? -1) + 1
     const result = addView(doc.getText(), next)
@@ -271,6 +295,78 @@
       activeValue = String(index)
     }
   }
+
+  // ---- a view's own menu: rename, delete (QA round 1) ----
+  let viewMenuOpen = $state(false)
+  let renaming = $state.raw<ViewSpec | null>(null)
+  let renameDraft = $state('')
+  let deleting = $state.raw<ViewSpec | null>(null)
+
+  /** A right-click on a view tab: select it, then open its menu (anchored to the menu's button). */
+  function onTabContextMenu(e: MouseEvent): void {
+    const tab = (e.target as HTMLElement).closest<HTMLElement>('[role="tab"]')
+    const value = tab?.getAttribute('data-value')
+    if (!tab || value === null || value === undefined) return
+    e.preventDefault()
+    activeValue = value
+    viewMenuOpen = true
+  }
+
+  function openRename(): void {
+    if (!view) return
+    renameDraft = view.name
+    renaming = view
+  }
+
+  /**
+   * Names are unique within the file, compared as embeds compare them
+   * (`![[X.base#View]]` matches case-insensitively), so a rename never
+   * makes an embed ambiguous.
+   */
+  const renameError = $derived.by(() => {
+    if (!renaming) return null
+    const next = renameDraft.trim()
+    if (!next) return t.rename_empty()
+    const lower = next.toLowerCase()
+    if (spec.views.some((v) => v.index !== renaming!.index && v.name.toLowerCase() === lower)) return t.rename_taken({ name: next })
+    return null
+  })
+
+  function commitRename(): void {
+    const target = renaming
+    if (!target || renameError) return
+    const next = renameDraft.trim()
+    renaming = null
+    if (next === target.name) return
+    const doc = workspace.docForPath(path)
+    if (!doc) return
+    const result = patchView(doc.getText(), target.index, { name: next })
+    if (result.ok) {
+      replaceDocText(doc, result.text)
+      selfRevision++
+    }
+  }
+
+  /** Delete a view, then show its neighbour — the next one, else the one before; none left is the "no views" state. */
+  function confirmDelete(): void {
+    const target = deleting
+    deleting = null
+    const doc = workspace.docForPath(path)
+    if (!target || !doc) return
+    const at = spec.views.findIndex((v) => v.index === target.index)
+    const neighbour = spec.views[at + 1] ?? spec.views[at - 1] ?? null
+    const result = removeView(doc.getText(), target.index)
+    if (!result.ok) return
+    replaceDocText(doc, result.text)
+    selfRevision++
+    const after = neighbour ? parseCollection(result.text).views.find((v) => v.name === neighbour.name) : undefined
+    activeValue = String(after?.index ?? 0)
+  }
+
+  /** The grouping control's label: the property grouped by, else "No grouping". */
+  const groupLabel = $derived(
+    compiled?.groupBy ? (columns.find((c) => c.id === compiled!.groupBy!.id)?.label ?? compiled.groupBy.id) : t.group_none()
+  )
 
   /** A board grouped by a property can move its cards; one grouped by a file field cannot. */
   const movable = $derived(!!compiled?.groupBy && 'prop' in compiled.groupBy.key)
@@ -305,6 +401,10 @@
   let partlyOpen = $state(false)
   let knownKeys = $state.raw<string[]>([])
   const boardNeedsGroup = $derived(view?.type === 'kanban' && !compiled?.groupBy)
+  /** What a board could group by: the view's property columns first, then the index's known keys. */
+  const groupChoices = $derived([
+    ...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys]),
+  ])
   $effect(() => {
     if ((!columnsOpen && !boardNeedsGroup) || !shell) return
     let live = true
@@ -318,11 +418,18 @@
       live = false
     }
   })
+  /**
+   * The columns popover's choices, in two groups: what the notes on screen
+   * hold (and what the view already shows) first — so a view pinned to
+   * `file.name` alone still lists its notes' keys even when the index's key
+   * list is empty or long — then everything else the vault knows.
+   */
+  const shownIds = $derived(columns.map((c) => c.id))
   const columnChoices = $derived.by(() => {
-    const ids = new Set<string>(['file.name', 'file.folder', 'file.mtime', 'file.tags'])
-    for (const k of knownKeys) ids.add(k)
-    for (const o of view?.order ?? []) ids.add(o)
-    return [...ids]
+    const near = new Set<string>([...dynamicColumnIds(rows), ...shownIds])
+    const far = new Set<string>()
+    for (const k of [...knownKeys, 'file.folder', 'file.mtime', 'file.tags']) if (!near.has(k)) far.add(k)
+    return { near: [...near], far: [...far] }
   })
 
   /** A file field or an uncomputed column, as text. */
@@ -336,6 +443,9 @@
     'flex w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
   const headerText = 'block w-full truncate px-1.5 py-1 text-left text-[11px] font-semibold tracking-wide text-base-content/70 uppercase'
   const cellClass = 'border-b border-base-200 px-1 py-0.5 align-top'
+  /** The tab strip's icon-only menu buttons: the shell's small icon size (IconButton's sm box). */
+  const TOOL_ICON =
+    'inline-flex size-6 shrink-0 items-center justify-center rounded text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
 {#snippet body()}
@@ -346,20 +456,30 @@
       </p>
     {/if}
     {#if boardNeedsGroup}
-      <div class="m-4 text-sm" data-testid="board-needs-group">
-        {#if embedded}
-          <p>{t.board_needs_group()}</p>
-        {:else}
-          <label class="flex items-center gap-2">
-            <span>{t.board_needs_group()}</span>
-            <select class="dui-select dui-select-xs" data-testid="board-group-pick" value="" onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}>
-              <option value="">—</option>
-              {#each [...new Set([...columns.filter((c) => c.key && 'prop' in c.key).map((c) => c.id), ...knownKeys])] as id (id)}
-                <option value={id}>{id}</option>
+      <!-- A board with nothing to group by: an empty state, centred, whose
+           choices ARE the fix — one button per property, the view's own
+           columns first, then what else the vault knows. -->
+      <div class="flex h-full min-h-48 items-center justify-center p-6" data-testid="board-needs-group">
+        <div class="flex max-w-sm flex-col items-center gap-3 text-center">
+          <Kanban size={24} strokeWidth={1.5} aria-hidden="true" class="text-base-content/70" />
+          <h3 class="text-sm font-semibold text-base-content">{t.board_needs_group()}</h3>
+          {#if embedded}
+            <p class="text-xs text-base-content/70">{t.board_group_embedded()}</p>
+          {:else if groupChoices.length}
+            <ul class="flex flex-wrap justify-center gap-1.5" aria-label={t.board_group_choices()} data-testid="board-group-pick">
+              {#each groupChoices as id (id)}
+                <li>
+                  <button type="button" class="{OUTLINE_BUTTON} h-7 bg-base-100 px-2.5 text-xs text-base-content" data-testid="board-group-pick:{id}" onclick={() => onGroup(id)}>
+                    {labelFor(id, spec)}
+                  </button>
+                </li>
               {/each}
-            </select>
-          </label>
-        {/if}
+            </ul>
+            <p class="text-xs text-base-content/70">{t.board_group_hint()}</p>
+          {:else}
+            <p class="text-xs text-base-content/70" data-testid="board-group-none">{t.board_group_none()}</p>
+          {/if}
+        </div>
       </div>
     {:else if rows.length === 0}
       <p class="m-4 text-sm text-base-content/70" data-testid="collection-empty">{t.no_rows()}</p>
@@ -529,98 +649,181 @@
       {@render body()}
     </div>
   {:else}
-    <!-- The saved views as a tab list (one tab stop, arrows move), the verbs at the row's end. -->
-    <Tabs tabs={viewTabs} bind:value={activeValue} size="sm" label={t.views({ name })} testid="collection-views">
-      {#snippet end()}
-        <span class="px-1 text-xs text-base-content/70 whitespace-nowrap" data-testid="collection-count">
-          {compiled && compiled.limit !== null && total > rows.length ? t.count_of({ shown: rows.length, total }) : t.count({ count: rows.length })}
-        </span>
-        {#if compiled && !compiled.supported}
-          <button
-            type="button"
-            class="flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[11px] text-base-content focus-visible:outline-2 focus-visible:outline-primary"
-            aria-expanded={partlyOpen}
-            aria-controls="{uid}-partly"
-            data-testid="collection-partly"
-            onclick={() => (partlyOpen = !partlyOpen)}
-          >
-            <TriangleAlert aria-hidden="true" class="size-3" />
-            {t.partly()}
-          </button>
-        {/if}
-        <label class="flex items-center gap-1 text-xs text-base-content/70">
-          <Group aria-hidden="true" class="size-3.5" />
-          <span class="sr-only">{t.group_by()}</span>
-          <select
-            class="dui-select dui-select-xs max-w-32"
-            data-testid="collection-group"
-            value={compiled?.groupBy?.id ?? ''}
-            onchange={(e) => onGroup((e.currentTarget as HTMLSelectElement).value)}
-          >
-            <option value="">{t.group_none()}</option>
-            {#each columns as col (col.id)}
-              {#if col.key}
-                <option value={col.id}>{col.label}</option>
-              {/if}
-            {/each}
-          </select>
-        </label>
-        <DropdownMenu placement="bottom-end" testid="collection-add-view-menu">
-          {#snippet trigger(attrs)}
-            <button
-              use:melt={attrs}
-              type="button"
-              aria-label={t.add_view()}
-              data-testid="collection-add-view"
-              class="rounded p-1 text-base-content/70 hover:bg-base-300 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <LayoutGrid size={14} aria-hidden="true" />
-            </button>
-          {/snippet}
-          {#snippet children(attrs)}
-            <MenuItem item={attrs.item} testid="collection-add-view:table" onSelect={() => addNewView('table')}>{t.add_view_table()}</MenuItem>
-            <MenuItem item={attrs.item} testid="collection-add-view:kanban" onSelect={() => addNewView('kanban')}>{t.add_view_board()}</MenuItem>
-            <MenuItem item={attrs.item} testid="collection-add-view:list" onSelect={() => addNewView('list')}>{t.add_view_list()}</MenuItem>
-          {/snippet}
-        </DropdownMenu>
-        {#if view.type === 'table'}
-          <span bind:this={columnsAnchor}>
-            <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" onclick={() => (columnsOpen = !columnsOpen)} />
-          </span>
-        {/if}
-        <button
-          type="button"
-          class="{OUTLINE_BUTTON} flex items-center gap-1 px-2 py-0.5 text-xs"
-          data-testid="collection-new"
-          aria-label={targetDir ? t.new_row_in({ dir: targetDir }) : t.new_row()}
-          onclick={newRow}
-        >
-          <Plus aria-hidden="true" class="size-3.5" />
-          {t.new_row()}
-        </button>
-      {/snippet}
+    <!-- The saved views as a tab list (one tab stop, arrows move); right
+         after the last tab, the view's menu and "+" (outside the tablist, so
+         it holds tabs only); at the row's end, the readouts and the verbs —
+         clear of the dock's strip when it floats there (`--ed-dock-clear`).
+         A right-click on a tab selects it and opens its menu. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -- the pointer's
+         shortcut to the view menu, which the keyboard reaches as the button after the tabs -->
+    <div class="contents" oncontextmenu={onTabContextMenu}>
+      <Tabs tabs={viewTabs} bind:value={activeValue} size="sm" label={t.views({ name })} testid="collection-views" endInset="var(--ed-dock-clear, 0px)">
+        {#snippet after()}
+          <DropdownMenu placement="bottom-start" testid="collection-view-menu" bind:open={viewMenuOpen}>
+            {#snippet trigger(attrs)}
+              <button use:melt={attrs} type="button" aria-label={t.view_menu({ name: view.name })} data-testid="collection-view-menu-trigger" class={TOOL_ICON}>
+                <Ellipsis size={14} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            {/snippet}
+            {#snippet children(attrs)}
+              <MenuItem item={attrs.item} testid="collection-view-rename" onSelect={openRename}>{t.view_rename()}</MenuItem>
+              <MenuItem item={attrs.item} testid="collection-view-delete" danger onSelect={() => (deleting = view)}>{t.view_delete()}</MenuItem>
+            {/snippet}
+          </DropdownMenu>
+          <DropdownMenu placement="bottom-start" testid="collection-add-view-menu">
+            {#snippet trigger(attrs)}
+              <button use:melt={attrs} type="button" aria-label={t.add_view()} data-testid="collection-add-view" class={TOOL_ICON}>
+                <Plus size={14} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            {/snippet}
+            {#snippet children(attrs)}
+              <MenuItem item={attrs.item} testid="collection-add-view:table" onSelect={() => addNewView('table')}>{t.add_view_table()}</MenuItem>
+              <MenuItem item={attrs.item} testid="collection-add-view:kanban" onSelect={() => addNewView('kanban')}>{t.add_view_board()}</MenuItem>
+              <MenuItem item={attrs.item} testid="collection-add-view:list" onSelect={() => addNewView('list')}>{t.add_view_list()}</MenuItem>
+            {/snippet}
+          </DropdownMenu>
+        {/snippet}
 
-      {#snippet panel()}
-        {@render body()}
-      {/snippet}
-    </Tabs>
+        {#snippet end()}
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs whitespace-nowrap text-base-content/70" data-testid="collection-count">
+              {compiled && compiled.limit !== null && total > rows.length ? t.count_of({ shown: rows.length, total }) : t.count({ count: rows.length })}
+            </span>
+            {#if compiled && !compiled.supported}
+              <button
+                type="button"
+                class="flex h-6 items-center gap-1 rounded bg-warning/20 px-1.5 text-[11px] text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+                aria-expanded={partlyOpen}
+                aria-controls="{uid}-partly"
+                data-testid="collection-partly"
+                onclick={() => (partlyOpen = !partlyOpen)}
+              >
+                <TriangleAlert aria-hidden="true" class="size-3" />
+                {t.partly()}
+              </button>
+            {/if}
+            <DropdownMenu placement="bottom-end" testid="collection-group-menu">
+              {#snippet trigger(attrs)}
+                <button
+                  use:melt={attrs}
+                  type="button"
+                  aria-label={t.group_menu({ name: groupLabel })}
+                  data-testid="collection-group"
+                  class="flex h-6 max-w-40 items-center gap-1 rounded px-1.5 text-xs text-base-content/70 hover:bg-base-200 hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <Group size={14} strokeWidth={1.75} aria-hidden="true" class="shrink-0" />
+                  <span class="truncate">{groupLabel}</span>
+                  <ChevronDown size={12} aria-hidden="true" class="shrink-0" />
+                </button>
+              {/snippet}
+              {#snippet children(attrs)}
+                <MenuItem item={attrs.item} testid="collection-group:none" checked={!compiled?.groupBy} onSelect={() => onGroup('')}>{t.group_none()}</MenuItem>
+                {#each columns as col (col.id)}
+                  {#if col.key}
+                    <MenuItem item={attrs.item} testid="collection-group:{col.id}" checked={compiled?.groupBy?.id === col.id} onSelect={() => onGroup(col.id)}>{col.label}</MenuItem>
+                  {/if}
+                {/each}
+              {/snippet}
+            </DropdownMenu>
+            {#if view.type === 'table'}
+              <span bind:this={columnsAnchor} class="flex">
+                <IconButton label={t.columns()} icon={Columns3} testid="collection-columns" aria-expanded={columnsOpen} onclick={() => (columnsOpen = !columnsOpen)} />
+              </span>
+            {/if}
+            <button
+              type="button"
+              class="{OUTLINE_BUTTON} flex h-6 items-center gap-1 px-2 text-xs"
+              data-testid="collection-new"
+              aria-label={targetDir ? t.new_row_in({ dir: targetDir }) : t.new_row()}
+              onclick={newRow}
+            >
+              <Plus aria-hidden="true" class="size-3.5" />
+              {t.new_row()}
+            </button>
+          </div>
+        {/snippet}
+
+        {#snippet panel()}
+          {@render body()}
+        {/snippet}
+      </Tabs>
+    </div>
+
+    {#if renaming}
+      <Dialog title={t.rename_title({ name: renaming.name })} description={t.rename_hint()} width="sm" align="top" testid="collection-rename" openFocus="[data-testid='collection-rename-input']" onClose={() => (renaming = null)}>
+        <form
+          onsubmit={(e) => {
+            e.preventDefault()
+            commitRename()
+          }}
+        >
+          <label class="block">
+            <span class="text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.rename_label()}</span>
+            <input
+              bind:value={renameDraft}
+              data-testid="collection-rename-input"
+              aria-invalid={renameError ? 'true' : undefined}
+              aria-describedby={renameError ? `${uid}-rename-error` : undefined}
+              class="mt-1 w-full rounded border border-base-300 bg-base-100 px-3 py-2 text-sm text-base-content focus:border-primary focus:outline-none"
+            />
+          </label>
+          {#if renameError}
+            <p id="{uid}-rename-error" class="mt-1 text-xs text-error" data-testid="collection-rename-error">{renameError}</p>
+          {/if}
+          <div class="mt-4 flex justify-end gap-2">
+            <button type="button" data-testid="collection-rename-cancel" onclick={() => (renaming = null)} class="{OUTLINE_BUTTON} px-3 py-1.5 text-sm text-base-content/70">
+              {$LL.common.cancel()}
+            </button>
+            <button
+              type="submit"
+              data-testid="collection-rename-confirm"
+              disabled={!!renameError}
+              class="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-content hover:bg-primary/90 disabled:opacity-50"
+            >
+              {t.rename_confirm()}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    {/if}
+
+    {#if deleting}
+      <ConfirmDialog
+        title={t.delete_title({ name: deleting.name })}
+        body={t.delete_body()}
+        confirmLabel={t.delete_confirm()}
+        danger
+        testid="collection-delete"
+        onConfirm={confirmDelete}
+        onCancel={() => (deleting = null)}
+      />
+    {/if}
 
     {#if columnsOpen}
       <Popover anchor={columnsAnchor} title={t.columns_title({ view: view.name })} testid="collection-columns-popover" onClose={() => (columnsOpen = false)}>
         <div class="flex max-h-72 flex-col gap-1 overflow-y-auto p-2 text-xs">
-          {#each columnChoices as id (id)}
-            <label class="flex items-center gap-2">
+          {#snippet choice(id: string)}
+            <label class="flex items-center gap-2 py-0.5">
               <input
                 type="checkbox"
                 class="dui-checkbox dui-checkbox-xs"
-                checked={view.order.includes(id)}
+                checked={shownIds.includes(id)}
                 data-testid="collection-column:{id}"
                 onchange={(e) => toggleColumn(id, (e.currentTarget as HTMLInputElement).checked)}
               />
               <span class="sr-only">{t.column_label({ name: id })}</span>
               <span aria-hidden="true">{id}</span>
             </label>
-          {/each}
+          {/snippet}
+          <p class="text-[11px] font-semibold tracking-wide text-base-content/70 uppercase" data-testid="collection-columns-near">{t.columns_in_notes()}</p>
+          {#each columnChoices.near as id (id)}{@render choice(id)}{/each}
+          {#if columnChoices.far.length}
+            <p class="mt-2 text-[11px] font-semibold tracking-wide text-base-content/70 uppercase" data-testid="collection-columns-far">{t.columns_other()}</p>
+            {#each columnChoices.far as id (id)}{@render choice(id)}{/each}
+          {/if}
+          {#if !view.order}
+            <p class="mt-2 text-[11px] text-base-content/70" data-testid="collection-columns-dynamic">{t.columns_dynamic()}</p>
+          {/if}
         </div>
       </Popover>
     {/if}

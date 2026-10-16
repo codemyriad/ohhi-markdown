@@ -1,40 +1,28 @@
 <script lang="ts">
   /**
-   * Settings › AI: the one AI surface that exists at rest — it is where a
-   * provider is added. The egress sentence sits above the sub-tabs:
-   * Providers always, Skills only once a provider exists (with none, nothing
-   * can run a skill, and importing one is an AI act like any other).
+   * Settings › AI as one page (QA round 1, QA3; Fork 11): no sub-tabs. The
+   * egress sentence is the section's lede (`Settings.svelte` draws it); then
+   * three groups, each an eyebrow with its actions on the same baseline:
+   *
+   *  1. Providers — one row per provider, the per-provider egress line under it;
+   *  2. Skills in this vault — only once a provider exists, as the Skills tab
+   *     was: with none, nothing can run a skill, and importing one is an AI
+   *     act like any other (the quiet default);
+   *  3. Outside agents — Claude Code, an MCP client or a terminal working on
+   *     the vault with `ohhi` (Settings › Agents until QA round 1), which needs
+   *     no provider and so is always here.
    */
-  import { LL } from '@ohhi/i18n/i18n-svelte'
   import { aiEnabled } from '../ai-config.svelte.js'
-  import Tabs from '../ui/Tabs.svelte'
+  import { GROUP } from '../ui/styles.js'
+  import AgentSettings from './AgentSettings.svelte'
   import ProvidersSettings from './ProvidersSettings.svelte'
   import SkillsSettings from './SkillsSettings.svelte'
-
-  const t = $derived($LL.web.ai.settings)
-  const TABS = $derived(
-    (aiEnabled() ? (['providers', 'skills'] as const) : (['providers'] as const)).map((value) => ({
-      value,
-      label: t.tabs[value](),
-      testid: `ai-settings-tab:${value}`,
-    }))
-  )
-  let chosen = $state<string>('providers')
-  // The last provider removed while on Skills: back to Providers.
-  const tab = $derived(TABS.some((x) => x.value === chosen) ? chosen : 'providers')
 </script>
 
-<div data-testid="ai-settings" class="space-y-3">
-  <p data-testid="ai-settings-egress" class="m-0 text-sm text-base-content/80">{t.egress()}</p>
-  <Tabs tabs={TABS} bind:value={() => tab, (v) => (chosen = v)} label={t.sections()} testid="ai-settings-tabs">
-    {#snippet panel(id)}
-      <div class="pt-3">
-        {#if id === 'providers'}
-          <ProvidersSettings />
-        {:else if id === 'skills'}
-          <SkillsSettings />
-        {/if}
-      </div>
-    {/snippet}
-  </Tabs>
+<div data-testid="ai-settings">
+  <ProvidersSettings />
+  {#if aiEnabled()}
+    <div class={GROUP}><SkillsSettings /></div>
+  {/if}
+  <div class={GROUP}><AgentSettings /></div>
 </div>

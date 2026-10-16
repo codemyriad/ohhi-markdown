@@ -5,10 +5,11 @@
    * renames the file — through `file-actions.renameNote`, so the checks, the
    * refusal wording and the journaled rename are the tree's own.
    *
-   * It lives OUTSIDE CodeMirror: the pane mounts it into the view's scroller,
-   * just before the content (`Pane.svelte`), so it scrolls with the note but
-   * is never part of the document, the selection or the undo stack — the
-   * editor's focus handling and the tab's resume point never see it.
+   * It lives OUTSIDE CodeMirror: the pane mounts it into the view's scroller
+   * as its first child, above the gutters and the content (`Pane.svelte`), so
+   * it scrolls with the note but is never part of the document, the
+   * selection or the undo stack — the editor's focus handling and the tab's
+   * resume point never see it.
    *
    * A real `<input>` inside an `<h1>` — no `contenteditable` — so it reads as
    * a heading named by the note's title and edits as a text field.
@@ -114,12 +115,14 @@
 </h1>
 
 <style>
-  /* The pane puts the title's host into CM6's scroller (a flex row) just
-     before `.cm-content`: wrapping gives it a row of its own above the text. */
+  /* The pane puts the title's host into CM6's scroller (a flex row) as its
+     first child: wrapping gives it a row of its own above the gutters and
+     the text. `order` keeps it first should CM6 ever put a node ahead of it. */
   :global(.cm-scroller.ed-titled) {
     flex-wrap: wrap;
   }
   :global(.ed-inline-title) {
+    order: -1;
     flex: 0 0 100%;
     min-width: 0;
   }

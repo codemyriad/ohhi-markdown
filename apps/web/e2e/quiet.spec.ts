@@ -97,6 +97,65 @@ test.describe('toolbar and focus', () => {
     await expect(paneContent(page)).toBeFocused()
   })
 
+  test('the format bar’s buttons say their command and key in a tooltip on hover', async ({ page }) => {
+    // Chris, 2026-10-15: "Formatting options should have a little tooltip if I hover them."
+    await boot(page, 'quiet-format-tip')
+    await openByQuickOpen(page, 'welcome')
+    const bold = formatBar(page).getByTestId('toolbar:format.bold')
+    await expect(bold).toHaveAccessibleName('Bold')
+    await expect(bold).not.toHaveAttribute('title')
+    await bold.hover()
+    await expect(page.getByRole('tooltip')).toHaveText('Bold · Ctrl+B')
+    await expect(page.getByRole('tooltip')).toBeVisible()
+  })
+
+  test('the doors to a comment: the format bar’s button and the Comments panel’s run note.comment', async ({ page }) => {
+    const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
+    const selectLine = async (): Promise<void> => {
+      await paneContent(page).getByText(LINE).click()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('Shift+End')
+    }
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await boot(page, 'quiet-comment-doors')
+    await openByQuickOpen(page, 'welcome')
+    // QA round 1: last on the default bar, after its own separator.
+    const button = formatBar(page).getByTestId('toolbar:note.comment')
+    await expect(button).toBeEnabled()
+    await expect(button).toHaveAccessibleName(/Comment on selection/)
+
+    // A bare caret: the panel's door says what the key says.
+    await paneContent(page).getByText(LINE).click()
+    await page.getByTestId('rail-icon:comments').click()
+    const list = page.getByTestId('thread-list')
+    await expect(list.getByTestId('thread-how')).toContainText('use the comment button on the formatting bar')
+    const door = list.getByTestId('thread-comment')
+    await expect(door).toHaveText('Comment on selection')
+    await door.click()
+    await expect(page.getByText('Select the text to comment on first.')).toBeVisible()
+    const bubble = page.getByTestId('comment-bubble')
+    await expect(bubble).toHaveCount(0)
+
+    // A selection: the panel's door opens the new-comment bubble…
+    await selectLine()
+    await door.click()
+    await expect(bubble).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(bubble).toHaveCount(0)
+
+    // …and so does the bar's button.
+    await selectLine()
+    await button.click()
+    await expect(bubble).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Settings › Layout's formatting-bar picker lists it among the bar's buttons, by name.
+    await openSettings(page, 'layout')
+    await expect(page.getByTestId('format-bar-shown').getByTestId('format-bar-pill:note.comment')).toHaveText(
+      'Comment on selection'
+    )
+  })
+
   test('the format bar floats over the editor, bottom centre, with the corner on its row — and never covers the last line', async ({
     page,
   }) => {
@@ -139,10 +198,15 @@ test.describe('toolbar and focus', () => {
     expect(last.y + last.height).toBeLessThanOrEqual(barNow.y)
   })
 
-  test('at a narrow width the format bar folds into one Format menu', async ({ page }) => {
-    await page.setViewportSize({ width: 400, height: 720 })
+  test('in a narrow split pane on a wide screen the format bar folds into one Format menu', async ({ page }) => {
+    // A window above the small-screen breakpoint (40rem): the fold follows the
+    // PANE's width. Below it the bar scrolls instead (small-screen.spec.ts).
+    await page.setViewportSize({ width: 900, height: 720 })
     await boot(page, 'quiet-narrow')
     await openByQuickOpen(page, 'welcome')
+    await expect(formatBar(page).getByTestId('toolbar:format.bold')).toBeVisible()
+    await paneContent(page).click()
+    await splitRight(page)
     await expect(formatBar(page).getByTestId('toolbar:format.bold')).toBeHidden()
     await formatBar(page).getByTestId('toolbar-format-menu').click()
     const list = page.getByTestId('toolbar-format-menu-list')
@@ -304,7 +368,7 @@ test.describe('toolbar and focus', () => {
     await expect(toolbar(page).getByTestId('nav:back')).toBeVisible()
     await expect(toolbar(page).getByTestId('nav:forward')).toBeVisible()
     await expect(toolbar(page).getByTestId('drawer-bell')).toBeVisible()
-    // Narrow: the folded bar shifts over so the corner keeps its row — never on it.
+    // Small screen: the scrolling bar fills the row and the count is a chip at its right end — never on it.
     const fmt = (await page.getByTestId('format-bar').boundingBox())!
     const cnr = (await corner(page).boundingBox())!
     expect(cnr.y + cnr.height <= fmt.y || cnr.x >= fmt.x + fmt.width).toBe(true)
@@ -335,6 +399,87 @@ test.describe('toolbar and focus', () => {
     await toolbar(page).getByTestId('nav:back').click()
     await expect(title).toHaveText(LONG)
     await expect(toolbar(page).getByTestId('nav:forward')).toBeEnabled()
+  })
+})
+
+/**
+ * The selection handle (selection explorations, shape B as Chris chose it,
+ * 2026-10-15): a small pill at the end of a settled selection — *Comment*,
+ * and *Ask* once a provider exists (`harness.spec.ts`). Formatting stays on
+ * the format bar, whose buttons say their key in a tooltip.
+ */
+test.describe('the selection handle', () => {
+  const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
+  const handle = (page: Page) => page.getByTestId('selection-handle')
+
+  async function boot(page: Page, room: string): Promise<void> {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.goto(appUrl({ room, layout: null }))
+    await expect(page.getByRole('toolbar', { name: 'Note toolbar' })).toBeVisible({ timeout: 15_000 })
+    await openByQuickOpen(page, 'welcome')
+    await expect(paneContent(page)).toContainText(LINE)
+  }
+
+  /** The selected text's boxes on screen (the DOM selection CodeMirror keeps in step). */
+  const selectionRects = (page: Page) =>
+    page.evaluate(() => {
+      const sel = document.getSelection()
+      if (!sel || sel.rangeCount === 0) return []
+      return [...sel.getRangeAt(0).getClientRects()].map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }))
+    })
+
+  test('settles at the selection’s end with Comment alone (no provider), never over the words; Comment opens the bubble', async ({ page }) => {
+    await boot(page, 'quiet-handle')
+    await paneContent(page).getByText(LINE).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('Shift+End')
+    await expect(handle(page)).toBeVisible()
+    // Comment, and nothing AI-shaped without a provider.
+    await expect(handle(page).getByRole('button')).toHaveText(['Comment'])
+    await expect(handle(page).getByTestId('selection-handle:ai.ask-selection')).toHaveCount(0)
+    // At the end: right of (or below) the last selected box, overlapping none of them.
+    const box = (await handle(page).boundingBox())!
+    const rects = await selectionRects(page)
+    expect(rects.length).toBeGreaterThan(0)
+    const last = rects[rects.length - 1]!
+    expect(box.x >= last.right - 1 || box.y >= last.bottom - 1).toBe(true)
+    for (const r of rects) {
+      const overlaps = box.x < r.right && r.left < box.x + box.width && box.y < r.bottom && r.top < box.y + box.height
+      expect(overlaps).toBe(false)
+    }
+    // Its tooltip names the command and its key.
+    await handle(page).getByRole('button', { name: 'Comment' }).hover()
+    await expect(page.getByRole('tooltip')).toHaveText('Comment on selection · Ctrl+Shift+M')
+    await expectAccessible(page, 'the selection handle')
+    // Comment: the new-comment bubble, as the key does.
+    await handle(page).getByRole('button', { name: 'Comment' }).click()
+    await expect(page.getByTestId('comment-bubble')).toBeVisible()
+  })
+
+  test('hides on typing and on Escape, and never shows during a drag', async ({ page }) => {
+    await boot(page, 'quiet-handle-hide')
+    await paneContent(page).getByText(LINE).click()
+    await page.keyboard.press('End')
+    for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowLeft')
+    await expect(handle(page)).toBeVisible()
+    // Escape: down, the selection kept.
+    await page.keyboard.press('Escape')
+    await expect(handle(page)).toHaveCount(0)
+    // A new selection brings it back; typing over it takes it down.
+    await page.keyboard.press('Shift+ArrowLeft')
+    await expect(handle(page)).toBeVisible()
+    await page.keyboard.type('x')
+    await expect(handle(page)).toHaveCount(0)
+    // A drag: nothing while the button is down, then the handle once it is released.
+    const text = (await paneContent(page).getByText('CRDT and syncs').boundingBox())!
+    await page.mouse.move(text.x + 4, text.y + text.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(text.x + 80, text.y + text.height / 2, { steps: 4 })
+    await page.mouse.move(text.x + 160, text.y + text.height / 2, { steps: 4 })
+    await page.waitForTimeout(600)
+    await expect(handle(page)).toHaveCount(0)
+    await page.mouse.up()
+    await expect(handle(page)).toBeVisible()
   })
 })
 

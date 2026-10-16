@@ -9,14 +9,25 @@
    * It holds nothing that must outlive it: the transcript is the run
    * registry's `Chat` and the turn is the registry's run
    * (`sessions.svelte.ts`), so closing the tab mid-run leaves the run going
-   * and reopening the session shows it still streaming. With no messages the
-   * body lists the vault's recent sessions.
+   * and reopening the session shows it still streaming.
+   *
+   * With no messages it is the session's FIRST SCREEN (QA round 1,
+   * Explorations S1): bottom-anchored over the composer — which keeps its
+   * place and takes the keyboard — the starts (ask about the note you came
+   * from, summarise it, run a skill, continue the last session), the recent
+   * sessions as a list (title, the note it was about, when, the provider),
+   * and, on a vault's very first session only, the egress sentence: where
+   * the words will go.
    */
   import type { UIMessage } from 'ai'
+  import { untrack } from 'svelte'
   import type { Chat } from '@ai-sdk/svelte'
   import { anySelection } from '../focused-editor.svelte.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import type { Mention } from '@ohhi/harness'
+  import { providerHost, type Mention } from '@ohhi/harness'
+  import { AtSign, FileText, History, Slash } from '@lucide/svelte'
+  import type { SessionSummary } from '../session-store.js'
+  import { mentionOf } from '../references.js'
   import type { Clock } from '@ohhi/vault'
   import { providerView } from '../config.js'
   import { aiConfig, aiEnabled } from '../ai-config.svelte.js'
@@ -43,12 +54,14 @@
     skillSource,
     startRun,
     stopRun,
+    takeComposerFocus,
     takeMentions,
   } from '../sessions.svelte.js'
   import { getViewShell, shellClock, type ViewProps } from '../views.js'
   import SessionComposer, { type ComposerSend } from './SessionComposer.svelte'
   import SessionHeader from './SessionHeader.svelte'
   import SessionTranscript from './SessionTranscript.svelte'
+  import { EYEBROW, META, MUTED } from '../ui/styles.js'
 
   interface Props extends ViewProps {
     /** Injected for the tests; the shell's clock otherwise. */
@@ -127,6 +140,52 @@
     skills: () => skillSource().list(),
   }
 
+  /** Mentions a start hands the composer (*Ask about…*), beside the ones commands queue. */
+  let startMentions = $state<Mention[]>([])
+  let composerRef = $state<{ begin(text: string): void } | null>(null)
+  /**
+   * The composer takes the keyboard only when a person just opened this
+   * session (`requestComposerFocus` — a door, a key, a palette row, a
+   * start): on mount, or later while already mounted (switched to). A tab
+   * restored at startup, or a re-render, leaves the keyboard where it is.
+   */
+  // svelte-ignore state_referenced_locally -- read once, at mount
+  const focusOnMount = untrack(() => takeComposerFocus(sessionId))
+  $effect(() => {
+    if (!harness.focusComposer || !composerRef) return
+    const ref = composerRef
+    if (untrack(() => takeComposerFocus(sessionId))) ref.begin('')
+  })
+  const noteName = $derived(lastNote ? (lastNote.split('/').pop() ?? lastNote) : '')
+  const noteMention = (): Mention | null => (lastNote ? mentionOf({ kind: 'file', path: lastNote }) : null)
+
+  /** *Ask about ‹note›*: the note as a chip in the composer, the keyboard there. */
+  function askAbout(): void {
+    const m = noteMention()
+    if (m) startMentions = [...startMentions, m]
+  }
+
+  /** *Summarise ‹note›*: a turn of its own, with the note as its reference. */
+  function summarise(): void {
+    const m = noteMention()
+    if (m) void send({ text: t.starts.summarise_prompt(), refs: [m] })
+  }
+
+  /** The note a session was about: its last run's references — one note by name, several by count. */
+  function aboutOf(s: SessionSummary): string {
+    const paths = [...new Set((s.lastRun?.input.refs ?? []).map((r) => r.ref.path))]
+    if (paths.length === 0) return ''
+    return paths.length === 1 ? (paths[0].split('/').pop() ?? paths[0]) : t.recent_notes({ count: paths.length })
+  }
+  const providerName = (id: string | undefined): string => (id ? (providers.find((p) => p.id === id)?.name ?? id) : '')
+
+  /** The vault's first session: no other, nothing said yet — the one place the egress sentence is said. */
+  const firstEver = $derived(harness.list.every((s) => s.id === sessionId))
+  const egress = $derived.by(() => {
+    const p = providers.find((x) => x.id === providerId)
+    return p ? $LL.web.ai.providers.egress({ name: p.name, host: providerHost(p) }) : ''
+  })
+
   async function captureLines(): Promise<Mention | null> {
     const sel = anySelection()
     return sel ? captureNoteSelection(sel) : null
@@ -154,6 +213,15 @@
 
   const incoming = $derived(harness.inbox[sessionId] ?? [])
   const lastAt = (at: number): string => relativeTime(at, $tick, $LL)
+  /**
+   * The first screen's rhythm (QA round 1, "empty space feels off"): the
+   * settings' 8 px grid — an eyebrow with 16 px above the first and 24 px
+   * above the next, 8 px under it — and quiet list rows, no boxes: a hover
+   * tint, a muted icon, the label, the time at the right in META.
+   */
+  const eyebrow = `m-0 mb-2 px-2 ${EYEBROW}`
+  const listRow =
+    'flex w-full min-h-8 items-center gap-2 rounded px-2 py-1 text-left text-[13px] text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
 <section
@@ -169,7 +237,7 @@
         <button
           type="button"
           class="rounded border border-base-300 px-2 py-1 text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
-          onclick={() => shell.openSettings()}>{t.open_settings()}</button
+          onclick={() => shell.openSettings('ai')}>{t.open_settings()}</button
         >
       {/if}
     </div>
@@ -179,10 +247,7 @@
       {title}
       {run}
       sessions={harness.list}
-      {providers}
-      {providerId}
       {clock}
-      onProvider={(id) => (chosenProvider = id)}
       onRename={(next) => void renameSession(sessionId, next)}
       onNew={() => openSession(newSessionId())}
       onPick={(id) => openSession(id)}
@@ -190,29 +255,76 @@
       onStop={() => stopRun(sessionId)}
       onRetry={() => void retry()}
     />
-    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 {messages.length === 0 ? 'pt-4 pb-3' : 'py-3'}">
       {#if messages.length === 0}
-        <div data-testid="session-empty" class="flex flex-col gap-3">
-          <p class="m-0 text-base-content/80">{t.empty()}</p>
+        <!-- The first screen (S1): from the top, under the header; the composer stays at the foot. -->
+        <div data-testid="session-empty" class="flex flex-col">
+          <section aria-labelledby="{tab.id}-starts" class="flex flex-col">
+            <h2 id="{tab.id}-starts" class={eyebrow}>{t.starts.title()}</h2>
+            <ul class="m-0 flex list-none flex-col p-0" data-testid="session-starts">
+              {#if lastNote}
+                <li>
+                  <button type="button" class={listRow} data-testid="session-start-ask" onclick={askAbout}>
+                    <AtSign size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
+                    <span class="min-w-0 truncate">{t.starts.ask({ note: noteName })}</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class={listRow} data-testid="session-start-summarise" disabled={busy} onclick={summarise}>
+                    <FileText size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
+                    <span class="min-w-0 truncate">{t.starts.summarise({ note: noteName })}</span>
+                  </button>
+                </li>
+              {/if}
+              <li>
+                <button type="button" class={listRow} data-testid="session-start-skill" onclick={() => composerRef?.begin('/')}>
+                  <Slash size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
+                  <span class="min-w-0 truncate">{t.starts.skill()}</span>
+                </button>
+              </li>
+              {#if others.length}
+                <li>
+                  <button type="button" class={listRow} data-testid="session-start-continue" onclick={() => openSession(others[0].id)}>
+                    <History size={14} class="shrink-0 {MUTED}" aria-hidden="true" />
+                    <span class="min-w-0 truncate">{t.starts.continue({ title: others[0].title ?? t.untitled() })}</span>
+                    <span class="ml-auto shrink-0 {META}">{lastAt(others[0].lastAt)}</span>
+                  </button>
+                </li>
+              {/if}
+            </ul>
+          </section>
           {#if others.length}
-            <div>
-              <h3 class="m-0 mb-1 text-[11px] font-semibold tracking-wide text-base-content/70 uppercase">{t.recent()}</h3>
-              <ul class="m-0 flex list-none flex-col gap-0.5 p-0" data-testid="session-recent">
+            <section aria-labelledby="{tab.id}-recent" class="mt-6 flex flex-col">
+              <h2 id="{tab.id}-recent" class={eyebrow}>{t.recent()}</h2>
+              <ul class="m-0 flex list-none flex-col p-0" data-testid="session-recent">
                 {#each others.slice(0, 8) as s (s.id)}
+                  {@const about = aboutOf(s)}
+                  {@const via = providerName(s.provider)}
                   <li>
                     <button
                       type="button"
                       data-testid="session-recent:{s.id}"
-                      class="flex w-full items-baseline gap-2 rounded px-2 py-1 text-left hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+                      class="{listRow} flex-col items-stretch gap-0"
                       onclick={() => openSession(s.id)}
                     >
-                      <span class="min-w-0 flex-1 truncate">{s.title ?? t.untitled()}</span>
-                      <span class="shrink-0 text-[11px] text-base-content/70">{lastAt(s.lastAt)}</span>
+                      <span class="flex w-full items-baseline gap-2">
+                        <span class="min-w-0 flex-1 truncate">{s.title ?? t.untitled()}</span>
+                        <span class="shrink-0 {META}">{lastAt(s.lastAt)}</span>
+                      </span>
+                      {#if about || via}
+                        <span class="flex min-w-0 gap-2 {META}">
+                          {#if about}<span class="min-w-0 truncate font-ed-mono">{about}</span>{/if}
+                          {#if via}<span class="shrink-0">{via}</span>{/if}
+                        </span>
+                      {/if}
                     </button>
                   </li>
                 {/each}
               </ul>
-            </div>
+            </section>
+          {/if}
+          {#if firstEver && egress}
+            <p class="m-0 mt-6 px-2 text-xs text-base-content/80" data-testid="session-egress">{egress}</p>
           {/if}
         </div>
       {:else}
@@ -223,12 +335,21 @@
       {/if}
     </div>
     <SessionComposer
+      bind:this={composerRef}
       {sessionId}
       {busy}
       {sources}
       {captureLines}
-      {incoming}
-      onTaken={() => takeMentions(sessionId)}
+      incoming={[...incoming, ...startMentions]}
+      {providers}
+      {providerId}
+      onProvider={(id) => (chosenProvider = id)}
+      onManageProviders={shell ? () => shell.openSettings('ai') : undefined}
+      autofocus={focusOnMount}
+      onTaken={() => {
+        takeMentions(sessionId)
+        startMentions = []
+      }}
       checkChanged={changedMentions}
       onSend={send}
     />

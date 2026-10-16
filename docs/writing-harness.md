@@ -68,9 +68,39 @@ The terminal's providers (`ohhi ask`) live in `~/.config/ohhi/providers.json`
 
 ## 3. Sessions, references and `@`
 
-A **session** is a conversation with the agent, opened as a view tab
-(`app.session`; *New AI session* in the palette; `Mod+Shift+L` adds the
-selection to the current session, starting one if there is none). The composer
+A **session** is a conversation with the agent, opened as a view tab. Its
+doors: the speech-bubble icon on the toolbar (the `session` readout, drawn
+only once a provider exists), *Open AI session* and *New AI session* in the
+palette (`app.session`, `ai.new-session`), and `Mod+Shift+L`, which opens the
+current session — starting one if there is none — carrying the selection
+along as a reference when there is one. A selection has its own door: the **selection
+handle**, a small pill at the end of a settled selection, offers *Comment*
+and — once a provider exists — *Ask* (`ai.ask-selection`, the layout's
+`bars.selection`). *Ask* opens the current session (or a new one) beside the
+note with the selection as a line-range chip and the composer focused; it
+sends nothing, the question is yours to type. It is `Mod+Shift+L`'s gesture
+made visible, and it requires a selection (from the palette, without one, it
+says to select some text). The handle never appears over a proposal.
+A session opens **beside** the note it
+was opened from, never over it: to the right while both halves keep 40rem,
+below in a narrower pane; a second open goes to the pane already there rather
+than splitting again, and *Open* on a session card brings the note back where
+it already is.
+
+**The first screen.** A session with nothing said yet is anchored to the
+bottom, over the composer, which keeps its place and takes the keyboard:
+*Start* — *Ask about ‹note›* (the note you came from, as a chip in the
+composer), *Summarise ‹note›* (a turn of its own with the note as its
+reference), *Run a skill…* (types the `/` that opens the skills) and
+*Continue ‹last session›* — then the recent sessions as a list: the title,
+the note it was about, when, and the provider. On a vault's very first
+session it also says where the words go ("Text you reference is sent to
+‹provider› at ‹host›"); after that, Settings › AI says it. The provider the
+next run goes to is a picker at the composer's foot (with *Manage
+providers…*), not a header readout — re-resolved from settings every run,
+it only chooses which.
+
+The composer
 takes plain text plus **references**: type `@` for a menu of notes, folders and
 headings, or hand it a selection. Each reference is a chip and resolves to one
 of four kinds — a note, a folder (named only), a section (`path#Heading`), or a
@@ -103,10 +133,30 @@ beside the text (`{ range, baseText, proposedText, status }`), drawn in the
 note as the struck text and the inserted proposal, never bytes in the file.
 The model is told it proposed (`ohhi.proposal.v1`), not that it wrote.
 
-- **Accept** (`Mod+Enter` in the suggestion, or *Accept suggestion* /
-  *Accept all suggestions*) applies it in one transaction carrying the run's
-  agent origin. **Reject** (`Mod+Backspace`) drops it; the text is never
-  touched.
+- **Accept** (`Mod+Enter` with the caret in the suggestion, or *Accept
+  suggestion* / *Accept all suggestions*) applies it in one transaction
+  carrying the run's agent origin. **Reject** (`Mod+Backspace`) drops it; the
+  text is never touched. The two keys are the editor's while the caret is in
+  a suggestion and CodeMirror's own otherwise (`Mod+Enter` inserts a blank
+  line), and Settings › Keys lists them on the two rows.
+- **On the screen** (QA round 1): the *current* proposal — the one under
+  the caret, else the next after it, else the first — carries an *Accept* /
+  *Reject* pair right after it, its keys as hints (any other proposal shows
+  its pair while the pointer is over it; a stale one offers *Reject* only).
+  Each proposal has a mark in the gutter — a dot, numbered when the note
+  holds several — that moves the caret to it. *Next suggestion* / *Previous
+  suggestion* (`ai.next-suggestion`, `ai.previous-suggestion`, unbound by
+  default) step the caret through them from the palette.
+- **From the session**: a proposal's card shows the change as a diff and its
+  status read from the same record (pending · changed since proposed ·
+  applied · no longer proposed), with *Accept*, *Reject* and *Show in note*.
+  Every one of them brings the proposal into view in its note first (the
+  note where it is, else opened beside the session; the note scrolls to it);
+  *Show in note* also moves the keyboard there, so `Mod+Enter` works at once.
+- **One path.** The pair, the card, the keys and the palette all run the same
+  registry commands (`ai.accept-suggestion`, `ai.reject-suggestion`) on the
+  same suggestion record: a button and a key cannot disagree. A rejected
+  suggestion's record is dropped, so its card says "no longer proposed".
 - The range is pinned with Yjs relative positions, so it follows every edit
   around it. If anyone changes the text **inside** it before it is accepted, it
   turns **stale** and can no longer be applied — a proposal never reverts what
@@ -154,15 +204,30 @@ A never-shared note has no awareness and shows nothing.
 
 ## 6. Comments, and *Send to agent*
 
-`Mod+Shift+M` (*Comment on selection*) opens a thread on the selected text.
+*Comment on selection* (`note.comment`, `Mod+Shift+M`) opens a thread on the
+selected text; a bare caret inside a commented passage opens that thread, and
+with nothing selected it says to select the text first. The command has three
+doors, all the same registry command: the key, the comment button at the end
+of the default format bar (`bars.format` ends `"|", "note.comment"`; it is
+pressable whenever a note is open, Reading included, and Settings › Layout's
+formatting-bar picker can take it off), and the *Comment on selection* button
+at the top of the dock's **Comments** tab. That tab lists the note's threads
+behind an *Open n · Resolved n · All* segmented filter; its empty state names
+the key in force and the bar button, and *Export as CriticMarkup* shows only
+while there are open threads.
 Threads live in the note's Y.Doc (`comments`) and are materialised to
 `.ohhi/comments/<guid>.json`; they can be exported as CriticMarkup for review
 elsewhere. Comments are not edits: writing, replying to or resolving one
 changes no byte of the note and logs no `doc.changed`.
 
-With a provider, a comment can be **sent to the agent**: it starts a run in the
-note's session with the thread's passage as a line-range reference and the
-comment as the instruction. A question gets a reply in the thread; a requested
+With a provider, a comment can be **sent to the agent**: it starts a run with
+the thread's passage as a line-range reference and the comment as the
+instruction. The bubble says where it goes — the current session, by its
+title, or a new one — and lets you pick the other; a new session is named
+after the comment's place ("Comment on plan.md (lines 3–4)"), not its words.
+Once sent, the thread's *Sent to the agent* / *Answered* carries *Open
+session*, and in the session the comment's turn says *From a comment in
+plan.md* with *Show thread*, which opens the thread's bubble in its note. A question gets a reply in the thread; a requested
 change gets a suggestion linked to the thread, plus a one-line reply.
 
 ## 7. Skills
@@ -217,6 +282,13 @@ Not built, on purpose, with where each would go:
   open, or propose a new note.
 - **A per-session direct-mode toggle** in the Session header; today direct
   mode is the device setting only.
+- **A review bar.** A row above the note while it holds proposals
+  ("Suggestion 1 of 3", ‹ ›, Accept / Reject, Accept all / Reject all) —
+  explored and held back until reviews of many proposals prove common; the
+  pair, the gutter marks and the two stepping commands cover them today.
+  *Accept all* / *Reject all* are palette rows only.
+- **Default keys for stepping.** `ai.next-suggestion` /
+  `ai.previous-suggestion` ship unbound until a pair of keys is chosen.
 - **Importing CriticMarkup into threads.** The reader exists
   (`importCriticMarkup` in `libs/workspace/src/criticmarkup.ts`), but wiring
   it to an action means mapping each comment from the de-marked text back
@@ -230,8 +302,9 @@ Not built, on purpose, with where each would go:
 |---|---|
 | Seams, providers, loop, prompt, tools | `libs/harness/src/` (`types.ts`, `model.ts`, `agent.ts`, `prompt.ts`, `tools.ts`) |
 | The app's backend and transport | `apps/web/src/lib/agent-backend.ts`, `ai-transport.ts`, `ai-runs.svelte.ts`, `sessions.svelte.ts` |
-| Suggestions, the agent origin, the throttle | `libs/workspace/src/suggestions.ts`, `agent-origin.ts`, `agent-throttle.ts`; drawn by `libs/editor/src/suggestions.ts` |
+| Suggestions, the agent origin, the throttle | `libs/workspace/src/suggestions.ts`, `agent-origin.ts`, `agent-throttle.ts`; drawn by `libs/editor/src/suggestions.ts` (the marks, the pair, the gutter); the commands in `apps/web/src/lib/suggestions.svelte.ts`; *Show in note* / *Show thread* in `suggestion-reveal.ts`; the card in `ToolCard.svelte` |
 | The agent's presence | `libs/workspace/src/agent-presence.ts`; `apps/web/src/lib/agent-presence.ts`; `libs/editor/src/working-highlight.ts` |
 | Comments | `libs/workspace/src/threads.ts`, `apps/web/src/lib/threads.svelte.ts`, `libs/editor/src/comments.ts` |
+| The selection handle | `libs/editor/src/selection-bar.ts` (when and where), `apps/web/src/lib/components/SelectionBar.svelte` (the items, `bars.selection`); `ai.ask-selection` in `shell-commands.ts` |
 | Skills | `libs/agent/src/skills.ts` (the one loader, the trust rule, the farm helpers), `apps/web/src/lib/skills.svelte.ts` (trust state), `skill-import.ts` (review and import), `skill-routing.ts` (`ai.run-skill` and where a run lands), `skills-farm.ts`; `apps/cli/src/skills-export.ts` |
 | The mock LLM (tests) | `libs/testkit/src/mock-llm.ts`, `mock-llm-server.ts` (`@ohhi/testkit/src/node`) |

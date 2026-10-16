@@ -83,7 +83,8 @@ against its repo. A symlink cannot.
 
 Check `~/.local/bin` is on `PATH`; the script says so if it is not.
 
-**In the app:** Settings › Agents shows these steps and the connect lines —
+**In the app:** Settings › AI › *Outside agents* shows these steps and the
+connect lines —
 Claude Code (skill or `claude mcp add`), another MCP client's JSON config, and
 plain `ohhi … --vault` — with the open vault's folder already filled in and a
 Copy button on each. For a vault kept in browser storage it explains that no
@@ -590,8 +591,11 @@ the view's filters: comparisons (`==` `!=` `<` `<=` `>` `>=`), `&&` `||` `!`,
 `date("…")` and a date ± a duration (`"7d"`, `"2 weeks"`). A statement outside
 that is a `usage` error naming the statement — formulas are not evaluated
 here. `--columns` are property ids as the file writes them (`file.name`,
-`status`, `note.status`); with neither a view nor `--columns`, the columns are
-the name plus every property the rows carry. A view's `limit` caps the rows
+`status`, `note.status`); with neither `--columns` nor an `order` written on
+the view, the columns are the name plus every property the rows carry, in
+order of first appearance across the rows as sorted — the app's table follows
+the same rule for a view that writes no `order` (a written `order` is honoured
+as written, even `[file.name]` alone). A view's `limit` caps the rows
 returned. `--limit` · `--cursor`
 
 Rows are references on purpose: `read` the ones that matter. The text

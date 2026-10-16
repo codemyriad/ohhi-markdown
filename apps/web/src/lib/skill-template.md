@@ -1,8 +1,6 @@
 ---
 name: {{name}}
-description: >
-  What this skill does, in one sentence. Use when the person asks to …
-  Do not use for …
+description: Replace this line with what the skill does and when to use it, in one sentence.
 metadata:
   ohhi-kind: transform
   ohhi-input: selection
@@ -11,5 +9,21 @@ metadata:
 
 # {{name}}
 
-The instructions the agent follows when this skill runs. Say what to look
-for, what to change, what to leave alone, and what to hand back.
+## When to use
+
+The requests this skill is for, and the ones it is not.
+
+## Instructions
+
+What the agent does when this skill runs: what to look for, what to change,
+and what to leave alone.
+
+## Output
+
+What to hand back. With `ohhi-output: replace` in the frontmatter, the selection
+rewritten in place.
+
+## Examples
+
+- Before: …
+- After: …

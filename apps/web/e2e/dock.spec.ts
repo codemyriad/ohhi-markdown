@@ -6,7 +6,17 @@
  * `dense` — every test boots the device's own choice, `light`'s dock.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { appUrl, closeSettings, dismissToasts, expectAccessible, openByQuickOpen, openSettings } from './fixtures.js'
+import {
+  appUrl,
+  closeSettings,
+  dismissToasts,
+  expectAccessible,
+  openByQuickOpen,
+  openSettings,
+  runCommand,
+  seedProvider,
+  test as withMockLlm,
+} from './fixtures.js'
 
 async function boot(page: Page, room: string): Promise<void> {
   await page.goto(appUrl({ room, layout: null }))
@@ -248,4 +258,67 @@ test('at a narrow width the strip shrinks to its expand button; Focus mode hides
   await expect(page.getByTestId('dock')).toHaveCount(0)
   await page.keyboard.press('ControlOrMeta+.')
   await expect(page.getByTestId('dock')).toBeVisible()
+})
+
+test('over a collection the strip keeps clear of the toolbar: "+ New" is never under it (QA round 1)', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 700 })
+  await boot(page, 'dock-collection')
+  await openByQuickOpen(page, 'welcome')
+  await runCommand(page, 'New collection')
+  await expect(page.getByTestId('collection-view')).toBeVisible()
+  const strip = page.getByTestId('dock')
+  await expect(strip).toBeVisible()
+  const s = (await strip.boundingBox())!
+  const n = (await page.getByTestId('collection-new').boundingBox())!
+  // Side by side on the same row, the button wholly left of the strip.
+  expect(n.y < s.y + s.height && s.y < n.y + n.height).toBe(true)
+  expect(n.x + n.width).toBeLessThanOrEqual(s.x)
+})
+
+/**
+ * QA feedback round 1: with several panes the dock says which note it is
+ * about — the note's name and folder over the sections — and, while a
+ * session has the focus, that it is still showing the note focused last.
+ */
+withMockLlm('the context line names the note the dock follows; a session focused, it says "last focused"', async ({
+  page,
+  mockLlm,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 800 })
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await boot(page, 'dock-context')
+  await openByQuickOpen(page, 'welcome')
+  await expect(content(page)).toContainText('Welcome to Editor')
+
+  // The note focused: the line names it and its folder, nothing more.
+  await page.getByTestId('rail-icon:links').click()
+  const line = page.getByTestId('dock-panel').getByTestId('dock-note')
+  await expect(line).toHaveAttribute('data-path', 'notes/welcome.md')
+  await expect(line).toHaveAttribute('data-last-focused', 'false')
+  await expect(line).toContainText('welcome')
+  await expect(line).toContainText('notes')
+  await expect(line.getByTestId('dock-note-last')).toHaveCount(0)
+
+  // A session beside the note, holding the focus: the open panel stays on
+  // the note and says it is the one focused last.
+  await runCommand(page, 'Open AI session')
+  await expect(page.getByTestId('session-composer-input')).toBeVisible()
+  await expect(page.locator('[data-pane-id]')).toHaveCount(2)
+  await expect(line).toHaveAttribute('data-path', 'notes/welcome.md')
+  await expect(line).toHaveAttribute('data-last-focused', 'true')
+  await expect(line.getByTestId('dock-note-last')).toBeVisible()
+  await expect(line.getByRole('button', { name: 'Go to welcome' })).toBeVisible()
+  await axe(page, 'the dock panel, naming the last focused note')
+
+  // Its button goes to the note: the pane holding it takes the focus.
+  await line.getByTestId('dock-note-go').click()
+  await expect(line).toHaveAttribute('data-last-focused', 'false')
+  await expect(line.getByTestId('dock-note-last')).toHaveCount(0)
+
+  // A second note focused: the dock names it.
+  await openByQuickOpen(page, 'ideas')
+  if ((await page.getByTestId('dock-panel').count()) === 0) await page.getByTestId('rail-icon:links').click()
+  await expect(line).toHaveAttribute('data-path', 'notes/ideas.md')
+  await expect(line).toHaveAttribute('data-last-focused', 'false')
 })

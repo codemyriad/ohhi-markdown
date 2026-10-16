@@ -20,11 +20,20 @@
    *    vault's folder.
    *
    * The derivations are `customise-overview.ts`; the loader's `overview()`
-   * reads the roots. `Settings.svelte` draws the heading; with no vault open
-   * it draws the "open a vault" notice instead (NEEDS_VAULT).
+   * reads the roots. `Settings.svelte` draws the heading and the lede; with
+   * no vault open it draws the "open a vault" notice instead (NEEDS_VAULT).
+   *
+   * QA round 1 (QA5, Fork 8): Customise is the umbrella in the nav and this
+   * page is its hub. It opens with what is in use — one full-width row per
+   * kind: the name and its source chip on one line, the detail line in full
+   * (never ellipsised: it is the thing you came to read), and a door to the
+   * part of Settings that chooses it (`env.openSection`). Then the roots, in
+   * order with a › between them (no numbers: the order is the rule) and
+   * *Reload files* on their eyebrow row; the files, a table with fixed
+   * columns whose prose moved to the group's foot and *Show in Log* on the
+   * eyebrow row; the problems; and asking an agent.
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import { THEME_LABELS } from '@ohhi/ui/tokens'
   import type { CommandRegistry } from '../commands.js'
   import {
     filePath,
@@ -42,14 +51,16 @@
   import { layoutName } from '../layout.js'
   import { RESOURCE_KINDS, type ResourceOverview, type Resources, type RootId } from '../resources.svelte.js'
   import { getSettingsEnv, type SettingsLayout } from '../settings-host.js'
-  import { themePath, themeState } from '../theme.svelte.js'
-  import { HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import { builtinThemeLabel, themePath, themeState } from '../theme.svelte.js'
+  import ChevronRight from '@lucide/svelte/icons/chevron-right'
+  import type { SettingsSection } from '../settings.js'
+  import { BUTTON, BUTTON_SM, EYEBROW, GROUP, GROUP_ROW, LINK, META, MUTED, ROW, ROW_THING } from '../ui/styles.js'
   import RootPill from './RootPill.svelte'
 
   interface Props {
     /** `app.reload-resources` runs through it. */
     registry?: Pick<CommandRegistry, 'get'>
-    resources?: Partial<Pick<Resources, 'overview' | 'onChange'>>
+    resources?: Partial<Pick<Resources, 'overview' | 'onChange' | 'themes'>>
     layout?: SettingsLayout
     keymap?: Pick<Keymap, 'active' | 'resolved'>
     /** Injected for the tests. */
@@ -91,13 +102,19 @@
 
   // ---- what is in use ----
   const theme = $derived<ThemeInUse>(
-    themeState.pref.startsWith('custom:')
+    themeState.fellBackFrom
+      ? {
+          builtin: true,
+          name: builtinThemeLabel($LL, themeState.name) ?? themeState.name,
+          fellBackFrom: themeState.fellBackFrom,
+        }
+      : themeState.pref.startsWith('custom:')
       ? {
           builtin: false,
           name: themeState.pref.slice('custom:'.length),
           path: themePath(themeState.pref.slice('custom:'.length)),
         }
-      : { builtin: true, name: (THEME_LABELS as Record<string, string>)[themeState.name] ?? themeState.name }
+      : { builtin: true, name: builtinThemeLabel($LL, themeState.name) ?? themeState.name }
   )
   const rows = $derived<KindRow[]>(
     kindRows({
@@ -113,6 +130,7 @@
         error: keymap?.resolved?.error ?? null,
       },
       theme,
+      themes: resources?.themes ?? [],
     })
   )
   const problems = $derived(overview?.problems ?? [])
@@ -165,21 +183,118 @@
   const prompt = $derived(env.vault?.kind === 'tauri' && env.vault.path ? t.agent_prompt({ vault: env.vault.path }) : null)
   const shadowsOf = (list: readonly RootId[]): string => list.map((r) => t.from[r]()).join(', ')
 
-  const smallBtn = `${OUTLINE_BUTTON} px-2 py-0.5 text-xs font-medium text-base-content/80`
+  const smallBtn = BUTTON_SM
+
+  /** The part of Settings that chooses each kind: the hub's doors. Templates are inserted from the palette. */
+  const DOOR: Record<KindRow['kind'], SettingsSection | null> = {
+    layouts: 'layout',
+    keymaps: 'keys',
+    themes: 'appearance',
+    templates: null,
+  }
+  /** The theme follows the system (the device chose `system`, not a theme by name). */
+  const followsSystem = $derived(themeState.pref === 'system')
 </script>
 
-<div data-testid="settings-customise" class="space-y-5">
-  <p class="text-xs text-base-content/70">{t.intro()}</p>
+<div data-testid="settings-customise">
+  <!-- What is in use (Fork 8): one full-width row per kind — the name and its
+       source on one line, the detail in full, a door to the part that chooses it. -->
+  <section aria-labelledby="customise-strip-h" data-testid="customise-strip">
+    <div class={GROUP_ROW}>
+      <h3 id="customise-strip-h" class="m-0 {EYEBROW}">{t.kinds()}</h3>
+    </div>
+    <ul class="m-0 list-none p-0">
+      {#each rows as row (row.kind)}
+        {@const door = DOOR[row.kind]}
+        <li
+          class="grid grid-cols-[minmax(0,1fr)_auto] {ROW} @md:grid-cols-[6.5rem_minmax(0,1fr)_auto]"
+          data-testid="customise-strip:{row.kind}"
+        >
+          <span class="col-span-2 pt-1 text-[11px] font-semibold tracking-[0.06em] uppercase @md:col-span-1 @md:pt-0 {MUTED}"
+            >{t.kind[row.kind]()}</span
+          >
+          <div class="min-w-0 py-1">
+            {#if row.inUse}
+              <p class="m-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span class="whitespace-nowrap {ROW_THING}">{row.inUse.name}</span>
+                <RootPill root={row.inUse.root} />
+              </p>
+            {:else}
+              <p class="m-0 {ROW_THING}">{t.templates_count({ count: row.total })}</p>
+            {/if}
+            <!-- The detail, in full: it wraps rather than being cut. -->
+            {#if row.kind === 'layouts'}
+              <p class="m-0 {META}">
+                {#if deviceChanges}<span data-testid="customise-device-changes">{t.device_changes()}</span>{:else}{t.no_device_changes()}{/if}{#if row.inUse?.path}{' · '}<code class="font-ed-mono text-[11.5px] break-all">{row.inUse.path}</code>{/if}
+              </p>
+              {#if layout?.held}
+                <p class="m-0 text-xs leading-[1.45] text-base-content" data-testid="customise-held">{t.held()}</p>
+              {/if}
+            {:else if row.kind === 'keymaps'}
+              <p class="m-0 {META}">
+                {#if row.inUse?.path}<code class="font-ed-mono text-[11.5px] break-all">{row.inUse.path}</code>{:else}{t.detail.ships()}{/if}{#if row.inUse?.shadows.length}{' · '}{t.shadows({ roots: shadowsOf(row.inUse.shadows) })}{/if}
+              </p>
+            {:else if row.kind === 'themes'}
+              <p class="m-0 {META}">
+                {#if row.inUse?.path}<code class="font-ed-mono text-[11.5px] break-all">{row.inUse.path}</code>{:else if followsSystem}{t.follows_system()}{:else}{t.detail.ships()}{/if}
+              </p>
+            {:else}
+              <p class="m-0 {META}" data-testid="customise-templates">
+                {#if row.others.length}{row.others.map((e) => e.name).join(', ')}{' · '}{/if}{t.templates_how()}
+              </p>
+            {/if}
+            {#if row.fellBackFrom}
+              <p class="m-0 text-xs leading-[1.45] text-error" data-testid="customise-fallback:{row.kind}">
+                {t.fell_back({ name: row.fellBackFrom })}
+              </p>
+            {/if}
+          </div>
+          {#if door}
+            <button
+              type="button"
+              class="{BUTTON_SM} self-center"
+              data-testid="customise-door:{row.kind}"
+              aria-label={t.door_label({ section: $LL.web.settings.nav[door]() })}
+              onclick={() => env.openSection(door)}
+            >
+              {$LL.web.settings.nav[door]()}
+              <ChevronRight size={12} strokeWidth={2} aria-hidden="true" />
+            </button>
+          {:else}
+            <span></span>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </section>
 
-  <!-- The roots, in precedence order (Fork 8: the vault wins). -->
-  <section aria-labelledby="customise-roots-h" data-testid="customise-roots">
-    <h3 id="customise-roots-h" class={HEADING}>{t.roots()}</h3>
-    <p class="mt-1 text-xs text-base-content/70">{t.roots_rule()}</p>
-    <ol class="mt-2 grid gap-2 @lg:grid-cols-3">
+  <!-- The roots, in precedence order (Fork 8: the vault wins); › between them, no numbers. -->
+  <section class={GROUP} aria-labelledby="customise-roots-h" data-testid="customise-roots">
+    <div class={GROUP_ROW}>
+      <h3 id="customise-roots-h" class="m-0 {EYEBROW}">{t.roots()}</h3>
+      <button type="button" class="{BUTTON} ms-auto" data-testid="customise-reload" onclick={reload}>
+        {t.reload()}
+      </button>
+    </div>
+    <p class="m-0 mb-2 {META}">{t.roots_rule()}</p>
+    <ol class="m-0 grid list-none gap-2 p-0 @lg:grid-cols-3">
       {#each roots as line, i (line.id)}
-        <li class="rounded border border-base-300 px-3 py-2" data-testid="customise-root:{line.id}" data-detail={line.detail}>
-          <p class="text-xs font-semibold text-base-content"><span aria-hidden="true">{i + 1} · </span>{t.root[line.id]()}</p>
-          <p class="mt-0.5 text-xs text-base-content/80">
+        <li
+          class="relative min-w-0 rounded-lg border border-base-300 px-3 py-2 {line.detail === 'desktop-only' ||
+          line.detail === 'no-vault'
+            ? 'border-dashed'
+            : ''}"
+          data-testid="customise-root:{line.id}"
+          data-detail={line.detail}
+        >
+          {#if i > 0}
+            <span
+              aria-hidden="true"
+              class="absolute top-1/2 -left-[13px] hidden -translate-y-1/2 text-[13px] @lg:block {MUTED}">›</span
+            >
+          {/if}
+          <p class="m-0 text-[13px] font-semibold text-base-content">{t.root[line.id]()}</p>
+          <p class="m-0 {META}">
             {line.detail === 'browser'
               ? t.detail.browser({ name: env.vault?.name ?? '' })
               : line.detail === 'no-vault'
@@ -195,7 +310,7 @@
                         : t.detail.disk()}
           </p>
           {#if line.path && line.copyable}
-            <p class="mt-1 break-all font-ed-mono text-[11px] text-base-content/80" data-testid="customise-root-path:{line.id}">
+            <p class="m-0 mt-1 font-ed-mono text-[11px] break-all text-base-content" data-testid="customise-root-path:{line.id}">
               {line.path}
             </p>
             <button
@@ -211,96 +326,57 @@
         </li>
       {/each}
     </ol>
-    {#if env.desktop}<p class="mt-1 text-xs text-base-content/70">{t.no_reveal()}</p>{/if}
+    <p class="m-0 mt-2 {META}">{t.reload_hint()}{#if env.desktop}{' '}{t.no_reveal()}{/if}</p>
   </section>
 
-  <!-- One row per kind; below 28rem (a narrow pane) each row stacks as a card. -->
-  <section aria-labelledby="customise-kinds-h">
-    <h3 id="customise-kinds-h" class={HEADING}>{t.kinds()}</h3>
-    <table class="mt-2 w-full border-collapse text-left text-xs @max-md:block" data-testid="customise-kinds">
+  <!-- The files: fixed columns, one line per cell; below 28rem (a narrow pane) each row stacks as a card. -->
+  <section class={GROUP} aria-labelledby="customise-kinds-h">
+    <div class={GROUP_ROW}>
+      <h3 id="customise-kinds-h" class="m-0 {EYEBROW}">{t.files()}</h3>
+      {#if showLog}
+        <button type="button" class="{LINK} ms-auto" data-testid="customise-show-log" onclick={showLog}>
+          {t.show_in_log()}
+        </button>
+      {/if}
+    </div>
+    <table class="w-full table-fixed border-collapse text-left text-xs @max-md:block" data-testid="customise-kinds">
       <thead class="@max-md:hidden">
-        <tr class="border-b border-base-300 text-base-content/80">
-          <th scope="col" class="py-1 pr-3 font-medium">{t.col_kind()}</th>
-          <th scope="col" class="py-1 pr-3 font-medium">{t.col_in_use()}</th>
-          <th scope="col" class="py-1 font-medium">{t.col_also()}</th>
+        <tr class="border-b border-base-300">
+          <th scope="col" class="w-[6.5rem] py-1.5 pr-2 {EYEBROW}">{t.col_kind()}</th>
+          <th scope="col" class="py-1.5 pr-2 {EYEBROW}">{t.col_in_use()}</th>
+          <th scope="col" class="py-1.5 pr-2 {EYEBROW}">{t.col_also()}</th>
+          <th scope="col" class="w-[8.5rem] py-1.5 text-right {EYEBROW}"><span class="sr-only">{t.col_actions()}</span></th>
         </tr>
       </thead>
       <tbody class="@max-md:block">
         {#each rows as row (row.kind)}
           {@const broken = problemNames(problems, row.kind)}
           {@const json = jsonOf(row.kind)}
-          <tr class="border-b border-base-300 align-top @max-md:block @max-md:py-2" data-testid="customise-kind:{row.kind}">
-            <th scope="row" class="py-2 pr-3 font-medium text-base-content @max-md:block @max-md:p-0">{t.kind[row.kind]()}</th>
-            <td class="py-2 pr-3 @max-md:block @max-md:p-0 @max-md:pt-1" data-testid="customise-in-use:{row.kind}">
+          <tr class="h-9 border-b border-base-200 align-middle @max-md:block @max-md:h-auto @max-md:py-2" data-testid="customise-kind:{row.kind}">
+            <th scope="row" class="truncate pr-2 font-medium text-base-content @max-md:block @max-md:p-0">{t.kind[row.kind]()}</th>
+            <td class="truncate pr-2 @max-md:block @max-md:p-0 @max-md:pt-1 @max-md:whitespace-normal" data-testid="customise-in-use:{row.kind}">
               {#if row.inUse}
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="font-semibold text-base-content">{row.inUse.name}</span>
-                  <RootPill root={row.inUse.root} />
-                  {#if row.inUse.shadows.length}
-                    <span class="text-base-content/80">{t.shadows({ roots: shadowsOf(row.inUse.shadows) })}</span>
-                  {/if}
-                </div>
-                {#if row.kind === 'layouts' && layout?.held}
-                  <p class="mt-0.5 text-base-content/80" data-testid="customise-held">{t.held()}</p>
-                {/if}
-                {#if row.kind === 'layouts' && deviceChanges}
-                  <p class="mt-0.5 text-base-content/70" data-testid="customise-device-changes">{t.device_changes()}</p>
-                {/if}
-                {#if row.fellBackFrom}
-                  <p class="mt-0.5 text-error" data-testid="customise-fallback:{row.kind}">
-                    {t.fell_back({ name: row.fellBackFrom })}
-                  </p>
-                {/if}
-                {#if row.inUse.path}
-                  <p class="mt-0.5 break-all font-ed-mono text-[11px] text-base-content/80">{row.inUse.path}</p>
-                {/if}
-                {#if row.inUse.path || json}
-                  <div class="mt-1 flex flex-wrap gap-1.5">
-                    {#if row.inUse.path}
-                      {@const path = row.inUse.path}
-                      {@const root = row.inUse.root}
-                      <button
-                        type="button"
-                        class={smallBtn}
-                        data-testid="customise-copy-path:{row.kind}"
-                        aria-label={t.copy_path_label({ what: path })}
-                        onclick={() => void copyPath(`path:${row.kind}`, path, root)}
-                      >
-                        {said(`path:${row.kind}`, t.copy_path())}
-                      </button>
-                    {/if}
-                    {#if json}
-                      <button
-                        type="button"
-                        class={smallBtn}
-                        data-testid="customise-copy-json:{row.kind}"
-                        aria-label={t.copy_json_label({ kind: t.kind[row.kind]() })}
-                        onclick={() => void copy(`json:${row.kind}`, json)}
-                      >
-                        {said(`json:${row.kind}`, t.copy_json())}
-                      </button>
-                    {/if}
-                  </div>
+                <span class="font-semibold text-base-content">{row.inUse.name}</span>
+                <RootPill root={row.inUse.root} />
+                {#if row.inUse.shadows.length}
+                  <span class={MUTED}>{t.shadows({ roots: shadowsOf(row.inUse.shadows) })}</span>
                 {/if}
               {:else}
-                <p class="font-semibold text-base-content">{t.templates_count({ count: row.total })}</p>
-                <p class="mt-0.5 text-base-content/70">{t.templates_how()}</p>
+                <span class="font-semibold text-base-content">{t.templates_count({ count: row.total })}</span>
               {/if}
             </td>
-            <td class="py-2 @max-md:block @max-md:p-0 @max-md:pt-1.5">
-              <span class="hidden text-base-content/70 @max-md:mb-0.5 @max-md:block">{t.col_also()}</span>
-              {#if row.kind === 'themes'}
-                <p class="text-base-content/70">{t.themes_how()}</p>
-              {:else if row.others.length === 0}
-                <span class="text-base-content/70">{t.nothing_else()}</span>
+            <td class="truncate pr-2 @max-md:block @max-md:p-0 @max-md:pt-1.5 @max-md:whitespace-normal">
+              <span class="hidden @max-md:mb-0.5 @max-md:block {MUTED}">{t.col_also()}</span>
+              {#if row.others.length === 0}
+                <span class={MUTED}>{t.nothing_else()}</span>
               {:else}
-                <ul class="flex flex-wrap gap-x-3 gap-y-1">
-                  {#each row.others as entry (entry.name)}
-                    <li class="flex items-center gap-1" data-testid="customise-entry:{row.kind}:{entry.name}">
-                      <span class="text-base-content">{entry.name}</span>
+                <ul class="m-0 inline list-none p-0 @max-md:flex @max-md:flex-wrap @max-md:gap-x-3 @max-md:gap-y-1">
+                  {#each row.others as entry, i (entry.name)}
+                    <li class="inline" data-testid="customise-entry:{row.kind}:{entry.name}">
+                      {#if i > 0}<span class="me-1 @max-md:hidden {MUTED}">,</span>{/if}<span class="text-base-content">{entry.name}</span>
                       <RootPill root={entry.root} />
                       {#if entry.shadows.length}
-                        <span class="text-base-content/80">{t.shadows({ roots: shadowsOf(entry.shadows) })}</span>
+                        <span class={MUTED}>{t.shadows({ roots: shadowsOf(entry.shadows) })}</span>
                       {/if}
                       {#if broken.has(entry.name)}<span class="text-error">{t.cant_use()}</span>{/if}
                     </li>
@@ -308,28 +384,58 @@
                 </ul>
               {/if}
             </td>
+            <td class="text-right whitespace-nowrap @max-md:block @max-md:pt-1.5 @max-md:text-left">
+              {#if row.inUse?.path}
+                {@const path = row.inUse.path}
+                {@const root = row.inUse.root}
+                <button
+                  type="button"
+                  class={smallBtn}
+                  data-testid="customise-copy-path:{row.kind}"
+                  aria-label={t.copy_path_label({ what: path })}
+                  onclick={() => void copyPath(`path:${row.kind}`, path, root)}
+                >
+                  {said(`path:${row.kind}`, t.copy_path())}
+                </button>
+              {/if}
+              {#if json}
+                <button
+                  type="button"
+                  class={smallBtn}
+                  data-testid="customise-copy-json:{row.kind}"
+                  aria-label={t.copy_json_label({ kind: t.kind[row.kind]() })}
+                  onclick={() => void copy(`json:${row.kind}`, json)}
+                >
+                  {said(`json:${row.kind}`, t.copy_json())}
+                </button>
+              {/if}
+            </td>
           </tr>
         {/each}
       </tbody>
     </table>
+    <!-- The prose the cells used to hold, at the group's foot. -->
+    <p class="m-0 mt-2 {META}">{t.files_foot()}</p>
   </section>
 
   <!-- Problems: listed until fixed. -->
-  <section aria-labelledby="customise-problems-h" data-testid="customise-problems">
-    <h3 id="customise-problems-h" class={HEADING}>{t.problems()}</h3>
+  <section class={GROUP} aria-labelledby="customise-problems-h" data-testid="customise-problems">
+    <div class={GROUP_ROW}>
+      <h3 id="customise-problems-h" class="m-0 {EYEBROW}">{t.problems()}</h3>
+    </div>
     {#if problems.length === 0}
-      <p class="mt-1 text-xs text-base-content/70" data-testid="customise-problems-none">{t.problems_none()}</p>
+      <p class="m-0 {META}" data-testid="customise-problems-none">{t.problems_none()}</p>
     {:else}
-      <p class="mt-1 text-xs text-base-content/80">{t.problems_count({ count: problems.length })}</p>
-      <ul class="mt-2 space-y-2">
+      <p class="m-0 text-xs leading-[1.45] text-base-content">{t.problems_count({ count: problems.length })}</p>
+      <ul class="m-0 mt-2 list-none space-y-2 p-0">
         {#each problems as problem (`${problem.kind}:${problem.name}`)}
-          <li class="rounded border border-error/40 px-3 py-2 text-xs" data-testid="customise-problem:{problem.path}">
+          <li class="rounded-lg border border-error/40 px-3 py-2 text-xs" data-testid="customise-problem:{problem.path}">
             <div class="flex flex-wrap items-center gap-1.5">
-              <code class="break-all font-ed-mono font-semibold text-base-content">{problem.path}</code>
+              <code class="font-ed-mono font-semibold break-all text-base-content">{problem.path}</code>
               <RootPill root={problem.root} />
             </div>
-            <p class="mt-1 break-words text-base-content" data-testid="customise-problem-message">{problem.message}</p>
-            <p class="mt-0.5 text-base-content/70">
+            <p class="m-0 mt-1 break-words text-base-content" data-testid="customise-problem-message">{problem.message}</p>
+            <p class="m-0 mt-0.5 {MUTED}">
               {problemInUse(problem, rows) ? t.problem_in_use() : t.problem_unused()}
             </p>
             <div class="mt-1 flex flex-wrap gap-1.5">
@@ -357,59 +463,33 @@
         {/each}
       </ul>
     {/if}
-    <div class="mt-3 flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs font-medium text-base-content/80"
-        data-testid="customise-reload"
-        onclick={reload}
-      >
-        {t.reload()}
-      </button>
-      {#if showLog}
-        <button
-          type="button"
-          class="{OUTLINE_BUTTON} px-3 py-1.5 text-xs font-medium text-base-content/80"
-          data-testid="customise-show-log"
-          onclick={showLog}
-        >
-          {t.show_in_log()}
-        </button>
-      {/if}
-      <p class="text-xs text-base-content/70">{t.reload_hint()}</p>
-    </div>
   </section>
 
-  <!-- Hand the job to an agent. -->
-  <section aria-labelledby="customise-agent-h" data-testid="customise-agent">
-    <h3 id="customise-agent-h" class={HEADING}>{t.agent()}</h3>
-    {#if prompt}
-      <pre
-        class="mt-2 whitespace-pre-wrap break-words rounded border border-base-300 bg-base-200 px-3 py-2 font-ed-mono text-[11px] text-base-content"
-        data-testid="customise-prompt">{prompt}</pre>
-      <button
-        type="button"
-        class="{OUTLINE_BUTTON} mt-2 px-3 py-1.5 text-xs font-medium text-base-content/80"
-        data-testid="customise-copy-prompt"
-        onclick={() => void copy('prompt', prompt ?? '')}
-      >
-        {said('prompt', t.copy_prompt())}
-      </button>
-    {:else}
-      <p class="mt-1 text-xs text-base-content/80" data-testid="customise-agent-browser">{t.agent_browser()}</p>
-    {/if}
-    <!-- settings-shaping ST6: the guide page (`docs/guide/customise.md`). -->
-    <p class="mt-3">
+  <!-- Hand the job to an agent; the guide on the eyebrow row. -->
+  <section class={GROUP} aria-labelledby="customise-agent-h" data-testid="customise-agent">
+    <div class={GROUP_ROW}>
+      <h3 id="customise-agent-h" class="m-0 {EYEBROW}">{t.agent()}</h3>
+      <!-- settings-shaping ST6: the guide page (`docs/guide/customise.md`). -->
       <button
         type="button"
         data-testid="customise-guide"
         aria-label={t.read_guide_label()}
         onclick={() => openGuide('customise')}
-        class="text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+        class="{LINK} ms-auto"
       >
         {t.read_guide()}
       </button>
-    </p>
+    </div>
+    {#if prompt}
+      <pre
+        class="m-0 mt-1 rounded-md bg-base-200 px-3 py-2 font-ed-mono text-[11px] break-words whitespace-pre-wrap text-base-content"
+        data-testid="customise-prompt">{prompt}</pre>
+      <button type="button" class="{BUTTON} mt-2" data-testid="customise-copy-prompt" onclick={() => void copy('prompt', prompt ?? '')}>
+        {said('prompt', t.copy_prompt())}
+      </button>
+    {:else}
+      <p class="m-0 {META}" data-testid="customise-agent-browser">{t.agent_browser()}</p>
+    {/if}
   </section>
 
   <p class="sr-only" role="status" data-testid="customise-status">

@@ -11,7 +11,16 @@ import type { BaseTranslation } from '../../i18n-types.js'
  */
 
 const shell = {
-  connecting: 'connecting…',
+  /**
+   * While a vault opens (`BootSplash.svelte`, QA round 1): it waits for the
+   * vault's own files, never the relay — so "opening", not "connecting".
+   */
+  boot: {
+    label: 'Opening your vault',
+    opening: 'Opening your notes…',
+    /** Offered only once an open has taken several seconds: back to the vault list. */
+    back_to_vaults: 'Back to your vaults',
+  },
   show_navigator: 'Show file navigator',
   hide_navigator: 'Hide file navigator',
   show_sidebar: 'Show sidebar',
@@ -25,6 +34,13 @@ const shell = {
   pin_navigator: 'Pin as a column',
   /** A column this device pinned: back to the layout's own drawer. */
   unpin_navigator: 'Unpin — back to a drawer',
+  /**
+   * The pin control on a small screen (QA round 1), disabled: a pin is kept
+   * there but not honoured — the side floats as it would unpinned.
+   */
+  pin_wide_only: 'Pins apply on wider screens',
+  /** The same, for a side this device has pinned. */
+  pinned_wide_only: 'Pinned on wider screens — it floats here',
 }
 
 const notices = {
@@ -91,6 +107,18 @@ const rail = {
     history: 'History',
     comments: 'Comments',
   },
+  /**
+   * The context line over the sections (QA feedback round 1): which note
+   * they are about — its name, its folder muted after it — and, while a
+   * session or another view has the focus, that it is the note focused last.
+   */
+  note: {
+    /** The line's landmark name. */
+    label: 'The note these sections are about',
+    /** The line's button: focuses the pane holding the note, or opens it. */
+    go: 'Go to {name:string}',
+    last_focused: 'last focused',
+  },
 }
 
 const actions = {
@@ -118,6 +146,8 @@ const status_bar = {
   /** The corner's readouts (`bars.status`): one item and the next, "412 words · 2,301 characters". */
   corner: 'Note status',
   join: ' · ',
+  /** A count on its own (QA round 1): the small screen's corner chip, "1,204". */
+  count: '{count:number|int}',
 }
 
 /**
@@ -373,6 +403,15 @@ const read = {
   /** A foldable callout's chevron; `aria-expanded` says which way it is. */
   callout: {
     toggle: 'Fold {title:string}',
+  },
+  /**
+   * The link card (QA round 1): a finger's tap on a wikilink shows it, with
+   * the one action that opens the note — instead of opening it at once.
+   */
+  link_card: {
+    label: 'Link',
+    open: 'Open “{name:string}”',
+    create: 'Create “{name:string}”',
   },
   /**
    * The `[[` link popover (editor-usability E1). CM6 draws it, so these travel
@@ -1203,19 +1242,20 @@ const storage = {
 const settings = {
   title: 'Settings',
   sections: 'Settings sections',
-  /** The nav (settings-shaping Fork 3): three groups, in this order. */
+  /**
+   * The nav (settings-shaping Fork 7, QA round 1): Customise › Editor ·
+   * Layout · Appearance · Keys | Sync & devices · AI | Developer · About.
+   */
   nav: {
-    you: 'You',
+    customise: 'Customise',
     editor: 'Editor',
     layout: 'Layout',
     appearance: 'Appearance',
     keys: 'Keys',
     sync: 'Sync & devices',
-    customise: 'Customise',
-    agents: 'Agents',
+    ai: 'AI',
     developer: 'Developer',
     about: 'About',
-    ai: 'AI',
   },
   /** The manager's page host (no vault open): its way back. */
   page: {
@@ -1230,12 +1270,6 @@ const settings = {
   },
   /** A text field that commits on Enter or when you leave it (R3). */
   saved: 'Saved',
-  you: {
-    name: 'Display name',
-    name_placeholder: 'Anonymous',
-    name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
-    name_required: 'Enter a name — it’s what your collaborators see.',
-  },
   /** Settings › Editor: how notes open and read — the default view plus the layout's editor fields. */
   editor: {
     intro: 'How notes open and read. Changes apply at once and stay on this device.',
@@ -1244,13 +1278,40 @@ const settings = {
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
   },
   appearance: {
-    theme: 'Theme',
+    lede: 'How the app looks on this device. A theme of your own lives in this vault.',
     system: 'System',
     theme_help:
-      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.',
-    custom_theme: 'Custom theme',
+      'Applies immediately, to the chrome and the editor alike. {system:string} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.',
+    /**
+     * The built-in themes' names, keyed by `THEME_LABEL_KEYS` in
+     * `libs/ui/src/tokens.ts` (the theme id with `_` for `-`).
+     */
+    theme_names: {
+      editor_light: 'Oh hi Light',
+      editor_dark: 'Oh hi Dark',
+      graphite_light: 'Graphite Light',
+      graphite_dark: 'Graphite Dark',
+      fjord_light: 'Fjord Light',
+      fjord_dark: 'Fjord Dark',
+      iris_light: 'Iris Light',
+      iris_dark: 'Iris Dark',
+    },
+    /** The picker's two groups: the themes that ship with the app, and the vault's own theme folders. */
+    builtin: 'Built in',
+    in_vault: 'In this vault',
+    /** The vault group with no vault open (the manager's page). */
+    vault_none: 'Open a vault to use the themes in it.',
+    /** The vault group when the open vault has no theme folder. */
+    vault_empty: 'This vault has no themes yet. A theme is a folder holding one stylesheet, {path:string}.',
+    /** The example themes the app ships (Nord, built in until Fork 4-A), under the vault group. */
+    examples_intro: 'Examples that ship with the app. Add one and it is listed above.',
+    add_example: 'Add to this vault',
+    add_example_label: 'Add {label:string} to this vault, as {path:string}',
+    example_added: 'Added {path:string}',
+    /** The fallback field under the vault group; the path and the rules are its hint line (QA round 1). */
+    custom_label: 'A theme folder the list does not show',
     custom_placeholder: 'my-theme',
-    use_custom: 'Use custom',
+    use_custom: 'Use',
     custom_help:
       'Reads {path:string} from the open vault. Start from {template:string}; {import_rule:string} and remote {url:string} are stripped, and the sync-status colours cannot be overridden.',
     needs_vault: 'Open a vault first — custom themes live inside it.',
@@ -1287,6 +1348,10 @@ const settings = {
     status: 'Word count',
     status_corner: 'Bottom right',
     status_off: 'Hidden',
+    /** Selection explorations (shape B): the handle at the end of a settled selection — Comment | Ask. */
+    selection: 'Selection handle',
+    selection_on: 'At the end of a selection',
+    selection_off: 'Hidden',
     open: 'Opening a note',
     open_replace: 'Replaces the current tab',
     open_tab: 'Opens a new tab',
@@ -1330,6 +1395,28 @@ const settings = {
       moved: '{name:string} is now {n:number} of {total:number}',
       shown_now: '{name:string} is on the bar',
       hidden_now: '{name:string} is off the bar',
+    },
+    /** The selection handle's buttons, the same picker over `bars.selection`. */
+    selection_bar: {
+      title: 'Selection handle buttons',
+      intro:
+        'What the handle at the end of a selected passage offers, in order. Drag to reorder, or drag a button to the other row to show or hide it; each button’s menu does the same from the keyboard. AI buttons show only once a provider is added. Your changes stay on this device.',
+      shown: 'On the selection handle',
+      hidden: 'Not on the selection handle',
+      empty_shown: 'Nothing on the selection handle: it is hidden.',
+      empty_hidden: 'Every button is on the selection handle.',
+      separator: 'Separator',
+      pill_shown: '{name:string}, {n:number} of {total:number} on the selection handle',
+      pill_hidden: '{name:string}, not on the selection handle',
+      move_left: 'Move left',
+      move_right: 'Move right',
+      hide: 'Hide',
+      remove: 'Remove',
+      show: 'Add to the selection handle',
+      reset: 'Reset to layout file',
+      moved: '{name:string} is now {n:number} of {total:number}',
+      shown_now: '{name:string} is on the selection handle',
+      hidden_now: '{name:string} is off the selection handle',
     },
   },
   /** Settings › Keys (settings-shaping ST3, K1): the chips are the control, changes write through. */
@@ -1399,6 +1486,13 @@ const settings = {
     needs_modifier: 'Add Ctrl, Alt or Cmd — on its own, that key would stop you typing it.',
   },
   sync: {
+    /** The section's lede (QA round 1: one lede per section, under its title). */
+    lede: 'Your name as collaborators see it, the relay your shares go through, and your devices.',
+    /** The display name (Settings › You until QA round 1): Sync & devices' first row, where it is used. */
+    name: 'Your name, as collaborators see it',
+    name_placeholder: 'Anonymous',
+    name_hint: 'Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.',
+    name_required: 'Enter a name — it’s what your collaborators see.',
     relay: 'Default relay',
     relay_hint: 'Used when creating new shares. Each share remembers its own relay in its link.',
     relay_required: 'The relay new shares are created on.',
@@ -1464,13 +1558,24 @@ const settings = {
     },
     shadows: 'shadows {roots:string}',
     device_changes: 'plus this device’s changes',
+    /** The hub's layout row when this device changes nothing on top of the file. */
+    no_device_changes: 'no changes on this device',
+    /** The hub's theme row for the System choice. */
+    follows_system: 'follows the system',
+    /** A door from the hub to the part of Settings that chooses a kind. */
+    door_label: 'Open Settings › {section:string}',
+    /** The files table (QA round 1): its title, the actions column's name, the prose at its foot. */
+    files: 'Files',
+    col_actions: 'Actions',
+    files_foot:
+      'Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; every one is listed here and in Appearance.',
     fell_back: '{name:string} can’t be used, so the built-in default stands in',
     cant_use: 'can’t be used',
     nothing_else: 'nothing else',
     templates_count: '{count:number} template{{s}}',
     templates_how: 'Insert one with Insert template… in the palette.',
     themes_how:
-      'A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.',
+      'A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; pick one in Appearance.',
     copy_json: 'Copy as JSON',
     copy_json_label: 'Copy the {kind:string} in use as JSON',
     copied: 'Copied',
@@ -1506,11 +1611,15 @@ const settings = {
       overview_label: 'Open Settings › Customise',
     },
   },
-  /** Settings › Agents (settings-shaping ST5 fills it). */
+  /**
+   * Settings › AI › Outside agents (settings-shaping ST5; Settings › Agents
+   * until QA round 1 folded it into AI): the group's strings.
+   */
   agents: {
-    intro:
-      'Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.',
-    can_do: 'What an agent can do here',
+    title: 'Outside agents',
+    intro: 'Claude Code, another MCP client or a terminal works on this vault with the ohhi command. Pick a route, then copy its lines.',
+    /** The eyebrow row's popover: what the ops let an agent do. */
+    can_do: 'What an agent can do',
     /** One line per group of `ohhi` ops (`agent-setup.ts` AGENT_CAPABILITIES); the op names are drawn beside it. */
     cap: {
       find: 'Find notes: ranked search that returns references, never whole notes',
@@ -1523,7 +1632,6 @@ const settings = {
       skills: 'List the vault’s skills in .agents/skills/ and read one',
     },
     mcp_tools: 'Through MCP each one is a tool of the same name, prefixed ohhi_ (ohhi_search).',
-    connect: 'Connect an agent',
     routes: 'How to connect',
     route_claude: 'Claude Code',
     route_mcp: 'Other MCP client',
@@ -1531,14 +1639,13 @@ const settings = {
     placeholder:
       'No vault is open, so the lines below show a placeholder path. Put your vault’s folder in its place.',
     placeholder_browser: 'Vaults kept in this browser can’t be reached by an agent: it needs a vault in a folder on disk, in the desktop app.',
-    get_body:
-      'The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.',
     /** Step 1 on every route: the checkout and its dependencies (`agent-setup.ts` GET_REPO). */
     step_repo: 'Get the repository and install its dependencies',
     repo_note:
       'Needs access to the private codemyriad/ohhi-markdown repository and Node 22. Run the next steps from the ohhi-markdown folder.',
     step_install: 'Install the command',
     step_install_both: 'Install the command and the skill',
+    install_note: 'Each script makes a link (ohhi in ~/.local/bin, the skill in ~/.claude/skills), so neither goes stale.',
     claude_start: 'Start Claude Code with this vault named',
     /** The copy button's name for the MCP line (`copy_what`). */
     claude_mcp: 'Give Claude Code the commands as MCP tools',
@@ -1564,6 +1671,7 @@ const settings = {
   },
   /** Settings › About: the running build, the updater's last outcome, the guides. */
   about: {
+    lede: 'The version you are running, how it updates, and the guides.',
     updates: 'Updates',
     web_updates: 'This web app updates when the page is reloaded.',
     guides: 'Guides',
@@ -1571,6 +1679,7 @@ const settings = {
     guide_relay: 'Running your own relay',
   },
   developer: {
+    lede: 'Tools for looking under the hood. Off unless you turn them on.',
     devtools: 'Developer tools',
     devtools_help:
       "Enables the inspector — a tab showing the disk ↔ CRDT state of every mount and file — in the command palette. {flag:string} forces it on and opens it for one session.",
@@ -2332,6 +2441,12 @@ const toolbar = {
   nav_label: 'Back and forward',
   paragraph_style: 'Paragraph style',
   with_binding: '{title:string} ({binding:string})',
+  /** A bar button's tooltip (Chris, 2026-10-15): the command's title and its key as bound now. */
+  hint: '{title:string} · {binding:string}',
+  /** Selection explorations (shape B): the handle at a selection's end and its two short verbs. */
+  selection_group: 'Selection',
+  selection_comment: 'Comment',
+  selection_ask: 'Ask',
   files: 'Files',
   reading_time: '{minutes:number} min read',
   reading_time_none: 'Nothing to read',
@@ -2348,6 +2463,20 @@ const toolbar = {
 const theme = {
   bad_name: 'Theme names may contain letters, numbers, spaces, - and _ only.',
   missing: 'No theme at {path:string}',
+  /**
+   * Nord Light and Dark left the built-ins (v2-shaping Fork 2, Fork 4-A): the
+   * one-time notice when the preference names one and the open vault has no
+   * folder for it, and the toast's button.
+   */
+  retired:
+    '{label:string} is no longer built in: it is a theme a vault holds, and this vault has no {path:string}, so {stand_in:string} stands in. Add it from Settings › Appearance, or copy {example:string} there.',
+  show_themes: 'Show themes',
+  /** The shipped example themes, by folder name. */
+  examples: {
+    nord_light: 'Nord Light',
+    nord_dark: 'Nord Dark',
+  },
+  example_exists: 'This vault already has {path:string}; it was left as it is.',
 }
 
 /**
@@ -2388,13 +2517,9 @@ const attachments = {
  */
 const ai = {
   settings: {
+    /** Settings › AI's lede (one page since QA round 1: no Providers · Skills tabs). */
     egress:
       'Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.',
-    sections: 'AI settings',
-    tabs: {
-      providers: 'Providers',
-      skills: 'Skills',
-    },
   },
   providers: {
     title: 'Providers',
@@ -2457,7 +2582,6 @@ const ai = {
   session: {
     title: 'Session',
     title_named: 'Session: {name:string}',
-    empty: 'No session yet. Start one from a selection, or ask about your notes.',
     untitled: 'Untitled session',
     menu: 'Sessions',
     recent: 'Recent sessions',
@@ -2466,8 +2590,19 @@ const ai = {
     rename: 'Rename…',
     rename_label: 'Session title',
     archive: 'Archive',
-    provider_label: 'Provider',
     provider_option: '{name:string} · {model:string}',
+    /** The first screen (QA round 1, S1): starts above the composer. */
+    starts: {
+      title: 'Start',
+      ask: 'Ask about {note:string}',
+      summarise: 'Summarise {note:string}',
+      /** What *Summarise* sends, with the note as its reference. */
+      summarise_prompt: 'Summarise this note.',
+      skill: 'Run a skill…',
+      continue: 'Continue “{title:string}”',
+    },
+    /** A recent session about several notes. */
+    recent_notes: '{count:number} notes',
     no_provider: 'Add a provider in Settings › AI to talk to an agent.',
     open_settings: 'Open Settings',
     transcript: 'Transcript',
@@ -2477,7 +2612,7 @@ const ai = {
     stop: 'Stop',
     retry: 'Retry',
     nothing_running: 'No AI run is in progress.',
-    provider_gone: 'The provider this session was using is gone. Pick another in the session’s header.',
+    provider_gone: 'The provider this session was using is gone. Pick another below the message box.',
     failed: 'The run failed: {message:string}',
     run: '{status:string} · {elapsed:string}',
     elapsed_seconds: '{n:number}s',
@@ -2494,22 +2629,55 @@ const ai = {
       search: 'Searched for “{query:string}”',
       results: '{count:number} result{{s}}',
       open: 'Open',
+      /** A search hit's row is one button: its name says where it goes. */
+      open_hit: 'Open {path:string} at line {line:number}',
+      open_note: 'Open {path:string}',
       read: 'Read {what:string} ({size:string})',
       read_section: '§{section:string} of {path:string}',
       read_lines: 'lines {from:number}–{to:number} of {path:string}',
       proposed: 'Proposed an edit in {path:string}',
       proposal_none: 'Nothing to propose in {path:string}: it already says that',
       proposal_applied: 'Edited {path:string} directly',
+      /** A proposal card's verbs (QA round 1): the same as the pair on the proposal in the note. */
+      accept: 'Accept',
+      reject: 'Reject',
+      show_in_note: 'Show in note',
+      /** A proposal card's status, read from the suggestion record. */
+      proposal_status: {
+        pending: 'Pending',
+        stale: 'Changed since proposed',
+        accepted: 'Applied',
+        gone: 'No longer proposed',
+      },
       used: 'Used {name:string}',
       failed: '{name:string} failed: {message:string}',
       details: 'Details',
     },
+    /**
+     * A run of tool calls folded to one line (QA round 1): a phrase per kind,
+     * in the order the agent first did each, joined by " · ", its first
+     * letter capitalised. Thinking is never counted.
+     */
+    run_line: {
+      read: 'read {{count:a note|?? notes}}',
+      search_once: 'searched once',
+      search_twice: 'searched twice',
+      search_many: 'searched {count:number} times',
+      list: 'listed {{count:a folder|?? folders}}',
+      proposed: 'proposed {count:number} edit{{s}}',
+      edited: 'edited {{count:a note|?? notes}}',
+      other: 'used {{count:a tool|?? tools}}',
+      failed: '{count:number} call{{s}} failed',
+    },
   },
   composer: {
     label: 'Message the agent',
-    placeholder: 'Ask about your notes — @ to reference, / for a skill',
+    placeholder: 'Ask about your notes — @note, @folder or @note#heading to reference; select text for lines; / for a skill',
     send: 'Send',
     hint: 'Enter to send · Shift+Enter for a new line',
+    /** The provider picker at the composer's foot: who the next message goes to. */
+    provider_label: 'Provider: {name:string}, {model:string}. Change',
+    manage_providers: 'Manage providers…',
     menu: 'Suggestions',
     no_matches: 'No matches',
     kind: {
@@ -2529,7 +2697,6 @@ const ai = {
     chip: 'Reference: {label:string}',
     chip_changed: 'Reference: {label:string} (changed since you referenced it)',
     skill_chip: 'Skill: {label:string}',
-    no_selection: 'Select some text in a note first.',
   },
   skills: {
     title: 'Skills',
@@ -2541,6 +2708,8 @@ const ai = {
     new: 'New skill…',
     import: 'Import…',
     open: 'Open {name:string}',
+    /** A row's verb, beside the name it opens (its accessible name is `open`). */
+    open_short: 'Open',
     review: 'Review…',
     enabled: 'Use {name:string}',
     trusted: 'Trusted',
@@ -2579,8 +2748,10 @@ const ai = {
     create: {
       title: 'New skill',
       name: 'Name',
-      name_hint: 'Lowercase letters, numbers and hyphens. It is also the folder’s name.',
-      name_invalid: 'Use lowercase letters, numbers and single hyphens, up to 64 characters.',
+      folder: 'Folder: {folder:string}',
+      folder_rule: 'lowercase letters, numbers and hyphens',
+      name_empty: 'Type a name',
+      name_reserved: 'A skill’s name can’t use anthropic, claude or synced.',
       name_taken: 'This vault already has a skill with that name.',
       submit: 'Create',
       cancel: 'Cancel',
@@ -2658,6 +2829,13 @@ const ai = {
     rejected_all: 'Rejected {count:number} suggestion{{s}}.',
     undone: 'Undid the agent’s edit.',
     nothing_to_undo: 'The agent has no edit to undo.',
+    /** The pair drawn after a proposal in the note (QA round 1). */
+    accept: 'Accept',
+    reject: 'Reject',
+    /** The pair's group name: who proposed it. */
+    pair: 'Suggestion by {name:string}',
+    /** A proposal's gutter mark: which one, of how many, by whom. Pressing it moves the caret there. */
+    marker: 'Suggestion {n:number} of {total:number}, by {name:string}',
   },
   comments: {
     bubble_new: 'New comment',
@@ -2665,6 +2843,19 @@ const ai = {
     field: 'Comment',
     comment: 'Comment',
     send_agent: 'Send to agent',
+    /** Where *Send to agent* goes (QA round 1): a choice between the current session and a new one. */
+    send_to: 'Send to',
+    send_to_current: 'This session: {title:string}',
+    send_to_new: 'A new session',
+    /** After sending: the session the thread went to. */
+    open_session: 'Open session',
+    /** A new session's title for a comment: where it is, never what it says. */
+    session_title: 'Comment on {note:string}',
+    session_title_line: 'Comment on {note:string} (line {line:number})',
+    session_title_lines: 'Comment on {note:string} (lines {from:number}–{to:number})',
+    /** A comment's turn in the session transcript, and the way back to its thread. */
+    from_comment: 'From a comment in {note:string}',
+    show_thread: 'Show thread',
     reply_field: 'Reply',
     reply: 'Reply',
     resolve: 'Resolve',
@@ -2679,7 +2870,14 @@ const ai = {
     filter_open: 'Open',
     filter_resolved: 'Resolved',
     filter_all: 'All',
-    empty_open: 'No open comments on this note. Select some text and choose Comment on selection.',
+    /** A filter's label with its count: “Open 2”. */
+    filter_count: '{label:string} {count:number}',
+    empty_open: 'No open comments on this note.',
+    /** Under the empty state: where the door is. `key` is the binding in force, as this platform prints it. */
+    how_with_key: 'Select some text and press {key:string}, or use the comment button on the formatting bar.',
+    how: 'Select some text, then use the comment button on the formatting bar.',
+    /** The panel's door: runs `note.comment`. */
+    door: 'Comment on selection',
     empty_resolved: 'No resolved comments on this note.',
     empty_all: 'No comments on this note yet.',
     no_note: 'Open a note to see its comments.',
@@ -2706,15 +2904,21 @@ const ai = {
   commands: {
     new_session: 'New AI session',
     add_selection: 'Add selection to AI session',
+    /** The selection handle's door — the session beside the note, the selection as a chip, the composer focused. */
+    ask_selection: 'Ask about this',
     run_skill: 'Run a skill…',
     stop_run: 'Stop the AI run',
     accept_suggestion: 'Accept suggestion',
     reject_suggestion: 'Reject suggestion',
     accept_all: 'Accept all suggestions',
     reject_all: 'Reject all suggestions',
+    next_suggestion: 'Next suggestion',
+    previous_suggestion: 'Previous suggestion',
     undo_agent: 'Undo the agent’s last edit',
     comment: 'Comment on selection',
     session: 'Open AI session',
+    /** `ai.ask-selection` run with nothing selected (from the palette). */
+    ask_needs_selection: 'Select some text to ask about it',
   },
 }
 
@@ -2734,8 +2938,15 @@ const collections = {
   columns: 'Columns',
   columns_title: 'Columns of {view:string}',
   column_label: 'Show {name:string}',
+  /** The columns popover's first group: the properties the notes on screen hold. */
+  columns_in_notes: 'In these notes',
+  columns_other: 'Other properties',
+  /** A view that writes no `order`: its columns follow the notes until one is changed here. */
+  columns_dynamic: 'Showing every property these notes have. Changing one pins the list.',
   group_by: 'Group by',
   group_none: 'No grouping',
+  /** The grouping menu's button: "Group by: Threat". */
+  group_menu: 'Group by: {name:string}',
   group_empty: 'No value',
   sort_by: 'Sort by {name:string}',
   /** The first column, when the file gives `file.name` no display name. */
@@ -2752,6 +2963,20 @@ const collections = {
   no_views: 'This collection has no views yet.',
   add_table: 'Add a table view',
   add_view: 'Add a view',
+  /** A view's own menu (the button after the tabs, or a right-click on a tab). */
+  view_menu: 'Options for the view {name:string}',
+  view_rename: 'Rename…',
+  view_delete: 'Delete…',
+  rename_title: 'Rename {name:string}',
+  rename_label: 'View name',
+  /** A rename changes what `![[X.base#View]]` embeds resolve. */
+  rename_hint: 'Notes that embed this view by name will need the new name.',
+  rename_empty: 'A view needs a name.',
+  rename_taken: 'Another view is already called {name:string}.',
+  rename_confirm: 'Rename',
+  delete_title: 'Delete the view {name:string}?',
+  delete_body: 'Only the view goes — its filters, columns and sort. The notes it shows are not touched.',
+  delete_confirm: 'Delete view',
   add_view_table: 'Table',
   add_view_board: 'Board',
   add_view_list: 'List',
@@ -2759,8 +2984,13 @@ const collections = {
   view_name_table: 'Table',
   view_name_board: 'Board',
   view_name_list: 'List',
-  /** A board with nothing to group by: the picker that fixes it. */
-  board_needs_group: 'A board groups notes by a property. Choose one:',
+  /** A board with nothing to group by: an empty state whose buttons are the fix. */
+  board_needs_group: 'Choose what this board groups by',
+  board_group_choices: 'Properties to group by',
+  board_group_hint: 'Each value becomes a column; moving a card writes that value into its note.',
+  board_group_none: 'These notes have no properties to group by yet. Add one to a note, then come back.',
+  /** Embedded (read-mostly): the choice is made in the collection's own tab. */
+  board_group_embedded: 'Open the collection to choose one.',
   board_column: '{group:string} — {count:number} note{{s}}',
   board_label: 'Board of {view:string}',
   /** The keyboard's drag: a select on every card. */

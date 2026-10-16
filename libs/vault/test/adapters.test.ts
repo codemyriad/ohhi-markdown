@@ -226,6 +226,44 @@ describe('watchAppDir — .ohhi/** is routed, never enrolled', () => {
     }
   })
 
+  it('NodeVaultAdapter lists the folders in one app dir — the theme folders — and nothing else', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vault-appdirs-'))
+    try {
+      const a = new NodeVaultAdapter(root)
+      await a.writeAtomic('.ohhi/themes/nord-dark/theme.css', enc.encode('[data-theme="nord-dark"] {}'))
+      await a.writeAtomic('.ohhi/themes/Paper/theme.css', enc.encode('[data-theme="Paper"] {}'))
+      await a.writeAtomic('.ohhi/themes/stray.css', enc.encode(''))
+      await a.mkdir('.ohhi/themes/empty')
+      expect(await a.listAppDirs('.ohhi/themes')).toEqual([
+        '.ohhi/themes/Paper',
+        '.ohhi/themes/empty',
+        '.ohhi/themes/nord-dark',
+      ])
+      expect(await a.listAppDirs('.ohhi/themes/')).toHaveLength(3)
+      expect(await a.listAppDirs('.ohhi/layouts')).toEqual([])
+      expect(await a.listAppDirs('.ohhi/themes/stray.css')).toEqual([])
+      // Still invisible to the vault's own listings.
+      expect((await a.list()).map((f) => f.path)).toEqual([])
+      expect(await a.listDirs()).toEqual([])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('MemVaultAdapter lists app-dir folders the same way: made, or implied by a file under them', async () => {
+    const a = new MemVaultAdapter()
+    await a.writeAtomic('.ohhi/themes/nord-dark/theme.css', enc.encode(''))
+    await a.writeAtomic('.ohhi/themes/deep/er/theme.css', enc.encode(''))
+    await a.writeAtomic('.ohhi/themes/stray.css', enc.encode(''))
+    await a.mkdir('.ohhi/themes/empty')
+    expect(await a.listAppDirs('.ohhi/themes')).toEqual([
+      '.ohhi/themes/deep',
+      '.ohhi/themes/empty',
+      '.ohhi/themes/nord-dark',
+    ])
+    expect(await a.listAppDirs('.ohhi/keymaps')).toEqual([])
+  })
+
   it('L1: under a running session, .ohhi/** writes never reach pathToGuid, the map or a doc', async () => {
     const engine = createYjsEngine()
     const adapter = new MemVaultAdapter()

@@ -17,7 +17,7 @@ import { normalizePins, type LayoutPins } from './pin-layout.js'
 import { normalizeOverrides as normalizeLayoutOverrides, type LayoutFile } from './layout-spec.js'
 import { VIEW_MODES, type ViewMode } from './panes.js'
 import type { ShareGrant, ShareKind } from './share-link.js'
-import type { BuiltinTheme } from '@ohhi/ui/tokens'
+import { RETIRED_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
 import type { AiConfig, ProviderConfig, ProviderView } from '@ohhi/harness'
 import { normalizeAiConfig } from '@ohhi/harness/config'
 
@@ -175,6 +175,12 @@ interface AppConfigV2 {
    */
   theme?: ThemePref
   /**
+   * The retired built-in themes (`RETIRED_THEMES`: Nord Light and Dark) this
+   * device has already been told about — that they now live in a vault, and
+   * that the open one did not have the folder. Said once per name, ever.
+   */
+  themeNotices?: string[]
+  /**
    * The active layout file (quiet-shell F2: `default` or `custom:<name>`,
    * chosen by the palette's *Use layout file…*), plus the navigator width
    * (chrome U2). Device-level, like theme: the FILE travels with the vault,
@@ -262,6 +268,15 @@ const K_CONFIG = 'editor:config'
  * corrupt mirror degrades to `system`, which is always defensible.
  */
 export const K_THEME = 'editor:theme'
+/**
+ * The last resolved polarity, `light` or `dark`, for the pre-paint script's
+ * `data-polarity` (band C, themes review Fork 3-B). A built-in's polarity is
+ * known statically, but a custom theme's is only known once its CSS is in —
+ * after the vault opens — so the boot script reads this last answer rather
+ * than paint a dark theme's first frame with the light sync colours.
+ * Best-effort like K_THEME; a miss falls back to the OS preference.
+ */
+export const K_POLARITY = 'editor:polarity'
 /** v1 keys, read once by the migration and never written again. */
 const K_LAST_V1 = 'editor:lastSession'
 const K_SHARES_V1 = 'editor:shares'
@@ -591,7 +606,32 @@ export function providerView(provider: ProviderConfig): ProviderView {
 // ---- theme (V2a) ----
 
 export function themePref(): ThemePref {
-  return loadConfig().theme ?? 'system'
+  return migrateThemePref(loadConfig().theme ?? 'system')
+}
+
+/**
+ * A stored preference as this build reads it. A retired built-in's id
+ * (`nord-dark`, stored before Nord moved into the vault — Fork 4-A) names
+ * the vault theme of the same name, `custom:nord-dark`: the example files
+ * keep the id as their folder name, so adding one to a vault brings the
+ * preference back to life. Nothing is rewritten here; the next pick does.
+ */
+export function migrateThemePref(raw: string): ThemePref {
+  if (Object.hasOwn(RETIRED_THEMES, raw)) return `custom:${raw}`
+  return raw as ThemePref
+}
+
+/** Has this device been told once that the retired theme `name` was not in the vault? */
+export function themeNoticeShown(name: string): boolean {
+  return loadConfig().themeNotices?.includes(name) ?? false
+}
+
+/** Remember that it has (`themeNoticeShown`). */
+export function markThemeNoticeShown(name: string): void {
+  const cfg = loadConfig()
+  if (cfg.themeNotices?.includes(name)) return
+  cfg.themeNotices = [...(cfg.themeNotices ?? []), name]
+  save(cfg)
 }
 
 export function setThemePref(pref: ThemePref): void {
@@ -602,6 +642,15 @@ export function setThemePref(pref: ThemePref): void {
     store()?.setItem(K_THEME, pref)
   } catch {
     // Mirror is best-effort; a miss costs one frame of the default theme.
+  }
+}
+
+/** Mirror the resolved polarity for the pre-paint script (K_POLARITY). */
+export function setPolarityMirror(polarity: 'light' | 'dark'): void {
+  try {
+    store()?.setItem(K_POLARITY, polarity)
+  } catch {
+    // Best-effort; a miss costs one frame of the OS polarity's sync colours.
   }
 }
 

@@ -9,14 +9,21 @@
  *
  * Themes are not a loader kind (`RESOURCE_KINDS`): a theme is a folder,
  * `.ohhi/themes/<name>/theme.css`, read by name by `useCustomTheme` from the
- * vault only. Nothing lists that folder (the vault adapters' `listAppDir`
- * lists files, not folders), so the theme row names the one in use and no
- * others — it describes what is, never a list the app cannot read.
+ * vault only. The loader lists those folders (`resources.themes`, over the
+ * adapters' `listAppDirs`), so the theme row names the one in use and every
+ * other theme folder in this vault.
  *
  * Pure: no runes, no I/O.
  */
 import type { SettingsVault } from './settings-host.js'
-import type { ResourceEntry, ResourceKind, ResourceOverview, ResourceProblem, RootId } from './resources.svelte.js'
+import type {
+  ResourceEntry,
+  ResourceKind,
+  ResourceOverview,
+  ResourceProblem,
+  RootId,
+  ThemeEntry,
+} from './resources.svelte.js'
 
 export type CustomiseKind = ResourceKind | 'themes'
 
@@ -52,8 +59,14 @@ export interface Resolved {
   error: string | null
 }
 
-/** The theme the device uses: a built-in by label, or a vault theme by folder name. */
-export type ThemeInUse = { builtin: true; name: string } | { builtin: false; name: string; path: string }
+/**
+ * The theme the device uses: a built-in by label, or a vault theme by folder
+ * name — or a built-in standing in for a vault theme this vault does not hold
+ * (`fellBackFrom`, the folder name the device chose).
+ */
+export type ThemeInUse =
+  | { builtin: true; name: string; fellBackFrom?: string | null }
+  | { builtin: false; name: string; path: string }
 
 /** A loader entry as "in use"; a built-in has no file to show. */
 export function inUseOf(entry: ResourceEntry): InUse {
@@ -86,9 +99,15 @@ export function kindRows(input: {
   layout: Resolved
   keymap: Resolved
   theme: ThemeInUse
+  /** The open vault's theme folders (`resources.themes`); absent → none listed. */
+  themes?: readonly ThemeEntry[]
 }): KindRow[] {
   const { entries } = input.overview
   const theme = input.theme
+  const folders = input.themes ?? []
+  const otherThemes: ResourceEntry[] = folders
+    .filter((f) => theme.builtin || f.name !== theme.name)
+    .map((f) => ({ name: f.name, root: 'vault', path: f.path, shadows: [] }))
   return [
     chosenRow('layouts', entries.layouts, input.layout),
     chosenRow('keymaps', entries.keymaps, input.keymap),
@@ -98,9 +117,9 @@ export function kindRows(input: {
       inUse: theme.builtin
         ? { name: theme.name, root: 'builtin', path: null, shadows: [] }
         : { name: theme.name, root: 'vault', path: theme.path, shadows: [] },
-      fellBackFrom: null,
-      others: [],
-      total: 1,
+      fellBackFrom: theme.builtin ? (theme.fellBackFrom ?? null) : null,
+      others: otherThemes,
+      total: folders.length,
     },
   ]
 }

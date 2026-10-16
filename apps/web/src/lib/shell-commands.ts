@@ -352,8 +352,10 @@ export function harnessCommands(
   // The Session view's commands: a session from the focused selection,
   // the selection into the current session, stop. `ai.new-session` ships
   // unbound — `Mod+L` is `edit.toggle-checkbox` (Obsidian's key), which is
-  // registered later and would win it; `Mod+Shift+L` starts a session too
-  // when none is open.
+  // registered later and would win it; `Mod+Shift+L` is the one key to the
+  // session: with a selection it carries it along, without one it simply
+  // opens the current session, or starts one (Chris, 2026-10-15: a session
+  // must be reachable without selecting text first).
   const capture = () => captureFocusedSelection(deps.selectedPath?.() ?? null)
   const open = (id: string): void => {
     harness.current = id
@@ -380,10 +382,23 @@ export function harnessCommands(
       when: () => aiEnabled(),
       run: async () => {
         const mention = await capture()
-        if (!mention) {
-          deps.flash?.({ level: 'info', text: getLL().web.ai.refs.no_selection() })
-          return
-        }
+        const id = harness.current ?? newSessionId()
+        if (mention) queueMention(id, mention)
+        open(id)
+      },
+    },
+    {
+      // The selection handle's *Ask* (selection explorations; Chris's
+      // answer 3): the session beside the note, the selection queued as a
+      // chip, the composer focused — nothing is sent. What `ai.add-selection`
+      // does, with a selection required: it is about THIS passage.
+      id: 'ai.ask-selection',
+      title: t.ask_selection(),
+      group,
+      when: () => aiEnabled(),
+      run: async () => {
+        const mention = await capture()
+        if (!mention) return deps.flash?.({ level: 'info', text: t.ask_needs_selection() })
         const id = harness.current ?? newSessionId()
         queueMention(id, mention)
         open(id)

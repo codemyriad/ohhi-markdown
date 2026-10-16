@@ -31,6 +31,23 @@ describe('readAppFile', () => {
   })
 })
 
+describe('listAppDirs', () => {
+  it('lists the folders under .ohhi/themes, and refuses a path that leaves the app dirs', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('.ohhi/themes/nord-dark/theme.css', enc.encode('[data-theme="nord-dark"] {}\n'))
+    await adapter.writeAtomic('.ohhi/themes/Paper/theme.css', enc.encode('[data-theme="Paper"] {}\n'))
+    const ws = await setupWorkspace({ adapter, storeDir: new MemStoreDir(), user: 'T', room: 'app-dirs' })
+    open = ws
+
+    expect(await ws.listAppDirs('.ohhi/themes')).toEqual(['.ohhi/themes/Paper', '.ohhi/themes/nord-dark'])
+    expect(await ws.listAppDirs('.ohhi/layouts')).toEqual([])
+    await expect(ws.listAppDirs('notes')).rejects.toThrow(/listAppDirs is for/)
+    await expect(ws.listAppDirs('.ohhi/../notes')).rejects.toThrow(/listAppDirs is for/)
+    // Never a file the vault lists.
+    expect(ws.ui.files.some((f) => f.path.startsWith('.ohhi/'))).toBe(false)
+  })
+})
+
 describe('deleteAppFile', () => {
   it('removes a file under .ohhi/, is a no-op when absent, and refuses .obsidian/ and a climb out', async () => {
     const adapter = new MemVaultAdapter()

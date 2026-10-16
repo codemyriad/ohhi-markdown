@@ -12,7 +12,7 @@
   import type { Snippet } from 'svelte'
   import { filePath, type Source } from '../customise-overview.js'
   import { getSettingsEnv } from '../settings-host.js'
-  import { OUTLINE_BUTTON } from '../ui/styles.js'
+  import { BUTTON_SM, MUTED } from '../ui/styles.js'
   import RootPill from './RootPill.svelte'
 
   interface Props {
@@ -52,18 +52,18 @@
   const said = $derived(done === 'copied' ? t.copied() : done === 'failed' ? t.copy_failed() : '')
 </script>
 
-<div class="mb-3 rounded border border-base-300 px-3 py-2" data-testid={testid}>
+<div class="mb-6 rounded-lg border border-base-300 px-3 py-2" data-testid={testid}>
   <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-    <span class="text-base-content/80">{label}</span>
+    <span class={MUTED}>{label}</span>
     <span class="font-semibold text-base-content" data-testid="{testid}-name">{source.name}</span>
     <RootPill root={source.root} />
-    {#if shadows}<span class="text-base-content/80">{t.shadows({ roots: shadows })}</span>{/if}
-    {#if source.path}<code class="font-ed-mono text-base-content/80">{source.path}</code>{/if}
+    {#if shadows}<span class={MUTED}>{t.shadows({ roots: shadows })}</span>{/if}
+    {#if source.path}<code class="font-ed-mono {MUTED}">{source.path}</code>{/if}
     <span class="ml-auto flex items-center gap-2">
       {#if source.path}
         <button
           type="button"
-          class="{OUTLINE_BUTTON} px-2 py-0.5 font-medium text-base-content/80"
+          class={BUTTON_SM}
           data-testid="{testid}-copy"
           aria-label={t.copy_path_label({ what: source.path })}
           onclick={() => void copy()}

@@ -1,6 +1,8 @@
 <script lang="ts">
   /**
-   * Settings › Sync & devices (settings-shaping ST2): the relay as one thing
+   * Settings › Sync & devices (settings-shaping ST2): first, your name as
+   * collaborators see it (Settings › You until QA round 1, Fork 10 — it
+   * lives where it is used); then the relay as one thing
    * with a state (first-run D1), the operator secret answered as you type
    * (D2), your devices, running your own relay (R10), a pointer to where the
    * remembered vaults and shares now live (the manager), and — in a browser —
@@ -21,7 +23,9 @@
     defaultRelay,
     ignoredSavedRelay,
     isRelayUrl,
+    loadUser,
     operatorSecret,
+    saveUser,
     relayKnown,
     setDefaultRelay,
     setOperatorSecret,
@@ -34,7 +38,7 @@
   import Description from '../ui/Description.svelte'
   import Field from '../ui/Field.svelte'
   import FieldErrors from '../ui/FieldErrors.svelte'
-  import { HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import { BUTTON, EYEBROW, GROUP, LINK, META } from '../ui/styles.js'
   import TextControl from '../ui/TextControl.svelte'
   import RelayCard from './RelayCard.svelte'
   import RelaySecretField from './RelaySecretField.svelte'
@@ -80,6 +84,28 @@
 
   const t = $derived($LL.web.settings)
   const dl = $derived($LL.web.device_link)
+
+  // ---- your name (Settings › You until QA round 1): the first row, where it is used ----
+  let storedName = loadUser() ?? ''
+  let name = $state(storedName)
+  let nameErrors = $state<string[]>([])
+  let nameSaved = $state(false)
+  /** Commit the name: refused inline when empty; stored only when it changed. */
+  function commitName(): void {
+    const next = name.trim()
+    if (!next) {
+      nameErrors = [t.sync.name_required()]
+      nameSaved = false
+      return
+    }
+    nameErrors = []
+    name = next
+    if (next === storedName) return
+    saveUser(next)
+    storedName = next
+    nameSaved = true
+    onConfigChange?.()
+  }
 
   // ---- the relay ----
   /** The relay as saved (or the build's default): the address field commits against it. */
@@ -177,14 +203,32 @@
   // svelte-ignore state_referenced_locally -- the platform is fixed for the page's life
   if (!desktop) void refreshStorageUsage()
 
-  const button = `${OUTLINE_BUTTON} mt-2 px-3 py-1.5 text-xs font-medium text-base-content/80`
-  const textLink =
-    'mt-1 inline-block text-xs font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
+  const button = `${BUTTON} mt-2`
+  const textLink = `${LINK} mt-1 inline-block`
 </script>
 
-<div class="space-y-3">
+<div data-testid="settings-you">
+  <Field name="name" errors={nameErrors} required>
+    <TextControl
+      label={t.sync.name()}
+      bind:value={name}
+      oninput={() => (nameSaved = false)}
+      onblur={commitName}
+      onkeydown={onEnter(commitName)}
+      placeholder={t.sync.name_placeholder()}
+      testid="settings-name"
+    />
+    <Description>{t.sync.name_hint()}</Description>
+    <FieldErrors />
+  </Field>
+  <p role="status" class="mt-1 min-h-4 text-xs text-base-content/70" data-testid="settings-name-status">
+    {nameSaved ? t.saved() : ''}
+  </p>
+</div>
+
+<div class="{GROUP} space-y-3">
   <div class="space-y-1.5" data-testid="settings-relay-card">
-    <h3 class={HEADING}>{$LL.web.relay_card.label()}</h3>
+    <h3 class={EYEBROW}>{$LL.web.relay_card.label()}</h3>
     <RelayCard
       relayUrl={cardRelay}
       known={syncRelayKnown || (relayOpen && relay.trim() !== shownRelay && isRelayUrl(relay.trim()))}
@@ -214,7 +258,7 @@
       <FieldErrors />
     </Field>
     {#if pinnedHost && ignoredRelay}
-      <p data-testid="settings-relay-ignored" class="text-xs text-base-content/80">
+      <p data-testid="settings-relay-ignored" class="text-xs text-base-content/70">
         {t.sync.relay_pinned_saved_ignored({ saved: ignoredRelay, host: pinnedHost })}
       </p>
     {/if}
@@ -233,13 +277,13 @@
 </div>
 
 <!-- Your devices (N2, A1): an action against the relay, below the settings it depends on. -->
-<section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-device-link">
-  <h3 class={HEADING}>{t.sync.devices()}</h3>
-  <p class="mt-1 text-xs text-base-content/70">{dl.section_help()}</p>
+<section class={GROUP} data-testid="settings-device-link">
+  <h3 class={EYEBROW}>{t.sync.devices()}</h3>
+  <p class="mt-1 {META}">{dl.section_help()}</p>
   {#if !onLinkDevice}
-    <p class="mt-2 text-xs text-base-content/70">{dl.needs_vault()}</p>
+    <p class="mt-2 {META}">{dl.needs_vault()}</p>
   {:else if !secret.trim()}
-    <p class="mt-2 text-xs text-base-content/80" data-testid="settings-link-device-needs-secret">
+    <p class="mt-2 {META}" data-testid="settings-link-device-needs-secret">
       {dl.needs_secret()}
     </p>
     <SecretHelp hint={secretHint} testid="settings-link-device-where" />
@@ -251,9 +295,9 @@
 </section>
 
 <!-- One relay per group (first-run R10): said where it is felt. -->
-<section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-own-relay">
-  <h3 class={HEADING}>{t.sync.running_title()}</h3>
-  <p class="mt-1 text-xs text-base-content/80">
+<section class={GROUP} data-testid="settings-own-relay">
+  <h3 class={EYEBROW}>{t.sync.running_title()}</h3>
+  <p class="mt-1 {META}">
     {pinnedHost ? t.sync.running_pinned({ host: pinnedHost }) : t.sync.running_body()}
   </p>
   {#if !pinnedHost}
@@ -274,9 +318,9 @@
 </section>
 
 <!-- Vaults & shares moved to the manager (Fork 3): one door to it. -->
-<section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-vaults">
-  <h3 class={HEADING}>{t.sync.vaults()}</h3>
-  <p class="mt-1 text-xs text-base-content/80">{t.sync.vaults_body()}</p>
+<section class={GROUP} data-testid="settings-vaults">
+  <h3 class={EYEBROW}>{t.sync.vaults()}</h3>
+  <p class="mt-1 {META}">{t.sync.vaults_body()}</p>
   {#if onManageVaults}
     <button type="button" data-testid="settings-manage-vaults" onclick={onManageVaults} class={button}>
       {t.sync.vaults_open()}
@@ -286,16 +330,16 @@
 
 {#if !desktop}
   <!-- The status is a live region: an ask made here changes it in place. -->
-  <section class="mt-5 border-t border-base-300 pt-4" data-testid="settings-storage">
-    <h3 class={HEADING}>{st.settings.heading()}</h3>
+  <section class={GROUP} data-testid="settings-storage">
+    <h3 class={EYEBROW}>{st.settings.heading()}</h3>
     <div role="status" class="mt-1">
-      <p class="text-sm text-base-content/80" data-testid="settings-storage-status">{storageStatus}</p>
+      <p class="text-[13px] text-base-content/70" data-testid="settings-storage-status">{storageStatus}</p>
       {#if storageState.refused && storageAtRisk}
-        <p class="mt-1 text-xs text-base-content/70">{st.refused()}</p>
+        <p class="mt-1 {META}">{st.refused()}</p>
       {/if}
     </div>
     {#if storageState.usage}
-      <p class="mt-1 text-xs text-base-content/70" data-testid="settings-storage-usage">
+      <p class="mt-1 {META}" data-testid="settings-storage-usage">
         {st.settings.usage({
           used: formatBytes(storageState.usage.usage, $locale),
           quota: formatBytes(storageState.usage.quota, $locale),
@@ -303,7 +347,7 @@
       </p>
     {/if}
     {#if storageAtRisk}
-      <p class="mt-1 text-xs text-base-content/70">{st.advice()}</p>
+      <p class="mt-1 {META}">{st.advice()}</p>
       {#if storageState.state === 'best-effort'}
         <button type="button" data-testid="settings-storage-keep" onclick={() => void askToKeepStorage()} class={button}>
           {st.ask()}
@@ -316,7 +360,7 @@
           checked={!storageState.dismissed}
           onchange={(e) => setStorageReminder(e.currentTarget.checked)}
         />
-        <span class="text-sm text-base-content/80">{st.settings.remind()}</span>
+        <span class="text-[13px] text-base-content">{st.settings.remind()}</span>
       </label>
     {/if}
   </section>

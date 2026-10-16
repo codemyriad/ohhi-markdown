@@ -9,14 +9,20 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   acceptSuggestionAtCaret,
   buildDecorations,
+  currentSuggestion,
+  hasSuggestionGutter,
   INTRA_DIFF_MIN,
+  pairDecorations,
   rejectSuggestionAtCaret,
   setSuggestions,
   suggestionAt,
   suggestionField,
+  suggestionMarkers,
   suggestions,
   suggestionsIn,
+  suggestionStep,
   type EditorSuggestion,
+  type SuggestionLabels,
   type SuggestionsHost,
 } from '../src/index.js'
 
@@ -133,5 +139,104 @@ describe('the keys', () => {
     expect(suggestionAt(plain, 1)).toBeNull()
     expect(suggestionsIn(plain)).toEqual([])
     expect(acceptSuggestionAtCaret(fakeView(plain))).toBe(false)
+  })
+})
+
+const LABELS: SuggestionLabels = {
+  accept: 'Accept',
+  reject: 'Reject',
+  acceptKeys: 'Ctrl+Enter',
+  rejectKeys: 'Ctrl+Backspace',
+  pair: (s) => `Suggestion by ${s.name}`,
+  marker: (s, n, total) => `Suggestion ${n} of ${total} by ${s.name}`,
+}
+
+/** Three proposals over `one two three four`: at 4–7, 8–13 and 14–18. */
+const THREE = [
+  sug({ id: 'a', from: 4, to: 7, baseText: 'two', proposedText: '2' }),
+  sug({ id: 'b', from: 8, to: 13, baseText: 'three', proposedText: '3' }),
+  sug({ id: 'c', from: 14, to: 18, baseText: 'four', proposedText: '4' }),
+]
+const labelled = (list: EditorSuggestion[]): SuggestionsHost => ({ ...host(list), labels: () => LABELS })
+
+/** The pair widgets a state draws: [at, id, current]. */
+function pairsOf(s: EditorState): [number, string, boolean][] {
+  const out: [number, string, boolean][] = []
+  const cursor = pairDecorations(s).iter()
+  for (; cursor.value; cursor.next()) {
+    const w = cursor.value.spec.widget as { s: EditorSuggestion; current: boolean }
+    out.push([cursor.from, w.s.id, w.current])
+  }
+  return out
+}
+
+describe('the current suggestion and stepping', () => {
+  it('current is the one under the caret, else the next after it, else the first', () => {
+    expect(currentSuggestion(state('one two three four', labelled(THREE), 9))?.id).toBe('b')
+    expect(currentSuggestion(state('one two three four', labelled(THREE), 0))?.id).toBe('a')
+    expect(currentSuggestion(state('one two three four', labelled([THREE[0]]), 18))?.id).toBe('a')
+    expect(currentSuggestion(state('one two three four', labelled([]), 0))).toBeNull()
+  })
+
+  it('next and previous step from the caret and wrap round', () => {
+    const at = (head: number) => state('one two three four', labelled(THREE), head)
+    expect(suggestionStep(at(5), 1)?.id).toBe('b')
+    expect(suggestionStep(at(16), 1)?.id).toBe('a') // wraps
+    expect(suggestionStep(at(5), -1)?.id).toBe('c') // wraps
+    expect(suggestionStep(at(0), 1)?.id).toBe('a') // caret in none: the first after it
+    expect(suggestionStep(at(0), -1)?.id).toBe('c') // none before it: the last
+    expect(suggestionStep(state('one', labelled([]), 0), 1)).toBeNull()
+  })
+})
+
+describe('the pair', () => {
+  it('is drawn after the current proposal only, and moves with the caret', () => {
+    expect(pairsOf(state('one two three four', labelled(THREE), 0))).toEqual([[7, 'a', true]])
+    expect(pairsOf(state('one two three four', labelled(THREE), 15))).toEqual([[18, 'c', true]])
+  })
+
+  it('is not drawn without the host’s words, nor with no suggestion', () => {
+    expect(pairsOf(state('one two three four', host(THREE), 0))).toEqual([])
+    expect(pairsOf(state('one two three four', labelled([]), 0))).toEqual([])
+  })
+
+  it('never enters the document', () => {
+    const s = state('one two three four', labelled(THREE), 0)
+    expect(s.doc.toString()).toBe('one two three four')
+  })
+})
+
+describe('the gutter marks', () => {
+  /** [line start, label, number shown] per mark. */
+  function marksOf(s: EditorState): [number, string, string][] {
+    const out: [number, string, string][] = []
+    const cursor = suggestionMarkers(s).iter()
+    for (; cursor.value; cursor.next()) {
+      const m = cursor.value as unknown as { label: string; total: number; n: number }
+      out.push([cursor.from, m.label, m.total > 1 ? String(m.n) : ''])
+    }
+    return out
+  }
+
+  it('one proposal is a dot; several are numbered, one mark per line', () => {
+    expect(marksOf(state('one two three four', labelled([THREE[1]]), 0))).toEqual([[0, 'Suggestion 1 of 1 by Tighten', '']])
+    // All three start on line 1: one mark, for the first.
+    expect(marksOf(state('one two three four', labelled(THREE), 0))).toEqual([[0, 'Suggestion 1 of 3 by Tighten', '1']])
+    const lines = [sug({ id: 'x', from: 0, to: 3, baseText: 'one' }), sug({ id: 'y', from: 4, to: 7, baseText: 'two' })]
+    expect(marksOf(state('one\ntwo', labelled(lines), 0)).map(([at, , n]) => [at, n])).toEqual([
+      [0, '1'],
+      [4, '2'],
+    ])
+  })
+
+  it('the gutter is installed only once a push brings suggestions, and goes when they do', () => {
+    let s = state('one two three four', labelled([]), 0)
+    expect(hasSuggestionGutter(s)).toBe(false)
+    s = s.update({ effects: setSuggestions.of(THREE) }).state
+    expect(hasSuggestionGutter(s)).toBe(true)
+    s = s.update({ effects: setSuggestions.of([]) }).state
+    expect(hasSuggestionGutter(s)).toBe(false)
+    // Without the host's words there is nothing to name a mark with: no gutter.
+    expect(hasSuggestionGutter(state('x', host(THREE), 0).update({ effects: setSuggestions.of(THREE) }).state)).toBe(false)
   })
 })

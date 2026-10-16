@@ -4,6 +4,7 @@
   import { configForMemory, configForSession } from './lib/boot.js'
   import DeviceLinkDialog from './lib/components/DeviceLinkDialog.svelte'
   import JoinProgress from './lib/components/JoinProgress.svelte'
+  import BootSplash from './lib/components/BootSplash.svelte'
   import JoinPage from './lib/components/JoinPage.svelte'
   import LinkDeviceDialog from './lib/components/LinkDeviceDialog.svelte'
   import {
@@ -50,13 +51,17 @@
   import { createShellLayout } from './lib/shell-layout.svelte.js'
   import { installShellCommands, layoutFileSource } from './lib/shell-commands.js'
   import { realClock } from './lib/real-clock.js'
+  import { screen } from './lib/small-screen.svelte.js'
   import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
   import { sharedSnapshot } from '@ohhi/workspace'
   import { createMembership } from './lib/collection-membership.svelte.js'
   import { setViewShell } from './lib/views.js'
+  import { requestComposerFocus } from './lib/sessions.svelte.js'
+  import { nextFrame, revealLineIn, revealSuggestionIn, revealThreadIn } from './lib/suggestion-reveal.js'
   import type { TabView } from './lib/panes.js'
   import { settingsSection, type SettingsSection } from './lib/settings.js'
   import { setSettingsHost, type SettingsHost } from './lib/settings-host.js'
+  import { restoreVaultTheme } from './lib/theme.svelte.js'
   import { attachWritingHarness } from './lib/skills.svelte.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
@@ -217,6 +222,14 @@
     openSettings: (section) => openSettings(section),
   })
   const { resources, keymap, templates } = customise
+  // A vault theme in use follows its folder (quiet-shell F9): an edit on
+  // disk, *Reload files*, or the folder just added (an example from
+  // Settings › Appearance) re-reads it — or brings back the stand-in when
+  // the folder went away.
+  resources.onChange('themes', (why) => {
+    const ws = workspace
+    if (ws && why !== 'open') void restoreVaultTheme((path) => ws.readAppFile(path))
+  })
   // Each row names its root (settings-shaping ST6), as the layout picker's do.
   nav.setTemplates({
     rows: () => templates.rows.map((r) => ({ ...r, root: r.entry.root })),
@@ -239,7 +252,10 @@
     // The layout's reload notice and *Show problems* on a file that can't be used (settings-shaping ST6).
     notify: (input) => workspace?.notify(input),
     openSettings: (section) => openSettings(section),
+    smallScreen: () => screen.small,
   })
+  // A pin is kept but not honoured on a small screen (QA round 1): follow the window across the breakpoint.
+  $effect(() => layout.setSmallScreen(screen.small))
   nav.setLinksVisible(() => layout.linksVisible)
   nav.setLayoutFiles(layoutFileSource(resources, layout))
 
@@ -255,12 +271,15 @@
    * panel, quick-open, search, the Log view, daily notes. `background` is
    * Mod+click / Mod+Enter — a tab, but stay where you are.
    */
-  function openPath(path: string, opts: { background?: boolean } = {}): void {
+  function openPath(path: string, opts: { background?: boolean; beside?: boolean } = {}): void {
     if (!workspace) return
     // `panes.open: 'replace'` (quiet-shell F3): a foreground open navigates
     // the focused tab in place, Typora's way; Mod+click stays a new tab.
     const replace = layout.spec.panes.open === 'replace' && !opts.background
-    panes.open(path, { ...opts, replace })
+    // `beside`: a note opened from a companion view (a session card's *Open*)
+    // goes where it already is, else into the pane beside the companion.
+    if (opts.beside) panes.openBeside(path, { replace })
+    else panes.open(path, { background: opts.background, replace })
     touchPath(workspace.room, path)
     // The drawer has done its job once the note it opened is on the page.
     if (replace && layout.spec.regions.navigator === 'drawer') layout.treeOpen = false
@@ -334,10 +353,24 @@
     void nav.revision
     membership.invalidate()
   })
+  /** How a suggestion or a thread is brought into view from a companion view (`suggestion-reveal.ts`). */
+  const revealDeps = {
+    open: (p: string) => openPath(p, { beside: true }),
+    focusPane: (paneId: string) => panes.focusPane(paneId),
+    frame: nextFrame,
+  }
   setViewShell({
     clock: realClock,
     openPath: (path, opts) => openPath(path, opts),
     openView: (id, arg) => openView(id, arg),
+    runCommand: (id) => {
+      const command = nav.registry.get(id)
+      if (command && (!command.when || command.when())) void command.run()
+    },
+    commandKeys: (id) => nav.registry.binding(id),
+    revealSuggestion: (path, id, opts = {}) => revealSuggestionIn(path, id, opts, revealDeps),
+    revealThread: (path, threadId) => revealThreadIn(path, threadId, revealDeps),
+    revealLine: (path, line) => revealLineIn(path, line, revealDeps),
     createFromLink: (target) => void fileOps.createFromLink(target),
     renameNote: (path, name) => fileOps.renameNote(path, name),
     pin,
@@ -459,6 +492,13 @@
   }
   function openView(id: TabView, arg?: string): void {
     if (id === 'settings') openSettings(arg)
+    // A session is about the note it was opened from: beside it, never over it.
+    // Every person's door to a session comes through here, so this is where
+    // its composer is asked to take the keyboard — a restored tab is not.
+    else if (id === 'session') {
+      requestComposerFocus(arg)
+      panes.openViewBeside(id, arg)
+    }
     else panes.openView(id, arg)
   }
   /** What Settings is handed, in both hosts — every field read live. */
@@ -470,6 +510,10 @@
     get readAppFile() {
       const ws = workspace
       return ws ? (p: string) => ws.readAppFile(p) : undefined
+    },
+    get writeAppFile() {
+      const ws = workspace
+      return ws ? (p: string, text: string) => ws.writeAppFile(p, text) : undefined
     },
     get vault() {
       if (!workspace) return null
@@ -594,21 +638,9 @@
       onCancel={() => session.cancel()}
     />
   {:else}
-    <main
-      class="flex h-screen flex-col items-center justify-center gap-4 text-sm text-base-content/70"
-      data-testid="connecting"
-    >
-      <span>{$LL.web.shell.connecting()}</span>
-      {#if memConfig.kind !== 'memory'}
-        <button
-          data-testid="boot-cancel"
-          onclick={() => session.cancel()}
-          class="rounded border border-base-300 px-3 py-1 text-xs text-base-content/70 hover:bg-base-200"
-        >
-          {$LL.common.cancel()}
-        </button>
-      {/if}
-    </main>
+    <!-- A vault's own files opening (never the relay): nothing for 300 ms,
+         then a quiet branded line; the way back only for a slow open. -->
+    <BootSplash clock={realClock} onCancel={memConfig.kind !== 'memory' ? () => session.cancel() : undefined} />
   {/if}
 {:else}
   <div class="flex h-screen flex-col bg-base-100 text-base-content">

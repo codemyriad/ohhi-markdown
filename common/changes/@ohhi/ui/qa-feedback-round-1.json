@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/ui",
+      "comment": "Four built-in theme pairs designed for the app — Oh hi, Graphite, Fjord and Iris, light and dark — replace the old Editor Light/Dark; Nord becomes an example vault theme; the sync colours are two sets chosen by light or dark, so custom dark themes get legible sync colours; the contract test asserts the code-fence contrast floors.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/ui"
+}

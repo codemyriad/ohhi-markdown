@@ -115,7 +115,11 @@ describe('kindRows', () => {
       overview,
       layout: ok(layouts[1]!),
       keymap: ok(keymaps[1]!),
-      theme: { builtin: true, name: 'Nord Dark' },
+      theme: { builtin: true, name: 'Fjord Dark' },
+      themes: [
+        { name: 'nord-dark', path: '.ohhi/themes/nord-dark/theme.css' },
+        { name: 'paper', path: '.ohhi/themes/paper/theme.css' },
+      ],
     })
     expect(rows.map((r) => r.kind)).toEqual(['layouts', 'keymaps', 'templates', 'themes'])
     const [layout, keymap, tpl, theme] = rows
@@ -124,7 +128,13 @@ describe('kindRows', () => {
     expect(keymap!.inUse).toEqual({ name: 'mine', root: 'vault', path: '.ohhi/layouts/mine.json', shadows: ['user'] })
     expect(tpl!.inUse).toBeNull()
     expect(tpl!.total).toBe(2)
-    expect(theme!.inUse).toEqual({ name: 'Nord Dark', root: 'builtin', path: null, shadows: [] })
+    expect(theme!.inUse).toEqual({ name: 'Fjord Dark', root: 'builtin', path: null, shadows: [] })
+    // Every theme folder in this vault is "also here", from the vault.
+    expect(theme!.others).toEqual([
+      { name: 'nord-dark', root: 'vault', path: '.ohhi/themes/nord-dark/theme.css', shadows: [] },
+      { name: 'paper', root: 'vault', path: '.ohhi/themes/paper/theme.css', shadows: [] },
+    ])
+    expect(theme!.total).toBe(2)
   })
 
   it('a chosen file that cannot be used reads as the built-in default standing in, and its problem as in use', () => {
@@ -133,10 +143,16 @@ describe('kindRows', () => {
       layout: { chosen: 'focus', entry: null, error: 'not JSON' },
       keymap: ok(keymaps[0]!),
       theme: { builtin: false, name: 'paper', path: '.ohhi/themes/paper/theme.css' },
+      themes: [
+        { name: 'nord-dark', path: '.ohhi/themes/nord-dark/theme.css' },
+        { name: 'paper', path: '.ohhi/themes/paper/theme.css' },
+      ],
     })
     expect(rows[0]!.inUse).toEqual({ name: 'default', root: 'builtin', path: null, shadows: [] })
     expect(rows[0]!.fellBackFrom).toBe('focus')
     expect(rows[3]!.inUse).toEqual({ name: 'paper', root: 'vault', path: '.ohhi/themes/paper/theme.css', shadows: [] })
+    // The one in use is not "also here".
+    expect(rows[3]!.others.map((e) => e.name)).toEqual(['nord-dark'])
     const focus = { kind: 'layouts' as const, name: 'focus', root: 'vault' as const, path: '.ohhi/layouts/focus.json', message: 'x' }
     const dense = { ...focus, name: 'dense', path: '.ohhi/layouts/dense.json' }
     expect(problemInUse(focus, rows)).toBe(true)

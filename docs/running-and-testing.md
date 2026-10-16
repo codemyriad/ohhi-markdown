@@ -267,7 +267,7 @@ note, its `+` right after the tab (`tabs: auto` hides it until a second tab); `f
 from the format bar, with the word count following the selection; the format
 bar floating bottom centre with the word-count corner on its row, never
 covering the last line, and `top` floating under the header; the *Format*
-menu at a narrow width; `view.focus` (`Mod+.`) and `Escape`, and the `leave-focus`
+menu in a narrow split pane on a wide window; `view.focus` (`Mod+.`) and `Escape`, and the `leave-focus`
 way out when the toolbar is hidden too; a saved layout with the toolbar at the
 bottom, the format bar and the mode bar above it; the header at 480 px
 (arrows, the right end, nothing overflowing); opening from the drawer
@@ -286,6 +286,19 @@ its expand button, and Focus mode hides it. A view tab draws neither the strip
 nor the format bar and corner (devtools-shaping D7); `e2e/chrome.spec.ts`
 checks it over the Log and the Inspector, and that a note's tab brings them
 back.
+
+`e2e/small-screen.spec.ts` (QA round 1) boots the default layout at a phone's
+width (390 px) with touch on: the format bar scrolls across most of the row
+instead of folding, with the word count as a number chip at its right end
+that a tap expands; a tap in the note closes the file drawer and the dock panel
+(a click on a wide window still leaves the drawer open); a pin made on a wide
+window is kept but not honoured at phone width — the drawer, its pin control
+`aria-disabled` and saying why — and is a column again when the window widens.
+A tap on a rendered wikilink places the caret and shows the link card
+(`libs/editor-lang` `preview/link-tap.ts`); the card's *Open* or a second tap opens
+the note, typing takes the card down, a tap beside the link only places the
+caret, and a mouse click still follows a rendered link (the card's state and
+the hit test are unit-tested in `libs/editor-lang/test/link-tap.test.ts`).
 
 `e2e/fonts.spec.ts` (round 3 Q7) loads the built app **and** `vite dev` and
 asserts zero console errors and zero failed font requests — the dev server
@@ -468,7 +481,7 @@ shows the **vault manager**, in one of two states:
   and *Bring your vault from another device*. The top bar carries the version
   (desktop), help and Settings; the foot opens the **Import** dialog ("Coming
   from another app?") and links the two-minute guide. No name is asked here:
-  the name peers see lives in Settings › You.
+  the name peers see is the first row of Settings › Sync & devices.
 - **The list** (one or more vaults; also where *Manage vaults…* and a failed
   auto-reopen land): one row per vault — a kind glyph, the name ("open now"
   on the vault open behind the manager), the path and when it was last opened
@@ -803,7 +816,7 @@ Full desktop notes (icons, fs capability scope, how the web app detects Tauri vi
 
 | Symptom | Cause & fix |
 |---|---|
-| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager** (and "connecting…" has a Cancel). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
+| Joiner tab hangs on **"connecting…"** forever | Old behaviour when the share didn't exist. Now the error lands on the **vault manager**, and an open still going after 5 s offers **Back to your vaults** (the opening page says "Opening your notes…" since QA round 1 — it waits for the vault's own files, never the relay). Cause is almost always a missing/mismatched share — start the relay with `SEED_SHARE="demo:demo-token"` and make sure `room`/`token` in the URLs match (§4). |
 | Boot error mentioning **"relay rejected this token"** | The token isn't a valid share on the relay. Check `SEED_SHARE`, or list shares: `cd apps/relay && node --experimental-strip-types src/cli.ts share-list`. |
 | Need to reset a vault's durable sync state | The per-vault stores (doc blobs, LCA, journal, `mounts.json`) live at `~/.local/share/md.ohhi.desktop/stores/<room>` (desktop; `dev.chris.editor` before the rename) or OPFS `stores/<room>` (browser). Deleting a vault's store dir forces a fresh enroll (local vault) or a clean rejoin (shared vault) on next launch — file contents on disk are never touched. |
 | Nothing loads, the **vault manager** shows | No `mode` param. Use the full URLs in §4. |

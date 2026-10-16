@@ -30,6 +30,7 @@ import { calloutFolds } from './callout-fold.js'
 import { fenceKeymap } from './fence-edit.js'
 import { tableKeymap } from './table-commands.js'
 import { tableHint } from './table-hint.js'
+import { linkCard, pointerKind } from './link-tap.js'
 
 /**
  * Rebuild the decorations although nothing in the state moved: what the host
@@ -107,7 +108,10 @@ export function livePreview(): Extension[] {
     // instead of disappearing into it (R2.2). Both halves contribute.
     EditorView.atomicRanges.of((view) => view.state.field(blockPreviewField).hidden),
     EditorView.atomicRanges.of((view) => view.plugin(inlinePreview)?.hidden ?? Decoration.none),
+    // Which pointer pressed (a finger taps a wikilink into its card, QA round 1), then the clicks.
+    pointerKind,
     previewClicks,
+    linkCard,
     // Above markdown's own Backspace (Prec.high, deleteMarkupBackward), which
     // would turn a drawn bullet into indentation in one invisible step.
     Prec.highest(keymap.of([{ key: 'Backspace', run: selectListMarker }])),

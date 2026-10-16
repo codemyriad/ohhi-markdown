@@ -46,12 +46,13 @@
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import { textPaths, type Workspace } from '../workspace.svelte.js'
   import CornerStatus from './CornerStatus.svelte'
-  import Dock from './Dock.svelte'
+  import Dock, { DOCK_CLEAR_PX } from './Dock.svelte'
   import FormatBar from './FormatBar.svelte'
   import GroupChip from './GroupChip.svelte'
   import ModeBar from './ModeBar.svelte'
   import ModeCue from './ModeCue.svelte'
   import { paneHints } from '../pane-hints.svelte.js'
+  import { screen } from '../small-screen.svelte.js'
   import PaneTree, { type PaneRender } from './PaneTree.svelte'
   import StripGroupsMenu from './StripGroupsMenu.svelte'
   import TabGroupMenuItems from './TabGroupMenuItems.svelte'
@@ -104,6 +105,14 @@
   const corner = $derived(
     onNote && layout !== undefined && layout.spec.regions.status === 'corner' && layout.focusKeeps('status')
   )
+  /**
+   * The closed dock strip floats at the top right over a file's tab. A
+   * note's text sits in the measure's margin, clear of it; a view that
+   * fills its pane (a collection's toolbar) reads `--ed-dock-clear` and
+   * keeps that much of its first row free, so the strip never covers a
+   * control. Zero when no strip floats there.
+   */
+  const dockClear = $derived(floatingDock && onNote && layout?.spec.dock.position === 'top-right' ? DOCK_CLEAR_PX : 0)
 
   /** The pane container the layer floats in, and what it must clear at its edges. */
   let stage = $state<HTMLElement | null>(null)
@@ -192,8 +201,14 @@
   let barW = $state(0)
   let cornerW = $state(0)
   // Three tracks, two gaps (the first track is empty space, but its gap is there).
+  // A small screen never stacks: the bar takes the row and the count is a chip.
   const stacked = $derived(
-    formatAt === 'bottom' && (corner || cue) && barW > 0 && cornerW > 0 && barW + cornerW + 2 * SEP_PX > rowW
+    !screen.small &&
+      formatAt === 'bottom' &&
+      (corner || cue) &&
+      barW > 0 &&
+      cornerW > 0 &&
+      barW + cornerW + 2 * SEP_PX > rowW
   )
 
   /**
@@ -207,6 +222,26 @@
       pane?.querySelector<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex="0"]')
     target?.focus()
   }
+
+  /**
+   * A small screen (QA round 1): a tap — or focus — in a note closes the
+   * navigator drawer and the dock's floating panel, which would otherwise
+   * cover most of the note being edited. On a wide screen they stay open
+   * (Chris, 2026-10-06: a click in the editor leaves the drawer open).
+   */
+  $effect(() => {
+    const el = stage
+    if (!el || !layout || !screen.small) return
+    const intoNote = (e: Event): void => {
+      if ((e.target as Element | null)?.closest?.('.cm-editor')) layout.collapseOverlays()
+    }
+    el.addEventListener('pointerdown', intoNote, true)
+    el.addEventListener('focusin', intoNote)
+    return () => {
+      el.removeEventListener('pointerdown', intoNote, true)
+      el.removeEventListener('focusin', intoNote)
+    }
+  })
 
   /** The two floating stacks, for the focus handoff below. */
   let floatTop = $state<HTMLElement>()
@@ -298,6 +333,16 @@
     tabMenuGroupItems,
     moreMenuItems,
     chrome,
+    // The selection handle: read when one shows, so a layout change
+    // reaches the next one without rebuilding any editor.
+    ...(layout
+      ? {
+          selection: {
+            ids: () => (layout.spec.regions.selection === 'on' ? layout.spec.bars.selection : []),
+            registry: nav.registry,
+          },
+        }
+      : {}),
   })
   /** Zoom mounts one pane and nothing else — that is the whole memory story. */
   const treeRoot = $derived(
@@ -313,6 +358,7 @@
     style:--ed-measure={editor ? MEASURES[editor.measure] : undefined}
     style:--ed-float-bottom="{padBottom}px"
     style:--ed-float-top="{padTop}px"
+    style:--ed-dock-clear="{dockClear}px"
   >
     <div bind:this={stage} class="relative flex min-h-0 min-w-0 flex-1 bg-base-200">
       <PaneTree node={treeRoot} {ctx} />
@@ -325,8 +371,8 @@
           style:width={frame ? `${frame.width}px` : '100%'}
           style:top="{(frame?.top ?? 0) + clearTop + GAP_PX}px"
         >
-          <div bind:clientHeight={topH} class="flex min-w-0 justify-center">
-            <FormatBar ids={layout!.spec.bars.format} edge="top" ctx={topCtx} registry={nav.registry} />
+          <div bind:clientHeight={topH} class="flex min-w-0 justify-center {screen.small ? 'flex-1' : ''}">
+            <FormatBar ids={layout!.spec.bars.format} edge="top" ctx={topCtx} registry={nav.registry} fill={screen.small} />
           </div>
         </div>
       {/if}
@@ -346,25 +392,44 @@
           style:width={frame ? `${frame.width}px` : '100%'}
           style:bottom="{(frame?.bottom ?? 0) + clearBottom + GAP_PX}px"
         >
+          <!-- A small screen (QA round 1): one flex row — the bar takes all
+               of it but the count chip at its right end, and scrolls. -->
           <div
             bind:clientHeight={bottomH}
             bind:clientWidth={rowW}
-            class={stacked
-              ? 'flex flex-col items-center gap-2'
-              : 'grid grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] items-end gap-x-4'}
+            data-small={screen.small}
+            class={screen.small
+              ? 'flex items-end gap-2'
+              : stacked
+                ? 'flex flex-col items-center gap-2'
+                : 'grid grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] items-end gap-x-4'}
           >
             {#if corner || cue}
-              <div class="col-start-3 row-start-1 flex justify-end {stacked ? 'self-end' : ''}">
+              <div
+                class="col-start-3 row-start-1 flex justify-end {stacked ? 'self-end' : ''} {screen.small
+                  ? 'order-last shrink-0'
+                  : ''}"
+              >
                 <div bind:clientWidth={cornerW} class="flex flex-col items-end gap-1">
                   <ModeCue {panes} />
-                  {#if corner}<CornerStatus ids={layout!.spec.bars.status} ctx={bottomCtx} />{/if}
+                  {#if corner}<CornerStatus ids={layout!.spec.bars.status} ctx={bottomCtx} compact={screen.small} />{/if}
                 </div>
               </div>
             {/if}
             {#if formatAt === 'bottom'}
-              <div class="col-start-2 row-start-1 flex min-w-0 justify-center {stacked ? 'max-w-full' : ''}">
-                <div bind:clientWidth={barW} class="flex min-w-0 max-w-full">
-                  <FormatBar ids={layout!.spec.bars.format} edge="bottom" ctx={bottomCtx} registry={nav.registry} />
+              <div
+                class="col-start-2 row-start-1 flex min-w-0 {screen.small ? 'flex-1' : 'justify-center'} {stacked
+                  ? 'max-w-full'
+                  : ''}"
+              >
+                <div bind:clientWidth={barW} class="flex min-w-0 max-w-full {screen.small ? 'flex-1' : ''}">
+                  <FormatBar
+                    ids={layout!.spec.bars.format}
+                    edge="bottom"
+                    ctx={bottomCtx}
+                    registry={nav.registry}
+                    fill={screen.small}
+                  />
                 </div>
               </div>
             {/if}

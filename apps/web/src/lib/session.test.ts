@@ -9,6 +9,7 @@ import { upsertVault, type VaultEntry } from './config.js'
 import { createSession, type Session, type SessionHost } from './session.svelte.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
 import type { Workspace, WorkspaceConfig } from './workspace.svelte.js'
+import { applyTheme, themeState } from './theme.svelte.js'
 
 const A: VaultEntry = { name: 'A', room: 'room-a', vault: { kind: 'opfs', id: 'a' } }
 const B: VaultEntry = { name: 'B', room: 'room-b', vault: { kind: 'opfs', id: 'b' } }
@@ -253,5 +254,79 @@ describe('createSession', () => {
       expect(session.view).toBe('workspace')
       expect(session.workspace).toBe(ws)
     })
+  })
+})
+
+describe('createSession — a vault theme the vault does not hold (Nord out of the built-ins, Fork 4-A)', () => {
+  /** A workspace whose `.ohhi/` holds `files`, recording what it is told. */
+  function vaultWith(room: string, files: Record<string, string>) {
+    const notices: unknown[] = []
+    const ws = {
+      room,
+      dispose() {},
+      readAppFile: async (path: string) => files[path] ?? null,
+      notify: (input: unknown) => void notices.push(input),
+    }
+    return { ws: ws as unknown as Workspace, notices }
+  }
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 6; i++) await Promise.resolve()
+  }
+
+  afterEach(() => {
+    document.getElementById('ed-user-theme')?.remove()
+    applyTheme('system')
+  })
+
+  it('a stored nord-dark and no folder: Oh hi Dark stands in, the preference is kept, and it is said once — ever', async () => {
+    themeState.pref = 'custom:nord-dark'
+    const a = vaultWith('room-a', {})
+    const done = session.boot(A)
+    await tick()
+    pending[0]!.resolve(a.ws)
+    await done
+    await settle()
+    expect(document.documentElement.getAttribute('data-theme')).toBe('editor-dark')
+    expect(themeState.pref).toBe('custom:nord-dark')
+    expect(themeState.fellBackFrom).toBe('nord-dark')
+    expect(a.notices).toEqual([
+      {
+        level: 'warn',
+        code: 'theme_retired',
+        params: { name: 'nord-dark', path: '.ohhi/themes/nord-dark/theme.css', example: 'examples/themes/nord-dark/theme.css' },
+      },
+    ])
+
+    // Another vault without it: the stand-in again, nothing said.
+    const b = vaultWith('room-b', {})
+    const again = session.boot(B)
+    await tick()
+    pending[1]!.resolve(b.ws)
+    await again
+    await settle()
+    expect(b.notices).toEqual([])
+
+    // A vault that holds the folder: Nord Dark itself.
+    const c = vaultWith('room-a', { '.ohhi/themes/nord-dark/theme.css': '[data-theme="nord-dark"] { color-scheme: dark; }' })
+    const third = session.boot(A)
+    await tick()
+    pending[2]!.resolve(c.ws)
+    await third
+    await settle()
+    expect(document.documentElement.getAttribute('data-theme')).toBe('nord-dark')
+    expect(themeState.fellBackFrom).toBeNull()
+    expect(c.notices).toEqual([])
+  })
+
+  it('a custom theme of your own that the vault lacks: the stand-in, and no notice (only the retired built-ins are announced)', async () => {
+    themeState.pref = 'custom:paper'
+    const a = vaultWith('room-a', {})
+    const done = session.boot(A)
+    await tick()
+    pending[0]!.resolve(a.ws)
+    await done
+    await settle()
+    expect(themeState.fellBackFrom).toBe('paper')
+    expect(a.notices).toEqual([])
   })
 })

@@ -26,10 +26,14 @@ async function addClaude(user: ReturnType<typeof userEvent.setup>): Promise<void
 }
 
 describe('Settings › AI › Providers', () => {
-  it('starts empty, with the local-servers help', () => {
+  it('starts empty, with the local-servers help a popover from the eyebrow row (QA3)', async () => {
+    const user = userEvent.setup()
     render(ProvidersSettings)
     expect(screen.getByTestId('ai-providers-empty')).toHaveTextContent(t.empty())
-    expect(screen.getByTestId('ai-providers-local-help')).toHaveTextContent('OLLAMA_ORIGINS')
+    const help = screen.getByTestId('ai-providers-local-help')
+    expect(help).toHaveAttribute('aria-expanded', 'false')
+    await user.click(help)
+    expect(await screen.findByTestId('ai-providers-local-popover')).toHaveTextContent('OLLAMA_ORIGINS')
   })
 
   it('add → the provider appears with its egress line, and the key is never on screen', async () => {

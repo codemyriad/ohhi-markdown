@@ -1,0 +1,164 @@
+/*
+ * fjord-dark — "Fjord Dark".
+ *
+ * Direction C, "Fjord". Nord's temperature on our rules: cool blue-greys, frost for
+ * the accent and the caret, mauve for a note not written yet; headings are a cool
+ * ramp, not six hues, and the aurora reds stay out of the content so red means one
+ * thing.
+ *
+ * Values from the design review "Oh hi Theme Explorations" (2026-10-15), each
+ * checked there against theme-contract.test.ts's rules and the floors in
+ * docs/theming.md (7:1 ink, 4.5:1 every text colour, 3:1 marks). Band C (the
+ * sync colours) is not here: sync-tokens.css chooses it by polarity. The people
+ * and group colours are the dark set every built-in default shares (Fork 5-A),
+ * so a peer keeps their colour when you switch theme.
+ */
+@plugin "daisyui/theme" {
+  name: "fjord-dark";
+  default: false;
+  prefersdark: false;
+  color-scheme: dark;
+
+  --color-base-100: #21252e;
+  --color-base-200: #282d38;
+  --color-base-300: #353c4a;
+  --color-base-content: #e4e9f0;
+  --color-primary: #8cc4d8;
+  --color-primary-content: #21252e;
+  --color-secondary: #aeb8c7;
+  --color-secondary-content: #21252e;
+  --color-accent: #d4a373;
+  --color-accent-content: #21252e;
+  --color-neutral: #e4e9f0;
+  --color-neutral-content: #21252e;
+  --color-info: #8cc4d8;
+  --color-info-content: #21252e;
+  --color-success: #7fb069;
+  --color-success-content: #21252e;
+  --color-warning: #d9a441;
+  --color-warning-content: #21252e;
+  --color-error: #ec8080;
+  --color-error-content: #21252e;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@layer editor.tokens {
+  [data-theme="fjord-dark"] {
+    --ed-surface: #21252e;
+    --ed-scrim: #00000080;
+    --ed-ink: #e4e9f0;
+    --ed-ink-muted: #aeb8c7;
+    --ed-ink-faint: #76828f;
+    --ed-h1: #f3f6fa;
+    --ed-h2: #e9eef4;
+    --ed-h3: #dbe2ea;
+    --ed-h4: #c7d0dc;
+    --ed-h5: #b2bdcb;
+    --ed-h6: #9eaabb;
+    --ed-title: #8cc4d8;
+    --ed-bold: #f3f6fa;
+    --ed-italic: #e4e9f0;
+    --ed-strike: #76828f;
+    --ed-mark-bg: #d9b35a;
+    --ed-mark-fg: #21252e;
+    --ed-code-fg: #8fd3c9;
+    --ed-code-bg: #2b313d;
+    --ed-code-block-fg: #d5dce6;
+    --ed-code-block-bg: #1c2028;
+    --ed-code-border: #353c4a;
+    --ed-syn-keyword: #94a9d6;
+    --ed-syn-string: #a7c88f;
+    --ed-syn-number: #c2a2cf;
+    --ed-syn-comment: #6c7889;
+    --ed-syn-function: #8fd3c9;
+    --ed-syn-type: #8cc4d8;
+    --ed-syn-variable: #e4e9f0;
+    --ed-syn-operator: #aeb8c7;
+    --ed-syn-invalid: #ec8080;
+    --ed-link: #8cc4d8;
+    --ed-link-hover: #8fd3c9;
+    --ed-url: #aeb8c7;
+    --ed-wikilink: #8fd3c9;
+    --ed-wikilink-unresolved: #bfa3cf;
+    --ed-wikilink-punct: #4b5566;
+    --ed-tag-fg: #a8d2e0;
+    --ed-tag-bg: #2d3a47;
+    --ed-tag-bg-hover: #3c4855;
+    --ed-frontmatter-fg: #aeb8c7;
+    --ed-frontmatter-bg: #1c2028;
+    --ed-frontmatter-border: #353c4a;
+    --ed-quote-fg: #aeb8c7;
+    --ed-quote-border: #353c4a;
+    --ed-hr: #353c4a;
+    --ed-bullet: #76828f;
+    --ed-marker: #4b5566;
+    --ed-checkbox: #8cc4d8;
+    --ed-task-done-fg: #76828f;
+
+    --ed-table-header-bg: #282d38;
+    --ed-table-row-alt-bg: #252933;
+    --ed-table-border: #353c4a;
+
+    --ed-selection: #8cc4d847;
+    --ed-selection-blur: #8cc4d824;
+    --ed-caret: #8cc4d8;
+    --ed-active-line: #ffffff09;
+    --ed-gutter-bg: transparent;
+    --ed-gutter-fg: #4b5566;
+    --ed-gutter-active-fg: #aeb8c7;
+    --ed-bracket-match-bg: #8cc4d833;
+    --ed-search-match-bg: #d9b35a80;
+    --ed-search-match-active-bg: #d9b35a;
+    --ed-suggest-del: #d58cc4;
+    --ed-suggest-add: #6cc4dd;
+    --ed-suggest-stale: #9a948a;
+    --ed-comment-bg: #a99cf233;
+    --ed-comment-resolved-bg: #6b768433;
+    --ed-agent-working-bg: #56c8d833;
+
+    --ed-presence-1: #56b6c2;
+    --ed-presence-2: #98c379;
+    --ed-presence-3: #e5c07b;
+    --ed-presence-4: #c678dd;
+    --ed-presence-5: #61afef;
+    --ed-presence-6: #d19a66;
+    --ed-presence-7: #56d1b0;
+    --ed-presence-8: #b0b7c3;
+    --ed-peer-label-fg: #14181d;
+    --ed-presence-fg-1: #14181d;
+    --ed-presence-fg-2: #14181d;
+    --ed-presence-fg-3: #14181d;
+    --ed-presence-fg-4: #14181d;
+    --ed-presence-fg-5: #14181d;
+    --ed-presence-fg-6: #14181d;
+    --ed-presence-fg-7: #14181d;
+    --ed-presence-fg-8: #14181d;
+
+    --ed-group-1: #58b4d1;
+    --ed-group-2: #a3d18b;
+    --ed-group-3: #c792ea;
+    --ed-group-4: #e5c07b;
+    --ed-group-5: #7fd0c4;
+    --ed-group-6: #e58fb0;
+    --ed-group-7: #d19a66;
+    --ed-group-8: #b0b7c3;
+
+    --ed-callout-note: #8cc4d8;
+    --ed-callout-tip: #8fd3c9;
+    --ed-callout-success: #7fb069;
+    --ed-callout-warning: #d9a441;
+    --ed-callout-danger: #ec8080;
+    --ed-callout-question: #d4a373;
+    --ed-callout-bug: #ec8080;
+    --ed-callout-example: #94a9d6;
+    --ed-callout-quote: #76828f;
+  }
+}

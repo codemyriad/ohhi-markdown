@@ -20,13 +20,15 @@ tools — this page is everything it needs. Ground truth for the decisions:
 
 | Kind | File | Schema | Chosen in |
 |---|---|---|---|
-| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Layout names the file in use and edits this device's overrides on top |
-| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Keys |
+| Layouts | `layouts/<name>.json` | [`spec/ohhi.layout.v1.schema.json`](../spec/ohhi.layout.v1.schema.json) | *Use layout file…* (palette); Settings › Customise › Layout names the file in use and edits this device's overrides on top |
+| Keymaps | `keymaps/<name>.json` | [`spec/ohhi.keymap.v1.schema.json`](../spec/ohhi.keymap.v1.schema.json) | Settings › Customise › Keys |
 | Templates | `templates/<name>.md` | frontmatter `description`, `argument-hint` | *Insert template…* (palette) |
-| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Appearance (by name; the folder is not listed) |
+| Themes | `themes/<name>/theme.css` (vault only) | [`docs/theming.md`](theming.md) | Settings › Customise › Appearance, under *In this vault* (every theme folder, by name — apart from the eight under *Built in*); Customise's Theme row lists them too. *Add to this vault* writes a shipped example ([`examples/themes/`](../examples/themes/): Nord Light and Dark, built in until 2026-10-15). A theme sets bands A and B; its `color-scheme` also picks which of the two sets of sync colours it gets (band C is per polarity and out of a theme's reach) |
 
-**Settings › Customise** is the overview of all four: the roots below in
-order, each kind's file in use with the root it came from and what it
+**Settings › Customise** is the overview of all four, and the parent of
+the sections that choose them (Editor, Layout, Appearance, Keys — QA round
+1): first what is in use, one row per kind with a door to its section; then
+the roots below in order, each kind's file in use with the root it came from and what it
 shadows, every other name with its root, and **Problems** — every layout or
 keymap file that does not parse or validate, listed with its file, root and
 message until it is fixed (read from the files on each change and on
@@ -65,7 +67,9 @@ layout file, then this device's **overrides**, then its **pins**:
   Settings › Editor edit: Layout has the shell's options (files drawer or
   column, sidebar dock or column and its corner, tabs, toolbar position,
   format bar and **which buttons it shows** — a picker that writes
-  `bars.format` as a plain list, with *Reset to layout file* — word count),
+  `bars.format` as a plain list, with *Reset to layout file* — word count,
+  the selection handle on or off and its buttons, the same picker over
+  `bars.selection`),
   Editor the note's (how notes open, line width, typewriter, inline title).
   Each change applies at once — split Settings beside a note to watch it —
   and is kept on this device as the difference from the file; each
@@ -74,7 +78,10 @@ layout file, then this device's **overrides**, then its **pins**:
   count, *Full* as a bar along the bottom, *Off* the mode's name only — is
   device config, not a layout override);
 - **pins**: *Pin as a column* on the navigator or the dock
-  (`config.layout.pins`) wins over both.
+  (`config.layout.pins`) wins over both — on a window at least 40rem wide.
+  On a small screen a pin is kept but not honoured: the side is the drawer or
+  dock it would be unpinned, and its pin control says pins apply on wider
+  screens.
 
 None of the three is ever written into a file. A layout *file* is how an
 agent, or a team in a shared vault, describes a shell.
@@ -142,8 +149,8 @@ say only what differs. Resolving it yields the complete shell spec.
 |---|---|
 | `$schema` | always `"ohhi.layout.v1"` |
 | `extends` | a layout by name (`default` or a file's name); a file that extends its own name (`.ohhi/layouts/default.json` with `"extends": "default"`) extends the one it shadows |
-| `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right) |
-| `bars` | seven lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`, `tabs`. `format` and `tabs` hold **command ids** (`tabs`: faint buttons at the end of every pane's tab strip — by default `workspace.split-right` and `workspace.split-down`); the others hold **readout ids** |
+| `regions` | `header` (`toolbar`/`breadcrumb`), `navigator` (`column`/`drawer`/`off`), `rail` (`dock`/`column` — collapsed, always the dock's floating icon strip; open, a floating panel with Links and History tabs, or that panel as a column), `tabs` (`auto`/`always`), `statusbar` (`pane`/`merged`), `format` (`bottom`/`top`/`off` — the format bar floating over the editor at the bottom centre, or under the header, or none), `status` (`corner`/`off` — the `bars.status` readouts floating at the editor's bottom right), `selection` (`on`/`off` — the selection handle: `bars.selection` on a small pill at the end of a settled selection) |
+| `bars` | eight lists — `toolbar.left`, `toolbar.center`, `toolbar.right`, `format`, `statusbar`, `status`, `tabs`, `selection`. `format`, `tabs` and `selection` hold **command ids** (`format`: by default the `format.*` buttons and, last, `note.comment` — the comment button; `tabs`: faint buttons at the end of every pane's tab strip — by default `workspace.split-right` and `workspace.split-down`; `selection`: the selection handle — by default `note.comment` and `ai.ask-selection`, drawn as *Comment* and *Ask*); the others hold **readout ids** |
 | `toolbar` | `position`: `top`/`bottom` |
 | `dock` | `position`: `top-right`/`bottom-right` — where the dock's icon strip floats |
 | `panes` | `borders` (`hairline`/`none`), `focusMark`, `lead` (booleans), `open` (`tab`/`replace`) |
@@ -151,9 +158,37 @@ say only what differs. Resolving it yields the complete shell spec.
 | `editor` | `measure` (`narrow`/`comfortable`/`wide`), `typewriter` (boolean), `inlineTitle` (boolean — the note's name as an editable heading at the top of its body; editing it renames the file) |
 | `focus` | `keep`: the region ids Focus mode leaves on screen |
 
+**The selection handle** (`regions.selection`, `bars.selection`) is a small
+pill that appears at the end of a selection once it settles — never during a
+drag — beside the last selected character, or just below that line when the
+line has no room; never over the selected words. Typing, Escape, an empty
+selection or the focus leaving the note takes it down, and it never appears
+while the selection overlaps an agent's proposal (the proposal's own
+*Accept* / *Reject* pair is the control there). An item whose command cannot
+run is left out: *Ask* (`ai.ask-selection`) appears only once a provider is
+added in Settings › AI. Under a finger the same pill sits below the end
+line, clear of the system's selection handle and away from the system's own
+menu above the words. `Alt+F10` from the text moves the keyboard onto it.
+Formatting stays on the format bar, whose buttons name their command and key
+in a tooltip ("Bold · Ctrl+B").
+
 The floating format bar, the `status` corner and the dock's icon strip are a
 note's chrome: a view tab (Inspector, Log, Shared) or an empty tab focused
 draws none of them, and focusing a note brings them back.
+
+**On a small screen** (a window under 40rem — 640 px — wide; one breakpoint,
+`apps/web/src/lib/small-screen.svelte.ts`) the same layout file draws a
+phone's shell. The format bar never folds into its *Format* menu: it fills
+the row and scrolls sideways, every command a button. The `status` corner's
+counts (`words`, `chars`, `reading-time`) fold into one chip at the bar's
+right end showing the first count's number alone ("1,204"); a tap shows them
+in full. Any other readout in `bars.status` is drawn as it is — `sync` is
+never folded away. (On a wider screen the bar still folds into the menu when
+the pane it floats over is under 30rem.) A tap in a note closes the
+navigator drawer and the dock's floating panel, which would otherwise cover
+most of it; on a wider screen they stay open until closed. (Whatever the
+width, a finger's tap on a wikilink places the caret and shows a small card
+with *Open* rather than opening the note; a mouse click still follows it.)
 
 **Older names still load.** Files written before 2026-10-06 are read as
 today's shape: `extends: "light"` → `"default"`, `regions.rail: "menu"` →
@@ -296,7 +331,7 @@ they drift, and another fails if this page names an id the app does not have.
 ### Command ids
 
 Every key in a keymap's `bindings`, and every entry of a layout's
-`bars.format` and `bars.tabs`, is one of these.
+`bars.format`, `bars.tabs` and `bars.selection`, is one of these.
 
 <!-- generated:command-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav.quick-open`
@@ -424,12 +459,15 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `app.session`
 - `ai.new-session`
 - `ai.add-selection`
+- `ai.ask-selection`
 - `ai.run-skill`
 - `ai.stop-run`
 - `ai.accept-suggestion`
 - `ai.reject-suggestion`
 - `ai.accept-all`
 - `ai.reject-all`
+- `ai.next-suggestion`
+- `ai.previous-suggestion`
 - `ai.undo-agent`
 - `note.comment`
 <!-- /generated -->
@@ -451,7 +489,10 @@ menu (the default layout's last `toolbar.right` item): its rows are the
 `help.sharing`, `help.customise`, `help.agents`, `help.changes`,
 `help.report` — which the palette lists and a
 keymap can bind; `help.menu` opens the menu itself, and is offered only while
-a layout draws the `help` readout.
+a layout draws the `help` readout. `session` is the Session view's door (the
+default layout draws it between `inspector` and `help`): it opens the current
+AI session beside the note, and draws nothing until a provider is added in
+Settings › AI, as `inspector` draws nothing while developer tools are off.
 
 <!-- generated:readout-ids — rushx gen-schemas in apps/web; never hand-edit -->
 - `nav`
@@ -470,6 +511,7 @@ a layout draws the `help` readout.
 - `inspector`
 - `help`
 - `last-agent-write`
+- `session`
 - `note.pill`
 - `people`
 <!-- /generated -->
@@ -486,6 +528,7 @@ The keys of `bars`.
 - `statusbar`
 - `status`
 - `tabs`
+- `selection`
 <!-- /generated -->
 
 ### Region ids

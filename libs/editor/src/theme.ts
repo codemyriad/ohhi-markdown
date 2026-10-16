@@ -78,6 +78,73 @@ const editorBaseTheme = EditorView.theme({
     backgroundColor: 'var(--ed-active-line)',
     color: 'var(--ed-gutter-active-fg)',
   },
+  // --- the suggestion controls (writing-harness QA round 1) ----------------
+  // The Accept / Reject pair after a proposal: a pill on the editing surface,
+  // each verb in its own suggestion colour (both clear 4.5:1 on --ed-surface,
+  // theme-contract.test.ts), the key a quiet hint. The current proposal's
+  // pair is ringed in the proposal colour; one drawn because the pointer is
+  // over it keeps the plain hairline — never faded text.
+  '.ed-suggest-pair': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+    marginLeft: '6px',
+    padding: '1px 2px',
+    verticalAlign: 'baseline',
+    border: '1px solid var(--ed-popover-border)',
+    borderRadius: '999px',
+    backgroundColor: 'var(--ed-surface)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '11.5px',
+    lineHeight: '1.4',
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+  },
+  '.ed-suggest-pair-current': { borderColor: 'var(--ed-suggest-add)' },
+  '.ed-suggest-pair button': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    margin: '0',
+    padding: '0 7px',
+    border: 'none',
+    borderRadius: '999px',
+    backgroundColor: 'transparent',
+    font: 'inherit',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  '.ed-suggest-pair button:hover': { backgroundColor: 'var(--ed-active-line)' },
+  '.ed-suggest-pair button:focus-visible': { outline: '2px solid var(--ed-caret)', outlineOffset: '1px' },
+  '.ed-suggest-pair .ed-suggest-accept': { color: 'var(--ed-suggest-add)' },
+  '.ed-suggest-pair .ed-suggest-reject': { color: 'var(--ed-suggest-del)' },
+  '.ed-suggest-pair kbd': {
+    fontFamily: 'var(--ed-font-mono)',
+    fontSize: '10px',
+    color: 'var(--ed-ink-muted)',
+  },
+  // A proposal's mark in the gutter: a dot, or its number among several.
+  '.ed-suggest-gutter': { minWidth: '18px' },
+  '.ed-suggest-marker': {
+    display: 'grid',
+    placeItems: 'center',
+    minWidth: '14px',
+    height: '14px',
+    margin: '0.35em 2px 0',
+    padding: '0 3px',
+    border: '1px solid var(--ed-suggest-add)',
+    borderRadius: '999px',
+    backgroundColor: 'var(--ed-surface)',
+    color: 'var(--ed-suggest-add)',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '9.5px',
+    fontWeight: '600',
+    lineHeight: '1',
+    cursor: 'pointer',
+  },
+  '.ed-suggest-marker:empty': { minWidth: '8px', width: '8px', height: '8px', padding: '0', margin: '0.55em 5px 0', backgroundColor: 'var(--ed-suggest-add)' },
+  '.ed-suggest-marker-current': { backgroundColor: 'var(--ed-suggest-add)', color: 'var(--ed-surface)' },
+  '.ed-suggest-marker:focus-visible': { outline: '2px solid var(--ed-caret)', outlineOffset: '1px' },
   '.cm-matchingBracket, .cm-nonmatchingBracket': {
     backgroundColor: 'var(--ed-bracket-match-bg)',
   },
@@ -702,6 +769,54 @@ const editorBaseTheme = EditorView.theme({
     outline: 'none',
   },
   '.cm-table-hint-button:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
+
+  // --- the link card (QA round 1): a finger's tap on a wikilink ------------
+  // One button over the link, dressed as the table hint; big enough for a
+  // thumb (2.75rem tall), never wider than the editor.
+  '.cm-link-card': {
+    display: 'flex',
+    padding: '0.2em',
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.8125rem',
+    lineHeight: '1.4',
+    maxWidth: 'min(22rem, calc(100vw - 2rem))',
+  },
+  '.cm-link-card-open': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4em',
+    minHeight: '2.75rem',
+    minWidth: '0',
+    font: 'inherit',
+    color: 'var(--ed-popover-ink)',
+    background: 'none',
+    border: 'none',
+    borderRadius: '0.3em',
+    padding: '0 0.75em',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-link-card-open:hover, .cm-link-card-open:focus-visible': {
+    backgroundColor: 'var(--ed-popover-selected)',
+    outline: 'none',
+  },
+  '.cm-link-card-open:focus-visible': { boxShadow: 'inset 0 0 0 1px var(--ed-popover-match)' },
+  '.cm-link-card-open .cm-icon': { flexShrink: '0' },
+
+  // --- the selection handle (selection explorations, shape B) ---------------
+  // A tooltip dressed as every other (the rule above), as a pill: the app
+  // draws `bars.selection` inside it (by default Comment | Ask), placed at
+  // the selection's end by `selection-bar.ts`.
+  '.cm-tooltip.cm-selection-bar': {
+    fontFamily: 'var(--ed-font-ui)',
+    fontSize: '0.75rem',
+    lineHeight: '1.4',
+    borderRadius: '999px',
+    padding: '0.125rem',
+    maxWidth: 'min(24rem, calc(100vw - 1rem))',
+  },
 
   // --- collab (class names come from y-codemirror.next) --------------------
   // The peer COLOUR is written as an inline style from awareness, so only the

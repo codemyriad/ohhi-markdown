@@ -54,6 +54,9 @@
   import StatusBar from './StatusBar.svelte'
   import SyncPill from './SyncPill.svelte'
   import TabStrip from './TabStrip.svelte'
+  import type { SelectionRender } from './PaneTree.svelte'
+  import SelectionBar from './SelectionBar.svelte'
+  import { selectionBar } from '@ohhi/editor'
   // Comment threads — not AI-gated; only *Send to agent* is.
   import { commentsExtension } from '@ohhi/editor'
   import { bindEditor, focusEditor } from '../focused-editor.svelte.js'
@@ -100,6 +103,8 @@
     moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Pane]>
     /** Which chrome the layout gives this pane (spike S21); absent → today's. */
     chrome?: PaneChrome
+    /** The selection handle's items and registry (selection explorations); absent → none. */
+    selection?: SelectionRender
   }
 
   let {
@@ -125,6 +130,7 @@
     tabMenuGroupItems,
     moreMenuItems,
     chrome = DENSE_CHROME,
+    selection,
     typewriter = false,
     inlineTitle = true,
   }: Props = $props()
@@ -226,9 +232,18 @@
     attachmentHost.of(fileHost),
     commentsExtension(commentsHostFor(() => pane.id, () => path)),
     // Untracked like the hosts above: CM6 reads these inside the view's own effect.
+    // The pair on a proposal runs the registry's caret rows — through the
+    // shell, with this pane the one note-acting commands mean.
     noteSuggestions(
       () => untrack(() => workspace),
-      () => untrack(() => path)
+      () => untrack(() => path),
+      {
+        run: (id) => {
+          focusEditor(pane.id)
+          shell?.runCommand(id)
+        },
+        keys: (id) => shell?.commandKeys(id) ?? '',
+      }
     ),
     workingHighlight(
       workingHost(
@@ -236,6 +251,26 @@
         () => untrack(() => doc)
       )
     ),
+    // The selection handle (selection explorations, shape B): the editor
+    // decides when and where, this pane draws the layout's `bars.selection`
+    // into it. Untracked like the hosts above; the settle delay runs on the
+    // shell's clock.
+    selectionBar({
+      schedule: (fn, ms) => pasteClock.schedule(fn, ms),
+      host: {
+        offered: () => untrack(() => (selection?.ids().length ?? 0) > 0),
+        mount: (dom, view, form) => {
+          const render = untrack(() => selection)
+          if (!render) return {}
+          const app = mount(SelectionBar, {
+            target: dom,
+            props: { ids: render.ids(), registry: render.registry, form, view },
+            ...(shell ? { context: viewShellContext(shell) } : {}),
+          })
+          return { destroy: () => void unmount(app) }
+        },
+      },
+    }),
   ]
 
   // ---- the shell (verbs and the index) this pane's widgets reach ----
@@ -473,14 +508,22 @@
   }
 
   /**
-   * The inline title (P3): mounted INTO the view's scroller, just before
-   * `.cm-content`, so it scrolls with the note while staying outside the
+   * The inline title (P3): mounted INTO the view's scroller, as its FIRST
+   * child, so it scrolls with the note while staying outside the
    * document — CM6 listens on its content element only, so the title's keys,
    * clicks and selection never reach the editor, and the resume point (the
    * scroller's `scrollTop`) still means the same place. It is mounted
    * imperatively rather than rendered and moved: a Svelte block whose nodes
    * were moved into CM6's DOM would tear down by walking CM6's siblings.
    * Only a note gets one — a view tab and the empty tab never reach here.
+   *
+   * First, not "before `.cm-content`": CM6 puts its gutters there too (a
+   * comment thread's marker column), and a view built with a thread already
+   * in the note has them before this effect runs. Slotted between the
+   * gutters and the content, the title wrapped onto a second row and left
+   * the full-height gutter column alone on the first — a pane-high gap above
+   * the note, its marker stranded at the top (QA round 1, after *Send to
+   * agent* split the pane and rebuilt the note's view).
    */
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
   const desktop = isTauri()
@@ -492,7 +535,7 @@
     const scroller = view.scrollDOM
     const slot = document.createElement('div')
     slot.className = 'ed-inline-title'
-    scroller.insertBefore(slot, view.contentDOM)
+    scroller.prepend(slot)
     scroller.classList.add('ed-titled')
     const title = mount(InlineTitle, {
       target: slot,
@@ -680,7 +723,7 @@
           onNew={() => newNote(tab.id)}
           onOpenQuick={openQuick}
           onCustomise={shell ? () => shell.openSettings('customise') : undefined}
-          onAgents={shell && desktop ? () => shell.openSettings('agents') : undefined}
+          onAgents={shell && desktop ? () => shell.openSettings('ai') : undefined}
         />
       {/if}
     </div>

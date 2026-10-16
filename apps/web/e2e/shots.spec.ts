@@ -1,5 +1,6 @@
 /** Screenshot pass — not a gate; run manually to eyeball the themes. */
 import { test, type Page } from '@playwright/test'
+import { BUILTIN_THEMES } from '../../../libs/ui/src/tokens.js'
 import { appUrl, closeSettings, settingsView } from './fixtures.js'
 
 const OUT = process.env.SHOT_DIR ?? 'test-results/shots'
@@ -38,7 +39,7 @@ async function boot(page: Page, room: string): Promise<void> {
   await page.waitForTimeout(400)
 }
 
-for (const theme of ['editor-dark', 'editor-light', 'nord-dark', 'nord-light']) {
+for (const theme of BUILTIN_THEMES) {
   test(`shot ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await boot(page, `shot-${theme}`)
@@ -56,7 +57,7 @@ test('shot quick-open', async ({ page }) => {
   await boot(page, 'shot-qo')
   await page.getByTestId('open-settings').click()
   await settingsView(page).getByTestId('settings-tab:appearance').click()
-  await page.getByTestId('theme-nord-dark').click()
+  await page.getByTestId('theme-fjord-dark').click()
   await closeSettings(page)
   await page.keyboard.press('ControlOrMeta+o')
   await page.getByTestId('quick-open-input').fill('note')

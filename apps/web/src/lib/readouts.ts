@@ -38,6 +38,7 @@ import Mode from './components/readouts/ModeReadout.svelte'
 import Nav from './components/readouts/Nav.svelte'
 import PaneLead from './components/readouts/PaneLead.svelte'
 import ReadingTime from './components/readouts/ReadingTime.svelte'
+import Session from './components/readouts/Session.svelte'
 import Sync from './components/readouts/Sync.svelte'
 import Title from './components/readouts/Title.svelte'
 import Words from './components/readouts/Words.svelte'
@@ -77,9 +78,23 @@ export interface ReadoutContext {
   pane?: ReadoutPane
   /** Whether developer tools are on (Settings › Developer, `?debug=1`); absent → off. */
   devtools?: () => boolean
+  /**
+   * A count readout draws its number alone ("1,204"; the words stay for a
+   * screen reader) — the corner's collapsed chip on a small screen (QA round
+   * 1). Absent → the full readout.
+   */
+  compact?: boolean
 }
 
 export type Readout = Component<{ ctx: ReadoutContext }>
+
+/**
+ * The count readouts (QA round 1): the ones a small screen's corner folds
+ * into one number chip, the first of them shown, the rest on a tap. Every
+ * other readout in the bar — `sync` above all — is drawn as it is, never
+ * folded away (golden rule 4).
+ */
+export const COUNT_READOUTS: ReadonlySet<string> = new Set<ReadoutId>(['words', 'chars', 'reading-time'])
 
 /** The pane a readout reports on: the status bar's own, or the focused one. */
 export function targetOf(ctx: Pick<ReadoutContext, 'panes' | 'pane'>): Focused {
@@ -157,5 +172,7 @@ export const READOUTS: Record<ReadoutId, Readout> = {
   help: Help,
   // Writing-harness B7: "Tighten edited Plan 3 min ago"; nothing until the in-app agent has written.
   'last-agent-write': LastAgentWrite,
+  // Chris, 2026-10-15: the Session view's door, between the inspector's and Help; nothing without a provider.
+  session: Session,
   people: Sync,
 }

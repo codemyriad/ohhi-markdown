@@ -5,8 +5,10 @@
  * the CodeMirror editor alike — resolves `var(--ed-*)` and `var(--color-*)`
  * against the `data-theme` attribute on <html>. So this module does exactly
  * three things: set the attribute, persist the choice, and publish the one
- * boolean CSS cannot express for us (CM6's `darkTheme` facet, which selects
- * its own base rules for scrollers, panels and tooltips).
+ * boolean CSS cannot work out for itself — the theme's polarity — twice: as
+ * CM6's `darkTheme` facet (its own base rules for scrollers, panels and
+ * tooltips) and as `data-polarity` on <html>, which picks band C's sync
+ * colours (sync-tokens.css, one set per polarity: themes review Fork 3-B).
  *
  * `system` is resolved to an explicit attribute rather than left to
  * `:root:not([data-theme])`. DaisyUI's `--prefersdark` could handle band A in
@@ -15,12 +17,35 @@
  * code path is worth more than the CSS-only purity, and the boot script is
  * synchronous so there is no flash either way. Recorded in docs/theming.md.
  */
-import { getLL } from '@ohhi/i18n'
-import { BUILTIN_THEMES, DARK_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
-import { setThemePref, themePref, type ThemePref } from './config.js'
+import { getLL, type TranslationFunctions } from '@ohhi/i18n'
+import {
+  BUILTIN_THEMES,
+  DARK_THEMES,
+  DEFAULT_DARK_THEME as DEFAULT_DARK,
+  DEFAULT_LIGHT_THEME as DEFAULT_LIGHT,
+  RETIRED_THEMES,
+  THEME_LABEL_KEYS,
+  type BuiltinTheme,
+  type Polarity,
+} from '@ohhi/ui/tokens'
+import { setPolarityMirror, setThemePref, themePref, type ThemePref } from './config.js'
+import { THEME_NAME, themePath } from './theme-files.js'
 
-const DEFAULT_LIGHT: BuiltinTheme = 'editor-light'
-const DEFAULT_DARK: BuiltinTheme = 'editor-dark'
+/** Is `name` one of the built-in themes (the registry in `@ohhi/ui/tokens`)? */
+export function isBuiltinTheme(name: string): name is BuiltinTheme {
+  return (BUILTIN_THEMES as readonly string[]).includes(name)
+}
+
+/**
+ * A built-in theme's label in the current language, or null for a custom
+ * theme (whose name is its folder's). The labels are dictionary entries
+ * (`web.settings.appearance.theme_names`), keyed by `THEME_LABEL_KEYS`.
+ */
+export function builtinThemeLabel(ll: TranslationFunctions, name: string): string | null {
+  if (!isBuiltinTheme(name)) return null
+  const names: Record<(typeof THEME_LABEL_KEYS)[BuiltinTheme], () => string> = ll.web.settings.appearance.theme_names
+  return names[THEME_LABEL_KEYS[name]]()
+}
 
 function prefersDark(): boolean {
   try {
@@ -50,8 +75,17 @@ export function resolveTheme(pref: ThemePref): string {
  */
 export function resolveDark(pref: ThemePref): boolean {
   const name = resolveTheme(pref)
-  if ((BUILTIN_THEMES as readonly string[]).includes(name)) return DARK_THEMES.has(name)
+  if (isBuiltinTheme(name)) return DARK_THEMES.has(name)
   try {
+    // A custom theme whose CSS is not in yet (boot, before the vault opens)
+    // cannot be probed: keep the polarity the pre-paint script restored
+    // from the mirror rather than overwrite it — and the mirror — with the
+    // OS's, which would flip band C back and forth on every boot.
+    if (!document.getElementById('ed-user-theme')) {
+      const restored = document.documentElement.getAttribute('data-polarity')
+      if (restored === 'dark' || restored === 'light') return restored === 'dark'
+      return prefersDark()
+    }
     const probe = document.createElement('div')
     probe.setAttribute('data-theme', name)
     probe.style.display = 'none'
@@ -71,12 +105,47 @@ export const themeState = $state({
   pref: themePref(),
   /** The applied `data-theme` value. */
   name: DEFAULT_LIGHT as string,
-  /** Resolved polarity, for CM6's darkTheme facet. CSS needs no such thing. */
+  /** Resolved polarity: CM6's darkTheme facet, and `data-polarity` (band C). */
   dark: false,
+  /**
+   * The vault theme the preference names, when the open vault has no such
+   * folder and the built-in default of its polarity stands in; else null.
+   * The preference is kept, so the theme comes back once the folder is there.
+   */
+  fellBackFrom: null as string | null,
 })
+
+/** The built-in shown while a vault theme cannot be: the default of the polarity. */
+const standIn = (dark: boolean): string => (dark ? DEFAULT_DARK : DEFAULT_LIGHT)
+
+/** Is the preference a vault theme whose CSS is installed now? */
+const userThemeInstalled = (): boolean => {
+  try {
+    return document.getElementById('ed-user-theme') !== null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Set band C's `data-polarity` on <html> (sync-tokens.css picks the light or
+ * dark sync colours by it) and mirror it for the pre-paint script, which
+ * cannot know a custom theme's polarity before the vault opens.
+ */
+function setPolarity(dark: boolean): void {
+  const polarity: Polarity = dark ? 'dark' : 'light'
+  themeState.dark = dark
+  try {
+    document.documentElement.setAttribute('data-polarity', polarity)
+  } catch {
+    // No DOM (tests, SSR).
+  }
+  setPolarityMirror(polarity)
+}
 
 export function applyTheme(pref: ThemePref): void {
   const name = resolveTheme(pref)
+  themeState.fellBackFrom = null
   try {
     document.documentElement.setAttribute('data-theme', name)
   } catch {
@@ -84,22 +153,30 @@ export function applyTheme(pref: ThemePref): void {
   }
   themeState.pref = pref
   themeState.name = name
-  themeState.dark = resolveDark(pref)
+  setPolarity(resolveDark(pref))
   setThemePref(pref)
 }
 
-/** Apply the stored preference and start following the OS while on `system`. */
+/**
+ * Apply the stored preference and start following the OS while on `system`.
+ *
+ * A vault theme's CSS cannot be read before its vault opens, so until it is
+ * installed the built-in default of the polarity the app last resolved for
+ * it stands in (the pre-paint script does the same) — a dark theme's first
+ * frames are dark, not the contract's light defaults.
+ */
 export function initTheme(): void {
   const pref = themePref()
-  const name = resolveTheme(pref)
+  themeState.pref = pref
+  const dark = resolveDark(pref)
+  const name = pref.startsWith('custom:') && !userThemeInstalled() ? standIn(dark) : resolveTheme(pref)
   try {
     document.documentElement.setAttribute('data-theme', name)
   } catch {
     /* no DOM */
   }
-  themeState.pref = pref
   themeState.name = name
-  themeState.dark = resolveDark(pref)
+  setPolarity(dark)
 
   try {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -111,8 +188,7 @@ export function initTheme(): void {
   }
 }
 
-/** Where a custom theme lives in the vault. Mirrors `.obsidian/themes/`. */
-export const themePath = (name: string): string => `.ohhi/themes/${name}/theme.css`
+export { themePath }
 
 /**
  * Load and apply a vault-resident theme. Returns an error message on failure
@@ -125,7 +201,7 @@ export async function useCustomTheme(
 ): Promise<string | null> {
   const clean = name.trim()
   // The name becomes a [data-theme] value and a path segment.
-  if (!/^[\w -]{1,64}$/.test(clean)) {
+  if (!THEME_NAME.test(clean)) {
     return getLL().web.theme.bad_name()
   }
   let css: string | null
@@ -154,9 +230,75 @@ export function installUserTheme(css: string): void {
     document.head.append(el)
   }
   el.textContent = `@layer editor.user {\n${sanitizeThemeCss(css)}\n}`
+  // The preference's theme can now be shown: until this, its stand-in was.
+  if (themeState.pref.startsWith('custom:')) {
+    const name = resolveTheme(themeState.pref)
+    try {
+      document.documentElement.setAttribute('data-theme', name)
+    } catch {
+      /* no DOM */
+    }
+    themeState.name = name
+    themeState.fellBackFrom = null
+  }
   // The CSS only exists now, so the polarity probe can finally answer — the
   // boot script set the attribute long before the vault could be read.
-  themeState.dark = resolveDark(themeState.pref)
+  setPolarity(resolveDark(themeState.pref))
+}
+
+/**
+ * The open vault has no folder for the vault theme the preference names:
+ * drop any theme CSS another vault left installed and show the built-in
+ * default of the polarity last resolved for it. The preference is kept
+ * (`themeState.fellBackFrom` says what stands in for what), so the theme
+ * returns when a vault with the folder opens, or the folder is added.
+ */
+export function standInFor(name: string): void {
+  try {
+    document.getElementById('ed-user-theme')?.remove()
+  } catch {
+    /* no DOM */
+  }
+  // A retired built-in (Nord) stands in with the default of its own polarity.
+  const shown = Object.hasOwn(RETIRED_THEMES, name)
+    ? RETIRED_THEMES[name as keyof typeof RETIRED_THEMES]
+    : standIn(themeState.dark)
+  try {
+    document.documentElement.setAttribute('data-theme', shown)
+  } catch {
+    /* no DOM */
+  }
+  themeState.name = shown
+  themeState.fellBackFrom = name
+  setPolarity(DARK_THEMES.has(shown))
+}
+
+/**
+ * Read the vault theme the preference names from the open vault and install
+ * it — or, when the vault has no such file, show the stand-in. Called when a
+ * vault opens and whenever its theme folders change (a watcher event, *Reload
+ * files*, an example just added), which is how an edited theme reloads.
+ */
+export async function restoreVaultTheme(
+  read: (path: string) => Promise<string | null>
+): Promise<'none' | 'installed' | 'missing'> {
+  const pref = themeState.pref
+  if (!pref.startsWith('custom:')) return 'none'
+  const name = pref.slice('custom:'.length)
+  let css: string | null = null
+  try {
+    css = THEME_NAME.test(name) ? await read(themePath(name)) : null
+  } catch {
+    css = null
+  }
+  // Another pick landed while this read: it is that pick's to apply.
+  if (themeState.pref !== pref) return 'none'
+  if (css !== null) {
+    installUserTheme(css)
+    return 'installed'
+  }
+  standInFor(name)
+  return 'missing'
 }
 
 /**

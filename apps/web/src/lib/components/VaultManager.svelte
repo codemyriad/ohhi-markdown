@@ -468,10 +468,10 @@
           </button>
         </p>
         <span class="flex flex-wrap items-center gap-3">
-          <!-- settings-shaping ST6: Settings › Agents works with no vault open; an
+          <!-- settings-shaping ST6: Settings › AI (its Outside agents group) works with no vault open; an
                agent needs a folder on disk, so the door is the desktop app's. -->
           {#if isTauri}
-            <button type="button" data-testid="manager-agents" onclick={() => onSettings('agents')} class={textLink}>
+            <button type="button" data-testid="manager-agents" onclick={() => onSettings('ai')} class={textLink}>
               {w.agents()}
             </button>
           {/if}

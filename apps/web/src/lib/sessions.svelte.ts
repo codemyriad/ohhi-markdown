@@ -55,6 +55,8 @@ export interface HarnessShell {
 export interface StartRunInput extends RunInput {
   /** The session to run in; absent → a new session, titled from the instruction. */
   sessionId?: string
+  /** A new session's title, instead of one cut from the instruction (*Send to agent*'s "Comment on …"). */
+  title?: string
   /** Open the session's tab (default true). */
   open?: boolean
 }
@@ -80,7 +82,28 @@ export const harness = $state({
   current: null as string | null,
   /** Mentions waiting for a session's composer (`ai.add-selection`), by session id. */
   inbox: {} as Record<string, Mention[]>,
+  /**
+   * A person just opened or switched to a session (a door, a key, a palette
+   * row, a start): its composer takes the keyboard once — `'*'` when the
+   * opened tab had no session id yet. Never set by a tab restored at
+   * startup or a re-render, so the composer never takes the keyboard from
+   * the note on its own.
+   */
+  focusComposer: null as string | null,
 })
+
+/** Ask the session about to be shown (`id`, or whichever opens) to focus its composer, once. */
+export function requestComposerFocus(id?: string): void {
+  harness.focusComposer = id ?? '*'
+}
+
+/** Is there a focus request for session `id`? Consumes it when there is. */
+export function takeComposerFocus(id: string): boolean {
+  const want = harness.focusComposer
+  if (!want || (want !== '*' && want !== id)) return false
+  harness.focusComposer = null
+  return true
+}
 
 /** Called once by `App.svelte`; null detaches (tests). */
 export function attachHarness(next: HarnessShell | null): void {
@@ -348,7 +371,7 @@ export async function startRun(input: StartRunInput): Promise<RunHandle | null> 
   }
   const sessionId = input.sessionId ?? newSessionId()
   if (isLive(v.registry.current(sessionId))) return null
-  await ensureSession(v, sessionId, titleFrom(input.instruction))
+  await ensureSession(v, sessionId, input.title ?? titleFrom(input.instruction))
   const refs = await resolveAtSend(input.refs ?? [])
   const handle = await v.registry.start(sessionId, { ...input, refs })
   harness.current = sessionId

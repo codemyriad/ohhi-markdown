@@ -372,17 +372,17 @@ describe('renames follow (DB6) — the planner over the index, applied on live d
 })
 
 describe('createFromLink', () => {
-  it('lands beside the linking note, adds .md, seeds a heading, and opens it', async () => {
+  it('lands beside the linking note, adds .md, writes no heading, and opens it', async () => {
     ws.ui.selectedPath = 'docs/a.md'
     await fileOps.createFromLink(' Ideas ')
-    expect(ws.calls).toEqual(['createFile(docs, Ideas.md, # Ideas\n\n)'])
+    expect(ws.calls).toEqual(['createFile(docs, Ideas.md)'])
     expect(opened).toEqual(['docs/Ideas.md'])
   })
 
   it('a path-shaped target is taken as written, from the root', async () => {
     ws.ui.selectedPath = 'docs/a.md'
     await fileOps.createFromLink('/archive/old.md')
-    expect(ws.calls).toEqual(['createFile(, archive/old.md, # old.md\n\n)'])
+    expect(ws.calls).toEqual(['createFile(, archive/old.md)'])
   })
 
   it('an empty target is a no-op', async () => {

@@ -369,11 +369,13 @@ export function createNavigation(): {
     void refresh()
   })
 
-  // Link panels for the open note. Skipped entirely while the panel is closed
-  // — this runs on every content change, i.e. on CodeMirror's input path.
+  // Link panels for the note the dock follows (`ui.dockNote`: the focused
+  // note, or the last one while a session or a view has the focus). Skipped
+  // entirely while the panel is closed — this runs on every content change,
+  // i.e. on CodeMirror's input path.
   $effect(() => {
     revision
-    const path = linksWanted() ? (workspace?.ui.selectedPath ?? null) : null
+    const path = linksWanted() ? (workspace?.ui.dockNote?.path ?? null) : null
     if (!path) {
       links.backlinks = []
       links.outgoing = []

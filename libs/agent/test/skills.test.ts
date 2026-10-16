@@ -11,6 +11,7 @@ import {
   readFarmManifest,
   removeFarmEntry,
   renderSkillsState,
+  skillSlug,
   usableBy,
   writeFarmManifest,
   type FarmFs,
@@ -291,6 +292,28 @@ describe('skill names', () => {
     for (const bad of ['Line-Edit', 'a--b', '-a', 'a/b', '../x', '', 'claude-notes', 'my-anthropic', 'synced', 'x'.repeat(65)]) {
       expect(isValidSkillName(bad), bad).toBe(false)
     }
+  })
+
+  it('skillSlug: what was typed, as the folder it becomes', () => {
+    const cases: [string, string][] = [
+      ['new skill', 'new-skill'],
+      ['New Skill!', 'new-skill'],
+      ['  Tighten -- the   prose?! ', 'tighten-the-prose'],
+      ['line-edit', 'line-edit'],
+      ['Résumé café', 'resume-cafe'],
+      ['Straße Øresund', 'strasse-oresund'],
+      ["Chris's notes", 'chriss-notes'],
+      ['v2.0_draft', 'v2-0-draft'],
+      ['日本語', ''],
+      ['!!!', ''],
+      ['', ''],
+    ]
+    for (const [typed, slug] of cases) expect(skillSlug(typed), typed).toBe(slug)
+    // Cut at 64, and never left ending on the hyphen the cut fell after.
+    const long = skillSlug(`${'a'.repeat(63)} b c`)
+    expect(long).toBe('a'.repeat(63))
+    expect(skillSlug('word '.repeat(30)).length).toBeLessThanOrEqual(64)
+    for (const typed of ['new skill', 'Résumé café', 'word '.repeat(30)]) expect(isValidSkillName(skillSlug(typed))).toBe(true)
   })
 })
 

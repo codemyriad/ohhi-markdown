@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activate,
   activeTab,
+  besideDir,
   canTravel,
   closedTabOf,
   closeOthers,
@@ -19,6 +20,7 @@ import {
   moveTab,
   navigateInTab,
   neighbour,
+  newTab,
   normalize,
   openPath,
   openPathAt,
@@ -26,6 +28,7 @@ import {
   VIEW_KINDS,
   isViewKind,
   panes,
+  paneShowing,
   parentOf,
   prune,
   rename,
@@ -38,10 +41,12 @@ import {
   setMode,
   split,
   splitWith,
+  splitWithTab,
   stripItems,
   swapPanes,
   tabOf,
   travelTab,
+  viewTabOf,
   visibleTabs,
   zoneAt,
   zoom,
@@ -1148,5 +1153,67 @@ describe('openView (devtools-shaping D1-A: a shell surface as a tab)', () => {
       [null, undefined, undefined],
       [null, VIEW_KINDS[0], undefined],
     ])
+  })
+})
+
+describe('a companion beside a pane (the Session beside its note, Chris 2026-10-15)', () => {
+  it('besideDir: to the right while both halves keep 40rem, else below; no rect → right', () => {
+    expect(besideDir({ width: 1280 })).toBe('row')
+    expect(besideDir({ width: 1600 })).toBe('row')
+    expect(besideDir({ width: 1279 })).toBe('col')
+    expect(besideDir({ width: 1024 })).toBe('col')
+    expect(besideDir({ width: 480 })).toBe('col')
+    expect(besideDir({ width: 600 }, 300)).toBe('row')
+    expect(besideDir(null)).toBe('row')
+    expect(besideDir(undefined)).toBe('row')
+  })
+
+  it('splitWithTab: a new pane after this one holding the one tab, half the share, focused', () => {
+    const { l: start, gen } = strip('a.md')
+    const home = paneAt(start, 0).id
+    const tab = { ...newTab(gen), view: 'session' as const, viewArg: 's1' }
+    const l = splitWithTab(start, home, 'row', tab, gen)
+    const s = asSplit(l)
+    expect(s.dir).toBe('row')
+    expect(s.sizes).toEqual([50, 50])
+    expect(s.children.map((c) => c.id)).toEqual([home, l.focus])
+    const np = paneAt(l, 1)
+    expect(np.id).toBe(l.focus)
+    expect(np.tabs.map((t) => [t.view, t.viewArg])).toEqual([['session', 's1']])
+    expect(activeTab(np)?.id).toBe(tab.id)
+    // The note's pane is untouched.
+    expect(pathsOf(paneAt(l, 0))).toEqual(pathsOf(paneAt(start, 0)))
+    // Below: a column split.
+    expect(asSplit(splitWithTab(start, home, 'col', tab, gen)).dir).toBe('col')
+    // An unknown pane: nothing happens.
+    expect(splitWithTab(start, 'nope', 'row', tab, gen)).toStrictEqual(start)
+  })
+
+  it('viewTabOf finds the (view, arg) tab in any pane, exactly', () => {
+    const gen = ids('v')
+    let l = openView(createLayout(gen), 'session', { arg: 's1' }, gen)
+    const home = paneAt(l, 0).id
+    l = split(l, home, 'row', gen)
+    l = openView(l, 'session', { arg: 's2' }, gen)
+    expect(viewTabOf(l, 'session', 's1')?.pane.id).toBe(home)
+    expect(viewTabOf(l, 'session', 's2')?.pane.id).toBe(l.focus)
+    expect(viewTabOf(l, 'session', 's3')).toBeNull()
+    expect(viewTabOf(l, 'session')).toBeNull()
+    expect(viewTabOf(l, 'log')).toBeNull()
+  })
+
+  it('paneShowing prefers the focused pane, then the first that shows the note', () => {
+    let { l, gen } = strip('a.md', 'b.md')
+    const home = paneAt(l, 0).id
+    l = split(l, home, 'row', gen) // the new pane duplicates the active note and takes the focus
+    const other = l.focus
+    expect(other).not.toBe(home)
+    const active = activeTab(paneAt(l, 0))!.path!
+    expect(paneShowing(l, active)?.pane.id).toBe(other)
+    l = focusPane(l, home)
+    expect(paneShowing(l, active)?.pane.id).toBe(home)
+    const inHomeOnly = pathsOf(paneAt(l, 0)).find((p) => p !== active)!
+    expect(paneShowing(l, inHomeOnly)?.pane.id).toBe(home)
+    expect(paneShowing(l, 'nowhere.md')).toBeNull()
   })
 })

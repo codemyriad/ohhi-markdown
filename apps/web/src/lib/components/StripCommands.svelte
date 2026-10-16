@@ -23,6 +23,7 @@
   import type { LucideIcon } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import { COMMAND_ICONS } from '../command-icons.js'
+  import { commandHint } from '../command-hint.js'
   import type { CommandRegistry } from '../commands.js'
   import IconButton from '../ui/IconButton.svelte'
 
@@ -36,11 +37,10 @@
 
   let { ids, registry, focusPane, paneId }: Props = $props()
 
-  const t = $derived($LL.web.toolbar)
 
   const items = $derived.by(() => {
     void $LL
-    const out: { id: string; label: string; icon: LucideIcon }[] = []
+    const out: { id: string; label: string; hint: string; icon: LucideIcon }[] = []
     for (const id of ids) {
       if (id === '|') continue
       const command = registry.get(id)
@@ -50,7 +50,7 @@
         continue
       }
       const binding = registry.binding(id)
-      out.push({ id, icon, label: binding ? t.with_binding({ title: command.title, binding }) : command.title })
+      out.push({ id, icon, label: command.title, hint: commandHint(command.title, binding) })
     }
     return out
   })
@@ -65,6 +65,7 @@
 {#each items as item (item.id)}
   <IconButton
     label={item.label}
+    hint={item.hint}
     icon={item.icon}
     testid="tab-cmd:{paneId}:{item.id}"
     class="opacity-45 hover:opacity-100 focus-visible:opacity-100"

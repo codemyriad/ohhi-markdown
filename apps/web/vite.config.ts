@@ -19,7 +19,13 @@ export default defineConfig({
     // (round 3 Q7). Allow exactly that folder, beside the default root. A
     // build is unaffected: Vite emits the files as assets.
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../../libs/ui/fonts', import.meta.url))],
+      // The example custom themes are bundled the same way (`theme-examples.ts`,
+      // `?raw`), so Settings › Appearance can add one to a vault.
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        fileURLToPath(new URL('../../libs/ui/fonts', import.meta.url)),
+        fileURLToPath(new URL('../../examples/themes', import.meta.url)),
+      ],
     },
   },
   // Component tests need Svelte's BROWSER build: the SSR build has no mount()
@@ -34,5 +40,8 @@ export default defineConfig({
     // stubs); a component test opts into jsdom with a
     // `// @vitest-environment jsdom` docblock on its first line.
     setupFiles: ['./src/test-setup.ts'],
+    // Vitest blanks every .css import by default, `?raw` included; the
+    // example themes are text the app writes into a vault, so tests read them.
+    css: { include: [/examples\/themes\/.*\.css/] },
   },
 })

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "New and reworded strings for the reorganised Settings, the theme picker, collections views, comments and the agent session.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

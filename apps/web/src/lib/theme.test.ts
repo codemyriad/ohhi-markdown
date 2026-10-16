@@ -5,8 +5,77 @@
  * shared vault — i.e. it is another person's content — and CSS `url()` is a
  * working beacon out of a local-first app. These are the cases it must catch.
  */
+import { readFileSync } from 'node:fs'
+import { getLL } from '@ohhi/i18n'
+import {
+  BUILTIN_THEMES,
+  DARK_THEMES,
+  DEFAULT_DARK_THEME,
+  DEFAULT_LIGHT_THEME,
+  RETIRED_THEMES,
+} from '@ohhi/ui/tokens'
 import { describe, expect, it } from 'vitest'
-import { sanitizeThemeCss } from './theme.svelte.js'
+import { migrateThemePref } from './config.js'
+import { builtinThemeLabel, sanitizeThemeCss } from './theme.svelte.js'
+import { EXAMPLE_THEMES, THEME_EXAMPLES, isExampleTheme } from './theme-examples.js'
+
+describe('the built-in theme registry', () => {
+  it('labels every built-in from the dictionary, and no custom theme', () => {
+    const labels = BUILTIN_THEMES.map((t) => builtinThemeLabel(getLL(), t))
+    expect(labels.every((l) => typeof l === 'string' && l.length > 0)).toBe(true)
+    expect(new Set(labels).size, 'two built-ins share a label').toBe(BUILTIN_THEMES.length)
+    expect(builtinThemeLabel(getLL(), 'editor-light')).toBe('Oh hi Light')
+    expect(builtinThemeLabel(getLL(), 'editor-dark')).toBe('Oh hi Dark')
+    expect(builtinThemeLabel(getLL(), 'my-theme')).toBeNull()
+  })
+
+  /**
+   * The pre-paint script in index.html cannot import the registry, so it
+   * carries its own list of dark built-ins (for band C's `data-polarity`) and
+   * its own `system` defaults. Kept in step here, or a dark built-in's first
+   * frame paints the light sync colours.
+   */
+  it('keeps the pre-paint script in step with the registry', () => {
+    const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+    const list = html.match(/var DARK = \[([^\]]*)\]/)?.[1]
+    expect(list, 'index.html has no DARK list').toBeTruthy()
+    const dark = [...list!.matchAll(/'([^']+)'/g)].map((m) => m[1])
+    expect(new Set(dark)).toEqual(new Set(DARK_THEMES))
+    expect(html).toContain(`osDark ? '${DEFAULT_DARK_THEME}' : '${DEFAULT_LIGHT_THEME}'`)
+    expect(html).toContain("setAttribute('data-polarity'")
+    // …and the built-ins that moved into the vault.
+    const retired = [...(html.match(/var RETIRED = \[([^\]]*)\]/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+    expect(new Set(retired)).toEqual(new Set(Object.keys(RETIRED_THEMES)))
+  })
+})
+
+describe('Nord out of the built-ins (Fork 4-A)', () => {
+  it('no retired id is a built-in any more; each stands in with the default of its polarity', () => {
+    for (const [id, standIn] of Object.entries(RETIRED_THEMES)) {
+      expect((BUILTIN_THEMES as readonly string[]).includes(id), id).toBe(false)
+      expect(standIn).toBe(id.endsWith('-dark') ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME)
+    }
+  })
+
+  it('a stored nord-dark / nord-light preference names the vault theme of the same name', () => {
+    expect(migrateThemePref('nord-dark')).toBe('custom:nord-dark')
+    expect(migrateThemePref('nord-light')).toBe('custom:nord-light')
+    expect(migrateThemePref('fjord-dark')).toBe('fjord-dark')
+    expect(migrateThemePref('custom:nord-dark')).toBe('custom:nord-dark')
+    expect(migrateThemePref('system')).toBe('system')
+  })
+
+  it('ships an example for every retired id, and the sanitizer strips nothing from it but comments', () => {
+    expect(new Set(EXAMPLE_THEMES)).toEqual(new Set(Object.keys(RETIRED_THEMES)))
+    for (const name of EXAMPLE_THEMES) {
+      expect(isExampleTheme(name)).toBe(true)
+      const css = THEME_EXAMPLES[name]
+      expect(css).toContain(`[data-theme="${name}"]`)
+      expect(sanitizeThemeCss(css)).toBe(css.replace(/\/\*[\s\S]*?\*\//g, ''))
+    }
+    expect(isExampleTheme('fjord-dark')).toBe(false)
+  })
+})
 
 describe('sanitizeThemeCss', () => {
   it('strips @import, the simplest exfiltration', () => {

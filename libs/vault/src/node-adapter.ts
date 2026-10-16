@@ -176,6 +176,22 @@ export class NodeVaultAdapter implements VaultAdapter {
       .sort()
   }
 
+  async listAppDirs(dir: string): Promise<string[]> {
+    const rel = dir.replace(/\/+$/, '')
+    let entries
+    try {
+      entries = await readdir(this.abs(rel), { withFileTypes: true })
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') return []
+      throw err
+    }
+    return entries
+      .filter((e) => e.isDirectory() && !isTempName(e.name))
+      .map((e) => `${rel}/${e.name}`)
+      .sort()
+  }
+
   watchAppDir(dir: string, cb: (paths: string[]) => void): () => void {
     return this.appDirs.add(dir, cb)
   }

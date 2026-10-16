@@ -4,6 +4,14 @@
   const GAP_PX = 6
 
   /**
+   * What a full-width view under the closed strip keeps clear at its top
+   * right (a collection's toolbar, QA round 1): the strip and a gap either
+   * side. `EditorArea` publishes it as `--ed-dock-clear` while the strip
+   * floats top right; a view that fills its pane pads its first row by it.
+   */
+  export const DOCK_CLEAR_PX = STRIP_PX + GAP_PX * 2
+
+  /**
    * Focus handed between the two `Dock`s (Round 3 Q3): pinned, the strip
    * lives in the editor area's instance and the open column in `Rail`'s, so
    * "land on the panel's tab" and "go back to the strip" cross instances.

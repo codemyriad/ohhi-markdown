@@ -18,6 +18,13 @@
 
 {#if words.path}
   <span data-testid={readoutTestid(ctx, 'word-count')} class="whitespace-nowrap tabular-nums">
-    {$LL.web.status_bar.words({ count: words.value })}
+    {#if ctx.compact}
+      <!-- The small screen's corner chip (QA round 1): the number for the eye, the words for a screen reader. -->
+      <span aria-hidden="true">{$LL.web.status_bar.count({ count: words.value })}</span><span class="sr-only"
+        >{$LL.web.status_bar.words({ count: words.value })}</span
+      >
+    {:else}
+      {$LL.web.status_bar.words({ count: words.value })}
+    {/if}
   </span>
 {/if}

@@ -25,7 +25,9 @@ import {
   ListTodo,
   Maximize2,
   MessageSquareWarning,
+  MessageSquarePlus,
   Minus,
+  MessageCircleQuestionMark,
   Pilcrow,
   Rows2,
   SquareCode,
@@ -33,6 +35,7 @@ import {
   Strikethrough,
   Table,
   TextQuote,
+  WandSparkles,
   X,
   type LucideIcon,
 } from '@lucide/svelte'
@@ -60,6 +63,11 @@ export const COMMAND_ICONS: Readonly<Record<string, LucideIcon>> = {
   'format.table': Table,
   'format.image': Image,
   'format.rule': Minus,
+  // Not a format command, but a bar's: the door to a comment (QA round 1).
+  'note.comment': MessageSquarePlus,
+  // The selection handle's agent verbs (selection explorations).
+  'ai.ask-selection': MessageCircleQuestionMark,
+  'ai.run-skill': WandSparkles,
   'workspace.split-right': Columns2,
   'workspace.split-down': Rows2,
   'workspace.split-auto': SquareSplitHorizontal,

@@ -12,6 +12,14 @@ export function fakeVault(files: Record<string, unknown> = {}) {
   const vault: VaultAppFiles = {
     readAppFile: async (path) => disk.get(path) ?? null,
     listAppDir: async (dir) => [...disk.keys()].filter((p) => p.startsWith(`${dir}/`)).sort(),
+    listAppDirs: async (dir) =>
+      [
+        ...new Set(
+          [...disk.keys()]
+            .filter((p) => p.startsWith(`${dir}/`) && p.slice(dir.length + 1).includes('/'))
+            .map((p) => `${dir}/${p.slice(dir.length + 1).split('/')[0]}`)
+        ),
+      ].sort(),
     writeAppFile: async (path, text) => {
       writes.push(path)
       disk.set(path, text)

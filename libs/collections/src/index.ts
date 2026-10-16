@@ -10,7 +10,7 @@
 export { compileStatement, fileCallStrings, UnsupportedFilter, type FileCallString, type FilterScope } from './filter.js'
 export { planCollectionMoves, planCollectionRewrites, type CollectionRewrite, type CollectionRewriteOptions } from './rewrite.js'
 export { parseCollection } from './parse.js'
-export { compileView, folderOf, keyFor, labelFor, NOTES_ONLY } from './query.js'
+export { compileView, dynamicColumnIds, folderOf, keyFor, labelFor, NOTES_ONLY, rowColumns } from './query.js'
 export { addView, patchView, removeView, type NewView, type PatchReason, type PatchResult, type ViewPatch } from './patch.js'
 export { COLLECTION_EXTENSION, collectionName, isCollectionPath, newCollectionText, type NewCollection } from './create.js'
 export {

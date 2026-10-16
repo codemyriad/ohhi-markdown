@@ -41,11 +41,13 @@ export interface SettingsHost {
   registry: CommandRegistry
   /** This device's layout overrides (device config: present with or without a vault). */
   layout?: SettingsLayout
-  resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps' | 'read' | 'overview' | 'onChange'>>
+  resources?: Partial<Pick<Resources, 'keymaps' | 'refreshKeymaps' | 'read' | 'overview' | 'onChange' | 'themes'>>
   /** The active keymap (quiet-shell F10). */
   keymap?: Pick<Keymap, 'active' | 'resolved' | 'legacy' | 'setActive' | 'save' | 'restore'>
   /** Reads the vault's `.ohhi/`; absent with no vault open. */
   readAppFile?: (path: string) => Promise<string | null>
+  /** Writes under the vault's `.ohhi/` — journaled, atomic (`Workspace.writeAppFile`); absent with no vault open. */
+  writeAppFile?: (path: string, text: string) => Promise<void>
   /** The open vault; null with none. */
   vault: SettingsVault | null
   /** The open vault's relays, as the Shared view rolls them up (Sync & devices' relay card). */

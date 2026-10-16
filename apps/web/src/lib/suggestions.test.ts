@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { event } from './readouts.fixture.js'
 import { bindEditor, resetEditors } from './focused-editor.svelte.js'
 import { lastAgentWrite, noteSuggestions, suggestionCommands, type SuggestionWorkspace } from './suggestions.svelte.js'
+import { revealLineIn, revealSuggestionIn } from './suggestion-reveal.js'
 
 vi.mock('./ai-config.svelte.js', async (orig) => ({ ...(await orig<typeof import('./ai-config.svelte.js')>()), aiEnabled: () => true }))
 
@@ -147,7 +148,7 @@ describe('spike S14 Q1 — the agent writes beside a human with yCollab bound', 
   })
 })
 
-describe('the five commands', () => {
+describe('the commands', () => {
   it('accept/reject at the caret, and say so when the caret is in none', async () => {
     const f = fixture()
     const { view } = editorOver(f)
@@ -198,8 +199,162 @@ describe('the five commands', () => {
     await commands(f)('ai.undo-agent')
     expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.nothing_to_undo() })
     const rows = suggestionCommands(undefined, () => null)
-    expect(rows.map((r) => r.id)).toEqual(['ai.accept-suggestion', 'ai.reject-suggestion', 'ai.accept-all', 'ai.reject-all', 'ai.undo-agent'])
-    expect(rows.every((r) => r.when?.() === true)).toBe(true)
+    expect(rows.map((r) => r.id)).toEqual([
+      'ai.accept-suggestion',
+      'ai.reject-suggestion',
+      'ai.accept-all',
+      'ai.reject-all',
+      'ai.next-suggestion',
+      'ai.previous-suggestion',
+      'ai.undo-agent',
+    ])
+    // Stepping ships unbound (Explorations Fork 4: no default keys until Chris picks them).
+    expect(rows.filter((r) => /^ai\.(next|previous)-suggestion$/.test(r.id)).map((r) => r.keys)).toEqual([undefined, undefined])
+    // The note-wide rows need only a provider; the two caret rows also need the caret in a suggestion (below).
+    expect(rows.slice(2).every((r) => r.when?.() === true)).toBe(true)
+  })
+
+  it('accept/reject at the caret carry Mod+Enter / Mod+Backspace, offered only while the caret is in a suggestion', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const rows = suggestionCommands(f.flash, () => f.ws)
+    const accept = rows.find((r) => r.id === 'ai.accept-suggestion')!
+    const reject = rows.find((r) => r.id === 'ai.reject-suggestion')!
+    expect(accept.keys).toBe('Mod+Enter')
+    expect(reject.keys).toBe('Mod+Backspace')
+    // No suggestion in the note: the rows are off, so the registry leaves the
+    // keys to CodeMirror (`Mod-Enter` is its blank line).
+    expect(accept.when?.()).toBe(false)
+    expect(reject.when?.()).toBe(false)
+    f.propose(4, 8, 'roadmap')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    expect(accept.when?.()).toBe(false)
+    view.dispatch({ selection: { anchor: 5 } })
+    expect(accept.when?.()).toBe(true)
+    expect(reject.when?.()).toBe(true)
+    await accept.run()
+    expect(f.doc.getText()).toBe('The roadmap is to ship in March.\n')
+    expect(accept.when?.()).toBe(false)
+  })
+})
+
+describe('the pair on a proposal, and stepping', () => {
+  /** An editor whose pair runs commands through `run` (as the pane's does through the shell). */
+  function controlled(f: ReturnType<typeof fixture>, run: (id: string) => void) {
+    const parent = document.createElement('div')
+    document.body.append(parent)
+    const handle = createMarkdownEditor(parent, {
+      doc: f.doc,
+      awareness: null,
+      user: { name: 'Ana', color: '#336699' },
+      undoManager: createUndoManager(f.doc),
+      extensions: [noteSuggestions(() => f.ws, () => PATH, { run, keys: (id) => (id === 'ai.accept-suggestion' ? 'Ctrl+Enter' : '') })],
+    })
+    views.push(handle)
+    bindEditor({ paneId: 'p1', path: PATH, view: handle.view, focused: true })
+    return { view: handle.view, parent }
+  }
+
+  it('draws a named pair on the current proposal; a press puts the caret in it and runs the registry row', async () => {
+    const f = fixture()
+    const rows = suggestionCommands(f.flash, () => f.ws)
+    const ran: string[] = []
+    // The pane's `run`: the registry's row, as `ViewShell.runCommand` would run it.
+    const { view, parent } = controlled(f, (id) => {
+      ran.push(id)
+      void rows.find((r) => r.id === id && (!r.when || r.when()))?.run()
+    })
+    f.propose(15, 19, 'land')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    const pair = parent.querySelector<HTMLElement>('[data-testid="suggestion-pair"]')!
+    expect(pair).not.toBeNull()
+    expect(pair.getAttribute('aria-label')).toBe(t.pair({ name: 'Tighten' }))
+    const accept = pair.querySelector<HTMLButtonElement>('[data-testid="suggestion-accept"]')!
+    expect(accept.textContent).toBe(`${t.accept()}Ctrl+Enter`)
+    expect(pair.querySelector('[data-testid="suggestion-reject"]')?.textContent).toBe(t.reject())
+    accept.click()
+    expect(ran).toEqual(['ai.accept-suggestion'])
+    expect(f.doc.getText()).toBe('The plan is to land in March.\n')
+  })
+
+  it('without the registry the pair accepts and rejects through the host', async () => {
+    const f = fixture()
+    const { parent } = editorOver(f)
+    f.propose(4, 8, 'roadmap')
+    await flushPush()
+    parent.querySelector<HTMLButtonElement>('[data-testid="suggestion-reject"]')!.click()
+    await flushPush()
+    expect(f.store.spans()).toEqual([])
+    expect(f.doc.getText()).toBe(TEXT)
+  })
+
+  it('a gutter mark per proposal moves the caret to it', async () => {
+    const f = fixture('one\ntwo\nthree\n')
+    const { view, parent } = editorOver(f)
+    f.propose(4, 7, '2')
+    const b = f.propose(8, 13, '3')
+    await flushPush()
+    const marks = parent.querySelectorAll<HTMLButtonElement>('[data-testid^="suggestion-marker:"]')
+    expect([...marks].map((m) => m.textContent)).toEqual(['1', '2'])
+    expect(marks[1].getAttribute('aria-label')).toBe(t.marker({ n: 2, total: 2, name: 'Tighten' }))
+    parent.querySelector<HTMLButtonElement>(`[data-testid="suggestion-marker:${b.id}"]`)!.click()
+    expect(view.state.selection.main.head).toBe(8)
+  })
+
+  it('next / previous step the caret through the note’s proposals, wrapping; none says so', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const run = commands(f)
+    await run('ai.next-suggestion')
+    expect(f.flash).toHaveBeenLastCalledWith({ level: 'info', text: t.none_in_note() })
+    f.propose(4, 8, 'roadmap')
+    f.propose(15, 19, 'land')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(4)
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(15)
+    await run('ai.next-suggestion')
+    expect(view.state.selection.main.head).toBe(4)
+    await run('ai.previous-suggestion')
+    expect(view.state.selection.main.head).toBe(15)
+  })
+})
+
+describe('revealSuggestionIn (Show in note)', () => {
+  it('puts the caret at the suggestion in the note already on screen, opening nothing', async () => {
+    const f = fixture()
+    const { view } = editorOver(f)
+    const b = f.propose(15, 19, 'land')
+    await flushPush()
+    view.dispatch({ selection: { anchor: 0 } })
+    const open = vi.fn()
+    expect(await revealSuggestionIn(PATH, b.id, {}, { open, frame: async () => {} })).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(view.state.selection.main.head).toBe(15)
+  })
+
+  it('opens a note that is not on screen, and says false when it never draws the suggestion', async () => {
+    const open = vi.fn()
+    const frame = vi.fn(async () => {})
+    expect(await revealSuggestionIn('elsewhere.md', 'nope', {}, { open, frame, tries: 3 })).toBe(false)
+    expect(open).toHaveBeenCalledWith('elsewhere.md')
+    expect(frame).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('revealLineIn (a search hit)', () => {
+  it('puts the caret at the start of the line in the note on screen; false past its end', async () => {
+    const f = fixture('one\ntwo\nthree\n')
+    const { view } = editorOver(f)
+    const open = vi.fn()
+    expect(await revealLineIn(PATH, 3, { open, frame: async () => {} })).toBe(true)
+    expect(open).not.toHaveBeenCalled()
+    expect(view.state.selection.main.head).toBe(8)
+    expect(await revealLineIn(PATH, 9, { open, frame: async () => {}, tries: 2 })).toBe(false)
   })
 })
 

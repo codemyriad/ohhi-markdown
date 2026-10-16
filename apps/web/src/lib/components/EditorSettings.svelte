@@ -12,7 +12,7 @@
   import { VIEW_MODES, type ViewMode } from '../panes.js'
   import { readState, setDefaultMode } from '../read.svelte.js'
   import type { SettingsLayout } from '../settings-host.js'
-  import { HEADING } from '../ui/styles.js'
+  import { CHOICE, CHOICE_OFF, CHOICE_ON, EYEBROW, GROUP, META } from '../ui/styles.js'
   import LayoutSettings from './LayoutSettings.svelte'
 
   interface Props {
@@ -27,9 +27,8 @@
   const code = (text: string): string => `<code class="font-ed-mono">${escapeHtml(text)}</code>`
 </script>
 
-<p class="text-xs text-base-content/70">{t.intro()}</p>
-<fieldset class="mt-3">
-  <legend class={HEADING}>{t.default_mode()}</legend>
+<fieldset>
+  <legend class={EYEBROW}>{t.default_mode()}</legend>
   <div class="mt-2 flex flex-wrap gap-2" data-testid="default-mode">
     {#each VIEW_MODES as value (value)}
       <button
@@ -37,21 +36,18 @@
         data-testid="default-mode:{value}"
         aria-pressed={readState.defaultMode === value}
         onclick={() => setDefaultMode(value as ViewMode)}
-        class="rounded border px-3 py-1.5 text-xs font-medium
-          {readState.defaultMode === value
-          ? 'border-primary bg-primary text-primary-content'
-          : 'border-base-300 text-base-content/80 hover:bg-base-200'}"
+        class="{CHOICE} {readState.defaultMode === value ? CHOICE_ON : CHOICE_OFF}"
       >
         {$LL.web.read.modes[value]()}
       </button>
     {/each}
   </div>
-  <p class="mt-1 text-xs text-base-content/70">
+  <p class="mt-2 {META}">
     {@html t.default_mode_hint({ key: code(readingKey) })}
   </p>
 </fieldset>
 {#if layout}
-  <div class="mt-4">
+  <div class={GROUP}>
     <LayoutSettings {layout} part="editor" />
   </div>
 {/if}

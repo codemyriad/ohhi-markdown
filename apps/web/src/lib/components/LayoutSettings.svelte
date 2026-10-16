@@ -28,7 +28,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { CommandRegistry } from '../commands.js'
   import { PANE_HINTS, type PaneHints } from '../config.js'
-  import { withFormatBar, withoutFormatBar } from '../format-bar-picker.js'
+  import { withPickerBars, withoutFormatBar } from '../format-bar-picker.js'
   import { paneHints } from '../pane-hints.svelte.js'
   import FormatBarPicker from './FormatBarPicker.svelte'
   import { hasOverrides, overridesFor, type ShellSpec } from '../layout-spec.js'
@@ -73,6 +73,7 @@
     { id: 'toolbar', section: 'toolbar', key: 'position', options: ['top', 'bottom'], part: 'shell' },
     { id: 'format', section: 'regions', key: 'format', options: ['bottom', 'top', 'off'], part: 'shell' },
     { id: 'status', section: 'regions', key: 'status', options: ['corner', 'off'], part: 'shell' },
+    { id: 'selection', section: 'regions', key: 'selection', options: ['on', 'off'], part: 'shell' },
     { id: 'open', section: 'panes', key: 'open', options: ['replace', 'tab'], part: 'editor' },
     { id: 'measure', section: 'editor', key: 'measure', options: ['narrow', 'comfortable', 'wide'], part: 'editor' },
   ]
@@ -106,15 +107,15 @@
     const own = $state.snapshot(layout.ownSpec) as ShellSpec
     const next = { ...own, [section]: { ...(own[section] as object), [key]: value } } as ShellSpec
     const file = $state.snapshot(layout.fileSpec) as ShellSpec
-    // The bar stays the plain list the picker wrote, never a delta (E6).
-    layout.setOverrides(withFormatBar(overridesFor(file, next), file, next.bars.format))
+    // The bars stay the plain lists the pickers wrote, never deltas (E6).
+    layout.setOverrides(withPickerBars(overridesFor(file, next), file, next))
   }
 
   /** Any of this part's fields differ from the file's own value. */
   const changed = $derived(
     hasOverrides(layout.overrides) &&
       (fields.some(([section, key]) => valueOf(layout.ownSpec, section, key) !== valueOf(layout.fileSpec, section, key)) ||
-        (part === 'shell' && layout.overrides.bars?.format !== undefined))
+        (part === 'shell' && (layout.overrides.bars?.format !== undefined || layout.overrides.bars?.selection !== undefined)))
   )
 
   /** Put this part's fields back to the file's values; the other part's overrides stay. */
@@ -125,8 +126,8 @@
       next[section] = { ...next[section], [key]: valueOf(file, section, key) }
     }
     const own = next as unknown as ShellSpec
-    const kept = withFormatBar(overridesFor(file, own), file, own.bars.format)
-    layout.setOverrides(part === 'shell' ? withoutFormatBar(kept) : kept)
+    const kept = withPickerBars(overridesFor(file, own), file, own)
+    layout.setOverrides(part === 'shell' ? withoutFormatBar(withoutFormatBar(kept), 'selection') : kept)
   }
 
   const hintLabel = (value: PaneHints): string => say(`hints_${value}`, value)
@@ -134,7 +135,7 @@
   const selectCls =
     'mt-1 w-full rounded border border-base-300 bg-base-100 px-2 py-1 text-xs focus:border-primary focus:outline-none'
   const smallBtn =
-    'rounded border border-base-300 px-2 py-0.5 text-xs font-medium text-base-content/80 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
+    'rounded border border-base-300 px-2 py-0.5 text-xs font-medium text-base-content hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50'
 </script>
 
 <section data-testid={part === 'shell' ? 'settings-layout' : 'settings-editor-layout'}>
@@ -151,13 +152,12 @@
       {$LL.web.settings.customise.source.layout_overrides()}
     </ResourceSource>
   {/if}
-  {#if part === 'shell'}<p class="text-xs text-base-content/70">{t.intro()}</p>{/if}
 
   <div class="mt-3 grid grid-cols-1 gap-3 @md:grid-cols-2">
     {#each SELECTS as field (field.id)}
       {#if pinned(field)}
         <div class="block">
-          <span class="text-xs text-base-content/80">{say(field.id, field.id)}</span>
+          <span class="text-xs text-base-content">{say(field.id, field.id)}</span>
           <div class="mt-1 flex items-center gap-2">
             <span class="text-xs text-base-content" data-testid="layout-pinned:{field.id}">
               {t.pinned({ value: optionLabel(field, 'column') })}
@@ -175,7 +175,7 @@
         </div>
       {:else}
         <label class="block">
-          <span class="text-xs text-base-content/80">{say(field.id, field.id)}</span>
+          <span class="text-xs text-base-content">{say(field.id, field.id)}</span>
           <select
             data-testid="layout-field:{field.id}"
             value={valueOf(layout.ownSpec, field.section, field.key)}
@@ -192,7 +192,7 @@
   </div>
 
   {#each CHECKS as field (field.id)}
-    <label class="mt-2 flex items-center gap-2 text-sm text-base-content/80">
+    <label class="mt-2 flex items-center gap-2 text-[13px] text-base-content">
       <input
         type="checkbox"
         data-testid="layout-field:{field.id}"
@@ -205,7 +205,7 @@
 
   {#if part === 'shell'}
     <label class="mt-3 block @md:w-1/2 @md:pr-1.5">
-      <span class="text-xs text-base-content/80">{t.hints()}</span>
+      <span class="text-xs text-base-content">{t.hints()}</span>
       <select
         data-testid="layout-field:hints"
         value={paneHints.value}
@@ -218,6 +218,7 @@
       </select>
     </label>
     <FormatBarPicker {layout} {registry} />
+    <FormatBarPicker {layout} {registry} bar="selection" />
   {/if}
 
   <div class="mt-4 border-t border-base-300 pt-3">

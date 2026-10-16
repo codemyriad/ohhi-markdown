@@ -80,6 +80,9 @@ export const LayoutDocSchema = z.strictObject({
       tabs: entries(COMMAND_IDS).describe(
         'Command ids, shown as faint buttons at the end of every pane\'s tab strip (by default split right and split down).'
       ),
+      selection: entries(COMMAND_IDS).describe(
+        'The selection handle (regions.selection "on"): command ids drawn on a small pill at the end of a settled selection, by default Comment and Ask. An item whose command cannot run now is left out (ai.* until a provider is added).'
+      ),
     })
     .partial()
     .optional()

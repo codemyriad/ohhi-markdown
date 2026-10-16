@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor-lang",
+      "comment": "A wikilink follows a click or tap only on its own text; under a finger a tap places the caret and shows a small card to open or create the note.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/editor-lang"
+}

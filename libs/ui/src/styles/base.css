@@ -9,7 +9,9 @@
  *   Band B  EDITOR   our --ed-* tokens, in @layer editor.tokens, read by
  *                    CodeMirror as var() strings and by a few chrome rules.
  *                    A user theme in @layer editor.user overrides them.
- *   Band C  HONESTY  --ed-sync-*, UNLAYERED so no user theme can reach them.
+ *   Band C  HONESTY  --ed-sync-*, UNLAYERED so no user theme can reach them,
+ *                    chosen by `data-polarity` (light | dark), which the app
+ *                    sets beside `data-theme` — one set per polarity.
  *
  * See docs/theming.md for the contract and the custom-theme format.
  */
@@ -23,7 +25,7 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: editor-light --default, editor-dark, nord-light, nord-dark;
+  themes: editor-light --default, editor-dark, graphite-light, graphite-dark, fjord-light, fjord-dark, iris-light, iris-dark;
   prefix: dui-;
   logs: false;
 }
@@ -37,8 +39,12 @@
 @import "./tokens/_contract.css";
 @import "./tokens/editor-light.css";
 @import "./tokens/editor-dark.css";
-@import "./tokens/nord-light.css";
-@import "./tokens/nord-dark.css";
+@import "./tokens/graphite-light.css";
+@import "./tokens/graphite-dark.css";
+@import "./tokens/fjord-light.css";
+@import "./tokens/fjord-dark.css";
+@import "./tokens/iris-light.css";
+@import "./tokens/iris-dark.css";
 
 /* Band C last, and unlayered. */
 @import "./sync-tokens.css";

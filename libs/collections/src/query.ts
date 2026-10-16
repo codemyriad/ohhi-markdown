@@ -4,7 +4,7 @@
  * the subset refuses marks the view `supported: false` with the reason in
  * the file's words — the view still draws what it can.
  */
-import type { RowFilter, RowKey, RowSort } from '@ohhi/index'
+import type { Row, RowFilter, RowKey, RowSort } from '@ohhi/index'
 import { compileStatement, UnsupportedFilter, type FilterScope } from './filter.js'
 import { VIEW_TYPES, type CollectionSpec, type Column, type FilterTree, type ViewQuery, type ViewSpec } from './types.js'
 
@@ -80,7 +80,7 @@ export function compileView(spec: CollectionSpec, view: ViewSpec, scope: FilterS
     else reasons.push(`sorting by \`${s.property}\` is not computed here`)
   }
   // A property listed twice shows once (first occurrence): the table keys on the id.
-  const columns: Column[] = [...new Set(view.order)].map((id) => {
+  const columns: Column[] = [...new Set(view.order ?? [])].map((id) => {
     const key = keyFor(id)
     if (!key) reasons.push(`\`${id}\` is not computed here`)
     return { id, label: labelFor(id, spec), key }
@@ -96,11 +96,30 @@ export function compileView(spec: CollectionSpec, view: ViewSpec, scope: FilterS
     view,
     query: { filter: { op: 'and', args: parts }, sort },
     columns,
+    dynamicColumns: view.order === null,
     limit: view.limit,
     groupBy,
     supported: reasons.length === 0,
     reasons,
   }
+}
+
+/**
+ * The columns of a view that writes no `order` (bases-shaping, QA round 1):
+ * `file.name`, then every frontmatter key the rows hold, in order of FIRST
+ * APPEARANCE — the rows taken as the view sorts them, each row's keys as
+ * its frontmatter writes them. The CLI's `rows` and the app's table share
+ * this rule, so a view with no `order` reads the same in both.
+ */
+export function dynamicColumnIds(rows: readonly Pick<Row, 'props'>[]): string[] {
+  const keys = new Set<string>()
+  for (const row of rows) for (const key of Object.keys(row.props)) keys.add(key)
+  return ['file.name', ...keys]
+}
+
+/** `dynamicColumnIds` as compiled columns, labelled through the file's `properties`. */
+export function rowColumns(spec: Pick<CollectionSpec, 'properties'>, rows: readonly Pick<Row, 'props'>[]): Column[] {
+  return dynamicColumnIds(rows).map((id) => ({ id, label: labelFor(id, spec), key: keyFor(id) }))
 }
 
 /** The first `file.inFolder("…")` a tree names — where "+ New" puts a note. */

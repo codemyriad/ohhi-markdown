@@ -63,6 +63,27 @@ describe('PropertiesForm', () => {
     expect(screen.getByTestId('property:link')).toHaveTextContent('Clusters')
   })
 
+  it('the value at rest and in edit share one box, so opening the editor moves no row', async () => {
+    setup()
+    const user = userEvent.setup()
+    /** The classes that decide a box's size: height, padding, border width, line height. */
+    const sizing = (el: HTMLElement) =>
+      el.className
+        .split(/\s+/)
+        .filter((c) => /^(h-|p[xytblr]?-|border$|leading-|box-|block$|text-xs$)/.test(c))
+        .sort()
+    for (const key of ['threat', 'score', 'verified']) {
+      const rest = screen.getByTestId(`property:${key}`)
+      const before = sizing(rest)
+      expect(rest.className).toContain('border-transparent')
+      await user.click(rest)
+      const input = screen.getByTestId(`property:${key}:input`)
+      expect(sizing(input)).toEqual(before)
+      expect(before).toEqual(expect.arrayContaining(['h-6', 'border', 'px-1.5', 'py-0']))
+      await user.keyboard('{Escape}')
+    }
+  })
+
   it('a text edit is ONE patch of the current document, handed to the editor', async () => {
     const { apply, doc } = setup()
     const user = userEvent.setup()

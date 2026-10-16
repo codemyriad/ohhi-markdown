@@ -44,10 +44,14 @@ and "shadows built in" when a file hides one of the same name.
 
 ## See it all: Settings › Customise
 
-**Settings › Customise** shows the three places in order, what each kind has
-in use and where it came from, every other name you could pick, and
-**Problems**: any layout or keymap file that can't be read, with the reason.
-A broken file stays listed there until it is fixed.
+**Settings › Customise** is where Settings opens, and the parent of the
+four parts that choose what you use: Editor, Layout, Appearance and Keys. It
+starts with **what is in use**: one line per kind (layout, keymap,
+templates, theme) with where it came from, and a button to the part of
+Settings that changes it. Below that it shows the three places in order,
+the **files** — every other name you could pick — and **Problems**: any
+layout or keymap file that can't be read, with the reason. A broken file
+stays listed there until it is fixed.
 
 - **Reload files** reads every place again. The desktop app notices a file
   that changes on disk by itself; in a browser, or when it didn't, use this

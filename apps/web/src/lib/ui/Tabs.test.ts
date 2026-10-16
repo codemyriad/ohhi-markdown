@@ -27,27 +27,4 @@ describe('Tabs', () => {
     await user.tab()
     expect(screen.getByRole('tabpanel')).toHaveFocus()
   })
-
-  it('collapse: a select holds the same choices, and it and the tabs stay in step (Settings in a narrow pane)', async () => {
-    const user = userEvent.setup()
-    render(Harness, { orientation: 'vertical', collapse: true })
-    // jsdom has no container queries: both are in the DOM; CSS shows one.
-    const select = screen.getByTestId('tabs-select') as HTMLSelectElement
-    expect(select).toHaveAccessibleName('Settings sections')
-    expect([...select.options].map((o) => o.value)).toEqual(['general', 'sync', 'dev'])
-    expect(select.value).toBe('general')
-
-    await user.selectOptions(select, 'sync')
-    await waitFor(() => expect(screen.getByRole('tabpanel')).toHaveTextContent('sync panel'))
-    expect(screen.getByTestId('value')).toHaveTextContent('sync')
-    expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true')
-
-    await user.click(screen.getAllByRole('tab')[2]!)
-    await waitFor(() => expect(select.value).toBe('dev'))
-  })
-
-  it('draws no select without collapse', () => {
-    render(Harness, { orientation: 'vertical' })
-    expect(screen.queryByTestId('tabs-select')).toBeNull()
-  })
 })

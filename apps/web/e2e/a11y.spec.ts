@@ -36,8 +36,10 @@ import {
   settingsView,
   tabNamed,
   test as withMockLlm,
+  unfoldRuns,
 } from './fixtures.js'
 import { encodeDeviceLink, encodeShareLink } from '../src/lib/share-link.js'
+import { BUILTIN_THEMES } from '../../../libs/ui/src/tokens.js'
 
 test('the default layout (no columns) is accessible', async ({ page }) => {
   // Every other scan boots `dense` (fixtures.ts); this is the shell a new
@@ -301,6 +303,31 @@ test('the Live surface, a Reading tab and the mode menu are accessible', async (
   await expectAccessible(page, 'reading view')
 })
 
+/**
+ * Every built-in theme (themes review, 2026-10-15): the scans above run on
+ * the default, so a theme whose chrome or Live surface misses a contrast
+ * floor would pass them all. Each theme is scanned on the Live surface (the
+ * read fixture: headings, links, tags, code, a fence, tasks) and on
+ * Settings › Appearance, where its own picker row is the pressed one.
+ *
+ * Every built-in, with no exemption: the Nord port, whose findings stood here
+ * by name, is no longer built in (Fork 4-A) — it is an example theme a vault
+ * holds, and docs/theming.md lists what it misses.
+ */
+test('every built-in theme is accessible', async ({ page }) => {
+  test.setTimeout(180_000)
+  await seedReadNote(page, 'a11y-themes')
+  await expect(page.locator('input.cm-task')).toHaveCount(2)
+  for (const theme of BUILTIN_THEMES) {
+    await openSettings(page, 'appearance')
+    await settingsView(page).getByTestId(`theme-${theme}`).click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+    await expectAccessible(page, `Settings › Appearance in ${theme}`)
+    await closeSettings(page)
+    await expectAccessible(page, `live preview in ${theme}`)
+  }
+})
+
 test('the palette, a dialog, a menu and settings are accessible', async ({ page }) => {
   await openApp(page, 'a11y-overlays')
 
@@ -329,7 +356,7 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await page.getByTestId('open-settings').click()
   await expect(settingsView(page)).toBeVisible()
   await expectAccessible(page, 'settings view')
-  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'agents', 'developer', 'about']) {
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'sync', 'customise', 'ai', 'developer', 'about']) {
     await settingsView(page).getByTestId(`settings-tab:${section}`).click()
     await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
     await expectAccessible(page, `settings ${section}`)
@@ -344,6 +371,37 @@ test('the palette, a dialog, a menu and settings are accessible', async ({ page 
   await expect(page.getByTestId('right-rail')).toHaveCount(0)
   await expect(page.getByTestId('dock')).toBeVisible()
   await expectAccessible(page, 'collapsed rail')
+})
+
+/**
+ * Settings' nav at both widths (QA round 1): the labelled tree in a wide
+ * pane, and below 32rem the icon rail (N3) — every tab named (its
+ * `aria-label`), its tooltip on keyboard focus, every section scanned with
+ * the rail beside it.
+ */
+test('settings: the wide tree and the narrow icon rail are accessible', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 })
+  await page.goto(appUrl({ room: 'a11y-settings-rail', layout: null }))
+  await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
+  await page.keyboard.press('ControlOrMeta+,')
+  await expect(settingsView(page)).toBeVisible()
+  const rail = settingsView(page).getByRole('tablist', { name: 'Settings sections' })
+  expect(await rail.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThanOrEqual(48)
+  await expect(rail.getByRole('tab')).toHaveCount(9)
+  for (const tab of await rail.getByRole('tab').all()) expect(await tab.getAttribute('aria-label')).toBeTruthy()
+  await rail.getByRole('tab', { name: 'Customise', exact: true }).focus()
+  await expect(page.getByRole('tooltip')).toHaveText('Customise')
+  await expectAccessible(page, 'settings rail, a tooltip on focus')
+  for (const section of ['customise', 'editor', 'layout', 'appearance', 'keys', 'sync', 'ai', 'developer', 'about']) {
+    await settingsView(page).getByTestId(`settings-tab:${section}`).click()
+    await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
+    await expectAccessible(page, `settings ${section} beside the rail`)
+  }
+
+  // Wide: the tree, labels drawn, no tooltip.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect.poll(() => rail.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThan(150)
+  await expectAccessible(page, 'settings tree (wide)')
 })
 
 /**
@@ -489,7 +547,7 @@ test('the browser-storage note and its Settings section are accessible', async (
   await page.getByTestId('settings-tab:sync').click()
   await expect(page.getByTestId('settings-storage-status')).toContainText('Not guaranteed')
   await expectAccessible(page, 'settings: storage in this browser')
-  for (const section of ['editor', 'layout', 'appearance', 'keys', 'customise', 'agents', 'developer', 'about']) {
+  for (const section of ['editor', 'layout', 'appearance', 'keys', 'customise', 'ai', 'developer', 'about']) {
     await page.getByTestId(`settings-tab:${section}`).click()
     await expect(page.getByTestId(`settings-section:${section}`)).toBeVisible()
     await expectAccessible(page, `settings page ${section}`)
@@ -551,12 +609,23 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await seedProvider(page, `${mock.url}/v1`)
   await openApp(page, 'a11y-harness')
 
+  // Settings › AI is one page (QA round 1): providers, skills and the outside agents, no sub-tabs.
   await openSettings(page, 'ai')
   await expect(page.getByTestId('ai-providers')).toBeVisible()
-  await expectAccessible(page, 'settings › AI › providers')
-  await page.getByTestId('ai-settings-tab:skills').click()
   await expect(page.getByTestId('ai-skills')).toBeVisible()
-  await expectAccessible(page, 'settings › AI › skills')
+  await expect(page.getByTestId('settings-agents')).toBeVisible()
+  await expectAccessible(page, 'settings › AI, one page')
+  // Its two popovers: the local servers, and what an agent can do.
+  await page.getByTestId('ai-providers-local-help').click()
+  await expect(page.getByTestId('ai-providers-local-popover')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › local servers')
+  await page.keyboard.press('Escape')
+  await page.getByTestId('agents-can-do-open').click()
+  await expect(page.getByTestId('agents-can-do')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › what an agent can do')
+  await page.keyboard.press('Escape')
+  // A browser vault: no agent reaches it, and the group says so (the routes are scanned on the manager's page).
+  await expect(page.getByTestId('agents-unreachable')).toBeVisible()
   await closeSettings(page)
 
   await page.getByTestId('file-item:notes/welcome.md').click()
@@ -579,6 +648,8 @@ withMockLlm('the writing harness — Settings › AI, a session, the comment bub
   await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful', { timeout: 15_000 })
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-state', 'output-available')
   await expectAccessible(page, 'session view with a message')
+  await unfoldRuns(page)
+  await expectAccessible(page, 'session view with its run unfolded')
 })
 
 /**
@@ -603,21 +674,25 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
 
   // Settings › AI › Skills: the import dialog, then a skill of our own for the picker.
   await openSettings(page, 'ai')
-  await page.getByTestId('ai-settings-tab:skills').click()
   await page.getByTestId('ai-skills-import').click()
   await expect(page.getByTestId('skill-import-dialog')).toBeVisible()
   await expectAccessible(page, 'skill import dialog')
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('skill-import-dialog')).toHaveCount(0)
   await page.getByTestId('ai-skills-new').click()
-  await page.getByTestId('ai-skills-create-name').fill('tighten')
+  // The name as a person types it; the folder it becomes is said under the field.
+  await page.getByTestId('ai-skills-create-name').fill('Tighten prose')
+  await expect(page.getByTestId('ai-skills-create-folder')).toHaveText('Folder: tighten-prose')
+  await expect(page.getByTestId('ai-skills-create-rule')).toBeVisible()
+  await expectAccessible(page, 'settings › AI › new skill')
   await page.getByTestId('ai-skills-create-submit').click()
-  // The new SKILL.md opens in the pane, over the Settings tab (a view tab
-  // since settings-shaping ST1); back in Settings › AI › Skills it is trusted.
-  await expect(settingsView(page)).toBeHidden()
-  await openSettings(page, 'ai')
-  await page.getByTestId('ai-settings-tab:skills').click()
-  await expect(page.getByTestId('ai-skill-trust:tighten')).toHaveAttribute('data-trusted', 'true')
+  // The new SKILL.md opens BESIDE the Settings tab (a view tab since
+  // settings-shaping ST1), not behind it; Settings lists it as trusted.
+  await expect(page.locator('[data-testid^="tab:"][data-path=".agents/skills/tighten-prose/SKILL.md"]')).toBeVisible()
+  await expect(settingsView(page)).toBeVisible()
+  await expect(page.getByTestId('ai-skill-trust:tighten-prose')).toHaveAttribute('data-trusted', 'true')
+  // The new note's pane has the focus now; a click hands it back to Settings to close it.
+  await settingsView(page).getByTestId('settings-tab:ai').click()
   await closeSettings(page)
 
   // The skill picker, over a selection (the template takes one).
@@ -635,6 +710,7 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // The dock's Comments tab, on the open note.
   await page.getByTestId('rail-tab:comments').click()
   await expect(page.getByTestId('thread-list')).toBeVisible()
+  await expect(page.getByTestId('thread-comment')).toBeVisible()
   await expectAccessible(page, 'comments dock tab')
 
   // A session: its menu, and the composer's `@` listbox open.
@@ -661,10 +737,14 @@ withMockLlm('the writing harness — dialogs, menus, a suggestion, the Comments 
   // The proposal, pending in the note.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
-  await card.getByTestId('tool-open').click()
+  await unfoldRuns(page)
+  await expect(card.getByTestId('proposal-actions')).toBeVisible()
+  await expectAccessible(page, 'session card with a pending proposal')
+  await card.getByRole('button', { name: 'Show in note' }).click()
   const added = page.locator('[data-testid="editor-pane"] .ed-suggest-add')
   await expect(added.first()).toBeVisible()
-  await expectAccessible(page, 'note with a pending suggestion')
+  await expect(page.getByTestId('suggestion-pair')).toBeVisible()
+  await expectAccessible(page, 'note with a pending suggestion, its pair and its gutter mark')
 
   // Accepted: the readout names the agent's edit.
   await paneContent(page).evaluate((el, text) => {
@@ -689,6 +769,25 @@ test('a collection tab is accessible', async ({ page }) => {
   await expect(page.getByTestId('collection-view')).toBeVisible()
   await expect(page.getByTestId('collection-table')).toBeVisible()
   await expectAccessible(page, 'collection tab')
+
+  // The dock's closed strip floats at the pane's top right; the toolbar
+  // keeps that corner free, so "+ New" is never under it (QA round 1).
+  // (This fixture's layout may pin the rail as a column: then there is no strip.)
+  if (await page.getByTestId('rail-expand').count()) {
+    const strip = await page.getByTestId('rail-expand').boundingBox()
+    const newRow = await page.getByTestId('collection-new').boundingBox()
+    expect(strip && newRow && newRow.x + newRow.width <= strip.x).toBe(true)
+  }
+
+  // The view's own menu (rename, delete) and the rename dialog.
+  await page.getByTestId('collection-view-menu-trigger').click()
+  await expect(page.getByTestId('collection-view-menu')).toBeVisible()
+  await expectAccessible(page, 'collection view menu')
+  await page.getByTestId('collection-view-rename').click()
+  await expect(page.getByTestId('collection-rename-input')).toBeFocused()
+  await expectAccessible(page, 'collection rename dialog')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('collection-rename-input')).toHaveCount(0)
 
   // The columns popover: a checkbox list anchored to its button. Adding a
   // column writes the view's node in the file; the table follows.
@@ -733,8 +832,12 @@ test('a collection tab is accessible', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+e')
   // Back in Live, a key is a door into the YAML, where the form gives way
   // to the text (R4.1.1).
+  // Opening the field moves nothing: the row keeps its height (QA round 1).
+  const formRow = page.getByTestId('properties-form').locator('.ed-properties-row').first()
+  const restHeight = (await formRow.boundingBox())!.height
   await page.getByTestId('property:status').click()
   await expect(page.getByTestId('property:status:input')).toBeVisible()
+  expect((await formRow.boundingBox())!.height).toBe(restHeight)
   await expectAccessible(page, 'properties form cell editor')
   await page.keyboard.press('Escape')
   await page.getByTestId('property-key:status').click()

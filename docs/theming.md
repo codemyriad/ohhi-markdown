@@ -7,15 +7,32 @@ changing a theme is changing tokens in one place, never editing components.
 Shaped in [`plans/v2-shaping.md`](../plans/v2-shaping.md) (Fork 2). Built in
 slice **V2a**.
 
-## Three bands, one attribute
+## Three bands, two attributes
 
-Everything hangs off `data-theme` on `<html>`.
+Bands A and B hang off `data-theme` on `<html>`; band C hangs off
+`data-polarity` (`light` | `dark`), which the app sets beside it from the
+theme's polarity.
 
 | Band | What | Owner | Cascade |
 |---|---|---|---|
 | **A — Chrome** | DaisyUI v5 semantic tokens: `--color-base-100/200/300`, `--color-base-content`, `primary`/`secondary`/`accent`/`neutral`, `info`/`success`/`warning`/`error` (each with a `-content` pair), `--radius-*`, `--size-*`, `--border`, `--depth`, `--noise` | `@plugin "daisyui/theme"` in `libs/ui/src/styles/tokens/*.css` | DaisyUI's own layers |
 | **B — Editor** | `--ed-*`: surface/ink/measure, h1–h6, emphasis, code + 9 syntax slots, links and wikilinks, tags, frontmatter, block furniture, selection/caret/gutter, peer-cursor chrome, `--ed-presence-1..8` and their ink `--ed-presence-fg-1..8`, `--ed-group-1..8`, the pane and tab chrome | `libs/ui/src/styles/tokens/` | `@layer editor.tokens`, overridable by `@layer editor.user` |
-| **C — Honesty** | `--ed-sync-ok` / `-pending` / `-diverged` / `-offline` (+ `-fg`) | `libs/ui/src/styles/sync-tokens.css` | **UNLAYERED** |
+| **C — Honesty** | `--ed-sync-ok` / `-pending` / `-diverged` / `-offline` (+ `-fg`), **one set per polarity** | `libs/ui/src/styles/sync-tokens.css` | **UNLAYERED**, chosen by `data-polarity` |
+
+**Band C is chosen per polarity, not per theme** (themes review, 2026-10-15,
+Fork 3-B). `sync-tokens.css` holds two sets — the light one on `:root` and
+`[data-polarity='light']`, the dark one on `[data-polarity='dark']` — and
+the dot and icon rules below follow the same two scopes. `lib/theme.svelte.ts`
+sets the attribute whenever the theme resolves (a built-in's polarity is in
+`DARK_THEMES`; a custom theme's is read off its `color-scheme` once its CSS is
+in), and the pre-paint script in `index.html` sets it before first paint —
+for a custom theme from the last polarity the app resolved
+(`editor:polarity`, `K_POLARITY` in `config.ts`), since its CSS waits on the
+vault. So every theme of a polarity shows the same four colours, and a custom
+**dark** theme gets the dark-legible set (a per-theme band C left it the light
+green and amber). A theme cannot set an attribute, so this gives a theme no
+new reach and the sanitizer nothing new to strip. `theme-contract.test.ts`
+refuses a `[data-theme]` selector in `sync-tokens.css`.
 
 **Band C is defended twice, because once is not enough.** Cascade layers only
 settle conflicts on the *same element*, and custom properties **inherit** — so
@@ -31,7 +48,7 @@ defended the same way: `.ed-sync-icon` and the `[data-status] > .ed-sync-icon`
 rules in `sync-tokens.css` are unlayered longhands on the svg itself **and on
 every shape inside it** (a layered `.lucide path { stroke: … }` lands on the
 child, so an inherited stroke would lose), with `fill: none` and literal
-per-theme colours, so no theme can repaint, fill or hide it.
+per-polarity colours, so no theme can repaint, fill or hide it.
 `apps/web/e2e/v2.spec.ts` attacks it rather than assuming it. That is golden rule 4 ("sync state
 never lies") expressed in the cascade rather than in a code review — and it is
 why offering user themes at all is safe, given a theme file travels with a
@@ -75,8 +92,10 @@ Colour is never the only channel: `SyncPill.svelte` also carries a `title`, an
   is a build gate: a single `bg-white` makes one panel ignore the theme, and the
   failure is invisible until someone switches to dark.
 - **Muted text stops at `/70`.** The same script fails `text-base-content` at
-  60% opacity or below: on `editor-light`, `/60` is 4.19:1 and `/40` is 2.41:1
-  against 4.5:1 required. `text-primary` on a `bg-primary/15` tint is 3.8:1 for
+  60% opacity or below: on the first `editor-light`, `/60` was 4.19:1 and `/40`
+  2.41:1 against 4.5:1 required; on today's (Oh hi Light) `/60` is 4.05:1 and
+  on Fjord Light 3.90:1, while `/70` clears 4.9:1 on every built-in's
+  `base-100` and `base-200`. `text-primary` on a `bg-primary/15` tint is 3.8:1 for
   the same reason — solid chips use the `primary`/`primary-content` pair. The
   axe gate (`apps/web/e2e/a11y.spec.ts`) measures this on the rendered app.
 
@@ -97,9 +116,13 @@ Editor theme. Each slot also clears 3:1 against `--color-base-100`; the dot is
 a non-text graphic and WCAG 1.4.11 is the bar.
 
 Separation from `--ed-sync-ok` / `-pending` / `-offline` is deliberately *not*
-asserted: in the Nord themes the palette's own green and yellow **are** its
-sync ok and pending, and a chip that carries the name you gave it, in the tab
+asserted: a palette's own green and yellow (Nord's, say) may sit near the sync
+ok and pending, and a chip that carries the name you gave it, in the tab
 strip, is not the pill in the status bar.
+
+The four default pairs share **one light and one dark set** of group colours,
+as they share the presence colours (themes review Fork 5-A, below); the Nord
+example theme restates its own.
 
 ## Presence colours (`--ed-presence-1..8`, `--ed-presence-fg-1..8`)
 
@@ -111,14 +134,20 @@ the sync pill everywhere, so `theme-contract.test.ts` asserts more:
 - no slot is the diverged red, nor within 60 units of it (the long-standing
   rule);
 - **every slot is more than 30 units from every sync colour** (`ok`,
-  `pending`, `offline`, `diverged`) in its theme — a peer's avatar must never
+  `pending`, `offline`, `diverged`) of its theme's polarity — a peer's avatar must never
   read as a sync state (golden rule 4); this is what retinted editor-light's
   slot 3 (it *was* the pending amber, `#8a6300` → `#5b55b5`) and the Nord
-  themes' slots 2 and 4 (listed below);
+  example's slots 2 and 4 (listed below);
 - each slot has an **ink**, `--ed-presence-fg-N`, the colour initials are
   drawn in on it, which must clear **4.5:1** (WCAG 1.4.3 — initials are
-  text). The light themes' ink is white; the dark themes' is near-black (`#14181d` in editor-dark, `#0b0e13` in nord-dark). A custom
+  text). The light themes' ink is white; the dark themes' is near-black (`#14181d` in the four dark defaults, `#0b0e13` in the Nord Dark example). A custom
   theme that retints a slot must check its ink.
+
+**The defaults share them** (themes review Fork 5-A): Oh hi, Graphite, Fjord
+and Iris carry one light set and one dark set of presence colours, so a peer
+keeps their colour when you switch between them — a peer's colour is
+identity, not decoration. The Nord example restates its own; any custom
+theme may.
 
 ## Panes & tabs (`--ed-pane-*`, `--ed-strip-bg`, `--ed-tab-*`, `--ed-group-cap`)
 
@@ -212,7 +241,7 @@ what buys it).
 | `--ed-code-bg` | the inline-code chip, once the backticks are hidden (X1) |
 | `--ed-code-block-fg` | a fence's body text under its slab, beside the nine `--ed-syn-*` slots (X1) |
 | `--ed-quote-border` | the blockquote's left border, once `> ` is hidden (X1). On the caret's line the revealed `> ` hangs in the line's padding beside it, out of the flow, so the text does not move; quotes are upright (E2) |
-| `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates, so it must look clickable (X1) |
+| `--ed-link-hover` | a rendered link under the pointer — in Live and Reading a plain click navigates (a finger's tap on a wikilink in Live shows the link card instead, QA round 1), so it must look clickable (X1) |
 | `--ed-table-header-bg` / `--ed-table-row-alt-bg` / `--ed-table-border` | the Reading table widget, and Live's column guides over the raw pipes (X2) |
 | `--ed-frontmatter-bg` / `--ed-frontmatter-border` | the YAML block's fencing while the caret is inside it (X3) |
 | `--ed-tag-bg-hover` / `--ed-tag-radius` | the tag chip, both in the text and in the collapsed frontmatter strip (X4) |
@@ -230,14 +259,15 @@ E1–E5, 2026-10-10). All of them are read only in `libs/editor/src/theme.ts`.
 **A token whose value derives from the DaisyUI colours lives only in the
 contract**: the popover, drop and done-task groups resolve from what every
 theme already sets, so a built-in theme restates one only when its value
-differs (the panes & tabs precedent — Nord's done-task grey is the one case).
+differs (the panes & tabs precedent). A custom theme may restate one too: the
+Nord example's done-task grey is the case.
 The callout colours are restated per built-in theme.
 
 ### Cards and focus (`--ed-card-radius`, `--ed-focus-ring`)
 
 | Token | Default | Read by |
 |---|---|---|
-| `--ed-card-radius` | `8px` | every card the editor draws: the code card's corners, a callout's box, the link popover and the table hint (`.cm-tooltip`), the drop target |
+| `--ed-card-radius` | `8px` | every card the editor draws: the code card's corners, a callout's box, the link popover, the table hint and the link card (`.cm-tooltip`), the drop target |
 | `--ed-focus-ring` | `var(--ed-caret)` | the one `:focus-visible` outline (2px) of the buttons a widget owns — the code card's language chip and *Copy*, a callout's chevron, a remote image's *Load image* |
 
 ### Link popover (`--ed-popover-*`)
@@ -337,9 +367,20 @@ violet and the search yellow. The agent's caret and its name tag
 
 ## Theme switching
 
-`ThemePref = 'system' | 'editor-light' | 'editor-dark' | 'nord-light' |
-'nord-dark' | 'custom:<name>'`, stored in `editor:config.theme` and mirrored to
-the `editor:theme` string key.
+`ThemePref = 'system' | BuiltinTheme | 'custom:<name>'`, where `BuiltinTheme`
+is one of the eight ids in `BUILTIN_THEMES` (`libs/ui/src/tokens.ts`, the
+registry Settings › Appearance lists from — see *The built-in themes* below),
+stored in `editor:config.theme` and mirrored to the `editor:theme` string key.
+`system` resolves to `DEFAULT_LIGHT_THEME` / `DEFAULT_DARK_THEME`
+(`editor-light` / `editor-dark`, Oh hi Light and Dark). Applying a theme also
+sets `data-polarity` (band C) and mirrors it to `editor:polarity`.
+
+A stored id that is no longer built in is read through `RETIRED_THEMES`
+(`libs/ui/src/tokens.ts`): `nord-light` / `nord-dark`, saved before Nord left
+the built-ins, read as `custom:nord-light` / `custom:nord-dark` — the vault
+theme of the same name (`migrateThemePref` in `config.ts`; the pre-paint
+script carries the same list, kept equal by `theme.test.ts`). See *The Nord
+example* below for what happens when the open vault has no such folder.
 
 `system` is resolved to an **explicit** `data-theme` at boot rather than left to
 `:root:not([data-theme])`. DaisyUI's `--prefersdark` could handle band A in pure
@@ -359,12 +400,49 @@ aesthetics another's problem.
 
 ## Custom themes
 
-Drop a file at `<vault>/.ohhi/themes/<name>/theme.css` — deliberately the
-same shape as `.obsidian/themes/<name>/theme.css` — then name it in Settings.
+A custom theme is a folder in the vault, `<vault>/.ohhi/themes/<name>/theme.css`
+— deliberately the same shape as `.obsidian/themes/<name>/theme.css`. It
+travels with the vault (a share, a synced folder), so every device that opens
+the vault can use it; which theme a device *uses* stays device config.
 (The folder was `.editor/themes/` before the rename; a vault made then needs
 its theme folder moved by hand. On the desktop app, reading `.ohhi/` relies on
 a file-access entry for dot-folders that has not yet been checked on a real
 build — `plans/spike-resource-root.md` F0.)
+
+**Settings › Appearance shows the difference** (Chris, 2026-10-15): the picker
+is two groups.
+
+- **Built in** — *System* and the eight themes that ship with the app
+  (`BUILTIN_THEMES`, *The built-in themes* below).
+- **In this vault** — every theme folder the open vault holds that has a
+  `theme.css`, by its folder's name, the one in use pressed. The list comes
+  from the resource loader (`resources.themes`, over the vault adapters'
+  `listAppDirs` — the folder-shaped twin of `listAppDir`, on all four
+  adapters) and is read again on a vault switch, on *Reload files* and, on the
+  desktop, when a file under `.ohhi/themes/` changes; a theme in use re-reads
+  its file then too, so editing it applies without a re-pick. With no vault
+  open, or a vault with no theme folder, the group says so. Under it, the
+  typed-name field stays as the fallback for a folder the list does not show,
+  and the **example themes** the app ships that this vault lacks, each with
+  *Add to this vault* (below).
+
+Settings › Customise lists the same folders on its Theme row, under *Also
+here*.
+
+**Adding an example writes a file, on your say-so.** *Add to this vault*
+writes the bundled example to `.ohhi/themes/<name>/theme.css` through
+`Workspace.writeAppFile` — the pre-image journaled, then an atomic write
+(golden rule 1; `plans/quiet-shell-shaping.md` F8: writes from Settings go
+through the journal like every other app write). It never writes over a file
+already there; it says so instead. The examples live in
+[`examples/themes/`](../examples/themes/) — copying a folder from there into
+a vault by hand, or having an agent do it, is the same thing.
+
+**A theme the vault does not hold.** When the device's choice names a folder
+the open vault lacks, the default of its polarity (Oh hi Light or Oh hi Dark)
+stands in and the choice is kept: Appearance's source line and Customise's
+Theme row say what stands in for what, and the theme comes back as soon as a
+vault with the folder opens, or the folder is added.
 
 Start from `libs/ui/src/styles/_template.css`; **the complete, authoritative
 token list with a default for every entry is
@@ -375,19 +453,24 @@ reads each one).
 Four rules the file itself will not tell you:
 
 - **One block, `[data-theme="<name>"]`**, where `<name>` matches the folder
-  name. Set DaisyUI's `--color-*` and our `--ed-*` **directly**. Do *not* write
-  `@plugin "daisyui/theme"` — that is a compile-time Tailwind directive, and a
-  stylesheet injected at runtime cannot use it.
+  name. Set DaisyUI's `--color-*` and our `--ed-*` **directly** — bands A and
+  B, nothing else. Do *not* write `@plugin "daisyui/theme"` — that is a
+  compile-time Tailwind directive, and a stylesheet injected at runtime cannot
+  use it.
 - **Declare `color-scheme: dark` or `light`.** It picks CodeMirror's own base
-  rules (scrollbars, panels, tooltip chrome) and the native form-control
-  palette. Omit it and Editor falls back to your OS preference, which will be
-  wrong half the time.
+  rules (scrollbars, panels, tooltip chrome), the native form-control
+  palette, **and which of band C's two sets of sync colours your theme gets**
+  (`data-polarity`). Omit it and Editor falls back to your OS preference,
+  which will be wrong half the time. The sync colours themselves are out of a
+  theme's reach either way.
 - **Names are `[\w -]{1,64}`** — letters, digits, spaces, `-`, `_`. Anything
-  else is refused, because the name becomes both a path segment and a
-  `[data-theme]` value.
-- **Expect one frame of the built-in default at boot.** The pre-paint script
-  can set the attribute before CSS loads, but a vault-resident theme cannot be
-  read until the vault opens.
+  else is refused (and not listed), because the name becomes both a path
+  segment and a `[data-theme]` value.
+- **Until the vault is read, the default of its polarity stands in.** The
+  pre-paint script cannot read a vault-resident theme, so it shows Oh hi Light
+  or Oh hi Dark by the polarity the app last resolved for the theme
+  (`editor:polarity`), and the theme replaces it once the vault opens. Its
+  sync colours are right from the first frame.
 
 Editor injects the file into `@layer editor.user`.
 
@@ -435,17 +518,88 @@ No equivalent exists for `--ed-sync-*` — that is the point (band C).
 
 ## The built-in themes
 
-**`editor-light` / `editor-dark` are ours. `nord-light` / `nord-dark` are a
-port of "Obsidian Nord", and they are built on opposite principles.** Nord is
-polychrome and identity-forward: six hues across h1–h6, yellow bold *and*
-italic, a 60%-alpha aurora-red selection. It is beautiful, and its loudest
-colour is red — which in this app is also the colour of *your document has
-diverged*. Our defaults invert that budget: headings are a six-step **luminance
-ramp of one hue**, hue is spent only on links, code, tags and unresolved
-wikilinks, and the highest-chroma things on screen are the four sync colours
-and the eight presence colours.
+Eight, in the order Settings › Appearance lists them under *Built in* (after
+*System*). The
+registry is `BUILTIN_THEMES` / `DARK_THEMES` / `THEME_LABEL_KEYS` in
+`libs/ui/src/tokens.ts`; each label is a dictionary entry,
+`web.settings.appearance.theme_names.<id with _>`.
 
-### Documented deviations from the Nord port
+| Id | Label | What it is |
+|---|---|---|
+| `editor-light` / `editor-dark` | Oh hi Light / Oh hi Dark | **The default pair** (what *System* resolves to): the review's direction B, *Ledger*. Paper and a fountain pen — warm neutrals from the page (`#faf8f4`) to the darkest chrome, one ink-blue for everything you can follow (link, wikilink, title, caret), teal code, a sand chip for tags, a visible warm heading ramp. |
+| `graphite-light` / `graphite-dark` | Graphite Light / Dark | Direction A. No accent at all: buttons, focus marks and the caret are ink, the only hue on the page is a link, headings by weight and size alone, the unresolved link a grey ghost. |
+| `fjord-light` / `fjord-dark` | Fjord Light / Dark | Direction C. Nord's temperature on our rules: cool blue-greys, frost for the caret and accent, mauve for a note not written yet, a cool heading ramp. |
+| `iris-light` / `iris-dark` | Iris Light / Dark | Direction D. One violet with discipline (caret, title, links, selection), cyan for code, a rose comment tint and unresolved link. |
+
+**The four pairs are ours.** Nord, the port of "Obsidian Nord" that was
+built in beside them, moved out on 2026-10-15 (Fork 4-A, slice T2): it is an
+example custom theme now — *The Nord example* below.
+They come from the design review *Oh hi Theme Explorations* (2026-10-15),
+which found the first Editor Light/Dark flat — one plane, two teals doing
+seven jobs, an invisible heading ramp, a dark borrowed from GitHub and One
+Dark — and drew four directions from this token contract, each checked
+against `theme-contract.test.ts` and the floors here. The ids `editor-light` /
+`editor-dark` are plumbing kept so a stored preference keeps working
+(Fork 2-A); the first palettes are in git history. Shared by all four pairs:
+band C per polarity (Fork 3-B), one light and one dark set of presence and
+group colours (Fork 5-A), and the agent-suggestion, comment and agent-working
+colours. Graphite states its headings by weight and size alone (Fork 6-A, on
+purpose); the other three carry a visible ramp of one hue, h1 darkest
+(Fork 6-B).
+
+**The readability floors**, which every built-in clears and `theme-contract.test.ts` asserts: body ink **7:1** on the
+surface; every text colour **4.5:1** (links, suggestions, initials on a
+presence slot, sync labels, and the five syntax colours a reader reads on
+the fence's own slab, `--ed-code-block-bg`); headings **3:1** (large text);
+marks **3:1** — the pane focus edge and group dots on `base-100`, and the code
+comment, which may recede, on its slab (strictly above 3:1: the first Editor
+Dark's 2.98 rounded to the "3.0" that hid it).
+
+## The Nord example
+
+`examples/themes/nord-light/theme.css` and `examples/themes/nord-dark/theme.css`:
+the port of "Obsidian Nord", a built-in until 2026-10-15 and now a custom
+theme a vault holds (v2-shaping Fork 2, Fork 4-A; the themes review's slice
+T2). Add one from Settings › Appearance › *In this vault* › *Add to this
+vault*, or copy its folder into `<vault>/.ohhi/themes/`. The files are the
+built-in token files converted to the custom-theme format — one
+`[data-theme]` block, bands A and B, Nord's own people and group colours
+restated — and `libs/ui/src/example-themes.test.ts` holds them to it: one
+block named after the folder, a `color-scheme`, contract tokens only, nothing
+the sanitizer strips (`theme.test.ts` checks the sanitizer leaves each file as
+it is, comments aside), and every honesty rule a built-in meets against the
+sync set of its polarity.
+
+**A device that chose Nord before the move** (Chris's `nord-dark`): its stored
+`nord-dark` is read as `custom:nord-dark`. The pre-paint script paints Oh hi
+Dark (the dark polarity is known). When the vault opens: if it holds
+`.ohhi/themes/nord-dark/`, Nord Dark applies as before; if not, Oh hi Dark
+stands in, the choice is kept, and the app says so **once per name, ever**
+(the `theme_retired` notice, a warning that toasts with *Show themes* —
+Appearance, where *Add to this vault* is — and stays in the Log under
+*Customise*). Adding it applies it at once, since the choice already names it;
+every later launch reads it from the vault.
+
+**The floors it misses**, Nord's own values kept on purpose and asserted to
+still miss (`MISSES` in `example-themes.test.ts`, so this list cannot go
+stale): the code fence — Nord Dark's keyword `#81a1c1` (3.74:1), number
+`#b48ead` (3.55:1) and comment `#616e88` (1.96:1) on nord1 `#3b4252`; Nord
+Light's keyword (3.50:1), string (3.39:1), number (4.45:1) and type (4.15:1)
+on its slab. Every other floor — body ink 7:1, headings 3:1, the suggestion
+colours 4.5:1 — it meets. The axe findings that kept it out of the built-in
+pass also stand: Nord Light's chrome ink at the shell's `/70` is 3.87:1 on
+white; Nord Dark's tag (`#8fbcbb` on `#434c5e`, 4.14:1) and link orange
+(`#d08770`, 4.39:1) sit under 4.5:1. Each is a one-token correction in the
+file, if wanted.
+
+Nord is polychrome and identity-forward: six hues across h1–h6, yellow bold
+*and* italic, a 60%-alpha aurora-red selection. It is beautiful, and its
+loudest colour is red — which in this app is also the colour of *your
+document has diverged*. Our defaults invert that budget: hue is spent only on
+links, code, tags and unresolved wikilinks, and the highest-chroma things on
+screen are the four sync colours and the eight presence colours.
+
+### Documented deviations in the Nord example
 
 Everything else is Nord's own value. These are not port bugs.
 
@@ -456,7 +610,7 @@ Everything else is Nord's own value. These are not port bugs.
 | nord-dark | `--ed-marker` | `#8fbcbb` (frost0) | `#4c566a` (nord3) | `--ed-marker` is the dimmed syntax mark (`#`, `*`, `>`), not the ordered-list number it was first mapped from. |
 | nord-dark | `--ed-presence-8` | `#d08770` | `#cbb69a` | Nord's orange sits ~42 units from its red — too close under the rule above. Nord does not contain eight hues that all clear the red. |
 | nord-dark | `--ed-group-7` | `#d08770` | `#d08770` (kept) | The same orange stays in the GROUP band. A presence colour is an unlabelled 2 px caret that can appear anywhere in the text; a group colour always arrives with the group's name, so the floor there is "not the conflict colour" (42 units) rather than presence's "nowhere near it" (60). |
-| nord-dark | `--ed-sync-diverged-fg` | `#2e3440` | `#140a0c` | Nord's darkest background reaches only 3.05:1 on aurora red; "diverged" is the label that most needs reading. |
+| both | `--ed-sync-*` | green, yellow, aurora red, nord3 | the shared light or dark set | Band C is one set per polarity since 2026-10-15 (Fork 3-B), so Nord shows the same sync colours as every theme of its polarity. Its own `#2e3440` on aurora red reached only 3.05:1, which is why nord-dark once carried its own `--ed-sync-diverged-fg`. |
 | nord-light | `--ed-code-fg` | `#88c0d0` (1.9:1) | `#3b6e7d` (5.7:1) | Unreadable on white. |
 | nord-light | `--ed-h1` … `--ed-h6` | aurora hues (h2 was 1.6:1) | darkened, hue preserved | Same. |
 | nord-light | `--ed-ink-faint` | `--text-faint` = dark0 | `#6b7690` | Upstream inverts it: `--text-faint` was *darker* than `--text-normal`. |
@@ -467,13 +621,14 @@ Everything else is Nord's own value. These are not port bugs.
 | nord-light | `--ed-ink-muted` | `--text-muted` = dark1 `#3b4252` | `#4c566a` (dark3) | Upstream makes "muted" *darker* than normal text; we step it the other way so the hierarchy reads. |
 | nord-light | `--ed-wikilink` | (Nord has none; dark maps it to `--text-accent`) | `#5e81ac` | On white, the accent orange is the same hue as the unresolved colour; frost separates them. |
 | nord-light | `--ed-presence-8` | `#9c5335` | `#a8327d` | ~55 units from the diverged red — same rule as nord-dark's slot 8. |
-| nord-dark | `--ed-presence-2` | `#a3be8c` (green) | `#e0a3b8` | Nord's green **is** nord-dark's `--ed-sync-ok`: a peer would read as "synced". Presence slots must sit 30+ units from every sync colour. |
-| nord-dark | `--ed-presence-4` | `#ebcb8b` (yellow) | `#d8dee9` | Nord's yellow is its `--ed-sync-pending`. Same rule. |
+| nord-dark | `--ed-presence-2` | `#a3be8c` (green) | `#e0a3b8` | Nord's green was nord-dark's `--ed-sync-ok` while band C was per theme: a peer would have read as "synced". Presence slots must sit 30+ units from every sync colour. Kept since band C went per polarity (the port is not retuned). |
+| nord-dark | `--ed-agent-working-bg` | (Nord has none) | `#88d0e0` at 22% | Not frost1 `#88c0d0`: the shared dark offline grey `#8b96a6` sits 59 units from it, under the 60 the agent tint must clear from every sync colour. |
+| nord-dark | `--ed-presence-4` | `#ebcb8b` (yellow) | `#d8dee9` | Nord's yellow was its `--ed-sync-pending`. Same rule, same history. |
 | nord-dark | `--ed-presence-fg-1..8` | (none) | `#0b0e13` | Nord-dark's slots are light; dark initials clear 4.5:1 on all eight. |
-| nord-light | `--ed-presence-2` | `#4d7c2f` | `#2f7a5a` | Too near nord-light's sync ok green. Same rule. |
 | nord-light | `--ed-presence-4` | `#8a6300` | `#8f5a2b` | Was nord-light's sync pending amber itself. Same rule. |
 | nord-light | `--ed-selection` | red @ 60% | red @ 30% | 60% red on white drops selected body text to ~3.1:1. |
 | nord-light | `--ed-table-header-bg` | `rgba(light2, .2)` | `#eceff4` | Effectively invisible on white. |
+| both | `--ed-syn-*` on `--ed-code-block-bg` | Nord's own | Nord's own (kept) | **Under the fence floors** — the misses listed above, named in `example-themes.test.ts` (`MISSES`) rather than repainted. |
 
 Two of these are worth stating plainly: the presence and unresolved-link rules
 mean **nord-*​ is not a pixel-exact port and does not try to be.** Where Nord's
@@ -483,7 +638,7 @@ invariant wins and the deviation is listed here.
 **nord-dark keeps `--ed-selection` at Nord's own 60% aurora red** even though
 selected body text lands near 2.9:1 — that is what Chris reads today, and
 changing it would silently make the daily experience differ from Obsidian.
-Override `--ed-selection` in a custom theme if you want more.
+It is your file now: change `--ed-selection` in `.ohhi/themes/nord-dark/theme.css` if you want more.
 
 ## Not yet, and deliberately
 

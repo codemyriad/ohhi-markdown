@@ -23,6 +23,7 @@ export { PROSE_BRACKETS, proseEditing, WRAP_CHARS, wrapSelection } from './editi
 export {
   FALLBACK_CALLOUT_LABELS,
   FALLBACK_CODE_LABELS,
+  FALLBACK_LINK_CARD_LABELS,
   FALLBACK_LINK_LABELS,
   FALLBACK_REMOTE_IMAGE_LABELS,
   FALLBACK_TABLE_LABELS,
@@ -32,6 +33,7 @@ export {
   type CodeLabels,
   type CollectionEmbedProps,
   type FrontmatterView,
+  type LinkCardLabels,
   type LinkPopoverLabels,
   type Mounted,
   type PropertiesEditor,

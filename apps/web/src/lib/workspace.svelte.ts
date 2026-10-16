@@ -89,6 +89,7 @@ import {
   roomTokenKind,
   setRoomToken,
 } from './config.js'
+import { renamedNote, type DockNote } from './dock-note.js'
 import { colorFor } from './params.js'
 import { byPath as presenceByPathOf, type PresenceByPath } from './presence.js'
 import { attachmentCandidates, attachmentType, imageCandidates } from './read.svelte.js'
@@ -281,6 +282,12 @@ export interface WorkspaceUi {
   presenceByPath: PresenceByPath
   reviews: DivergenceReview[]
   selectedPath: string | null
+  /**
+   * The note the dock follows (`dock-note.ts`): the focused note, or the one
+   * focused last while a non-note tab has the focus. Written by the panes
+   * alongside `selectedPath`; every dock section and its context line read it.
+   */
+  dockNote: DockNote | null
   /** Per-doc sync records keyed by doc GUID (+ per-mount folder keys) — guids are rename-stable (M3). */
   records: Record<string, SyncRecord>
   /**
@@ -514,6 +521,12 @@ export interface Workspace {
    */
   listAppDir(dir: string): Promise<string[]>
   /**
+   * The folders directly inside one app directory (`.ohhi/themes`: the
+   * theme folders), as vault-relative paths; `[]` when it is absent or the
+   * adapter cannot list folders there. Same guard as `listAppDir`.
+   */
+  listAppDirs(dir: string): Promise<string[]>
+  /**
    * Write a file under `.ohhi/` (layouts from Settings, quiet-shell F8): the
    * pre-image goes to a journal first, then the adapter's atomic temp+rename
    * write (golden rule 1). Never `.obsidian/`. Listeners of
@@ -661,6 +674,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     presenceByPath: {},
     reviews: [],
     selectedPath: null,
+    dockNote: null,
     records: {},
     linked: false,
     pull: null,
@@ -1036,6 +1050,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           const full = prefixMoves(moves)
           for (const { from, to } of full) {
             if (ui.selectedPath === from) ui.selectedPath = to
+            const dock = renamedNote(ui.dockNote, from, to)
+            if (dock !== ui.dockNote) ui.dockNote = dock
           }
           cfg.onPathsRenamed?.(full)
         },
@@ -2148,6 +2164,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     listAppDir: async (dir) => {
       const rel = appFilePath(dir.endsWith('/') ? dir : `${dir}/`, APP_FILE_DIRS, 'listAppDir')
       return (await cfg.adapter.listAppDir?.(rel.replace(/\/+$/, ''))) ?? []
+    },
+    listAppDirs: async (dir) => {
+      const rel = appFilePath(dir.endsWith('/') ? dir : `${dir}/`, APP_FILE_DIRS, 'listAppDirs')
+      return (await cfg.adapter.listAppDirs?.(rel.replace(/\/+$/, ''))) ?? []
     },
     writeAppFile: async (path, text) => {
       const rel = appFilePath(path, [APP_WRITE_DIR], 'writeAppFile')

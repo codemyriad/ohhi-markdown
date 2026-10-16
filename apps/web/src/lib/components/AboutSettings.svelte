@@ -15,7 +15,7 @@
   import { openGuide, type GuidePage } from '../guide.js'
   import { help, openReport, versionLine } from '../help.svelte.js'
   import { clockTick } from '../relative-time.js'
-  import { HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import { BUTTON, EYEBROW, GROUP, META } from '../ui/styles.js'
 
   interface Props {
     desktop: boolean
@@ -43,19 +43,19 @@
   ])
 
   const link =
-    'text-sm font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
+    'text-[13px] font-medium text-base-content underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
 <section data-testid="settings-about">
-  <h3 class={HEADING}>{t.updates()}</h3>
-  <p class="mt-1 text-sm text-base-content/80" data-testid="settings-version">{version}</p>
+  <h3 class={EYEBROW}>{t.updates()}</h3>
+  <p class="mt-1 text-[13px] text-base-content/70" data-testid="settings-version">{version}</p>
   {#if !desktop}
-    <p class="mt-1 text-xs text-base-content/70">{t.web_updates()}</p>
+    <p class="mt-1 {META}">{t.web_updates()}</p>
   {/if}
 </section>
 
-<section class="mt-5 border-t border-base-300 pt-4">
-  <h3 class={HEADING}>{t.guides()}</h3>
+<section class={GROUP}>
+  <h3 class={EYEBROW}>{t.guides()}</h3>
   <ul class="mt-2 space-y-1.5">
     {#each guides as guide (guide.page)}
       <li>
@@ -69,7 +69,7 @@
     type="button"
     data-testid="settings-report"
     onclick={openReport}
-    class="{OUTLINE_BUTTON} mt-3 px-3 py-1.5 text-xs font-medium text-base-content/80"
+    class="{BUTTON} mt-3"
   >
     {h.report()}
   </button>

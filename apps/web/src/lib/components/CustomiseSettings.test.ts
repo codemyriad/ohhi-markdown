@@ -53,6 +53,7 @@ function setup(opts: {
   }
   const write = vi.fn(async (_text: string) => {})
   const vault = opts.vault ?? DESKTOP_VAULT
+  const where = env(vault, opts.desktop ?? true)
   render(CustomiseSettings, {
     props: {
       registry,
@@ -62,10 +63,73 @@ function setup(opts: {
       ...(opts.openGuide ? { openGuide: opts.openGuide } : {}),
       ...(opts.showLog ? { showLog: opts.showLog } : {}),
     },
-    context: settingsEnvContext(env(vault, opts.desktop ?? true)),
+    context: settingsEnvContext(where),
   })
-  return { disk: v.disk, reload, write }
+  return { disk: v.disk, reload, write, env: where }
 }
+
+describe('Settings › Customise — the hub (QA round 1, QA5)', () => {
+  it('opens with what is in use: a full row per kind, the name and its source on one line, the detail in full, a door to its part', async () => {
+    const user = userEvent.setup()
+    const { env } = setup({
+      files: { '.ohhi/templates/standup.md': '# Standup\n', '.ohhi/templates/daily.md': '# Daily\n' },
+    })
+    const strip = screen.getByTestId('customise-strip')
+    // The first thing on the page.
+    expect(screen.getByTestId('settings-customise').firstElementChild).toBe(strip)
+    expect(within(strip).getAllByRole('listitem').map((li) => li.dataset.testid)).toEqual([
+      'customise-strip:layouts',
+      'customise-strip:keymaps',
+      'customise-strip:templates',
+      'customise-strip:themes',
+    ])
+    const layout = screen.getByTestId('customise-strip:layouts')
+    expect(layout).toHaveTextContent('default')
+    expect(layout).toHaveTextContent(t.from.builtin())
+    expect(layout).toHaveTextContent(t.no_device_changes())
+    // Every template by name (the built-in one too), then how to insert one — in full.
+    await waitFor(() => expect(screen.getByTestId('customise-templates')).toHaveTextContent(/daily, standup · /))
+    expect(screen.getByTestId('customise-templates')).toHaveTextContent(t.templates_how())
+    expect(screen.getByTestId('customise-strip:templates')).toHaveTextContent(t.templates_count({ count: 3 }))
+    // Nothing on the row is cut: no truncation, no ellipsis — it wraps instead.
+    for (const el of strip.querySelectorAll('*')) expect(el.getAttribute('class') ?? '').not.toMatch(/\btruncate\b|text-ellipsis/)
+
+    // A door to each part that chooses a kind; templates come from the palette.
+    expect(screen.queryByTestId('customise-door:templates')).toBeNull()
+    for (const [kind, section] of [['layouts', 'layout'], ['keymaps', 'keys'], ['themes', 'appearance']] as const) {
+      await user.click(screen.getByTestId(`customise-door:${kind}`))
+      expect(env.openSection).toHaveBeenLastCalledWith(section)
+    }
+    expect(screen.getByTestId('customise-door:layouts')).toHaveAccessibleName(
+      t.door_label({ section: getLL().web.settings.nav.layout() })
+    )
+  })
+
+  it('the theme row lists this vault’s theme folders under Also here, from the vault — not "not listed yet"', async () => {
+    setup({
+      files: {
+        '.ohhi/themes/nord-dark/theme.css': '[data-theme="nord-dark"] { color-scheme: dark; }',
+        '.ohhi/themes/paper/theme.css': '[data-theme="paper"] { color-scheme: light; }',
+      },
+    })
+    const row = screen.getByTestId('customise-kind:themes')
+    await waitFor(() => expect(within(row).getByTestId('customise-entry:themes:nord-dark')).toBeVisible())
+    expect(within(row).getByTestId('customise-entry:themes:paper')).toHaveTextContent(t.from.vault())
+    expect(row).not.toHaveTextContent(/not listed/)
+  })
+
+  it('a vault with no theme folders: nothing else on the theme row', async () => {
+    setup({ files: {} })
+    await waitFor(() => expect(screen.getByTestId('customise-kind:themes')).toHaveTextContent(t.nothing_else()))
+  })
+
+  it('the roots carry no numbers (the order is the rule); Reload files sits on their eyebrow row', () => {
+    setup({ files: {} })
+    const roots = screen.getByTestId('customise-roots')
+    expect(roots.textContent).not.toMatch(/\d\s*·/)
+    expect(within(roots).getByTestId('customise-reload')).toBeVisible()
+  })
+})
 
 describe('Settings › Customise', () => {
   it('a broken layout file is listed under Problems, and stays until it is fixed', async () => {

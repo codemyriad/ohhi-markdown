@@ -26,6 +26,7 @@
   import type { Workspace } from '../workspace.svelte.js'
   import ActionsCluster from './ActionsCluster.svelte'
   import FileTree from './FileTree.svelte'
+  import PinWideOnly from './PinWideOnly.svelte'
   import VaultSwitcher from './VaultSwitcher.svelte'
 
   interface Props {
@@ -86,7 +87,14 @@
        panes'; pin (the drawer) or unpin (a column this device pinned) at its
        right end, at the strip's control size. -->
   <div data-testid="navigator-header" class="flex h-8 shrink-0 items-center justify-end border-b border-base-300 px-1">
-    {#if onPin}
+    {#if onPin && !layout.pinsHonoured}
+      <!-- A small screen (QA round 1): pins apply on wider screens only. -->
+      <PinWideOnly
+        pinned={layout.pinned('navigator')}
+        testid="navigator-pin"
+        onExplain={(text) => workspace.flash({ level: 'info', text })}
+      />
+    {:else if onPin}
       <IconButton label={$LL.web.shell.pin_navigator()} icon={Pin} placement="bottom" testid="navigator-pin" onclick={onPin} />
     {:else if unpinnable}
       <IconButton

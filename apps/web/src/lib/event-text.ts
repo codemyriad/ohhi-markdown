@@ -8,6 +8,8 @@
 import type { TranslationFunctions } from '@ohhi/i18n'
 import type { Actor, AppEvent, EventParam } from '@ohhi/workspace'
 import { reloadText } from './resource-reload.js'
+import { exampleLabel, exampleStandIn, isExampleTheme } from './theme-examples.js'
+import { THEME_LABEL_KEYS } from '@ohhi/ui/tokens'
 import { ShareLinkError, shareLinkErrorText, type ShareLinkErrorCode } from './share-link.js'
 
 type Params = Record<string, EventParam> | undefined
@@ -23,10 +25,14 @@ interface NoticeDef {
   toast?: false
   /**
    * The Settings section its toast offers to open (settings-shaping ST6):
-   * a file that can't be used → *Show problems*, Settings › Customise.
+   * a file that can't be used → *Show problems*, Settings › Customise; a
+   * theme the vault does not hold → *Show themes*, Settings › Appearance.
    */
-  opens?: 'customise'
+  opens?: NoticeOpens
 }
+
+/** Where a notice's toast can take you. */
+export type NoticeOpens = 'customise' | 'appearance'
 
 /**
  * Every notice code. A failure whose only words are the error's own message
@@ -81,6 +87,24 @@ export const NOTICE_TEXT = {
   keymap_migrate_failed: { text: (LL, p) => LL.web.keymaps.migrate_failed({ error: str(p, 'error') }) },
   /** `template.insert` could not insert (no note, no file) — F11. */
   template_failed: { text: (_LL, p) => str(p, 'message') },
+  /**
+   * The preference names Nord (a built-in until Fork 4-A) and the open vault
+   * has no folder for it: the default stands in. Said once per name, ever.
+   */
+  theme_retired: {
+    text: (LL, p) => {
+      const name = str(p, 'name')
+      return isExampleTheme(name)
+        ? LL.web.theme.retired({
+            label: exampleLabel(LL, name),
+            path: str(p, 'path'),
+            stand_in: LL.web.settings.appearance.theme_names[THEME_LABEL_KEYS[exampleStandIn(name)]](),
+            example: str(p, 'example'),
+          })
+        : LL.web.theme.missing({ path: str(p, 'path') })
+    },
+    opens: 'appearance',
+  },
 } satisfies Record<string, NoticeDef>
 
 export type NoticeCode = keyof typeof NOTICE_TEXT
@@ -199,7 +223,7 @@ export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
  * info never, and never a notice whose own surface already shows it.
  */
 /** The Settings section a logged notice's toast offers to open, if any (`NoticeDef.opens`). */
-export function noticeOpens(e: AppEvent): 'customise' | null {
+export function noticeOpens(e: AppEvent): NoticeOpens | null {
   if (e.kind !== 'notice') return null
   const { code } = (e as AppEvent<'notice'>).payload
   return isNoticeCode(code) ? ((NOTICE_TEXT[code] as NoticeDef).opens ?? null) : null

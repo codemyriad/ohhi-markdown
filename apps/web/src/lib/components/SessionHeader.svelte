@@ -11,15 +11,14 @@
    * The Session view's header (writing-harness-shaping B4): the session's
    * title (edited in place — Enter or blur saves, Escape puts it back), the
    * sessions menu (`ui/DropdownMenu`: *New session*, the recent ones,
-   * *Rename…*, *Archive*), the provider the NEXT run goes to (re-resolved from
-   * settings every run, Cassini's rule — this only chooses which), and the
-   * run's status with its elapsed time on the injected clock, *Stop* while it
-   * runs and *Retry* after it failed or stopped.
+   * *Rename…*, *Archive*), and the run's status with its elapsed time on the injected clock, *Stop* while it
+   * runs and *Retry* after it failed or stopped. The provider the next run
+   * goes to is chosen at the composer's foot (QA round 1, Fork 6).
    */
   import { History, RotateCcw, Square } from '@lucide/svelte'
   import { melt } from '@melt-ui/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import type { ProviderView, RunRecord } from '@ohhi/harness'
+  import type { RunRecord } from '@ohhi/harness'
   import type { Clock } from '@ohhi/vault'
   import { clockTick } from '../relative-time.js'
   import type { SessionSummary } from '../session-store.js'
@@ -35,10 +34,7 @@
     run: RunRecord | null
     /** The vault's sessions, newest first. */
     sessions: SessionSummary[]
-    providers: ProviderView[]
-    providerId: string
     clock: Clock
-    onProvider(id: string): void
     onRename(title: string): void
     onNew(): void
     onPick(id: string): void
@@ -52,10 +48,7 @@
     title,
     run,
     sessions,
-    providers,
-    providerId,
     clock,
-    onProvider,
     onRename,
     onNew,
     onPick,
@@ -168,21 +161,4 @@
     <IconButton icon={RotateCcw} label={t.retry()} testid="session-retry" onclick={onRetry} />
   {/if}
 
-  {#if providers.length > 1}
-    <select
-      data-testid="session-provider"
-      aria-label={t.provider_label()}
-      value={providerId}
-      onchange={(e) => onProvider(e.currentTarget.value)}
-      class="max-w-40 shrink-0 truncate rounded border border-base-300 bg-base-100 px-1 py-0.5 text-[11px] text-base-content"
-    >
-      {#each providers as p (p.id)}
-        <option value={p.id}>{t.provider_option({ name: p.name, model: p.model })}</option>
-      {/each}
-    </select>
-  {:else if providers.length === 1}
-    <span data-testid="session-provider" class="shrink-0 truncate text-[11px] text-base-content/70">
-      {t.provider_option({ name: providers[0].name, model: providers[0].model })}
-    </span>
-  {/if}
 </header>

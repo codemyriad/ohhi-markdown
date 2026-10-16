@@ -69,6 +69,8 @@ describe('the built-in and the example', () => {
       statusbar: 'pane',
       format: 'off',
       status: 'off',
+      // Its own: the selection handle, from the built-in it extends.
+      selection: 'on',
     })
     expect(d.bars.format).toEqual([])
     expect(d.panes.open).toBe('tab')
@@ -89,6 +91,8 @@ describe('the built-in and the example', () => {
       statusbar: 'merged',
       format: 'bottom',
       status: 'corner',
+      // The selection handle at a selection's end (selection explorations, shape B).
+      selection: 'on',
     })
     expect(d.toolbar.position).toBe('top')
     expect(d.dock.position).toBe('top-right')
@@ -97,17 +101,22 @@ describe('the built-in and the example', () => {
     expect(d.bars['toolbar.center']).toEqual([])
     // Round 3: no mode menu and no word count in the toolbar (Q4, Q5)…
     // …and the inspector's door right of the bell (drawn only with devtools on),
+    // the Session view's door (drawn only with a provider; Chris, 2026-10-15),
     // then Help at the far end (first-run E1).
-    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'inspector', 'help'])
+    expect(d.bars['toolbar.right']).toEqual(['sync', 'drawer', 'session', 'inspector', 'help'])
     // …the words and characters ride the corner. (`last-agent-write` is a
     // catalogue readout a layout opts into: the corner's " · " join is drawn
     // between ids, so a readout that draws nothing would leave a stray dot.)
     expect(d.bars.status).toEqual(['words', 'chars'])
-    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(18)
+    expect(d.bars.format.filter((id) => id !== '|')).toHaveLength(19)
     // E6: the tab strip's end carries the two split commands.
     expect(d.bars.tabs).toEqual(['workspace.split-right', 'workspace.split-down'])
-    expect(d.bars.format.filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
+    // The format commands, then (QA round 1) the comment button after its own separator.
+    expect(d.bars.format.slice(0, -2).filter((id) => id !== '|').every((id) => id.startsWith('format.'))).toBe(true)
+    expect(d.bars.format.slice(-2)).toEqual(['|', 'note.comment'])
     expect(d.bars.statusbar).toEqual(['pane.lead', '|', 'sync'])
+    // Chris, 2026-10-15: Comment | Ask on the handle; formatting stays on the bar.
+    expect(d.bars.selection).toEqual(['note.comment', 'ai.ask-selection'])
     expect(d.panes.open).toBe('replace')
     expect(d.editor).toEqual({ measure: 'comfortable', typewriter: false, inlineTitle: true })
     // The format bar is a region: Focus mode hides it in default.
@@ -122,7 +131,8 @@ describe('the built-in and the example', () => {
     expect(READOUT_IDS).toContain('inspector')
     expect(READOUT_IDS).toContain('help')
     expect(READOUT_IDS).toContain('last-agent-write')
-    expect(READOUT_IDS).toHaveLength(18)
+    expect(READOUT_IDS).toContain('session')
+    expect(READOUT_IDS).toHaveLength(19)
     expect(REGION_IDS).toContain('format')
     expect(REGION_IDS).toContain('status')
   })
@@ -267,7 +277,7 @@ describe('resolveSpec — extends and precedence', () => {
     }
     const spec = resolveSpec(file({ extends: 'later', editor: { measure: 'narrow' } }), presets)
     expect(spec.editor).toEqual({ measure: 'narrow', typewriter: true, inlineTitle: true })
-    expect(spec.bars['toolbar.right']).toEqual(['sync', 'inspector', 'help'])
+    expect(spec.bars['toolbar.right']).toEqual(['sync', 'session', 'inspector', 'help'])
   })
 
   it('refuses a cycle, a self-extend and an unknown parent instead of looping', () => {
@@ -409,7 +419,7 @@ describe('diffSpec', () => {
   it('a list becomes a delta when that is shorter, a replacement when not', () => {
     const fewer: ShellSpec = {
       ...DEFAULT,
-      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'inspector', 'help', 'words', 'reading-time'] },
+      bars: { ...DEFAULT.bars, 'toolbar.right': ['sync', 'drawer', 'session', 'inspector', 'help', 'words', 'reading-time'] },
     }
     expect(roundTrip(DEFAULT, fewer, 'default').bars).toEqual({
       'toolbar.right': ['+words', '+reading-time'],

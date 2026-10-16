@@ -190,14 +190,15 @@ describe('installShellCommands', () => {
     try {
       const flash = vi.fn()
       const { registry, deps } = setup({ flash })
-      const harness = ['app.session', 'ai.new-session', 'ai.accept-suggestion']
+      // (`ai.accept-suggestion` is also gated on the caret being in a suggestion — suggestions.test.ts.)
+      const harness = ['app.session', 'ai.new-session', 'ai.accept-all', 'ai.accept-suggestion']
       const offered = (id: string): boolean => registry.available().some((c) => c.id === id)
       for (const id of harness) {
         expect(registry.get(id), id).toBeDefined()
         expect(offered(id), id).toBe(false)
       }
       setAiConfig({ providers: [{ id: 'p', name: 'P', kind: 'openai', baseUrl: '', model: 'm' }] })
-      for (const id of harness) expect(offered(id), id).toBe(true)
+      for (const id of harness.slice(0, 3)) expect(offered(id), id).toBe(true)
       // No selection to capture: a bare session, in its own tab.
       await registry.get('ai.new-session')!.run()
       expect(deps.openView).toHaveBeenLastCalledWith('session', expect.any(String))
@@ -446,5 +447,22 @@ describe('ai.add-selection in a split', () => {
     expect(mention.ref).toEqual({ kind: 'lines', path: 'right.md', lines: { from: 2, to: 2 } })
     expect(mention.snapshot).toBe('Pick this line.\n')
     expect(openView).toHaveBeenCalledWith('session', expect.any(String))
+  })
+
+  it('with no selection it still opens the session — the current one, else a new one — and says nothing', async () => {
+    const text = 'A note.\nWith a bare caret.\n'
+    bindEditor({ paneId: 'p1', path: 'a.md', view: viewOver(text, 3, 3), focused: true })
+    const openView = vi.fn()
+    const flash = vi.fn()
+    const rows = harnessCommands({ flash, selectedPath: () => 'a.md', openView })
+    await rows.find((r) => r.id === 'ai.add-selection')!.run()
+    expect(flash).not.toHaveBeenCalled()
+    expect(Object.keys(harness.inbox)).toEqual([])
+    expect(openView).toHaveBeenCalledWith('session', expect.any(String))
+    const started = openView.mock.calls[0][1] as string
+    expect(harness.current).toBe(started)
+    // Again: the same session, not another.
+    await rows.find((r) => r.id === 'ai.add-selection')!.run()
+    expect(openView).toHaveBeenLastCalledWith('session', started)
   })
 })

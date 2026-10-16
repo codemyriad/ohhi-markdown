@@ -205,6 +205,11 @@ describe('create and install', () => {
     expect(path).toBe('.agents/skills/pitch-editor/SKILL.md')
     expect(host.createFile).toHaveBeenCalledWith('.agents/skills/pitch-editor', 'SKILL.md', skillTemplate('pitch-editor'))
     expect(vault.get(path!)).toContain('name: pitch-editor')
+    // Valid frontmatter with a one-line description to replace, and the body's headings ready to fill.
+    expect(vault.get(path!)).toMatch(/^---\nname: pitch-editor\ndescription: [^\n]+\n/)
+    for (const h of ['# pitch-editor', '## When to use', '## Instructions', '## Output', '## Examples']) {
+      expect(vault.get(path!)).toContain(`\n${h}\n`)
+    }
     expect(store.rows).toMatchObject([{ id: 'pitch-editor', trusted: true, enabled: true, valid: true, source: 'local' }])
     expect(state()?.['pitch-editor']).toMatchObject({ source: 'local', trusted: true })
     expect(await names(store)).toEqual(['pitch-editor'])

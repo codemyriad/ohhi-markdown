@@ -316,7 +316,9 @@ export function createFileActions(host: FileHost): FileActions {
         ? from.slice(0, from.lastIndexOf('/'))
         : ''
     const name = clean.endsWith('.md') ? clean : `${clean}.md`
-    const created = await ws.createFile(dir, name, `# ${clean.split('/').pop()}\n\n`)
+    // Empty, as Obsidian makes it (QA round 1): the inline title already
+    // shows the name, so a seeded `# Name` heading drew it twice.
+    const created = await ws.createFile(dir, name)
     if (created) host.open(created)
   }
 

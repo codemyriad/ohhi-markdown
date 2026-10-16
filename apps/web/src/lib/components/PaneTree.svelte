@@ -29,6 +29,7 @@
   import type { PaneShell } from '../workspace-panes.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
   import type { PaneChrome } from '../pane-chrome.js'
+  import type { CommandRegistry } from '../commands.js'
   import type { PickerRow } from './EmptyTab.svelte'
   import Pane from './Pane.svelte'
   import Self from './PaneTree.svelte'
@@ -67,6 +68,18 @@
     groupChip?: Snippet<[Group, PaneNode]>
     tabMenuGroupItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, Tab]>
     moreMenuItems?: Snippet<[{ item: MenuItemAttrs; separator: MenuSeparatorAttrs }, PaneNode]>
+    /**
+     * The selection handle (selection explorations, shape B): the layout's
+     * `bars.selection` (empty when `regions.selection` is "off") and the
+     * registry it names. Read when a handle shows, never tracked. Absent →
+     * no handle.
+     */
+    selection?: SelectionRender
+  }
+
+  export interface SelectionRender {
+    ids: () => readonly string[]
+    registry: CommandRegistry
   }
 
   interface Props {

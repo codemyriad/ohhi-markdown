@@ -8,10 +8,11 @@
  *  - `Mod+Shift+L` on a selection → a session with the chip; a tool-calling
  *    turn reads the vault and answers;
  *  - a scripted `ohhi_patch` → a suggestion in the note, accepted with `Mod+Enter`;
- *  - a comment sent to the agent → its reply in the thread.
+ *  - a comment sent to the agent → its reply in the thread; with the session
+ *    opened below, the note keeps its first line at the top.
  */
 import { expect, type Page } from '@playwright/test'
-import { closeSettings, openApp, openSettings, paneContent, seedProvider, selectLine, test } from './fixtures.js'
+import { closeSettings, editors, openApp, openSettings, paneContent, panes, seedProvider, selectLine, test, unfoldRuns } from './fixtures.js'
 
 const NOTE = 'notes/welcome.md'
 const LINE = 'CRDT and syncs through the relay to anyone else in the room.'
@@ -48,16 +49,40 @@ function docText(page: Page): Promise<string> {
   })
 }
 
-/** Put the note's caret right after the first `text`, through CodeMirror's own view. */
-async function caretAfter(page: Page, text: string): Promise<void> {
-  await paneContent(page).evaluate((el, text) => {
-    const view = (el as unknown as { cmTile?: { root?: { view?: EditorView } } }).cmTile?.root?.view
-    if (!view) throw new Error('caretAfter: no CodeMirror view')
-    const at = view.state.doc.toString().indexOf(text)
-    if (at === -1) throw new Error(`caretAfter: no “${text}” in the note`)
-    view.dispatch({ selection: { anchor: at + text.length } })
-    view.focus()
-  }, text)
+/** Where the note's caret is, and its text, through CodeMirror's own view (the note's pane, focused or not). */
+function caretOf(page: Page): Promise<{ head: number; text: string }> {
+  return page.getByRole('textbox', { name: 'Note text' }).evaluate((el) => {
+    type View = { state: { doc: { toString(): string }; selection: { main: { head: number } } } }
+    const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+    return view ? { head: view.state.selection.main.head, text: view.state.doc.toString() } : { head: -1, text: '' }
+  })
+}
+
+type Box = { left: number; top: number; bottom: number; height: number }
+
+/** The composer's drawn caret, its placeholder and its first line, as client rects. */
+function composerCaret(page: Page): Promise<{ caret: Box | null; placeholder: Box | null; line: Box }> {
+  return page.getByTestId('session-composer-input').evaluate((el) => {
+    const box = (e: Element | null) => {
+      if (!e) return null
+      const r = e.getBoundingClientRect()
+      return { left: r.left, top: r.top, bottom: r.bottom, height: r.height }
+    }
+    const root = el.closest('.cm-editor')!
+    return {
+      caret: box(root.querySelector('.cm-cursor-primary')),
+      placeholder: box(root.querySelector('.cm-placeholder')),
+      line: box(root.querySelector('.cm-line'))!,
+    }
+  })
+}
+
+/** Run a palette row by its title, checking it is the row `id`. */
+async function runFromPalette(page: Page, title: string, id: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill(title)
+  await expect(page.locator(`[data-testid="command-palette-row"][data-row-id="${id}"]`)).toBeVisible()
+  await page.keyboard.press('Enter')
 }
 
 /** Send `text` from the open session's composer. */
@@ -81,7 +106,7 @@ test('quiet by default: no provider, no AI command and no Session view; Settings
   await expect(page.getByTestId('session-view')).toHaveCount(0)
 
   await openAiSettings(page)
-  await expect(page.getByTestId('ai-settings-egress')).not.toBeEmpty()
+  await expect(page.getByTestId('settings-lede:ai')).not.toBeEmpty()
   await expect(page.getByTestId('ai-providers-empty')).toBeVisible()
 })
 
@@ -127,7 +152,16 @@ test('Mod+Shift+L on a selection opens a session with its chip; a tool-calling t
   await send(page, 'What does this say about sync?')
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_search"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  // Done, the run is one folded line saying what the agent did; unfolded, its rows.
+  await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful')
+  const run = page.getByTestId('session-run-toggle')
+  await expect(run).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByTestId('session-run-summary')).toHaveText('Searched once')
+  await expect(card).toBeHidden()
+  await unfoldRuns(page)
+  await expect(card).toBeVisible()
   await expect(card.getByTestId('tool-hits')).toContainText(NOTE)
+  await expect(card.getByTestId('tool-hit').first()).toBeVisible()
   await expect(page.getByTestId('session-markdown').last()).toContainText('edits sync through the relay')
   await expect(page.getByTestId('session-run-status')).toHaveAttribute('data-status', 'successful')
 
@@ -150,20 +184,214 @@ test('a session left for the note and reopened keeps the chip in its draft, and 
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(page.getByTestId('mention-chip')).toHaveCount(1)
 
-  // Over to the note's tab and back: the Session view is re-created and its
-  // composer restores the draft — chip included — from sessionStorage. That
-  // restore dispatches inside the effect creating the composer; untracked,
-  // it is one update, not a loop (effect_update_depth_exceeded, 2026-10-15).
-  const tabs = page.locator('[data-testid^="tab:"]')
-  await expect(tabs).toHaveCount(2)
-  await tabs.first().click()
+  // The session tab closed (its pane goes with it) and the session reopened
+  // — Mod+Shift+L with nothing selected opens the current one: the Session
+  // view is re-created and its composer restores the draft — chip included —
+  // from sessionStorage. That restore dispatches inside the effect creating
+  // the composer; untracked, it is one update, not a loop
+  // (effect_update_depth_exceeded, 2026-10-15).
+  await expect(panes(page)).toHaveCount(2)
+  await page.keyboard.press('ControlOrMeta+w')
   await expect(page.getByTestId('session-view')).toBeHidden()
-  await tabs.nth(1).click()
+  await expect(panes(page)).toHaveCount(1)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(page.getByTestId('mention-chip')).toHaveCount(1)
   await page.getByTestId(`file-item:${NOTE}`).click()
   await expect(paneContent(page)).toContainText(LINE)
   expect(errors).toEqual([])
+})
+
+test('a session opens beside the note, never over it: right in a wide pane, below in a narrow one; the toolbar door and Mod+Shift+L need no selection', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  // The specs boot the `dense` layout, whose header is the breadcrumb and
+  // whose toolbar is empty: a device override puts the toolbar back as the
+  // header and draws its right end as the default layout does (`session` is
+  // the Session view's door, `help` the Help menu). The rail becomes the
+  // dock so the pane, beside the navigator column, is wide enough for two
+  // halves of 40rem at 1800 px (the split rule is the pane's width).
+  await seedProvider(page, `${mock.url}/v1`, {
+    layout: { overrides: { regions: { header: 'toolbar', rail: 'dock' }, bars: { 'toolbar.right': ['sync', 'session', 'help'] } } },
+  })
+  await page.setViewportSize({ width: 1800, height: 900 })
+  await openApp(page, 'harness-beside')
+  // The door on the toolbar, drawn now that a provider exists.
+  const door = page.getByTestId('session-open')
+  await expect(door).toHaveAccessibleName('Open AI session')
+  await openNote(page)
+  // A bare caret, no selection: Mod+Shift+L opens a session anyway…
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('mention-chip')).toHaveCount(0)
+  // …beside the note, which stays on screen (the session pane is the focused
+  // one now, so the note's editor is the first `.cm-content`): two panes side by side.
+  await expect(panes(page)).toHaveCount(2)
+  await expect(editors(page).first()).toContainText(LINE)
+  const [noteBox, sessionBox] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(sessionBox!.x).toBeGreaterThanOrEqual(noteBox!.x + noteBox!.width - 1)
+  // Its first screen offers the composer at once, in view, not below the fold.
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeInViewport()
+  // The door opens the SAME session: focused, not a third pane.
+  await editors(page).first().getByText(LINE).click()
+  await door.click()
+  await expect(panes(page)).toHaveCount(2)
+  await expect(page.getByTestId('session-view')).toHaveCount(1)
+
+  // Narrow: the session tab closed, the window narrowed, the session opened again — below the note.
+  await page.keyboard.press('ControlOrMeta+w')
+  await expect(panes(page)).toHaveCount(1)
+  await page.setViewportSize({ width: 900, height: 900 })
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(below!.y).toBeGreaterThanOrEqual(top!.y + top!.height - 1)
+  expect(Math.abs(below!.x - top!.x)).toBeLessThan(2)
+})
+
+test('the selection handle with a provider: Comment | Ask; Ask opens the session beside the note with the chip, the composer focused, nothing sent', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-handle-ask')
+  await openNote(page)
+  await selectLine(page, LINE)
+  const handle = page.getByTestId('selection-handle')
+  await expect(handle).toBeVisible()
+  await expect(handle.getByRole('button')).toHaveText(['Comment', 'Ask'])
+  await handle.getByRole('button', { name: 'Ask' }).click()
+  // Beside the note, never over it; the selection as a chip; the composer takes the keyboard.
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const chip = page.getByTestId('mention-chip')
+  await expect(chip).toHaveCount(1)
+  await expect(chip).toContainText('welcome')
+  await expect(page.getByTestId('session-composer-input')).toBeFocused()
+  // Not a stock prompt: nothing went to the provider, and the handle is gone with the focus.
+  expect(mock.requests.filter((r) => r.wire === 'openai')).toHaveLength(0)
+  await expect(handle).toHaveCount(0)
+})
+
+test('no selection handle inside a proposal: its own Accept / Reject pair is the only control there', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Proposed a comma.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-handle-proposal')
+  await openNote(page)
+  await runFromPalette(page, 'Open AI session', 'app.session')
+  await send(page, 'Add a comma before honestly.')
+  const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
+  await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
+  // The run folds to one line once the answer lands; the card is behind it.
+  await unfoldRuns(page)
+  await card.getByRole('button', { name: 'Show in note' }).click()
+  await expect(page.locator('[data-testid="editor-pane"] .ed-suggest-add').first()).toBeVisible()
+  const handle = page.getByTestId('selection-handle')
+  // Select across the proposal's text, from the keyboard (the caret is in it).
+  const text = await docText(page)
+  const from = text.indexOf(OLD)
+  await page.getByRole('textbox', { name: 'Note text' }).evaluate(
+    (el, { from, to }) => {
+      type View = { dispatch(tr: unknown): void; focus(): void }
+      const view = (el as unknown as { cmTile?: { root?: { view?: View } } }).cmTile?.root?.view
+      view?.focus()
+      view?.dispatch({ selection: { anchor: from, head: to }, userEvent: 'select' })
+    },
+    { from, to: from + OLD.length }
+  )
+  await page.waitForTimeout(600)
+  await expect(handle).toHaveCount(0)
+  // Outside it, the handle comes back.
+  await selectLine(page, LINE)
+  await expect(handle).toBeVisible()
+})
+
+test('a session’s first screen: starts above a focused composer, the provider at its foot, the egress said on the first session', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([{ text: 'The note welcomes you and explains the relay.' }])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-first')
+  await openNote(page)
+  await page.keyboard.press('ControlOrMeta+Shift+p')
+  await page.getByTestId('command-palette-input').fill('Open AI session')
+  await expect(page.locator('[data-testid="command-palette-row"][data-row-id="app.session"]')).toBeVisible()
+  await page.keyboard.press('Enter')
+
+  // The composer is in view and holds the keyboard; the starts sit above it.
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeFocused()
+  await expect(composer).toBeInViewport()
+  // The empty composer's caret sits where the first character lands — at the
+  // placeholder's x, inside the line, as tall as a typed character's caret —
+  // not at the field's edge or the height of the field.
+  const empty = await composerCaret(page)
+  expect(empty.caret, 'a drawn caret').not.toBeNull()
+  expect(Math.abs(empty.caret!.left - empty.placeholder!.left)).toBeLessThanOrEqual(2)
+  expect(empty.caret!.top).toBeGreaterThanOrEqual(empty.line.top - 0.5)
+  expect(empty.caret!.bottom).toBeLessThanOrEqual(empty.line.bottom + 0.5)
+  await page.keyboard.type('A')
+  // The drawn caret moves on CM's next measure; wait for it to leave the start.
+  await expect.poll(async () => (await composerCaret(page)).caret?.left ?? 0).toBeGreaterThan(empty.caret!.left + 2)
+  const typed = await composerCaret(page)
+  expect(typed.placeholder).toBeNull()
+  expect(Math.abs(empty.caret!.height - typed.caret!.height)).toBeLessThanOrEqual(2)
+  expect(Math.abs(empty.caret!.top - typed.caret!.top)).toBeLessThanOrEqual(2)
+  await page.keyboard.press('Backspace')
+  const starts = page.getByTestId('session-starts')
+  await expect(starts.getByRole('button')).toHaveText(['Ask about welcome.md', 'Summarise welcome.md', 'Run a skill…'])
+  // The provider is a picker at the composer's foot; the header has none.
+  await expect(page.getByTestId('session-composer-foot').getByTestId('session-provider')).toBeVisible()
+  await expect(page.getByTestId('session-header').getByTestId('session-provider')).toHaveCount(0)
+  // The vault's first session says where the words go.
+  await expect(page.getByTestId('session-egress')).toContainText('is sent to')
+
+  // *Ask about* hands the note over as a chip; *Run a skill…* types the `/`.
+  await starts.getByRole('button', { name: 'Ask about welcome.md' }).click()
+  await expect(page.getByTestId('mention-chip')).toContainText('welcome')
+  await page.keyboard.press('ControlOrMeta+a')
+  await page.keyboard.press('Backspace')
+  await starts.getByRole('button', { name: 'Run a skill…' }).click()
+  await expect(page.getByTestId('mention-menu')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Backspace')
+
+  // *Summarise* sends a turn with the note as its reference.
+  await starts.getByRole('button', { name: 'Summarise welcome.md' }).click()
+  await expect(page.getByTestId('session-message').first()).toContainText('Summarise this note.')
+  await expect(page.getByTestId('session-markdown').last()).toContainText('welcomes you')
+  const [req] = mock.requests.filter((r) => r.wire === 'openai')
+  expect(req.system).toContain(`### ${NOTE}`)
+})
+
+test('an empty Session tab restored beside a note at startup does not take the keyboard from the note', async ({ page, mockLlm }) => {
+  const mock = await mockLlm([])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-restore')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  // A person's door: the composer takes the keyboard…
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  const composer = page.getByTestId('session-composer-input')
+  await expect(composer).toBeFocused()
+  await expect(panes(page)).toHaveCount(2)
+  // …back to the note, and the layout (note + empty session beside it) restored by a reload.
+  await page.getByRole('textbox', { name: 'Note text' }).getByText(LINE).click()
+  // The layout is written on the save debounce (panes.spec.ts); give it the beat.
+  await page.waitForTimeout(600)
+  await page.reload()
+  await expect(page.getByTestId('session-view')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('textbox', { name: 'Note text' })).toContainText(LINE)
+  await expect(composer).toBeVisible()
+  // Nothing in the session holds the keyboard: the restored tab took nothing.
+  await page.waitForTimeout(300)
+  await expect(composer).not.toBeFocused()
+  expect(await page.getByTestId('session-view').evaluate((el) => el.contains(document.activeElement))).toBe(false)
 })
 
 test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts it and the readout names the agent', async ({ page, mockLlm }) => {
@@ -185,25 +413,126 @@ test('a scripted ohhi_patch lands as a suggestion in the note; Mod+Enter accepts
   await page.keyboard.press('Enter')
   await send(page, 'Add a comma before honestly.')
 
-  // The transcript links to the note; the suggestion is reviewed THERE.
+  // The card's *Show in note* puts the caret IN the suggestion, in the note's pane.
   const card = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
   await expect(card).toHaveAttribute('data-state', 'output-available', { timeout: 15_000 })
-  await card.getByTestId('tool-open').click()
+  await unfoldRuns(page)
+  await expect(card.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
+  await card.getByRole('button', { name: 'Show in note' }).click()
   // In the note: the comma drawn as a proposed insertion; the text itself unchanged.
   const added = page.locator('[data-testid="editor-pane"] .ed-suggest-add')
   await expect(added.first()).toBeVisible()
   await expect(added.first()).toHaveText(',')
   expect(await docText(page)).toContain(OLD)
 
-  // The caret on the suggestion (where the comma goes), then Mod+Enter.
-  await caretAfter(page, 'the pill goes offline')
+  // The keys act at once: no hunting for the caret.
   await page.keyboard.press('ControlOrMeta+Enter')
   await expect(added).toHaveCount(0)
   await expect.poll(() => docText(page)).toContain(NEW)
   await expect(page.getByTestId('last-agent-write')).toContainText('welcome')
+  // The card read the same record: applied.
+  await expect(card.getByTestId('proposal-status')).toHaveAttribute('data-status', 'accepted')
 })
 
-test('a comment sent to the agent gets its reply in the thread', async ({ page, mockLlm }) => {
+test('the session card accepts and rejects a proposal over the same record, scrolling the note to it', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: 'Everything you type here', new: 'Everything you write here' } } },
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Two small edits proposed.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-card')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await send(page, 'Two small edits.')
+  const cards = page.locator('[data-testid="tool-card"][data-tool="ohhi_patch"]')
+  await expect(cards).toHaveCount(2, { timeout: 15_000 })
+  await unfoldRuns(page)
+  const [first, second] = [cards.nth(0), cards.nth(1)]
+  await expect(first.getByTestId('proposal-status')).toHaveAttribute('data-status', 'pending')
+  await expect(first.getByTestId('proposal-diff')).toContainText('writ')
+  const added = page.locator('[data-testid^="editor-pane"] .ed-suggest-add')
+  await expect(added).toHaveCount(2)
+
+  // Reject on the first card: the note keeps its text, the card says it is gone.
+  await first.getByRole('button', { name: 'Reject' }).click()
+  await expect(added).toHaveCount(1)
+  await expect(first.getByTestId('proposal-status')).toHaveAttribute('data-status', 'gone')
+  await expect(first.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+  // Accept on the second: applied in the note, and the card follows the record.
+  await second.getByRole('button', { name: 'Accept' }).click()
+  await expect(added).toHaveCount(0)
+  await expect(second.getByTestId('proposal-status')).toHaveAttribute('data-status', 'accepted')
+  const text = await page.getByRole('textbox', { name: 'Note text' }).evaluate((el) => {
+    const view = (el as unknown as { cmTile?: { root?: { view?: EditorView } } }).cmTile?.root?.view
+    return view ? view.state.doc.toString() : ''
+  })
+  expect(text).toContain(NEW)
+  expect(text).toContain('Everything you type here')
+  // The session kept the keyboard: the card's verbs do not move it to the note.
+  await expect(page.getByTestId('session-view')).toBeVisible()
+})
+
+test('the pair on a proposal rejects and accepts it by click; next / previous and a gutter mark per proposal take the caret there', async ({ page, mockLlm }) => {
+  const OLD = 'the pill goes offline honestly'
+  const NEW = 'the pill goes offline, honestly'
+  const mock = await mockLlm([
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: 'Everything you type here', new: 'Everything you write here' } } },
+    { toolCall: { name: 'ohhi_patch', args: { path: NOTE, old: OLD, new: NEW } } },
+    { text: 'Two small edits proposed.' },
+  ])
+  await seedProvider(page, `${mock.url}/v1`)
+  await openApp(page, 'harness-pair')
+  await openNote(page)
+  await paneContent(page).getByText(LINE).click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await send(page, 'Two small edits.')
+  await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+
+  // Two proposals on two lines: two numbered marks in the gutter, and one
+  // pair — on the current proposal — without the caret having been put there.
+  // The session pane holds the focus: the note's pane is `editor-pane:<id>`.
+  const added = page.locator('[data-testid^="editor-pane"] .ed-suggest-add')
+  await expect(added).toHaveCount(2)
+  const marks = page.locator('[data-testid^="suggestion-marker:"]')
+  await expect(marks).toHaveText(['1', '2'])
+  const pair = page.locator('[data-testid="suggestion-pair"]')
+  await expect(pair).toHaveCount(1)
+
+  // The first mark takes the caret to the first proposal; next / previous
+  // from the palette (unbound by default) step through them, wrapping round.
+  const at = async (): Promise<string> => {
+    const c = await caretOf(page)
+    if (c.head === c.text.indexOf('type here')) return 'first'
+    return c.head === c.text.indexOf('the pill goes offline') + 'the pill goes offline'.length ? 'second' : String(c.head)
+  }
+  await marks.nth(0).click()
+  await expect.poll(at).toBe('first')
+  await runFromPalette(page, 'Next suggestion', 'ai.next-suggestion')
+  await expect.poll(at).toBe('second')
+  await runFromPalette(page, 'Next suggestion', 'ai.next-suggestion')
+  await expect.poll(at).toBe('first')
+  await runFromPalette(page, 'Previous suggestion', 'ai.previous-suggestion')
+  await expect.poll(at).toBe('second')
+
+  // The pair is on the current proposal (the comma): Reject drops it, the text untouched.
+  await expect(pair).toHaveAttribute('aria-label', /^Suggestion by /)
+  await pair.getByRole('button', { name: 'Reject' }).click()
+  await expect(added).toHaveCount(1)
+  expect((await caretOf(page)).text).toContain(OLD)
+  // The pair moves to the one left; Accept applies it.
+  await expect(pair).toHaveCount(1)
+  await pair.getByRole('button', { name: 'Accept' }).click()
+  await expect(added).toHaveCount(0)
+  await expect.poll(async () => (await caretOf(page)).text).toContain('Everything you write here')
+  await expect(marks).toHaveCount(0)
+  await expect(pair).toHaveCount(0)
+})
+
+test('a comment sent to the agent says where it goes, gets its reply in the thread, and links to and from its session', async ({ page, mockLlm }) => {
   const mock = await mockLlm([{ text: 'It means every keystroke is shared with the room.' }])
   await seedProvider(page, `${mock.url}/v1`)
   await openApp(page, 'harness-comment')
@@ -214,6 +543,8 @@ test('a comment sent to the agent gets its reply in the thread', async ({ page, 
   await expect(bubble).toBeVisible()
   await bubble.getByTestId('comment-body').fill('What does this mean in practice?')
   await bubble.getByTestId('comment-send-agent').check()
+  // No session yet: the bubble says it goes to a new one.
+  await expect(bubble.getByTestId('comment-send-target-new')).toHaveText('A new session')
   await bubble.getByTestId('comment-submit').click()
   await expect(bubble).toHaveCount(0)
 
@@ -229,4 +560,63 @@ test('a comment sent to the agent gets its reply in the thread', async ({ page, 
   expect(req.lastUser).toContain('What does this mean in practice?')
   expect(req.system).toContain('## A comment asked')
   expect(req.system).toContain(LINE)
+
+  // The thread links to the session it went to — named after the comment's
+  // place, not its words — and that session's turn links back to the thread.
+  await thread.getByTestId('comment-open-session').first().click()
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(page.getByTestId('session-title')).toHaveValue('Comment on welcome.md (line 4)')
+  const from = page.getByTestId('session-message-thread')
+  await expect(from).toContainText('From a comment in welcome.md')
+  await from.getByRole('button', { name: 'Show thread' }).click()
+  await expect(page.getByTestId('comment-thread')).toContainText('every keystroke is shared with the room')
+})
+
+test('a note with a comment thread keeps its first line at the top when the session opens below it, the marker beside its passage', async ({ page, mockLlm }) => {
+  // QA round 1: a comment sent to the agent, then the session opened below
+  // the note, left a pane-high gap above it — the note's view, rebuilt with
+  // the thread's gutter already in it, had the inline title slotted after the
+  // gutter column, which then took a row of its own. Typewriter on, as Chris
+  // may have it (its bottom padding makes that row taller still).
+  const mock = await mockLlm([{ text: 'That looks like a stray keystroke.' }])
+  await seedProvider(page, `${mock.url}/v1`, {
+    layout: { overrides: { regions: { header: 'toolbar', rail: 'dock' }, editor: { typewriter: true } } },
+  })
+  // Narrow enough that the split puts the session BELOW the note.
+  await page.setViewportSize({ width: 1100, height: 900 })
+  await openApp(page, 'harness-comment-below')
+  await openNote(page)
+  await selectLine(page, LINE)
+  await page.keyboard.press('ControlOrMeta+Shift+m')
+  const bubble = page.getByTestId('comment-bubble')
+  await bubble.getByTestId('comment-body').fill('jiaosdjas')
+  await bubble.getByTestId('comment-send-agent').check()
+  await bubble.getByTestId('comment-submit').click()
+  await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+  // The session, opened from the note: below it.
+  await paneContent(page).getByText('syncs through').click()
+  await page.keyboard.press('ControlOrMeta+Shift+l')
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
+  const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
+  expect(below!.y).toBeGreaterThanOrEqual(top!.y + top!.height - 1)
+
+  const note = panes(page).nth(0)
+  const box = async (selector: string) => (await note.locator(selector).first().boundingBox())!
+  const marker = note.locator('.ed-comment-marker')
+  await expect(marker).toBeVisible()
+  const scroller = await box('.cm-scroller')
+  const title = await box('.ed-inline-title')
+  const firstLine = await box('.cm-line')
+  // The title at the top of the scroller, the first line right under it (within a line height), on screen.
+  expect(Math.abs(title.y - scroller.y)).toBeLessThan(2)
+  expect(firstLine.y - (title.y + title.height)).toBeLessThan(firstLine.height)
+  expect(firstLine.y + firstLine.height).toBeLessThan(scroller.y + scroller.height)
+  // The thread's marker sits beside its passage, on the passage's line.
+  const passage = await box('.ed-comment')
+  const dot = (await marker.boundingBox())!
+  expect(dot.x).toBeLessThan(passage.x)
+  const mid = dot.y + dot.height / 2
+  expect(mid).toBeGreaterThan(passage.y - 6)
+  expect(mid).toBeLessThan(passage.y + passage.height + 6)
 })

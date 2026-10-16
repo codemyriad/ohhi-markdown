@@ -59,7 +59,9 @@ describe('ThreadList', () => {
     expect(rowA).toHaveTextContent('Ana vague')
     expect(rowA).toHaveTextContent('1 reply')
     expect(within(list).queryByTestId(`thread:${b.id}`)).toBeNull()
-    expect(screen.getByTestId('thread-filter:open')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('thread-filter:open')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('thread-filter:open')).toHaveTextContent('Open 1')
+    expect(screen.getByTestId('thread-filter:resolved')).toHaveTextContent('Resolved 1')
 
     await user.click(screen.getByTestId('thread-filter:resolved'))
     expect(within(list).getByTestId(`thread:${b.id}`)).toHaveTextContent('Then rest')
@@ -101,9 +103,26 @@ describe('ThreadList', () => {
     expect(flash).toHaveBeenCalledWith({ level: 'info', text: 'Review copy written to notes/plan (review).md.' })
   })
 
-  it('disables the export with no open thread', () => {
+  it('offers no export with no open thread', () => {
     const { ws } = fakeWorkspace()
     render(ThreadList, { path: PATH, workspace: ws, onOpen: () => {} })
-    expect(screen.getByTestId('thread-export')).toBeDisabled()
+    expect(screen.queryByTestId('thread-export')).toBeNull()
+  })
+
+  it('is its own door: Comment on selection runs note.comment, and the empty state names the key', async () => {
+    const user = userEvent.setup()
+    const { ws } = fakeWorkspace()
+    const run = vi.fn()
+    const registry = {
+      get: (id: string) => (id === 'note.comment' ? { id, title: 'Comment on selection', run } : undefined),
+      binding: (id: string) => (id === 'note.comment' ? 'Ctrl+Shift+M' : ''),
+    }
+    render(ThreadList, { path: PATH, workspace: ws, onOpen: () => {}, registry })
+    expect(screen.getByTestId('thread-how')).toHaveTextContent(
+      'Select some text and press Ctrl+Shift+M, or use the comment button on the formatting bar.'
+    )
+    await user.click(screen.getByTestId('thread-comment'))
+    expect(screen.getByTestId('thread-comment')).toHaveTextContent('Comment on selection')
+    expect(run).toHaveBeenCalledOnce()
   })
 })

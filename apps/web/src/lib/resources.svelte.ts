@@ -1,7 +1,8 @@
 /**
  * The resource loader (quiet-shell F8, spike-resource-root Q4): one kind of
  * person- or agent-authored file — `layouts`, `keymaps` (F10) and
- * `templates` (F11); themes are the same shape later — read from ORDERED roots:
+ * `templates` (F11) — read from ORDERED roots (themes are listed here too,
+ * from the vault only: see `FeedKind`):
  *
  *   1. the vault's `.ohhi/<kind>/`   (travels with the folder; git, Dropbox)
  *   2. the user root `<config>/ohhi/<kind>/` — desktop only (`~/.config/ohhi`)
@@ -51,9 +52,27 @@ import {
 import { MAX_EXTENDS_DEPTH, RESOURCE_NAME, parseJsonFile, savableName } from './resource-kind.js'
 import { BUILTIN_TEMPLATES } from './template.js'
 import { applyPins, type LayoutPins } from './pin-layout.js'
+import { THEME_FILE, THEME_NAME, THEMES_DIR } from './theme-files.js'
 
 export const RESOURCE_KINDS = ['layouts', 'keymaps', 'templates'] as const
 export type ResourceKind = (typeof RESOURCE_KINDS)[number]
+
+/**
+ * What the change feed carries: a kind, or `themes` — the vault's theme
+ * folders, which are listed here (`themes`, `refreshThemes`) but read by name
+ * by the theme runtime, not through the roots: a theme lives in the vault
+ * only (`.ohhi/themes/<name>/theme.css`), never in the user root or built in.
+ */
+export type FeedKind = ResourceKind | 'themes'
+const FEED_KINDS: readonly FeedKind[] = [...RESOURCE_KINDS, 'themes']
+
+/** A theme folder in the open vault, as Settings lists it. */
+export interface ThemeEntry {
+  /** The folder's name: the theme's name, and its `[data-theme]` value. */
+  name: string
+  /** The file the app reads: `.ohhi/themes/<name>/theme.css`. */
+  path: string
+}
 
 /** The file extension each kind is stored with. */
 const KIND_EXT: Record<ResourceKind, string> = { layouts: '.json', keymaps: '.json', templates: '.md' }
@@ -80,6 +99,8 @@ export interface ResourceRoot {
 export interface VaultAppFiles {
   readAppFile(path: string): Promise<string | null>
   listAppDir(dir: string): Promise<string[]>
+  /** The folders in one app dir (`.ohhi/themes`); absent → no theme folders are listed. */
+  listAppDirs?(dir: string): Promise<string[]>
   writeAppFile(path: string, text: string): Promise<void>
   /** Remove a file under `.ohhi/` (journaled first); absent → deleting is not offered. */
   deleteAppFile?(path: string): Promise<void>
@@ -269,6 +290,8 @@ export function createResources(host: ResourcesHost) {
   let layouts = $state<ResourceEntry[]>(BUILTIN_LAYOUTS.map((name) => builtinEntry('layouts', name)))
   /** The keymaps every root offers, the same way (F10). */
   let keymaps = $state<ResourceEntry[]>(BUILTIN_KEYMAPS.map((name) => builtinEntry('keymaps', name)))
+  /** The open vault's theme folders that hold a `theme.css`, by name; empty with no vault. */
+  let themes = $state<ThemeEntry[]>([])
 
   function builtinEntry(kind: ResourceKind, name: string): ResourceEntry {
     return { name, root: 'builtin', path: builtinRoot.location(kind), shadows: [] }
@@ -612,6 +635,36 @@ export function createResources(host: ResourcesHost) {
     return { roots: all.map((r) => ({ id: r.id, base: r.base ?? null })), entries, problems }
   }
 
+  /**
+   * The theme folders in the open vault: every folder under `.ohhi/themes/`
+   * with a usable name that holds a `theme.css`. A folder without one is not
+   * a theme (picking it could only fail), so it is not offered.
+   */
+  async function listThemes(): Promise<ThemeEntry[]> {
+    const vault = host.vault()
+    if (!vault?.listAppDirs) return []
+    const dirs = await vault.listAppDirs(THEMES_DIR).catch(() => [] as string[])
+    const out: ThemeEntry[] = []
+    for (const dir of dirs) {
+      const name = dir.slice(dir.lastIndexOf('/') + 1)
+      if (!THEME_NAME.test(name)) continue
+      const path = `${THEMES_DIR}/${name}/${THEME_FILE}`
+      const files = await vault.listAppDir(`${THEMES_DIR}/${name}`).catch(() => [] as string[])
+      if (files.includes(path)) out.push({ name, path })
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /** Overlapping re-lists (a switch mid-read) keep the latest: a slow read for the last vault never lands. */
+  let themesSeq = 0
+  /** Re-list the open vault's theme folders (a vault switch, a change under `.ohhi/themes/`, a reload). */
+  async function refreshThemes(): Promise<ThemeEntry[]> {
+    const mine = ++themesSeq
+    const next = await listThemes()
+    if (mine === themesSeq) themes = next
+    return next
+  }
+
   /** Re-list the layouts every root offers (the palette's *Use layout file…*, a reload, a vault switch). */
   async function refresh(): Promise<ResourceEntry[]> {
     layouts = await list('layouts')
@@ -619,12 +672,26 @@ export function createResources(host: ResourcesHost) {
   }
 
   // ---- change feed: one `.ohhi/` subscription for every kind ----
-  const listeners = new Map<ResourceKind, Set<(why: ResourceChange) => void>>()
-  function emit(kinds: readonly ResourceKind[], why: ResourceChange): void {
-    for (const kind of kinds) for (const cb of [...(listeners.get(kind) ?? [])]) cb(why)
+  const listeners = new Map<FeedKind, Set<(why: ResourceChange) => void>>()
+  function emit(kinds: readonly FeedKind[], why: ResourceChange): void {
+    for (const kind of kinds) {
+      // The theme list is the loader's own to keep: re-listed first, so a
+      // `themes` listener reads the new list.
+      if (kind === 'themes') {
+        void refreshThemes().then(() => {
+          for (const cb of [...(listeners.get('themes') ?? [])]) cb(why)
+        })
+        continue
+      }
+      for (const cb of [...(listeners.get(kind) ?? [])]) cb(why)
+    }
   }
-  /** Run `cb` whenever `kind`'s files should be read again (see `ResourceChange`). Returns the unsubscribe. */
-  function onChange(kind: ResourceKind, cb: (why: ResourceChange) => void): () => void {
+  /**
+   * Run `cb` whenever `kind`'s files should be read again (see
+   * `ResourceChange`); for `themes`, once the folder list is read again.
+   * Returns the unsubscribe.
+   */
+  function onChange(kind: FeedKind, cb: (why: ResourceChange) => void): () => void {
     const set = listeners.get(kind) ?? new Set()
     listeners.set(kind, set)
     set.add(cb)
@@ -635,10 +702,10 @@ export function createResources(host: ResourcesHost) {
   $effect.root(() => {
     $effect(() => {
       const vault = host.vault()
-      untrack(() => emit(RESOURCE_KINDS, 'open'))
+      untrack(() => emit(FEED_KINDS, 'open'))
       return vault?.onAppFileChange?.('.ohhi/', (paths) =>
         emit(
-          RESOURCE_KINDS.filter((kind) => paths.some((p) => p.startsWith(`.ohhi/${kind}/`))),
+          FEED_KINDS.filter((kind) => paths.some((p) => p.startsWith(`.ohhi/${kind}/`))),
           'change'
         )
       )
@@ -652,6 +719,11 @@ export function createResources(host: ResourcesHost) {
     get keymaps() {
       return keymaps
     },
+    /** The open vault's theme folders (`.ohhi/themes/<name>/theme.css`), kept current by the change feed. */
+    get themes() {
+      return themes
+    },
+    refreshThemes,
     list,
     read,
     resolveLayout,
@@ -670,7 +742,7 @@ export function createResources(host: ResourcesHost) {
     /** The bytes the app itself last wrote to `path` (null = it removed the file; undefined = it has not written it). */
     written: (path: string): string | null | undefined => ownWrites.get(path),
     /** `app.reload-resources` (quiet-shell F9): every kind re-reads, the layout re-seeding its columns. */
-    reloadAll: (): void => emit(RESOURCE_KINDS, 'reload'),
+    reloadAll: (): void => emit(FEED_KINDS, 'reload'),
   }
 }
 

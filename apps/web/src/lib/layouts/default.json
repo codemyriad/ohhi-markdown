@@ -7,12 +7,13 @@
     "tabs": "always",
     "statusbar": "merged",
     "format": "bottom",
-    "status": "corner"
+    "status": "corner",
+    "selection": "on"
   },
   "bars": {
     "toolbar.left": ["nav"],
     "toolbar.center": [],
-    "toolbar.right": ["sync", "drawer", "inspector", "help"],
+    "toolbar.right": ["sync", "drawer", "session", "inspector", "help"],
     "format": [
       "format.paragraph-style",
       "|",
@@ -35,11 +36,14 @@
       "format.wikilink",
       "format.link",
       "format.table",
-      "format.image"
+      "format.image",
+      "|",
+      "note.comment"
     ],
     "statusbar": ["pane.lead", "|", "sync"],
     "status": ["words", "chars"],
-    "tabs": ["workspace.split-right", "workspace.split-down"]
+    "tabs": ["workspace.split-right", "workspace.split-down"],
+    "selection": ["note.comment", "ai.ask-selection"]
   },
   "toolbar": { "position": "top" },
   "dock": { "position": "top-right" },

@@ -32,6 +32,7 @@
   import type { CommandRegistry } from '../commands.js'
   import { SEPARATOR } from '../layout-spec.js'
   import { focusedOf } from '../readout-state.js'
+  import { commandHint } from '../command-hint.js'
   import type { ReadoutContext } from '../readouts.js'
   import DropdownMenu, { type MenuItemAttrs } from '../ui/DropdownMenu.svelte'
   import IconButton from '../ui/IconButton.svelte'
@@ -45,11 +46,17 @@
     ids: readonly string[]
     /** Which edge of the editor area the bar floats at: its overlays open away from it. */
     edge: Side
+    /**
+     * A small screen (QA round 1): the bar never folds into its *Format*
+     * menu — it fills the row the host gives it and scrolls, every command
+     * a button. Absent → it folds below the floating layer's 30rem.
+     */
+    fill?: boolean
     ctx: ReadoutContext
     registry: CommandRegistry
   }
 
-  let { ids, edge, ctx, registry }: Props = $props()
+  let { ids, edge, ctx, registry, fill = false }: Props = $props()
 
   /** The one grouped entry (Fork 4's "paragraph style"): a menu of the block styles. */
   const [PARAGRAPH_STYLE] = TOOLBAR_ITEM_IDS
@@ -101,12 +108,14 @@
     const { tab } = focusedOf(ctx.panes.layout)
     return tab?.path != null && ctx.panes.modeOf(tab) !== 'reading'
   })
+  /** A note on screen at all: what a non-format item (`note.comment`) needs — a comment is fine in Reading. */
+  const onNote = $derived(focusedOf(ctx.panes.layout).tab?.path != null)
+  /** Whether a bar item can be pressed: a format command needs a live note; anything else, a note. */
+  const enabled = (id: string): boolean => (id.startsWith('format.') ? canFormat : onNote)
 
   const t = $derived($LL.web.toolbar)
   const tip = $derived(sideAwayFrom(edge))
   const menuAt = $derived(menuPlacement(tip, 'start'))
-  const named = (e: { title: string; binding: string }): string =>
-    e.binding ? t.with_binding({ title: e.title, binding: e.binding }) : e.title
 
   function run(id: string): void {
     void registry.get(id)?.run()
@@ -174,9 +183,9 @@
     aria-orientation="horizontal"
     data-testid="format-bar"
     data-position={edge}
-    class="pointer-events-auto flex h-9 max-w-full shrink-0 items-center justify-center rounded-lg border border-base-300 bg-base-100 px-1 text-xs text-base-content/70 shadow-sm"
+    class="pointer-events-auto flex h-9 max-w-full items-center rounded-lg {fill ? 'w-full min-w-0 justify-start' : 'shrink-0 justify-center'} border border-base-300 bg-base-100 px-1 text-xs text-base-content/70 shadow-sm"
   >
-    <div data-testid="toolbar-format" class="flex min-w-0 items-center">
+    <div data-testid="toolbar-format" class="flex min-w-0 items-center {fill ? 'flex-1' : ''}">
       <!-- Wide: every command its own button, on ONE row that never wraps
            (E6): it grows to the pane's width, then scrolls sideways — no
            scrollbar, a fade at whichever end has more, the wheel mapped
@@ -189,16 +198,20 @@
         onscroll={measureScroll}
         style:mask-image={fade}
         style:-webkit-mask-image={fade}
-        class="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] @max-[30rem]:hidden [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+        class="flex min-w-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 {fill ? 'flex-1' : '@max-[30rem]:hidden'}">
         {#each entries as entry (entry.key)}
           {#if entry.kind === 'separator'}
             <span role="separator" aria-orientation="vertical" class="mx-1 h-4 w-px bg-base-300"></span>
           {:else if entry.kind === 'command'}
+            <!-- Named by the title; the tooltip adds the key ("Bold · Ctrl+B"),
+                 drawn on the bar itself, out of the masked scroller that clipped it. -->
             <IconButton
-              label={named(entry)}
+              label={entry.title}
+              hint={commandHint(entry.title, entry.binding)}
+              tooltipPortal={'[data-testid="format-bar"][data-position="' + edge + '"]'}
               icon={entry.icon}
               placement={tip}
-              disabled={!canFormat}
+              disabled={!enabled(entry.id)}
               testid="toolbar:{entry.id}"
               onmousedown={keepEditorFocus}
               onclick={() => run(entry.id)}
@@ -209,7 +222,7 @@
         {/each}
       </div>
       <!-- Narrow: one menu. -->
-      <div class="hidden @max-[30rem]:flex">
+      <div class={fill ? 'hidden' : 'hidden @max-[30rem]:flex'}>
         <DropdownMenu placement={menuAt} testid="toolbar-format-menu-list">
           {#snippet trigger(attrs)}
             <button
@@ -268,7 +281,7 @@
   <!-- The rows, not the trigger, carry "no note to format": Melt reads a
        trigger's `disabled` once, at mount, so a trigger that started disabled
        (no note yet) would stay `aria-disabled` after one opens. -->
-  <MenuItem {item} disabled={!canFormat} testid="toolbar-menu:{entry.id}" onSelect={() => run(entry.id)}>
+  <MenuItem {item} disabled={!enabled(entry.id)} testid="toolbar-menu:{entry.id}" onSelect={() => run(entry.id)}>
     <span class="flex items-center gap-2">
       <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
       <span class="flex-1">{entry.title}</span>

@@ -60,10 +60,20 @@ type RootTranslation = {
 
 export type NamespaceWebTranslation = {
 	shell: {
-		/**
-		 * c​o​n​n​e​c​t​i​n​g​…
-		 */
-		connecting: string
+		boot: {
+			/**
+			 * O​p​e​n​i​n​g​ ​y​o​u​r​ ​v​a​u​l​t
+			 */
+			label: string
+			/**
+			 * O​p​e​n​i​n​g​ ​y​o​u​r​ ​n​o​t​e​s​…
+			 */
+			opening: string
+			/**
+			 * B​a​c​k​ ​t​o​ ​y​o​u​r​ ​v​a​u​l​t​s
+			 */
+			back_to_vaults: string
+		}
 		/**
 		 * S​h​o​w​ ​f​i​l​e​ ​n​a​v​i​g​a​t​o​r
 		 */
@@ -109,6 +119,14 @@ export type NamespaceWebTranslation = {
 		 * U​n​p​i​n​ ​—​ ​b​a​c​k​ ​t​o​ ​a​ ​d​r​a​w​e​r
 		 */
 		unpin_navigator: string
+		/**
+		 * P​i​n​s​ ​a​p​p​l​y​ ​o​n​ ​w​i​d​e​r​ ​s​c​r​e​e​n​s
+		 */
+		pin_wide_only: string
+		/**
+		 * P​i​n​n​e​d​ ​o​n​ ​w​i​d​e​r​ ​s​c​r​e​e​n​s​ ​—​ ​i​t​ ​f​l​o​a​t​s​ ​h​e​r​e
+		 */
+		pinned_wide_only: string
 	}
 	notices: {
 		toast_title: {
@@ -272,6 +290,21 @@ export type NamespaceWebTranslation = {
 			 */
 			comments: string
 		}
+		note: {
+			/**
+			 * T​h​e​ ​n​o​t​e​ ​t​h​e​s​e​ ​s​e​c​t​i​o​n​s​ ​a​r​e​ ​a​b​o​u​t
+			 */
+			label: string
+			/**
+			 * G​o​ ​t​o​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			go: RequiredParams<'name'>
+			/**
+			 * l​a​s​t​ ​f​o​c​u​s​e​d
+			 */
+			last_focused: string
+		}
 	}
 	actions: {
 		/**
@@ -342,6 +375,11 @@ export type NamespaceWebTranslation = {
 		 *  ​·​ 
 		 */
 		join: string
+		/**
+		 * {​c​o​u​n​t​|​i​n​t​}
+		 * @param {number} count
+		 */
+		count: RequiredParams<'count|int'>
 	}
 	panes: {
 		/**
@@ -1064,6 +1102,22 @@ export type NamespaceWebTranslation = {
 			 * @param {string} title
 			 */
 			toggle: RequiredParams<'title'>
+		}
+		link_card: {
+			/**
+			 * L​i​n​k
+			 */
+			label: string
+			/**
+			 * O​p​e​n​ ​“​{​n​a​m​e​}​”
+			 * @param {string} name
+			 */
+			open: RequiredParams<'name'>
+			/**
+			 * C​r​e​a​t​e​ ​“​{​n​a​m​e​}​”
+			 * @param {string} name
+			 */
+			create: RequiredParams<'name'>
 		}
 		link_popover: {
 			/**
@@ -3377,9 +3431,9 @@ export type NamespaceWebTranslation = {
 		sections: string
 		nav: {
 			/**
-			 * Y​o​u
+			 * C​u​s​t​o​m​i​s​e
 			 */
-			you: string
+			customise: string
 			/**
 			 * E​d​i​t​o​r
 			 */
@@ -3401,13 +3455,9 @@ export type NamespaceWebTranslation = {
 			 */
 			sync: string
 			/**
-			 * C​u​s​t​o​m​i​s​e
+			 * A​I
 			 */
-			customise: string
-			/**
-			 * A​g​e​n​t​s
-			 */
-			agents: string
+			ai: string
 			/**
 			 * D​e​v​e​l​o​p​e​r
 			 */
@@ -3416,10 +3466,6 @@ export type NamespaceWebTranslation = {
 			 * A​b​o​u​t
 			 */
 			about: string
-			/**
-			 * A​I
-			 */
-			ai: string
 		}
 		page: {
 			/**
@@ -3449,24 +3495,6 @@ export type NamespaceWebTranslation = {
 		 * S​a​v​e​d
 		 */
 		saved: string
-		you: {
-			/**
-			 * D​i​s​p​l​a​y​ ​n​a​m​e
-			 */
-			name: string
-			/**
-			 * A​n​o​n​y​m​o​u​s
-			 */
-			name_placeholder: string
-			/**
-			 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.​ ​S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
-			 */
-			name_hint: string
-			/**
-			 * E​n​t​e​r​ ​a​ ​n​a​m​e​ ​—​ ​i​t​’​s​ ​w​h​a​t​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​.
-			 */
-			name_required: string
-		}
 		editor: {
 			/**
 			 * H​o​w​ ​n​o​t​e​s​ ​o​p​e​n​ ​a​n​d​ ​r​e​a​d​.​ ​C​h​a​n​g​e​s​ ​a​p​p​l​y​ ​a​t​ ​o​n​c​e​ ​a​n​d​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
@@ -3484,28 +3512,98 @@ export type NamespaceWebTranslation = {
 		}
 		appearance: {
 			/**
-			 * T​h​e​m​e
+			 * H​o​w​ ​t​h​e​ ​a​p​p​ ​l​o​o​k​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.​ ​A​ ​t​h​e​m​e​ ​o​f​ ​y​o​u​r​ ​o​w​n​ ​l​i​v​e​s​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​.
 			 */
-			theme: string
+			lede: string
 			/**
 			 * S​y​s​t​e​m
 			 */
 			system: string
 			/**
-			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​.​ ​N​o​r​d​ ​r​e​p​r​o​d​u​c​e​s​ ​t​h​e​ ​O​b​s​i​d​i​a​n​ ​t​h​e​m​e​ ​i​t​ ​i​s​ ​n​a​m​e​d​ ​a​f​t​e​r​;​ ​t​h​e​ ​t​w​o​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​t​h​e​m​e​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​d​e​f​a​u​l​t​s​.
+			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​h​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​h​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​.
 			 * @param {string} system
 			 */
 			theme_help: RequiredParams<'system'>
+			theme_names: {
+				/**
+				 * O​h​ ​h​i​ ​L​i​g​h​t
+				 */
+				editor_light: string
+				/**
+				 * O​h​ ​h​i​ ​D​a​r​k
+				 */
+				editor_dark: string
+				/**
+				 * G​r​a​p​h​i​t​e​ ​L​i​g​h​t
+				 */
+				graphite_light: string
+				/**
+				 * G​r​a​p​h​i​t​e​ ​D​a​r​k
+				 */
+				graphite_dark: string
+				/**
+				 * F​j​o​r​d​ ​L​i​g​h​t
+				 */
+				fjord_light: string
+				/**
+				 * F​j​o​r​d​ ​D​a​r​k
+				 */
+				fjord_dark: string
+				/**
+				 * I​r​i​s​ ​L​i​g​h​t
+				 */
+				iris_light: string
+				/**
+				 * I​r​i​s​ ​D​a​r​k
+				 */
+				iris_dark: string
+			}
 			/**
-			 * C​u​s​t​o​m​ ​t​h​e​m​e
+			 * B​u​i​l​t​ ​i​n
 			 */
-			custom_theme: string
+			builtin: string
+			/**
+			 * I​n​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			in_vault: string
+			/**
+			 * O​p​e​n​ ​a​ ​v​a​u​l​t​ ​t​o​ ​u​s​e​ ​t​h​e​ ​t​h​e​m​e​s​ ​i​n​ ​i​t​.
+			 */
+			vault_none: string
+			/**
+			 * T​h​i​s​ ​v​a​u​l​t​ ​h​a​s​ ​n​o​ ​t​h​e​m​e​s​ ​y​e​t​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​h​o​l​d​i​n​g​ ​o​n​e​ ​s​t​y​l​e​s​h​e​e​t​,​ ​{​p​a​t​h​}​.
+			 * @param {string} path
+			 */
+			vault_empty: RequiredParams<'path'>
+			/**
+			 * E​x​a​m​p​l​e​s​ ​t​h​a​t​ ​s​h​i​p​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​.​ ​A​d​d​ ​o​n​e​ ​a​n​d​ ​i​t​ ​i​s​ ​l​i​s​t​e​d​ ​a​b​o​v​e​.
+			 */
+			examples_intro: string
+			/**
+			 * A​d​d​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t
+			 */
+			add_example: string
+			/**
+			 * A​d​d​ ​{​l​a​b​e​l​}​ ​t​o​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​a​s​ ​{​p​a​t​h​}
+			 * @param {string} label
+			 * @param {string} path
+			 */
+			add_example_label: RequiredParams<'label' | 'path'>
+			/**
+			 * A​d​d​e​d​ ​{​p​a​t​h​}
+			 * @param {string} path
+			 */
+			example_added: RequiredParams<'path'>
+			/**
+			 * A​ ​t​h​e​m​e​ ​f​o​l​d​e​r​ ​t​h​e​ ​l​i​s​t​ ​d​o​e​s​ ​n​o​t​ ​s​h​o​w
+			 */
+			custom_label: string
 			/**
 			 * m​y​-​t​h​e​m​e
 			 */
 			custom_placeholder: string
 			/**
-			 * U​s​e​ ​c​u​s​t​o​m
+			 * U​s​e
 			 */
 			use_custom: string
 			/**
@@ -3622,6 +3720,18 @@ export type NamespaceWebTranslation = {
 			 * H​i​d​d​e​n
 			 */
 			status_off: string
+			/**
+			 * S​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+			 */
+			selection: string
+			/**
+			 * A​t​ ​t​h​e​ ​e​n​d​ ​o​f​ ​a​ ​s​e​l​e​c​t​i​o​n
+			 */
+			selection_on: string
+			/**
+			 * H​i​d​d​e​n
+			 */
+			selection_off: string
 			/**
 			 * O​p​e​n​i​n​g​ ​a​ ​n​o​t​e
 			 */
@@ -3775,6 +3885,89 @@ export type NamespaceWebTranslation = {
 				shown_now: RequiredParams<'name'>
 				/**
 				 * {​n​a​m​e​}​ ​i​s​ ​o​f​f​ ​t​h​e​ ​b​a​r
+				 * @param {string} name
+				 */
+				hidden_now: RequiredParams<'name'>
+			}
+			selection_bar: {
+				/**
+				 * S​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​ ​b​u​t​t​o​n​s
+				 */
+				title: string
+				/**
+				 * W​h​a​t​ ​t​h​e​ ​h​a​n​d​l​e​ ​a​t​ ​t​h​e​ ​e​n​d​ ​o​f​ ​a​ ​s​e​l​e​c​t​e​d​ ​p​a​s​s​a​g​e​ ​o​f​f​e​r​s​,​ ​i​n​ ​o​r​d​e​r​.​ ​D​r​a​g​ ​t​o​ ​r​e​o​r​d​e​r​,​ ​o​r​ ​d​r​a​g​ ​a​ ​b​u​t​t​o​n​ ​t​o​ ​t​h​e​ ​o​t​h​e​r​ ​r​o​w​ ​t​o​ ​s​h​o​w​ ​o​r​ ​h​i​d​e​ ​i​t​;​ ​e​a​c​h​ ​b​u​t​t​o​n​’​s​ ​m​e​n​u​ ​d​o​e​s​ ​t​h​e​ ​s​a​m​e​ ​f​r​o​m​ ​t​h​e​ ​k​e​y​b​o​a​r​d​.​ ​A​I​ ​b​u​t​t​o​n​s​ ​s​h​o​w​ ​o​n​l​y​ ​o​n​c​e​ ​a​ ​p​r​o​v​i​d​e​r​ ​i​s​ ​a​d​d​e​d​.​ ​Y​o​u​r​ ​c​h​a​n​g​e​s​ ​s​t​a​y​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+				 */
+				intro: string
+				/**
+				 * O​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				shown: string
+				/**
+				 * N​o​t​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				hidden: string
+				/**
+				 * N​o​t​h​i​n​g​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​:​ ​i​t​ ​i​s​ ​h​i​d​d​e​n​.
+				 */
+				empty_shown: string
+				/**
+				 * E​v​e​r​y​ ​b​u​t​t​o​n​ ​i​s​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e​.
+				 */
+				empty_hidden: string
+				/**
+				 * S​e​p​a​r​a​t​o​r
+				 */
+				separator: string
+				/**
+				 * {​n​a​m​e​}​,​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				pill_shown: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​,​ ​n​o​t​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {string} name
+				 */
+				pill_hidden: RequiredParams<'name'>
+				/**
+				 * M​o​v​e​ ​l​e​f​t
+				 */
+				move_left: string
+				/**
+				 * M​o​v​e​ ​r​i​g​h​t
+				 */
+				move_right: string
+				/**
+				 * H​i​d​e
+				 */
+				hide: string
+				/**
+				 * R​e​m​o​v​e
+				 */
+				remove: string
+				/**
+				 * A​d​d​ ​t​o​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 */
+				show: string
+				/**
+				 * R​e​s​e​t​ ​t​o​ ​l​a​y​o​u​t​ ​f​i​l​e
+				 */
+				reset: string
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​n​o​w​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}
+				 * @param {number} n
+				 * @param {string} name
+				 * @param {number} total
+				 */
+				moved: RequiredParams<'n' | 'name' | 'total'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​n​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
+				 * @param {string} name
+				 */
+				shown_now: RequiredParams<'name'>
+				/**
+				 * {​n​a​m​e​}​ ​i​s​ ​o​f​f​ ​t​h​e​ ​s​e​l​e​c​t​i​o​n​ ​h​a​n​d​l​e
 				 * @param {string} name
 				 */
 				hidden_now: RequiredParams<'name'>
@@ -4014,6 +4207,26 @@ export type NamespaceWebTranslation = {
 		}
 		sync: {
 			/**
+			 * Y​o​u​r​ ​n​a​m​e​ ​a​s​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​ ​i​t​,​ ​t​h​e​ ​r​e​l​a​y​ ​y​o​u​r​ ​s​h​a​r​e​s​ ​g​o​ ​t​h​r​o​u​g​h​,​ ​a​n​d​ ​y​o​u​r​ ​d​e​v​i​c​e​s​.
+			 */
+			lede: string
+			/**
+			 * Y​o​u​r​ ​n​a​m​e​,​ ​a​s​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​ ​i​t
+			 */
+			name: string
+			/**
+			 * A​n​o​n​y​m​o​u​s
+			 */
+			name_placeholder: string
+			/**
+			 * S​h​o​w​n​ ​t​o​ ​p​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​w​i​t​h​;​ ​a​p​p​l​i​e​s​ ​t​h​e​ ​n​e​x​t​ ​t​i​m​e​ ​a​ ​v​a​u​l​t​ ​i​s​ ​o​p​e​n​e​d​.​ ​S​a​v​e​d​ ​w​h​e​n​ ​y​o​u​ ​p​r​e​s​s​ ​E​n​t​e​r​ ​o​r​ ​l​e​a​v​e​ ​t​h​e​ ​f​i​e​l​d​.
+			 */
+			name_hint: string
+			/**
+			 * E​n​t​e​r​ ​a​ ​n​a​m​e​ ​—​ ​i​t​’​s​ ​w​h​a​t​ ​y​o​u​r​ ​c​o​l​l​a​b​o​r​a​t​o​r​s​ ​s​e​e​.
+			 */
+			name_required: string
+			/**
 			 * D​e​f​a​u​l​t​ ​r​e​l​a​y
 			 */
 			relay: string
@@ -4210,6 +4423,31 @@ export type NamespaceWebTranslation = {
 			 */
 			device_changes: string
 			/**
+			 * n​o​ ​c​h​a​n​g​e​s​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e
+			 */
+			no_device_changes: string
+			/**
+			 * f​o​l​l​o​w​s​ ​t​h​e​ ​s​y​s​t​e​m
+			 */
+			follows_system: string
+			/**
+			 * O​p​e​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​{​s​e​c​t​i​o​n​}
+			 * @param {string} section
+			 */
+			door_label: RequiredParams<'section'>
+			/**
+			 * F​i​l​e​s
+			 */
+			files: string
+			/**
+			 * A​c​t​i​o​n​s
+			 */
+			col_actions: string
+			/**
+			 * T​e​m​p​l​a​t​e​s​ ​a​r​e​ ​i​n​s​e​r​t​e​d​ ​w​i​t​h​ ​I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…​ ​i​n​ ​t​h​e​ ​p​a​l​e​t​t​e​.​ ​A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​e​v​e​r​y​ ​o​n​e​ ​i​s​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​a​n​d​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.
+			 */
+			files_foot: string
+			/**
 			 * {​n​a​m​e​}​ ​c​a​n​’​t​ ​b​e​ ​u​s​e​d​,​ ​s​o​ ​t​h​e​ ​b​u​i​l​t​-​i​n​ ​d​e​f​a​u​l​t​ ​s​t​a​n​d​s​ ​i​n
 			 * @param {string} name
 			 */
@@ -4232,7 +4470,7 @@ export type NamespaceWebTranslation = {
 			 */
 			templates_how: string
 			/**
-			 * A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​u​s​e​ ​o​n​e​ ​b​y​ ​n​a​m​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.​ ​T​h​e​m​e​ ​f​o​l​d​e​r​s​ ​a​r​e​ ​n​o​t​ ​l​i​s​t​e​d​ ​h​e​r​e​ ​y​e​t​.
+			 * A​ ​t​h​e​m​e​ ​i​s​ ​a​ ​f​o​l​d​e​r​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​,​ ​.​o​h​h​i​/​t​h​e​m​e​s​/​<​n​a​m​e​>​/​t​h​e​m​e​.​c​s​s​;​ ​p​i​c​k​ ​o​n​e​ ​i​n​ ​A​p​p​e​a​r​a​n​c​e​.
 			 */
 			themes_how: string
 			/**
@@ -4343,11 +4581,15 @@ export type NamespaceWebTranslation = {
 		}
 		agents: {
 			/**
-			 * A​g​e​n​t​s​ ​w​o​r​k​ ​o​n​ ​a​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​:​ ​r​a​n​k​e​d​ ​s​e​a​r​c​h​,​ ​o​n​e​ ​s​e​c​t​i​o​n​ ​a​t​ ​a​ ​t​i​m​e​,​ ​l​i​n​k​s​ ​a​n​d​ ​b​a​c​k​l​i​n​k​s​,​ ​a​n​d​ ​j​o​u​r​n​a​l​e​d​ ​w​r​i​t​e​s​ ​y​o​u​ ​c​a​n​ ​r​e​s​t​o​r​e​.
+			 * O​u​t​s​i​d​e​ ​a​g​e​n​t​s
+			 */
+			title: string
+			/**
+			 * C​l​a​u​d​e​ ​C​o​d​e​,​ ​a​n​o​t​h​e​r​ ​M​C​P​ ​c​l​i​e​n​t​ ​o​r​ ​a​ ​t​e​r​m​i​n​a​l​ ​w​o​r​k​s​ ​o​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​w​i​t​h​ ​t​h​e​ ​o​h​h​i​ ​c​o​m​m​a​n​d​.​ ​P​i​c​k​ ​a​ ​r​o​u​t​e​,​ ​t​h​e​n​ ​c​o​p​y​ ​i​t​s​ ​l​i​n​e​s​.
 			 */
 			intro: string
 			/**
-			 * W​h​a​t​ ​a​n​ ​a​g​e​n​t​ ​c​a​n​ ​d​o​ ​h​e​r​e
+			 * W​h​a​t​ ​a​n​ ​a​g​e​n​t​ ​c​a​n​ ​d​o
 			 */
 			can_do: string
 			cap: {
@@ -4389,10 +4631,6 @@ export type NamespaceWebTranslation = {
 			 */
 			mcp_tools: string
 			/**
-			 * C​o​n​n​e​c​t​ ​a​n​ ​a​g​e​n​t
-			 */
-			connect: string
-			/**
 			 * H​o​w​ ​t​o​ ​c​o​n​n​e​c​t
 			 */
 			routes: string
@@ -4417,10 +4655,6 @@ export type NamespaceWebTranslation = {
 			 */
 			placeholder_browser: string
 			/**
-			 * T​h​e​ ​c​o​m​m​a​n​d​ ​i​s​n​’​t​ ​b​u​n​d​l​e​d​ ​w​i​t​h​ ​t​h​e​ ​a​p​p​ ​y​e​t​.​ ​T​o​d​a​y​ ​i​t​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​a​ ​c​h​e​c​k​o​u​t​ ​o​f​ ​t​h​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​c​o​d​e​m​y​r​i​a​d​/​o​h​h​i​-​m​a​r​k​d​o​w​n​ ​o​n​ ​G​i​t​H​u​b​.​ ​T​h​a​t​ ​r​e​p​o​s​i​t​o​r​y​ ​i​s​ ​p​r​i​v​a​t​e​:​ ​y​o​u​ ​n​e​e​d​ ​a​c​c​e​s​s​ ​t​o​ ​i​t​ ​t​o​ ​f​o​l​l​o​w​ ​t​h​e​s​e​ ​s​t​e​p​s​.​ ​T​h​e​ ​c​h​e​c​k​o​u​t​ ​n​e​e​d​s​ ​g​i​t​ ​a​n​d​ ​N​o​d​e​ ​2​2​;​ ​e​a​c​h​ ​i​n​s​t​a​l​l​ ​s​c​r​i​p​t​ ​t​h​e​n​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​ ​a​n​d​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
-			 */
-			get_body: string
-			/**
 			 * G​e​t​ ​t​h​e​ ​r​e​p​o​s​i​t​o​r​y​ ​a​n​d​ ​i​n​s​t​a​l​l​ ​i​t​s​ ​d​e​p​e​n​d​e​n​c​i​e​s
 			 */
 			step_repo: string
@@ -4436,6 +4670,10 @@ export type NamespaceWebTranslation = {
 			 * I​n​s​t​a​l​l​ ​t​h​e​ ​c​o​m​m​a​n​d​ ​a​n​d​ ​t​h​e​ ​s​k​i​l​l
 			 */
 			step_install_both: string
+			/**
+			 * E​a​c​h​ ​s​c​r​i​p​t​ ​m​a​k​e​s​ ​a​ ​l​i​n​k​ ​(​o​h​h​i​ ​i​n​ ​~​/​.​l​o​c​a​l​/​b​i​n​,​ ​t​h​e​ ​s​k​i​l​l​ ​i​n​ ​~​/​.​c​l​a​u​d​e​/​s​k​i​l​l​s​)​,​ ​s​o​ ​n​e​i​t​h​e​r​ ​g​o​e​s​ ​s​t​a​l​e​.
+			 */
+			install_note: string
 			/**
 			 * S​t​a​r​t​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​w​i​t​h​ ​t​h​i​s​ ​v​a​u​l​t​ ​n​a​m​e​d
 			 */
@@ -4512,6 +4750,10 @@ export type NamespaceWebTranslation = {
 		}
 		about: {
 			/**
+			 * T​h​e​ ​v​e​r​s​i​o​n​ ​y​o​u​ ​a​r​e​ ​r​u​n​n​i​n​g​,​ ​h​o​w​ ​i​t​ ​u​p​d​a​t​e​s​,​ ​a​n​d​ ​t​h​e​ ​g​u​i​d​e​s​.
+			 */
+			lede: string
+			/**
 			 * U​p​d​a​t​e​s
 			 */
 			updates: string
@@ -4533,6 +4775,10 @@ export type NamespaceWebTranslation = {
 			guide_relay: string
 		}
 		developer: {
+			/**
+			 * T​o​o​l​s​ ​f​o​r​ ​l​o​o​k​i​n​g​ ​u​n​d​e​r​ ​t​h​e​ ​h​o​o​d​.​ ​O​f​f​ ​u​n​l​e​s​s​ ​y​o​u​ ​t​u​r​n​ ​t​h​e​m​ ​o​n​.
+			 */
+			lede: string
 			/**
 			 * D​e​v​e​l​o​p​e​r​ ​t​o​o​l​s
 			 */
@@ -6553,6 +6799,33 @@ export type NamespaceWebTranslation = {
 		 * @param {string} path
 		 */
 		missing: RequiredParams<'path'>
+		/**
+		 * {​l​a​b​e​l​}​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​b​u​i​l​t​ ​i​n​:​ ​i​t​ ​i​s​ ​a​ ​t​h​e​m​e​ ​a​ ​v​a​u​l​t​ ​h​o​l​d​s​,​ ​a​n​d​ ​t​h​i​s​ ​v​a​u​l​t​ ​h​a​s​ ​n​o​ ​{​p​a​t​h​}​,​ ​s​o​ ​{​s​t​a​n​d​_​i​n​}​ ​s​t​a​n​d​s​ ​i​n​.​ ​A​d​d​ ​i​t​ ​f​r​o​m​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​p​p​e​a​r​a​n​c​e​,​ ​o​r​ ​c​o​p​y​ ​{​e​x​a​m​p​l​e​}​ ​t​h​e​r​e​.
+		 * @param {string} example
+		 * @param {string} label
+		 * @param {string} path
+		 * @param {string} stand_in
+		 */
+		retired: RequiredParams<'example' | 'label' | 'path' | 'stand_in'>
+		/**
+		 * S​h​o​w​ ​t​h​e​m​e​s
+		 */
+		show_themes: string
+		examples: {
+			/**
+			 * N​o​r​d​ ​L​i​g​h​t
+			 */
+			nord_light: string
+			/**
+			 * N​o​r​d​ ​D​a​r​k
+			 */
+			nord_dark: string
+		}
+		/**
+		 * T​h​i​s​ ​v​a​u​l​t​ ​a​l​r​e​a​d​y​ ​h​a​s​ ​{​p​a​t​h​}​;​ ​i​t​ ​w​a​s​ ​l​e​f​t​ ​a​s​ ​i​t​ ​i​s​.
+		 * @param {string} path
+		 */
+		example_exists: RequiredParams<'path'>
 	}
 	layouts: {
 		/**
@@ -6733,6 +7006,24 @@ export type NamespaceWebTranslation = {
 		 */
 		with_binding: RequiredParams<'binding' | 'title'>
 		/**
+		 * {​t​i​t​l​e​}​ ​·​ ​{​b​i​n​d​i​n​g​}
+		 * @param {string} binding
+		 * @param {string} title
+		 */
+		hint: RequiredParams<'binding' | 'title'>
+		/**
+		 * S​e​l​e​c​t​i​o​n
+		 */
+		selection_group: string
+		/**
+		 * C​o​m​m​e​n​t
+		 */
+		selection_comment: string
+		/**
+		 * A​s​k
+		 */
+		selection_ask: string
+		/**
 		 * F​i​l​e​s
 		 */
 		files: string
@@ -6818,20 +7109,6 @@ export type NamespaceWebTranslation = {
 			 * N​o​t​h​i​n​g​ ​l​e​a​v​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​u​n​t​i​l​ ​y​o​u​ ​a​d​d​ ​a​ ​p​r​o​v​i​d​e​r​.​ ​W​i​t​h​ ​o​n​e​,​ ​t​h​e​ ​t​e​x​t​ ​y​o​u​ ​r​e​f​e​r​e​n​c​e​ ​i​s​ ​s​e​n​t​ ​t​o​ ​t​h​a​t​ ​e​n​d​p​o​i​n​t​,​ ​a​n​d​ ​n​o​w​h​e​r​e​ ​e​l​s​e​.
 			 */
 			egress: string
-			/**
-			 * A​I​ ​s​e​t​t​i​n​g​s
-			 */
-			sections: string
-			tabs: {
-				/**
-				 * P​r​o​v​i​d​e​r​s
-				 */
-				providers: string
-				/**
-				 * S​k​i​l​l​s
-				 */
-				skills: string
-			}
 		}
 		providers: {
 			/**
@@ -7055,10 +7332,6 @@ export type NamespaceWebTranslation = {
 			 */
 			title_named: RequiredParams<'name'>
 			/**
-			 * N​o​ ​s​e​s​s​i​o​n​ ​y​e​t​.​ ​S​t​a​r​t​ ​o​n​e​ ​f​r​o​m​ ​a​ ​s​e​l​e​c​t​i​o​n​,​ ​o​r​ ​a​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​.
-			 */
-			empty: string
-			/**
 			 * U​n​t​i​t​l​e​d​ ​s​e​s​s​i​o​n
 			 */
 			untitled: string
@@ -7091,15 +7364,45 @@ export type NamespaceWebTranslation = {
 			 */
 			archive: string
 			/**
-			 * P​r​o​v​i​d​e​r
-			 */
-			provider_label: string
-			/**
 			 * {​n​a​m​e​}​ ​·​ ​{​m​o​d​e​l​}
 			 * @param {string} model
 			 * @param {string} name
 			 */
 			provider_option: RequiredParams<'model' | 'name'>
+			starts: {
+				/**
+				 * S​t​a​r​t
+				 */
+				title: string
+				/**
+				 * A​s​k​ ​a​b​o​u​t​ ​{​n​o​t​e​}
+				 * @param {string} note
+				 */
+				ask: RequiredParams<'note'>
+				/**
+				 * S​u​m​m​a​r​i​s​e​ ​{​n​o​t​e​}
+				 * @param {string} note
+				 */
+				summarise: RequiredParams<'note'>
+				/**
+				 * S​u​m​m​a​r​i​s​e​ ​t​h​i​s​ ​n​o​t​e​.
+				 */
+				summarise_prompt: string
+				/**
+				 * R​u​n​ ​a​ ​s​k​i​l​l​…
+				 */
+				skill: string
+				/**
+				 * C​o​n​t​i​n​u​e​ ​“​{​t​i​t​l​e​}​”
+				 * @param {string} title
+				 */
+				'continue': RequiredParams<'title'>
+			}
+			/**
+			 * {​c​o​u​n​t​}​ ​n​o​t​e​s
+			 * @param {number} count
+			 */
+			recent_notes: RequiredParams<'count'>
 			/**
 			 * A​d​d​ ​a​ ​p​r​o​v​i​d​e​r​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​A​I​ ​t​o​ ​t​a​l​k​ ​t​o​ ​a​n​ ​a​g​e​n​t​.
 			 */
@@ -7137,7 +7440,7 @@ export type NamespaceWebTranslation = {
 			 */
 			nothing_running: string
 			/**
-			 * T​h​e​ ​p​r​o​v​i​d​e​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​w​a​s​ ​u​s​i​n​g​ ​i​s​ ​g​o​n​e​.​ ​P​i​c​k​ ​a​n​o​t​h​e​r​ ​i​n​ ​t​h​e​ ​s​e​s​s​i​o​n​’​s​ ​h​e​a​d​e​r​.
+			 * T​h​e​ ​p​r​o​v​i​d​e​r​ ​t​h​i​s​ ​s​e​s​s​i​o​n​ ​w​a​s​ ​u​s​i​n​g​ ​i​s​ ​g​o​n​e​.​ ​P​i​c​k​ ​a​n​o​t​h​e​r​ ​b​e​l​o​w​ ​t​h​e​ ​m​e​s​s​a​g​e​ ​b​o​x​.
 			 */
 			provider_gone: string
 			/**
@@ -7204,6 +7507,17 @@ export type NamespaceWebTranslation = {
 				 */
 				open: string
 				/**
+				 * O​p​e​n​ ​{​p​a​t​h​}​ ​a​t​ ​l​i​n​e​ ​{​l​i​n​e​}
+				 * @param {number} line
+				 * @param {string} path
+				 */
+				open_hit: RequiredParams<'line' | 'path'>
+				/**
+				 * O​p​e​n​ ​{​p​a​t​h​}
+				 * @param {string} path
+				 */
+				open_note: RequiredParams<'path'>
+				/**
 				 * R​e​a​d​ ​{​w​h​a​t​}​ ​(​{​s​i​z​e​}​)
 				 * @param {string} size
 				 * @param {string} what
@@ -7238,6 +7552,36 @@ export type NamespaceWebTranslation = {
 				 */
 				proposal_applied: RequiredParams<'path'>
 				/**
+				 * A​c​c​e​p​t
+				 */
+				accept: string
+				/**
+				 * R​e​j​e​c​t
+				 */
+				reject: string
+				/**
+				 * S​h​o​w​ ​i​n​ ​n​o​t​e
+				 */
+				show_in_note: string
+				proposal_status: {
+					/**
+					 * P​e​n​d​i​n​g
+					 */
+					pending: string
+					/**
+					 * C​h​a​n​g​e​d​ ​s​i​n​c​e​ ​p​r​o​p​o​s​e​d
+					 */
+					stale: string
+					/**
+					 * A​p​p​l​i​e​d
+					 */
+					accepted: string
+					/**
+					 * N​o​ ​l​o​n​g​e​r​ ​p​r​o​p​o​s​e​d
+					 */
+					gone: string
+				}
+				/**
 				 * U​s​e​d​ ​{​n​a​m​e​}
 				 * @param {string} name
 				 */
@@ -7253,6 +7597,47 @@ export type NamespaceWebTranslation = {
 				 */
 				details: string
 			}
+			run_line: {
+				/**
+				 * r​e​a​d​ ​{​{​a​ ​n​o​t​e​|​?​?​ ​n​o​t​e​s​}​}
+				 */
+				read: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​o​n​c​e
+				 */
+				search_once: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​t​w​i​c​e
+				 */
+				search_twice: string
+				/**
+				 * s​e​a​r​c​h​e​d​ ​{​c​o​u​n​t​}​ ​t​i​m​e​s
+				 * @param {number} count
+				 */
+				search_many: RequiredParams<'count'>
+				/**
+				 * l​i​s​t​e​d​ ​{​{​a​ ​f​o​l​d​e​r​|​?​?​ ​f​o​l​d​e​r​s​}​}
+				 */
+				list: string
+				/**
+				 * p​r​o​p​o​s​e​d​ ​{​c​o​u​n​t​}​ ​e​d​i​t​{​{​s​}​}
+				 * @param {number} count
+				 */
+				proposed: RequiredParams<'count'>
+				/**
+				 * e​d​i​t​e​d​ ​{​{​a​ ​n​o​t​e​|​?​?​ ​n​o​t​e​s​}​}
+				 */
+				edited: string
+				/**
+				 * u​s​e​d​ ​{​{​a​ ​t​o​o​l​|​?​?​ ​t​o​o​l​s​}​}
+				 */
+				other: string
+				/**
+				 * {​c​o​u​n​t​}​ ​c​a​l​l​{​{​s​}​}​ ​f​a​i​l​e​d
+				 * @param {number} count
+				 */
+				failed: RequiredParams<'count'>
+			}
 		}
 		composer: {
 			/**
@@ -7260,7 +7645,7 @@ export type NamespaceWebTranslation = {
 			 */
 			label: string
 			/**
-			 * A​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​ ​—​ ​@​ ​t​o​ ​r​e​f​e​r​e​n​c​e​,​ ​/​ ​f​o​r​ ​a​ ​s​k​i​l​l
+			 * A​s​k​ ​a​b​o​u​t​ ​y​o​u​r​ ​n​o​t​e​s​ ​—​ ​@​n​o​t​e​,​ ​@​f​o​l​d​e​r​ ​o​r​ ​@​n​o​t​e​#​h​e​a​d​i​n​g​ ​t​o​ ​r​e​f​e​r​e​n​c​e​;​ ​s​e​l​e​c​t​ ​t​e​x​t​ ​f​o​r​ ​l​i​n​e​s​;​ ​/​ ​f​o​r​ ​a​ ​s​k​i​l​l
 			 */
 			placeholder: string
 			/**
@@ -7271,6 +7656,16 @@ export type NamespaceWebTranslation = {
 			 * E​n​t​e​r​ ​t​o​ ​s​e​n​d​ ​·​ ​S​h​i​f​t​+​E​n​t​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​e
 			 */
 			hint: string
+			/**
+			 * P​r​o​v​i​d​e​r​:​ ​{​n​a​m​e​}​,​ ​{​m​o​d​e​l​}​.​ ​C​h​a​n​g​e
+			 * @param {string} model
+			 * @param {string} name
+			 */
+			provider_label: RequiredParams<'model' | 'name'>
+			/**
+			 * M​a​n​a​g​e​ ​p​r​o​v​i​d​e​r​s​…
+			 */
+			manage_providers: string
 			/**
 			 * S​u​g​g​e​s​t​i​o​n​s
 			 */
@@ -7347,10 +7742,6 @@ export type NamespaceWebTranslation = {
 			 * @param {string} label
 			 */
 			skill_chip: RequiredParams<'label'>
-			/**
-			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​i​n​ ​a​ ​n​o​t​e​ ​f​i​r​s​t​.
-			 */
-			no_selection: string
 		}
 		skills: {
 			/**
@@ -7386,6 +7777,10 @@ export type NamespaceWebTranslation = {
 			 * @param {string} name
 			 */
 			open: RequiredParams<'name'>
+			/**
+			 * O​p​e​n
+			 */
+			open_short: string
 			/**
 			 * R​e​v​i​e​w​…
 			 */
@@ -7573,13 +7968,22 @@ export type NamespaceWebTranslation = {
 				 */
 				name: string
 				/**
-				 * L​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​h​y​p​h​e​n​s​.​ ​I​t​ ​i​s​ ​a​l​s​o​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​n​a​m​e​.
+				 * F​o​l​d​e​r​:​ ​{​f​o​l​d​e​r​}
+				 * @param {string} folder
 				 */
-				name_hint: string
+				folder: RequiredParams<'folder'>
 				/**
-				 * U​s​e​ ​l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​s​i​n​g​l​e​ ​h​y​p​h​e​n​s​,​ ​u​p​ ​t​o​ ​6​4​ ​c​h​a​r​a​c​t​e​r​s​.
+				 * l​o​w​e​r​c​a​s​e​ ​l​e​t​t​e​r​s​,​ ​n​u​m​b​e​r​s​ ​a​n​d​ ​h​y​p​h​e​n​s
 				 */
-				name_invalid: string
+				folder_rule: string
+				/**
+				 * T​y​p​e​ ​a​ ​n​a​m​e
+				 */
+				name_empty: string
+				/**
+				 * A​ ​s​k​i​l​l​’​s​ ​n​a​m​e​ ​c​a​n​’​t​ ​u​s​e​ ​a​n​t​h​r​o​p​i​c​,​ ​c​l​a​u​d​e​ ​o​r​ ​s​y​n​c​e​d​.
+				 */
+				name_reserved: string
 				/**
 				 * T​h​i​s​ ​v​a​u​l​t​ ​a​l​r​e​a​d​y​ ​h​a​s​ ​a​ ​s​k​i​l​l​ ​w​i​t​h​ ​t​h​a​t​ ​n​a​m​e​.
 				 */
@@ -7898,6 +8302,26 @@ export type NamespaceWebTranslation = {
 			 * T​h​e​ ​a​g​e​n​t​ ​h​a​s​ ​n​o​ ​e​d​i​t​ ​t​o​ ​u​n​d​o​.
 			 */
 			nothing_to_undo: string
+			/**
+			 * A​c​c​e​p​t
+			 */
+			accept: string
+			/**
+			 * R​e​j​e​c​t
+			 */
+			reject: string
+			/**
+			 * S​u​g​g​e​s​t​i​o​n​ ​b​y​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			pair: RequiredParams<'name'>
+			/**
+			 * S​u​g​g​e​s​t​i​o​n​ ​{​n​}​ ​o​f​ ​{​t​o​t​a​l​}​,​ ​b​y​ ​{​n​a​m​e​}
+			 * @param {number} n
+			 * @param {string} name
+			 * @param {number} total
+			 */
+			marker: RequiredParams<'n' | 'name' | 'total'>
 		}
 		comments: {
 			/**
@@ -7920,6 +8344,50 @@ export type NamespaceWebTranslation = {
 			 * S​e​n​d​ ​t​o​ ​a​g​e​n​t
 			 */
 			send_agent: string
+			/**
+			 * S​e​n​d​ ​t​o
+			 */
+			send_to: string
+			/**
+			 * T​h​i​s​ ​s​e​s​s​i​o​n​:​ ​{​t​i​t​l​e​}
+			 * @param {string} title
+			 */
+			send_to_current: RequiredParams<'title'>
+			/**
+			 * A​ ​n​e​w​ ​s​e​s​s​i​o​n
+			 */
+			send_to_new: string
+			/**
+			 * O​p​e​n​ ​s​e​s​s​i​o​n
+			 */
+			open_session: string
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			session_title: RequiredParams<'note'>
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}​ ​(​l​i​n​e​ ​{​l​i​n​e​}​)
+			 * @param {number} line
+			 * @param {string} note
+			 */
+			session_title_line: RequiredParams<'line' | 'note'>
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​{​n​o​t​e​}​ ​(​l​i​n​e​s​ ​{​f​r​o​m​}​–​{​t​o​}​)
+			 * @param {number} from
+			 * @param {string} note
+			 * @param {number} to
+			 */
+			session_title_lines: RequiredParams<'from' | 'note' | 'to'>
+			/**
+			 * F​r​o​m​ ​a​ ​c​o​m​m​e​n​t​ ​i​n​ ​{​n​o​t​e​}
+			 * @param {string} note
+			 */
+			from_comment: RequiredParams<'note'>
+			/**
+			 * S​h​o​w​ ​t​h​r​e​a​d
+			 */
+			show_thread: string
 			/**
 			 * R​e​p​l​y
 			 */
@@ -7978,9 +8446,28 @@ export type NamespaceWebTranslation = {
 			 */
 			filter_all: string
 			/**
-			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.​ ​S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​a​n​d​ ​c​h​o​o​s​e​ ​C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n​.
+			 * {​l​a​b​e​l​}​ ​{​c​o​u​n​t​}
+			 * @param {number} count
+			 * @param {string} label
+			 */
+			filter_count: RequiredParams<'count' | 'label'>
+			/**
+			 * N​o​ ​o​p​e​n​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.
 			 */
 			empty_open: string
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​a​n​d​ ​p​r​e​s​s​ ​{​k​e​y​}​,​ ​o​r​ ​u​s​e​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​b​u​t​t​o​n​ ​o​n​ ​t​h​e​ ​f​o​r​m​a​t​t​i​n​g​ ​b​a​r​.
+			 * @param {string} key
+			 */
+			how_with_key: RequiredParams<'key'>
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​,​ ​t​h​e​n​ ​u​s​e​ ​t​h​e​ ​c​o​m​m​e​n​t​ ​b​u​t​t​o​n​ ​o​n​ ​t​h​e​ ​f​o​r​m​a​t​t​i​n​g​ ​b​a​r​.
+			 */
+			how: string
+			/**
+			 * C​o​m​m​e​n​t​ ​o​n​ ​s​e​l​e​c​t​i​o​n
+			 */
+			door: string
 			/**
 			 * N​o​ ​r​e​s​o​l​v​e​d​ ​c​o​m​m​e​n​t​s​ ​o​n​ ​t​h​i​s​ ​n​o​t​e​.
 			 */
@@ -8075,6 +8562,10 @@ export type NamespaceWebTranslation = {
 			 */
 			add_selection: string
 			/**
+			 * A​s​k​ ​a​b​o​u​t​ ​t​h​i​s
+			 */
+			ask_selection: string
+			/**
 			 * R​u​n​ ​a​ ​s​k​i​l​l​…
 			 */
 			run_skill: string
@@ -8099,6 +8590,14 @@ export type NamespaceWebTranslation = {
 			 */
 			reject_all: string
 			/**
+			 * N​e​x​t​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			next_suggestion: string
+			/**
+			 * P​r​e​v​i​o​u​s​ ​s​u​g​g​e​s​t​i​o​n
+			 */
+			previous_suggestion: string
+			/**
 			 * U​n​d​o​ ​t​h​e​ ​a​g​e​n​t​’​s​ ​l​a​s​t​ ​e​d​i​t
 			 */
 			undo_agent: string
@@ -8110,6 +8609,10 @@ export type NamespaceWebTranslation = {
 			 * O​p​e​n​ ​A​I​ ​s​e​s​s​i​o​n
 			 */
 			session: string
+			/**
+			 * S​e​l​e​c​t​ ​s​o​m​e​ ​t​e​x​t​ ​t​o​ ​a​s​k​ ​a​b​o​u​t​ ​i​t
+			 */
+			ask_needs_selection: string
 		}
 	}
 	collections: {
@@ -8164,6 +8667,18 @@ export type NamespaceWebTranslation = {
 		 */
 		column_label: RequiredParams<'name'>
 		/**
+		 * I​n​ ​t​h​e​s​e​ ​n​o​t​e​s
+		 */
+		columns_in_notes: string
+		/**
+		 * O​t​h​e​r​ ​p​r​o​p​e​r​t​i​e​s
+		 */
+		columns_other: string
+		/**
+		 * S​h​o​w​i​n​g​ ​e​v​e​r​y​ ​p​r​o​p​e​r​t​y​ ​t​h​e​s​e​ ​n​o​t​e​s​ ​h​a​v​e​.​ ​C​h​a​n​g​i​n​g​ ​o​n​e​ ​p​i​n​s​ ​t​h​e​ ​l​i​s​t​.
+		 */
+		columns_dynamic: string
+		/**
 		 * G​r​o​u​p​ ​b​y
 		 */
 		group_by: string
@@ -8171,6 +8686,11 @@ export type NamespaceWebTranslation = {
 		 * N​o​ ​g​r​o​u​p​i​n​g
 		 */
 		group_none: string
+		/**
+		 * G​r​o​u​p​ ​b​y​:​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		group_menu: RequiredParams<'name'>
 		/**
 		 * N​o​ ​v​a​l​u​e
 		 */
@@ -8232,6 +8752,58 @@ export type NamespaceWebTranslation = {
 		 */
 		add_view: string
 		/**
+		 * O​p​t​i​o​n​s​ ​f​o​r​ ​t​h​e​ ​v​i​e​w​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		view_menu: RequiredParams<'name'>
+		/**
+		 * R​e​n​a​m​e​…
+		 */
+		view_rename: string
+		/**
+		 * D​e​l​e​t​e​…
+		 */
+		view_delete: string
+		/**
+		 * R​e​n​a​m​e​ ​{​n​a​m​e​}
+		 * @param {string} name
+		 */
+		rename_title: RequiredParams<'name'>
+		/**
+		 * V​i​e​w​ ​n​a​m​e
+		 */
+		rename_label: string
+		/**
+		 * N​o​t​e​s​ ​t​h​a​t​ ​e​m​b​e​d​ ​t​h​i​s​ ​v​i​e​w​ ​b​y​ ​n​a​m​e​ ​w​i​l​l​ ​n​e​e​d​ ​t​h​e​ ​n​e​w​ ​n​a​m​e​.
+		 */
+		rename_hint: string
+		/**
+		 * A​ ​v​i​e​w​ ​n​e​e​d​s​ ​a​ ​n​a​m​e​.
+		 */
+		rename_empty: string
+		/**
+		 * A​n​o​t​h​e​r​ ​v​i​e​w​ ​i​s​ ​a​l​r​e​a​d​y​ ​c​a​l​l​e​d​ ​{​n​a​m​e​}​.
+		 * @param {string} name
+		 */
+		rename_taken: RequiredParams<'name'>
+		/**
+		 * R​e​n​a​m​e
+		 */
+		rename_confirm: string
+		/**
+		 * D​e​l​e​t​e​ ​t​h​e​ ​v​i​e​w​ ​{​n​a​m​e​}​?
+		 * @param {string} name
+		 */
+		delete_title: RequiredParams<'name'>
+		/**
+		 * O​n​l​y​ ​t​h​e​ ​v​i​e​w​ ​g​o​e​s​ ​—​ ​i​t​s​ ​f​i​l​t​e​r​s​,​ ​c​o​l​u​m​n​s​ ​a​n​d​ ​s​o​r​t​.​ ​T​h​e​ ​n​o​t​e​s​ ​i​t​ ​s​h​o​w​s​ ​a​r​e​ ​n​o​t​ ​t​o​u​c​h​e​d​.
+		 */
+		delete_body: string
+		/**
+		 * D​e​l​e​t​e​ ​v​i​e​w
+		 */
+		delete_confirm: string
+		/**
 		 * T​a​b​l​e
 		 */
 		add_view_table: string
@@ -8256,9 +8828,25 @@ export type NamespaceWebTranslation = {
 		 */
 		view_name_list: string
 		/**
-		 * A​ ​b​o​a​r​d​ ​g​r​o​u​p​s​ ​n​o​t​e​s​ ​b​y​ ​a​ ​p​r​o​p​e​r​t​y​.​ ​C​h​o​o​s​e​ ​o​n​e​:
+		 * C​h​o​o​s​e​ ​w​h​a​t​ ​t​h​i​s​ ​b​o​a​r​d​ ​g​r​o​u​p​s​ ​b​y
 		 */
 		board_needs_group: string
+		/**
+		 * P​r​o​p​e​r​t​i​e​s​ ​t​o​ ​g​r​o​u​p​ ​b​y
+		 */
+		board_group_choices: string
+		/**
+		 * E​a​c​h​ ​v​a​l​u​e​ ​b​e​c​o​m​e​s​ ​a​ ​c​o​l​u​m​n​;​ ​m​o​v​i​n​g​ ​a​ ​c​a​r​d​ ​w​r​i​t​e​s​ ​t​h​a​t​ ​v​a​l​u​e​ ​i​n​t​o​ ​i​t​s​ ​n​o​t​e​.
+		 */
+		board_group_hint: string
+		/**
+		 * T​h​e​s​e​ ​n​o​t​e​s​ ​h​a​v​e​ ​n​o​ ​p​r​o​p​e​r​t​i​e​s​ ​t​o​ ​g​r​o​u​p​ ​b​y​ ​y​e​t​.​ ​A​d​d​ ​o​n​e​ ​t​o​ ​a​ ​n​o​t​e​,​ ​t​h​e​n​ ​c​o​m​e​ ​b​a​c​k​.
+		 */
+		board_group_none: string
+		/**
+		 * O​p​e​n​ ​t​h​e​ ​c​o​l​l​e​c​t​i​o​n​ ​t​o​ ​c​h​o​o​s​e​ ​o​n​e​.
+		 */
+		board_group_embedded: string
 		/**
 		 * {​g​r​o​u​p​}​ ​—​ ​{​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
 		 * @param {number} count
@@ -8432,10 +9020,20 @@ export type TranslationFunctions = {
 	}
 	web: {
 		shell: {
-			/**
-			 * connecting…
-			 */
-			connecting: () => LocalizedString
+			boot: {
+				/**
+				 * Opening your vault
+				 */
+				label: () => LocalizedString
+				/**
+				 * Opening your notes…
+				 */
+				opening: () => LocalizedString
+				/**
+				 * Back to your vaults
+				 */
+				back_to_vaults: () => LocalizedString
+			}
 			/**
 			 * Show file navigator
 			 */
@@ -8480,6 +9078,14 @@ export type TranslationFunctions = {
 			 * Unpin — back to a drawer
 			 */
 			unpin_navigator: () => LocalizedString
+			/**
+			 * Pins apply on wider screens
+			 */
+			pin_wide_only: () => LocalizedString
+			/**
+			 * Pinned on wider screens — it floats here
+			 */
+			pinned_wide_only: () => LocalizedString
 		}
 		notices: {
 			toast_title: {
@@ -8618,6 +9224,20 @@ export type TranslationFunctions = {
 				 */
 				comments: () => LocalizedString
 			}
+			note: {
+				/**
+				 * The note these sections are about
+				 */
+				label: () => LocalizedString
+				/**
+				 * Go to {name}
+				 */
+				go: (arg: { name: string }) => LocalizedString
+				/**
+				 * last focused
+				 */
+				last_focused: () => LocalizedString
+			}
 		}
 		actions: {
 			/**
@@ -8684,6 +9304,10 @@ export type TranslationFunctions = {
 			 *  · 
 			 */
 			join: () => LocalizedString
+			/**
+			 * {count|int}
+			 */
+			count: (arg: { count: number }) => LocalizedString
 		}
 		panes: {
 			/**
@@ -9375,6 +9999,20 @@ export type TranslationFunctions = {
 				 * Fold {title}
 				 */
 				toggle: (arg: { title: string }) => LocalizedString
+			}
+			link_card: {
+				/**
+				 * Link
+				 */
+				label: () => LocalizedString
+				/**
+				 * Open “{name}”
+				 */
+				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Create “{name}”
+				 */
+				create: (arg: { name: string }) => LocalizedString
 			}
 			link_popover: {
 				/**
@@ -11566,9 +12204,9 @@ export type TranslationFunctions = {
 			sections: () => LocalizedString
 			nav: {
 				/**
-				 * You
+				 * Customise
 				 */
-				you: () => LocalizedString
+				customise: () => LocalizedString
 				/**
 				 * Editor
 				 */
@@ -11590,13 +12228,9 @@ export type TranslationFunctions = {
 				 */
 				sync: () => LocalizedString
 				/**
-				 * Customise
+				 * AI
 				 */
-				customise: () => LocalizedString
-				/**
-				 * Agents
-				 */
-				agents: () => LocalizedString
+				ai: () => LocalizedString
 				/**
 				 * Developer
 				 */
@@ -11605,10 +12239,6 @@ export type TranslationFunctions = {
 				 * About
 				 */
 				about: () => LocalizedString
-				/**
-				 * AI
-				 */
-				ai: () => LocalizedString
 			}
 			page: {
 				/**
@@ -11638,24 +12268,6 @@ export type TranslationFunctions = {
 			 * Saved
 			 */
 			saved: () => LocalizedString
-			you: {
-				/**
-				 * Display name
-				 */
-				name: () => LocalizedString
-				/**
-				 * Anonymous
-				 */
-				name_placeholder: () => LocalizedString
-				/**
-				 * Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.
-				 */
-				name_hint: () => LocalizedString
-				/**
-				 * Enter a name — it’s what your collaborators see.
-				 */
-				name_required: () => LocalizedString
-			}
 			editor: {
 				/**
 				 * How notes open and read. Changes apply at once and stay on this device.
@@ -11672,27 +12284,93 @@ export type TranslationFunctions = {
 			}
 			appearance: {
 				/**
-				 * Theme
+				 * How the app looks on this device. A theme of your own lives in this vault.
 				 */
-				theme: () => LocalizedString
+				lede: () => LocalizedString
 				/**
 				 * System
 				 */
 				system: () => LocalizedString
 				/**
-				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting. Nord reproduces the Obsidian theme it is named after; the two Oh hi markdown themes are our own defaults.
+				 * Applies immediately, to the chrome and the editor alike. {system} follows your OS setting and uses Oh hi Light or Oh hi Dark, our defaults. Graphite, Fjord and Iris are our own too.
 				 */
 				theme_help: (arg: { system: string }) => LocalizedString
+				theme_names: {
+					/**
+					 * Oh hi Light
+					 */
+					editor_light: () => LocalizedString
+					/**
+					 * Oh hi Dark
+					 */
+					editor_dark: () => LocalizedString
+					/**
+					 * Graphite Light
+					 */
+					graphite_light: () => LocalizedString
+					/**
+					 * Graphite Dark
+					 */
+					graphite_dark: () => LocalizedString
+					/**
+					 * Fjord Light
+					 */
+					fjord_light: () => LocalizedString
+					/**
+					 * Fjord Dark
+					 */
+					fjord_dark: () => LocalizedString
+					/**
+					 * Iris Light
+					 */
+					iris_light: () => LocalizedString
+					/**
+					 * Iris Dark
+					 */
+					iris_dark: () => LocalizedString
+				}
 				/**
-				 * Custom theme
+				 * Built in
 				 */
-				custom_theme: () => LocalizedString
+				builtin: () => LocalizedString
+				/**
+				 * In this vault
+				 */
+				in_vault: () => LocalizedString
+				/**
+				 * Open a vault to use the themes in it.
+				 */
+				vault_none: () => LocalizedString
+				/**
+				 * This vault has no themes yet. A theme is a folder holding one stylesheet, {path}.
+				 */
+				vault_empty: (arg: { path: string }) => LocalizedString
+				/**
+				 * Examples that ship with the app. Add one and it is listed above.
+				 */
+				examples_intro: () => LocalizedString
+				/**
+				 * Add to this vault
+				 */
+				add_example: () => LocalizedString
+				/**
+				 * Add {label} to this vault, as {path}
+				 */
+				add_example_label: (arg: { label: string, path: string }) => LocalizedString
+				/**
+				 * Added {path}
+				 */
+				example_added: (arg: { path: string }) => LocalizedString
+				/**
+				 * A theme folder the list does not show
+				 */
+				custom_label: () => LocalizedString
 				/**
 				 * my-theme
 				 */
 				custom_placeholder: () => LocalizedString
 				/**
-				 * Use custom
+				 * Use
 				 */
 				use_custom: () => LocalizedString
 				/**
@@ -11805,6 +12483,18 @@ export type TranslationFunctions = {
 				 * Hidden
 				 */
 				status_off: () => LocalizedString
+				/**
+				 * Selection handle
+				 */
+				selection: () => LocalizedString
+				/**
+				 * At the end of a selection
+				 */
+				selection_on: () => LocalizedString
+				/**
+				 * Hidden
+				 */
+				selection_off: () => LocalizedString
 				/**
 				 * Opening a note
 				 */
@@ -11948,6 +12638,80 @@ export type TranslationFunctions = {
 					shown_now: (arg: { name: string }) => LocalizedString
 					/**
 					 * {name} is off the bar
+					 */
+					hidden_now: (arg: { name: string }) => LocalizedString
+				}
+				selection_bar: {
+					/**
+					 * Selection handle buttons
+					 */
+					title: () => LocalizedString
+					/**
+					 * What the handle at the end of a selected passage offers, in order. Drag to reorder, or drag a button to the other row to show or hide it; each button’s menu does the same from the keyboard. AI buttons show only once a provider is added. Your changes stay on this device.
+					 */
+					intro: () => LocalizedString
+					/**
+					 * On the selection handle
+					 */
+					shown: () => LocalizedString
+					/**
+					 * Not on the selection handle
+					 */
+					hidden: () => LocalizedString
+					/**
+					 * Nothing on the selection handle: it is hidden.
+					 */
+					empty_shown: () => LocalizedString
+					/**
+					 * Every button is on the selection handle.
+					 */
+					empty_hidden: () => LocalizedString
+					/**
+					 * Separator
+					 */
+					separator: () => LocalizedString
+					/**
+					 * {name}, {n} of {total} on the selection handle
+					 */
+					pill_shown: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name}, not on the selection handle
+					 */
+					pill_hidden: (arg: { name: string }) => LocalizedString
+					/**
+					 * Move left
+					 */
+					move_left: () => LocalizedString
+					/**
+					 * Move right
+					 */
+					move_right: () => LocalizedString
+					/**
+					 * Hide
+					 */
+					hide: () => LocalizedString
+					/**
+					 * Remove
+					 */
+					remove: () => LocalizedString
+					/**
+					 * Add to the selection handle
+					 */
+					show: () => LocalizedString
+					/**
+					 * Reset to layout file
+					 */
+					reset: () => LocalizedString
+					/**
+					 * {name} is now {n} of {total}
+					 */
+					moved: (arg: { n: number, name: string, total: number }) => LocalizedString
+					/**
+					 * {name} is on the selection handle
+					 */
+					shown_now: (arg: { name: string }) => LocalizedString
+					/**
+					 * {name} is off the selection handle
 					 */
 					hidden_now: (arg: { name: string }) => LocalizedString
 				}
@@ -12154,6 +12918,26 @@ export type TranslationFunctions = {
 			}
 			sync: {
 				/**
+				 * Your name as collaborators see it, the relay your shares go through, and your devices.
+				 */
+				lede: () => LocalizedString
+				/**
+				 * Your name, as collaborators see it
+				 */
+				name: () => LocalizedString
+				/**
+				 * Anonymous
+				 */
+				name_placeholder: () => LocalizedString
+				/**
+				 * Shown to people you share with; applies the next time a vault is opened. Saved when you press Enter or leave the field.
+				 */
+				name_hint: () => LocalizedString
+				/**
+				 * Enter a name — it’s what your collaborators see.
+				 */
+				name_required: () => LocalizedString
+				/**
 				 * Default relay
 				 */
 				relay: () => LocalizedString
@@ -12344,6 +13128,30 @@ export type TranslationFunctions = {
 				 */
 				device_changes: () => LocalizedString
 				/**
+				 * no changes on this device
+				 */
+				no_device_changes: () => LocalizedString
+				/**
+				 * follows the system
+				 */
+				follows_system: () => LocalizedString
+				/**
+				 * Open Settings › {section}
+				 */
+				door_label: (arg: { section: string }) => LocalizedString
+				/**
+				 * Files
+				 */
+				files: () => LocalizedString
+				/**
+				 * Actions
+				 */
+				col_actions: () => LocalizedString
+				/**
+				 * Templates are inserted with Insert template… in the palette. A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; every one is listed here and in Appearance.
+				 */
+				files_foot: () => LocalizedString
+				/**
 				 * {name} can’t be used, so the built-in default stands in
 				 */
 				fell_back: (arg: { name: string }) => LocalizedString
@@ -12364,7 +13172,7 @@ export type TranslationFunctions = {
 				 */
 				templates_how: () => LocalizedString
 				/**
-				 * A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; use one by name in Appearance. Theme folders are not listed here yet.
+				 * A theme is a folder in this vault, .ohhi/themes/<name>/theme.css; pick one in Appearance.
 				 */
 				themes_how: () => LocalizedString
 				/**
@@ -12472,11 +13280,15 @@ export type TranslationFunctions = {
 			}
 			agents: {
 				/**
-				 * Agents work on a vault with the ohhi command: ranked search, one section at a time, links and backlinks, and journaled writes you can restore.
+				 * Outside agents
+				 */
+				title: () => LocalizedString
+				/**
+				 * Claude Code, another MCP client or a terminal works on this vault with the ohhi command. Pick a route, then copy its lines.
 				 */
 				intro: () => LocalizedString
 				/**
-				 * What an agent can do here
+				 * What an agent can do
 				 */
 				can_do: () => LocalizedString
 				cap: {
@@ -12518,10 +13330,6 @@ export type TranslationFunctions = {
 				 */
 				mcp_tools: () => LocalizedString
 				/**
-				 * Connect an agent
-				 */
-				connect: () => LocalizedString
-				/**
 				 * How to connect
 				 */
 				routes: () => LocalizedString
@@ -12546,10 +13354,6 @@ export type TranslationFunctions = {
 				 */
 				placeholder_browser: () => LocalizedString
 				/**
-				 * The command isn’t bundled with the app yet. Today it installs from a checkout of the Oh hi markdown repository, codemyriad/ohhi-markdown on GitHub. That repository is private: you need access to it to follow these steps. The checkout needs git and Node 22; each install script then makes a link (in ~/.local/bin and ~/.claude/skills), so neither goes stale.
-				 */
-				get_body: () => LocalizedString
-				/**
 				 * Get the repository and install its dependencies
 				 */
 				step_repo: () => LocalizedString
@@ -12565,6 +13369,10 @@ export type TranslationFunctions = {
 				 * Install the command and the skill
 				 */
 				step_install_both: () => LocalizedString
+				/**
+				 * Each script makes a link (ohhi in ~/.local/bin, the skill in ~/.claude/skills), so neither goes stale.
+				 */
+				install_note: () => LocalizedString
 				/**
 				 * Start Claude Code with this vault named
 				 */
@@ -12640,6 +13448,10 @@ export type TranslationFunctions = {
 			}
 			about: {
 				/**
+				 * The version you are running, how it updates, and the guides.
+				 */
+				lede: () => LocalizedString
+				/**
 				 * Updates
 				 */
 				updates: () => LocalizedString
@@ -12661,6 +13473,10 @@ export type TranslationFunctions = {
 				guide_relay: () => LocalizedString
 			}
 			developer: {
+				/**
+				 * Tools for looking under the hood. Off unless you turn them on.
+				 */
+				lede: () => LocalizedString
 				/**
 				 * Developer tools
 				 */
@@ -14554,6 +15370,28 @@ export type TranslationFunctions = {
 			 * No theme at {path}
 			 */
 			missing: (arg: { path: string }) => LocalizedString
+			/**
+			 * {label} is no longer built in: it is a theme a vault holds, and this vault has no {path}, so {stand_in} stands in. Add it from Settings › Appearance, or copy {example} there.
+			 */
+			retired: (arg: { example: string, label: string, path: string, stand_in: string }) => LocalizedString
+			/**
+			 * Show themes
+			 */
+			show_themes: () => LocalizedString
+			examples: {
+				/**
+				 * Nord Light
+				 */
+				nord_light: () => LocalizedString
+				/**
+				 * Nord Dark
+				 */
+				nord_dark: () => LocalizedString
+			}
+			/**
+			 * This vault already has {path}; it was left as it is.
+			 */
+			example_exists: (arg: { path: string }) => LocalizedString
 		}
 		layouts: {
 			/**
@@ -14713,6 +15551,22 @@ export type TranslationFunctions = {
 			 */
 			with_binding: (arg: { binding: string, title: string }) => LocalizedString
 			/**
+			 * {title} · {binding}
+			 */
+			hint: (arg: { binding: string, title: string }) => LocalizedString
+			/**
+			 * Selection
+			 */
+			selection_group: () => LocalizedString
+			/**
+			 * Comment
+			 */
+			selection_comment: () => LocalizedString
+			/**
+			 * Ask
+			 */
+			selection_ask: () => LocalizedString
+			/**
 			 * Files
 			 */
 			files: () => LocalizedString
@@ -14789,20 +15643,6 @@ export type TranslationFunctions = {
 				 * Nothing leaves this device until you add a provider. With one, the text you reference is sent to that endpoint, and nowhere else.
 				 */
 				egress: () => LocalizedString
-				/**
-				 * AI settings
-				 */
-				sections: () => LocalizedString
-				tabs: {
-					/**
-					 * Providers
-					 */
-					providers: () => LocalizedString
-					/**
-					 * Skills
-					 */
-					skills: () => LocalizedString
-				}
 			}
 			providers: {
 				/**
@@ -15014,10 +15854,6 @@ export type TranslationFunctions = {
 				 */
 				title_named: (arg: { name: string }) => LocalizedString
 				/**
-				 * No session yet. Start one from a selection, or ask about your notes.
-				 */
-				empty: () => LocalizedString
-				/**
 				 * Untitled session
 				 */
 				untitled: () => LocalizedString
@@ -15050,13 +15886,39 @@ export type TranslationFunctions = {
 				 */
 				archive: () => LocalizedString
 				/**
-				 * Provider
-				 */
-				provider_label: () => LocalizedString
-				/**
 				 * {name} · {model}
 				 */
 				provider_option: (arg: { model: string, name: string }) => LocalizedString
+				starts: {
+					/**
+					 * Start
+					 */
+					title: () => LocalizedString
+					/**
+					 * Ask about {note}
+					 */
+					ask: (arg: { note: string }) => LocalizedString
+					/**
+					 * Summarise {note}
+					 */
+					summarise: (arg: { note: string }) => LocalizedString
+					/**
+					 * Summarise this note.
+					 */
+					summarise_prompt: () => LocalizedString
+					/**
+					 * Run a skill…
+					 */
+					skill: () => LocalizedString
+					/**
+					 * Continue “{title}”
+					 */
+					'continue': (arg: { title: string }) => LocalizedString
+				}
+				/**
+				 * {count} notes
+				 */
+				recent_notes: (arg: { count: number }) => LocalizedString
 				/**
 				 * Add a provider in Settings › AI to talk to an agent.
 				 */
@@ -15094,7 +15956,7 @@ export type TranslationFunctions = {
 				 */
 				nothing_running: () => LocalizedString
 				/**
-				 * The provider this session was using is gone. Pick another in the session’s header.
+				 * The provider this session was using is gone. Pick another below the message box.
 				 */
 				provider_gone: () => LocalizedString
 				/**
@@ -15153,6 +16015,14 @@ export type TranslationFunctions = {
 					 */
 					open: () => LocalizedString
 					/**
+					 * Open {path} at line {line}
+					 */
+					open_hit: (arg: { line: number, path: string }) => LocalizedString
+					/**
+					 * Open {path}
+					 */
+					open_note: (arg: { path: string }) => LocalizedString
+					/**
 					 * Read {what} ({size})
 					 */
 					read: (arg: { size: string, what: string }) => LocalizedString
@@ -15177,6 +16047,36 @@ export type TranslationFunctions = {
 					 */
 					proposal_applied: (arg: { path: string }) => LocalizedString
 					/**
+					 * Accept
+					 */
+					accept: () => LocalizedString
+					/**
+					 * Reject
+					 */
+					reject: () => LocalizedString
+					/**
+					 * Show in note
+					 */
+					show_in_note: () => LocalizedString
+					proposal_status: {
+						/**
+						 * Pending
+						 */
+						pending: () => LocalizedString
+						/**
+						 * Changed since proposed
+						 */
+						stale: () => LocalizedString
+						/**
+						 * Applied
+						 */
+						accepted: () => LocalizedString
+						/**
+						 * No longer proposed
+						 */
+						gone: () => LocalizedString
+					}
+					/**
 					 * Used {name}
 					 */
 					used: (arg: { name: string }) => LocalizedString
@@ -15189,6 +16089,44 @@ export type TranslationFunctions = {
 					 */
 					details: () => LocalizedString
 				}
+				run_line: {
+					/**
+					 * read {{a note|?? notes}}
+					 */
+					read: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * searched once
+					 */
+					search_once: () => LocalizedString
+					/**
+					 * searched twice
+					 */
+					search_twice: () => LocalizedString
+					/**
+					 * searched {count} times
+					 */
+					search_many: (arg: { count: number }) => LocalizedString
+					/**
+					 * listed {{a folder|?? folders}}
+					 */
+					list: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * proposed {count} edit{{s}}
+					 */
+					proposed: (arg: { count: number }) => LocalizedString
+					/**
+					 * edited {{a note|?? notes}}
+					 */
+					edited: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * used {{a tool|?? tools}}
+					 */
+					other: (arg: { count: number | string | boolean }) => LocalizedString
+					/**
+					 * {count} call{{s}} failed
+					 */
+					failed: (arg: { count: number }) => LocalizedString
+				}
 			}
 			composer: {
 				/**
@@ -15196,7 +16134,7 @@ export type TranslationFunctions = {
 				 */
 				label: () => LocalizedString
 				/**
-				 * Ask about your notes — @ to reference, / for a skill
+				 * Ask about your notes — @note, @folder or @note#heading to reference; select text for lines; / for a skill
 				 */
 				placeholder: () => LocalizedString
 				/**
@@ -15207,6 +16145,14 @@ export type TranslationFunctions = {
 				 * Enter to send · Shift+Enter for a new line
 				 */
 				hint: () => LocalizedString
+				/**
+				 * Provider: {name}, {model}. Change
+				 */
+				provider_label: (arg: { model: string, name: string }) => LocalizedString
+				/**
+				 * Manage providers…
+				 */
+				manage_providers: () => LocalizedString
 				/**
 				 * Suggestions
 				 */
@@ -15271,10 +16217,6 @@ export type TranslationFunctions = {
 				 * Skill: {label}
 				 */
 				skill_chip: (arg: { label: string }) => LocalizedString
-				/**
-				 * Select some text in a note first.
-				 */
-				no_selection: () => LocalizedString
 			}
 			skills: {
 				/**
@@ -15309,6 +16251,10 @@ export type TranslationFunctions = {
 				 * Open {name}
 				 */
 				open: (arg: { name: string }) => LocalizedString
+				/**
+				 * Open
+				 */
+				open_short: () => LocalizedString
 				/**
 				 * Review…
 				 */
@@ -15491,13 +16437,21 @@ export type TranslationFunctions = {
 					 */
 					name: () => LocalizedString
 					/**
-					 * Lowercase letters, numbers and hyphens. It is also the folder’s name.
+					 * Folder: {folder}
 					 */
-					name_hint: () => LocalizedString
+					folder: (arg: { folder: string }) => LocalizedString
 					/**
-					 * Use lowercase letters, numbers and single hyphens, up to 64 characters.
+					 * lowercase letters, numbers and hyphens
 					 */
-					name_invalid: () => LocalizedString
+					folder_rule: () => LocalizedString
+					/**
+					 * Type a name
+					 */
+					name_empty: () => LocalizedString
+					/**
+					 * A skill’s name can’t use anthropic, claude or synced.
+					 */
+					name_reserved: () => LocalizedString
 					/**
 					 * This vault already has a skill with that name.
 					 */
@@ -15775,6 +16729,22 @@ export type TranslationFunctions = {
 				 * The agent has no edit to undo.
 				 */
 				nothing_to_undo: () => LocalizedString
+				/**
+				 * Accept
+				 */
+				accept: () => LocalizedString
+				/**
+				 * Reject
+				 */
+				reject: () => LocalizedString
+				/**
+				 * Suggestion by {name}
+				 */
+				pair: (arg: { name: string }) => LocalizedString
+				/**
+				 * Suggestion {n} of {total}, by {name}
+				 */
+				marker: (arg: { n: number, name: string, total: number }) => LocalizedString
 			}
 			comments: {
 				/**
@@ -15797,6 +16767,42 @@ export type TranslationFunctions = {
 				 * Send to agent
 				 */
 				send_agent: () => LocalizedString
+				/**
+				 * Send to
+				 */
+				send_to: () => LocalizedString
+				/**
+				 * This session: {title}
+				 */
+				send_to_current: (arg: { title: string }) => LocalizedString
+				/**
+				 * A new session
+				 */
+				send_to_new: () => LocalizedString
+				/**
+				 * Open session
+				 */
+				open_session: () => LocalizedString
+				/**
+				 * Comment on {note}
+				 */
+				session_title: (arg: { note: string }) => LocalizedString
+				/**
+				 * Comment on {note} (line {line})
+				 */
+				session_title_line: (arg: { line: number, note: string }) => LocalizedString
+				/**
+				 * Comment on {note} (lines {from}–{to})
+				 */
+				session_title_lines: (arg: { from: number, note: string, to: number }) => LocalizedString
+				/**
+				 * From a comment in {note}
+				 */
+				from_comment: (arg: { note: string }) => LocalizedString
+				/**
+				 * Show thread
+				 */
+				show_thread: () => LocalizedString
 				/**
 				 * Reply
 				 */
@@ -15854,9 +16860,25 @@ export type TranslationFunctions = {
 				 */
 				filter_all: () => LocalizedString
 				/**
-				 * No open comments on this note. Select some text and choose Comment on selection.
+				 * {label} {count}
+				 */
+				filter_count: (arg: { count: number, label: string }) => LocalizedString
+				/**
+				 * No open comments on this note.
 				 */
 				empty_open: () => LocalizedString
+				/**
+				 * Select some text and press {key}, or use the comment button on the formatting bar.
+				 */
+				how_with_key: (arg: { key: string }) => LocalizedString
+				/**
+				 * Select some text, then use the comment button on the formatting bar.
+				 */
+				how: () => LocalizedString
+				/**
+				 * Comment on selection
+				 */
+				door: () => LocalizedString
 				/**
 				 * No resolved comments on this note.
 				 */
@@ -15946,6 +16968,10 @@ export type TranslationFunctions = {
 				 */
 				add_selection: () => LocalizedString
 				/**
+				 * Ask about this
+				 */
+				ask_selection: () => LocalizedString
+				/**
 				 * Run a skill…
 				 */
 				run_skill: () => LocalizedString
@@ -15970,6 +16996,14 @@ export type TranslationFunctions = {
 				 */
 				reject_all: () => LocalizedString
 				/**
+				 * Next suggestion
+				 */
+				next_suggestion: () => LocalizedString
+				/**
+				 * Previous suggestion
+				 */
+				previous_suggestion: () => LocalizedString
+				/**
 				 * Undo the agent’s last edit
 				 */
 				undo_agent: () => LocalizedString
@@ -15981,6 +17015,10 @@ export type TranslationFunctions = {
 				 * Open AI session
 				 */
 				session: () => LocalizedString
+				/**
+				 * Select some text to ask about it
+				 */
+				ask_needs_selection: () => LocalizedString
 			}
 		}
 		collections: {
@@ -16025,6 +17063,18 @@ export type TranslationFunctions = {
 			 */
 			column_label: (arg: { name: string }) => LocalizedString
 			/**
+			 * In these notes
+			 */
+			columns_in_notes: () => LocalizedString
+			/**
+			 * Other properties
+			 */
+			columns_other: () => LocalizedString
+			/**
+			 * Showing every property these notes have. Changing one pins the list.
+			 */
+			columns_dynamic: () => LocalizedString
+			/**
 			 * Group by
 			 */
 			group_by: () => LocalizedString
@@ -16032,6 +17082,10 @@ export type TranslationFunctions = {
 			 * No grouping
 			 */
 			group_none: () => LocalizedString
+			/**
+			 * Group by: {name}
+			 */
+			group_menu: (arg: { name: string }) => LocalizedString
 			/**
 			 * No value
 			 */
@@ -16085,6 +17139,54 @@ export type TranslationFunctions = {
 			 */
 			add_view: () => LocalizedString
 			/**
+			 * Options for the view {name}
+			 */
+			view_menu: (arg: { name: string }) => LocalizedString
+			/**
+			 * Rename…
+			 */
+			view_rename: () => LocalizedString
+			/**
+			 * Delete…
+			 */
+			view_delete: () => LocalizedString
+			/**
+			 * Rename {name}
+			 */
+			rename_title: (arg: { name: string }) => LocalizedString
+			/**
+			 * View name
+			 */
+			rename_label: () => LocalizedString
+			/**
+			 * Notes that embed this view by name will need the new name.
+			 */
+			rename_hint: () => LocalizedString
+			/**
+			 * A view needs a name.
+			 */
+			rename_empty: () => LocalizedString
+			/**
+			 * Another view is already called {name}.
+			 */
+			rename_taken: (arg: { name: string }) => LocalizedString
+			/**
+			 * Rename
+			 */
+			rename_confirm: () => LocalizedString
+			/**
+			 * Delete the view {name}?
+			 */
+			delete_title: (arg: { name: string }) => LocalizedString
+			/**
+			 * Only the view goes — its filters, columns and sort. The notes it shows are not touched.
+			 */
+			delete_body: () => LocalizedString
+			/**
+			 * Delete view
+			 */
+			delete_confirm: () => LocalizedString
+			/**
 			 * Table
 			 */
 			add_view_table: () => LocalizedString
@@ -16109,9 +17211,25 @@ export type TranslationFunctions = {
 			 */
 			view_name_list: () => LocalizedString
 			/**
-			 * A board groups notes by a property. Choose one:
+			 * Choose what this board groups by
 			 */
 			board_needs_group: () => LocalizedString
+			/**
+			 * Properties to group by
+			 */
+			board_group_choices: () => LocalizedString
+			/**
+			 * Each value becomes a column; moving a card writes that value into its note.
+			 */
+			board_group_hint: () => LocalizedString
+			/**
+			 * These notes have no properties to group by yet. Add one to a note, then come back.
+			 */
+			board_group_none: () => LocalizedString
+			/**
+			 * Open the collection to choose one.
+			 */
+			board_group_embedded: () => LocalizedString
 			/**
 			 * {group} — {count} note{{s}}
 			 */

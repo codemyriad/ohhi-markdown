@@ -40,6 +40,7 @@ This project uses:
 | `Tooltip` | a label on hover **and keyboard focus**; the child spreads the trigger attrs itself (`focus` does not bubble) | `title=` as the only label |
 | `IconButton` | an icon-only control: `aria-label` + tooltip from one `label`; `showLabel` for rail rows | an `<button>` with only an SVG in it |
 | `Tabs` | one tab stop, arrows move, only the active panel in the DOM | a row of buttons toggling `{#if}`s |
+| `SettingsNav` | Settings' tree nav (one tablist; an icon rail below 32rem, each tab named and tooltipped) | a second nav inside a section |
 | `Toaster` + `toast()` | announcing a notice without stealing focus (`role=status`, polite) | an inline error string in the header |
 | `createForm` + `Field` / `TextControl` / `CheckControl` / `FieldErrors` / `Description` | any form with a rule in it — the field wires `aria-invalid`, `aria-required` and `aria-describedby` (description + errors) exactly as Edible's `form-field` builder does | inputs with ad-hoc `error` spans |
 
@@ -113,7 +114,11 @@ collapsed form **always**, pinned or not — and `components/DockPanel.svelte`,
 Links and History behind a compact `ui/Tabs` row (`size: 'sm'`, 32 px, 11 px
 labels with `icon`s, pin and collapse in its `end` snippet — **pinned, unpin
 only**, and `Mod+ArrowRight` then focuses its tab; a bottom-right strip
-stacks above the corner count) — **one
+stacks above the corner count; under the row `DockNoteContext.svelte`,
+`dock-note`, names the note every section follows — `ui.dockNote`
+(`lib/dock-note.ts`): the focused note, or the last one, "last focused",
+while a session or a view has the focus; Links, History and Comments read
+the same value, never `ui.selectedPath`) — **one
 panel for both expanded forms**: floating from `EditorArea`, or the pinned
 rail column, `Rail.svelte` = `<Dock
 form="column">`; one `railOpen` + one `railTab`, so a pinned column never
@@ -159,7 +164,10 @@ picker and the strip all read; an id without one is skipped with one warning) �
 focused, hidden in a strip under 36rem (a container query on the strip). **The
 format bar is one row that never wraps** (`FormatBar.svelte`): it scrolls
 sideways with a mask fade at whichever end has more, the wheel mapped to
-horizontal; under 30rem it folds into one *Format* menu; which buttons it
+horizontal; under 30rem it folds into one *Format* menu — except below the
+shell's small-screen breakpoint (`lib/small-screen.svelte.ts`, 40rem of
+window), where it never folds, fills the row and the corner's counts fold into
+a number chip (`CornerStatus` `compact`); which buttons it
 shows is `FormatBarPicker` in Settings › Layout, writing `overrides.bars.format`.
 **Pane keys** (`config.paneHints`, `pane-hints.svelte.ts`: `subtle` default ·
 `full` · `off`): *Full* is `ModeBar.svelte` along the bottom; *Subtle* / *Off*
@@ -273,10 +281,11 @@ open it with `openView('settings', '<section>')` (or
 `getViewShell()?.openSettings(section)`; `Mod+,` is `app.settings`), the
 section riding as the tab's `viewArg`. With no vault open the manager shows
 the same body as a page (`SettingsPage.svelte`); the tab is
-`SettingsView.svelte`; both render `Settings.svelte` — the grouped nav (You ·
-Editor · Layout · Appearance · Keys | Sync & devices · Customise · Agents |
-Developer · About, `SETTINGS_GROUPS` in `lib/settings.ts`) and the section
-on show. Each section is its own `*Settings.svelte` in `components/`. A
+`SettingsView.svelte`; both render `Settings.svelte` — the nav, a tree
+(Customise › Editor · Layout · Appearance · Keys | Sync & devices · AI |
+Developer · About, `SETTINGS_GROUPS` in `lib/settings.ts`; `you` and `agents`
+are `LEGACY` names for `sync` and `ai`) and the section on show; a bare
+`openView('settings')` opens the Customise hub. Each section is its own `*Settings.svelte` in `components/`. A
 section in `NEEDS_VAULT` (Keys, Customise) says "open a vault" when none is
 open rather than hiding. What a section may ask about where it is drawn
 (vault open, its kind and folder, desktop, the host, moving to another
@@ -287,12 +296,23 @@ applies as it changes; a text field that validates (the name, the relay)
 commits on Enter or blur; Keys writes each change through to a keymap file,
 with Undo. File-backed sections carry a `ResourceSource` line (the file in
 use and its root). The nav and the sections measure their own width
-(container queries): below 32rem the nav is a `<select>` (`Tabs`'
-`collapse`), and a section's grids use `@md:`-style container breakpoints,
-never `sm:`, so a split pane gets the narrow layout. Test ids:
-`settings-view` / `settings-page`, `settings` (with `data-section`),
-`settings-tab:<id>`, `settings-section:<id>`, `settings-needs-vault:<id>`,
-`settings-tabs-select`. Add a setting to the section it belongs to.
+(container queries; Settings is the `settings` container): the nav is
+`ui/SettingsNav.svelte`, one tablist drawn as the labelled tree, and below
+32rem as an icon rail — each tab its glyph, named by its `aria-label` and a
+`Tooltip` drawn only in the rail (`Tooltip`'s `triggerId` / `contentClass`).
+A section's grids use `@md:`-style container breakpoints, never `sm:`, so a
+split pane gets the narrow layout. Test ids: `settings-view` /
+`settings-page`, `settings` (with `data-section`), `settings-tab:<id>` (wide
+and rail alike, with `data-depth` and `data-group-start`),
+`settings-section:<id>`, `settings-needs-vault:<id>`, `settings-lede:<id>`.
+**Settings' type scale (QA round 1) is `ui/styles.ts`**: `TITLE`, one
+`LEDE` per section (drawn by `Settings.svelte`), groups as an `EYEBROW` on a
+`GROUP_ROW` with their actions on its baseline, `GROUP` (28 px) between
+them, `ROW` (36 px grid rows), `META` for hints, `CHIP`, `BUTTON` /
+`BUTTON_SM` / `BUTTON_PRIMARY`, `CHOICE` for a pressed option (a tint, never
+a solid block), and **one muted ink, `MUTED`** — no `/80` tints and no 14 px
+text in a Settings component. Settings › AI is one page (no sub-tabs);
+Customise is the hub (what is in use first, a door to each part). Add a setting to the section it belongs to.
 
 **Dismissal policy is per dialog and set at mount:** informational dialogs close on Escape *and* a click outside; a confirm (`role="alertdialog"`, `ConfirmDialog`, `BreakerDialog`) closes on Escape only — a stray click must not read as an answer; the divergence review closes on neither, it is resolved. `TreeContextMenu` predates Melt and already meets the contract (roving focus, Escape, focus return, disabled-with-reason); migrate it opportunistically, not speculatively.
 
@@ -568,7 +588,8 @@ manager, the remote carets and `git diff` never see it
   new token; if it does, the contract file and its test come first. A token
   whose value derives from DaisyUI's colours (`--ed-popover-*`, `--ed-drop-*`,
   `--ed-task-done-*`) lives **only in `_contract.css`** — a built-in theme
-  restates a token only when its value differs (Nord's done-task grey). Every
+  restates a token only when its value differs (a custom theme may too: the
+  Nord example's done-task grey). Every
   card the editor draws (code card, callout, popover, table hint, drop
   target) takes `--ed-card-radius`; every button a widget owns takes the one
   `--ed-focus-ring` rule; a state gets a semantic token (`--ed-code-copied`)
@@ -604,6 +625,14 @@ manager, the remote carets and `git diff` never see it
   `theme.ts`'s autocomplete block over `--ed-popover-*` (dressed as
   `ui/Popover`). Every completion source registers in the single `override`
   array in `wikilink-view.ts`.
+- **A link is pressed on its own text** (QA round 1): `preview/clicks.ts`
+  follows a link only when the press landed on its drawn mark (`onLinkText`)
+  — `posAtCoords` snaps to the nearest position, so the empty rest of a line
+  used to follow the link at its end. A finger (the `pointerdown`'s
+  `pointerType`, `coarsePress`) on a rendered wikilink in Live gets the
+  **link card** instead (`preview/link-tap.ts`, a CM6 tooltip like the table
+  hint, `.cm-link-card`): the caret where it landed and one *Open* button; a
+  second tap on the link opens too. A mouse is unchanged.
 - **Paste and drop of pictures go through the `attachmentHost` Facet**
   (`libs/editor/src/attachments.ts`): the editor notices the files the host
   `accepts` (libs/workspace's `isAttachmentFile` — the editor keeps no type

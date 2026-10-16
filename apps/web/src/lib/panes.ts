@@ -745,6 +745,56 @@ export function openView(
   })
 }
 
+/** The tab showing `view` with `arg` (both exact) in any pane, or null. */
+export function viewTabOf(l: Layout, view: TabView, arg?: string): { pane: Pane; tab: Tab } | null {
+  for (const p of panes(l.tree)) {
+    const tab = p.tabs.find((t) => t.view === view && t.viewArg === arg)
+    if (tab) return { pane: p, tab }
+  }
+  return null
+}
+
+/** The tab showing `path` — the focused pane's when it has one, else the first pane's that does; null when none. */
+export function paneShowing(l: Layout, path: string): { pane: Pane; tab: Tab } | null {
+  const list = panes(l.tree)
+  const focus = list.find((p) => p.id === l.focus)
+  for (const p of focus ? [focus, ...list.filter((q) => q !== focus)] : list) {
+    const tab = p.tabs.find((t) => t.path === path)
+    if (tab) return { pane: p, tab }
+  }
+  return null
+}
+
+/**
+ * The width below which a pane is narrow — 40rem, the shell's small-screen
+ * breakpoint (`small-screen.svelte.ts`) — so a companion goes beside a pane
+ * only while both halves keep it (Chris, 2026-10-15: a session should still
+ * open below at widths where 32rem halves put it to the right).
+ */
+export const BESIDE_MIN_WIDTH = 640
+
+/**
+ * Which way a pane splits for a COMPANION (the harness's Session beside the
+ * note it is about): to the right while both halves would still be at least
+ * `minWidth` wide, else below. No rect (not drawn yet, a test) → to the right.
+ */
+export function besideDir(rect: Pick<Rect, 'width'> | null | undefined, minWidth = BESIDE_MIN_WIDTH): Dir {
+  if (!rect) return 'row'
+  return rect.width >= 2 * minWidth ? 'row' : 'col'
+}
+
+/** A new pane holding `tab` alone, after `paneId` along `dir`, taking half its share and the focus. */
+export function splitWithTab(l: Layout, paneId: string, dir: Dir, tab: Tab, ids: () => string = nextId): Layout {
+  return editLayout(l, (d) => {
+    d.zoom = null
+    const p = findPane(d, paneId)
+    if (!p) return
+    const np = newPane(ids, [tab])
+    placeBeside(d, p, np, dir, 'after', ids)
+    d.focus = np.id
+  })
+}
+
 export function openPathAt(
   l: Layout,
   path: string,

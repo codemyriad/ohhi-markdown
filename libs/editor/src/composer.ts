@@ -20,11 +20,21 @@
  *
  * Colour comes from `--ed-*` only (the theme.ts rule: no literal colour in a
  * CM6 theme object).
+ *
+ * The caret is DRAWN (`drawSelection()`), not the browser's. An empty
+ * composer's one line holds no text — only CM6's widget-buffer `<img>` and the
+ * `contenteditable=false` placeholder — so a native caret has no glyph to
+ * measure and each engine guesses (Chromium draws it the full line box tall;
+ * others at the line's edge or above the text, in the padding). The
+ * drawn caret comes from `coordsAtPos`, which the placeholder widget answers
+ * with its own first text rect: where the first typed character lands, and
+ * that character's height.
  */
 import { defaultKeymap, history, historyKeymap, insertNewline } from '@codemirror/commands'
 import { EditorState, Prec, StateEffect, StateField, type Extension } from '@codemirror/state'
 import {
   Decoration,
+  drawSelection,
   EditorView,
   keymap,
   placeholder as placeholderExt,
@@ -188,7 +198,22 @@ const composerTheme = EditorView.theme({
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
     backgroundColor: 'var(--ed-selection)',
   },
-  '.cm-placeholder': { color: 'var(--ed-ink-muted)' },
+  // One line, however long the hint: a wrapping placeholder would make the
+  // empty field taller than its first typed line, and the caret would jump
+  // when the field shrinks (the composer is anchored at the pane's foot).
+  // `contain: inline-size` keeps the hint from widening CM's content box
+  // (a flex item that never shrinks below its content), which would make
+  // the scroller scroll sideways — axe's scrollable-region-focusable.
+  '.cm-placeholder': {
+    color: 'var(--ed-ink-muted)',
+    display: 'inline-block',
+    width: '100%',
+    contain: 'inline-size',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    verticalAlign: 'top',
+  },
   '.ohhi-chip': {
     display: 'inline',
     padding: '0 0.35em',
@@ -240,6 +265,7 @@ export function createComposer(opts: ComposerOptions): ComposerHandle {
       history(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.lineWrapping,
+      drawSelection(),
       composerTheme,
       attrsField,
       field,
