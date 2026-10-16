@@ -1,0 +1,128 @@
+# Site deploy: builds the landing page (apps/site, a static Astro site in the
+# app's own themes) and deploys it to Cloudflare Pages (project `ohhi-site`,
+# custom domains ohhi.md and www.ohhi.md). The same shape as web-deploy.yml:
+# a build job that runs third-party code with no Cloudflare secret, and a
+# small deploy job that uploads the built dist/ with the token.
+#
+# - push to main touching the site, the theme tokens it reads (@ohhi/ui) or
+#   this workflow: a production deploy. Bursts collapse (cancel-in-progress).
+# - Run workflow: on main, a production deploy; on any other branch, a Pages
+#   PREVIEW deploy (<branch>.ohhi-site.pages.dev), never the custom domains.
+#
+# Needs (docs/public-deploy.md): secrets CLOUDFLARE_API_TOKEN (Pages: Edit)
+# and CLOUDFLARE_ACCOUNT_ID. Without them the build still runs and the
+# deploy job is skipped with a warning.
+name: Site deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/site/**'
+      - 'libs/ui/src/styles/**'
+      - 'libs/ui/fonts/**'
+      - 'libs/ui/package.json'
+      - 'common/config/rush/**'
+      - 'rush.json'
+      - '.nvmrc'
+      - '.github/workflows/site-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: build (apps/site)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+
+      # `check` regenerates nothing: it fails if the committed token file is
+      # stale against @ohhi/ui, then runs `astro check`. `build` regenerates
+      # the tokens and writes dist/ (one .html per page, stylesheets as files
+      # so public/_headers can say style-src 'self').
+      - name: Check and build the site
+        working-directory: apps/site
+        run: |
+          node ../../common/scripts/install-run-rushx.js check
+          node ../../common/scripts/install-run-rushx.js build
+
+      - name: Check the Pages files
+        working-directory: apps/site/dist
+        run: |
+          test -f index.html
+          test -f download.html
+          test -f _headers
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-dist
+          path: apps/site/dist/
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    name: deploy to Cloudflare Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - name: Cloudflare secrets present?
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; nothing deployed (docs/public-deploy.md)"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: env.HAS_TOKEN == 'true'
+        with:
+          name: site-dist
+          path: dist
+
+      - name: Pages branch
+        id: branch
+        if: env.HAS_TOKEN == 'true'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "name=$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9-' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy
+        id: deploy
+        if: env.HAS_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.145.0'
+          packageManager: npm
+          command: pages deploy dist --project-name ohhi-site --branch ${{ steps.branch.outputs.name }} --commit-hash ${{ github.sha }} --commit-dirty=true
+
+      - name: Where it went
+        if: env.HAS_TOKEN == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        run: echo "::notice::Deployed ${GITHUB_SHA::12} to $URL ${ALIAS:+(alias $ALIAS)}"
