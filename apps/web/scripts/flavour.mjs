@@ -158,7 +158,7 @@ export function checkHeaders(text, { flavour, teamHost = '' }) {
   const all = rules.find((r) => r.pattern === '/*')
   const csp = all?.headers.find((h) => h.name.toLowerCase() === 'content-security-policy')
   if (!csp) return ['_headers has no Content-Security-Policy in its /* rule']
-  const sources = connectSources(csp.value)
+  const sources = connectSources(csp.value)?.map((s) => s.toLowerCase())
   if (!sources) return ['the Content-Security-Policy has no connect-src']
 
   if (flavour === 'public') {

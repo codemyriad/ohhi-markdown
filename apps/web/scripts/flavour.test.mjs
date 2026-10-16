@@ -125,6 +125,8 @@ describe('checkHeaders', () => {
       /must name wss:\/\/ohhi.example.ts.net[\s\S]*still allows every wss:/
     )
     expect(checkHeaders(pinned('other.example'), { flavour: 'team', teamHost: 'ohhi.example.ts.net' })).toHaveLength(2)
+    // TEAM_HOST may carry capitals; pin-csp writes it as given.
+    expect(checkHeaders(pinned('Ohhi.Example.ts.net'), { flavour: 'team', teamHost: 'ohhi.example.ts.net' })).toEqual([])
   })
 
   it('no CSP at all is refused for either flavour', () => {
