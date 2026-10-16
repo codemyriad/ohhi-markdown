@@ -210,13 +210,17 @@ test('bottom-right, the strip stands above the corner count at every width — a
   const apart = async (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
     a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y
   // Just above the corner, never on it or on the bar — polled, since the
-  // strip re-measures its place a frame after a resize.
+  // strip re-measures its place a frame after a resize. A box not there yet
+  // (the shell still settling after Settings closes or the width crosses
+  // the small-screen breakpoint) is "not yet", not a throw: `expect.poll`
+  // retries a false but aborts on an exception. All three must be there to pass.
   const standsOnCorner = (width: number) =>
     expect
       .poll(async () => {
-        const s = (await strip.boundingBox())!
-        const c = (await page.getByTestId('corner-status').boundingBox())!
-        const f = (await page.getByTestId('format-bar').boundingBox())!
+        const s = await strip.boundingBox()
+        const c = await page.getByTestId('corner-status').boundingBox()
+        const f = await page.getByTestId('format-bar').boundingBox()
+        if (!s || !c || !f) return false
         return (await apart(s, c)) && (await apart(s, f)) && s.y + s.height <= c.y && c.y - (s.y + s.height) < 16
       }, { message: `at ${width} px` })
       .toBe(true)
