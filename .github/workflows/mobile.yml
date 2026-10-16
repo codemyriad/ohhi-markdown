@@ -3,7 +3,10 @@
 # and arrive by share link). What each job makes, where it lands, signing and
 # the Mac route: docs/mobile-builds.md.
 #
-# - push to main touching the app, or Run workflow: both jobs, in parallel.
+# - push to the `release` branch, or Run workflow: both jobs, in parallel.
+#   Pushing to main builds nothing here (CI and the web preview deploy still
+#   run), so the macOS minutes, billed at a multiple, are spent only when
+#   someone ships: `git push origin main:release`.
 # - kind `debug` (pushes, and the default): a debug-signed Android APK that
 #   installs on any device, and an unsigned iOS Simulator .app.
 # - kind `release` (Run workflow only): a release APK (unsigned until a
@@ -20,12 +23,18 @@ name: Mobile builds
 
 on:
   push:
-    branches: [main]
+    branches: [release]
+    # The desktop release's filter: everything builds except the docs, root
+    # *.md and .claude/ — but docs/guide/** is re-included: the web app embeds
+    # the guide pages, so a guide-only push must rebuild it. Order matters: a
+    # later pattern overrides an earlier one. Not '!**/*.md': apps/web bundles
+    # templates/*.md.
     paths:
-      - 'apps/desktop/**'
-      - 'apps/web/**'
-      - 'libs/**'
-      - '.github/workflows/mobile.yml'
+      - '**'
+      - '!docs/**'
+      - '!*.md'
+      - '!.claude/**'
+      - 'docs/guide/**'
   workflow_dispatch:
     inputs:
       kind:

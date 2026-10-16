@@ -190,7 +190,8 @@ rewrites that file from the config and drops it.
   through the Play Store; what was checked here was checked on 128.
 - **Debug APKs only.** No release keystore, no store listing; CI
   (`mobile.yml`, [mobile-builds.md](mobile-builds.md)) makes an arm64 debug
-  APK on every app push to `main`.
+  APK when a release ships (a push to `release`) or by hand with *Run
+  workflow*; `main` runs CI and a preview deploy only.
 - **`gen/android` is behind the CLI's template.** The project was generated
   by `@tauri-apps/cli` 2.11 (Gradle 8.14.3, AGP 8.11, Kotlin 1.9.25,
   compileSdk 36, `Theme.MaterialComponents`); the 2.12.3 CLI's `tauri android

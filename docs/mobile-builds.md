@@ -5,8 +5,9 @@ date: 2026-10-16
 
 # Mobile builds
 
-How the Android and iOS apps are built: in CI on every app push to `main`,
-and by hand on a Mac for iOS. Workflow:
+How the Android and iOS apps are built: in CI when a release ships (a push
+to `release`) or by hand with *Run workflow*, and by hand on a Mac for iOS.
+`main` runs CI and a preview deploy only. Workflow:
 [`.github/workflows/mobile.yml`](../.github/workflows/mobile.yml). The local
 Android toolchain (SDK, NDK, emulator, `tauri android dev`) is in
 [mobile-android.md](mobile-android.md).
@@ -32,8 +33,11 @@ from iOS 26, so iOS 26.0 is the minimum.
 
 ## How CI builds them
 
-**Every push to `main` that touches `apps/desktop/**`, `apps/web/**`,
-`libs/**` or the workflow builds both apps** (kind `debug`). Actions →
+**Every push to the `release` branch builds both apps** (kind `debug`), with
+the desktop release's path filter: anything but the docs (bar
+`docs/guide/**`), root `*.md` and `.claude/`. A push to `main` builds nothing
+here; it runs CI and a preview deploy only, so the macOS minutes are spent
+only when someone ships (`git push origin main:release`). Actions →
 **Mobile builds** → *Run workflow* builds on demand and asks for the kind:
 
 - **`debug`** (pushes, and the default): a debug-signed arm64 Android APK
@@ -61,9 +65,8 @@ phone, and a quarter of the time and disk of the universal APK, whose debug
 symbols overflowed a hosted runner on the first run) and four times for
 `release` (one per ABI, the universal APK) on Linux minutes; the iOS job
 compiles once for the Simulator (3 minutes on 2026-10-16; twice for `release`
-with secrets) on macOS minutes, billed at a multiple. If
-the budget bites, drop the push trigger to a path filter on
-`apps/desktop/**` or a nightly schedule.
+with secrets) on macOS minutes, billed at a multiple, which is why the
+builds wait for a push to `release` rather than run on every push to `main`.
 
 ### What lands where
 
@@ -142,14 +145,16 @@ CI already takes current stable.
 The Linux dev machine cannot build iOS. A Mac with Xcode can, without any
 admin rights: everything goes into your home, nothing into Homebrew.
 
-**The Mac in use:** a colleague's Mac mini, `chris@10.0.0.1` (Tailscale
-name `mac-mini.example-tailnet.ts.net`; the short name does not resolve from
-the Linux machine, so use the IP). SSH key auth works non-interactively
-(`ssh -o BatchMode=yes chris@10.0.0.1`). macOS 27.0.1, Xcode 27.0
-(27A266a), iOS 27 Simulators (iPhone 17 and others). The connection is
-relayed, so keep transfers small.
+**The Mac:** any Mac with Xcode, reached over SSH, with the toolchain in
+your home. The team's own machine is named in the team's private notes, not
+here. The commands below take its SSH destination from `MAC`
+(`MAC=you@your-mac`); set up key auth so it works non-interactively (`ssh -o
+BatchMode=yes "$MAC" true` succeeds without a prompt). The setup was
+verified with macOS 27.0.1, Xcode 27.0 (27A266a) and iOS 27 Simulators
+(iPhone 17 and others). If the connection is relayed (a VPN or mesh network
+without a direct path), keep transfers small.
 
-### One-time setup (in `~`, already done on that Mac)
+### One-time setup (in `~`, once per Mac)
 
 | What | Where | How |
 | --- | --- | --- |
@@ -164,15 +169,18 @@ and says what is missing.
 
 ### Each build
 
-The repo is private and the Mac has no GitHub key, so do not clone: copy your
-working tree over with rsync (one directory, re-synced after each change).
+Do not clone on the Mac (it needs no GitHub key, and the build should be of
+your working tree): copy the tree over with rsync (one directory, re-synced
+after each change).
 
 ```sh
-# from the Linux checkout (or worktree)
-rsync -az --delete --exclude node_modules --exclude common/temp --exclude target \
-  --exclude dist --exclude .git --exclude gen/apple/build ./ chris@10.0.0.1:ohhi-ios/
+# from the Linux checkout (or worktree); the Mac's SSH destination, once per shell
+MAC=you@your-mac
 
-ssh chris@10.0.0.1 'cd ~/ohhi-ios && source scripts/mac-ios-env.sh &&
+rsync -az --delete --exclude node_modules --exclude common/temp --exclude target \
+  --exclude dist --exclude .git --exclude gen/apple/build ./ $MAC:ohhi-ios/
+
+ssh "$MAC" 'cd ~/ohhi-ios && source scripts/mac-ios-env.sh &&
   rush install &&
   (cd apps/web && rushx build) &&
   cd apps/desktop &&
@@ -189,24 +197,24 @@ Simulator with no Apple account; drop `--debug` for a release build.
 Run it in a Simulator, headless:
 
 ```sh
-ssh chris@10.0.0.1 '
+ssh "$MAC" '
   xcrun simctl boot "iPhone 17"; xcrun simctl bootstatus "iPhone 17" -b
   xcrun simctl install booted ~/ohhi-ios/apps/desktop/src-tauri/gen/apple/build/arm64-sim/ohhi.app
   xcrun simctl launch booted md.ohhi
   xcrun simctl io booted screenshot ~/ohhi-shots/app.png'
-rsync -az chris@10.0.0.1:ohhi-shots/ ./shots/
+rsync -az $MAC:ohhi-shots/ ./shots/
 ```
 
 `simctl` cannot tap or type. To drive the app (tap a label, type into the
 editor, dump the accessibility tree) a small XCUITest runner that attaches to
 `md.ohhi` by bundle id works headless; one lives outside the repo at
-`~/ohhi-uitest` on that Mac (`drive.sh "tapcontains:Start a vault;type:Notes;tap:Create vault"`).
+`~/ohhi-uitest` on the Mac (`drive.sh "tapcontains:Start a vault;type:Notes;tap:Create vault"`).
 
 After regenerating `gen/apple` there, copy it back and commit it:
 
 ```sh
 rsync -az --exclude build --exclude Externals --exclude xcuserdata --exclude .tauri \
-  chris@10.0.0.1:ohhi-ios/apps/desktop/src-tauri/gen/apple/ apps/desktop/src-tauri/gen/apple/
+  $MAC:ohhi-ios/apps/desktop/src-tauri/gen/apple/ apps/desktop/src-tauri/gen/apple/
 ```
 
 **A device build** (your own iPhone, not the Simulator) needs an Apple
