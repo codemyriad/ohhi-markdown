@@ -15,8 +15,12 @@ const common = {
    * The wordmark as the landing site draws it (`apps/site` `Base.astro`):
    * "Oh Hi" as ink on the highlighter, the voice dropping on "markdown" with
    * its "mark" leaning (the real 400 italic). The parts read as `app_name`
-   * together; the splash is the first surface in the app to draw it (Chris,
-   * 2026-10-16: "only there for now").
+   * together, and `apps/web` draws them only through `ui/Wordmark`. First
+   * the splash alone; since Chris, 2026-10-16, evening (after a first outside
+   * user tried the app) the chrome too: the vault manager's header and list,
+   * the welcome heading, the Settings page header, Settings › About and the
+   * join page's brand line. Window titles, aria strings, toasts and messages
+   * keep `app_name` as plain text.
    */
   wordmark: {
     hi: 'Oh Hi',

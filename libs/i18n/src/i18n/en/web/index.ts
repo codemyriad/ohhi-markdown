@@ -1085,9 +1085,9 @@ const manager = {
   your_vaults: 'Your vaults',
   no_vaults: 'No vaults yet. Add a folder, link a device, or add a shared folder to get started.',
   // ---- the welcome: the manager with no vault registered (first-run A1) ----
+  // The welcome's heading is the wordmark (`common.wordmark`, `ui/Wordmark`), not a key of its own.
   welcome: {
-    title: 'Oh Hi.',
-    lede: 'Your notes stay plain markdown files, and the app never holds the only copy. Pick how you want to start.',
+    lede: 'A markdown editor for personal and collaborative notes.',
     doors: 'Ways to start',
     folder: 'Open a folder of notes',
     folder_hint:
@@ -1933,7 +1933,8 @@ const share = {
  * is valid.
  */
 const join_page = {
-  brand: 'Oh Hi markdown · a folder shared with you',
+  /** After the wordmark (`ui/Wordmark`) on the page's brand line: "Oh Hi *mark*down · a folder shared with you". */
+  brand_suffix: '· a folder shared with you',
   heading_from: '{from:string} shared {label:string} with you',
   heading_anon: 'Someone shared {label:string} with you',
   a_folder: 'a folder',

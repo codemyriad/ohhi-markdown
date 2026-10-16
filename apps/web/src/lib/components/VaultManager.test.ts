@@ -86,7 +86,15 @@ function setup(over: Partial<ComponentProps<typeof VaultManager>> = {}) {
 describe('the welcome (no vault registered)', () => {
   it('says hello in one sentence and offers the browser doors — and never asks for a name', () => {
     setup()
-    expect(screen.getByRole('heading', { level: 1, name: w.title() })).toBeTruthy()
+    // The greeting is the product's name: the wordmark as the h1, read whole, no full stop.
+    const heading = screen.getByRole('heading', { level: 1, name: LL.common.app_name() })
+    expect(heading).toBe(screen.getByTestId('welcome-heading'))
+    expect(heading.querySelector('.ed-wordmark-hi')).toHaveTextContent(LL.common.wordmark.hi())
+    expect(heading.querySelector('em.ed-wordmark-mark')).toHaveTextContent(LL.common.wordmark.mark())
+    // The header's brand is the wordmark too, named as one word sequence.
+    expect(within(screen.getByRole('banner')).getByRole('img', { name: LL.common.app_name() })).toBe(
+      screen.getByTestId('manager-wordmark'),
+    )
     expect(screen.getByText(w.lede())).toBeTruthy()
     const doors = within(screen.getByRole('list', { name: w.doors() }))
     expect(doors.getByTestId('start-browser-vault').textContent).toContain(w.browser())
@@ -238,6 +246,8 @@ describe('the list (vaults registered)', () => {
       vaults: [disk, browser],
       facts: { 'room-disk': { sharedByYou: 2, sharedWithYou: 1 }, 'room-web': null },
     })
+    // The list is branded by the wordmark above its heading.
+    expect(screen.getByRole('img', { name: LL.common.app_name() })).toBe(screen.getByTestId('manager-wordmark'))
     expect(screen.getByRole('heading', { level: 1, name: l.title() })).toBeTruthy()
     const row = screen.getByTestId('open-vault:room-disk')
     expect(row.textContent).toContain('/home/chris/Notes')

@@ -8,6 +8,7 @@
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { SettingsSection } from '../settings.js'
   import type { SettingsHost } from '../settings-host.js'
+  import Wordmark from '../ui/Wordmark.svelte'
   import Settings from './Settings.svelte'
 
   interface Props {
@@ -26,7 +27,7 @@
 
 <div class="flex min-h-full flex-col bg-base-100 text-base-content" data-testid="settings-page">
   <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
-    <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
+    <Wordmark testid="settings-page-wordmark" />
     <button type="button" data-testid="settings-page-back" onclick={onBack} class={chrome}>
       {$LL.web.settings.page.back()}
     </button>

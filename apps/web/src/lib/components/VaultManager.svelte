@@ -3,7 +3,8 @@
    * The vault manager (first-run A1/B1, superseding shell-polish P4's two
    * columns). Two states of one screen:
    *
-   *  - **the welcome** — no vault registered: "Oh Hi.", one sentence and the
+   *  - **the welcome** — no vault registered: the wordmark as its heading
+   *    (`ui/Wordmark`, "Oh Hi *mark*down"), one sentence and the
    *    doors worded as the thing you have (a folder of notes / a vault in
    *    this browser, a folder someone shared, your vault on another device);
    *  - **the list** — one row per vault with what it is (kind, where, when
@@ -49,6 +50,7 @@
   import MenuSeparator from '../ui/MenuSeparator.svelte'
   import Popover from '../ui/Popover.svelte'
   import TextControl from '../ui/TextControl.svelte'
+  import Wordmark from '../ui/Wordmark.svelte'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
   import DesktopDownload from './DesktopDownload.svelte'
   import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
@@ -373,7 +375,7 @@
   <!-- ======================= the welcome (A1) ======================= -->
   <div class="flex min-h-full flex-col text-base-content">
     <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
-      <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
+      <Wordmark testid="manager-wordmark" />
       <div class="flex items-center gap-1">
         {#if appVersion}
           <span data-testid="manager-version" class="mr-2 text-xs text-base-content/70">
@@ -390,7 +392,8 @@
 
     <main class="mx-auto w-full max-w-[560px] flex-1 px-4 py-12 sm:py-16" data-testid="manager-welcome">
       {@render topError()}
-      <h1 class="mt-4 text-3xl font-semibold">{w.title()}</h1>
+      <!-- The product's name is the greeting (Chris, 2026-10-16): the wordmark, no full stop. -->
+      <Wordmark as="h1" size="title" class="mt-4" testid="welcome-heading" />
       <p class="mt-2 text-sm text-base-content/80">{w.lede()}</p>
 
       <ul aria-label={w.doors()} class="mt-8 flex flex-col divide-y divide-base-300 {CARD}">
@@ -492,6 +495,7 @@
 {:else}
   <!-- ======================= the list (B1) ======================= -->
   <main class="mx-auto min-h-full w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
+    <Wordmark as="p" class="mb-3" testid="manager-wordmark" />
     <header class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{l.title()}</h1>
       <div class="flex items-center gap-2">

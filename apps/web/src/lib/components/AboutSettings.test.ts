@@ -26,6 +26,11 @@ describe('AboutSettings, how it updates', () => {
     expect(screen.queryByText(t.web_updates())).toBeNull()
   })
 
+  it('opens on the wordmark, named as the app', () => {
+    render(AboutSettings, { desktop: true, mobile: false })
+    expect(screen.getByRole('img', { name: getLL().common.app_name() })).toBe(screen.getByTestId('settings-about-wordmark'))
+  })
+
   it('the desktop adds no line of its own', () => {
     render(AboutSettings, { desktop: true, mobile: false })
     expect(screen.queryByText(t.web_updates())).toBeNull()
