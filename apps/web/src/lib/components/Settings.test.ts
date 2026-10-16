@@ -443,6 +443,25 @@ describe('Settings › Sync & devices (first-run D1/D2, R10)', () => {
     expect(screen.getByTestId('settings-storage')).toBeVisible()
   })
 
+  it('the phone app: its own storage, said plainly — no "Checking…", no ask, no desktop advice', async () => {
+    const internals = Object.getOwnPropertyDescriptor(window, '__TAURI_INTERNALS__')
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
+    const ua = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 16; wv) Mobile')
+    try {
+      const st = getLL().web.storage
+      await openSync({ desktop: false })
+      const section = screen.getByTestId('settings-storage')
+      expect(section).toHaveTextContent(st.settings.phone_heading())
+      expect(screen.getByTestId('settings-storage-status')).toHaveTextContent(st.settings.phone_status())
+      expect(section).not.toHaveTextContent(st.advice())
+      expect(screen.queryByTestId('settings-storage-keep')).toBeNull()
+    } finally {
+      ua.mockRestore()
+      if (internals) Object.defineProperty(window, '__TAURI_INTERNALS__', internals)
+      else delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+    }
+  })
+
   it('the desktop keeps real files: no browser-storage section', async () => {
     await openSync({ desktop: true })
     expect(screen.queryByTestId('settings-storage')).toBeNull()

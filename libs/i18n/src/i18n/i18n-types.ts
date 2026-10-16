@@ -3002,6 +3002,14 @@ export type NamespaceWebTranslation = {
 			 */
 			browser_hint: string
 			/**
+			 * S​t​a​r​t​ ​a​ ​v​a​u​l​t​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e
+			 */
+			phone: string
+			/**
+			 * K​e​p​t​ ​i​n​ ​t​h​e​ ​a​p​p​'​s​ ​o​w​n​ ​s​t​o​r​a​g​e​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e​ ​u​n​t​i​l​ ​y​o​u​ ​u​n​i​n​s​t​a​l​l​ ​t​h​e​ ​a​p​p​ ​o​r​ ​c​l​e​a​r​ ​i​t​s​ ​d​a​t​a​.​ ​G​o​o​d​ ​f​o​r​ ​t​e​a​m​ ​f​o​l​d​e​r​s​ ​a​n​d​ ​n​o​t​e​s​ ​o​n​ ​t​h​e​ ​g​o​;​ ​a​ ​f​o​l​d​e​r​ ​o​f​ ​f​i​l​e​s​ ​n​e​e​d​s​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​.
+			 */
+			phone_hint: string
+			/**
 			 * A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
 			 */
 			shared: string
@@ -3068,6 +3076,14 @@ export type NamespaceWebTranslation = {
 			 */
 			new_browser_title: string
 			/**
+			 * N​e​w​ ​v​a​u​l​t​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e​…
+			 */
+			add_phone: string
+			/**
+			 * N​e​w​ ​v​a​u​l​t​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e
+			 */
+			new_phone_title: string
+			/**
 			 * o​p​e​n​ ​n​o​w
 			 */
 			open_now: string
@@ -3088,6 +3104,10 @@ export type NamespaceWebTranslation = {
 			 * i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
 			 */
 			in_browser: string
+			/**
+			 * o​n​ ​t​h​i​s​ ​p​h​o​n​e
+			 */
+			in_phone: string
 			/**
 			 * t​h​i​s​ ​s​i​t​e​ ​u​s​e​s​ ​{​u​s​e​d​}
 			 * @param {string} used
@@ -3422,6 +3442,20 @@ export type NamespaceWebTranslation = {
 			 * R​e​m​i​n​d​ ​m​e​ ​a​b​o​u​t​ ​t​h​i​s
 			 */
 			remind: string
+			/**
+			 * S​t​o​r​a​g​e​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e
+			 */
+			phone_heading: string
+			/**
+			 * K​e​p​t​ ​i​n​ ​t​h​e​ ​a​p​p​'​s​ ​o​w​n​ ​s​t​o​r​a​g​e​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e​ ​u​n​t​i​l​ ​y​o​u​ ​u​n​i​n​s​t​a​l​l​ ​t​h​e​ ​a​p​p​ ​o​r​ ​c​l​e​a​r​ ​i​t​s​ ​d​a​t​a​.
+			 */
+			phone_status: string
+			/**
+			 * U​s​i​n​g​ ​{​u​s​e​d​}​ ​o​f​ ​t​h​e​ ​{​q​u​o​t​a​}​ ​t​h​e​ ​a​p​p​ ​m​a​y​ ​u​s​e​.
+			 * @param {string} quota
+			 * @param {string} used
+			 */
+			phone_usage: RequiredParams<'quota' | 'used'>
 		}
 	}
 	downloads: {
@@ -4880,6 +4914,10 @@ export type NamespaceWebTranslation = {
 			 * T​h​i​s​ ​w​e​b​ ​a​p​p​ ​u​p​d​a​t​e​s​ ​w​h​e​n​ ​t​h​e​ ​p​a​g​e​ ​i​s​ ​r​e​l​o​a​d​e​d​.
 			 */
 			web_updates: string
+			/**
+			 * T​h​i​s​ ​p​h​o​n​e​ ​a​p​p​ ​d​o​e​s​ ​n​o​t​ ​u​p​d​a​t​e​ ​i​t​s​e​l​f​ ​y​e​t​:​ ​i​n​s​t​a​l​l​ ​t​h​e​ ​n​e​w​e​r​ ​b​u​i​l​d​ ​w​h​e​n​ ​t​h​e​r​e​ ​i​s​ ​o​n​e​.
+			 */
+			phone_updates: string
 			/**
 			 * G​u​i​d​e​s
 			 */
@@ -11911,6 +11949,14 @@ export type TranslationFunctions = {
 				 */
 				browser_hint: () => LocalizedString
 				/**
+				 * Start a vault on this phone
+				 */
+				phone: () => LocalizedString
+				/**
+				 * Kept in the app's own storage on this phone until you uninstall the app or clear its data. Good for team folders and notes on the go; a folder of files needs the desktop app.
+				 */
+				phone_hint: () => LocalizedString
+				/**
 				 * Add a folder someone shared with you
 				 */
 				shared: () => LocalizedString
@@ -11977,6 +12023,14 @@ export type TranslationFunctions = {
 				 */
 				new_browser_title: () => LocalizedString
 				/**
+				 * New vault on this phone…
+				 */
+				add_phone: () => LocalizedString
+				/**
+				 * New vault on this phone
+				 */
+				new_phone_title: () => LocalizedString
+				/**
 				 * open now
 				 */
 				open_now: () => LocalizedString
@@ -11996,6 +12050,10 @@ export type TranslationFunctions = {
 				 * in this browser
 				 */
 				in_browser: () => LocalizedString
+				/**
+				 * on this phone
+				 */
+				in_phone: () => LocalizedString
 				/**
 				 * this site uses {used}
 				 */
@@ -12314,6 +12372,18 @@ export type TranslationFunctions = {
 				 * Remind me about this
 				 */
 				remind: () => LocalizedString
+				/**
+				 * Storage on this phone
+				 */
+				phone_heading: () => LocalizedString
+				/**
+				 * Kept in the app's own storage on this phone until you uninstall the app or clear its data.
+				 */
+				phone_status: () => LocalizedString
+				/**
+				 * Using {used} of the {quota} the app may use.
+				 */
+				phone_usage: (arg: { quota: string, used: string }) => LocalizedString
 			}
 		}
 		downloads: {
@@ -13690,6 +13760,10 @@ export type TranslationFunctions = {
 				 * This web app updates when the page is reloaded.
 				 */
 				web_updates: () => LocalizedString
+				/**
+				 * This phone app does not update itself yet: install the newer build when there is one.
+				 */
+				phone_updates: () => LocalizedString
 				/**
 				 * Guides
 				 */

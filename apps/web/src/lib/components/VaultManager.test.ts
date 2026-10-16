@@ -110,6 +110,23 @@ describe('the welcome (no vault registered)', () => {
     expect(screen.queryByTestId('start-browser-vault')).toBeNull()
   })
 
+  it('on a phone (the Tauri app, mobile) the browser door says "this phone", and there is no folder door', async () => {
+    // App passes isTauri={isDesktop()}: false on a phone.
+    const { props, user } = setup({ isTauri: false, isMobile: true, defaultUser: '' })
+    expect(screen.queryByTestId('open-folder')).toBeNull()
+    const door = screen.getByTestId('start-browser-vault')
+    expect(door.textContent).toContain(w.phone())
+    expect(door.textContent).toContain(w.phone_hint())
+    expect(door.textContent).not.toContain(w.browser())
+    await user.click(door)
+    await user.type(screen.getByTestId('new-vault-name'), 'Pocket')
+    await user.click(screen.getByTestId('create-vault'))
+    expect(props.onCreateBrowserVault).toHaveBeenCalledWith('', 'Pocket')
+    // Joining and linking a device stay, as in a browser.
+    expect(screen.getByTestId('join-share')).toBeTruthy()
+    expect(screen.getByTestId('open-link-device')).toBeTruthy()
+  })
+
   it('the browser door asks for the vault\'s name in the row, then creates it', async () => {
     const { props, user } = setup({ defaultUser: '' })
     expect(screen.queryByTestId('new-vault-name')).toBeNull()
@@ -232,6 +249,14 @@ describe('the list (vaults registered)', () => {
     // Unreadable is "—", never "nothing shared".
     expect(within(screen.getByTestId('vault-facts:room-web')).getByRole('img', { name: l.facts_unknown() })).toBeTruthy()
     expect(props.onLoadFacts).toHaveBeenCalled()
+  })
+
+  it('on a phone a browser vault\'s row says "on this phone", and Add offers a new vault there', async () => {
+    const { user } = setup({ vaults: [browser], isMobile: true })
+    expect(screen.getByTestId('open-vault:room-web').textContent).toContain(l.in_phone())
+    await user.click(screen.getByTestId('manager-add'))
+    expect((await screen.findByTestId('add-browser-vault')).textContent).toContain(l.add_phone())
+    expect(screen.queryByTestId('open-folder')).toBeNull()
   })
 
   it('an empty table says nothing shared; the vault open behind is marked, with its live facts', () => {

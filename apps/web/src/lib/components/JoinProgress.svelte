@@ -56,7 +56,7 @@
 
 <main
   data-testid="join-progress"
-  class="flex h-screen flex-col items-center justify-center gap-4 bg-base-100 px-6 text-base-content"
+  class="flex h-full flex-col items-center justify-center gap-4 bg-base-100 px-6 text-base-content"
 >
   <div class="w-full max-w-md space-y-3">
     <h1 class="text-lg font-semibold">{title}</h1>

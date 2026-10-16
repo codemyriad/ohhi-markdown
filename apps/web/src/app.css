@@ -6,3 +6,30 @@
  * build — no error, just unstyled DOM. */
 @source "../../../libs/ui/src";
 @source "../../../libs/editor/src";
+
+/* Phones (docs/mobile-android.md, docs/mobile-builds.md). index.html asks for
+ * `viewport-fit=cover`, so on iOS the page runs under the status bar and the
+ * home indicator: the body keeps the shell inside the safe area, and every
+ * page fills #app rather than the raw viewport (`h-full`, not `h-screen`).
+ * Everywhere else the insets are 0: a desktop, a browser tab, and the
+ * Android app, whose MainActivity already pads the webview natively. */
+@layer base {
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+  #app {
+    height: 100%;
+  }
+}
+
+/* iOS zooms the page into any focused field whose text is under 16px, and
+ * leaves it zoomed and panned. On a touch screen a field's text is at least
+ * 16px. Unlayered on purpose: it must beat the fields' own `text-sm`. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}

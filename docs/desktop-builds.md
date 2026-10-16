@@ -173,11 +173,23 @@ sha256sum -c SHA256SUMS.txt --ignore-missing      # macOS: shasum -a 256 -c SHA2
 Since macOS 15 Sequoia, Control-click → Open no longer bypasses Gatekeeper for
 an app that isn't notarized.
 
-App data lives under the app identifier (`md.ohhi.desktop`):
-`~/Library/Application Support/md.ohhi.desktop` on macOS and
-`~/.local/share/md.ohhi.desktop` on Linux. Your vault stays wherever you picked
-it. A desktop app from a build before the rename (identifier `dev.chris.editor`)
-kept its state elsewhere, so it starts with fresh sync state; files are untouched.
+App data lives under the app identifier (`md.ohhi`, the same on every target):
+`~/Library/Application Support/md.ohhi` on macOS and `~/.local/share/md.ohhi`
+on Linux; on macOS the webview's own storage (the vault list, relay tokens) is
+in `~/Library/WebKit/md.ohhi`. Your vault stays wherever you picked it.
+
+- **From `md.ohhi.desktop` (builds before 2026-10-16):** on its first launch a
+  build with the new identifier copies each old folder (`…/md.ohhi.desktop`,
+  and `~/Library/WebKit/md.ohhi.desktop` on macOS) to the new name, when the
+  new one is missing or empty, before anything reads it
+  (`apps/desktop/src-tauri/src/app_id_migration.rs`; one log line per folder
+  copied). Vault list, sync state, journal and folder grants carry over; the
+  old folder is kept untouched, so delete it yourself once the app has opened
+  your vaults. A failed copy leaves the new folder absent and is retried on
+  the next launch. Updates are unaffected: the AppImage and the macOS app
+  replace themselves where they are, and the `.deb` package is still `ohhi`.
+- **From `dev.chris.editor` (older still):** not migrated; that app starts with
+  fresh sync state, and files are untouched.
 
 **Filesystem access** is the app's own data plus the folders you picked
 (`apps/desktop/src-tauri/capabilities/default.json`). Picking a vault folder in

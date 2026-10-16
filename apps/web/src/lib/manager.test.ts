@@ -166,6 +166,30 @@ describe('createManager', () => {
     expect(session.booted[0]!.name).toBe('Team notes')
   })
 
+  it('joinShare on a phone (Tauri, mobile): no picker, an OPFS vault keyed by the room, as in a browser', async () => {
+    host.isMobile = () => true
+    const pick = vi.fn(host.pickFolder)
+    host.pickFolder = pick
+    await manager.joinShare('chris', FOLDER_LINK)
+    expect(pick).not.toHaveBeenCalled()
+    expect(session.booted[0]!.vault).toEqual({ kind: 'opfs', id: ROOM })
+    expect(session.joining?.kind).toBe('folder')
+  })
+
+  it('linkThisDevice on a phone: no picker and no empty-folder check, a fresh private OPFS vault', async () => {
+    host.isMobile = () => true
+    const pick = vi.fn(host.pickFolder)
+    host.pickFolder = pick
+    empty = false // there is no folder to be non-empty
+    await manager.linkThisDevice(DEVICE_LINK)
+    expect(pick).not.toHaveBeenCalled()
+    const vault = getVault(ROOM)?.vault
+    expect(vault?.kind).toBe('opfs')
+    expect(vault?.kind === 'opfs' && vault.id).not.toBe(ROOM)
+    expect(roomTokenKind(ROOM)).toBe('device')
+    expect(linked).toBe(1)
+  })
+
   it('a device link pasted into Join takes the device path', async () => {
     await manager.joinShare('chris', DEVICE_LINK)
     expect(session.booted[0]!.room).toBe(ROOM)

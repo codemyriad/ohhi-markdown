@@ -1090,6 +1090,10 @@ const manager = {
     browser: 'Start a vault in this browser',
     browser_hint:
       "Kept in this browser's private storage, which it may clear. Good for trying things out and for team folders; keep your own notes in the desktop app.",
+    /** The phone app (docs/mobile-android.md): the same vault, in the app's own storage. */
+    phone: 'Start a vault on this phone',
+    phone_hint:
+      "Kept in the app's own storage on this phone until you uninstall the app or clear its data. Good for team folders and notes on the go; a folder of files needs the desktop app.",
     shared: 'Add a folder someone shared with you',
     shared_hint: 'Paste the link they sent. The folder stays in step with theirs, live, and the rest of your notes stay yours.',
     device: 'Bring your vault from another device',
@@ -1111,11 +1115,14 @@ const manager = {
     add_device: 'Bring a vault from another device…',
     add_import: 'Import from another app…',
     new_browser_title: 'New vault in this browser',
+    add_phone: 'New vault on this phone…',
+    new_phone_title: 'New vault on this phone',
     open_now: 'open now',
     opened_today: 'opened today',
     opened_yesterday: 'opened yesterday',
     opened_on: 'opened {date:string}',
     in_browser: 'in this browser',
+    in_phone: 'on this phone',
     site_usage: 'this site uses {used:string}',
     storage_kept: 'the browser has promised to keep it',
     storage_may_clear: 'the browser may clear it',
@@ -1243,6 +1250,10 @@ const storage = {
     unsupported: "Not guaranteed — this browser can't be asked to keep this site's storage.",
     usage: 'Using {used:string} of the {quota:string} this browser allows.',
     remind: 'Remind me about this',
+    /** The phone app (docs/mobile-android.md): the app's own storage, which nothing can be asked to keep. */
+    phone_heading: 'Storage on this phone',
+    phone_status: "Kept in the app's own storage on this phone until you uninstall the app or clear its data.",
+    phone_usage: 'Using {used:string} of the {quota:string} the app may use.',
   },
 }
 
@@ -1724,6 +1735,8 @@ const settings = {
     lede: 'The version you are running, how it updates, and the guides.',
     updates: 'Updates',
     web_updates: 'This web app updates when the page is reloaded.',
+    /** The phone app (docs/mobile-android.md): no updater yet. */
+    phone_updates: 'This phone app does not update itself yet: install the newer build when there is one.',
     guides: 'Guides',
     guide_import: 'Bringing notes in from another app',
     guide_relay: 'Running your own relay',
