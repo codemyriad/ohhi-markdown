@@ -26,7 +26,6 @@ android {
     }
     buildTypes {
         getByName("debug") {
-            // A debug build installs beside a store build (md.ohhi.debug).
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
             isJniDebuggable = true
