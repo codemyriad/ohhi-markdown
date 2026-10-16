@@ -360,6 +360,7 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `view.focus`
 - `template.insert`
 - `layout.use-file`
+- `app.desktop-download`
 - `help.menu`
 - `help.start`
 - `help.shortcuts`

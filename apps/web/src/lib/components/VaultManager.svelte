@@ -50,6 +50,7 @@
   import Popover from '../ui/Popover.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import { CARD, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
+  import DesktopDownload from './DesktopDownload.svelte'
   import AddSharedFolderDialog from './AddSharedFolderDialog.svelte'
   import HelpMenu from './HelpMenu.svelte'
   import ImportDialog from './ImportDialog.svelte'
@@ -541,6 +542,7 @@
           {#if storageNote.outcome !== 'granted'}
             <p class="mt-1.5 text-xs text-base-content/70">{st.body()}</p>
             <p class="mt-1 text-xs text-base-content/70">{st.advice()}</p>
+            <div class="mt-1 text-xs"><DesktopDownload variant="line" /></div>
           {/if}
           <p role="status" data-testid="storage-note-outcome" class="text-xs {storageNote.outcome ? 'mt-2' : ''}">
             {storageNote.outcome === 'granted'

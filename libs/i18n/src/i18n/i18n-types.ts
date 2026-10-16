@@ -1930,6 +1930,10 @@ export type NamespaceWebTranslation = {
 		 */
 		reload_resources: string
 		/**
+		 * G​e​t​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p
+		 */
+		desktop_download: string
+		/**
 		 * I​n​s​e​r​t​ ​t​e​m​p​l​a​t​e​…
 		 */
 		template_insert: string
@@ -3419,6 +3423,121 @@ export type NamespaceWebTranslation = {
 			 */
 			remind: string
 		}
+	}
+	downloads: {
+		/**
+		 * D​e​s​k​t​o​p​ ​a​p​p
+		 */
+		heading: string
+		/**
+		 * F​o​r​ ​y​o​u​r​ ​o​w​n​ ​n​o​t​e​s​:​ ​t​h​e​y​ ​s​t​a​y​ ​a​s​ ​f​i​l​e​s​ ​o​n​ ​y​o​u​r​ ​d​i​s​k​,​ ​a​n​d​ ​t​h​e​ ​a​p​p​ ​u​p​d​a​t​e​s​ ​i​t​s​e​l​f​.
+		 */
+		lede: string
+		/**
+		 * D​o​w​n​l​o​a​d​ ​f​o​r​ ​{​o​s​}
+		 * @param {string} os
+		 */
+		for_os: RequiredParams<'os'>
+		/**
+		 * {​n​a​m​e​}​ ​·​ ​{​s​i​z​e​}​ ​·​ ​v​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
+		 * @param {string} name
+		 * @param {string} size
+		 * @param {string} version
+		 */
+		meta: RequiredParams<'name' | 'size' | 'version'>
+		/**
+		 * {​n​a​m​e​}​ ​·​ ​v​e​r​s​i​o​n​ ​{​v​e​r​s​i​o​n​}
+		 * @param {string} name
+		 * @param {string} version
+		 */
+		meta_unsized: RequiredParams<'name' | 'version'>
+		/**
+		 * L​o​o​k​i​n​g​ ​f​o​r​ ​t​h​e​ ​n​e​w​e​s​t​ ​b​u​i​l​d​…
+		 */
+		loading: string
+		/**
+		 * T​h​e​ ​l​i​s​t​ ​o​f​ ​d​o​w​n​l​o​a​d​s​ ​d​i​d​n​’​t​ ​l​o​a​d​.​ ​T​h​e​ ​g​e​t​t​i​n​g​-​s​t​a​r​t​e​d​ ​g​u​i​d​e​ ​s​a​y​s​ ​w​h​e​r​e​ ​t​h​e​ ​b​u​i​l​d​s​ ​a​r​e​.
+		 */
+		failed: string
+		/**
+		 * T​r​y​ ​a​g​a​i​n
+		 */
+		retry: string
+		/**
+		 * I​n​s​t​a​l​l​ ​n​o​t​e​s
+		 */
+		guide: string
+		/**
+		 * T​h​e​r​e​ ​i​s​ ​n​o​ ​d​e​s​k​t​o​p​ ​a​p​p​ ​f​o​r​ ​t​h​i​s​ ​s​y​s​t​e​m​ ​y​e​t​.​ ​T​h​e​s​e​ ​a​r​e​ ​t​h​e​ ​b​u​i​l​d​s​ ​t​h​e​r​e​ ​a​r​e​:
+		 */
+		none_for_os: string
+		/**
+		 * O​t​h​e​r​ ​d​o​w​n​l​o​a​d​s
+		 */
+		others: string
+		os: {
+			/**
+			 * m​a​c​O​S
+			 */
+			macos: string
+			/**
+			 * L​i​n​u​x
+			 */
+			linux: string
+			/**
+			 * A​n​d​r​o​i​d
+			 */
+			android: string
+			/**
+			 * W​i​n​d​o​w​s
+			 */
+			windows: string
+			/**
+			 * i​O​S
+			 */
+			ios: string
+		}
+		kind: {
+			/**
+			 * m​a​c​O​S​ ​i​n​s​t​a​l​l​e​r​ ​(​.​d​m​g​)
+			 */
+			dmg: string
+			/**
+			 * L​i​n​u​x​ ​A​p​p​I​m​a​g​e
+			 */
+			appimage: string
+			/**
+			 * D​e​b​i​a​n​ ​a​n​d​ ​U​b​u​n​t​u​ ​p​a​c​k​a​g​e​ ​(​.​d​e​b​)
+			 */
+			deb: string
+			/**
+			 * A​n​d​r​o​i​d​ ​p​a​c​k​a​g​e​ ​(​.​a​p​k​)
+			 */
+			apk: string
+		}
+		install: {
+			/**
+			 * O​p​e​n​ ​i​t​ ​a​n​d​ ​d​r​a​g​ ​o​h​h​i​ ​i​n​t​o​ ​A​p​p​l​i​c​a​t​i​o​n​s​.​ ​T​h​e​ ​a​p​p​ ​i​s​ ​n​o​t​ ​n​o​t​a​r​i​z​e​d​ ​y​e​t​,​ ​s​o​ ​t​h​e​ ​f​i​r​s​t​ ​l​a​u​n​c​h​ ​n​e​e​d​s​ ​o​n​e​ ​e​x​t​r​a​ ​s​t​e​p​ ​—​ ​t​h​e​ ​i​n​s​t​a​l​l​ ​n​o​t​e​s​ ​s​h​o​w​ ​i​t​.
+			 */
+			dmg: string
+			/**
+			 * M​a​k​e​ ​i​t​ ​e​x​e​c​u​t​a​b​l​e​ ​(​c​h​m​o​d​ ​+​x​)​,​ ​t​h​e​n​ ​r​u​n​ ​i​t​.​ ​I​t​ ​n​e​e​d​s​ ​F​U​S​E​ ​2​:​ ​o​n​ ​U​b​u​n​t​u​ ​2​4​.​0​4​,​ ​s​u​d​o​ ​a​p​t​ ​i​n​s​t​a​l​l​ ​l​i​b​f​u​s​e​2​t​6​4​ ​(​l​i​b​f​u​s​e​2​ ​o​n​ ​2​2​.​0​4​)​.​ ​I​t​ ​u​p​d​a​t​e​s​ ​i​t​s​e​l​f​.
+			 */
+			appimage: string
+			/**
+			 * I​n​s​t​a​l​l​ ​i​t​ ​w​i​t​h​ ​s​u​d​o​ ​a​p​t​ ​i​n​s​t​a​l​l​ ​a​n​d​ ​t​h​e​ ​f​i​l​e​’​s​ ​p​a​t​h​.​ ​I​t​ ​d​o​e​s​n​’​t​ ​a​l​w​a​y​s​ ​u​p​d​a​t​e​ ​i​t​s​e​l​f​,​ ​s​o​ ​p​r​e​f​e​r​ ​t​h​e​ ​A​p​p​I​m​a​g​e​.
+			 */
+			deb: string
+			/**
+			 * O​p​e​n​ ​i​t​,​ ​a​n​d​ ​a​l​l​o​w​ ​i​n​s​t​a​l​l​s​ ​f​r​o​m​ ​y​o​u​r​ ​b​r​o​w​s​e​r​ ​w​h​e​n​ ​A​n​d​r​o​i​d​ ​a​s​k​s​.
+			 */
+			apk: string
+		}
+		/**
+		 * G​e​t​ ​t​h​e​ ​d​e​s​k​t​o​p​ ​a​p​p​ ​f​o​r​ ​{​o​s​}
+		 * @param {string} os
+		 */
+		note_link: RequiredParams<'os'>
 	}
 	settings: {
 		/**
@@ -10795,6 +10914,10 @@ export type TranslationFunctions = {
 			 */
 			reload_resources: () => LocalizedString
 			/**
+			 * Get the desktop app
+			 */
+			desktop_download: () => LocalizedString
+			/**
 			 * Insert template…
 			 */
 			template_insert: () => LocalizedString
@@ -12192,6 +12315,114 @@ export type TranslationFunctions = {
 				 */
 				remind: () => LocalizedString
 			}
+		}
+		downloads: {
+			/**
+			 * Desktop app
+			 */
+			heading: () => LocalizedString
+			/**
+			 * For your own notes: they stay as files on your disk, and the app updates itself.
+			 */
+			lede: () => LocalizedString
+			/**
+			 * Download for {os}
+			 */
+			for_os: (arg: { os: string }) => LocalizedString
+			/**
+			 * {name} · {size} · version {version}
+			 */
+			meta: (arg: { name: string, size: string, version: string }) => LocalizedString
+			/**
+			 * {name} · version {version}
+			 */
+			meta_unsized: (arg: { name: string, version: string }) => LocalizedString
+			/**
+			 * Looking for the newest build…
+			 */
+			loading: () => LocalizedString
+			/**
+			 * The list of downloads didn’t load. The getting-started guide says where the builds are.
+			 */
+			failed: () => LocalizedString
+			/**
+			 * Try again
+			 */
+			retry: () => LocalizedString
+			/**
+			 * Install notes
+			 */
+			guide: () => LocalizedString
+			/**
+			 * There is no desktop app for this system yet. These are the builds there are:
+			 */
+			none_for_os: () => LocalizedString
+			/**
+			 * Other downloads
+			 */
+			others: () => LocalizedString
+			os: {
+				/**
+				 * macOS
+				 */
+				macos: () => LocalizedString
+				/**
+				 * Linux
+				 */
+				linux: () => LocalizedString
+				/**
+				 * Android
+				 */
+				android: () => LocalizedString
+				/**
+				 * Windows
+				 */
+				windows: () => LocalizedString
+				/**
+				 * iOS
+				 */
+				ios: () => LocalizedString
+			}
+			kind: {
+				/**
+				 * macOS installer (.dmg)
+				 */
+				dmg: () => LocalizedString
+				/**
+				 * Linux AppImage
+				 */
+				appimage: () => LocalizedString
+				/**
+				 * Debian and Ubuntu package (.deb)
+				 */
+				deb: () => LocalizedString
+				/**
+				 * Android package (.apk)
+				 */
+				apk: () => LocalizedString
+			}
+			install: {
+				/**
+				 * Open it and drag ohhi into Applications. The app is not notarized yet, so the first launch needs one extra step — the install notes show it.
+				 */
+				dmg: () => LocalizedString
+				/**
+				 * Make it executable (chmod +x), then run it. It needs FUSE 2: on Ubuntu 24.04, sudo apt install libfuse2t64 (libfuse2 on 22.04). It updates itself.
+				 */
+				appimage: () => LocalizedString
+				/**
+				 * Install it with sudo apt install and the file’s path. It doesn’t always update itself, so prefer the AppImage.
+				 */
+				deb: () => LocalizedString
+				/**
+				 * Open it, and allow installs from your browser when Android asks.
+				 */
+				apk: () => LocalizedString
+			}
+			/**
+			 * Get the desktop app for {os}
+			 */
+			note_link: (arg: { os: string }) => LocalizedString
 		}
 		settings: {
 			/**
