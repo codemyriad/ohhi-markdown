@@ -47,7 +47,7 @@
   data-testid="connecting"
   aria-busy="true"
   aria-label={t.label()}
-  class="flex h-screen flex-col items-center justify-center gap-2 bg-base-100 px-4 font-ed-ui text-base-content"
+  class="flex h-full flex-col items-center justify-center gap-2 bg-base-100 px-4 font-ed-ui text-base-content"
 >
   {#if shown}
     <p class="m-0 text-lg font-semibold tracking-tight">{$LL.common.app_name()}</p>

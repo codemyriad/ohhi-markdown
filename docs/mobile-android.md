@@ -29,7 +29,16 @@ listing, release signing or CI build yet.
   keyboard as CSS `env(safe-area-inset-*)`. So `MainActivity.kt` pads the
   webview by the system bars, the display cutout and the keyboard (IME): the
   shell's top bar sits below the clock, and a note being typed stays above
-  the keyboard.
+  the keyboard. (iOS gets the same from the web side: `viewport-fit=cover` in
+  `index.html` and the body padded by `env(safe-area-inset-*)` in
+  `apps/web/src/app.css`; on Android those insets are 0, because the native
+  padding already applied.)
+- **No zoom on a field.** On a touch screen a text field's font is at least
+  16px (`app.css`), the size below which iOS zooms the page into a focused
+  field and leaves it panned. Android does not zoom, but gets the same sizes.
+- **No storage nag.** Settings › Sync & devices says "Storage on this phone"
+  and how much the app uses; the browser's "may clear this site's storage"
+  reminder and its "use the desktop app" advice never show in the phone app.
 
 How the web app knows: `isMobile()` in `apps/web/src/lib/platform.ts` is
 Tauri plus an Android or iOS user agent, and `isDesktop()` is Tauri and not

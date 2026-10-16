@@ -3438,6 +3438,20 @@ export type NamespaceWebTranslation = {
 			 * R​e​m​i​n​d​ ​m​e​ ​a​b​o​u​t​ ​t​h​i​s
 			 */
 			remind: string
+			/**
+			 * S​t​o​r​a​g​e​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e
+			 */
+			phone_heading: string
+			/**
+			 * K​e​p​t​ ​i​n​ ​t​h​e​ ​a​p​p​'​s​ ​o​w​n​ ​s​t​o​r​a​g​e​ ​o​n​ ​t​h​i​s​ ​p​h​o​n​e​ ​u​n​t​i​l​ ​y​o​u​ ​u​n​i​n​s​t​a​l​l​ ​t​h​e​ ​a​p​p​ ​o​r​ ​c​l​e​a​r​ ​i​t​s​ ​d​a​t​a​.
+			 */
+			phone_status: string
+			/**
+			 * U​s​i​n​g​ ​{​u​s​e​d​}​ ​o​f​ ​t​h​e​ ​{​q​u​o​t​a​}​ ​t​h​e​ ​a​p​p​ ​m​a​y​ ​u​s​e​.
+			 * @param {string} quota
+			 * @param {string} used
+			 */
+			phone_usage: RequiredParams<'quota' | 'used'>
 		}
 	}
 	settings: {
@@ -12235,6 +12249,18 @@ export type TranslationFunctions = {
 				 * Remind me about this
 				 */
 				remind: () => LocalizedString
+				/**
+				 * Storage on this phone
+				 */
+				phone_heading: () => LocalizedString
+				/**
+				 * Kept in the app's own storage on this phone until you uninstall the app or clear its data.
+				 */
+				phone_status: () => LocalizedString
+				/**
+				 * Using {used} of the {quota} the app may use.
+				 */
+				phone_usage: (arg: { quota: string, used: string }) => LocalizedString
 			}
 		}
 		settings: {

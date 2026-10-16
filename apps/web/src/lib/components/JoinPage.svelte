@@ -118,7 +118,7 @@
   const linkCls = 'text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
-<main class="flex min-h-screen items-start justify-center bg-base-200 px-4 py-12 text-base-content" data-testid="join-page">
+<main class="flex min-h-full items-start justify-center bg-base-200 px-4 py-12 text-base-content" data-testid="join-page">
   <div class="w-full max-w-xl space-y-6 {CARD} p-6 shadow-sm">
     <p class={HEADING} data-testid="join-brand">{t.brand()}</p>
 

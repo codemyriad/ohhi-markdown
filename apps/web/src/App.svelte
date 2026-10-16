@@ -645,7 +645,7 @@
     <BootSplash clock={realClock} onCancel={memConfig.kind !== 'memory' ? () => session.cancel() : undefined} />
   {/if}
 {:else}
-  <div class="flex h-screen flex-col bg-base-100 text-base-content">
+  <div class="flex h-full flex-col bg-base-100 text-base-content">
     <ShellHeader placement="top" {workspace} {layout} registry={nav.registry} ctx={readoutCtx} vaultName={currentVaultName} />
 
     <!-- `relative`: the unpinned navigator floats against this row, between the bars. -->

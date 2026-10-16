@@ -24,7 +24,7 @@
     'rounded px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
-<div class="flex min-h-screen flex-col bg-base-100 text-base-content" data-testid="settings-page">
+<div class="flex min-h-full flex-col bg-base-100 text-base-content" data-testid="settings-page">
   <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
     <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
     <button type="button" data-testid="settings-page-back" onclick={onBack} class={chrome}>

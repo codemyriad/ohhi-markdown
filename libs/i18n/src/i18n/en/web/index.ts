@@ -1243,6 +1243,10 @@ const storage = {
     unsupported: "Not guaranteed — this browser can't be asked to keep this site's storage.",
     usage: 'Using {used:string} of the {quota:string} this browser allows.',
     remind: 'Remind me about this',
+    /** The phone app (docs/mobile-android.md): the app's own storage, which nothing can be asked to keep. */
+    phone_heading: 'Storage on this phone',
+    phone_status: "Kept in the app's own storage on this phone until you uninstall the app or clear its data.",
+    phone_usage: 'Using {used:string} of the {quota:string} the app may use.',
   },
 }
 

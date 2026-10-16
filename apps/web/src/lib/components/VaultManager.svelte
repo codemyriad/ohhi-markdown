@@ -370,7 +370,7 @@
 
 {#if welcome}
   <!-- ======================= the welcome (A1) ======================= -->
-  <div class="flex min-h-screen flex-col text-base-content">
+  <div class="flex min-h-full flex-col text-base-content">
     <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
       <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
       <div class="flex items-center gap-1">
@@ -490,7 +490,7 @@
   </div>
 {:else}
   <!-- ======================= the list (B1) ======================= -->
-  <main class="mx-auto min-h-screen w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
+  <main class="mx-auto min-h-full w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{l.title()}</h1>
       <div class="flex items-center gap-2">
