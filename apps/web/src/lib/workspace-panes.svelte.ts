@@ -1288,8 +1288,19 @@ export function createPanes(
       for (const { from, to } of moves) next = tree.rename(next, from, to, ids)
       commit(next)
       // A rename is also a new file set; keep the prune effect from re-running
-      // over the pre-rename snapshot.
+      // over the pre-rename snapshot — and re-arm a pass the file list's
+      // change already scheduled, so it settles AFTER the tabs have moved
+      // rather than over them (the vault tells the tabs in the same turn the
+      // list changes, so this is belt and braces).
       lastLive = ''
+      const ws = workspace
+      if (cancelPrune && ws) {
+        cancelPrune()
+        cancelPrune = clock.schedule(() => {
+          cancelPrune = null
+          untrack(() => prunePass(ws))
+        }, PRUNE_SETTLE_MS)
+      }
       flushSave()
     },
 
