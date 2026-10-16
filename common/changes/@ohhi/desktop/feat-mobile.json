@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "Oh hi markdown runs on Android: a debug build installs on a phone or the emulator, keeps its vaults in the app's own storage, and joins shared folders and links devices as the browser app does.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The app is now md.ohhi on every platform. On its first launch the desktop app copies your vault list, sync state and folder access over from its old data folder (md.ohhi.desktop), which it leaves in place.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

@@ -1,6 +1,6 @@
-# Oh hi markdown monorepo — Claude instructions
+# Oh Hi markdown monorepo — Claude instructions
 
-Oh hi markdown is a collaborative, agent-native markdown editor: a drop-in replacement for Obsidian over a plain-markdown vault. Files on disk are the source of truth; CRDTs (Yjs) handle sync/collab; agents are first-class collaborators.
+Oh Hi markdown is a collaborative, agent-native markdown editor: a drop-in replacement for Obsidian over a plain-markdown vault. Files on disk are the source of truth; CRDTs (Yjs) handle sync/collab; agents are first-class collaborators.
 
 ## Read first
 
@@ -18,7 +18,7 @@ Oh hi markdown is a collaborative, agent-native markdown editor: a drop-in repla
 notes — `frame`, `shaping`, `slices`, `v2-shaping`, `agent-surface-shaping`,
 `quiet-shell-shaping`, `foundations-plan`, `bases-shaping`,
 `writing-harness-shaping`, the `research/` notes, the spike logs — that live
-in the team's vault, managed with Oh hi markdown itself, not in this
+in the team's vault, managed with Oh Hi markdown itself, not in this
 repository. Code and docs cite them by name and decision id (`shaping`
 D5(a), `v2-shaping` Fork 1, `agent-surface-shaping` A10) as the record of
 *why*; the docs in `docs/` carry the reasoning needed to work on the code. If

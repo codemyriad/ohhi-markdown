@@ -1,13 +1,13 @@
 ---
 import Base from '../layouts/Base.astro'
-import { APP, CHECKSUMS, DIST, DOWNLOADS } from '../links'
+import { APP, CHECKSUMS, DIST, DOWNLOADS, GITHUB } from '../links'
 ---
 
 <Base
   title="Get Oh Hi markdown"
   description="Download the Oh Hi markdown desktop app for macOS and Linux, or open it in your browser."
 >
-  <h1>Get Oh Hi markdown</h1>
+  <h1>Get Oh Hi <em class="mk">mark</em>down</h1>
   <p class="lede">
     The desktop app works on folders on your disk and updates itself. A browser is enough for
     joining a shared folder.
@@ -74,7 +74,36 @@ import { APP, CHECKSUMS, DIST, DOWNLOADS } from '../links'
       <code>ohhi</code> is the command an agent uses over a vault: ranked search that answers with
       references, a note’s outline or one section, links and backlinks, collections, what changed
       since, and journaled writes. <code>ohhi mcp</code> serves the same operations to any MCP
-      client. It is not bundled with the app yet.
+      client. It works on a vault in a folder on disk, so the desktop app’s, not a browser’s.
+    </p>
+    <p>
+      It is not bundled with the app yet: it installs from a checkout of
+      <a href={GITHUB}>the repository</a> (private today), with git and Node 22 on the machine.
+    </p>
+    <ol class="steps">
+      <li>
+        Clone it and install its dependencies, with the repository’s own copy of Rush:
+        <code>node common/scripts/install-run-rush.js install</code>
+      </li>
+      <li>
+        Then, from that folder, <code>./scripts/install-ohhi.sh</code> builds <code>ohhi</code> and
+        links it into <code>~/.local/bin</code> (have that on your <code>PATH</code>).
+      </li>
+      <li>
+        For Claude Code, <code>./scripts/install-skill.sh</code> links the <em>ohhi-vault</em> skill
+        into <code>~/.claude/skills</code>; start Claude Code with the vault named,
+        <code>OHHI_VAULT="&lt;folder&gt;" claude</code>, and the skill does the rest. Or add the commands as
+        MCP tools: <code>claude mcp add ohhi -- ohhi mcp --vault "&lt;folder&gt;"</code>.
+      </li>
+      <li>
+        Any other MCP client gets a server entry running <code>ohhi mcp --vault "&lt;folder&gt;"</code>.
+        <code>ohhi stats --vault "&lt;folder&gt;"</code> checks it sees the vault; <code>ohhi help</code> lists
+        every command.
+      </li>
+    </ol>
+    <p class="fine">
+      In the app, <strong>Settings › AI › Outside agents</strong> has these lines with the open vault’s
+      folder filled in. The full guide is at <a href={`${APP}/guide/agents.html`}>Working with an agent</a>.
     </p>
   </section>
 </Base>

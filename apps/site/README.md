@@ -2,7 +2,7 @@
 
 A static [Astro](https://astro.build) site, two pages, no client script:
 
-- `/` — what Oh hi markdown is and what it does differently, with the two
+- `/` — what Oh Hi markdown is and what it does differently, with the two
   doors: open the web app, get the desktop app.
 - `/download` — the desktop builds, first-launch notes, the browser and the
   `ohhi` command.
@@ -13,9 +13,9 @@ Every outbound URL is in `src/links.ts`:
 
 | What | URL | Status |
 |---|---|---|
-| Web app | `https://app.ohhi.md` | the apex is this site, so the app takes `app.` (`naming`) |
-| Desktop downloads | `https://dist.ohhi.md/stable/latest/<file>` | planned: the R2 bucket CI uploads release builds to, with stable aliases |
-| Checksums | `https://dist.ohhi.md/stable/latest/SHA256SUMS.txt` | planned, beside the builds |
+| Web app | `https://app.ohhi.md` | the apex is this site, so the app takes `app.` (`plans/naming.md`) |
+| Desktop downloads | `https://dist.ohhi.md/stable/latest/<file>` | the R2 bucket the `dist` job of `.github/workflows/desktop-release.yml` uploads every public release to; `stable/latest/` holds the newest installers under these stable aliases (`docs/public-deploy.md`) |
+| Checksums | `https://dist.ohhi.md/stable/latest/SHA256SUMS.txt` | beside the builds, listing the alias names |
 
 The file names drop the version from the release assets
 (`ohhi_<version>_universal.dmg` → `ohhi_universal.dmg`), which is what a
@@ -23,7 +23,7 @@ stable alias is for.
 
 ## The app's themes, not a copy of them
 
-The site renders in **Oh hi Light** and **Oh hi Dark** (the wordmark reads **Oh Hi markdown**, the capital H chosen for the site on 2026-10-16), the app's default
+The site renders in **Oh Hi Light** and **Oh Hi Dark** (the wordmark reads **Oh Hi markdown**, the capital H chosen for the site on 2026-10-16), the app's default
 pair, following the visitor's `prefers-color-scheme`. The values are not
 copied by hand: `scripts/gen-tokens.mjs` reads `@ohhi/ui`'s
 `tokens/editor-light.css`, `tokens/editor-dark.css` and `tokens/_contract.css`

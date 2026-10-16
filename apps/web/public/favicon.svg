@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The highlighter as the tile: "Hi" in ink on the sand, the wordmark's own pair
+       (the default theme's mark background and foreground). Chris, 2026-10-16. -->
+  <rect width="64" height="64" rx="14" fill="#f5dc84"/>
+  <text x="32" y="44" text-anchor="middle" font-family="Public Sans, ui-sans-serif, system-ui, sans-serif" font-weight="600" font-size="32" fill="#2a2521">Hi</text>
+</svg>

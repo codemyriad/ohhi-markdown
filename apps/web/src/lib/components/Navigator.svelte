@@ -12,7 +12,7 @@
    */
   import { Pin, PinOff, Settings } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
-  import type { VaultEntry } from '../config.js'
+  import { rootShareKind, type VaultEntry } from '../config.js'
   import { TREE_WIDTH } from '../layout.js'
   import type { Navigation } from '../navigation.svelte.js'
   import { changeTicks } from '../changes.js'
@@ -135,6 +135,18 @@
   </div>
   <div class="flex min-w-0 items-center gap-1 border-t border-base-300 px-2 py-1">
     <VaultSwitcher current={{ room: workspace.room, name: vaultName }} {vaults} {onSwitch} {onManage} />
+    {#if rootShareKind(workspace.room, workspace.ui.linked) === 'joined'}
+      <!-- A share opened as a vault (join-share-brief P2): the badge a nested
+           mount's row carries, on the vault itself — nothing in here is private. -->
+      <span
+        data-testid="vault-badge"
+        data-state="joined"
+        title={$LL.web.tree.root_shared_title()}
+        class="inline-flex shrink-0 items-center rounded border border-secondary bg-secondary/10 px-1 py-0.5 text-[10px] font-medium text-base-content"
+      >
+        {$LL.web.tree.shared_with_you()}
+      </span>
+    {/if}
     <div class="ml-auto flex items-center gap-0.5">
       <IconButton
         label={$LL.web.shell.settings_with_binding({ binding: nav.registry.binding('app.settings') })}

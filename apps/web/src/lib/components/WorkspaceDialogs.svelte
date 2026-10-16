@@ -10,7 +10,7 @@
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { FileActions } from '../file-actions.svelte.js'
-  import { isTauri } from '../platform.js'
+  import { isDesktop } from '../platform.js'
   import type { Probe } from '../relay-check.js'
   import type { ShareActions } from '../share-actions.svelte.js'
   import { dirPaths } from '../tree-model.js'
@@ -78,10 +78,12 @@
   <AddSharedFolderDialog
     {vaultName}
     dirs={dirPaths(workspace.ui.files)}
-    initialDest={sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : ''}
+    initialLink={sharing.addShareOpen.link ?? ''}
+    initialDest={sharing.addShareOpen.dest ?? (sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : '')}
+    initialError={sharing.addShareOpen.error ?? ''}
     onJoinIntoVault={(link, dest) => workspace.addShareMount(link, dest)}
     {onJoinAsVault}
-    isTauri={isTauri()}
+    isTauri={isDesktop()}
     onClose={() => (sharing.addShareOpen = null)}
     {probe}
   />

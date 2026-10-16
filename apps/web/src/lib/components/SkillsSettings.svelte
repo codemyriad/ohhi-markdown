@@ -39,7 +39,7 @@
     ROW,
     ROW_SETTING,
   } from '../ui/styles.js'
-  import { isTauri } from '../platform.js'
+  import { isDesktop } from '../platform.js'
   import { getViewShell } from '../views.js'
   import { isValidSkillName, skillSlug } from '@ohhi/harness/skills'
   import { currentSkills, problemText, type SkillRow, type SkillsStore } from '../skills.svelte.js'
@@ -49,7 +49,7 @@
   interface Props {
     /** The open vault's skills; `currentSkills()` when not given. */
     skills?: SkillsStore | null
-    /** Desktop (a disk Claude Code reads); `isTauri()` when not given. */
+    /** Desktop (a disk Claude Code reads); `isDesktop()` when not given. */
     desktop?: boolean
     /** Injected for tests: the import dialog's `fetch` and folder picker. */
     fetchImpl?: typeof fetch
@@ -59,7 +59,7 @@
   let { skills, desktop, fetchImpl, pickFolder }: Props = $props()
 
   const store = $derived(skills === undefined ? currentSkills() : skills)
-  const onDesktop = $derived(desktop ?? isTauri())
+  const onDesktop = $derived(desktop ?? isDesktop())
   const folderPicker = $derived(pickFolder === undefined ? (onDesktop ? pickLocalSkillFolder : null) : pickFolder)
   const shell = getViewShell()
   const t = $derived($LL.web.ai.skills)

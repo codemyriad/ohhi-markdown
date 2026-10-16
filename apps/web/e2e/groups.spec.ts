@@ -96,7 +96,7 @@ test('closing a group keeps it in the list, and it reopens in another pane at it
   await page.keyboard.press('Escape')
 
   // Reopen it in a pane it was never in.
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(2)
   await more(page, 1).click()
   await page.locator('[data-testid^="groups-menu:saved:"]').click()

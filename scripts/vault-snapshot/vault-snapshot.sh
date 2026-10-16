@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vault-snapshot.sh — automatic local history for an Oh hi markdown vault.
+# vault-snapshot.sh — automatic local history for an Oh Hi markdown vault.
 #
 # Each run commits the vault's current files into a git repository kept
 # OUTSIDE the vault (a "shadow" git-dir). `snapshot` never writes into the
@@ -328,7 +328,7 @@ cmd_restore() {
   rm -f "$list"
   note "restored $restored file(s) from snapshot $(g rev-parse --short "$commit") into $dest ($same already identical)"
   if [ -z "$to" ]; then
-    note "If Oh hi markdown has this vault open, quit and reopen it so it picks up every restored file (docs/guide/recovery.md)."
+    note "If Oh Hi markdown has this vault open, quit and reopen it so it picks up every restored file (docs/guide/recovery.md)."
   fi
 }
 

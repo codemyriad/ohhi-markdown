@@ -1,6 +1,6 @@
 # Security
 
-Oh hi markdown is an early work in progress. Security fixes go to `main` and
+Oh Hi markdown is an early work in progress. Security fixes go to `main` and
 into the next release; there are no maintained older versions.
 
 ## Reporting a vulnerability

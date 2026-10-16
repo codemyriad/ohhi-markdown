@@ -33,6 +33,12 @@ export interface BootFailure {
    * offers "Allow access to this folder again" instead of a broken vault.
    */
   access?: true
+  /**
+   * Another tab of this browser holds the vault (one tab per browser vault,
+   * join-share-brief P3): nothing is wrong with the entry, so the manager
+   * says only that, with *Try again* for once the other tab has closed.
+   */
+  elsewhere?: true
 }
 
 /** A whole vault arriving (device-link N2): the two-phase panel's subject. */
@@ -63,6 +69,13 @@ export interface SessionHost {
   onOpened(ws: Workspace, entry: VaultEntry): void
   /** Injected so a test can hand back a fake, a rejection or a boot that hangs. */
   setup(cfg: WorkspaceConfig): Promise<Workspace>
+  /**
+   * Claim the vault for this tab before it opens (one tab per browser vault,
+   * join-share-brief P3): the release function, or null when another tab
+   * holds it — the boot then fails against the entry with `open_elsewhere`.
+   * Absent: nothing to claim (the desktop, the memory contract).
+   */
+  claimVault?(entry: VaultEntry): Promise<(() => void) | null>
   configForSession(entry: VaultEntry, user: string): Promise<WorkspaceConfig>
   configForMemory(cfg: MemoryModeConfig): Promise<WorkspaceConfig>
 }
@@ -108,9 +121,13 @@ export function createSession(host: SessionHost): Session {
    * view. A cancelled boot's workspace is disposed when it settles.
    */
   let bootGen = 0
+  /** The open vault's claim (P3): released when it closes or another takes its place. */
+  let releaseVault: (() => void) | null = null
 
-  function install(ws: Workspace, room: string): void {
+  function install(ws: Workspace, room: string, release: (() => void) | null = null): void {
     workspace?.dispose()
+    releaseVault?.()
+    releaseVault = release
     workspace = ws
     host.attachIndex(ws)
     host.attachPanes(ws, room)
@@ -130,6 +147,22 @@ export function createSession(host: SessionHost): Session {
     failure = null
     busy = true
     pull = null
+    // One tab per browser vault (P3): refused here, before anything is read.
+    let release: (() => void) | null = null
+    if (host.claimVault) {
+      release = await host.claimVault(entry)
+      if (gen !== bootGen) {
+        release?.()
+        return
+      }
+      if (release === null) {
+        failure = { room: entry.room, message: getLL().web.manager.open_elsewhere({ name: entry.name }), elsewhere: true }
+        joining = null
+        view = 'manager'
+        busy = false
+        return
+      }
+    }
     // Drop the previous vault's index BEFORE the next one fills it.
     host.attachIndex(null)
     try {
@@ -143,14 +176,16 @@ export function createSession(host: SessionHost): Session {
       })
       if (gen !== bootGen) {
         ws.dispose() // cancelled or superseded while awaiting
+        release?.()
         return
       }
-      install(ws, entry.room)
+      install(ws, entry.room, release)
       touchVault(entry.room, Date.now())
       joining = null
       view = 'workspace'
       host.onOpened(ws, entry)
     } catch (err) {
+      release?.()
       if (gen !== bootGen) return
       failure =
         entry.vault.kind === 'tauri' && isAccessRefused(err)
@@ -274,6 +309,8 @@ export function createSession(host: SessionHost): Session {
       host.attachPanes(null, '')
       workspace?.dispose()
       workspace = null
+      releaseVault?.()
+      releaseVault = null
     },
   }
 }

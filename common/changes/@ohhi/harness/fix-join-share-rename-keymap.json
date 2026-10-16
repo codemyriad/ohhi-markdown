@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/harness",
+      "comment": "The writing assistant's prompt names the app as \"Oh Hi markdown\".",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/harness"
+}

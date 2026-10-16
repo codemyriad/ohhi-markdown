@@ -7,12 +7,16 @@
  * the release assets are `ohhi_<version>_universal.dmg`,
  * `ohhi_<version>_amd64.AppImage` and `ohhi_<version>_amd64.deb`
  * (.github/workflows/desktop-release.yml), and the alias drops the version.
- * Until that bucket exists these links are the plan, not a download.
+ * The workflow's `dist` job writes the aliases, and a SHA256SUMS.txt of
+ * them, on every public release (docs/public-deploy.md).
  */
 export const APP = 'https://app.ohhi.md'
 
 /** The repository. Private today; Chris opens it later. */
 export const GITHUB = 'https://github.com/codemyriad/ohhi-markdown'
+
+/** Who makes it: the footer's chip, as on the Cassini site. */
+export const CODEMYRIAD = 'https://codemyriad.io'
 
 export const DIST = 'https://dist.ohhi.md/stable/latest'
 

@@ -9,7 +9,7 @@
  * moves between the ones that exist, and a restore reaches disk and the editor.
  */
 import { expect, test, type Locator } from '@playwright/test'
-import { newNote, openApp } from './fixtures.js'
+import { newNote, openApp, runCommand } from './fixtures.js'
 
 /** Today in Obsidian's default format, computed the way the app does. */
 function todayName(): string {
@@ -18,20 +18,22 @@ function todayName(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-test("Mod+\\ opens today's daily note, creating it once, and Mod+- walks to an older one", async ({
+test("Today's daily note opens it, creating it once, and Previous walks to an older one", async ({
   page,
 }) => {
   await openApp(page, 'daily-today')
   const today = `${todayName()}.md`
 
-  await page.keyboard.press('ControlOrMeta+\\')
+  // The daily commands ship unbound (QA round 2, as Obsidian's plugin does):
+  // the palette is their keyboard path until a keymap file names one.
+  await runCommand(page, "Today's daily note")
   await expect(page.getByTestId(`file-item:${today}`)).toBeVisible()
   // The breadcrumb prints a note's name without its extension.
   await expect(page.getByTestId('crumb-note')).toHaveText(todayName())
 
-  // Idempotent: pressing it again opens the same note, never a second one.
+  // Idempotent: running it again opens the same note, never a second one.
   await page.getByTestId('file-item:notes/welcome.md').click()
-  await page.keyboard.press('ControlOrMeta+\\')
+  await runCommand(page, "Today's daily note")
   await expect(page.getByTestId('crumb-note')).toHaveText(todayName())
   await expect(page.getByTestId(`file-item:${today}`)).toHaveCount(1)
 
@@ -44,10 +46,10 @@ test("Mod+\\ opens today's daily note, creating it once, and Mod+- walks to an o
   await expect(page.getByTestId('file-item:2020-01-01.md')).toBeVisible()
 
   await page.getByTestId(`file-item:${today}`).click()
-  await page.keyboard.press('ControlOrMeta+-')
+  await runCommand(page, 'Previous daily note')
   await expect(page.getByTestId('crumb-note')).toHaveText('2020-01-01')
   // And forward again, from the older note's own date.
-  await page.keyboard.press('ControlOrMeta+=')
+  await runCommand(page, 'Next daily note')
   await expect(page.getByTestId('crumb-note')).toHaveText(todayName())
 })
 

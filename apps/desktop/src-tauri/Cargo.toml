@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "Oh hi markdown desktop shell (Tauri 2)"
 license = "AGPL-3.0-only"
 edition = "2021"
+# Tauri 2.12 (the iOS 27 SDK's UIScene life cycle, docs/mobile-builds.md) and
+# every current 2.x crate declare 1.90; cargo refuses an older toolchain here
+# with a clear message instead of a page of errors.
+rust-version = "1.90"
 publish = false
 
 # The `_lib` suffix avoids the lib/bin artifact name clash on Windows;
@@ -24,7 +28,7 @@ serde_json = "1"
 tauri-plugin-persisted-scope = "2"
 
 # Self-update (docs/desktop-builds.md): the feed check and the relaunch into
-# an installed update. Desktop only; locked to versions rustc 1.88 builds.
+# an installed update. Desktop only.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"

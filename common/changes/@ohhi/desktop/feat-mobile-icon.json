@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The app icon on every platform is the \"hi\" mark from ohhi.md instead of the placeholder E.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

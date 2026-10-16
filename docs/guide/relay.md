@@ -19,7 +19,7 @@ real certificate).
 
 ## Start it
 
-The relay is built from the Oh hi markdown repository. From the repository
+The relay is built from the Oh Hi markdown repository. From the repository
 root:
 
 ```sh

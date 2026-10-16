@@ -1,4 +1,4 @@
-# Oh hi markdown
+# Oh Hi markdown
 
 A collaborative, agent-native markdown editor over a folder of plain `.md`
 files: a drop-in replacement for Obsidian that keeps your notes as ordinary
@@ -6,7 +6,7 @@ files on disk, lets you share a note or a folder with your own devices or
 your team through a relay you run, and treats agents as first-class
 collaborators.
 
-> **Early days.** Oh hi markdown is a work in progress. The people building
+> **Early days.** Oh Hi markdown is a work in progress. The people building
 > it use it every day, and it is rough: features land fast, some are
 > half-finished, and things change without ceremony. Try it, keep your notes
 > in git or a backup as you would anyway, and tell us what breaks.
@@ -84,6 +84,6 @@ large change, and expect the ground to move.
 
 ## Licence
 
-Oh hi markdown is free software under the
+Oh Hi markdown is free software under the
 [GNU Affero General Public License v3](LICENSE) (SPDX: `AGPL-3.0-only`).
 Contributions are accepted under the same licence.

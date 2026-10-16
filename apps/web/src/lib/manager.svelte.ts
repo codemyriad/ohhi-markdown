@@ -38,13 +38,19 @@ import {
 import { newFolderGuid } from './boot.js'
 import { samePath } from './fs-access.js'
 import type { Session } from './session.svelte.js'
-import { decodeShareLink, shareLinkErrorText } from './share-link.js'
+import { decodeShareLink, folderNameOfLabel, shareLinkErrorText } from './share-link.js'
 import type { MountDesc } from '@ohhi/vault'
 import { readVaultFacts, type VaultFacts } from './vault-facts.js'
 
 /** What the manager needs from the platform. */
 export interface ManagerHost {
   isTauri(): boolean
+  /**
+   * The Tauri app on a phone (docs/mobile-android.md): no folder picker, so
+   * a joined or linked vault lives in the webview's storage, as in a
+   * browser. Absent → false.
+   */
+  isMobile?(): boolean
   /**
    * The native folder picker; null when cancelled. On desktop the folder the
    * user picks is what the webview may read and write (DEL-89).
@@ -134,6 +140,9 @@ export function createManager(session: Session, host: ManagerHost): Manager {
   let opSecret = $state(operatorSecret())
   let user = $state(loadUser() ?? '')
   let facts = $state<Record<string, VaultFacts | null>>({})
+
+  /** The desktop app: a joined or linked vault goes into a folder the user picks. */
+  const foldersOnDisk = (): boolean => host.isTauri() && !host.isMobile?.()
 
   function refresh(): void {
     vaults = listVaults()
@@ -235,7 +244,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
    * vault" that every such vault would share.
    */
   function joinedVaultName(target: { relay: string; label?: string | undefined }): string {
-    const folder = target.label?.split('/').filter((s) => s.trim() !== '').pop()?.trim()
+    const folder = folderNameOfLabel(target.label)
     if (folder) return folder
     return getLL().web.manager.joined_vault_name({ host: relayHost(target.relay) ?? target.relay })
   }
@@ -272,7 +281,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     }
     try {
       let entry: VaultEntry
-      if (host.isTauri()) {
+      if (foldersOnDisk()) {
         const path = await host.pickFolder()
         if (!path) {
           session.busy = false
@@ -295,6 +304,10 @@ export function createManager(session: Session, host: ManagerHost): Manager {
         }
       }
       upsertVault(entry)
+      // The root's token is a FOLDER share's: what tells the shell, on every
+      // later open, that this vault is a share someone opened as a vault —
+      // "Shared with you", never "on your devices" (`rootShareKind`).
+      setRoomToken(target.room, target.token, target.relay, 'folder')
       // Label the remembered share by the vault it opens as — not the joiner's
       // own name (the "Recent shares show my name" bug).
       addShare({ link, room: target.room, label: entry.name })
@@ -332,7 +345,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     const existing = getVault(target.room)
     if (existing) throw new Error(t.already_linked({ name: existing.name }))
     let vault: VaultSourceDesc
-    if (host.isTauri()) {
+    if (foldersOnDisk()) {
       const path = await host.pickFolder()
       if (!path) return false // the picker was cancelled; nothing has happened yet
       if (!(await host.folderIsEmpty(path))) throw new Error(t.not_empty({ path }))

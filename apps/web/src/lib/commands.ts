@@ -91,9 +91,10 @@ const ARROW_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown'])
  * arrow), so the event never reaches the page at all — the four
  * `workspace.focus-*` keys would be dead on Linux. There the chord drops Ctrl
  * and is pressed as `Alt+Arrow`, which no window manager claims; the app's
- * capture-phase handler takes it back from the browser's own back/forward,
- * and in-app back/forward is `Mod+[` / `Mod+]` anyway. The STORED string and
- * the mac chord are unchanged; Settings prints what is actually pressed.
+ * capture-phase handler takes it back from the browser's own back/forward —
+ * and in-app Back / Forward IS `Ctrl+Mod+Arrow` (Obsidian's chord), so off a
+ * Mac the browser's key and the app's agree. The STORED string and the mac
+ * chord are unchanged; Settings prints what is actually pressed.
  */
 function offMacChord(b: ParsedBinding): { ctrl: boolean; alt: boolean } {
   if (!(b.ctrl && b.mod)) return { ctrl: b.ctrl || b.mod, alt: b.alt }

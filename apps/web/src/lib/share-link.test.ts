@@ -5,6 +5,7 @@ import {
   encodeDeviceLink,
   encodeShareLink,
   encodeShareUrl,
+  folderNameOfLabel,
   LINK_TEXT_MAX,
   looksLikeShareLink,
   originForRelay,
@@ -74,6 +75,16 @@ describe('share-link codec', () => {
     expect(codeOf(() => encodeShareLink({ relay: '', room: 'r', token: 't' }))).toBe('incomplete_target')
     expect(codeOf(() => encodeShareLink({ relay: 'x', room: '', token: 't' }))).toBe('incomplete_target')
     expect(codeOf(() => encodeShareLink({ relay: 'x', room: 'r', token: '' }))).toBe('incomplete_target')
+  })
+})
+
+describe('folderNameOfLabel (the folder a share suggests)', () => {
+  it('is the label’s last segment, trimmed; empty without a label', () => {
+    expect(folderNameOfLabel('team/notes')).toBe('notes')
+    expect(folderNameOfLabel('HackMD notes')).toBe('HackMD notes')
+    expect(folderNameOfLabel(' plans / ')).toBe('plans')
+    expect(folderNameOfLabel('')).toBe('')
+    expect(folderNameOfLabel(undefined)).toBe('')
   })
 })
 

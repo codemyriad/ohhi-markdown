@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for looking. Oh hi markdown is an early, fast-moving project built
+Thank you for looking. Oh Hi markdown is an early, fast-moving project built
 by a small team that uses it daily, so a few things are worth knowing before
 you start.
 
@@ -71,7 +71,7 @@ drift, and the runbook names each generator.
 
 ## Licence of contributions
 
-Oh hi markdown is licensed under the GNU Affero General Public License,
+Oh Hi markdown is licensed under the GNU Affero General Public License,
 version 3 (`AGPL-3.0-only`). By submitting a contribution you agree that it
 is licensed under the same terms, as the rest of the project is. There is no
 contributor licence agreement to sign and no sign-off line to add.

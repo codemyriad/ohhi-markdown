@@ -38,7 +38,7 @@ describe('renderPage', () => {
 
   it('is a standalone page with a title, the nav and the date', () => {
     expect(html).toMatch(/^<!doctype html>/)
-    expect(html).toContain('<title>Sharing and the relay · Oh hi markdown</title>')
+    expect(html).toContain('<title>Sharing and the relay · Oh Hi markdown</title>')
     expect(html).toContain('<a href="sharing.html" aria-current="page">Sharing and the relay</a>')
     expect(html).toContain('<a href="start.html">Getting started</a>')
     expect(html).toContain('Updated 2026-10-10')

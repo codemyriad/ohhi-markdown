@@ -1,0 +1,388 @@
+# Mobile builds: the Tauri app's Android and iOS targets (the desktop app's
+# own src-tauri, built for a phone; its vaults live in the webview's storage
+# and arrive by share link). What each job makes, where it lands, signing and
+# the Mac route: docs/mobile-builds.md.
+#
+# - push to main touching the app, or Run workflow: both jobs, in parallel.
+# - kind `debug` (pushes, and the default): a debug-signed Android APK that
+#   installs on any device, and an unsigned iOS Simulator .app.
+# - kind `release` (Run workflow only): a release APK (unsigned until a
+#   keystore is added, docs/mobile-builds.md) and, when the Apple secrets
+#   exist, a signed App Store build uploaded to TestFlight.
+#
+# Nothing here publishes a GitHub release or reaches the team host: the
+# artifacts stay in the run for 14 days.
+#
+# Security shape, as in desktop-release.yml: a read-only token, no persisted
+# git credentials, every third-party action pinned to a full commit SHA (tag
+# in the comment). The Apple secrets reach only the iOS job's signed steps.
+name: Mobile builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/web/**'
+      - 'libs/**'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 'debug: installable debug APK + Simulator app. release: release APK + TestFlight upload when the Apple secrets exist.'
+        type: choice
+        options: [debug, release]
+        default: debug
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Pushes have no inputs: they build debug.
+  KIND: ${{ inputs.kind || 'debug' }}
+
+jobs:
+  android:
+    name: android (${{ inputs.kind || 'debug' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    env:
+      # Versions match docs/mobile-android.md's local toolchain; the platform
+      # is gen/android's compileSdk (app/build.gradle.kts).
+      ANDROID_PLATFORM: android-36
+      ANDROID_BUILD_TOOLS: 35.0.1
+      ANDROID_NDK: 27.2.12479018
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools platforms;${{ env.ANDROID_PLATFORM }} build-tools;${{ env.ANDROID_BUILD_TOOLS }} ndk;${{ env.ANDROID_NDK }}
+          log-accepted-android-sdk-licenses: false
+
+      - name: Point Tauri at the NDK
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK" >> "$GITHUB_ENV"
+
+      # The image ships toolchains this job never uses, and the first run
+      # died packaging the APK with "No space left on device": the Android
+      # Rust targets with their debug symbols are about 2 GB each, Gradle's
+      # outputs another 2 GB. The SDK under /usr/local/lib/android stays.
+      - name: Free runner disk
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/ghc /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h / | tail -1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+
+      # The generated Gradle and Xcode projects call back into the CLI as
+      # `pnpm tauri …` (recorded by `tauri <target> init`); Rush's own pnpm
+      # is that pnpm.
+      - name: Put Rush's pnpm on PATH
+        run: echo "$GITHUB_WORKSPACE/common/temp/pnpm-local/node_modules/.bin" >> "$GITHUB_PATH"
+
+      # The desktop release's settings (docs/desktop-builds.md, "Build
+      # settings"): the default relay, the pinned team host and its CSP, the
+      # two sentences. The version is <major>.<minor>.<this workflow's run
+      # number>, merged over tauri.conf.json by --config, so every build counts
+      # up (Android's versionCode, iOS's CFBundleVersion).
+      - name: Build settings
+        env:
+          TEAM_HOST: ${{ vars.TEAM_HOST }}
+          DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
+          TEAM_SECRET_HINT: ${{ vars.TEAM_SECRET_HINT }}
+          TEAM_NETWORK_NOTE: ${{ vars.TEAM_NETWORK_NOTE }}
+        run: |
+          if [ -n "$TEAM_HOST" ] && ! [[ "$TEAM_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Repository variable TEAM_HOST must be a bare hostname, got '$TEAM_HOST'"
+            exit 1
+          fi
+          relay="${TEAM_HOST:+wss://$TEAM_HOST/relay}"
+          base=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          version="$(echo "$base" | cut -d. -f1,2).${GITHUB_RUN_NUMBER}"
+          {
+            echo "VITE_DEFAULT_RELAY=${relay:-$DEFAULT_RELAY}"
+            echo "VITE_TEAM_HOST=$TEAM_HOST"
+            echo "VITE_TEAM_SECRET_HINT=$(printf '%s' "$TEAM_SECRET_HINT" | tr '\r\n' '  ')"
+            echo "VITE_TEAM_NETWORK_NOTE=$(printf '%s' "$TEAM_NETWORK_NOTE" | tr '\r\n' '  ')"
+            echo "TAURI_VERSION_CONFIG={\"version\":\"$version\"}"
+          } >> "$GITHUB_ENV"
+          if [ -n "$TEAM_HOST" ]; then node apps/desktop/scripts/pin-csp.mjs "$TEAM_HOST"; fi
+          echo "::notice::$KIND build $version (team host: ${TEAM_HOST:-none})"
+
+      - name: Build web app
+        working-directory: apps/web
+        run: node ../../common/scripts/install-run-rushx.js build
+
+      - name: CSP guard
+        run: node apps/desktop/scripts/check-csp.mjs
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: android
+
+      # gen/android is versioned (docs/mobile-android.md); this only covers a
+      # checkout from before it was, and is never committed back.
+      - name: Android project
+        working-directory: apps/desktop
+        run: |
+          if [ -d src-tauri/gen/android ]; then
+            echo "Using the committed src-tauri/gen/android"
+          else
+            echo "::warning::src-tauri/gen/android is not committed: generating it for this run only"
+            pnpm tauri android init --ci
+          fi
+
+      # debug: arm64 only — every phone, one Rust compile instead of four, a
+      # quarter of the disk (a universal debug APK overflowed the runner).
+      # release: the universal APK, all four ABIs.
+      - name: Build APK
+        working-directory: apps/desktop
+        run: |
+          args=()
+          [ "$KIND" = debug ] && args=(--debug --target aarch64)
+          pnpm tauri android build --apk --ci "${args[@]}" --config "$TAURI_VERSION_CONFIG"
+
+      - name: Collect APK
+        run: |
+          out="$RUNNER_TEMP/apk"; mkdir -p "$out"
+          mapfile -t apks < <(find apps/desktop/src-tauri/gen/android/app/build/outputs/apk -name '*.apk')
+          [ "${#apks[@]}" -gt 0 ] || { echo "::error::No APK was produced"; exit 1; }
+          for f in "${apks[@]}"; do
+            # app-arm64-debug.apk -> ohhi-<sha>-arm64-debug.apk (release: app-universal-release-unsigned.apk)
+            name=$(basename "$f"); name="${name#app-}"
+            cp "$f" "$out/ohhi-${GITHUB_SHA::7}-$name"
+          done
+          if [ "$KIND" = release ]; then
+            echo "::warning::Release APKs are unsigned until a keystore is configured (docs/mobile-builds.md): they do not install as is"
+          fi
+          ls -l "$out"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ohhi-android-${{ inputs.kind || 'debug' }}-${{ github.sha }}
+          path: ${{ runner.temp }}/apk/*
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: ios (${{ inputs.kind || 'debug' }})
+    runs-on: macos-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Rush install
+        run: node common/scripts/install-run-rush.js install
+
+      # Rush's pnpm (the Xcode project's build phase runs `pnpm tauri ios
+      # xcode-script`), the swift shim first (Tauri's Swift build on Xcode
+      # 27) and the pod/idevicesyslog stand-ins last (docs/mobile-builds.md).
+      - name: Build tools on PATH
+        run: |
+          {
+            echo "$GITHUB_WORKSPACE/common/temp/pnpm-local/node_modules/.bin"
+            echo "$GITHUB_WORKSPACE/scripts/ios-shims"
+          } >> "$GITHUB_PATH"
+          echo "PATH_SUFFIX=$GITHUB_WORKSPACE/scripts/ios-stubs" >> "$GITHUB_ENV"
+          xcodebuild -version
+
+      # The desktop release's settings (docs/desktop-builds.md, "Build
+      # settings"): the default relay, the pinned team host and its CSP, the
+      # two sentences. The version is <major>.<minor>.<this workflow's run
+      # number>, merged over tauri.conf.json by --config, so every build counts
+      # up (Android's versionCode, iOS's CFBundleVersion).
+      - name: Build settings
+        env:
+          TEAM_HOST: ${{ vars.TEAM_HOST }}
+          DEFAULT_RELAY: ${{ vars.DEFAULT_RELAY }}
+          TEAM_SECRET_HINT: ${{ vars.TEAM_SECRET_HINT }}
+          TEAM_NETWORK_NOTE: ${{ vars.TEAM_NETWORK_NOTE }}
+        run: |
+          if [ -n "$TEAM_HOST" ] && ! [[ "$TEAM_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Repository variable TEAM_HOST must be a bare hostname, got '$TEAM_HOST'"
+            exit 1
+          fi
+          relay="${TEAM_HOST:+wss://$TEAM_HOST/relay}"
+          base=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          version="$(echo "$base" | cut -d. -f1,2).${GITHUB_RUN_NUMBER}"
+          {
+            echo "VITE_DEFAULT_RELAY=${relay:-$DEFAULT_RELAY}"
+            echo "VITE_TEAM_HOST=$TEAM_HOST"
+            echo "VITE_TEAM_SECRET_HINT=$(printf '%s' "$TEAM_SECRET_HINT" | tr '\r\n' '  ')"
+            echo "VITE_TEAM_NETWORK_NOTE=$(printf '%s' "$TEAM_NETWORK_NOTE" | tr '\r\n' '  ')"
+            echo "TAURI_VERSION_CONFIG={\"version\":\"$version\"}"
+          } >> "$GITHUB_ENV"
+          if [ -n "$TEAM_HOST" ]; then node apps/desktop/scripts/pin-csp.mjs "$TEAM_HOST"; fi
+          echo "::notice::$KIND build $version (team host: ${TEAM_HOST:-none})"
+
+      - name: Build web app
+        working-directory: apps/web
+        run: node ../../common/scripts/install-run-rushx.js build
+
+      - name: CSP guard
+        run: node apps/desktop/scripts/check-csp.mjs
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: ios
+
+      # gen/apple is versioned; regenerating needs XcodeGen, which the runner
+      # image may not carry.
+      - name: iOS project
+        working-directory: apps/desktop
+        run: |
+          export PATH="$PATH:$PATH_SUFFIX"
+          if [ -d src-tauri/gen/apple ]; then
+            echo "Using the committed src-tauri/gen/apple"
+          else
+            echo "::warning::src-tauri/gen/apple is not committed: generating it for this run only"
+            command -v xcodegen >/dev/null || brew install xcodegen
+            pnpm tauri ios init --ci
+          fi
+
+      # Unsigned, so it needs no Apple account: runs in any Simulator
+      # (`xcrun simctl install booted ohhi.app`), never on a device.
+      - name: Build for the Simulator
+        working-directory: apps/desktop
+        run: |
+          export PATH="$PATH:$PATH_SUFFIX"
+          pnpm tauri ios build --debug --target aarch64-sim --no-sign --ci --config "$TAURI_VERSION_CONFIG"
+
+      - name: Collect Simulator app
+        run: |
+          app=$(find apps/desktop/src-tauri/gen/apple/build -maxdepth 2 -name '*.app' -path '*sim*' | head -n1)
+          [ -n "$app" ] || { echo "::error::No Simulator .app was produced"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/ios"
+          # ditto keeps the bundle's symlinks and modes, which a plain artifact upload drops.
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/ios/ohhi-${GITHUB_SHA::7}-ios-simulator-arm64.zip"
+          ls -l "$RUNNER_TEMP/ios"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ohhi-ios-simulator-${{ github.sha }}
+          path: ${{ runner.temp }}/ios/*
+          if-no-files-found: error
+          retention-days: 14
+
+      # --- Signed App Store build + TestFlight (kind `release`, secrets set) ---
+      # `if:` cannot read secrets, so this step reports whether they are all
+      # there; the steps below run only then.
+      - name: Apple signing secrets
+        id: apple
+        if: env.KIND == 'release'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+        run: |
+          missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE APPLE_TEAM_ID \
+                      APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No TestFlight build: missing secrets ${missing[*]} (docs/mobile-builds.md)"
+          fi
+
+      # Manual signing from the secrets: Tauri imports the certificate into a
+      # temporary keychain and installs the profile (IOS_* variables).
+      - name: Build for the App Store
+        if: steps.apple.outputs.signed == 'true'
+        working-directory: apps/desktop
+        env:
+          IOS_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IOS_MOBILE_PROVISION: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          export PATH="$PATH:$PATH_SUFFIX"
+          pnpm tauri ios build --target aarch64 --export-method app-store-connect --ci --config "$TAURI_VERSION_CONFIG"
+
+      - name: Collect IPA
+        if: steps.apple.outputs.signed == 'true'
+        run: |
+          ipa=$(find apps/desktop/src-tauri/gen/apple/build -maxdepth 2 -name '*.ipa' | head -n1)
+          [ -n "$ipa" ] || { echo "::error::No .ipa was produced"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/ipa"
+          cp "$ipa" "$RUNNER_TEMP/ipa/ohhi-${GITHUB_SHA::7}-ios.ipa"
+          echo "IPA=$RUNNER_TEMP/ipa/ohhi-${GITHUB_SHA::7}-ios.ipa" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.apple.outputs.signed == 'true'
+        with:
+          name: ohhi-ios-appstore-${{ github.sha }}
+          path: ${{ runner.temp }}/ipa/*
+          if-no-files-found: error
+          retention-days: 14
+
+      # altool reads the key from ~/private_keys/AuthKey_<id>.p8. The build
+      # appears in App Store Connect > TestFlight after Apple's processing.
+      - name: Upload to TestFlight
+        if: steps.apple.outputs.signed == 'true'
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          key=~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+          printf '%s\n' "$APP_STORE_CONNECT_KEY" > "$key"
+          chmod 600 "$key"
+          trap 'rm -f "$key"' EXIT
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"

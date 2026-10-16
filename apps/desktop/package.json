@@ -4,6 +4,15 @@
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "tauri dev", "build": "tauri build", "tauri": "tauri" },
-  "devDependencies": { "@tauri-apps/cli": "^2.0.0" }
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "android:dev": "sh scripts/android-env.sh tauri android dev",
+    "android:build": "sh scripts/android-env.sh tauri android build --debug --apk",
+    "icon": "node scripts/app-icon.mjs && tauri icon app-icon.json"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3"
+  }
 }

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "The join page's \"Inside <vault>\" choice, the \"shared vault of its own\" wording, the one-tab-per-vault message and the \"Oh Hi markdown\" spelling.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

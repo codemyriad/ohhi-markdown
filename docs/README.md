@@ -3,9 +3,9 @@ status: current
 date: 2026-10-10
 ---
 
-# Oh hi markdown docs
+# Oh Hi markdown docs
 
-Learning and reference documentation for Oh hi markdown — a collaborative, agent-native markdown editor over a plain-markdown vault. These docs *teach the concepts*. The decisions behind them were made in the team's design notes (`frame` → `shaping` → `slices` → code), which are private: code and docs cite a note by name and decision id (`shaping` D5(a), `v2-shaping` Fork 1), and the reasoning that matters for working on the code is carried here. See [`CLAUDE.md`](../CLAUDE.md), *The design notes are private*.
+Learning and reference documentation for Oh Hi markdown — a collaborative, agent-native markdown editor over a plain-markdown vault. These docs *teach the concepts*. The decisions behind them were made in the team's design notes (`frame` → `shaping` → `slices` → code), which are private: code and docs cite a note by name and decision id (`shaping` D5(a), `v2-shaping` Fork 1), and the reasoning that matters for working on the code is carried here. See [`CLAUDE.md`](../CLAUDE.md), *The design notes are private*.
 
 ## Index
 
@@ -17,6 +17,7 @@ Learning and reference documentation for Oh hi markdown — a collaborative, age
 | [customising.md](customising.md) | **Changing the app's own shape** (for people and agents). The `.ohhi/` resource root — layouts, keymaps, templates (themes: theming.md) — its folders and precedence, the `extends` + delta grammar, and every command, readout, region and view id (those lists are generated: `cd apps/web && rushx gen-schemas`). |
 | [public-deploy.md](public-deploy.md) | **The public deployment.** `app.ohhi.md` (Cloudflare Pages) and `dist.ohhi.md` (R2): the two build flavours, the once-only Cloudflare and GitHub steps, what each push does, *Get the desktop app*, the settings a public repository needs, and the open questions. The company's own relay host is documented in the private `codemyriad/systems` repository; running a relay for your own group is [guide/relay.md](guide/relay.md). |
 | [desktop-builds.md](desktop-builds.md) | **Desktop releases.** continuous builds from the `release` branch, release assets, the auto-updater, installing on macOS and Linux, and the webview's Content Security Policy. |
+| [mobile-builds.md](mobile-builds.md) | **Android and iOS builds.** The mobile workflow (debug APK and Simulator app on every app push to `main`, TestFlight on demand), where the artifacts land, the versioned iOS project, building iOS on a shared Mac, the TestFlight secrets, and what is not done yet. |
 | [guide/](guide/) | **The guide pages, for teammates** (first-run E4): [getting started](guide/start.md), [sharing and the relay](guide/sharing.md), [when something goes wrong](guide/recovery.md) (snapshots, undo, the failure-mode table, reporting a problem — formerly `recovery.md`), [bringing notes from another app](guide/import.md), [running your own relay](guide/relay.md) and [what's new](guide/changes.md). Plain sentences, no repo knowledge assumed; rendered into the web build at `/guide/<page>.html` by `apps/web/scripts/build-guide.mjs` and opened from the app's Help menu. Neutral about the deployment: team-specific sentences come from build variables, never from these pages. |
 | [theming.md](theming.md) | **The design system.** Three token bands driven by one `data-theme` attribute, why the sync-honesty tokens are unlayered, how CodeMirror is themed from the same tokens, the four built-in themes, and the Obsidian→Editor porting table for custom themes. |
 | [glossary.md](glossary.md) | Every term a newcomer hits in this repo, alphabetical, cross-linked to the primers. |

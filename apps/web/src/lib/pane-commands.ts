@@ -6,12 +6,13 @@
  * ids here are the ids `MODES` names — a typo shows up as a mode key that does
  * nothing, which is why `pane-commands.test.ts` asserts the two agree.
  *
- * Flat keys are Chris's own Obsidian rebinds (`Alt+-`, `Alt+=`,
- * `Ctrl+Mod+Arrows`, `Ctrl+Mod+Backspace`, `Ctrl+Mod+-`) plus Obsidian's
- * unrebound tab defaults (`Mod+T`, `Mod+W`, `Ctrl+Tab`, `Ctrl+Shift+Tab`,
- * `Mod+Shift+T`) — the ones already in his hands. Everything else ships with a
- * mode letter and a palette entry only, and R1.3's override map is how it gets
- * a key if one is ever missed.
+ * Flat keys are Obsidian's tab defaults (`Mod+T`, `Mod+W`, `Ctrl+Tab`,
+ * `Ctrl+Shift+Tab`, `Mod+Shift+T`), the `Mod+P` leader (tab-groups Fork 6)
+ * and VS Code's split (`Mod+\`). Everything else ships with a mode letter and
+ * a palette entry only (QA round 2, 2026-10-16: the defaults used to be
+ * Chris's own Obsidian rebinds — `Alt+-`, `Alt+=`, `Ctrl+Mod+Arrows`,
+ * `Ctrl+Mod+Backspace`, `Ctrl+Mod+-` — which now live in his keymap file),
+ * and a keymap file is how a command gets a key if one is ever missed.
  */
 import { FORMAT_COMMANDS, type FormatCommandId } from '@ohhi/editor'
 import { TABLE_COMMANDS, type TableCommandId } from '@ohhi/editor-lang'
@@ -21,13 +22,6 @@ import type { Dir, Side } from './panes.js'
 
 /** The four directions in Vim's `h j k l` order — the order the bar prints. */
 const SIDES: readonly Side[] = ['left', 'down', 'up', 'right']
-
-const ARROW: Record<Side, string> = {
-  left: 'ArrowLeft',
-  down: 'ArrowDown',
-  up: 'ArrowUp',
-  right: 'ArrowRight',
-}
 
 /** Everything the shell must be able to do for a pane/tab command to exist. */
 export interface PaneActions {
@@ -61,14 +55,13 @@ export function paneCommands(a: PaneActions): Command[] {
   const gTab = t.commands.groups.tab()
   return [
     { id: 'workspace.split-auto', title: pane.split_auto(), group: gPane, run: a.splitAuto },
-    { id: 'workspace.split-down', title: pane.split_down(), group: gPane, keys: 'Alt+-', run: () => a.split('col') },
-    { id: 'workspace.split-right', title: pane.split_right(), group: gPane, keys: 'Alt+=', run: () => a.split('row') },
-    { id: 'workspace.close-pane', title: pane.close_pane(), group: gPane, keys: 'Ctrl+Mod+Backspace', run: a.closePane },
+    { id: 'workspace.split-down', title: pane.split_down(), group: gPane, run: () => a.split('col') },
+    { id: 'workspace.split-right', title: pane.split_right(), group: gPane, keys: 'Mod+\\', run: () => a.split('row') },
+    { id: 'workspace.close-pane', title: pane.close_pane(), group: gPane, run: a.closePane },
     ...SIDES.map((side) => ({
       id: `workspace.focus-${side}`,
       title: pane[`focus_${side}`](),
       group: gPane,
-      keys: `Ctrl+Mod+${ARROW[side]}`,
       run: () => a.focus(side),
     })),
     { id: 'workspace.focus-next', title: pane.focus_next(), group: gPane, run: a.focusNext },
@@ -89,8 +82,8 @@ export function paneCommands(a: PaneActions): Command[] {
     { id: 'workspace.equalize', title: pane.equalize(), group: gPane, run: a.equalize },
     { id: 'workspace.mode', title: pane.mode(), group: gPane, keys: 'Mod+p', run: a.enterMode },
     // Close-others acts on the pane's TABS, so it reads under Tab in the
-    // palette even though its verb and its key belong to the pane family.
-    { id: 'workspace.close-others', title: pane.close_others(), group: gTab, keys: 'Ctrl+Mod+-', run: a.closeOthers },
+    // palette even though its verb belongs to the pane family.
+    { id: 'workspace.close-others', title: pane.close_others(), group: gTab, run: a.closeOthers },
     { id: 'tab.new', title: tab.new(), group: gTab, keys: 'Mod+t', run: a.newTab },
     { id: 'tab.close', title: tab.close(), group: gTab, keys: 'Mod+w', run: a.closeTab },
     { id: 'tab.prev', title: tab.prev(), group: gTab, keys: 'Ctrl+Shift+Tab', run: () => a.stepTab(-1) },

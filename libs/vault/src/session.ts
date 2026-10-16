@@ -391,6 +391,37 @@ export class VaultSession {
     return run
   }
 
+  /**
+   * `runExclusive` over several docs at once (a directory rename): waits for
+   * whatever each doc's queue holds, runs `fn` once, and holds every queue
+   * until it settles — so a reconcile queued on any of them in the meantime
+   * runs after the whole operation, never in the middle of it. Nothing
+   * queued earlier can depend on this section, so the wait cannot deadlock.
+   */
+  private runExclusiveAll<T>(guids: readonly string[], fn: () => Promise<T>): Promise<T> {
+    const unique = [...new Set(guids)]
+    if (unique.length === 0) return fn()
+    if (unique.length === 1) return this.runExclusive(unique[0]!, fn)
+    const tails = unique.map((g) => this.docQueues.get(g) ?? Promise.resolve())
+    const run = Promise.all(
+      tails.map((t) =>
+        t.then(
+          () => undefined,
+          () => undefined
+        )
+      )
+    ).then(fn)
+    const settled = run.then(
+      () => undefined,
+      () => undefined
+    )
+    for (const g of unique) this.docQueues.set(g, settled)
+    void settled.then(() => {
+      for (const g of unique) if (this.docQueues.get(g) === settled) this.docQueues.delete(g)
+    })
+    return run
+  }
+
   private reconcile(guid: string): Promise<void> {
     return this.runExclusive(guid, () => this.reconcileNow(guid))
   }
@@ -649,29 +680,49 @@ export class VaultSession {
     }
   }
 
-  /** UI action: rename/move a file (text or binary) and propagate via the map. */
+  /**
+   * UI action: rename/move a file (text or binary) and propagate via the map.
+   *
+   * Two orderings matter here (the desktop rename, QA 2026-10-16;
+   * `test/rename-race.test.ts`):
+   *
+   *  - The whole rename runs INSIDE the doc's exclusive section. A native
+   *    watcher reports the rename while the journal and the LCA store are
+   *    still being awaited, and a reconcile of the old path in that window
+   *    read an LCA naming a path the disk no longer had — a 'vanished' review
+   *    for a note that had merely moved. Serialized, that reconcile waits for
+   *    the rename to land and then finds the file at its new path, unchanged.
+   *  - `onPathsRenamed` fires in the SAME turn the map changes, before any
+   *    further await. The host's file list follows the map at once, and its
+   *    tab layer prunes tabs whose path has left the list; told late (after
+   *    real disk I/O), it closed the tab at the old name (S9-Q4).
+   */
   async renameFile(from: string, to: string): Promise<void> {
     const entry = this.folderDoc.getMap().get(from)
     if (!entry || entry.deleted || entry.kind === 'dir' || entry.kind === 'mount') {
       throw new Error(`rename: unknown path ${from}`)
     }
-    await this.adapter.rename(from, to)
-    this.folderDoc.transactMap((m) => {
-      m.delete(from)
-      m.set(to, entry)
-    }, 'local')
-    this.lastEntries.delete(from)
-    this.lastEntries.set(to, entry)
-    // The journal is keyed by path: its history follows the file, or the note
-    // arrives at its new name with nothing to restore (M10). Binaries too —
-    // they are journaled by import and delete.
-    await this.ctx.journal.rename(from, to)
-    if (entry.kind === 'text') {
-      this.rekeyPath(from, to, entry.guid)
-      const lca = await this.lcaStore.get(entry.guid)
-      if (lca) await this.lcaStore.put({ ...lca, path: to })
+    const run = async (): Promise<void> => {
+      await this.adapter.rename(from, to)
+      this.folderDoc.transactMap((m) => {
+        m.delete(from)
+        m.set(to, entry)
+      }, 'local')
+      this.lastEntries.delete(from)
+      this.lastEntries.set(to, entry)
+      if (entry.kind === 'text') this.rekeyPath(from, to, entry.guid)
+      this.events.onPathsRenamed?.([{ from, to }])
+      // The journal is keyed by path: its history follows the file, or the
+      // note arrives at its new name with nothing to restore (M10). Binaries
+      // too — they are journaled by import and delete.
+      await this.ctx.journal.rename(from, to)
+      if (entry.kind === 'text') {
+        const lca = await this.lcaStore.get(entry.guid)
+        if (lca) await this.lcaStore.put({ ...lca, path: to })
+      }
     }
-    this.events.onPathsRenamed?.([{ from, to }])
+    if (entry.kind === 'text') await this.runExclusive(entry.guid, run)
+    else await run()
   }
 
   /** UI action: create a directory — first-class map entry, syncs to peers. */
@@ -703,34 +754,45 @@ export class VaultSession {
       throw new Error(`renameDir: '${from}' contains a shared folder`)
     }
     const prefix = `${from}/`
-    await this.adapter.renameDir(from, to)
-    // Prefix-wise, in one call: every pre-image under the old directory is
-    // re-keyed under the new one (M10).
-    await this.ctx.journal.rename(from, to)
-    const moves: { from: string; to: string }[] = []
-    this.folderDoc.transactMap((m) => {
-      for (const [p, e] of m.entries()) {
-        if (p !== from && !p.startsWith(prefix)) continue
-        const np = to + p.slice(from.length)
-        m.delete(p)
-        m.set(np, e)
-        moves.push({ from: p, to: np })
+    // Every doc under the directory holds the rename's exclusive section, for
+    // the same two reasons `renameFile` gives.
+    const guids = this.folderDoc
+      .getMap()
+      .entries()
+      .filter(([p, e]) => e.kind === 'text' && !e.deleted && p.startsWith(prefix))
+      .map(([, e]) => e.guid)
+    await this.runExclusiveAll(guids, async () => {
+      await this.adapter.renameDir(from, to)
+      const moves: { from: string; to: string }[] = []
+      this.folderDoc.transactMap((m) => {
+        for (const [p, e] of m.entries()) {
+          if (p !== from && !p.startsWith(prefix)) continue
+          const np = to + p.slice(from.length)
+          m.delete(p)
+          m.set(np, e)
+          moves.push({ from: p, to: np })
+        }
+      }, 'local')
+      const rekeyed: { guid: string; path: string }[] = []
+      for (const { from: p, to: np } of moves) {
+        const e = this.lastEntries.get(p)
+        if (e) {
+          this.lastEntries.delete(p)
+          this.lastEntries.set(np, e)
+        }
+        const guid = this.pathToGuid.get(p) ?? null
+        this.rekeyPath(p, np, guid)
+        if (guid) rekeyed.push({ guid, path: np })
       }
-    }, 'local')
-    for (const { from: p, to: np } of moves) {
-      const e = this.lastEntries.get(p)
-      if (e) {
-        this.lastEntries.delete(p)
-        this.lastEntries.set(np, e)
-      }
-      const guid = this.pathToGuid.get(p) ?? null
-      this.rekeyPath(p, np, guid)
-      if (guid) {
+      this.events.onPathsRenamed?.(moves)
+      // Prefix-wise, in one call: every pre-image under the old directory is
+      // re-keyed under the new one (M10).
+      await this.ctx.journal.rename(from, to)
+      for (const { guid, path } of rekeyed) {
         const lca = await this.lcaStore.get(guid)
-        if (lca) await this.lcaStore.put({ ...lca, path: np })
+        if (lca) await this.lcaStore.put({ ...lca, path })
       }
-    }
-    this.events.onPathsRenamed?.(moves)
+    })
   }
 
   /** UI action: delete one file (text or binary) — journaled, tombstoned for peers. */

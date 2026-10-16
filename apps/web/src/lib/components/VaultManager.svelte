@@ -3,7 +3,7 @@
    * The vault manager (first-run A1/B1, superseding shell-polish P4's two
    * columns). Two states of one screen:
    *
-   *  - **the welcome** — no vault registered: "Oh hi.", one sentence and the
+   *  - **the welcome** — no vault registered: "Oh Hi.", one sentence and the
    *    doors worded as the thing you have (a folder of notes / a vault in
    *    this browser, a folder someone shared, your vault on another device);
    *  - **the list** — one row per vault with what it is (kind, where, when
@@ -57,6 +57,11 @@
 
   interface Props {
     isTauri: boolean
+    /**
+     * The phone app (docs/mobile-android.md): Tauri, but its vaults live in
+     * the app's own storage, as a browser's do; the copy says "this phone".
+     */
+    isMobile?: boolean
     hasOpfs: boolean
     /** The saved name ('' = none): passed through to every flow, never asked here (Fork 5-A). */
     defaultUser: string
@@ -68,7 +73,7 @@
      * `access`: the desktop fs scope refused the folder (DEL-89); the row
      * offers to allow access again.
      */
-    failure: { room: string | null; message: string; access?: true } | null
+    failure: { room: string | null; message: string; access?: true; elsewhere?: true } | null
     busy: boolean
     /** Shown when a workspace is open behind the manager (switcher route). */
     canGoBack: boolean
@@ -119,6 +124,7 @@
 
   let {
     isTauri,
+    isMobile = false,
     hasOpfs,
     defaultUser,
     vaults,
@@ -257,7 +263,7 @@
       const o = opened(entry)
       if (o) parts.push(o)
     } else if (entry.vault.kind === 'opfs') {
-      parts.push(l.in_browser())
+      parts.push(isMobile ? l.in_phone() : l.in_browser())
       // The browser reports usage for the whole site, so the line says so.
       if (storageState.usage) parts.push(l.site_usage({ used: formatBytes(storageState.usage.usage, $locale) }))
       if (storageState.state === 'persisted') parts.push(l.storage_kept())
@@ -365,7 +371,7 @@
 
 {#if welcome}
   <!-- ======================= the welcome (A1) ======================= -->
-  <div class="flex min-h-screen flex-col text-base-content">
+  <div class="flex min-h-full flex-col text-base-content">
     <header class="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-2.5">
       <span class="text-sm font-semibold">{$LL.common.app_name()}</span>
       <div class="flex items-center gap-1">
@@ -407,8 +413,8 @@
           <li>
             {@render door({
               icon: Globe,
-              title: w.browser(),
-              hint: w.browser_hint(),
+              title: isMobile ? w.phone() : w.browser(),
+              hint: isMobile ? w.phone_hint() : w.browser_hint(),
               testid: 'start-browser-vault',
               accent: true,
               expanded: naming,
@@ -485,7 +491,7 @@
   </div>
 {:else}
   <!-- ======================= the list (B1) ======================= -->
-  <main class="mx-auto min-h-screen w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
+  <main class="mx-auto min-h-full w-full max-w-3xl px-4 py-10 text-base-content sm:px-8" data-testid="manager-list">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-xl font-semibold">{l.title()}</h1>
       <div class="flex items-center gap-2">
@@ -511,7 +517,7 @@
               <MenuItem {item} testid="open-folder" onSelect={() => onOpenFolder(name)}>{l.add_folder()}</MenuItem>
             {:else if !browserBlocked}
               <MenuItem {item} testid="add-browser-vault" onSelect={() => (newVaultOpen = true)}>
-                {l.add_browser()}
+                {isMobile ? l.add_phone() : l.add_browser()}
               </MenuItem>
             {/if}
             {#if !browserBlocked}
@@ -655,7 +661,7 @@
             {#if failed && failure}
               <div class="px-3 pb-2 pl-11">
                 <p role="alert" data-testid="vault-error:{entry.room}" class="text-xs text-error">
-                  {failure.access ? failure.message : t.vault_error({ message: failure.message })}
+                  {failure.access || failure.elsewhere ? failure.message : t.vault_error({ message: failure.message })}
                 </p>
                 <div class="mt-1.5 flex flex-wrap gap-2">
                   {#if failure.access}
@@ -800,6 +806,7 @@
 {#if joinOpen}
   <AddSharedFolderDialog
     vaultName={joinInto?.vaultName ?? null}
+    anyVaults={vaults.length > 0}
     dirs={joinInto?.dirs ?? []}
     initialLink={prefillLink}
     initialWhere="own"
@@ -816,14 +823,14 @@
 {/if}
 
 {#if newVaultOpen}
-  <Dialog title={l.new_browser_title()} width="sm" testid="new-vault-dialog" onClose={() => (newVaultOpen = false)}>
+  <Dialog title={isMobile ? l.new_phone_title() : l.new_browser_title()} width="sm" testid="new-vault-dialog" onClose={() => (newVaultOpen = false)}>
     <form
       onsubmit={(e) => {
         e.preventDefault()
         createInBrowser()
       }}
     >
-      <p class="text-xs text-base-content/70">{w.browser_hint()}</p>
+      <p class="text-xs text-base-content/70">{isMobile ? w.phone_hint() : w.browser_hint()}</p>
       <Field name="vault-name" class="mt-3">
         <TextControl
           label={t.vault_name_placeholder()}

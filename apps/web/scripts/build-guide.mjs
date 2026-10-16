@@ -154,7 +154,7 @@ export function renderPage({ name, source, nav }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} · Oh hi markdown</title>
+<title>${escapeHtml(title)} · Oh Hi markdown</title>
 <style>${STYLE}</style>
 </head>
 <body>

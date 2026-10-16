@@ -433,7 +433,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --draft "${pre[@]}" \
             --target "$GITHUB_SHA" \
-            --title "Oh hi markdown $TAG" \
+            --title "Oh Hi markdown $TAG" \
             --notes "$notes"
           if [ "$publish" = true ]; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
@@ -450,10 +450,16 @@ jobs:
   # doesn't:
   #   <version>/<file>        every asset but web.tar.gz (the public web app
   #                           is on Pages): cached forever, never rewritten
+  #   stable/latest/<name>    the newest installers under version-less names
+  #                           (ohhi_universal.dmg, ohhi_amd64.AppImage,
+  #                           ohhi_amd64.deb) plus a SHA256SUMS.txt of those
+  #                           names: what ohhi.md/download links to
   #   stable/downloads.json   Settings › About's "Get the desktop app"
   #   stable/latest.json      the updater feed, LAST, so no installed app is
   #                           offered a bundle that isn't there yet
-  # The two manifests are `no-store`: a cached one would hold every app back.
+  # Everything under stable/ is `no-store`: a cached manifest would hold every
+  # app back, and a cached installer could be a different release from the
+  # checksum file beside it.
   # Checks nothing out; its only third-party code is the pinned wrangler.
   dist:
     name: upload to dist.ohhi.md (R2)
@@ -521,6 +527,18 @@ jobs:
             [ "$f" = web.tar.gz ] && continue
             put "$VERSION/$f" "$f" "$(type_of "$f")" "$forever"
           done
+          # The landing page (apps/site/src/links.ts) links the newest
+          # installer by a name without the version; its SHA256SUMS.txt lists
+          # those names, so `sha256sum -c` works on what was downloaded there.
+          : > latest-sums.txt
+          for f in *.dmg *.AppImage *.deb; do
+            [ -f "$f" ] || continue
+            alias="${f/_${VERSION}_/_}"
+            put "stable/latest/$alias" "$f" "$(type_of "$f")" no-store
+            awk -v f="$f" -v a="$alias" '$2 == f { print $1 "  " a }' SHA256SUMS.txt >> latest-sums.txt
+          done
+          [ -s latest-sums.txt ] || { echo "::error::no installer to alias under stable/latest/"; exit 1; }
+          put stable/latest/SHA256SUMS.txt latest-sums.txt 'text/plain; charset=utf-8' no-store
           if [ -f downloads.json ]; then
             put stable/downloads.json downloads.json application/json no-store
           fi
@@ -529,4 +547,4 @@ jobs:
           else
             echo "::warning::$TAG has no latest.json (unsigned build): stable/latest.json left as it was"
           fi
-          echo "::notice::$TAG is on https://dist.ohhi.md/$VERSION/ and stable/"
+          echo "::notice::$TAG is on https://dist.ohhi.md/$VERSION/, stable/latest/ and stable/"

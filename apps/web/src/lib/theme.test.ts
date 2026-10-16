@@ -24,8 +24,8 @@ describe('the built-in theme registry', () => {
     const labels = BUILTIN_THEMES.map((t) => builtinThemeLabel(getLL(), t))
     expect(labels.every((l) => typeof l === 'string' && l.length > 0)).toBe(true)
     expect(new Set(labels).size, 'two built-ins share a label').toBe(BUILTIN_THEMES.length)
-    expect(builtinThemeLabel(getLL(), 'editor-light')).toBe('Oh hi Light')
-    expect(builtinThemeLabel(getLL(), 'editor-dark')).toBe('Oh hi Dark')
+    expect(builtinThemeLabel(getLL(), 'editor-light')).toBe('Oh Hi Light')
+    expect(builtinThemeLabel(getLL(), 'editor-dark')).toBe('Oh Hi Dark')
     expect(builtinThemeLabel(getLL(), 'my-theme')).toBeNull()
   })
 

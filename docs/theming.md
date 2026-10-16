@@ -93,7 +93,7 @@ Colour is never the only channel: `SyncPill.svelte` also carries a `title`, an
   failure is invisible until someone switches to dark.
 - **Muted text stops at `/70`.** The same script fails `text-base-content` at
   60% opacity or below: on the first `editor-light`, `/60` was 4.19:1 and `/40`
-  2.41:1 against 4.5:1 required; on today's (Oh hi Light) `/60` is 4.05:1 and
+  2.41:1 against 4.5:1 required; on today's (Oh Hi Light) `/60` is 4.05:1 and
   on Fjord Light 3.90:1, while `/70` clears 4.9:1 on every built-in's
   `base-100` and `base-200`. `text-primary` on a `bg-primary/15` tint is 3.8:1 for
   the same reason — solid chips use the `primary`/`primary-content` pair. The
@@ -143,7 +143,7 @@ the sync pill everywhere, so `theme-contract.test.ts` asserts more:
   text). The light themes' ink is white; the dark themes' is near-black (`#14181d` in the four dark defaults, `#0b0e13` in the Nord Dark example). A custom
   theme that retints a slot must check its ink.
 
-**The defaults share them** (themes review Fork 5-A): Oh hi, Graphite, Fjord
+**The defaults share them** (themes review Fork 5-A): Oh Hi, Graphite, Fjord
 and Iris carry one light set and one dark set of presence colours, so a peer
 keeps their colour when you switch between them — a peer's colour is
 identity, not decoration. The Nord example restates its own; any custom
@@ -372,7 +372,7 @@ is one of the eight ids in `BUILTIN_THEMES` (`libs/ui/src/tokens.ts`, the
 registry Settings › Appearance lists from — see *The built-in themes* below),
 stored in `editor:config.theme` and mirrored to the `editor:theme` string key.
 `system` resolves to `DEFAULT_LIGHT_THEME` / `DEFAULT_DARK_THEME`
-(`editor-light` / `editor-dark`, Oh hi Light and Dark). Applying a theme also
+(`editor-light` / `editor-dark`, Oh Hi Light and Dark). Applying a theme also
 sets `data-polarity` (band C) and mirrors it to `editor:polarity`.
 
 A stored id that is no longer built in is read through `RETIRED_THEMES`
@@ -439,7 +439,7 @@ already there; it says so instead. The examples live in
 a vault by hand, or having an agent do it, is the same thing.
 
 **A theme the vault does not hold.** When the device's choice names a folder
-the open vault lacks, the default of its polarity (Oh hi Light or Oh hi Dark)
+the open vault lacks, the default of its polarity (Oh Hi Light or Oh Hi Dark)
 stands in and the choice is kept: Appearance's source line and Customise's
 Theme row say what stands in for what, and the theme comes back as soon as a
 vault with the folder opens, or the folder is added.
@@ -467,8 +467,8 @@ Four rules the file itself will not tell you:
   else is refused (and not listed), because the name becomes both a path
   segment and a `[data-theme]` value.
 - **Until the vault is read, the default of its polarity stands in.** The
-  pre-paint script cannot read a vault-resident theme, so it shows Oh hi Light
-  or Oh hi Dark by the polarity the app last resolved for the theme
+  pre-paint script cannot read a vault-resident theme, so it shows Oh Hi Light
+  or Oh Hi Dark by the polarity the app last resolved for the theme
   (`editor:polarity`), and the theme replaces it once the vault opens. Its
   sync colours are right from the first frame.
 
@@ -526,7 +526,7 @@ registry is `BUILTIN_THEMES` / `DARK_THEMES` / `THEME_LABEL_KEYS` in
 
 | Id | Label | What it is |
 |---|---|---|
-| `editor-light` / `editor-dark` | Oh hi Light / Oh hi Dark | **The default pair** (what *System* resolves to): the review's direction B, *Ledger*. Paper and a fountain pen — warm neutrals from the page (`#faf8f4`) to the darkest chrome, one ink-blue for everything you can follow (link, wikilink, title, caret), teal code, a sand chip for tags, a visible warm heading ramp. |
+| `editor-light` / `editor-dark` | Oh Hi Light / Oh Hi Dark | **The default pair** (what *System* resolves to): the review's direction B, *Ledger*. Paper and a fountain pen — warm neutrals from the page (`#faf8f4`) to the darkest chrome, one ink-blue for everything you can follow (link, wikilink, title, caret), teal code, a sand chip for tags, a visible warm heading ramp. |
 | `graphite-light` / `graphite-dark` | Graphite Light / Dark | Direction A. No accent at all: buttons, focus marks and the caret are ink, the only hue on the page is a link, headings by weight and size alone, the unresolved link a grey ghost. |
 | `fjord-light` / `fjord-dark` | Fjord Light / Dark | Direction C. Nord's temperature on our rules: cool blue-greys, frost for the caret and accent, mauve for a note not written yet, a cool heading ramp. |
 | `iris-light` / `iris-dark` | Iris Light / Dark | Direction D. One violet with discipline (caret, title, links, selection), cyan for code, a rose comment tint and unresolved link. |
@@ -571,9 +571,9 @@ it is, comments aside), and every honesty rule a built-in meets against the
 sync set of its polarity.
 
 **A device that chose Nord before the move** (Chris's `nord-dark`): its stored
-`nord-dark` is read as `custom:nord-dark`. The pre-paint script paints Oh hi
+`nord-dark` is read as `custom:nord-dark`. The pre-paint script paints Oh Hi
 Dark (the dark polarity is known). When the vault opens: if it holds
-`.ohhi/themes/nord-dark/`, Nord Dark applies as before; if not, Oh hi Dark
+`.ohhi/themes/nord-dark/`, Nord Dark applies as before; if not, Oh Hi Dark
 stands in, the choice is kept, and the app says so **once per name, ever**
 (the `theme_retired` notice, a warning that toasts with *Show themes* —
 Appearance, where *Add to this vault* is — and stays in the Log under

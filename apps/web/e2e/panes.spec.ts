@@ -7,44 +7,48 @@
  * Memory vault contract, like v2.spec.ts — no folder, no share.
  */
 import { expect, test } from '@playwright/test'
-import { appUrl, closeSettings, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, openSettings, panes, runCommand, splitRight, tabNamed, paneTabs } from './fixtures.js'
+import { appUrl, closeSettings, dragRowTo, dragTo, editors, focusEditor, newNote, openApp, openByQuickOpen, openSettings, panes, runCommand, splitRight, tabNamed, paneTabs, withObsidianKeys } from './fixtures.js'
 
 const WELCOME = 'notes/welcome.md'
 const IDEAS = 'notes/ideas.md'
 
-test('his pane keys rebuild a four-pane layout, and the arrows move between them', async ({
+test('the pane keys rebuild a four-pane layout, and the mode\'s arrows move between them', async ({
   page,
 }) => {
   await openApp(page, 'panes-keys')
   await page.getByTestId(`file-item:${WELCOME}`).click()
   await expect(panes(page)).toHaveCount(1)
 
-  // Alt+- splits down, Alt+= splits right — his own Obsidian rebinds. Each
-  // split duplicates the active note into the new pane, as Obsidian does.
-  await page.keyboard.press('Alt+-')
+  // `Mod+P d` splits down, `Mod+\` (VS Code's) splits right. Split-down has
+  // no flat key by default (QA round 2: the old defaults were Chris's own
+  // Obsidian rebinds, now his keymap file's), so it goes through the leader.
+  // Each split duplicates the active note into the new pane, as Obsidian does.
+  await page.keyboard.press('ControlOrMeta+p')
+  await page.keyboard.press('d')
   await expect(panes(page)).toHaveCount(2)
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(3)
 
-  // `Ctrl+Mod+Arrows` move focus. Off mac that chord is pressed as Alt+Arrow:
-  // Ctrl+Alt+Arrows is GNOME's workspace switcher and never reaches the page,
-  // and plain Mod+Arrows are his sidebar toggles (see commands.ts). The
-  // focused pane is the one carrying the testids the rest of the shell drives,
-  // so its status bar names it.
+  // Focus moves through the pane mode's arrows (`Mod+P`, then an arrow or
+  // h/j/k/l): the flat `Ctrl+Mod+Arrow` chords are Back / Forward now. The
+  // focused pane is the one carrying the testids the rest of the shell
+  // drives, so its status bar names it.
   await expect(page.getByTestId('status-bar')).toContainText('Pane 3')
-  await page.keyboard.press('Alt+ArrowLeft')
+  await page.keyboard.press('ControlOrMeta+p')
+  await page.keyboard.press('ArrowLeft')
   await expect(page.getByTestId('status-bar')).toContainText('Pane 2')
-  await page.keyboard.press('Alt+ArrowUp')
+  await page.keyboard.press('ControlOrMeta+p')
+  await page.keyboard.press('ArrowUp')
   await expect(page.getByTestId('status-bar')).toContainText('Pane 1')
 
   // A fourth pane, and four live editors — one per pane on screen (R2.1).
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(4)
   await expect(editors(page)).toHaveCount(4)
 
-  // Ctrl+Mod+Backspace closes the focused pane; its share goes to a neighbour.
-  // That one keeps its Ctrl+Alt chord off mac — nothing else claims it.
-  await page.keyboard.press('Control+Alt+Backspace')
+  // `Mod+P x` closes the focused pane; its share goes to a neighbour.
+  await page.keyboard.press('ControlOrMeta+p')
+  await page.keyboard.press('x')
   await expect(panes(page)).toHaveCount(3)
 })
 
@@ -84,7 +88,7 @@ test('a tab dropped on a pane edge splits it; a tab dropped on a strip moves', a
 test('a split border drags, and the sizes survive a reload', async ({ page }) => {
   await openApp(page, 'panes-resize')
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(2)
 
   const first = panes(page).first()
@@ -138,7 +142,7 @@ test('the same note in two panes edits both ways and shows one truth', async ({ 
   await openApp(page, 'panes-sync', { token: 'panes-token' })
   await page.getByTestId(`file-item:${WELCOME}`).click()
   // A split duplicates the active note: one Y.Text, two views (Spike S9).
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(editors(page)).toHaveCount(2)
 
   const left = editors(page).first()
@@ -178,7 +182,7 @@ test('the same note in two panes edits both ways and shows one truth', async ({ 
 test('deleting a note in the tree closes its tabs, in every pane', async ({ page }) => {
   await openApp(page, 'panes-delete')
   await page.getByTestId(`file-item:${IDEAS}`).click()
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(editors(page)).toHaveCount(2)
 
   await page.getByTestId(`file-item:${IDEAS}`).click({ button: 'right' })
@@ -197,7 +201,7 @@ test('the pane mode zooms and resizes from the keyboard, and says what it does',
 }) => {
   await openApp(page, 'panes-mode')
   await page.getByTestId(`file-item:${WELCOME}`).click()
-  await page.keyboard.press('Alt+=')
+  await page.keyboard.press('ControlOrMeta+\\')
   await expect(panes(page)).toHaveCount(2)
 
   // Mod+P is the leader; the corner cue (E6, Subtle) shows the live mode,
@@ -467,6 +471,7 @@ test('the unpinned navigator floats, not modal, over the panes below the strip: 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
+  await withObsidianKeys(page) // the drawer and the dock by their (rebound) keys
   await page.goto(appUrl({ room: 'panes-float-nav', layout: null }))
   await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
   await openByQuickOpen(page, 'welcome')
