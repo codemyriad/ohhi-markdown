@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The app builds for iPhone and iPad (iOS 26 or later): every change to the app produces a test build for the iOS Simulator and an installable Android build, and a TestFlight build can be made on demand once the Apple account is set up.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}
