@@ -2833,7 +2833,7 @@ export type NamespaceWebTranslation = {
 		 */
 		none_host: string
 		/**
-		 * S​h​a​r​e​s​ ​n​e​e​d​ ​o​n​e​ ​r​e​l​a​y​ ​p​e​r​ ​g​r​o​u​p​.​ ​R​u​n​ ​y​o​u​r​ ​o​w​n​,​ ​o​r​ ​a​s​k​ ​t​h​e​ ​p​e​r​s​o​n​ ​w​h​o​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​ ​w​h​i​c​h​ ​o​n​e​ ​t​h​e​y​ ​u​s​e​.
+		 * S​h​a​r​e​s​ ​n​e​e​d​ ​o​n​e​ ​r​e​l​a​y​ ​p​e​r​ ​g​r​o​u​p​.​ ​E​n​t​e​r​ ​t​h​e​ ​o​n​e​ ​y​o​u​r​ ​g​r​o​u​p​ ​u​s​e​s​,​ ​r​u​n​ ​y​o​u​r​ ​o​w​n​,​ ​o​r​ ​o​p​e​n​ ​a​ ​l​i​n​k​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​:​ ​i​t​ ​b​r​i​n​g​s​ ​t​h​e​i​r​ ​r​e​l​a​y​ ​a​l​o​n​g​.
 		 */
 		none_body: string
 		/**
@@ -11627,7 +11627,7 @@ export type TranslationFunctions = {
 			 */
 			none_host: () => LocalizedString
 			/**
-			 * Shares need one relay per group. Run your own, or ask the person who shared with you which one they use.
+			 * Shares need one relay per group. Enter the one your group uses, run your own, or open a link someone shared with you: it brings their relay along.
 			 */
 			none_body: () => LocalizedString
 			/**

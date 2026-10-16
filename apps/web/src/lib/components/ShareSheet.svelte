@@ -37,6 +37,7 @@
     DEFAULT_RELAY_CONFIGURED,
     TEAM_HOST,
     TEAM_NETWORK_NOTE,
+    WEB_ORIGIN,
     isRelayUrl,
   } from '../config.js'
   import { isTauri } from '../platform.js'
@@ -91,6 +92,8 @@
     secretHint?: string
     desktop?: boolean
     locationOrigin?: string | null
+    /** The build's public web app (`WEB_ORIGIN`): a desktop build's join page for any wss: relay; '' = none. */
+    publicOrigin?: string
   }
 
   let {
@@ -114,6 +117,7 @@
     secretHint,
     desktop = isTauri(),
     locationOrigin = typeof location !== 'undefined' ? location.origin : null,
+    publicOrigin = WEB_ORIGIN,
   }: Props = $props()
 
   const t = $derived($LL.web.share.sheet)
@@ -237,7 +241,7 @@
   }
 
   // ---- the link as it leaves the sheet (C1/C4) ----
-  const origin = $derived(linkOrigin({ desktop, locationOrigin, relayUrl: folderRelay, teamHost: pinnedHost }))
+  const origin = $derived(linkOrigin({ desktop, locationOrigin, relayUrl: folderRelay, teamHost: pinnedHost, publicOrigin }))
   const fromName = $derived(yourName.trim() || userName)
 
   function present(target: ShareTarget): string {

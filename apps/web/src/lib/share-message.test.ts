@@ -49,6 +49,28 @@ describe('linkOrigin', () => {
     ).toBeNull()
   })
 
+  it('a public desktop build points links at its public web app — for a wss: relay off this machine only', () => {
+    const pub = { desktop: true, locationOrigin: 'tauri://localhost', teamHost: '', publicOrigin: 'https://hi.ohhi.md' }
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://their-relay.example/relay' })).toBe('https://hi.ohhi.md')
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://relay.example:8443/' })).toBe('https://hi.ohhi.md')
+    // Nobody else's join page can reach the sharer's own machine, or a cleartext relay.
+    expect(linkOrigin({ ...pub, relayUrl: 'ws://localhost:8787' })).toBeNull()
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://localhost:8787' })).toBeNull()
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://127.0.0.1/relay' })).toBeNull()
+    expect(linkOrigin({ ...pub, relayUrl: 'ws://relay.example' })).toBeNull()
+    expect(linkOrigin({ ...pub, relayUrl: 'not a url' })).toBeNull()
+    // Not an origin anyone can open → as if unset.
+    expect(linkOrigin({ ...pub, publicOrigin: 'tauri://localhost', relayUrl: 'wss://r.example/relay' })).toBeNull()
+    // The team host still wins for its own relay.
+    expect(
+      linkOrigin({ ...pub, teamHost: 'ohhi.example.ts.net', relayUrl: TEAM })
+    ).toBe('https://ohhi.example.ts.net')
+    // A browser keeps its own origin.
+    expect(linkOrigin({ ...pub, desktop: false, locationOrigin: 'https://app.ohhi.md', relayUrl: TEAM })).toBe(
+      'https://app.ohhi.md'
+    )
+  })
+
   it('a browser’s own origin wins whatever the relay — the join page lives beside the app that made the link', () => {
     expect(
       linkOrigin({ desktop: false, locationOrigin: 'https://app.example', relayUrl: 'wss://their-relay.example/relay', teamHost: '' })

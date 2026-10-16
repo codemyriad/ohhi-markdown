@@ -119,6 +119,36 @@ export function resolveTeamHost(buildValue: unknown): string {
 /** This build's pinned host ('' = not pinned; see `resolveTeamHost`). */
 export const TEAM_HOST = resolveTeamHost(import.meta.env.VITE_TEAM_HOST)
 
+/**
+ * Where this build's desktop downloads are listed (`VITE_DOWNLOADS_URL`, a
+ * `downloads.json` — scripts/downloads-manifest.mjs writes it): the public
+ * flavour's `https://dist.ohhi.md/stable/downloads.json`, the team flavour's
+ * `https://<team host>/updates/downloads.json` (scripts/flavour.mjs derives
+ * both). `https:` only — anything else reads as unset, and unset means the
+ * app offers no *Get the desktop app*.
+ */
+export function resolveDownloadsUrl(buildValue: unknown): string {
+  const url = buildText(buildValue)
+  return /^https:\/\/[^/\s]+\/\S*$/i.test(url) ? url : ''
+}
+
+/** This build's downloads list ('' = none; see `resolveDownloadsUrl`). */
+export const DOWNLOADS_URL = resolveDownloadsUrl(import.meta.env.VITE_DOWNLOADS_URL)
+
+/**
+ * The public web app's origin (`VITE_WEB_ORIGIN`, the public flavour's
+ * `https://<PUBLIC_WEB_HOST>`): where a public DESKTOP build points the share
+ * links it makes, since its own origin is the webview's (`linkOrigin` in
+ * share-message.ts). An `https://` origin only — no path — else ''.
+ */
+export function resolveWebOrigin(buildValue: unknown): string {
+  const origin = buildText(buildValue).replace(/\/+$/, '').toLowerCase()
+  return /^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/.test(origin) ? origin : ''
+}
+
+/** This build's public web app ('' = none; see `resolveWebOrigin`). */
+export const WEB_ORIGIN = resolveWebOrigin(import.meta.env.VITE_WEB_ORIGIN)
+
 /** One room's stored credential. */
 export interface RoomToken {
   token: string

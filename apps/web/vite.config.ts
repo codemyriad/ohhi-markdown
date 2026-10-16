@@ -1,11 +1,49 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { searchForWorkspaceRoot } from 'vite'
+import { searchForWorkspaceRoot, type Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
+import { checkHeaders, resolveFlavour } from './scripts/flavour.mjs'
+
+// The build flavour (scripts/flavour.mjs, docs/public-deploy.md): `VITE_FLAVOUR`
+// = team | public, unset for a local build. Its defaults land in process.env
+// before Vite reads the VITE_* values (an explicit value wins); a
+// contradiction — a public build given a team host, a team build without
+// one — stops here rather than shipping.
+const flavour = resolveFlavour(process.env)
+if (flavour.errors.length) throw new Error(`VITE_FLAVOUR=${process.env.VITE_FLAVOUR}:\n  ${flavour.errors.join('\n  ')}`)
+for (const [name, value] of Object.entries(flavour.env)) if (!process.env[name]) process.env[name] = value
+
+/**
+ * After a flavoured build: the `_headers` it emitted (public/_headers, which
+ * Cloudflare Pages reads as is and ohhi-pull turns into Caddy lines) carries
+ * this flavour's policy — unpinned for public, pinned to the team host for
+ * team (`checkHeaders`).
+ */
+function flavourGuard(): Plugin {
+  let outDir = 'dist'
+  return {
+    name: 'ohhi-flavour-guard',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir)
+    },
+    closeBundle() {
+      if (!flavour.flavour) return
+      const errors = checkHeaders(readFileSync(resolve(outDir, '_headers'), 'utf8'), {
+        flavour: flavour.flavour,
+        teamHost: flavour.teamHost ?? '',
+      })
+      if (errors.length) throw new Error(`${flavour.flavour} build, dist/_headers:\n  ${errors.join('\n  ')}`)
+      console.log(`${flavour.flavour} flavour: dist/_headers checked`)
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [svelte(), tailwindcss()],
+  plugins: [svelte(), tailwindcss(), flavourGuard()],
   // The build's version for the Help menu in a browser (help.svelte.ts
   // BUILD_VERSION): the release workflow's VERSION; '' in a local build. The
   // desktop asks Tauri for its own instead.

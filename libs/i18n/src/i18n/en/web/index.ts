@@ -1015,8 +1015,13 @@ const shared = {
 const relay_card = {
   label: 'Relay',
   none_host: 'No relay yet',
+  /**
+   * No relay saved and none in the build — every public build starts here
+   * (docs/public-deploy.md): a share link carries its relay, so opening one
+   * is the other way in.
+   */
   none_body:
-    'Shares need one relay per group. Run your own, or ask the person who shared with you which one they use.',
+    'Shares need one relay per group. Enter the one your group uses, run your own, or open a link someone shared with you: it brings their relay along.',
   guide: 'How to run a relay',
   checking: 'checking…',
   reachable: 'reachable · checked {when:string}',
