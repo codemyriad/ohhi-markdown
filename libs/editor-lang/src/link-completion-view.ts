@@ -275,8 +275,20 @@ function footerPlugin(hostOf: (state: EditorState) => WikiLinkHost): Extension {
   )
 }
 
-/** Is the open popover showing link rows (rather than `#tag` ones)? */
-function linkPopoverOpen(state: EditorState): boolean {
+/**
+ * Is the popover a link one (rather than `#tag`)? Decided from the document
+ * — the caret inside an open `[[` — not from the open dialog's rows: CM6
+ * asks for the tooltip's class while it is still building the dialog, when
+ * `currentCompletions` is empty, so a class read from the rows was absent on
+ * every first paint and applied a frame later. Each keystroke makes a new
+ * dialog, so the rows drew at the default indent and then jumped to this
+ * popover's (QA 2026-10-16, Chris's screencast). The rows check stays as the
+ * fallback for a dialog kept open after the caret has left the brackets.
+ */
+export function linkPopoverOpen(state: EditorState): boolean {
+  const head = state.selection.main.head
+  const line = state.doc.lineAt(head)
+  if (linkQueryAt(line.text, head - line.from) !== null) return true
   return isLinkOption(currentCompletions(state)[0])
 }
 
