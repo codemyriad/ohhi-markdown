@@ -68,7 +68,7 @@
      * `access`: the desktop fs scope refused the folder (DEL-89); the row
      * offers to allow access again.
      */
-    failure: { room: string | null; message: string; access?: true } | null
+    failure: { room: string | null; message: string; access?: true; elsewhere?: true } | null
     busy: boolean
     /** Shown when a workspace is open behind the manager (switcher route). */
     canGoBack: boolean
