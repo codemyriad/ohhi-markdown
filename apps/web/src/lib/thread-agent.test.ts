@@ -49,7 +49,9 @@ describe('askAgent', () => {
     const run = await askAgent(deps, PATH, t.id)
     expect(run?.status).toBe('successful')
     expect(started).toHaveLength(1)
-    expect(started[0]).toMatchObject({ instruction: 'Which day?', threadId: t.id, sessionId: 's-current', open: false })
+    expect(started[0]).toMatchObject({ instruction: 'Which day?', threadId: t.id, sessionId: 's-current' })
+    // …and the run opens its session view (no `open: false`): Send to agent shows the session.
+    expect(started[0].open).toBeUndefined()
     // The session the person has open keeps its name: no title handed in, not even one cut from the comment.
     expect(started[0].title).toBeNull()
     expect(started[0].refs?.[0]).toMatchObject({ ref: { kind: 'lines', path: PATH }, snapshot: 'March' })

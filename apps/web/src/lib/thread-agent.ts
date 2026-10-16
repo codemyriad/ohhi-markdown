@@ -100,7 +100,9 @@ export async function askAgent(
 
   const range = store.rangeOf(thread)
   const ref = range ? await deps.mention(path, store, range) : mentionOf({ kind: 'file', path })
-  const input = { instruction: comment.body, refs: [ref], threadId, open: false } satisfies StartRunInput
+  // The run opens its session like every other door (beside the note, or the
+  // tab already there) — Chris, QA round 2: "send to agent should open the session panel".
+  const input = { instruction: comment.body, refs: [ref], threadId } satisfies StartRunInput
   // The session asked for (the current one by default) when it is free; a new one otherwise.
   // Only a NEW session is named after the comment's place: one the person
   // already has open keeps its name (an untitled one stays untitled), so

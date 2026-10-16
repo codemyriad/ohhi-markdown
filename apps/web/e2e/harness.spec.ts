@@ -546,10 +546,14 @@ test('a comment sent to the agent says where it goes, gets its reply in the thre
   await expect(bubble.getByTestId('comment-send-target')).toHaveText('Starts a new session')
   await bubble.getByTestId('comment-send-agent').click()
   await expect(bubble).toHaveCount(0)
+  // Send to agent opens its session like every other door: beside the note (QA round 2).
+  await expect(page.getByTestId('session-view')).toBeVisible()
+  await expect(panes(page)).toHaveCount(2)
 
   // The run answers in the thread: reopen it from the caret inside its passage.
   await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
-  await paneContent(page).getByText('syncs through').click()
+  // The session pane holds the focus now: the note's pane is `editor-pane:<id>`.
+  await page.locator('[data-testid^="editor-pane"] .cm-content').getByText('syncs through').click()
   await page.keyboard.press('ControlOrMeta+Shift+m')
   const thread = page.getByTestId('comment-thread')
   await expect(thread).toContainText('What does this mean in practice?')
@@ -609,6 +613,11 @@ for (const where of ['the same pane as the note', 'a pane beside the note'] as c
     await bubble.getByTestId('comment-send-agent').click()
     await expect(bubble).toHaveCount(0)
     await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
+    // Send to agent shows the session (QA round 2): in the same pane that brings its tab
+    // forward, so go back to the note's tab to read the thread.
+    await expect(page.getByTestId('session-view')).toBeVisible()
+    // The note's tab: "welcome" behind the session in the same pane, "Live editor welcome" when it is the selected one beside.
+    await page.getByRole('tab', { name: /welcome$/ }).click()
     await page.locator('[data-pane-id] .cm-content').getByText('syncs through').click()
     await page.keyboard.press('ControlOrMeta+Shift+m')
     await expect(page.getByTestId('comment-thread')).toContainText('every keystroke is shared with the room', { timeout: 15_000 })
@@ -645,9 +654,7 @@ test('a note with a comment thread keeps its first line at the top when the sess
   await bubble.getByTestId('comment-body').fill('jiaosdjas')
   await bubble.getByTestId('comment-send-agent').click()
   await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
-  // The session, opened from the note: below it.
-  await paneContent(page).getByText('syncs through').click()
-  await page.keyboard.press('ControlOrMeta+Shift+l')
+  // The session, opened by Send to agent (QA round 2): below the note.
   await expect(page.getByTestId('session-view')).toBeVisible()
   await expect(panes(page)).toHaveCount(2)
   const [top, below] = await Promise.all([panes(page).nth(0).boundingBox(), panes(page).nth(1).boundingBox()])
