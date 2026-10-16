@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stand-in so Tauri's iOS tooling finds libimobiledevice (it looks for
+# `idevicesyslog`) and does not `brew install` it: only device log streaming
+# in `tauri ios dev` uses it. Last on PATH, so a real one wins.
+# See docs/mobile-builds.md.
+echo "idevicesyslog: stub from scripts/ios-stubs (libimobiledevice not installed); args: $*" >&2
+exit 1
