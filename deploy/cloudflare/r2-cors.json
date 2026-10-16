@@ -2,7 +2,7 @@
   "rules": [
     {
       "allowed": {
-        "origins": ["https://write.ohhi.md", "https://app.ohhi.md"],
+        "origins": ["https://app.ohhi.md"],
         "methods": ["GET", "HEAD"]
       },
       "maxAgeSeconds": 3600

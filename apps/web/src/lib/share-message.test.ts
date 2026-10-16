@@ -50,9 +50,9 @@ describe('linkOrigin', () => {
   })
 
   it('a public desktop build points links at its public web app — for a wss: relay off this machine only', () => {
-    const pub = { desktop: true, locationOrigin: 'tauri://localhost', teamHost: '', publicOrigin: 'https://write.ohhi.md' }
-    expect(linkOrigin({ ...pub, relayUrl: 'wss://their-relay.example/relay' })).toBe('https://write.ohhi.md')
-    expect(linkOrigin({ ...pub, relayUrl: 'wss://relay.example:8443/' })).toBe('https://write.ohhi.md')
+    const pub = { desktop: true, locationOrigin: 'tauri://localhost', teamHost: '', publicOrigin: 'https://app.ohhi.md' }
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://their-relay.example/relay' })).toBe('https://app.ohhi.md')
+    expect(linkOrigin({ ...pub, relayUrl: 'wss://relay.example:8443/' })).toBe('https://app.ohhi.md')
     // Nobody else's join page can reach the sharer's own machine, or a cleartext relay.
     expect(linkOrigin({ ...pub, relayUrl: 'ws://localhost:8787' })).toBeNull()
     expect(linkOrigin({ ...pub, relayUrl: 'wss://localhost:8787' })).toBeNull()

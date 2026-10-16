@@ -1,12 +1,11 @@
-# The public deployment: write.ohhi.md and dist.ohhi.md
+# The public deployment: app.ohhi.md and dist.ohhi.md
 
 Oh hi markdown ships in two **flavours** of one build. The team flavour is the
 one the team host serves over the company tailnet
 ([deploy-tailnet.md](deploy-tailnet.md)), and it is unchanged. The public flavour is for everyone else:
 
 ```
-https://write.ohhi.md     the web app (Cloudflare Pages, project ohhi-web)
-https://app.ohhi.md       redirects to write.ohhi.md
+https://app.ohhi.md     the web app (Cloudflare Pages, project ohhi-web)
 https://dist.ohhi.md      the desktop downloads and update feed (R2 bucket ohhi-dist)
 https://ohhi.md           the landing page, later (apps/site)
 ```
@@ -22,13 +21,13 @@ fails, for example a public build given a team host, or a team build whose
 | | **team** | **public** |
 | --- | --- | --- |
 | Switch | `VITE_FLAVOUR=team`, set by `desktop-release.yml` when `TEAM_HOST` is set | `VITE_FLAVOUR=public` (`web-deploy.yml`, and *Run workflow* › channel `public`) |
-| Web app | `https://<team host>/`, served by the team host's Caddy from the release's `web.tar.gz` | `https://write.ohhi.md` on Cloudflare Pages, deployed on every push to `main` |
+| Web app | `https://<team host>/`, served by the team host's Caddy from the release's `web.tar.gz` | `https://app.ohhi.md` on Cloudflare Pages, deployed on every push to `main` |
 | Content Security Policy | `connect-src` pinned to `wss://<host> https://<host>` (`pin-csp.mjs`) | unpinned: `wss: https:`, so any relay and the AI providers the harness calls (Anthropic, OpenAI, OpenRouter, any OpenAI-compatible URL) stay reachable |
 | Default relay | `wss://<team host>/relay`, baked in. No other relay is offered. | none. The person enters one in Settings › Sync & devices, or opens a share link, which carries its relay. |
 | Team sentences | `TEAM_SECRET_HINT`, `TEAM_NETWORK_NOTE` | none (the build refuses them) |
 | Desktop update feed | `https://<team host>/updates/latest.json` | `https://dist.ohhi.md/stable/latest.json` |
 | *Get the desktop app* list | `https://<team host>/updates/downloads.json` | `https://dist.ohhi.md/stable/downloads.json` |
-| Desktop share links | `https://<team host>/join#…` for the team relay, else the bare `editor1:` link | `https://write.ohhi.md/join#…` for any `wss:` relay, else the bare link |
+| Desktop share links | `https://<team host>/join#…` for the team relay, else the bare `editor1:` link | `https://app.ohhi.md/join#…` for any `wss:` relay, else the bare link |
 | Release tag | `v<version>`, which the team host's `ohhi-pull` deploys | `public-v<version>`, which `ohhi-pull` ignores |
 
 Both flavours bake in the same `public/_headers`. It is Cloudflare Pages' own
@@ -40,7 +39,7 @@ The build-time values behind it (`apps/web/.env.example`):
 | Name | Where it comes from | Effect |
 | --- | --- | --- |
 | `VITE_FLAVOUR` | the workflow | the switch |
-| `PUBLIC_WEB_HOST` | repo variable, default `write.ohhi.md` | the public web app's host; becomes `VITE_WEB_ORIGIN` |
+| `PUBLIC_WEB_HOST` | repo variable, default `app.ohhi.md` | the public web app's host; becomes `VITE_WEB_ORIGIN` |
 | `PUBLIC_DIST_HOST` | repo variable, default `dist.ohhi.md` | the download host; becomes `VITE_DOWNLOADS_URL` and the updater endpoint |
 | `VITE_DOWNLOADS_URL` | derived from the flavour, unless set | Settings › About's *Get the desktop app*. Unset → not offered |
 | `VITE_WEB_ORIGIN` | derived (public only), unless set | where a desktop build points the share links it makes |
@@ -60,15 +59,15 @@ Free plan apart from R2 storage above its free tier.
    ```sh
    npx wrangler@4.145.0 pages project create ohhi-web --production-branch main
    ```
-   Then Workers & Pages → `ohhi-web` → Custom domains → add `write.ohhi.md`.
+   Then Workers & Pages → `ohhi-web` → Custom domains → add `app.ohhi.md`.
    Cloudflare writes the CNAME, since the zone is on the same account.
-3. **`app.ohhi.md` as a redirect**, not a second custom domain. A browser
-   vault lives in its origin's storage, so serving the app on two origins
-   would split people's notes. Add a proxied DNS record for `app` (e.g.
-   `AAAA 100::`), then Rules → Redirect Rules → *Redirect from one hostname
-   to another*: `app.ohhi.md/*` → `https://write.ohhi.md/${1}`, 301, keeping
-   the query string. The `#editor1:…` fragment of a share link survives a
-   redirect, because browsers carry it over.
+3. **One host, no alias.** A browser vault lives in its origin's storage, so
+   serving the app on two origins would split people's notes: `app.ohhi.md`
+   is the only host (`hi.` and `write.` were considered and dropped on
+   2026-10-16). If an alias is ever wanted, make it a 301 (Rules → Redirect
+   Rules → *Redirect from one hostname to another*, keeping the query string;
+   the `#editor1:…` fragment of a share link survives a redirect), never a
+   second custom domain.
 4. **The R2 bucket:**
    ```sh
    npx wrangler@4.145.0 r2 bucket create ohhi-dist
@@ -77,12 +76,12 @@ Free plan apart from R2 storage above its free tier.
    Then R2 → `ohhi-dist` → Settings → Custom Domains → add `dist.ohhi.md`.
    Leave the `r2.dev` public URL off. The CORS rule
    ([`deploy/cloudflare/r2-cors.json`](../deploy/cloudflare/r2-cors.json))
-   lets `write.ohhi.md` (and `app.ohhi.md`) read `stable/downloads.json`.
+   lets `app.ohhi.md` read `stable/downloads.json`.
    The desktop updater needs no CORS, because its requests come from Rust.
 5. **GitHub** (Settings → Secrets and variables → Actions):
    - secret `CLOUDFLARE_API_TOKEN`: the token from step 1
    - secret `CLOUDFLARE_ACCOUNT_ID`: the account ID (Workers & Pages → right-hand column)
-   - variable `PUBLIC_WEB_HOST`: optional, only to move off `write.ohhi.md`
+   - variable `PUBLIC_WEB_HOST`: optional, only to move off `app.ohhi.md`
    - variable `PUBLIC_DIST_HOST`: optional, only to move off `dist.ohhi.md`
    - `TAURI_SIGNING_PRIVATE_KEY` is already there; the public builds sign
      their updates with the same key.
@@ -95,7 +94,7 @@ Cloudflare step with a warning instead of failing.
 - **Push to `main`** that touches the web app or what it bundles (`apps/web`,
   `libs`, `docs/guide`, `examples/themes`, the dependency set): the **Web
   deploy** workflow builds with `VITE_FLAVOUR=public`, runs the CSP guard and
-  deploys `dist/` to Pages as production (`write.ohhi.md`). *Run workflow* on
+  deploys `dist/` to Pages as production (`app.ohhi.md`). *Run workflow* on
   another branch makes a preview at `<branch>.ohhi-web.pages.dev`.
 - **Push to `release`**: the team release, exactly as before
   ([desktop-builds.md](desktop-builds.md)).

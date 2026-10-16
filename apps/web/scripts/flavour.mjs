@@ -9,7 +9,7 @@
  *           the release workflow pins both policies to it first
  *           (apps/desktop/scripts/pin-csp.mjs) and bakes in its relay.
  *           Downloads: https://<host>/updates/downloads.json.
- *   public  write.ohhi.md / app.ohhi.md (Cloudflare Pages) and the public
+ *   public  app.ohhi.md (Cloudflare Pages) and the public
  *           desktop builds on dist.ohhi.md. No team host, no built-in relay
  *           (the person enters one, or a share link carries it), and the
  *           committed, UNPINNED policy: `connect-src` keeps `wss: https:`, so
@@ -32,7 +32,7 @@ import { pathToFileURL } from 'node:url'
 export const FLAVOURS = /** @type {const} */ (['team', 'public'])
 
 /** The public web app's host; the repo variable `PUBLIC_WEB_HOST` overrides it. */
-export const PUBLIC_WEB_HOST = 'write.ohhi.md'
+export const PUBLIC_WEB_HOST = 'app.ohhi.md'
 /** The public download host (an R2 bucket's custom domain); `PUBLIC_DIST_HOST` overrides it. */
 export const PUBLIC_DIST_HOST = 'dist.ohhi.md'
 

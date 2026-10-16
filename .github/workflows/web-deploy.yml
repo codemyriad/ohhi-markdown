@@ -1,7 +1,6 @@
 # Web deploy: builds the web app in the PUBLIC flavour and deploys it to
-# Cloudflare Pages (project `ohhi-web`, custom domain write.ohhi.md;
-# app.ohhi.md redirects there — one origin, since a browser vault lives in
-# its origin's storage). What the flavour changes and the one-time setup:
+# Cloudflare Pages (project `ohhi-web`, custom domain app.ohhi.md — the one
+# origin, since a browser vault lives in its origin's storage). What the flavour changes and the one-time setup:
 # docs/public-deploy.md. The team build (desktop-release.yml, served by the
 # team host) is untouched by this workflow.
 #
@@ -18,7 +17,7 @@
 #
 # Needs (docs/public-deploy.md, "Once, in Cloudflare and GitHub"):
 #   secrets   CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
-#   variable  PUBLIC_WEB_HOST (optional, default write.ohhi.md)
+#   variable  PUBLIC_WEB_HOST (optional, default app.ohhi.md)
 # Without the secrets the build still runs and the deploy job is skipped with
 # a warning, so a fork or a fresh repo is not red.
 name: Web deploy

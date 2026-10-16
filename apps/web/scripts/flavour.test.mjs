@@ -29,7 +29,7 @@ describe('resolveFlavour', () => {
     expect(f.env).toEqual({
       VITE_FLAVOUR: 'public',
       VITE_DOWNLOADS_URL: 'https://dist.ohhi.md/stable/downloads.json',
-      VITE_WEB_ORIGIN: 'https://write.ohhi.md',
+      VITE_WEB_ORIGIN: 'https://app.ohhi.md',
     })
     expect(f.updaterEndpoint).toBe('https://dist.ohhi.md/stable/latest.json')
     expect(f.distBase).toBe('https://dist.ohhi.md')
@@ -53,7 +53,7 @@ describe('resolveFlavour', () => {
     expect(team.errors[0]).toMatch(/VITE_TEAM_HOST is a team setting/)
     expect(team.errors[1]).toMatch(/VITE_DEFAULT_RELAY is a team setting/)
 
-    expect(resolveFlavour({ VITE_FLAVOUR: 'public', PUBLIC_WEB_HOST: 'https://write.ohhi.md' }).errors[0]).toMatch(
+    expect(resolveFlavour({ VITE_FLAVOUR: 'public', PUBLIC_WEB_HOST: 'https://app.ohhi.md' }).errors[0]).toMatch(
       /PUBLIC_WEB_HOST must be a bare host/
     )
   })
@@ -78,7 +78,7 @@ describe('resolveFlavour', () => {
       'flavour=public',
       'updater_endpoint=https://dist.ohhi.md/stable/latest.json',
       'downloads_url=https://dist.ohhi.md/stable/downloads.json',
-      'web_origin=https://write.ohhi.md',
+      'web_origin=https://app.ohhi.md',
       'dist_base=https://dist.ohhi.md',
     ])
     expect(() =>
