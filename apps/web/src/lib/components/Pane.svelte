@@ -48,7 +48,7 @@
   import CollectionView from './CollectionView.svelte'
   import EmptyTab, { type PickerRow } from './EmptyTab.svelte'
   import { getViewShell, shellClock, viewDef, viewShellContext } from '../views.js'
-  import { isTauri } from '../platform.js'
+  import { isDesktop } from '../platform.js'
   import InlineTitle from './InlineTitle.svelte'
   import PropertiesForm from './PropertiesForm.svelte'
   import StatusBar from './StatusBar.svelte'
@@ -526,7 +526,7 @@
    * agent* split the pane and rebuilt the note's view).
    */
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
-  const desktop = isTauri()
+  const desktop = isDesktop()
   // A collection's Source view has no inline title: its name is not a heading of a note.
   const titled = $derived(inlineTitle && !!doc && !!path && !!shell && !isCollectionPath(path))
   $effect(() => {

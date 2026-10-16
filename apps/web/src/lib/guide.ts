@@ -20,7 +20,7 @@
  *    asking again focuses it.
  */
 import { getLL } from '@ohhi/i18n'
-import { isTauri } from './platform.js'
+import { isDesktop } from './platform.js'
 
 export type GuidePage = 'start' | 'sharing' | 'recovery' | 'import' | 'relay' | 'customise' | 'agents' | 'changes'
 
@@ -72,7 +72,7 @@ async function openTauriWindow(label: string, href: string, title: string): Prom
 }
 
 const DEFAULT_OPENERS: GuideOpeners = {
-  desktop: isTauri,
+  desktop: isDesktop,
   openTab: (href) => void window.open(href, '_blank', 'noopener'),
   openWindow: openTauriWindow,
 }

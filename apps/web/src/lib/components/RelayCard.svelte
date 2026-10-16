@@ -37,7 +37,7 @@
   import type { Clock } from '@ohhi/vault'
   import { relayHost, type SharedSnapshot } from '@ohhi/workspace'
   import { guideHref, openGuide } from '../guide.js'
-  import { isTauri } from '../platform.js'
+  import { isDesktop } from '../platform.js'
   import type { PillStatus } from '../pill-status.js'
   import { realClock } from '../real-clock.js'
   import { probeRelay, type ProbeResult } from '../relay-probe.js'
@@ -159,7 +159,7 @@
 
   /** A guide link stays a real link; on the desktop (no opener) it opens the guide's own window. */
   function guideClick(e: MouseEvent): void {
-    if (!isTauri()) return
+    if (!isDesktop()) return
     e.preventDefault()
     void openGuide('relay')
   }

@@ -18,7 +18,7 @@
   import { listShares, revokeShare } from './lib/relay-admin.js'
   import { buildAdapter, forgetVaultState } from './lib/vault-adapter.js'
   import { dropJoinLink, joinPageLink, parseAppConfig, parseAppParams, settleJoinAddress } from './lib/params.js'
-  import { hasOpfs, isTauri, userResourceRoot } from './lib/platform.js'
+  import { hasOpfs, isDesktop, isMobile, isTauri, userResourceRoot } from './lib/platform.js'
   import { createCustomise } from './lib/customise.svelte.js'
   import { createStorageNote } from './lib/storage-note.svelte.js'
   import { startDesktopUpdates } from './lib/updater.js'
@@ -121,7 +121,7 @@
   // ---- desktop self-update (lib/updater.ts): check on launch and every 6 h ----
   // The last check's outcome feeds the Help menu's version line (first-run E1).
   help.clock = realClock
-  if (isTauri())
+  if (isDesktop())
     startDesktopUpdates(realClock, (status) => (help.update = status)).catch((err) =>
       console.info('[ohhi] updater unavailable', err)
     )
@@ -195,6 +195,7 @@
   })
   const manager = createManager(session, {
     isTauri,
+    isMobile: () => isMobile(),
     pickFolder: async (defaultPath) =>
       (await import('./lib/adapters/tauri-vault-adapter.js')).pickVaultFolder(defaultPath),
     folderIsEmpty,
@@ -340,7 +341,7 @@
     openView: (id, arg) => openView(id, arg),
     flash: (input) => workspace?.flash(input),
     // The `.claude/skills/` farm: only where another app reads the disk.
-    desktop: isTauri(),
+    desktop: isDesktop(),
   })
   // ---- which open notes are rows of a collection (bases-shaping A7): one tracker, re-asked as the index changes ----
   const membership = createMembership({
@@ -586,7 +587,8 @@
   />
 {:else if view === 'manager'}
   <VaultManager
-    isTauri={isTauri()}
+    isTauri={isDesktop()}
+    isMobile={isMobile()}
     hasOpfs={hasOpfs()}
     defaultUser={manager.user}
     vaults={manager.vaults}
@@ -757,7 +759,7 @@
 
 {#if linkDeviceOpen}
   <LinkDeviceDialog
-    isTauri={isTauri()}
+    isTauri={isDesktop()}
     initialLink={deviceLinkPrefill || prefillLink}
     onLink={(link) => manager.linkThisDevice(link)}
     onClose={() => (linkDeviceOpen = false)}

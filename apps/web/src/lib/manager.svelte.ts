@@ -46,6 +46,12 @@ import { readVaultFacts, type VaultFacts } from './vault-facts.js'
 export interface ManagerHost {
   isTauri(): boolean
   /**
+   * The Tauri app on a phone (docs/mobile-android.md): no folder picker, so
+   * a joined or linked vault lives in the webview's storage, as in a
+   * browser. Absent → false.
+   */
+  isMobile?(): boolean
+  /**
    * The native folder picker; null when cancelled. On desktop the folder the
    * user picks is what the webview may read and write (DEL-89).
    */
@@ -134,6 +140,9 @@ export function createManager(session: Session, host: ManagerHost): Manager {
   let opSecret = $state(operatorSecret())
   let user = $state(loadUser() ?? '')
   let facts = $state<Record<string, VaultFacts | null>>({})
+
+  /** The desktop app: a joined or linked vault goes into a folder the user picks. */
+  const foldersOnDisk = (): boolean => host.isTauri() && !host.isMobile?.()
 
   function refresh(): void {
     vaults = listVaults()
@@ -272,7 +281,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     }
     try {
       let entry: VaultEntry
-      if (host.isTauri()) {
+      if (foldersOnDisk()) {
         const path = await host.pickFolder()
         if (!path) {
           session.busy = false
@@ -332,7 +341,7 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     const existing = getVault(target.room)
     if (existing) throw new Error(t.already_linked({ name: existing.name }))
     let vault: VaultSourceDesc
-    if (host.isTauri()) {
+    if (foldersOnDisk()) {
       const path = await host.pickFolder()
       if (!path) return false // the picker was cancelled; nothing has happened yet
       if (!(await host.folderIsEmpty(path))) throw new Error(t.not_empty({ path }))

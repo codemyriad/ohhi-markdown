@@ -41,7 +41,7 @@
   } from '@lucide/svelte'
   import { hotkeys } from '../config.js'
   import { overridesToBindings } from '../keymap-spec.js'
-  import { isTauri } from '../platform.js'
+  import { isDesktop } from '../platform.js'
   import type { ProbeResult, SecretCheck } from '../relay-probe.js'
   import { NEEDS_VAULT, settingsRows, type SettingsSection } from '../settings.js'
   import { setSettingsEnv, type SettingsHost } from '../settings-host.js'
@@ -81,7 +81,7 @@
     section,
     onSection,
     host = 'view',
-    desktop = isTauri(),
+    desktop = isDesktop(),
     registry,
     layout,
     resources,

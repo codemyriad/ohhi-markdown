@@ -14,16 +14,19 @@
   import type { Clock } from '@ohhi/vault'
   import { openGuide, type GuidePage } from '../guide.js'
   import { help, openReport, versionLine } from '../help.svelte.js'
+  import { isMobile } from '../platform.js'
   import { clockTick } from '../relative-time.js'
   import { BUTTON, EYEBROW, GROUP, META } from '../ui/styles.js'
 
   interface Props {
     desktop: boolean
+    /** The phone app: no updater, and not a web page either. Default: the platform's answer. */
+    mobile?: boolean
     /** Injected for the tests; the updater's clock otherwise. */
     clock?: Clock
   }
 
-  let { desktop, clock = help.clock }: Props = $props()
+  let { desktop, mobile = isMobile(), clock = help.clock }: Props = $props()
 
   // svelte-ignore state_referenced_locally -- the clock is fixed at mount
   const tick = clockTick(clock)
@@ -49,7 +52,9 @@
 <section data-testid="settings-about">
   <h3 class={EYEBROW}>{t.updates()}</h3>
   <p class="mt-1 text-[13px] text-base-content/70" data-testid="settings-version">{version}</p>
-  {#if !desktop}
+  {#if mobile}
+    <p class="mt-1 {META}">{t.phone_updates()}</p>
+  {:else if !desktop}
     <p class="mt-1 {META}">{t.web_updates()}</p>
   {/if}
 </section>
