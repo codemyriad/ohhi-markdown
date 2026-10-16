@@ -32,7 +32,7 @@
   import { listShares } from '../relay-admin.js'
   import { clockTick, dayWord, relativeTime } from '../relative-time.js'
   import { roomRollup, snapshotInput } from '../shared.svelte.js'
-  import { DEFAULT_RELAY, DEFAULT_RELAY_CONFIGURED, TEAM_HOST, TEAM_NETWORK_NOTE } from '../config.js'
+  import { DEFAULT_RELAY, DEFAULT_RELAY_CONFIGURED, TEAM_HOST, TEAM_NETWORK_NOTE, rootShareKind } from '../config.js'
   import type { ProbeResult } from '../relay-probe.js'
   import RelayCard from './RelayCard.svelte'
   import { shareableDirs } from '../tree-model.js'
@@ -132,6 +132,8 @@
     sharedSnapshot(snapshotInput(workspace, { tokensByRoom, inSyncByRoom: shell?.inSyncByRoom() ?? {}, presenceByPath }))
   )
   const empty = $derived(nothingShared(snap, ui.linked))
+  /** What the root is: a share opened as a vault, a device-linked vault, or local (join-share-brief P2). */
+  const rootShare = $derived(rootShareKind(workspace.room, ui.linked))
 
   // ---- helpers ----
   const ago = (at: number): string => relativeTime(at, $tick, $LL)
@@ -287,10 +289,25 @@
           <h3 class="m-0 flex items-center gap-2 {HEADING}">
             {t.folders.title()}<span class="ml-auto tracking-normal normal-case">{snap.rooms.length}</span>
           </h3>
-          {#if snap.rooms.length === 0}
+          {#if snap.rooms.length === 0 && rootShare !== 'joined'}
             <p class="text-xs text-base-content/80">{t.empty.share_body()}</p>
           {/if}
           <ul class="grid gap-2">
+            {#if rootShare === 'joined'}
+              <!-- A share opened as a vault (join-share-brief P2): the root IS the
+                   shared folder, so it reads as one — "This whole vault". -->
+              <li
+                data-testid="shared-root"
+                data-provenance="joined"
+                class="grid grid-cols-[3px_1fr] items-center gap-2.5 rounded-lg border border-base-300 py-2 pr-2.5"
+              >
+                <span aria-hidden="true" class="self-stretch rounded-l-lg bg-secondary"></span>
+                <div class="grid min-w-0 gap-0.5">
+                  <span class="truncate font-medium">{t.folders.whole_vault()}</span>
+                  <span class="text-xs text-base-content/80">{t.folders.whole_vault_body()}</span>
+                </div>
+              </li>
+            {/if}
             {#each snap.rooms as room (room.room)}
               {@const status = roomRollup(workspace, room.room)}
               <li
@@ -406,7 +423,7 @@
               </li>
             {/each}
           </ul>
-          {#if ui.linked}
+          {#if rootShare === 'devices'}
             <p data-testid="shared-devices-linked" class="text-xs text-base-content/80">{t.devices.linked()}</p>
             {#if !secret}<p class="text-[11px] text-base-content/80">{t.devices.needs_secret()}</p>{/if}
           {/if}

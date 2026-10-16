@@ -18,7 +18,7 @@ export type Translations = RootTranslation &
 type RootTranslation = {
 	common: {
 		/**
-		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n
+		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n
 		 */
 		app_name: string
 		/**
@@ -1317,6 +1317,10 @@ export type NamespaceWebTranslation = {
 		 */
 		shared_with_you: string
 		/**
+		 * T​h​i​s​ ​w​h​o​l​e​ ​v​a​u​l​t​ ​i​s​ ​s​h​a​r​e​d​:​ ​e​v​e​r​y​t​h​i​n​g​ ​i​n​ ​i​t​ ​s​y​n​c​s​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​.
+		 */
+		root_shared_title: string
+		/**
 		 * n​o​t​ ​s​y​n​c​e​d
 		 */
 		not_synced: string
@@ -1948,7 +1952,7 @@ export type NamespaceWebTranslation = {
 	}
 	daily: {
 		/**
-		 * O​b​s​i​d​i​a​n​’​s​ ​d​a​i​l​y​-​n​o​t​e​ ​f​o​r​m​a​t​ ​“​{​f​o​r​m​a​t​}​”​ ​u​s​e​s​ ​{​t​o​k​e​n​s​}​,​ ​w​h​i​c​h​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​d​o​e​s​ ​n​o​t​ ​u​n​d​e​r​s​t​a​n​d​ ​y​e​t​ ​a​n​d​ ​p​r​i​n​t​s​ ​a​s​ ​w​r​i​t​t​e​n​.​ ​T​o​d​a​y​’​s​ ​n​o​t​e​ ​m​a​y​ ​n​o​t​ ​b​e​ ​t​h​e​ ​o​n​e​ ​O​b​s​i​d​i​a​n​ ​w​o​u​l​d​ ​o​p​e​n​.
+		 * O​b​s​i​d​i​a​n​’​s​ ​d​a​i​l​y​-​n​o​t​e​ ​f​o​r​m​a​t​ ​“​{​f​o​r​m​a​t​}​”​ ​u​s​e​s​ ​{​t​o​k​e​n​s​}​,​ ​w​h​i​c​h​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​d​o​e​s​ ​n​o​t​ ​u​n​d​e​r​s​t​a​n​d​ ​y​e​t​ ​a​n​d​ ​p​r​i​n​t​s​ ​a​s​ ​w​r​i​t​t​e​n​.​ ​T​o​d​a​y​’​s​ ​n​o​t​e​ ​m​a​y​ ​n​o​t​ ​b​e​ ​t​h​e​ ​o​n​e​ ​O​b​s​i​d​i​a​n​ ​w​o​u​l​d​ ​o​p​e​n​.
 		 * @param {string} format
 		 * @param {string} tokens
 		 */
@@ -1960,7 +1964,7 @@ export type NamespaceWebTranslation = {
 		 */
 		no_note: string
 		/**
-		 * N​o​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​y​e​t​ ​—​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​s​a​v​e​s​ ​o​n​e​ ​e​v​e​r​y​ ​t​i​m​e​ ​i​t​ ​w​r​i​t​e​s​ ​t​h​i​s​ ​f​i​l​e​.
+		 * N​o​ ​e​a​r​l​i​e​r​ ​v​e​r​s​i​o​n​s​ ​y​e​t​ ​—​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​s​a​v​e​s​ ​o​n​e​ ​e​v​e​r​y​ ​t​i​m​e​ ​i​t​ ​w​r​i​t​e​s​ ​t​h​i​s​ ​f​i​l​e​.
 		 */
 		empty: string
 		/**
@@ -2160,7 +2164,7 @@ export type NamespaceWebTranslation = {
 		}
 		report: {
 			/**
-			 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​l​o​g​ ​(​{​c​o​u​n​t​}​ ​e​v​e​n​t​{​{​s​}​}​,​ ​c​o​p​i​e​d​ ​{​t​i​m​e​}​)
+			 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​l​o​g​ ​(​{​c​o​u​n​t​}​ ​e​v​e​n​t​{​{​s​}​}​,​ ​c​o​p​i​e​d​ ​{​t​i​m​e​}​)
 			 * @param {number} count
 			 * @param {string} time
 			 */
@@ -2543,6 +2547,14 @@ export type NamespaceWebTranslation = {
 			 * S​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
 			 */
 			with_you: string
+			/**
+			 * T​h​i​s​ ​w​h​o​l​e​ ​v​a​u​l​t
+			 */
+			whole_vault: string
+			/**
+			 * S​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​.​ ​E​v​e​r​y​t​h​i​n​g​ ​i​n​ ​i​t​ ​s​y​n​c​s​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​;​ ​n​o​t​h​i​n​g​ ​h​e​r​e​ ​i​s​ ​p​r​i​v​a​t​e​.
+			 */
+			whole_vault_body: string
 			/**
 			 * {​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}
 			 * @param {number} count
@@ -2974,7 +2986,7 @@ export type NamespaceWebTranslation = {
 		no_vaults: string
 		welcome: {
 			/**
-			 * O​h​ ​h​i​.
+			 * O​h​ ​H​i​.
 			 */
 			title: string
 			/**
@@ -3220,9 +3232,14 @@ export type NamespaceWebTranslation = {
 		 */
 		vault_error: RequiredParams<'message'>
 		/**
-		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​y​o​u​r​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​g​a​i​n​.​ ​Y​o​u​r​ ​f​i​l​e​s​ ​a​r​e​ ​u​n​t​o​u​c​h​e​d​.
+		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​y​o​u​r​ ​p​e​r​m​i​s​s​i​o​n​ ​t​o​ ​o​p​e​n​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​g​a​i​n​.​ ​Y​o​u​r​ ​f​i​l​e​s​ ​a​r​e​ ​u​n​t​o​u​c​h​e​d​.
 		 */
 		access_lost: string
+		/**
+		 * {​n​a​m​e​}​ ​i​s​ ​o​p​e​n​ ​i​n​ ​a​n​o​t​h​e​r​ ​t​a​b​ ​o​f​ ​t​h​i​s​ ​b​r​o​w​s​e​r​.​ ​U​s​e​ ​t​h​a​t​ ​t​a​b​,​ ​o​r​ ​c​l​o​s​e​ ​i​t​ ​a​n​d​ ​o​p​e​n​ ​t​h​e​ ​v​a​u​l​t​ ​h​e​r​e​ ​a​g​a​i​n​.
+		 * @param {string} name
+		 */
+		open_elsewhere: RequiredParams<'name'>
 		/**
 		 * A​l​l​o​w​ ​a​c​c​e​s​s​ ​t​o​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​g​a​i​n
 		 */
@@ -3250,7 +3267,7 @@ export type NamespaceWebTranslation = {
 		 */
 		open_folder: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​d​o​e​s​n​'​t​ ​s​u​p​p​o​r​t​ ​t​h​e​ ​p​r​i​v​a​t​e​ ​f​i​l​e​ ​s​t​o​r​a​g​e​ ​(​O​P​F​S​)​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​—​ ​t​r​y​ ​a​ ​r​e​c​e​n​t​ ​C​h​r​o​m​e​,​ ​E​d​g​e​,​ ​o​r​ ​F​i​r​e​f​o​x​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​d​o​e​s​n​'​t​ ​s​u​p​p​o​r​t​ ​t​h​e​ ​p​r​i​v​a​t​e​ ​f​i​l​e​ ​s​t​o​r​a​g​e​ ​(​O​P​F​S​)​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​n​e​e​d​s​ ​—​ ​t​r​y​ ​a​ ​r​e​c​e​n​t​ ​C​h​r​o​m​e​,​ ​E​d​g​e​,​ ​o​r​ ​F​i​r​e​f​o​x​.
 		 */
 		no_opfs: string
 		/**
@@ -3348,7 +3365,7 @@ export type NamespaceWebTranslation = {
 		 */
 		guide: string
 		/**
-		 * E​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​o​p​e​n​ ​s​t​a​y​s​ ​w​h​e​r​e​ ​i​t​ ​i​s​ ​o​n​ ​d​i​s​k​.​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​a​d​d​s​ ​a​ ​.​o​h​h​i​/​ ​f​o​l​d​e​r​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​ ​f​o​r​ ​i​t​s​ ​o​w​n​ ​s​e​t​t​i​n​g​s​ ​a​n​d​ ​n​o​t​h​i​n​g​ ​e​l​s​e​.
+		 * E​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​o​p​e​n​ ​s​t​a​y​s​ ​w​h​e​r​e​ ​i​t​ ​i​s​ ​o​n​ ​d​i​s​k​.​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​a​d​d​s​ ​a​ ​.​o​h​h​i​/​ ​f​o​l​d​e​r​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​ ​f​o​r​ ​i​t​s​ ​o​w​n​ ​s​e​t​t​i​n​g​s​ ​a​n​d​ ​n​o​t​h​i​n​g​ ​e​l​s​e​.
 		 */
 		foot: string
 	}
@@ -3639,17 +3656,17 @@ export type NamespaceWebTranslation = {
 			 */
 			system: string
 			/**
-			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​h​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​h​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​.
+			 * A​p​p​l​i​e​s​ ​i​m​m​e​d​i​a​t​e​l​y​,​ ​t​o​ ​t​h​e​ ​c​h​r​o​m​e​ ​a​n​d​ ​t​h​e​ ​e​d​i​t​o​r​ ​a​l​i​k​e​.​ ​{​s​y​s​t​e​m​}​ ​f​o​l​l​o​w​s​ ​y​o​u​r​ ​O​S​ ​s​e​t​t​i​n​g​ ​a​n​d​ ​u​s​e​s​ ​O​h​ ​H​i​ ​L​i​g​h​t​ ​o​r​ ​O​h​ ​H​i​ ​D​a​r​k​,​ ​o​u​r​ ​d​e​f​a​u​l​t​s​.​ ​G​r​a​p​h​i​t​e​,​ ​F​j​o​r​d​ ​a​n​d​ ​I​r​i​s​ ​a​r​e​ ​o​u​r​ ​o​w​n​ ​t​o​o​.
 			 * @param {string} system
 			 */
 			theme_help: RequiredParams<'system'>
 			theme_names: {
 				/**
-				 * O​h​ ​h​i​ ​L​i​g​h​t
+				 * O​h​ ​H​i​ ​L​i​g​h​t
 				 */
 				editor_light: string
 				/**
-				 * O​h​ ​h​i​ ​D​a​r​k
+				 * O​h​ ​H​i​ ​D​a​r​k
 				 */
 				editor_dark: string
 				/**
@@ -4276,7 +4293,7 @@ export type NamespaceWebTranslation = {
 			 */
 			conflict: RequiredParams<'commands'>
 			/**
-			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​k​e​y​ ​b​e​f​o​r​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​c​a​n​ ​s​e​e​ ​i​t​.
+			 * Y​o​u​r​ ​d​e​s​k​t​o​p​ ​t​a​k​e​s​ ​t​h​i​s​ ​k​e​y​ ​b​e​f​o​r​e​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​c​a​n​ ​s​e​e​ ​i​t​.
 			 */
 			reserved: string
 			/**
@@ -4647,7 +4664,7 @@ export type NamespaceWebTranslation = {
 			 */
 			agent: string
 			/**
-			 * I​n​ ​t​h​e​ ​O​h​ ​h​i​ ​v​a​u​l​t​ ​a​t​ ​"​{​v​a​u​l​t​}​"​,​ ​w​r​i​t​e​ ​.​o​h​h​i​/​l​a​y​o​u​t​s​/​<​n​a​m​e​>​.​j​s​o​n​ ​e​x​t​e​n​d​i​n​g​ ​"​d​e​f​a​u​l​t​"​.​ ​T​h​e​ ​f​o​r​m​a​t​,​ ​e​v​e​r​y​ ​r​e​a​d​o​u​t​,​ ​b​a​r​ ​a​n​d​ ​c​o​m​m​a​n​d​ ​i​d​,​ ​a​n​d​ ​t​w​o​ ​w​o​r​k​e​d​ ​e​x​a​m​p​l​e​s​ ​a​r​e​ ​i​n​ ​d​o​c​s​/​c​u​s​t​o​m​i​s​i​n​g​.​m​d​ ​i​n​ ​t​h​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​a​n​d​ ​t​h​e​ ​s​c​h​e​m​a​ ​i​s​ ​i​t​s​ ​s​p​e​c​/​o​h​h​i​.​l​a​y​o​u​t​.​v​1​.​s​c​h​e​m​a​.​j​s​o​n​ ​(​w​i​t​h​ ​t​h​e​ ​o​h​h​i​-​v​a​u​l​t​ ​s​k​i​l​l​ ​i​n​s​t​a​l​l​e​d​,​ ​i​t​ ​c​a​n​ ​f​i​n​d​ ​b​o​t​h​ ​t​h​e​r​e​)​.​ ​T​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​f​i​l​e​ ​u​p​ ​w​h​e​n​ ​i​t​ ​l​a​n​d​s​,​ ​o​r​ ​o​n​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e​.
+			 * I​n​ ​t​h​e​ ​O​h​ ​H​i​ ​v​a​u​l​t​ ​a​t​ ​"​{​v​a​u​l​t​}​"​,​ ​w​r​i​t​e​ ​.​o​h​h​i​/​l​a​y​o​u​t​s​/​<​n​a​m​e​>​.​j​s​o​n​ ​e​x​t​e​n​d​i​n​g​ ​"​d​e​f​a​u​l​t​"​.​ ​T​h​e​ ​f​o​r​m​a​t​,​ ​e​v​e​r​y​ ​r​e​a​d​o​u​t​,​ ​b​a​r​ ​a​n​d​ ​c​o​m​m​a​n​d​ ​i​d​,​ ​a​n​d​ ​t​w​o​ ​w​o​r​k​e​d​ ​e​x​a​m​p​l​e​s​ ​a​r​e​ ​i​n​ ​d​o​c​s​/​c​u​s​t​o​m​i​s​i​n​g​.​m​d​ ​i​n​ ​t​h​e​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​r​e​p​o​s​i​t​o​r​y​,​ ​a​n​d​ ​t​h​e​ ​s​c​h​e​m​a​ ​i​s​ ​i​t​s​ ​s​p​e​c​/​o​h​h​i​.​l​a​y​o​u​t​.​v​1​.​s​c​h​e​m​a​.​j​s​o​n​ ​(​w​i​t​h​ ​t​h​e​ ​o​h​h​i​-​v​a​u​l​t​ ​s​k​i​l​l​ ​i​n​s​t​a​l​l​e​d​,​ ​i​t​ ​c​a​n​ ​f​i​n​d​ ​b​o​t​h​ ​t​h​e​r​e​)​.​ ​T​h​e​ ​a​p​p​ ​p​i​c​k​s​ ​t​h​e​ ​f​i​l​e​ ​u​p​ ​w​h​e​n​ ​i​t​ ​l​a​n​d​s​,​ ​o​r​ ​o​n​ ​R​e​l​o​a​d​ ​f​i​l​e​s​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​C​u​s​t​o​m​i​s​e​.
 			 * @param {string} vault
 			 */
 			agent_prompt: RequiredParams<'vault'>
@@ -4920,7 +4937,7 @@ export type NamespaceWebTranslation = {
 			 */
 			missing_fields: string
 			/**
-			 * T​h​a​t​ ​l​i​n​k​ ​w​a​s​ ​m​a​d​e​ ​b​y​ ​a​ ​n​e​w​e​r​ ​v​e​r​s​i​o​n​ ​o​f​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​u​p​d​a​t​e​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​i​r​s​t​.
+			 * T​h​a​t​ ​l​i​n​k​ ​w​a​s​ ​m​a​d​e​ ​b​y​ ​a​ ​n​e​w​e​r​ ​v​e​r​s​i​o​n​ ​o​f​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​u​p​d​a​t​e​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​i​r​s​t​.
 			 */
 			unknown_kind: string
 			/**
@@ -5037,11 +5054,15 @@ export type NamespaceWebTranslation = {
 			 */
 			into_vault_unavailable: string
 			/**
-			 * A​s​ ​i​t​s​ ​o​w​n​ ​v​a​u​l​t
+			 * O​p​e​n​ ​o​n​e​ ​o​f​ ​y​o​u​r​ ​v​a​u​l​t​s​ ​f​i​r​s​t​,​ ​t​h​e​n​ ​a​d​d​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​i​n​s​i​d​e​ ​i​t​.
+			 */
+			into_vault_open_one: string
+			/**
+			 * A​s​ ​a​ ​s​h​a​r​e​d​ ​v​a​u​l​t​ ​o​f​ ​i​t​s​ ​o​w​n
 			 */
 			own_vault: string
 			/**
-			 * K​e​p​t​ ​a​p​a​r​t​;​ ​s​w​i​t​c​h​ ​t​o​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​m​e​n​u​.
+			 * E​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​i​t​ ​i​s​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​.
 			 */
 			own_vault_hint: string
 			/**
@@ -5221,13 +5242,13 @@ export type NamespaceWebTranslation = {
 			 */
 			copy_message_for: RequiredParams<'name'>
 			/**
-			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
+			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
 			 * @param {string} folder
 			 * @param {string} link
 			 */
 			message: RequiredParams<'folder' | 'link'>
 			/**
-			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​e​ ​a​p​p​,​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​,​ ​a​n​d​ ​p​a​s​t​e​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
+			 * I​ ​s​h​a​r​e​d​ ​{​f​o​l​d​e​r​}​ ​w​i​t​h​ ​y​o​u​ ​i​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​.​ ​O​p​e​n​ ​t​h​e​ ​a​p​p​,​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​,​ ​a​n​d​ ​p​a​s​t​e​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​l​i​n​k​}
 			 * @param {string} folder
 			 * @param {string} link
 			 */
@@ -5349,7 +5370,7 @@ export type NamespaceWebTranslation = {
 	}
 	join_page: {
 		/**
-		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​·​ ​a​ ​f​o​l​d​e​r​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
+		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​·​ ​a​ ​f​o​l​d​e​r​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u
 		 */
 		brand: string
 		/**
@@ -5447,11 +5468,11 @@ export type NamespaceWebTranslation = {
 		 */
 		copy: string
 		/**
-		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
 		 */
 		copied: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
 		 */
 		copy_failed: string
 		/**
@@ -5470,6 +5491,54 @@ export type NamespaceWebTranslation = {
 		 * A​d​d​ ​h​e​r​e
 		 */
 		add_here: string
+		/**
+		 * W​h​e​r​e​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r
+		 */
+		where_here: string
+		/**
+		 * I​n​s​i​d​e​ ​{​v​a​u​l​t​}
+		 * @param {string} vault
+		 */
+		inside_vault: RequiredParams<'vault'>
+		/**
+		 * B​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​,​ ​a​n​d​ ​s​e​a​r​c​h​a​b​l​e​ ​w​i​t​h​ ​t​h​e​m​.​ ​T​h​e​ ​r​e​s​t​ ​o​f​ ​t​h​a​t​ ​v​a​u​l​t​ ​s​t​a​y​s​ ​p​r​i​v​a​t​e​.
+		 */
+		inside_vault_hint: string
+		/**
+		 * W​h​i​c​h​ ​v​a​u​l​t
+		 */
+		vault_picker: string
+		/**
+		 * F​o​l​d​e​r
+		 */
+		folder: string
+		/**
+		 * A​ ​n​e​w​ ​f​o​l​d​e​r​,​ ​o​r​ ​a​n​ ​e​x​i​s​t​i​n​g​ ​e​m​p​t​y​ ​o​n​e​.​ ​A​ ​t​o​p​-​l​e​v​e​l​ ​n​a​m​e​ ​k​e​e​p​s​ ​i​t​ ​b​e​s​i​d​e​ ​y​o​u​r​ ​n​o​t​e​s​.
+		 */
+		folder_hint: string
+		/**
+		 * A​s​ ​a​ ​s​h​a​r​e​d​ ​v​a​u​l​t​ ​o​f​ ​i​t​s​ ​o​w​n
+		 */
+		own_vault: string
+		/**
+		 * E​v​e​r​y​t​h​i​n​g​ ​y​o​u​ ​p​u​t​ ​i​n​ ​i​t​ ​i​s​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​.
+		 */
+		own_vault_hint: string
+		/**
+		 * A​d​d​ ​t​o​ ​{​v​a​u​l​t​}
+		 * @param {string} vault
+		 */
+		add_into: RequiredParams<'vault'>
+		/**
+		 * A​d​d​e​d​ ​{​d​e​s​t​}​.​ ​E​v​e​r​y​t​h​i​n​g​ ​i​n​ ​i​t​ ​s​y​n​c​s​ ​w​i​t​h​ ​w​h​o​e​v​e​r​ ​h​o​l​d​s​ ​a​ ​l​i​n​k​.
+		 * @param {string} dest
+		 */
+		landed: RequiredParams<'dest'>
+		/**
+		 * A​d​d​e​d​ ​i​n​s​i​d​e​ ​{​v​a​u​l​t​}​,​ ​i​n​ ​t​h​e​ ​t​a​b​ ​w​h​e​r​e​ ​i​t​ ​i​s​ ​o​p​e​n​.​ ​Y​o​u​ ​c​a​n​ ​c​l​o​s​e​ ​t​h​i​s​ ​t​a​b​.
+		 * @param {string} vault
+		 */
+		handed_off: RequiredParams<'vault'>
 		/**
 		 * D​o​n​’​t​ ​h​a​v​e​ ​t​h​e​ ​a​p​p​?
 		 */
@@ -5491,7 +5560,7 @@ export type NamespaceWebTranslation = {
 		 */
 		error_heading: string
 		/**
-		 * A​s​k​ ​f​o​r​ ​t​h​e​ ​l​i​n​k​ ​a​g​a​i​n​,​ ​o​r​ ​p​a​s​t​e​ ​i​t​ ​i​n​ ​t​h​e​ ​a​p​p​:​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
+		 * A​s​k​ ​f​o​r​ ​t​h​e​ ​l​i​n​k​ ​a​g​a​i​n​,​ ​o​r​ ​p​a​s​t​e​ ​i​t​ ​i​n​ ​t​h​e​ ​a​p​p​:​ ​o​p​e​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​a​n​d​ ​c​h​o​o​s​e​ ​A​d​d​ ​a​ ​f​o​l​d​e​r​ ​s​o​m​e​o​n​e​ ​s​h​a​r​e​d​.
 		 */
 		error_fallback: string
 		/**
@@ -5508,15 +5577,15 @@ export type NamespaceWebTranslation = {
 		 */
 		device_vault: string
 		/**
-		 * C​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​i​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​a​t​ ​c​o​m​p​u​t​e​r​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * C​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​i​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​a​t​ ​c​o​m​p​u​t​e​r​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 		 */
 		device_desktop_hint: string
 		/**
-		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * C​o​p​i​e​d​.​ ​O​p​e​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 		 */
 		device_copied: string
 		/**
-		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * T​h​i​s​ ​b​r​o​w​s​e​r​ ​w​o​u​l​d​ ​n​o​t​ ​c​o​p​y​ ​i​t​.​ ​S​e​l​e​c​t​ ​t​h​e​ ​l​i​n​k​ ​b​e​l​o​w​ ​a​n​d​ ​c​o​p​y​ ​i​t​,​ ​t​h​e​n​ ​o​p​e​n​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​o​n​ ​t​h​i​s​ ​c​o​m​p​u​t​e​r​ ​a​n​d​ ​c​h​o​o​s​e​ ​L​i​n​k​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 		 */
 		device_copy_failed: string
 		/**
@@ -5888,7 +5957,7 @@ export type NamespaceWebTranslation = {
 		 */
 		description: RequiredParams<'reason'>
 		/**
-		 * T​h​i​s​ ​f​i​l​e​ ​w​a​s​ ​d​e​l​e​t​e​d​ ​o​n​ ​d​i​s​k​ ​o​u​t​s​i​d​e​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​,​ ​b​u​t​ ​i​t​s​ ​s​y​n​c​e​d​ ​c​o​n​t​e​n​t​ ​s​t​i​l​l​ ​e​x​i​s​t​s​.​ ​R​e​s​t​o​r​e​ ​i​t​,​ ​o​r​ ​c​o​n​f​i​r​m​ ​t​h​e​ ​d​e​l​e​t​i​o​n​ ​—​ ​c​o​n​f​i​r​m​i​n​g​ ​r​e​m​o​v​e​s​ ​i​t​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​a​ ​r​e​c​o​v​e​r​y​ ​c​o​p​y​ ​i​s​ ​j​o​u​r​n​a​l​e​d​)​.
+		 * T​h​i​s​ ​f​i​l​e​ ​w​a​s​ ​d​e​l​e​t​e​d​ ​o​n​ ​d​i​s​k​ ​o​u​t​s​i​d​e​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​,​ ​b​u​t​ ​i​t​s​ ​s​y​n​c​e​d​ ​c​o​n​t​e​n​t​ ​s​t​i​l​l​ ​e​x​i​s​t​s​.​ ​R​e​s​t​o​r​e​ ​i​t​,​ ​o​r​ ​c​o​n​f​i​r​m​ ​t​h​e​ ​d​e​l​e​t​i​o​n​ ​—​ ​c​o​n​f​i​r​m​i​n​g​ ​r​e​m​o​v​e​s​ ​i​t​ ​f​o​r​ ​e​v​e​r​y​o​n​e​ ​s​h​a​r​i​n​g​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​a​ ​r​e​c​o​v​e​r​y​ ​c​o​p​y​ ​i​s​ ​j​o​u​r​n​a​l​e​d​)​.
 		 */
 		vanished: string
 		/**
@@ -6024,7 +6093,7 @@ export type NamespaceWebTranslation = {
 			 */
 			fallback_label: string
 			/**
-			 * O​h​ ​h​i​ ​i​n​s​p​e​c​t​o​r​ ​r​e​p​o​r​t
+			 * O​h​ ​H​i​ ​i​n​s​p​e​c​t​o​r​ ​r​e​p​o​r​t
 			 */
 			report_title: string
 		}
@@ -6675,7 +6744,7 @@ export type NamespaceWebTranslation = {
 			report: string
 		}
 		/**
-		 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​g​u​i​d​e
+		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​g​u​i​d​e
 		 */
 		window_title: string
 		report: {
@@ -6720,7 +6789,7 @@ export type NamespaceWebTranslation = {
 			 */
 			fallback_label: string
 			/**
-			 * O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​p​r​o​b​l​e​m​ ​r​e​p​o​r​t​ ​(​{​t​i​m​e​}​)
+			 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​—​ ​p​r​o​b​l​e​m​ ​r​e​p​o​r​t​ ​(​{​t​i​m​e​}​)
 			 * @param {string} time
 			 */
 			header: RequiredParams<'time'>
@@ -6734,7 +6803,7 @@ export type NamespaceWebTranslation = {
 			 */
 			what_empty: string
 			/**
-			 * A​p​p​:​ ​O​h​ ​h​i​ ​m​a​r​k​d​o​w​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​{​p​l​a​t​f​o​r​m​}
+			 * A​p​p​:​ ​O​h​ ​H​i​ ​m​a​r​k​d​o​w​n​ ​{​v​e​r​s​i​o​n​}​ ​·​ ​{​p​l​a​t​f​o​r​m​}
 			 * @param {string} platform
 			 * @param {string} version
 			 */
@@ -7918,7 +7987,7 @@ export type NamespaceWebTranslation = {
 			 */
 			untrusted: string
 			/**
-			 * I​t​ ​a​r​r​i​v​e​d​ ​b​y​ ​s​y​n​c​ ​o​r​ ​w​a​s​ ​w​r​i​t​t​e​n​ ​o​u​t​s​i​d​e​ ​O​h​ ​h​i​,​ ​o​r​ ​c​h​a​n​g​e​d​ ​t​h​e​r​e​ ​s​i​n​c​e​ ​y​o​u​ ​t​r​u​s​t​e​d​ ​i​t​.​ ​T​h​e​ ​a​g​e​n​t​ ​i​s​ ​n​o​t​ ​o​f​f​e​r​e​d​ ​i​t​ ​u​n​t​i​l​ ​y​o​u​ ​r​e​v​i​e​w​ ​i​t​.
+			 * I​t​ ​a​r​r​i​v​e​d​ ​b​y​ ​s​y​n​c​ ​o​r​ ​w​a​s​ ​w​r​i​t​t​e​n​ ​o​u​t​s​i​d​e​ ​O​h​ ​H​i​,​ ​o​r​ ​c​h​a​n​g​e​d​ ​t​h​e​r​e​ ​s​i​n​c​e​ ​y​o​u​ ​t​r​u​s​t​e​d​ ​i​t​.​ ​T​h​e​ ​a​g​e​n​t​ ​i​s​ ​n​o​t​ ​o​f​f​e​r​e​d​ ​i​t​ ​u​n​t​i​l​ ​y​o​u​ ​r​e​v​i​e​w​ ​i​t​.
 			 */
 			untrusted_hint: string
 			/**
@@ -7930,7 +7999,7 @@ export type NamespaceWebTranslation = {
 			 */
 			scripts: string
 			/**
-			 * I​t​ ​s​h​i​p​s​ ​a​ ​s​c​r​i​p​t​s​/​ ​f​o​l​d​e​r​.​ ​O​h​ ​h​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​s​c​r​i​p​t​s​;​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​,​ ​l​i​k​e​ ​C​l​a​u​d​e​ ​C​o​d​e​,​ ​m​i​g​h​t​.
+			 * I​t​ ​s​h​i​p​s​ ​a​ ​s​c​r​i​p​t​s​/​ ​f​o​l​d​e​r​.​ ​O​h​ ​H​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​s​c​r​i​p​t​s​;​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​,​ ​l​i​k​e​ ​C​l​a​u​d​e​ ​C​o​d​e​,​ ​m​i​g​h​t​.
 			 */
 			scripts_hint: string
 			/**
@@ -8130,7 +8199,7 @@ export type NamespaceWebTranslation = {
 				 */
 				label: string
 				/**
-				 * C​o​p​i​e​s​ ​t​r​u​s​t​e​d​,​ ​e​n​a​b​l​e​d​ ​s​k​i​l​l​s​ ​i​n​t​o​ ​.​c​l​a​u​d​e​/​s​k​i​l​l​s​/​,​ ​w​h​e​r​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​l​o​o​k​s​.​ ​A​ ​f​o​l​d​e​r​ ​t​h​e​r​e​ ​t​h​a​t​ ​O​h​ ​h​i​ ​d​i​d​ ​n​o​t​ ​m​a​k​e​ ​i​s​ ​n​e​v​e​r​ ​t​o​u​c​h​e​d​.
+				 * C​o​p​i​e​s​ ​t​r​u​s​t​e​d​,​ ​e​n​a​b​l​e​d​ ​s​k​i​l​l​s​ ​i​n​t​o​ ​.​c​l​a​u​d​e​/​s​k​i​l​l​s​/​,​ ​w​h​e​r​e​ ​C​l​a​u​d​e​ ​C​o​d​e​ ​l​o​o​k​s​.​ ​A​ ​f​o​l​d​e​r​ ​t​h​e​r​e​ ​t​h​a​t​ ​O​h​ ​H​i​ ​d​i​d​ ​n​o​t​ ​m​a​k​e​ ​i​s​ ​n​e​v​e​r​ ​t​o​u​c​h​e​d​.
 				 */
 				hint: string
 				/**
@@ -8223,7 +8292,7 @@ export type NamespaceWebTranslation = {
 				 */
 				binary_listed: RequiredParams<'count'>
 				/**
-				 * I​t​ ​s​h​i​p​s​ ​s​c​r​i​p​t​s​.​ ​O​h​ ​h​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​t​h​e​m​,​ ​b​u​t​ ​r​e​a​d​ ​t​h​e​m​ ​b​e​f​o​r​e​ ​y​o​u​ ​t​r​u​s​t​ ​i​t​:​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​ ​m​i​g​h​t​.
+				 * I​t​ ​s​h​i​p​s​ ​s​c​r​i​p​t​s​.​ ​O​h​ ​H​i​ ​n​e​v​e​r​ ​r​u​n​s​ ​t​h​e​m​,​ ​b​u​t​ ​r​e​a​d​ ​t​h​e​m​ ​b​e​f​o​r​e​ ​y​o​u​ ​t​r​u​s​t​ ​i​t​:​ ​a​n​ ​a​g​e​n​t​ ​o​n​ ​y​o​u​r​ ​c​o​m​p​u​t​e​r​ ​m​i​g​h​t​.
 				 */
 				scripts: string
 				/**
@@ -10326,6 +10395,10 @@ export type TranslationFunctions = {
 			 */
 			shared_with_you: () => LocalizedString
 			/**
+			 * This whole vault is shared: everything in it syncs with whoever holds a link.
+			 */
+			root_shared_title: () => LocalizedString
+			/**
 			 * not synced
 			 */
 			not_synced: () => LocalizedString
@@ -11473,6 +11546,14 @@ export type TranslationFunctions = {
 				 */
 				with_you: () => LocalizedString
 				/**
+				 * This whole vault
+				 */
+				whole_vault: () => LocalizedString
+				/**
+				 * Shared with you. Everything in it syncs with whoever holds a link; nothing here is private.
+				 */
+				whole_vault_body: () => LocalizedString
+				/**
 				 * {count} note{{s}}
 				 */
 				notes: (arg: { count: number }) => LocalizedString
@@ -12118,9 +12199,13 @@ export type TranslationFunctions = {
 			 */
 			vault_error: (arg: { message: string }) => LocalizedString
 			/**
-			 * Oh hi markdown needs your permission to open this folder again. Your files are untouched.
+			 * Oh Hi markdown needs your permission to open this folder again. Your files are untouched.
 			 */
 			access_lost: () => LocalizedString
+			/**
+			 * {name} is open in another tab of this browser. Use that tab, or close it and open the vault here again.
+			 */
+			open_elsewhere: (arg: { name: string }) => LocalizedString
 			/**
 			 * Allow access to this folder again
 			 */
@@ -13835,11 +13920,15 @@ export type TranslationFunctions = {
 				 */
 				into_vault_unavailable: () => LocalizedString
 				/**
-				 * As its own vault
+				 * Open one of your vaults first, then add the folder from inside it.
+				 */
+				into_vault_open_one: () => LocalizedString
+				/**
+				 * As a shared vault of its own
 				 */
 				own_vault: () => LocalizedString
 				/**
-				 * Kept apart; switch to it from the vault menu.
+				 * Everything you put in it is shared with whoever holds a link.
 				 */
 				own_vault_hint: () => LocalizedString
 				/**
@@ -14241,6 +14330,50 @@ export type TranslationFunctions = {
 			 * Add here
 			 */
 			add_here: () => LocalizedString
+			/**
+			 * Where in this browser
+			 */
+			where_here: () => LocalizedString
+			/**
+			 * Inside {vault}
+			 */
+			inside_vault: (arg: { vault: string }) => LocalizedString
+			/**
+			 * Beside your notes, and searchable with them. The rest of that vault stays private.
+			 */
+			inside_vault_hint: () => LocalizedString
+			/**
+			 * Which vault
+			 */
+			vault_picker: () => LocalizedString
+			/**
+			 * Folder
+			 */
+			folder: () => LocalizedString
+			/**
+			 * A new folder, or an existing empty one. A top-level name keeps it beside your notes.
+			 */
+			folder_hint: () => LocalizedString
+			/**
+			 * As a shared vault of its own
+			 */
+			own_vault: () => LocalizedString
+			/**
+			 * Everything you put in it is shared with whoever holds a link.
+			 */
+			own_vault_hint: () => LocalizedString
+			/**
+			 * Add to {vault}
+			 */
+			add_into: (arg: { vault: string }) => LocalizedString
+			/**
+			 * Added {dest}. Everything in it syncs with whoever holds a link.
+			 */
+			landed: (arg: { dest: string }) => LocalizedString
+			/**
+			 * Added inside {vault}, in the tab where it is open. You can close this tab.
+			 */
+			handed_off: (arg: { vault: string }) => LocalizedString
 			/**
 			 * Don’t have the app?
 			 */

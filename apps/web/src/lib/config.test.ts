@@ -49,6 +49,7 @@ import {
   roomRelay,
   roomToken,
   roomTokenKind,
+  rootShareKind,
   saveUser,
   setDefaultRelay,
   setOperatorSecret,
@@ -166,6 +167,21 @@ function getName(room: string): string | undefined {
 }
 
 describe('settings + shares', () => {
+  it('rootShareKind: a joined folder share is "joined", a device link is "devices", a local root is "none"', () => {
+    // A vault opened from a folder share (join-share-brief P2): its token is a folder's.
+    setRoomToken('room-joined', 'tok', 'wss://relay.example', 'folder')
+    expect(rootShareKind('room-joined', true)).toBe('joined')
+    // A device-linked vault: on your devices, never "shared".
+    setRoomToken('room-linked', 'tok', 'wss://relay.example', 'device')
+    expect(rootShareKind('room-linked', true)).toBe('devices')
+    // A share remembered for the room (joined before the token's kind was recorded) counts too.
+    addShare({ link: 'editor1:x', room: 'room-remembered', label: 'notes' })
+    expect(rootShareKind('room-remembered', true)).toBe('joined')
+    // The memory URL contract / an unlinked root: nothing recorded.
+    expect(rootShareKind('room-other', true)).toBe('devices')
+    expect(rootShareKind('room-joined', false)).toBe('none')
+  })
+
   it('default relay and operator secret round-trip; blank relay restores default', () => {
     setDefaultRelay('ws://my-relay:9000')
     setOperatorSecret('  s3cret  ')

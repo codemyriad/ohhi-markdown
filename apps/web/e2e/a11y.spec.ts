@@ -459,6 +459,20 @@ test('the join page is accessible', async ({ page }) => {
   await expect(page.getByTestId('join-device-body')).toBeVisible()
   await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
   await expectAccessible(page, 'join page (device link)')
+
+  // The browser has vaults (join-share-brief P1): the card is a choice with a
+  // picker, the folder and the name — scanned with "inside" and with "own".
+  await page.goto('about:blank')
+  await page.goto(MANAGER_URL)
+  await createBrowserVault(page, 'Mine')
+  await openManager(page)
+  await createBrowserVault(page, 'Other')
+  await page.goto(`/join#${payload}`)
+  await expect(page.getByTestId('join-vault-picker')).toBeVisible()
+  await expect(page.getByTestId('join-relay')).not.toHaveAttribute('data-check', 'pending', { timeout: 10_000 })
+  await expectAccessible(page, 'join page (inside a vault)')
+  await page.getByTestId('join-where-own').check()
+  await expectAccessible(page, 'join page (own vault, with vaults)')
 })
 
 /**

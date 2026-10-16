@@ -77,15 +77,20 @@ are two kinds, and both work:
 - **A web address** (`https://<host>/join#editor1:…`). Click it. A page opens
   that says who sent it, what you get (everything inside the folder, live)
   and whether the relay answers from where you are. Then choose:
-  - *In the desktop app*: **Copy link**, then open Oh hi markdown and choose
+  - *In the desktop app*: **Copy link**, then open Oh Hi markdown and choose
     *Add a folder someone shared with you*; the link is ready to paste.
-  - *In this browser*: **Add here** adds it to a vault in this browser.
+  - *In this browser*: if this browser already has a vault, the page offers
+    **Inside \<vault\>** (with a picker when there are several) and a folder
+    name taken from the link; **Add to \<vault\>** opens the vault and puts
+    the folder there. **As a shared vault of its own** is the other choice.
 - **Bare text** starting with `editor1:`. Copy it, open the app, choose
   *Add a folder someone shared with you* and paste it.
 
-Either way, the app then asks where the folder goes: inside a vault you
-already have, or as a vault of its own (the app asks for an empty folder to
-put it in).
+Either way, the app asks where the folder goes: inside a vault you already
+have, or as a vault of its own (on the desktop, the app asks for an empty
+folder to put it in). A vault of its own is a **shared vault**: everything
+you put in it syncs to whoever holds a link, so keep private notes in a vault
+of yours and add the folder inside that instead.
 
 The folder syncs through a relay, the small server your team runs. You need
 to be able to reach it: on a team setup that usually means being on the
@@ -113,6 +118,11 @@ the browser's own storage: no backup tool or file manager can reach it, and
 the browser may clear it to free space unless it has promised to keep it. It
 is good for joining a shared folder from a machine that isn't yours; keep
 your own notes in the desktop app.
+
+A browser vault opens in **one tab at a time**. A second tab on the same
+vault is told it is open elsewhere and offers nothing until the first tab
+closes: two tabs would each hold their own copy and overwrite each other's
+edits. Share links you open land in the tab you already have the vault in.
 
 ## Where help is
 

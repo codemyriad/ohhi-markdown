@@ -44,6 +44,9 @@
   import GroupOverlays from './lib/components/GroupOverlays.svelte'
   import { createDaily } from './lib/daily.svelte.js'
   import { createSession } from './lib/session.svelte.js'
+  import { claimVaultLock } from './lib/vault-lock.js'
+  import { handOffJoin, openVaultBridge } from './lib/vault-bridge.js'
+  import { toast } from './lib/ui/toaster.js'
   import { createManager } from './lib/manager.svelte.js'
   import { factsFromUi, readMountTable } from './lib/vault-facts.js'
   import { createShareActions } from './lib/share-actions.svelte.js'
@@ -94,6 +97,31 @@
   if (joinLink !== null) settleJoinAddress(joinLink, history)
   /** A device link handed over by the join page, for *Link this device*. */
   let deviceLinkPrefill = $state('')
+  /**
+   * *Inside <vault>* on the join page (`plans/join-share-brief.md` P1, option
+   * a): the page opens the vault and this is the mount to make once it is
+   * live — run from `onOpened`, for that room only (any other open drops it).
+   * A refusal (the folder is not empty, the share is already there) reopens
+   * the Add dialog inside the vault with the link, the folder and the reason,
+   * so the paste is never lost (option b as the way out).
+   */
+  let pendingJoin = $state<{ link: string; dest: string; room: string; label: string } | null>(null)
+  /**
+   * The open browser vault's bridge (`vault-bridge.ts`): a link opened in
+   * ANOTHER tab for this vault hands its join here, since this tab holds the
+   * vault (one tab per browser vault, P3). Closed when another vault opens.
+   */
+  let closeVaultBridge: (() => void) | null = null
+  async function runPendingJoin(ws: NonNullable<typeof workspace>, join: NonNullable<typeof pendingJoin>): Promise<void> {
+    try {
+      await ws.addShareMount(join.link, join.dest)
+      ws.flash({ level: 'info', text: $LL.web.join_page.landed({ dest: join.dest }) })
+      layout.revealDir = { path: join.dest }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      sharing.addShareOpen = { dir: '', link: join.link, dest: join.dest, error: reason }
+    }
+  }
   /**
    * Leave the join page for the manager. The address becomes `/`, replacing
    * the entry, so the link's token is no longer in the address bar or in
@@ -183,6 +211,18 @@
     lastVault,
     onOpened: (ws, entry) => {
       manager.refresh()
+      const join = pendingJoin
+      pendingJoin = null
+      if (join && join.room === entry.room) void runPendingJoin(ws, join)
+      closeVaultBridge?.()
+      closeVaultBridge =
+        entry.vault.kind === 'opfs'
+          ? openVaultBridge(entry.vault.id, (handed) => {
+              if (workspace !== ws) return // this vault has since closed here
+              void runPendingJoin(ws, { ...handed, room: entry.room, label: entry.name })
+              window.focus()
+            })
+          : null
       if (entry.vault.kind === 'opfs') {
         void storage.remind(() => ws.notify({ level: 'warn', code: 'storage_evictable' }), () => workspace === ws)
       }
@@ -190,6 +230,9 @@
       if (debugForced) panes.openView('inspector')
     },
     setup: setupWorkspace,
+    // One tab per browser vault (join-share-brief P3): a second tab is told,
+    // never opened on a stale copy. The desktop is a window per vault already.
+    claimVault: (entry) => (entry.vault.kind === 'opfs' ? claimVaultLock(entry.vault.id) : Promise.resolve(() => {})),
     configForSession,
     configForMemory,
   })
@@ -564,9 +607,22 @@
 {#if joinLink !== null}
   <JoinPage
     link={joinLink}
+    vaults={manager.vaults}
+    lastRoom={lastVault()?.room ?? null}
     onAddHere={(link) => {
       prefillLink = link
       leaveJoinPage()
+    }}
+    onAddInto={async (link, entry, dest, name) => {
+      leaveJoinPage()
+      // The vault may be open in another tab of this browser (one tab per
+      // vault): that tab takes the join; otherwise this one opens the vault.
+      if (entry.vault.kind === 'opfs' && (await handOffJoin(entry.vault.id, { link, dest, name }, realClock))) {
+        toast({ level: 'info', title: $LL.web.join_page.handed_off({ vault: entry.name }) })
+        return
+      }
+      pendingJoin = { link, dest, room: entry.room, label: entry.name }
+      void session.boot(entry)
     }}
     onLinkHere={(link) => {
       deviceLinkPrefill = link

@@ -686,11 +686,23 @@ whoever shared this"), and the relay's health check (`relay-probe.ts`
 check answered, never that the link is valid; "Can't reach the relay from
 here." says what to do, then "reload this page"). Then *In the desktop app* →
 **Copy link** (paste it into the app's *Add a folder someone shared*; no deep
-link yet, Fork 3-B) or *In this browser* → **Add here**, which replaces the
-address with `/` (the token leaves the address bar and Back's history) and
-opens the manager with the Add dialog on the link. A device link is
-explained as one and offered *Link this device* instead; a damaged link
-shows the codec's reason and "paste it in the app". The desktop never shows
+link yet, Fork 3-B) or *In this browser*, which is the choice itself when
+the browser already has a vault (join-share-brief, 2026-10-16): **Inside
+\<vault\>** — a picker when there are several, the last opened preselected;
+the folder from the link's label; the name row — or **As a shared vault of
+its own**, said as a shared vault. *Add to \<vault\>* replaces the address
+with `/` (the token leaves the address bar and Back's history) and either
+hands the join to the tab that holds the vault (`vault-bridge.ts`, one tab
+per browser vault) or opens the vault and mounts the folder once it is live
+(`App.svelte`'s pending join; a refusal reopens the Add dialog inside the
+vault with the link, the folder and the reason). With no vault, **Add here**
+opens the manager with the Add dialog on the link, own-vault preselected. A
+device link is explained as one and offered *Link this device* instead; a
+damaged link shows the codec's reason and "paste it in the app".
+`join.spec.ts` covers the own-vault join (and the *Shared with you* badge
+and *This whole vault* row it leaves behind), the join into a vault held by
+another tab, the join into a vault held by none (and the same link again,
+refused into the reopened dialog), and the one-tab rule itself. The desktop never shows
 the page: there the URL is pasted into the dialogs, which read every
 spelling. To try it locally: `rushx dev` in `apps/relay` with a seeded share,
 then open `http://localhost:5173/join#<editor1:… link>`.

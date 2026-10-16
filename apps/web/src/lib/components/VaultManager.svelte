@@ -800,6 +800,7 @@
 {#if joinOpen}
   <AddSharedFolderDialog
     vaultName={joinInto?.vaultName ?? null}
+    anyVaults={vaults.length > 0}
     dirs={joinInto?.dirs ?? []}
     initialLink={prefillLink}
     initialWhere="own"

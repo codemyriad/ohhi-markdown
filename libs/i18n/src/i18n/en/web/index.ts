@@ -490,6 +490,8 @@ const tree = {
   },
   shared_by_you: 'Shared by you',
   shared_with_you: 'Shared with you',
+  /** The vault switcher's badge when the ROOT is a share someone opened as a vault (2026-10-16). */
+  root_shared_title: 'This whole vault is shared: everything in it syncs with whoever holds a link.',
   not_synced: 'not synced',
   root_actions: 'Vault root actions',
   actions_for: 'Actions for {path:string}',
@@ -920,6 +922,9 @@ const shared = {
     title: 'Shared folders',
     by_you: 'Shared by you',
     with_you: 'Shared with you',
+    /** A vault opened from a folder share (2026-10-16): the root is the shared folder. */
+    whole_vault: 'This whole vault',
+    whole_vault_body: 'Shared with you. Everything in it syncs with whoever holds a link; nothing here is private.',
     notes: '{count:number} note{{s}}',
     links: '{count:number} link{{s}}',
     changed: 'changed {when:string}',
@@ -1159,7 +1164,9 @@ const manager = {
    * Desktop: the app may open only folders picked in this dialog (DEL-89).
    * A vault picked before that rule, or whose grant was lost, is refused once.
    */
-  access_lost: 'Oh hi markdown needs your permission to open this folder again. Your files are untouched.',
+  access_lost: 'Oh Hi markdown needs your permission to open this folder again. Your files are untouched.',
+  /** One tab per browser vault (join-share-brief P3): a second tab is refused, never silently opened on a stale copy. */
+  open_elsewhere: '{name:string} is open in another tab of this browser. Use that tab, or close it and open the vault here again.',
   allow_access: 'Allow access to this folder again',
   access_wrong_folder:
     "You picked {picked:string}, which isn't this vault's folder ({path:string}). Nothing changed — pick the vault's own folder to allow access.",
@@ -1795,8 +1802,11 @@ const share = {
     into_a_vault: 'Inside a vault',
     into_vault_hint: 'Beside your notes, and searchable with them.',
     into_vault_unavailable: 'Open a vault first to add a folder inside it.',
-    own_vault: 'As its own vault',
-    own_vault_hint: 'Kept apart; switch to it from the vault menu.',
+    /** The browser has vaults, none open: the way out is to open one, not to make another. */
+    into_vault_open_one: 'Open one of your vaults first, then add the folder from inside it.',
+    /** Said as a SHARED vault (2026-10-16): the trust line, of the whole vault, before the platform line. */
+    own_vault: 'As a shared vault of its own',
+    own_vault_hint: 'Everything you put in it is shared with whoever holds a link.',
     /** Under "As its own vault", per platform (first-run F1): what happens next. */
     own_vault_desktop: 'You will pick an empty folder for it to live in.',
     own_vault_browser: 'Kept in this browser; switch to it from the vault menu.',
@@ -1935,29 +1945,48 @@ const join_page = {
   desktop: 'In the desktop app',
   desktop_hint: 'Beside your own notes, as real files on disk. Best for anything you will keep.',
   copy: 'Copy link',
-  copied: 'Copied. Open Oh hi markdown on this computer and choose Add a folder someone shared.',
+  copied: 'Copied. Open Oh Hi markdown on this computer and choose Add a folder someone shared.',
   copy_failed:
-    'This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Add a folder someone shared.',
+    'This browser would not copy it. Select the link below and copy it, then open Oh Hi markdown on this computer and choose Add a folder someone shared.',
   link_label: 'The link',
   browser: 'In this browser',
   browser_hint: 'Fine for a team folder: its notes also live with your teammates and on the relay.',
   add_here: 'Add here',
+  /**
+   * The browser already has a vault (C2, amended 2026-10-16): the card is the
+   * choice itself — inside one of them (a picker when there are several,
+   * preselected), or as a shared vault of its own. "Shared vault" says what
+   * that is: nothing in it is private.
+   */
+  where_here: 'Where in this browser',
+  inside_vault: 'Inside {vault:string}',
+  inside_vault_hint: 'Beside your notes, and searchable with them. The rest of that vault stays private.',
+  vault_picker: 'Which vault',
+  folder: 'Folder',
+  folder_hint: 'A new folder, or an existing empty one. A top-level name keeps it beside your notes.',
+  own_vault: 'As a shared vault of its own',
+  own_vault_hint: 'Everything you put in it is shared with whoever holds a link.',
+  add_into: 'Add to {vault:string}',
+  /** The pending join landed after the vault opened: said once, in the vault. */
+  landed: 'Added {dest:string}. Everything in it syncs with whoever holds a link.',
+  /** The vault is open in another tab, which took the join (one tab per browser vault, P3). */
+  handed_off: 'Added inside {vault:string}, in the tab where it is open. You can close this tab.',
   no_app: 'Don’t have the app?',
   download: 'Download for macOS · Linux',
   new_to_app: 'New to the app?',
   guide: 'The two-minute guide',
   /** A link this page cannot read: the codec's reason, then the fallback. */
   error_heading: 'This link can’t be opened here',
-  error_fallback: 'Ask for the link again, or paste it in the app: open Oh hi markdown and choose Add a folder someone shared.',
+  error_fallback: 'Ask for the link again, or paste it in the app: open Oh Hi markdown and choose Add a folder someone shared.',
   /** A device link is never a folder share (device-link R5). */
   device_heading: 'This is a device link, not a shared folder',
   device_body:
     'It is a full-access key to a whole vault ({label:string}), meant only for its owner’s own devices. If it is yours, open it on the device you want the vault on with Link this device. If someone else sent it to you, do not use it.',
   device_vault: 'unnamed',
-  device_desktop_hint: 'Copy it, then in Oh hi markdown on that computer choose Link this device.',
-  device_copied: 'Copied. Open Oh hi markdown on this computer and choose Link this device.',
+  device_desktop_hint: 'Copy it, then in Oh Hi markdown on that computer choose Link this device.',
+  device_copied: 'Copied. Open Oh Hi markdown on this computer and choose Link this device.',
   device_copy_failed:
-    'This browser would not copy it. Select the link below and copy it, then open Oh hi markdown on this computer and choose Link this device.',
+    'This browser would not copy it. Select the link below and copy it, then open Oh Hi markdown on this computer and choose Link this device.',
   device_browser_hint: 'Pulls the whole vault into this browser and keeps it in sync.',
   link_here: 'Link this device',
 }

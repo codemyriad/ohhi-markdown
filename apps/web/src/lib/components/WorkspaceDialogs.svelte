@@ -78,7 +78,9 @@
   <AddSharedFolderDialog
     {vaultName}
     dirs={dirPaths(workspace.ui.files)}
-    initialDest={sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : ''}
+    initialLink={sharing.addShareOpen.link ?? ''}
+    initialDest={sharing.addShareOpen.dest ?? (sharing.addShareOpen.dir ? `${sharing.addShareOpen.dir}/` : '')}
+    initialError={sharing.addShareOpen.error ?? ''}
     onJoinIntoVault={(link, dest) => workspace.addShareMount(link, dest)}
     {onJoinAsVault}
     isTauri={isTauri()}
