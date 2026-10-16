@@ -39,7 +39,11 @@ describe('BootSplash', () => {
     expect(screen.queryByRole('status')).toBeNull()
 
     clock.advance(1)
-    expect(screen.getByText('Oh Hi markdown')).toBeInTheDocument()
+    // The landing site's wordmark: "Oh Hi" on the highlighter, then "markdown" — the name, read whole.
+    const wordmark = screen.getByTestId('boot-wordmark')
+    expect(wordmark).toHaveTextContent('Oh Hi markdown')
+    expect(wordmark.querySelector('.ed-wordmark-hi')).toHaveTextContent('Oh Hi')
+    expect(wordmark.querySelector('.ed-wordmark-rest')).toHaveTextContent('markdown')
     expect(screen.getByRole('status')).toHaveTextContent('Opening your notes…')
     // Never "connecting": the relay is not what an open waits for.
     expect(screen.getByTestId('connecting')).not.toHaveTextContent(/connecting/i)

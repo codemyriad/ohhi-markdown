@@ -21,6 +21,16 @@ type RootTranslation = {
 		 * O​h​ ​H​i​ ​m​a​r​k​d​o​w​n
 		 */
 		app_name: string
+		wordmark: {
+			/**
+			 * O​h​ ​H​i
+			 */
+			hi: string
+			/**
+			 * m​a​r​k​d​o​w​n
+			 */
+			rest: string
+		}
 		/**
 		 * C​a​n​c​e​l
 		 */
@@ -9171,6 +9181,16 @@ export type TranslationFunctions = {
 		 * Oh Hi markdown
 		 */
 		app_name: () => LocalizedString
+		wordmark: {
+			/**
+			 * Oh Hi
+			 */
+			hi: () => LocalizedString
+			/**
+			 * markdown
+			 */
+			rest: () => LocalizedString
+		}
 		/**
 		 * Cancel
 		 */

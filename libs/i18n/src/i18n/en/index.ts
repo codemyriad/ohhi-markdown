@@ -11,6 +11,16 @@ import type { BaseTranslation } from '../i18n-types.js'
  */
 const common = {
   app_name: 'Oh Hi markdown',
+  /**
+   * The wordmark as the landing site draws it (`apps/site` `Base.astro`):
+   * "Oh Hi" as ink on the highlighter, the voice dropping on "markdown". The
+   * two halves read as `app_name` together; the splash is the first surface
+   * in the app to draw it (Chris, 2026-10-16: "only there for now").
+   */
+  wordmark: {
+    hi: 'Oh Hi',
+    rest: 'markdown',
+  },
   cancel: 'Cancel',
   close: 'Close',
   working: 'Working…',
