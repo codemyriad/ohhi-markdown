@@ -1966,6 +1966,12 @@ const join_page = {
   folder_hint: 'A new folder, or an existing empty one. A top-level name keeps it beside your notes.',
   own_vault: 'As a shared vault of its own',
   own_vault_hint: 'Everything you put in it is shared with whoever holds a link.',
+  /** Own-vault chosen: what the vault will be called (the link's label, as the manager names it), and where it lives. */
+  vault_name: 'Vault name',
+  vault_name_hint: 'Named after the folder. Kept in this browser; switch to it from the vault menu.',
+  /** The name row, short enough to sit beside the folder: the sentence the Add dialog puts in the label goes under it. */
+  name: 'Your name',
+  name_hint: 'Shown to the people in this folder.',
   add_into: 'Add to {vault:string}',
   /** The pending join landed after the vault opened: said once, in the vault. */
   landed: 'Added {dest:string}. Everything in it syncs with whoever holds a link.',

@@ -214,11 +214,17 @@ describe('JoinPage', () => {
     await user.click(screen.getByTestId('join-where-own'))
     expect(screen.getByText(t.own_vault())).toBeVisible()
     expect(screen.getByText(t.own_vault_hint())).toBeVisible()
-    expect(screen.getByTestId('join-own-platform')).toHaveTextContent(LL.web.share.add.own_vault_browser())
+    // What the vault will be called (the link's label, `team/notes` → `notes`) and where it lives.
+    expect(screen.getByTestId('join-own-name')).toHaveTextContent('notes')
+    expect(screen.getByTestId('join-own-platform')).toHaveTextContent(t.vault_name_hint())
     expect(screen.queryByTestId('join-dest')).toBeNull()
+    // The name is asked here too, and travels with the link to the manager's dialog.
+    await user.clear(screen.getByTestId('join-name'))
+    await user.type(screen.getByTestId('join-name'), 'Robin')
     await user.click(screen.getByRole('button', { name: t.add_here() }))
     expect(props.onAddHere).toHaveBeenCalledWith(props.link)
     expect(props.onAddInto).not.toHaveBeenCalled()
+    expect(localStorage.getItem('editor:user')).toBe('Robin')
   })
 
   it('inside a vault: an empty or illegal folder is refused at the field, with a plain sentence', async () => {

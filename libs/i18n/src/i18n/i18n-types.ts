@@ -5539,6 +5539,22 @@ export type NamespaceWebTranslation = {
 		 */
 		own_vault_hint: string
 		/**
+		 * V​a​u​l​t​ ​n​a​m​e
+		 */
+		vault_name: string
+		/**
+		 * N​a​m​e​d​ ​a​f​t​e​r​ ​t​h​e​ ​f​o​l​d​e​r​.​ ​K​e​p​t​ ​i​n​ ​t​h​i​s​ ​b​r​o​w​s​e​r​;​ ​s​w​i​t​c​h​ ​t​o​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​v​a​u​l​t​ ​m​e​n​u​.
+		 */
+		vault_name_hint: string
+		/**
+		 * Y​o​u​r​ ​n​a​m​e
+		 */
+		name: string
+		/**
+		 * S​h​o​w​n​ ​t​o​ ​t​h​e​ ​p​e​o​p​l​e​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r​.
+		 */
+		name_hint: string
+		/**
 		 * A​d​d​ ​t​o​ ​{​v​a​u​l​t​}
 		 * @param {string} vault
 		 */
@@ -14390,6 +14406,22 @@ export type TranslationFunctions = {
 			 * Everything you put in it is shared with whoever holds a link.
 			 */
 			own_vault_hint: () => LocalizedString
+			/**
+			 * Vault name
+			 */
+			vault_name: () => LocalizedString
+			/**
+			 * Named after the folder. Kept in this browser; switch to it from the vault menu.
+			 */
+			vault_name_hint: () => LocalizedString
+			/**
+			 * Your name
+			 */
+			name: () => LocalizedString
+			/**
+			 * Shown to the people in this folder.
+			 */
+			name_hint: () => LocalizedString
 			/**
 			 * Add to {vault}
 			 */

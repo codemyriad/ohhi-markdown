@@ -44,6 +44,7 @@
   import Description from '../ui/Description.svelte'
   import Field from '../ui/Field.svelte'
   import FieldErrors from '../ui/FieldErrors.svelte'
+  import SelectControl from '../ui/SelectControl.svelte'
   import TextControl from '../ui/TextControl.svelte'
   import { CARD, FACT, HEADING, OUTLINE_BUTTON } from '../ui/styles.js'
 
@@ -167,6 +168,11 @@
     name: initialName,
   })
   const chosen = $derived(vaults.find((v) => v.room === form.data.room) ?? vaults[0] ?? null)
+  /** What an own vault will be called: the link's label, else the relay's host (the manager's `joinedVaultName`). */
+  const ownName = $derived(
+    (share?.kind === 'folder' ? folderNameOfLabel(share.label) : '') ||
+      $LL.web.manager.joined_vault_name({ host })
+  )
 
   async function addInto(): Promise<void> {
     await form.submit(({ dest, name }) => {
@@ -176,12 +182,10 @@
     })
   }
 
-  const option = `flex flex-col gap-2 ${CARD} p-4`
   const radio = 'flex cursor-pointer items-start gap-2 rounded border border-base-300 p-2 hover:bg-base-200'
-  const select = 'mt-1 w-full rounded border border-base-300 bg-base-100 px-2 py-1.5 text-sm focus:border-primary focus:outline-none'
   const primary =
-    'self-start rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary'
-  const outline = `self-start ${OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-base-content/80`
+    'rounded bg-primary px-4 py-2 text-sm font-medium text-primary-content shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-primary'
+  const outline = `${OUTLINE_BUTTON} inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-base-content/80`
   const linkCls = 'text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary'
 </script>
 
@@ -256,110 +260,139 @@
 
       <section class="space-y-3" aria-labelledby="join-where">
         <h2 id="join-where" class={HEADING}>{t.where()}</h2>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div class={option} data-testid="join-option-desktop">
-            <h3 class="flex items-center gap-1.5 text-sm font-semibold">
-              <Monitor size={16} strokeWidth={1.75} aria-hidden="true" />
-              {t.desktop()}
-            </h3>
-            <p class="flex-1 text-xs text-base-content/70">{isDevice ? t.device_desktop_hint() : t.desktop_hint()}</p>
+        <!-- Two rows, not two columns (Chris, 2026-10-16): the browser row
+             carries a form, and a column beside it only stretched to match. -->
+        <div class="flex flex-col gap-3">
+          <div class="{CARD} flex flex-wrap items-center gap-x-4 gap-y-2 p-4" data-testid="join-option-desktop">
+            <div class="min-w-0 flex-1">
+              <h3 class="flex items-center gap-1.5 text-sm font-semibold">
+                <Monitor size={16} strokeWidth={1.75} aria-hidden="true" />
+                {t.desktop()}
+              </h3>
+              <p class="mt-0.5 text-xs text-base-content/70">{isDevice ? t.device_desktop_hint() : t.desktop_hint()}</p>
+            </div>
             <button type="button" class={outline} data-testid="join-copy" onclick={copy}>
               <Copy size={14} strokeWidth={1.75} aria-hidden="true" />
               {t.copy()}
             </button>
           </div>
-          <div class={option} data-testid="join-option-browser">
-            <h3 class="flex items-center gap-1.5 text-sm font-semibold">
-              <Globe size={16} strokeWidth={1.75} aria-hidden="true" />
-              {t.browser()}
-            </h3>
-            <p class="text-xs text-base-content/70">{isDevice ? t.device_browser_hint() : t.browser_hint()}</p>
-            {#if isDevice}
-              <button type="button" class="{primary} mt-auto" data-testid="join-link-here" onclick={() => onLinkHere(link)}>
-                {t.link_here()}
-              </button>
-            {:else if canJoinInto}
-              <!-- The browser has a vault: the card IS the choice (C2 amended
+          <div class="{CARD} p-4" data-testid="join-option-browser">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="flex items-center gap-1.5 text-sm font-semibold">
+                  <Globe size={16} strokeWidth={1.75} aria-hidden="true" />
+                  {t.browser()}
+                </h3>
+                <p class="mt-0.5 text-xs text-base-content/70">{isDevice ? t.device_browser_hint() : t.browser_hint()}</p>
+                {#if !isDevice && !canJoinInto}
+                  <!-- No vault in this browser yet: the Add dialog makes one, and says it is a shared vault. -->
+                  <p class="mt-0.5 text-xs text-base-content/80" data-testid="join-own-only">{t.own_vault_hint()}</p>
+                {/if}
+              </div>
+              {#if isDevice}
+                <button type="button" class={primary} data-testid="join-link-here" onclick={() => onLinkHere(link)}>
+                  {t.link_here()}
+                </button>
+              {:else if !canJoinInto}
+                <button type="button" class={primary} data-testid="join-add-here" onclick={() => onAddHere(link)}>
+                  {t.add_here()}
+                </button>
+              {/if}
+            </div>
+            {#if !isDevice && canJoinInto}
+              <!-- The browser has a vault: the row IS the choice (C2 amended
                    2026-10-16). Inside <vault> is preselected; own-vault is one
-                   click away, and says that it makes a SHARED vault. -->
+                   click away, and says that it makes a SHARED vault. The choice
+                   on the left, what it needs on the right; one column when narrow. -->
               <form
-                class="flex flex-1 flex-col gap-2"
+                class="mt-3 flex flex-col gap-3"
                 novalidate
                 onsubmit={(e) => {
                   e.preventDefault()
-                  if (form.data.where === 'own') onAddHere(link)
-                  else void addInto()
+                  if (form.data.where === 'own') {
+                    // The name goes with the link: the manager's dialog opens prefilled with it.
+                    saveUser(form.data.name.trim())
+                    onAddHere(link)
+                  } else void addInto()
                 }}
               >
-                <fieldset class="space-y-1.5">
-                  <legend class="mb-1 {FACT}">{t.where_here()}</legend>
-                  <label class={radio}>
-                    <input type="radio" name="join-where" value="vault" bind:group={form.data.where} data-testid="join-where-vault" class="mt-0.5" />
-                    <span class="min-w-0 flex-1">
-                      <span class="block text-sm">
-                        {vaults.length === 1 ? t.inside_vault({ vault: vaults[0]!.name }) : t.inside_vault({ vault: chosen?.name ?? '' })}
+                <!-- The two choices side by side, then what the chosen one needs, in one row too (Chris, 2026-10-16). -->
+                <fieldset>
+                  <legend class="mb-1 block text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.where_here()}</legend>
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <label class={radio}>
+                      <input type="radio" name="join-where" value="vault" bind:group={form.data.where} data-testid="join-where-vault" class="mt-0.5" />
+                      <span class="min-w-0 flex-1">
+                        <span class="block text-sm">
+                          {vaults.length === 1 ? t.inside_vault({ vault: vaults[0]!.name }) : t.inside_vault({ vault: chosen?.name ?? '' })}
+                        </span>
+                        <span class="block text-xs text-base-content/70">{t.inside_vault_hint()}</span>
                       </span>
-                      <span class="block text-xs text-base-content/70">{t.inside_vault_hint()}</span>
-                      {#if vaults.length > 1 && form.data.where === 'vault'}
-                        <label class="mt-1.5 block">
-                          <span class={FACT}>{t.vault_picker()}</span>
-                          <select bind:value={form.data.room} data-testid="join-vault-picker" class={select}>
-                            {#each vaults as v (v.room)}
-                              <option value={v.room}>{v.name}</option>
-                            {/each}
-                          </select>
-                        </label>
-                      {/if}
-                    </span>
-                  </label>
-                  <label class={radio}>
-                    <input type="radio" name="join-where" value="own" bind:group={form.data.where} data-testid="join-where-own" class="mt-0.5" />
-                    <span class="min-w-0">
-                      <span class="block text-sm">{t.own_vault()}</span>
-                      <span class="block text-xs text-base-content/70">{t.own_vault_hint()}</span>
-                      {#if form.data.where === 'own'}
-                        <span class="block text-xs text-base-content/80" data-testid="join-own-platform">{$LL.web.share.add.own_vault_browser()}</span>
-                      {/if}
-                    </span>
-                  </label>
+                    </label>
+                    <label class={radio}>
+                      <input type="radio" name="join-where" value="own" bind:group={form.data.where} data-testid="join-where-own" class="mt-0.5" />
+                      <span class="min-w-0">
+                        <span class="block text-sm">{t.own_vault()}</span>
+                        <span class="block text-xs text-base-content/70">{t.own_vault_hint()}</span>
+                      </span>
+                    </label>
+                  </div>
                 </fieldset>
-                {#if form.data.where === 'vault'}
-                  <Field name="join-dest" errors={form.errorsFor('dest')} required>
+                <div class="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                  {#if form.data.where === 'vault'}
+                    {#if vaults.length > 1}
+                      <Field name="join-vault">
+                        <SelectControl label={t.vault_picker()} bind:value={form.data.room} testid="join-vault-picker">
+                          {#each vaults as v (v.room)}
+                            <option value={v.room}>{v.name}</option>
+                          {/each}
+                        </SelectControl>
+                      </Field>
+                    {/if}
+                    <Field name="join-dest" errors={form.errorsFor('dest')} required class={vaults.length > 1 ? '' : 'sm:col-span-2'}>
+                      <TextControl
+                        label={t.folder()}
+                        mono
+                        bind:value={form.data.dest}
+                        onblur={() => form.touch('dest')}
+                        testid="join-dest"
+                        class="text-xs"
+                      />
+                      <Description>{t.folder_hint()}</Description>
+                      <FieldErrors />
+                    </Field>
+                  {:else}
+                    <!-- Own-vault: what it will be called, after the folder (the manager's rule),
+                         as a labelled value in step with the field beside it. -->
+                    <div data-testid="join-own-platform" class="sm:col-span-2">
+                      <span class="block text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.vault_name()}</span>
+                      <!-- The field's own box, with no border to draw: the value sits level with the input beside it. -->
+                      <p class="m-0 mt-1 border border-transparent py-2 text-sm" data-testid="join-own-name">{ownName}</p>
+                      <p class="m-0 mt-1 text-xs text-base-content/70">{t.vault_name_hint()}</p>
+                    </div>
+                  {/if}
+                  <!-- Your name is always the row below, whole, whichever choice is made. -->
+                  <Field name="join-name" class="sm:col-span-2">
                     <TextControl
-                      label={t.folder()}
-                      mono
-                      bind:value={form.data.dest}
-                      onblur={() => form.touch('dest')}
-                      testid="join-dest"
-                      class="text-xs"
-                    />
-                    <Description>{t.folder_hint()}</Description>
-                    <FieldErrors />
-                  </Field>
-                  <Field name="join-name">
-                    <TextControl
-                      label={$LL.web.share.add.name()}
+                      label={t.name()}
                       bind:value={form.data.name}
                       autocomplete="nickname"
                       placeholder={$LL.web.share.add.name_placeholder()}
                       testid="join-name"
                       class="text-xs"
                     />
+                    <Description>{t.name_hint()}</Description>
                   </Field>
-                {/if}
-                {#if form.formError}
-                  <p class="text-xs text-error" role="alert" data-testid="join-error-line">{form.formError}</p>
-                {/if}
-                <button type="submit" class="{primary} mt-auto" data-testid="join-add-here" disabled={form.busy}>
-                  {form.data.where === 'vault' && chosen ? t.add_into({ vault: chosen.name }) : t.add_here()}
-                </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <button type="submit" class={primary} data-testid="join-add-here" disabled={form.busy}>
+                    {form.data.where === 'vault' && chosen ? t.add_into({ vault: chosen.name }) : t.add_here()}
+                  </button>
+                  {#if form.formError}
+                    <p class="m-0 text-xs text-error" role="alert" data-testid="join-error-line">{form.formError}</p>
+                  {/if}
+                </div>
               </form>
-            {:else}
-              <!-- No vault in this browser yet: the Add dialog makes one, and says it is a shared vault. -->
-              <p class="flex-1 text-xs text-base-content/80" data-testid="join-own-only">{t.own_vault_hint()}</p>
-              <button type="button" class={primary} data-testid="join-add-here" onclick={() => onAddHere(link)}>
-                {t.add_here()}
-              </button>
             {/if}
           </div>
         </div>
