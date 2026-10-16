@@ -363,13 +363,20 @@
                     </Field>
                   {:else}
                     <!-- Own-vault: what it will be called, after the folder (the manager's rule),
-                         as a labelled value in step with the field beside it. -->
-                    <div data-testid="join-own-platform" class="sm:col-span-2">
-                      <span class="block text-xs font-semibold tracking-wide text-base-content/70 uppercase">{t.vault_name()}</span>
-                      <!-- The field's own box, with no border to draw: the value sits level with the input beside it. -->
-                      <p class="m-0 mt-1 border border-transparent py-2 text-sm" data-testid="join-own-name">{ownName}</p>
-                      <p class="m-0 mt-1 text-xs text-base-content/70">{t.vault_name_hint()}</p>
-                    </div>
+                         in the same box as the field below it — read-only, since the name is the folder's. -->
+                    <Field name="join-own-vault" class="sm:col-span-2">
+                      <div data-testid="join-own-platform">
+                        <TextControl
+                          label={t.vault_name()}
+                          value={ownName}
+                          readonly
+                          tabindex={-1}
+                          testid="join-own-name"
+                          class="bg-base-200 text-base-content/80"
+                        />
+                        <Description>{t.vault_name_hint()}</Description>
+                      </div>
+                    </Field>
                   {/if}
                   <!-- Your name is always the row below, whole, whichever choice is made. -->
                   <Field name="join-name" class="sm:col-span-2">

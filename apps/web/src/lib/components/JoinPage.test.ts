@@ -215,7 +215,8 @@ describe('JoinPage', () => {
     expect(screen.getByText(t.own_vault())).toBeVisible()
     expect(screen.getByText(t.own_vault_hint())).toBeVisible()
     // What the vault will be called (the link's label, `team/notes` → `notes`) and where it lives.
-    expect(screen.getByTestId('join-own-name')).toHaveTextContent('notes')
+    expect(screen.getByTestId('join-own-name')).toHaveValue('notes')
+    expect(screen.getByTestId('join-own-name')).toHaveAttribute('readonly')
     expect(screen.getByTestId('join-own-platform')).toHaveTextContent(t.vault_name_hint())
     expect(screen.queryByTestId('join-dest')).toBeNull()
     // The name is asked here too, and travels with the link to the manager's dialog.
