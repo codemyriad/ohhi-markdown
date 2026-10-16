@@ -12,8 +12,8 @@ date: 2026-10-10
    your team's relay and on every device holding a link to it. The rest of
    your vault never leaves your machine.
 2. **The relay is your team's, and the app already knows it.** You never type
-   its address. If your team runs it on a private network (a company VPN or
-   tailnet), shares only work while you are on that network.
+   its address. If your team runs it on a private network (a company VPN),
+   shares only work while you are on that network.
 3. **A link is the key to one folder.** Make one per person, named for them,
    so you can remove one later. Anyone holding a link can open the folder, and
    the relay holds a copy of what is in it.

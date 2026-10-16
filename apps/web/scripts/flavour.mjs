@@ -5,7 +5,8 @@
  * that implies. Build config, not a fork: the source is the same, only the
  * `VITE_*` values and the content security policy differ.
  *
- *   team    the team host (docs/deploy-tailnet.md). Needs `VITE_TEAM_HOST`;
+ *   team    a self-hosted team host that serves the web app and the relay
+ *           from one origin. Needs `VITE_TEAM_HOST`;
  *           the release workflow pins both policies to it first
  *           (apps/desktop/scripts/pin-csp.mjs) and bakes in its relay.
  *           Downloads: https://<host>/updates/downloads.json.
@@ -109,8 +110,8 @@ export function resolveFlavour(env) {
  * The rules of a Cloudflare-style `_headers` file: a line at column 0 is a
  * URL pattern, indented `Name: value` lines below it are its headers, `#`
  * starts a comment. The format Cloudflare Pages reads natively and the one
- * deploy/team-host/ohhi-pull turns into Caddy `header` lines (it reads the `/*`
- * rule only), so one file serves both hosts.
+ * a team host's deploy script can turn into Caddy `header` lines (reading the
+ * `/*` rule only), so one file serves both kinds of host.
  * @param {string} text
  * @returns {{ pattern: string, headers: { name: string, value: string }[] }[]}
  */

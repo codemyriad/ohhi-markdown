@@ -3,7 +3,7 @@
 // web build of a team release (docs/desktop-builds.md, "The connect-src
 // trade-off", option 1).
 //
-//   node apps/desktop/scripts/pin-csp.mjs ohhi.example.ts.net
+//   node apps/desktop/scripts/pin-csp.mjs ohhi.example.com
 //
 // Replaces the `wss: https:` sources in connect-src of
 // apps/desktop/src-tauri/tauri.conf.json and apps/web/public/_headers with

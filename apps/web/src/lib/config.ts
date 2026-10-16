@@ -97,8 +97,8 @@ export const TEAM_SECRET_HINT = buildText(import.meta.env.VITE_TEAM_SECRET_HINT)
 
 /**
  * One sentence about reaching this deployment's relay
- * (`VITE_TEAM_NETWORK_NOTE`, e.g. "only while you are on the company
- * tailnet") — '' when the build says nothing.
+ * (`VITE_TEAM_NETWORK_NOTE`, e.g. "only while you are on the office
+ * network") — '' when the build says nothing.
  */
 export const TEAM_NETWORK_NOTE = buildText(import.meta.env.VITE_TEAM_NETWORK_NOTE)
 

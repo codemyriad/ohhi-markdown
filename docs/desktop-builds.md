@@ -5,10 +5,10 @@ and released, how teammates install and update it, and the webview's Content
 Security Policy. Workflow:
 [`.github/workflows/desktop-release.yml`](../.github/workflows/desktop-release.yml)
 — its comments cover the job layout, token permissions and signing placeholders.
-The team host it publishes to (the team host, over the company tailnet) is described in
-[`deploy-tailnet.md`](deploy-tailnet.md); the public flavour, published to
-`dist.ohhi.md` (and the web app on `app.ohhi.md`), in
-[`public-deploy.md`](public-deploy.md).
+The public flavour, published to `dist.ohhi.md` (and the web app on
+`app.ohhi.md`), is described in [`public-deploy.md`](public-deploy.md), which
+also says why the team flavour (a self-hosted team host, below) is no longer
+deployed.
 
 ## How releases happen
 
@@ -26,8 +26,8 @@ for example `v0.1.42`: major and minor come from `version` in
 `apps/desktop/src-tauri/tauri.conf.json`, and the patch is the workflow's run
 number, so every build counts up, which the updater needs. The version is
 injected at build time (`tauri build --config`), and `tauri.conf.json` keeps
-its base. About five minutes later the team host's pull picks the release up: the web
-app switches over and installed desktop apps offer the update.
+its base. About five minutes later the team host's pull picks the release up:
+the web app switches over and installed desktop apps offer the update.
 
 - **Shipping is a deliberate step.** Each build costs about 20 Linux minutes
   plus about 3 macOS minutes (billed at a multiple) of the org's Actions
@@ -46,11 +46,11 @@ app switches over and installed desktop apps offer the update.
   a **draft** prerelease that the team host never sees, for trying a build by hand.
 
 **Two flavours.** Everything above is the **team** flavour (pinned to
-`TEAM_HOST`, deployed by the team host), which every push and tag builds. *Run
+`TEAM_HOST`, deployed by a team host), which every push and tag builds. *Run
 workflow* has a **channel** input: `team` (the default) or `public`. A public
 build has no pin, no relay and no team sentences, updates from
 `https://dist.ohhi.md/stable/latest.json`, and is tagged `public-v<version>`,
-which the team host never deploys. Run on `release` it is published and the `dist`
+which a team host never deploys. Run on `release` it is published and the `dist`
 job uploads it to the R2 bucket behind `dist.ohhi.md`; on another branch it
 stays a draft. The two run in separate concurrency groups, so neither cancels
 the other. What differs and the Cloudflare setup are in
@@ -67,10 +67,10 @@ channel.
 
 | Setting | Kind | Effect |
 | --- | --- | --- |
-| `TEAM_HOST` | repository variable | Bare hostname of the team host, e.g. `ohhi.<tailnet>.ts.net`. Sets the default relay to `wss://<host>/relay`, pins the CSP to that host (below) and points the updater at `https://<host>/updates/latest.json`. Unset → none of that, and no `latest.json`. |
+| `TEAM_HOST` | repository variable | Bare hostname of the team host, e.g. `ohhi.example.com`. Sets the default relay to `wss://<host>/relay`, pins the CSP to that host (below) and points the updater at `https://<host>/updates/latest.json`. Unset → none of that, and no `latest.json`. |
 | `DEFAULT_RELAY` | repository variable | Fallback default relay when `TEAM_HOST` is unset. |
 | `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
-| `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the company tailnet.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
+| `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the office network.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
 | `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, the relay field in Settings › Sync & devices read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
 | `PUBLIC_WEB_HOST`, `PUBLIC_DIST_HOST` | repository variables | Public channel only, both optional: the public web app's host (default `app.ohhi.md`, where a public desktop build points its share links) and the download host (default `dist.ohhi.md`: the update feed, `downloads.json` and the R2 keys' URLs). Defaults live in `apps/web/scripts/flavour.mjs`. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | secrets | Public channel's `dist` job (R2: Edit) and the Web deploy workflow (Pages: Edit). Unset → both skip the upload with a warning. |
@@ -96,7 +96,7 @@ Each release carries, flat:
 | `ohhi_<version>_universal.app.tar.gz.sig` | its updater signature |
 | `web.tar.gz` | the web app's `dist/`, with `index.html` and `_headers` at the archive root (as `./…`) |
 | `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set (team) or for a public build; its URLs point at `https://<host>/updates/<tag>/<file>` (team) or `https://dist.ohhi.md/<version>/<file>` (public) |
-| `downloads.json` | the installers (`.dmg`, `.AppImage`, `.deb`) with URL, size and sha256, at the same base as `latest.json`: what Settings › About's *Get the desktop app* reads (`apps/web/scripts/downloads-manifest.mjs`). the team host serves it as `/updates/downloads.json`, R2 as `stable/downloads.json` |
+| `downloads.json` | the installers (`.dmg`, `.AppImage`, `.deb`) with URL, size and sha256, at the same base as `latest.json`: what Settings › About's *Get the desktop app* reads (`apps/web/scripts/downloads-manifest.mjs`). A team host serves it as `/updates/downloads.json`, R2 as `stable/downloads.json` |
 | `SHA256SUMS.txt` | checksums of all the above |
 
 The build artifacts also stay in the workflow run for 14 days. There are no
@@ -120,12 +120,12 @@ you're running and the last check's outcome). A newer build downloads and instal
 toast offers **Restart** and **What changed**. *What changed* opens the
 `changes` guide page in a guide window: on a team build it is read from
 `https://<team host>/guide/changes.html`, which serves the release the update
-came from (`ohhi-pull` swaps the web app before it writes `latest.json`); off
-the tailnet that window shows the webview's own error page. The Help menu's
+came from (the host's pull script swaps the web app before it writes `latest.json`);
+off the team's network that window shows the webview's own error page. The Help menu's
 last line shows the running version and the last check's outcome — "up to
 date · checked 2 h ago" only when that check completed and found nothing,
 "could not check · last checked …" when it failed. If you ignore the toast,
-the new build runs next time you open the app. The check only reaches the feed from the tailnet; off it, or in
+the new build runs next time you open the app. A team build's check only reaches the feed from the team's network; off it, or in
 a local build with no feed configured, the check fails quietly (one console line)
 and is retried later.
 
@@ -257,7 +257,7 @@ narrow the filesystem grant below the picked vaults.
   Tauri adds `'sha256-…'` sources to `script-src` for the inline pre-paint
   theme script and every bundled JS file, computed at compile time, and (as of
   2.11) sends the policy as a real `Content-Security-Policy` response header.
-- **Hosted web app:** `apps/web/public/_headers`, which the team host's Caddy turns into response headers ([deploy-tailnet.md](deploy-tailnet.md)) — the same
+- **Hosted web app:** `apps/web/public/_headers`, which Cloudflare Pages applies as is and a team host's deploy script turns into its reverse proxy's response headers — the same
   policy without Tauri's IPC sources, plus the theme script's hash, which we
   pin ourselves. It also sends `nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, COOP `same-origin` and a `Permissions-Policy`

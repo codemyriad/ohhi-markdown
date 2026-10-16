@@ -14,7 +14,7 @@ import { probeRelay, type ProbeResult } from './relay-probe.js'
 /**
  * What a surface shows: still asking, the health check answered `ok`, the
  * relay answered but says it is not healthy, or nothing answered in time.
- * `unhealthy` is not `down`: the relay WAS reached, so "join the tailnet" is
+ * `unhealthy` is not `down`: the relay WAS reached, so "join the network" is
  * the wrong advice for it.
  */
 export type RelayCheck = 'pending' | 'ok' | 'unhealthy' | 'down'
