@@ -3,17 +3,21 @@
    * The comment bubble (writing-harness-shaping B8): `ui/Popover` hung off
    * the selection (or a thread's gutter marker). Two faces:
    *
-   * - **new** — a textarea, *Comment*, and *Send to agent*, which is the one
-   *   AI-gated thing here: shown only when `ai` (a provider exists, R1). It
-   *   sets `to: ['agent']` on the comment and asks the agent; the reply
-   *   lands in the thread.
+   * - **new** — a textarea and two buttons: *Comment* (primary: saves the
+   *   thread, nothing else) and *Send to agent* (secondary, the one AI-gated
+   *   thing here: shown only when `ai`, a provider exists, R1), which saves
+   *   the thread with `to: ['agent']` AND asks the agent; the reply lands in
+   *   the thread.
    * - **thread** — its comments in order, *Reply*, *Resolve* / *Reopen*,
    *   and any edit the agent proposed answering it (a suggestion carrying
    *   the thread's id) with *Accept* / *Reject*.
    *
-   * *Send to agent* says where it goes — the current session by its title,
-   * else a new one — with a choice of the other (QA round 1); once sent, the
-   * thread's "Sent to the agent" / "Answered" carries *Open session*.
+   * Where *Send to agent* goes is implicit and said quietly under the buttons
+   * (QA round 1, round 2: no checkbox, no select): "Sends to ‹the current
+   * session›", or "Starts a new session" when there is none. With more than
+   * one session that line is a small text button opening a `DropdownMenu` of
+   * the sessions and *New session*; with one or none it is plain text. Once
+   * sent, the thread's "Sent to the agent" / "Answered" carries *Open session*.
    *
    * *Send to agent* starts the run from here — the gesture, never a store
    * change, so a synced copy of the comment does not start a second one
@@ -23,13 +27,17 @@
    */
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { SuggestionRecord, ThreadRecord } from '@ohhi/workspace'
-  import CheckControl from '../ui/CheckControl.svelte'
+  import { melt } from '@melt-ui/svelte'
+  import { ChevronDown } from '@lucide/svelte'
+  import DropdownMenu from '../ui/DropdownMenu.svelte'
+  import MenuItem from '../ui/MenuItem.svelte'
+  import MenuSeparator from '../ui/MenuSeparator.svelte'
   import Field from '../ui/Field.svelte'
   import Popover from '../ui/Popover.svelte'
   import TextControl from '../ui/TextControl.svelte'
-  import { OUTLINE_BUTTON } from '../ui/styles.js'
+  import { META, OUTLINE_BUTTON } from '../ui/styles.js'
   import { liveThreads, type BubbleRequest } from '../threads.svelte.js'
-  import { currentAgentSession, sendThreadToAgent, sessionForThread, type AgentTarget } from '../thread-agent.js'
+  import { agentSessions, sendThreadToAgent, sessionForThread, type AgentTarget } from '../thread-agent.js'
   import { openSession } from '../sessions.svelte.js'
   import type { Workspace } from '../workspace.svelte.js'
 
@@ -73,11 +81,19 @@
   }
 
   let body = $state('')
-  let sendToAgent = $state(false)
-  /** Where it goes: the current session when there is one, else a new one. */
-  const current = $derived(ai ? currentAgentSession() : null)
-  let target = $state<AgentTarget>('current')
-  const goesTo = $derived<AgentTarget>(current ? target : 'new')
+  /** The sessions it could go to, the current one first (empty with no provider). */
+  const sessions = $derived(ai ? agentSessions() : [])
+  /** The person's pick from the menu; null = the default (the current session, else a new one). */
+  let picked = $state<string | 'new' | null>(null)
+  const goesTo = $derived.by((): AgentTarget => {
+    if (picked === 'new') return 'new'
+    const id = picked ?? sessions[0]?.id
+    return id ? { sessionId: id } : 'new'
+  })
+  const goesToTitle = $derived(
+    typeof goesTo === 'object' ? (sessions.find((s) => s.id === goesTo.sessionId)?.title ?? null) : null
+  )
+  const whereLine = $derived(goesToTitle !== null ? t.sends_to({ title: goesToTitle }) : t.starts_new())
   /** The session the thread was sent to, for *Open session*. */
   const sentTo = $derived(thread ? sessionForThread(thread.id) : null)
 
@@ -89,7 +105,8 @@
     const text = body.trim()
     if (!text) return
     if (request.kind === 'new') {
-      const asking = ai && sendToAgent
+      // *Send to agent* is the form's second submitter; *Comment* (and Mod+Enter) only saves.
+      const asking = ai && (e.submitter as HTMLElement | null)?.dataset.send === 'agent'
       const added = workspace.addThread(request.path, {
         from: request.from,
         to: request.to,
@@ -212,32 +229,50 @@
       <Field name="comment">
         <TextControl label={t.field()} bind:value={body} multiline rows={3} testid="comment-body" onkeydown={onKeydown} />
       </Field>
-      {#if ai}
-        <Field name="send-to-agent">
-          <CheckControl label={t.send_agent()} bind:checked={sendToAgent} testid="comment-send-agent" />
-        </Field>
-        {#if sendToAgent}
-          <label class="flex items-center gap-2 text-xs text-base-content/80">
-            <span class="shrink-0">{t.send_to()}</span>
-            {#if current}
-              <select
-                bind:value={target}
-                data-testid="comment-send-target"
-                class="min-w-0 flex-1 truncate rounded border border-base-300 bg-base-100 px-1 py-0.5 text-xs text-base-content focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                <option value="current">{t.send_to_current({ title: current.title })}</option>
-                <option value="new">{t.send_to_new()}</option>
-              </select>
-            {:else}
-              <span class="text-base-content" data-testid="comment-send-target-new">{t.send_to_new()}</span>
-            {/if}
-          </label>
-        {/if}
-      {/if}
       <div class="flex items-center justify-end gap-2">
-        <button type="button" class={outline} onclick={onClose}>{$LL.common.cancel()}</button>
+        <!-- No Cancel: Escape and a click outside close the bubble (QA round 2: two buttons). -->
+        {#if ai}
+          <button type="submit" class={outline} disabled={!body.trim()} data-send="agent" data-testid="comment-send-agent"
+            >{t.send_agent()}</button
+          >
+        {/if}
         <button type="submit" class={primary} disabled={!body.trim()} data-testid="comment-submit">{t.comment()}</button>
       </div>
+      {#if ai}
+        {#if sessions.length > 1}
+          <div class="flex justify-end">
+            <DropdownMenu placement="bottom-end" testid="comment-send-target-menu">
+              {#snippet trigger(attrs)}
+                <button
+                  use:melt={attrs}
+                  type="button"
+                  data-testid="comment-send-target"
+                  class="{META} inline-flex max-w-full items-center gap-0.5 rounded hover:text-base-content focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <span class="truncate">{whereLine}</span>
+                  <ChevronDown size={12} strokeWidth={1.75} aria-hidden="true" class="shrink-0" />
+                </button>
+              {/snippet}
+              {#snippet children({ item, separator })}
+                {#each sessions as s (s.id)}
+                  <MenuItem
+                    {item}
+                    checked={typeof goesTo === 'object' && goesTo.sessionId === s.id}
+                    testid="comment-send-target:{s.id}"
+                    onSelect={() => (picked = s.id)}>{s.title}</MenuItem
+                  >
+                {/each}
+                <MenuSeparator {separator} />
+                <MenuItem {item} checked={goesTo === 'new'} testid="comment-send-target:new" onSelect={() => (picked = 'new')}
+                  >{t.new_session()}</MenuItem
+                >
+              {/snippet}
+            </DropdownMenu>
+          </div>
+        {:else}
+          <p class="{META} m-0 truncate text-right" data-testid="comment-send-target">{whereLine}</p>
+        {/if}
+      {/if}
     {/if}
   </form>
 </Popover>

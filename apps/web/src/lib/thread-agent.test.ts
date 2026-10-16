@@ -74,6 +74,13 @@ describe('askAgent', () => {
     expect(started[0].title).not.toContain('jiaosdjas')
   })
 
+  it('sent to a session the person picked, it runs there, not in the current one', async () => {
+    const { store, deps, started } = setup()
+    const t = store.add({ from: 0, to: 3, author: 'Ana', body: 'Why?', sendTo: ['agent'] })
+    await askAgent(deps, PATH, t.id, { sessionId: 's-picked' })
+    expect(started.map((s) => s.sessionId)).toEqual(['s-picked'])
+  })
+
   it('a new session’s title says where the comment is: the note, and its line or lines', () => {
     const w = getLL().web.ai.comments
     const lines = (from: number, to: number) => mentionOf({ kind: 'lines', path: 'notes/plan.md', lines: { from, to } })

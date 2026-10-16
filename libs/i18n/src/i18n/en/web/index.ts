@@ -2842,11 +2842,14 @@ const ai = {
     bubble_thread: 'Comment thread',
     field: 'Comment',
     comment: 'Comment',
+    /** The bubble's second verb (shown with a provider): saves the comment and asks the agent. */
     send_agent: 'Send to agent',
-    /** Where *Send to agent* goes (QA round 1): a choice between the current session and a new one. */
-    send_to: 'Send to',
-    send_to_current: 'This session: {title:string}',
-    send_to_new: 'A new session',
+    /** Where *Send to agent* goes, said under the buttons (QA round 1): the session by its title… */
+    sends_to: 'Sends to {title:string}',
+    /** …or, with no session, a new one. */
+    starts_new: 'Starts a new session',
+    /** The choice in the menu that line opens, when there is more than one session. */
+    new_session: 'New session',
     /** After sending: the session the thread went to. */
     open_session: 'Open session',
     /** A new session's title for a comment: where it is, never what it says. */

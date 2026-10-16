@@ -1,5 +1,5 @@
 /**
- * Send to agent (writing-harness-shaping B8): a comment ticked *Send to
+ * Send to agent (writing-harness-shaping B8): a comment sent with *Send to
  * agent* (`to: ['agent']`) becomes one run — the thread's passage as a
  * `lines` mention, the comment as the instruction, `threadId` on the run and
  * on its origin (so a proposal it makes carries the thread, and the bubble
@@ -11,8 +11,8 @@
  * each of them answering it would be one run per device.
  *
  * Which session (QA round 1, "new or existing?"): the bubble says where it
- * will go — the current session by title, else a new one — and lets the
- * person pick the other (`AgentTarget`). A new session is titled after the
+ * will go — the current session by title, else a new one — and, with more
+ * than one session, lets the person pick another or a new one (`AgentTarget`). A new session is titled after the
  * comment's place ("Comment on plan.md (lines 3–4)"), never the comment's
  * raw text. The session a thread went to is remembered on this device
  * (`sessionForThread`), so the thread can say *Open session* and the
@@ -43,8 +43,8 @@ export interface AskAgentDeps {
   flash?(input: FlashInput): void
 }
 
-/** Where *Send to agent* sends: the current session, or a new one. */
-export type AgentTarget = 'current' | 'new'
+/** Where *Send to agent* sends: the current session, a new one, or a session the person picked. */
+export type AgentTarget = 'current' | 'new' | { sessionId: string }
 
 /** The session each thread was sent to, on this device (reactive: the bubble's *Open session* reads it). */
 const threadSessions = new SvelteMap<string, string>()
@@ -58,6 +58,18 @@ export function sessionForThread(threadId: string): string | null {
 export function currentAgentSession(): { id: string; title: string } | null {
   const id = harness.current
   return id ? { id, title: sessionTitle(id) ?? getLL().web.ai.session.untitled() } : null
+}
+
+/**
+ * The sessions *Send to agent* can go to: the current one first (even before
+ * its file exists — a tab opened but not yet sent from), then the vault's
+ * others, newest activity first.
+ */
+export function agentSessions(): { id: string; title: string }[] {
+  const untitled = getLL().web.ai.session.untitled()
+  const current = currentAgentSession()
+  const rest = harness.list.filter((s) => s.id !== current?.id).map((s) => ({ id: s.id, title: s.title ?? untitled }))
+  return current ? [current, ...rest] : rest
 }
 
 /** A new session's title for a comment: the note's name and the passage's lines, never the comment's words. */
@@ -90,8 +102,8 @@ export async function askAgent(
   const ref = range ? await deps.mention(path, store, range) : mentionOf({ kind: 'file', path })
   const title = commentSessionTitle(path, ref)
   const input = { instruction: comment.body, refs: [ref], threadId, open: false, title } satisfies StartRunInput
-  // The current session when asked for and free; a new one otherwise.
-  const current = target === 'current' ? deps.session() : null
+  // The session asked for (the current one by default) when it is free; a new one otherwise.
+  const current = target === 'new' ? null : target === 'current' ? deps.session() : target.sessionId
   const handle = (current ? await deps.startRun({ ...input, sessionId: current }) : null) ?? (await deps.startRun(input))
   if (!handle) {
     deps.flash?.({ level: 'info', text: w.thread_not_started() })

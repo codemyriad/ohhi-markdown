@@ -8345,18 +8345,18 @@ export type NamespaceWebTranslation = {
 			 */
 			send_agent: string
 			/**
-			 * S​e​n​d​ ​t​o
-			 */
-			send_to: string
-			/**
-			 * T​h​i​s​ ​s​e​s​s​i​o​n​:​ ​{​t​i​t​l​e​}
+			 * S​e​n​d​s​ ​t​o​ ​{​t​i​t​l​e​}
 			 * @param {string} title
 			 */
-			send_to_current: RequiredParams<'title'>
+			sends_to: RequiredParams<'title'>
 			/**
-			 * A​ ​n​e​w​ ​s​e​s​s​i​o​n
+			 * S​t​a​r​t​s​ ​a​ ​n​e​w​ ​s​e​s​s​i​o​n
 			 */
-			send_to_new: string
+			starts_new: string
+			/**
+			 * N​e​w​ ​s​e​s​s​i​o​n
+			 */
+			new_session: string
 			/**
 			 * O​p​e​n​ ​s​e​s​s​i​o​n
 			 */
@@ -16768,17 +16768,17 @@ export type TranslationFunctions = {
 				 */
 				send_agent: () => LocalizedString
 				/**
-				 * Send to
+				 * Sends to {title}
 				 */
-				send_to: () => LocalizedString
+				sends_to: (arg: { title: string }) => LocalizedString
 				/**
-				 * This session: {title}
+				 * Starts a new session
 				 */
-				send_to_current: (arg: { title: string }) => LocalizedString
+				starts_new: () => LocalizedString
 				/**
-				 * A new session
+				 * New session
 				 */
-				send_to_new: () => LocalizedString
+				new_session: () => LocalizedString
 				/**
 				 * Open session
 				 */

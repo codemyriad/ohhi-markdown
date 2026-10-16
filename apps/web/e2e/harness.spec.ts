@@ -542,10 +542,9 @@ test('a comment sent to the agent says where it goes, gets its reply in the thre
   const bubble = page.getByTestId('comment-bubble')
   await expect(bubble).toBeVisible()
   await bubble.getByTestId('comment-body').fill('What does this mean in practice?')
-  await bubble.getByTestId('comment-send-agent').check()
-  // No session yet: the bubble says it goes to a new one.
-  await expect(bubble.getByTestId('comment-send-target-new')).toHaveText('A new session')
-  await bubble.getByTestId('comment-submit').click()
+  // No session yet: the bubble says, quietly, that a new one starts.
+  await expect(bubble.getByTestId('comment-send-target')).toHaveText('Starts a new session')
+  await bubble.getByTestId('comment-send-agent').click()
   await expect(bubble).toHaveCount(0)
 
   // The run answers in the thread: reopen it from the caret inside its passage.
@@ -590,8 +589,7 @@ test('a note with a comment thread keeps its first line at the top when the sess
   await page.keyboard.press('ControlOrMeta+Shift+m')
   const bubble = page.getByTestId('comment-bubble')
   await bubble.getByTestId('comment-body').fill('jiaosdjas')
-  await bubble.getByTestId('comment-send-agent').check()
-  await bubble.getByTestId('comment-submit').click()
+  await bubble.getByTestId('comment-send-agent').click()
   await expect.poll(() => mock.remaining(), { timeout: 15_000 }).toBe(0)
   // The session, opened from the note: below it.
   await paneContent(page).getByText('syncs through').click()
