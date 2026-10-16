@@ -1,7 +1,8 @@
 [package]
 name = "ohhi-desktop"
 version = "0.1.0"
-description = "Editor desktop shell (Tauri 2)"
+description = "Oh hi markdown desktop shell (Tauri 2)"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 
