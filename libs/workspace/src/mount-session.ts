@@ -44,7 +44,7 @@ import type {
   StoreIo,
   VaultAdapter,
 } from '@ohhi/vault'
-import { DOC_CHANGE_WINDOW_MS, RelayRefusedError, type Actor, type AppEvent, type EventInput, type EventScope } from './events.js'
+import { DOC_CHANGE_WINDOW_MS, RelayRefusedError, RoomWaitError, type Actor, type AppEvent, type EventInput, type EventScope } from './events.js'
 import { RoomEventLog } from './event-store.js'
 import { numberedName, splitName } from './attachments.js'
 import { attributeUpdate, relayHost } from './attribution.js'
@@ -69,6 +69,7 @@ import {
   FOLDER_DOC_KEY,
   hashBytes,
   IGNORED_DIRS,
+  isSafeVaultPath,
   joinFolder,
   JsonFileLcaStore,
   looksBinary,
@@ -89,6 +90,7 @@ import {
   type RoomSocket,
 } from './providers.js'
 import {
+  type CustodianState,
   FOLDER_RECORD_KEY,
   type CollabUser,
   type DocPeer,
@@ -175,6 +177,25 @@ export interface MountSessionConfig {
   makeShareLink: (relay: RelayConfig, room: string) => string
   /** Non-browser hosts pass their WebSocket impl through to providers. */
   webSocketPolyfill?: unknown
+  /**
+   * Enrol a text file that appears on disk while the session runs (a watch
+   * batch naming an unmapped path), behind the breaker threshold — for a
+   * headless host with nobody to click *enrol*. Default false: the shell's
+   * delta scan at boot plus its explicit enrol action is the desktop rule
+   * (nextcloud-build decision 11).
+   */
+  enrollOnCreate?: boolean
+  /**
+   * On a durable reopen, wait for the room (the folder doc and every
+   * restored doc's provider) to sync BEFORE the boot scan classifies disk —
+   * for a headless custodian whose relay is in-process (nextcloud-build
+   * decision 6): a store restored from an older snapshot would otherwise
+   * re-ingest bytes it wrote after the snapshot as new ops, duplicating text
+   * once the room's own ops arrive. A timeout falls through to today's
+   * behaviour and is reported on `onError`; absent (the desktop), the relay
+   * is never awaited so a reopen with the relay down stays usable.
+   */
+  awaitRoomOnReopen?: { timeoutMs: number }
   /**
    * `<room>/events.json` in the vault's StoreDir: this room's persisted event
    * log (sharing E3, `event-store.ts`). Absent → the log is in memory only.
@@ -554,6 +575,21 @@ export class MountSession {
   docForPath(path: string): EngineDoc | null {
     const guid = this.guidFor(path)
     return guid ? (this.docs.get(guid) ?? null) : null
+  }
+
+  /** The custodian state this session announces (a headless host) — re-applied on reconnect. */
+  private custodianState: CustodianState | null = null
+  /** The last custodian state seen from a PEER, as JSON, so onCustodianState fires on change only. */
+  private lastCustodianJson: string | null = null
+
+  /**
+   * Announce this session's custodian state on the folder awareness
+   * (nextcloud-build decision 8). `null` withdraws it. Only a headless host
+   * that writes the files behind the room calls this; the shell never does.
+   */
+  publishCustodianState(state: CustodianState | null): void {
+    this.custodianState = state
+    this.folderConn?.awareness.setLocalStateField('custodian', state)
   }
 
   awarenessForPath(path: string): Awareness | null {
@@ -2383,6 +2419,7 @@ export class MountSession {
         relay: this.relay.url,
         name: `${this.room}/${guid}`,
         token: this.relay.token,
+        ...(this.relay.refreshToken ? { refreshToken: this.relay.refreshToken } : {}),
         doc,
         user: this.user,
         record: this.recordFor(guid),
@@ -2495,6 +2532,8 @@ export class MountSession {
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (entry.kind !== 'text' || entry.deleted) continue
       if (this.underMount(path, mountRoots)) continue
+      // A peer's unsafe key (decision 12) gets no doc, LCA or provider.
+      if (!isSafeVaultPath(path)) continue
       if (!this.docs.has(entry.guid)) {
         await this.adoptEntry(path, entry)
         adopted.push({ guid: entry.guid, path })
@@ -2525,6 +2564,9 @@ export class MountSession {
       folderDoc: this.folderDoc,
       docs: this.docs,
       thresholds: this.cfg.thresholds,
+      // Live membership (decision 11): only when the host opted in — the
+      // desktop keeps boot-scan + explicit enrol, byte for byte.
+      ...(this.cfg.enrollOnCreate === true ? { enrollUnmapped: (path: string) => this.enrollLive(path) } : {}),
       events: {
         onReview: (review) => {
           // An EMPTY doc's file vanishing is a deletion with nothing at
@@ -2589,15 +2631,28 @@ export class MountSession {
     })
   }
 
-  // ---- mass-change breaker (M3): one held batch, watch- or boot-shaped ----
+  // ---- mass-change breaker (M3): one held batch, the union of every trip ----
 
-  /** Which machinery holds the current batch (null = nothing held). */
-  private pendingBatchKind: 'watch' | 'boot' | 'ghost' | null = null
-  /** The held ghost-replay batch's work (N1) — see replayDeletes. */
+  /**
+   * Which machinery holds work in the current batch. A second trip while one
+   * is held ADDS to the batch (nextcloud-build R1 #9): the host shows one hold whose
+   * paths are the union, and confirming or discarding it answers every part —
+   * a boot batch is never orphaned by a watch batch that tripped after it.
+   */
+  private readonly pendingBatchKinds = new Set<'watch' | 'boot' | 'ghost'>()
+  /** The held ghost-replay batches' work (N1), in arrival order — see replayDeletes. */
   private pendingGhostBatch: (() => Promise<void>) | null = null
 
   private holdBatch(kind: 'watch' | 'boot' | 'ghost', paths: string[], apply?: () => Promise<void>): void {
-    if (kind === 'ghost') this.pendingGhostBatch = apply ?? null
+    if (kind === 'ghost' && apply) {
+      const before = this.pendingGhostBatch
+      this.pendingGhostBatch = before
+        ? async () => {
+            await before()
+            await apply()
+          }
+        : apply
+    }
     // Held behind BreakerDialog (its own surface), so info, like reviews.
     this.logEvent({
       kind: 'breaker.held',
@@ -2607,7 +2662,7 @@ export class MountSession {
       payload: { count: paths.length },
     })
     if (this.events.onBreaker) {
-      this.pendingBatchKind = kind
+      this.pendingBatchKinds.add(kind)
       this.events.onBreaker(paths)
     } else {
       // No host affordance (headless/tests): keep the historical auto-confirm.
@@ -2620,22 +2675,22 @@ export class MountSession {
 
   /** Apply the held batch (host confirm affordance). */
   async confirmBreaker(): Promise<void> {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
-    if (kind === 'watch') await this.sessionRef?.confirmPendingBatch()
-    else if (kind === 'boot') await this.confirmBootBatch()
-    else if (kind === 'ghost') await this.confirmGhostBatch()
+    const kinds = new Set(this.pendingBatchKinds)
+    this.pendingBatchKinds.clear()
+    if (kinds.has('boot')) await this.confirmBootBatch()
+    if (kinds.has('watch')) await this.sessionRef?.confirmPendingBatch()
+    if (kinds.has('ghost')) await this.confirmGhostBatch()
   }
 
   /** Drop the held batch: nothing is enrolled, ingested, or reconciled. */
   dismissBreaker(): void {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
-    if (kind === 'watch') this.sessionRef?.dismissPendingBatch()
-    else if (kind === 'boot') this.dismissBootBatch()
+    const kinds = new Set(this.pendingBatchKinds)
+    this.pendingBatchKinds.clear()
+    if (kinds.has('watch')) this.sessionRef?.dismissPendingBatch()
+    if (kinds.has('boot')) this.dismissBootBatch()
     // Dismissing a ghost batch keeps the mount's files: the parent keys were
     // hard-deleted either way, so the two maps still agree (S10 Q5 row 9).
-    else if (kind === 'ghost') this.pendingGhostBatch = null
+    if (kinds.has('ghost')) this.pendingGhostBatch = null
   }
 
   private async confirmGhostBatch(): Promise<void> {
@@ -2675,7 +2730,13 @@ export class MountSession {
     const names = new Set<string>()
     const peers = new Map<string, string | undefined>()
     const self = this.folderConn.awareness.clientID
+    let custodian: CustodianState | null = null
     for (const [id, state] of this.folderConn.awareness.getStates()) {
+      const announced = (state as { custodian?: CustodianState | null }).custodian
+      if (id !== self && announced && announced.type === 'custodian') {
+        // A custodian from before `holds` existed announces none: zero, never undefined.
+        custodian = { ...announced, holds: typeof announced.holds === 'number' ? announced.holds : 0 }
+      }
       const user = (state as { user?: { name?: string; color?: string } }).user
       const name = user?.name
       if (!name) continue
@@ -2684,6 +2745,11 @@ export class MountSession {
     }
     this.notePeers(peers)
     this.events.onPresence?.([...names].sort())
+    const custodianJson = custodian ? JSON.stringify(custodian) : null
+    if (custodianJson !== this.lastCustodianJson) {
+      this.lastCustodianJson = custodianJson
+      this.events.onCustodianState?.(custodian)
+    }
   }
 
   /** Create the folder-doc provider + presence wiring. Idempotent; no-op without a relay. */
@@ -2694,6 +2760,7 @@ export class MountSession {
       relay: this.relay.url,
       name: `${this.room}/folder`,
       token: this.relay.token,
+      ...(this.relay.refreshToken ? { refreshToken: this.relay.refreshToken } : {}),
       doc: this.folderDoc,
       user: this.user,
       record: this.recordFor(FOLDER_RECORD_KEY),
@@ -2706,6 +2773,7 @@ export class MountSession {
     else this.armOffline()
     this.folderConn.awareness.on('change', () => this.updatePresence())
     this.folderConn.awareness.on('update', () => this.updatePresence())
+    if (this.custodianState) this.folderConn.awareness.setLocalStateField('custodian', this.custodianState)
     this.updatePresence()
     this.sharedLink = this.cfg.makeShareLink(this.relay, this.room)
     this.events.onShared?.(this.sharedLink)
@@ -2895,6 +2963,7 @@ export class MountSession {
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (entry.kind !== 'text' || entry.deleted) continue
       if (this.underMount(path, mountRoots)) continue
+      if (!isSafeVaultPath(path)) continue // decision 12, as in `scanMap`
       const doc = this.engine.createDoc(entry.guid)
       this.docs.set(entry.guid, doc)
       const hadBlob = await ds.restore(entry.guid, doc)
@@ -2928,8 +2997,24 @@ export class MountSession {
     }
 
     // Providers connect in the BACKGROUND — never awaited, so a reopen with
-    // the relay down is fully usable and catches up on reconnect.
-    this.connectFolder()
+    // the relay down is fully usable and catches up on reconnect…
+    const folderProvider = this.connectFolder()
+    // …except for a host that asked to wait (a custodian over the files behind
+    // the room — see `awaitRoomOnReopen`): the room's ops must be in hand
+    // before disk is classified, or a restored store re-ingests its own past.
+    if (this.cfg.awaitRoomOnReopen && folderProvider) {
+      const timeoutMs = this.cfg.awaitRoomOnReopen.timeoutMs
+      try {
+        await whenSynced(folderProvider.provider, undefined, timeoutMs, () => this.authFailure, { clock: this.clock })
+        await Promise.all(
+          [...this.conns.values()].map((c) =>
+            whenSynced(c.provider, undefined, timeoutMs, () => this.authFailure, { clock: this.clock })
+          )
+        )
+      } catch (err) {
+        this.events.onError?.(new RoomWaitError(err))
+      }
+    }
     this.adoptionEnabled = true
     await this.restartSession()
     await this.bootScan()
@@ -2948,6 +3033,9 @@ export class MountSession {
     const textEntries: [string, FileEntry][] = []
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
       if (!entry.deleted) knownPaths.add(path)
+      // An unsafe key a peer left in the room (decision 12) is never read,
+      // counted or reconciled here; the session reported it when it started.
+      if (!isSafeVaultPath(path)) continue
       if (entry.kind === 'text' && !entry.deleted) textEntries.push([path, entry])
     }
 
@@ -3018,6 +3106,7 @@ export class MountSession {
       for (const [path, entry] of this.folderDoc.getMap().entries()) {
         if (entry.kind !== 'dir' || entry.deleted) continue
         if (this.underMount(path, mountRoots)) continue
+        if (!isSafeVaultPath(path)) continue // decision 12: never mkdir a peer's unsafe key
         if (!onDisk.has(path)) await this.adapter.mkdir(path)
       }
     } catch (err) {
@@ -3066,17 +3155,22 @@ export class MountSession {
     this.pendingBootBatch = null
   }
 
-  /** Enroll one on-disk file that is not in the folder map (boot delta scan). */
-  private async enrollOne(path: string): Promise<void> {
+  /**
+   * Enroll one on-disk file that is not in the folder map — the boot delta
+   * scan's step, and (decision 11) the live one behind `enrollOnCreate`.
+   * Answers the new text guid, or null when no note was enrolled (gone, a
+   * binary — mapped as an attachment, never a note — or a failure).
+   */
+  private async enrollOne(path: string): Promise<string | null> {
     try {
       const bytes = await this.adapter.read(path)
-      if (bytes === null) return
+      if (bytes === null) return null
       if (looksBinary(path, bytes)) {
         this.folderDoc.transactMap(
           (m) => m.set(path, { guid: crypto.randomUUID(), kind: 'binary' }),
           'local'
         )
-        return
+        return null
       }
       const guid = crypto.randomUUID()
       const decoded = decodeFile(bytes)
@@ -3095,9 +3189,53 @@ export class MountSession {
       })
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
+      return guid
     } catch (err) {
       this.pushError(err)
+      return null
     }
+  }
+
+  /**
+   * Live enrol-on-create (nextcloud-build decision 11): the VaultSession's
+   * `enrollUnmapped` hook, called for a watched path that is safe, unmapped
+   * and outside every mount boundary, after the quiesce and the breaker. The
+   * SAME `enrollOne` the boot delta scan runs — fresh guid, LCA in the same
+   * step as the seed, the doc tracked and connected — plus the dir entries of
+   * any new ancestor folders, which boot gets from `syncDirs` (a full listing
+   * is too dear per watch batch on a remote adapter).
+   */
+  private async enrollLive(path: string): Promise<string | null> {
+    if (this.stopped || this.underMount(path)) return null
+    const existing = this.folderDoc.getMap().get(path)
+    if (existing && !existing.deleted) return null
+    const segs = path.split('/')
+    const missing: string[] = []
+    for (let i = 1; i < segs.length; i++) {
+      const dir = segs.slice(0, i).join('/')
+      const e = this.folderDoc.getMap().get(dir)
+      if (!e || e.deleted) missing.push(dir)
+    }
+    const guid = await this.enrollOne(path)
+    const entry = this.folderDoc.getMap().get(path)
+    if (missing.length > 0 && entry && !entry.deleted) {
+      this.folderDoc.transactMap((m) => {
+        for (const dir of missing) {
+          const e = m.get(dir)
+          if (!e || e.deleted) m.set(dir, { guid: crypto.randomUUID(), kind: 'dir' })
+        }
+      }, 'local')
+    }
+    if (guid) {
+      this.logEvent({
+        kind: 'file.created',
+        level: 'info',
+        scope: this.scopeFor(path),
+        actor: { kind: 'disk' },
+        payload: {},
+      })
+    }
+    return guid
   }
 
   /**

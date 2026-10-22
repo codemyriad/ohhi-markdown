@@ -19,12 +19,7 @@
  */
 import { RealClock, type Clock } from '@ohhi/testkit'
 import {
-  BlobDocStore,
-  FileJournal,
-  JsonFileLcaStore,
-  lcaGuard,
   MountsFile,
-  scopedStoreDir,
   type FileStat,
   type StoreDir,
   type StoreIo,
@@ -34,6 +29,7 @@ import {
 import { NodeStoreDir, NodeVaultAdapter } from '@ohhi/vault/node'
 import { createYjsEngine } from '@ohhi/sync'
 import { MountSession } from '../src/mount-session.js'
+import { createMountStores } from '../src/mount-stores.js'
 import { FOLDER_RECORD_KEY, type SyncRecordFields } from '../src/types.js'
 
 export const now = (): number => performance.now()
@@ -176,8 +172,7 @@ export async function createMount(opts: MountOpts): Promise<MountSession> {
   const engine = createYjsEngine()
   const clock = opts.clock ?? new RealClock()
   const storeRoot = countingStoreDir(new NodeStoreDir(opts.storeRoot), opts.probe)
-  const dir = scopedStoreDir(storeRoot, `${opts.room}/`)
-  const docStore = new BlobDocStore(engine, dir, clock)
+  const { docStore, lcaStore, journal } = createMountStores(engine, storeRoot, opts.room, clock)
   mount = await MountSession.create({
     engine,
     adapter: countingAdapter(new NodeVaultAdapter(opts.vaultDir), opts.probe),
@@ -186,8 +181,8 @@ export async function createMount(opts: MountOpts): Promise<MountSession> {
     firstJoin: opts.firstJoin,
     relay: opts.relay,
     clock,
-    lcaStore: lcaGuard(docStore, new JsonFileLcaStore(dir.io('lca.json'))),
-    journal: new FileJournal(dir, { now: () => clock.now() }),
+    lcaStore,
+    journal,
     docStore,
     mountsFile: new MountsFile(storeRoot.io('mounts.json')),
     mountPath: '',

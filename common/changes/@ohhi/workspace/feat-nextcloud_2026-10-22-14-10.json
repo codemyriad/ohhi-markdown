@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "A vault can be kept by a server with nobody at the keyboard: a note created in the folder is taken in by itself (behind the mass-change breaker), a reopened vault waits for the live room before comparing disk, and the server's state (files waiting, blocked, a review pending) reaches every open shell.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}
