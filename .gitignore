@@ -44,3 +44,7 @@ apps/relay/data/
 
 # Plans live outside the repo (local to their author; moving into a team vault)
 /plans/
+
+# The Nextcloud flavour of the web build (apps/web `build:nextcloud`).
+apps/web/dist-nextcloud/
+apps/web/dist-embed/

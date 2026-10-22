@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/nextcloud",
+      "comment": "New: the Oh Hi app for Nextcloud. It keeps each enrolled Files folder and its notes in step, runs live editing for the people the folder is shared with, and uses Nextcloud's sharing as the only access rule. Nothing leaves the server.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/nextcloud"
+}

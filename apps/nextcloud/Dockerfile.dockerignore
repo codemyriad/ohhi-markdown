@@ -1,0 +1,28 @@
+# Context allowlist for apps/nextcloud/Dockerfile (BuildKit reads
+# <Dockerfile>.dockerignore for a repo-root context): what `rush install`
+# reads — rush.json, the Rush config + lockfile, EVERY project's package.json —
+# plus the sources the image builds: the web shell and its libs, the relay,
+# this package, the Help pages (docs/guide) and the example themes the shell
+# bundles (examples/themes, read by vite.config.ts and theme-examples.ts).
+# Keeps out node_modules, build outputs, common/temp and .git.
+*
+!rush.json
+!tsconfig.base.json
+!common/config/rush/
+!common/scripts/
+!apps/*/package.json
+!apps/web/
+!apps/relay/
+!apps/nextcloud/
+!libs/
+!docs/guide/
+!examples/themes/
+**/node_modules
+**/dist
+**/dist-*
+**/.svelte-kit
+apps/web/e2e/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/public/guide/
+apps/relay/data/
