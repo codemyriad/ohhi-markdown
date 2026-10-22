@@ -23,6 +23,12 @@ export interface Share {
   label: string | null
   createdAt: string
   kind: ShareKind
+  /** The Nextcloud user this token was minted for (nextcloud-build decision 4); null for a standalone relay. */
+  ncUid: string | null
+  /** The vault row the token belongs to (apps/nextcloud); null for a standalone relay. */
+  vaultId: string | null
+  /** Epoch ms after which the token is refused; null = never (standalone static tokens). */
+  expiresAt: number | null
 }
 
 interface ShareRow {
@@ -32,6 +38,9 @@ interface ShareRow {
   label: string | null
   created_at: string
   kind: string | null
+  nc_uid: string | null
+  vault_id: string | null
+  expires_at: number | null
 }
 
 /** Bounds the ancestry walk in onAuthenticate — depth 1 is all N1 creates. */
@@ -44,7 +53,10 @@ const SCHEMA = `
     read_only INTEGER NOT NULL DEFAULT 0,
     label TEXT,
     created_at TEXT,
-    kind TEXT NOT NULL DEFAULT 'folder'
+    kind TEXT NOT NULL DEFAULT 'folder',
+    nc_uid TEXT,
+    vault_id TEXT,
+    expires_at INTEGER
   );
   CREATE TABLE IF NOT EXISTS rooms (
     child_guid TEXT PRIMARY KEY,
@@ -78,6 +90,13 @@ export class RelayDb {
     if (!columns.some((c) => c.name === 'kind')) {
       this.db.exec("ALTER TABLE shares ADD COLUMN kind TEXT NOT NULL DEFAULT 'folder'")
     }
+    // nextcloud-build decision 4: user-bound, expiring tokens. Nullable, so a
+    // standalone relay's static tokens are untouched.
+    if (!columns.some((c) => c.name === 'nc_uid')) {
+      this.db.exec('ALTER TABLE shares ADD COLUMN nc_uid TEXT')
+      this.db.exec('ALTER TABLE shares ADD COLUMN vault_id TEXT')
+      this.db.exec('ALTER TABLE shares ADD COLUMN expires_at INTEGER')
+    }
   }
 
   addShare(share: {
@@ -86,10 +105,13 @@ export class RelayDb {
     readOnly?: boolean
     label?: string | null
     kind?: ShareKind
+    ncUid?: string | null
+    vaultId?: string | null
+    expiresAt?: number | null
   }): void {
     this.db
       .prepare(
-        'INSERT INTO shares (token, folder_guid, read_only, label, created_at, kind) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO shares (token, folder_guid, read_only, label, created_at, kind, nc_uid, vault_id, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         share.token,
@@ -98,7 +120,15 @@ export class RelayDb {
         share.label ?? null,
         new Date().toISOString(),
         share.kind ?? 'folder',
+        share.ncUid ?? null,
+        share.vaultId ?? null,
+        share.expiresAt ?? null,
       )
+  }
+
+  /** Every expired token, gone; returns how many. A host's sweep calls this on its clock. */
+  removeExpiredShares(now: number): number {
+    return this.db.prepare('DELETE FROM shares WHERE expires_at IS NOT NULL AND expires_at <= ?').run(now).changes
   }
 
   getShare(token: string): Share | null {
@@ -180,6 +210,40 @@ export class RelayDb {
     return row ? new Uint8Array(row.state) : null
   }
 
+  /**
+   * How many docs a room has stored and their total bytes — every name under
+   * `<room>/`, by a range over the primary key ('0' sorts right after '/').
+   */
+  roomUsage(room: string): { docs: number; bytes: number } {
+    const row = this.db
+      .prepare('SELECT COUNT(*) AS docs, COALESCE(SUM(LENGTH(state)), 0) AS bytes FROM docs WHERE name >= ? AND name < ?')
+      .get(`${room}/`, `${room}0`) as { docs: number; bytes: number }
+    return { docs: row.docs, bytes: row.bytes }
+  }
+
+  /** The stored size of one doc; null when it has never been stored. */
+  docBytes(name: string): number | null {
+    const row = this.db.prepare('SELECT LENGTH(state) AS n FROM docs WHERE name = ?').get(name) as
+      | { n: number }
+      | undefined
+    return row ? row.n : null
+  }
+
+  /**
+   * Forget a room entirely (an unenrolled vault): every doc under `<room>/`,
+   * every share scoped to it and its ancestry rows. Returns the docs removed.
+   * One transaction; the caller closes the room's live connections first.
+   */
+  removeRoom(room: string): number {
+    if (room === '' || room.includes('/')) throw new Error('removeRoom: not a room id')
+    return this.db.transaction(() => {
+      const docs = this.db.prepare('DELETE FROM docs WHERE name >= ? AND name < ?').run(`${room}/`, `${room}0`).changes
+      this.db.prepare('DELETE FROM shares WHERE folder_guid = ?').run(room)
+      this.db.prepare('DELETE FROM rooms WHERE child_guid = ? OR parent_guid = ?').run(room, room)
+      return docs
+    })()
+  }
+
   putDocState(name: string, state: Uint8Array): void {
     this.db
       .prepare(
@@ -227,5 +291,8 @@ function toShare(row: ShareRow): Share {
     createdAt: row.created_at,
     // Rows written before the kind column existed read as NULL → 'folder'.
     kind: row.kind === 'device' ? 'device' : 'folder',
+    ncUid: row.nc_uid ?? null,
+    vaultId: row.vault_id ?? null,
+    expiresAt: row.expires_at ?? null,
   }
 }

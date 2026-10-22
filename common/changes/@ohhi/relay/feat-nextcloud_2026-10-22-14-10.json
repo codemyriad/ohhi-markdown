@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "The relay can run inside another server's process, with that server deciding who may join a room and for how long; a share can be tied to one user and expire.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/relay"
+}

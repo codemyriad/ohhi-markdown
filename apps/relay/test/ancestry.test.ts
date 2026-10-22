@@ -281,6 +281,10 @@ describe('relay.db schema', () => {
         label: 'from before',
         createdAt: '2026-01-01T00:00:00.000Z',
         kind: 'folder',
+        // Columns added for the Nextcloud host (nextcloud-build decision 4) read as NULL on a legacy row.
+        ncUid: null,
+        vaultId: null,
+        expiresAt: null,
       })
       // …and the migrated database takes new rows and ancestry edges.
       db.addShare({ token: 'new-token', folderGuid: 'new-folder', kind: 'device' })

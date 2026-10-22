@@ -1,6 +1,6 @@
 ---
-status: V1 design + share kinds / room ancestry as built (N1, N3)
-date: 2026-09-10
+status: V1 design + share kinds / room ancestry as built (N1, N3) + host hooks and the Nextcloud token source (NC1, NC3)
+date: 2026-10-11
 ---
 
 # Relay — apps/relay design (V1)
@@ -176,6 +176,59 @@ Two consequences worth stating:
   that has no credential at all is not connected at all — it runs provider-less in the
   `needs-token` state rather than pretending to be offline (spike S10 Q2, golden
   rule 4).
+
+## Hosts and the Nextcloud token source
+
+Since the Nextcloud ExApp (`nextcloud-build` decision 18, built
+2026-10-11) `@ohhi/relay` is also a **library**: `apps/relay/package.json`
+exports `createRelay`, and a host embeds the relay in its own process
+through these options on `RelayOptions`. Absent, the relay behaves exactly as
+described above — **the standalone relay is unchanged**: same shares table,
+same prefix and ancestry rule, same `/healthz`, same operator admin API
+(`apps/relay/src/server.ts`).
+
+| Option | What it does |
+|---|---|
+| `authenticate(input)` | **Replaces** the shares-table check in `onAuthenticate`. It receives the token, the document name, the upgrade's request headers and parameters, and returns `{readOnly, context}` or throws to refuse; `readOnly` flips `connectionConfig.readOnly` as before, and `context` reaches every later hook (`connection.context`). The host owns expiry, user binding and permission re-checks. |
+| `onRequest(req, res)` | Plain HTTP on the relay's port, consulted **first**; `true` means handled. The ExApp mounts its whole router here, so the relay's port is the process's only listener. `/healthz` and the admin API still answer what the hook passes on. |
+| `host` | The bind address (an ExApp binds AppAPI's `APP_HOST`); the default is every interface. |
+| `caps` | Per-room limits `{docsPerRoom, bytesPerRoom}` for a relay serving many tenants from one database (the ExApp passes 5,000 docs and 64 MB). Past `docsPerRoom`, a connection to a doc the room does not hold yet is refused; at `bytesPerRoom`, a new doc is refused and a store that would grow the room is not written (the clients keep their copies). `onCapExceeded(room, cap)` reports it. |
+| `dropReadOnlyAwareness` | Drop awareness updates from a read-only connection (Hocuspocus drops only its doc updates). The ExApp sets it: a reader must not be able to write an awareness state peers trust, such as the custodian's Files status. |
+
+**User-bound expiring shares.** The `shares` table gained three nullable
+columns, added by the same additive `migrate()` as `kind`: `nc_uid`,
+`vault_id` and `expires_at` (`db.ts`). A row with all three NULL is an
+ordinary standalone share and reads exactly as before. The ExApp writes its
+session tokens there: `kind:'folder'`, ≤10 minutes, bound to the Nextcloud
+uid and the vault; `removeExpiredShares(now)` is the host's sweep on its
+injected clock.
+
+The ExApp's `authenticate` (`apps/nextcloud/src/relay-auth.ts`) accepts a
+browser token only when it is unexpired, `folder`-kind and bound; the uid in
+the upgrade's `AUTHORIZATION-APP-API` header (HaRP sets it on the upgrade)
+verifies against the app secret and equals `nc_uid`; the room is the token's;
+the `Origin` is Nextcloud's; and the permission check (cached for up to
+60 s) still grants read (a write grant lost since the mint makes the
+connection read-only). The custodian's one `device` token, never bound to a
+uid, is accepted only on a request with no AppAPI header, no `Origin` and no
+`Sec-Fetch-Site` — one that came neither through the proxy nor from a
+browser; the custodians dial the relay over loopback. A re-check every 60 s
+re-reads each live `(uid, vault)`'s permissions and closes the sockets of a
+lost grant with 4403 — and of a token that has expired since its connect;
+the client reconnects and asks for a token that matches the grant as it now
+is. Lost read also deletes the uid's tokens on that vault; a write→read
+downgrade deletes none (the reconnect's connect-time check makes it
+read-only), and a failed re-read (Nextcloud down, AppAPI answering 401
+mid-update) closes nothing. The shell asks for one token per vault and
+reuses it until a minute before it expires, so a reconnect of every doc
+costs one `POST /api/session`. So inside Nextcloud revocation **does** reach
+the live connection — unlike step 4 of the lifecycle above, which still
+holds for the standalone relay.
+
+What the ExApp does **not** do: mount `admin.ts` (no `OPERATOR_SECRET` is
+ever set — Nextcloud's sharing is the only way to grant access), mint
+`device` tokens for browsers, or hash tokens at rest (a short-lived token
+sits in the relay's SQLite in plaintext until the sweep; hashing is Later).
 
 ## What the relay can and cannot read
 
