@@ -3,3 +3,10 @@ export { mulberry32, pick, randInt, type Rng } from './prng.js'
 export { TestNetwork } from './network.js'
 export { runGitAudit, type GitAuditResult } from './git-audit.js'
 export { mockLlmFetch, type MockLlmFetch, type MockLlmOptions, type MockRequest, type MockTurn, type MockWire } from './mock-llm.js'
+export {
+  createWebDavFake,
+  type WebDavFake,
+  type WebDavFakeEntry,
+  type WebDavFakeOptions,
+  type WebDavFakeRequest,
+} from './webdav-fake.js'

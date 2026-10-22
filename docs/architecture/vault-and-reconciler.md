@@ -167,6 +167,37 @@ the announcement channel — a peer of the parent room learns from that one entr
 subtree moved, and adopts it (spike S10 Q1). Advisory as ever: the entry carries the
 room and the relay, never a token.
 
+### Live membership (headless hosts)
+
+On the desktop, a file that appears on disk joins the vault at the next boot's delta scan
+or through the explicit *enrol* action; a watch event for an unmapped path is ignored. A
+headless host has nobody to click *enrol*, so `MountSessionConfig.enrollOnCreate`
+(default `false`; the Nextcloud custodian sets it) turns on two behaviours
+(nextcloud-build decision 11):
+
+- **Enrol on create.** `VaultSession` hands an unmapped watched path to the host's
+  `enrollUnmapped` hook — only if it passes `isSafeVaultPath` (so never an `IGNORED_DIRS`
+  path or the reserved `ohhi-host.md`), is not a temp name, is not under a mount boundary
+  and is not already a live key of any kind. The hook is `MountSession.enrollOne`, the
+  boot delta scan's own step: a fresh guid, the doc seeded and the LCA written in the same
+  step, the provider attached. It also adds a `dir` entry for any new ancestor folder. A
+  binary is mapped as an attachment, never a note. These paths count toward the
+  mass-change breaker together with the known paths. A larger batch is held
+  (`holdBatch('watch')`) and nothing is enrolled until `confirmBreaker()`. The check runs
+  again after the quiesce, so a path that a peer mapped meanwhile is reconciled, not
+  enrolled twice.
+- **Moves.** A watcher that can see renames (WebDAV's `oc:fileid`) fills
+  `WatchEvent.moves`. `VaultSession.applyMoves` runs before any path in the batch. It
+  does what `renameFile` / `renameDir` do, minus the disk step: one map transaction
+  (delete + set, origin `'disk'`), `journal.rename` so the history follows, the LCA
+  `path` updated inside the doc's exclusive queue, and `onPathsRenamed`. A directory
+  move rebinds every key under it. A child the adapter also reports on its own is a
+  no-op. Refused moves are reported on `onError` and their sources are treated as plain
+  changes, which is usually the vanished review. A move is refused when the destination
+  is unsafe, reserved, under a mount or already a live key, or when it moves a mount
+  boundary. A move whose source was never mapped counts as a create at its destination.
+  Moved paths never trip the breaker, because a rename puts no content at risk.
+
 ## Escalation thresholds
 
 Auto-ingest is for routine external edits. The reconciler escalates to review — same

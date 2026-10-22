@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/testkit",
+      "comment": "A fake WebDAV server for tests that exercise a Nextcloud-backed vault.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/testkit"
+}

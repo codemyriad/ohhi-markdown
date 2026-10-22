@@ -5,7 +5,7 @@
  * "for an app-dir listener". A path under an ignored directory NEVER goes to
  * the vault side, listener or not — that is IGNORED_DIRS' guarantee.
  */
-import { IGNORED_DIRS, isTempName } from './types.js'
+import { IGNORED_DIRS, isReservedFile, isTempName } from './types.js'
 
 export class AppDirListeners {
   private readonly subs = new Map<string, Set<(paths: string[]) => void>>()
@@ -35,7 +35,7 @@ export class AppDirListeners {
     const vault: string[] = []
     const byDir = new Map<string, string[]>()
     for (const path of paths) {
-      if (isTempName(path)) continue
+      if (isTempName(path) || isReservedFile(path)) continue
       if (!path.split('/').some((seg) => IGNORED_DIRS.has(seg))) {
         vault.push(path)
         continue

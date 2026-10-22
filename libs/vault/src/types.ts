@@ -8,6 +8,14 @@ export interface FileStat {
 export interface WatchEvent {
   /** Paths that changed in this batch (create/modify/rename/delete). */
   paths: string[]
+  /**
+   * Renames the watcher could SEE as renames (an adapter whose backend keeps
+   * a stable file id across a move — WebDAV's `oc:fileid`). Optional: a
+   * filesystem watcher reports a move as a delete plus a create and never
+   * fills this. A session that receives one rebinds the guid instead of
+   * raising a vanished review and re-enrolling (nextcloud-build decision 11).
+   */
+  moves?: { from: string; to: string }[]
 }
 
 /**
@@ -37,6 +45,42 @@ export const IGNORED_DIRS: ReadonlySet<string> = new Set([
   '.trash',
   'node_modules',
 ])
+
+/**
+ * The host marker a headless custodian writes at the vault root
+ * (nextcloud-build decision 13): visible (so a desktop sync client carries
+ * it) but RESERVED — never enrolled, indexed or synced as a note. Root-level
+ * only: `notes/ohhi-host.md` is an ordinary note.
+ */
+export const OHHI_HOST_MARKER = 'ohhi-host.md'
+
+/** Root-level file names every adapter hides from `list` and `watch`, like IGNORED_DIRS. */
+export const IGNORED_FILES: ReadonlySet<string> = new Set([OHHI_HOST_MARKER])
+
+/** True for a vault-relative path that is a reserved root-level file. */
+export function isReservedFile(path: string): boolean {
+  return !path.includes('/') && IGNORED_FILES.has(path)
+}
+
+/**
+ * Whether a vault-relative path may be acted on at all. The folder map is
+ * client-writable CRDT state, so a key arriving from a peer is untrusted
+ * (shaping D4): a `..` segment, an empty segment, a backslash, a NUL, a
+ * percent-escape, a leading slash, an ignored directory or a reserved file
+ * name is refused by the session before any disk effect
+ * (nextcloud-build decision 12). Every adapter still contains paths itself.
+ */
+export function isSafeVaultPath(path: string): boolean {
+  if (path === '' || path.startsWith('/') || path.endsWith('/')) return false
+  // A percent-ESCAPE, not every `%`: `50% done.md` is an ordinary note name.
+  if (path.includes('\\') || path.includes('\0') || /%[0-9A-Fa-f]{2}/.test(path)) return false
+  const segs = path.split('/')
+  for (const seg of segs) {
+    if (seg === '' || seg === '.' || seg === '..') return false
+    if (IGNORED_DIRS.has(seg)) return false
+  }
+  return !isReservedFile(path)
+}
 
 /**
  * The infix every `writeAtomic` temp file carries (`<file>.ohhi-tmp-…`).
@@ -92,6 +136,42 @@ export class WriteConflictError extends Error {
   }
 }
 
+/**
+ * A WebDAV (or any HTTP-backed) adapter refused or failed an operation with
+ * an HTTP status. `read` returns null ONLY for a 404 on the file itself; every
+ * other status throws one of these so an outage is never read as "absent"
+ * (nextcloud-build decision 9).
+ */
+export class WebDavError extends Error {
+  override readonly name: string = 'WebDavError'
+  constructor(
+    readonly status: number,
+    readonly method: string,
+    readonly path: string,
+    message?: string
+  ) {
+    super(message ?? `${method} ${path}: HTTP ${status}`)
+  }
+}
+
+/**
+ * A write the backend refused for a reason that may clear later — a lock
+ * (423), a permission the owner lost (403), a full quota (507) or a name the
+ * server forbids (400). A custodian retries on its clock and reports the
+ * doc as `blocked`, never as silently in sync (decision 8).
+ */
+export class WriteRefusedError extends WebDavError {
+  override readonly name = 'WriteRefusedError'
+}
+
+/** The vault ROOT answered 404: the mount is unavailable, not 1,000 files vanished. */
+export class VaultUnavailableError extends Error {
+  override readonly name = 'VaultUnavailableError'
+  constructor(readonly path: string) {
+    super(`vault root is unavailable: ${path}`)
+  }
+}
+
 export interface VaultAdapter {
   list(): Promise<FileStat[]>
   /**
@@ -111,6 +191,12 @@ export interface VaultAdapter {
    * `WriteOptions` for why the check lives here and not in the caller.
    */
   writeAtomic(path: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void>
+  /**
+   * Write a reserved root file (`IGNORED_FILES` — the host marker), for an
+   * adapter whose `writeAtomic` refuses reserved names (WebDAV, decision 12).
+   * Optional: an adapter without it writes the marker through `writeAtomic`.
+   */
+  writeReserved?(name: string, bytes: Uint8Array, opts?: WriteOptions): Promise<void>
   rename(from: string, to: string): Promise<void>
   remove(path: string): Promise<void>
   /** Create a directory (parents included); idempotent. */

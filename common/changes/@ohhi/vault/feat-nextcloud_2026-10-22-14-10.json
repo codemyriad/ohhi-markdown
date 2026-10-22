@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "A vault can live in a Nextcloud Files folder: notes are read and written over WebDAV, each write conditional on the file not having changed, and a file Nextcloud has locked or refused is held and retried instead of lost.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

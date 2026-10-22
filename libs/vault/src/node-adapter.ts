@@ -17,6 +17,7 @@ import {
 import { dirname, join, relative, sep } from 'node:path'
 import {
   IGNORED_DIRS,
+  IGNORED_FILES,
   isTempName,
   TEMP_INFIX,
   WriteConflictError,
@@ -51,6 +52,8 @@ export class NodeVaultAdapter implements VaultAdapter {
     const walk = async (dir: string): Promise<void> => {
       for (const entry of await readdir(dir, { withFileTypes: true })) {
         if (IGNORED.has(entry.name)) continue
+        // A reserved root file (the custodian's marker) is never a note.
+        if (dir === this.root && !entry.isDirectory() && IGNORED_FILES.has(entry.name)) continue
         const full = join(dir, entry.name)
         if (entry.isDirectory()) await walk(full)
         else {

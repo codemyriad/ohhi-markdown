@@ -15,6 +15,8 @@ import { hashBytes } from './hash.js'
 import { NEVER_ON_DISK } from './enrollment.js'
 import { mountRootsFrom } from './mounts-file.js'
 import {
+  isSafeVaultPath,
+  isTempName,
   DEFAULT_THRESHOLDS,
   type DivergenceReview,
   type LcaStore,
@@ -57,6 +59,16 @@ export interface VaultSessionOptions {
   events?: SessionEvents
   /** Quiesce delay between double reads, ms. */
   quiesceMs?: number
+  /**
+   * Live membership (nextcloud-build decision 11): enrol ONE on-disk file that
+   * a watch batch named and the folder map does not hold. The host owns doc
+   * lifecycle, so the host enrols — through the same code its boot delta scan
+   * uses — and answers the new text guid (the doc already in `docs`, the LCA
+   * and the map entry already written), or null when nothing was enrolled as
+   * a note (a binary, a file already gone). Absent → an unmapped path is
+   * ignored, exactly as before: enrolment is then a UI action.
+   */
+  enrollUnmapped?: (path: string) => Promise<string | null>
 }
 
 export class VaultSession {
@@ -72,6 +84,8 @@ export class VaultSession {
 
   private pathToGuid = new Map<string, string>()
   private lastEntries = new Map<string, FileEntry>()
+  /** Unsafe map keys already reported on `onError` (one report per key, not per change). */
+  private readonly refusedKeys = new Set<string>()
   /**
    * Mount roots declared IN THIS MAP (`kind:'mount'` entries, slice N1). Each
    * is an opaque boundary: the subtree at or under it belongs to another
@@ -87,6 +101,9 @@ export class VaultSession {
   private reconcileScheduled = new Set<string>()
   private docQueues = new Map<string, Promise<unknown>>()
   private disposed = false
+  private readonly enrollUnmapped: ((path: string) => Promise<string | null>) | null
+  /** Paths whose live enrolment is in flight → "another event arrived meanwhile". */
+  private readonly enrolling = new Map<string, boolean>()
 
   constructor(opts: VaultSessionOptions) {
     this.engine = opts.engine
@@ -97,6 +114,7 @@ export class VaultSession {
     this.docs = opts.docs
     this.events = opts.events ?? {}
     this.quiesceMs = opts.quiesceMs ?? 30
+    this.enrollUnmapped = opts.enrollUnmapped ?? null
     this.ctx = {
       engine: opts.engine,
       adapter: opts.adapter,
@@ -111,6 +129,10 @@ export class VaultSession {
   async start(): Promise<void> {
     this.refreshMountRoots()
     for (const [path, entry] of this.folderDoc.getMap().entries()) {
+      // The same filter as a live map change (decision 12): an unsafe key a
+      // peer left in the room is never bound on reopen either, so no
+      // reconcile can ever write it.
+      if (this.refuseUnsafeKey(path)) continue
       this.lastEntries.set(path, entry)
       if (entry.kind === 'text' && !entry.deleted && !this.underMount(path)) {
         this.pathToGuid.set(path, entry.guid)
@@ -313,24 +335,189 @@ export class VaultSession {
   }
 
   private onWatch(ev: WatchEvent): void {
+    let paths = ev.paths
+    if (ev.moves && ev.moves.length > 0) {
+      // Moves FIRST (decision 11): the map, the LCA and the journal follow the
+      // file before any path of this batch is looked at, so a moved file is
+      // never seen as vanished at `from` and new at `to`.
+      const applied = this.applyMoves(ev.moves)
+      paths = [...new Set([...paths.filter((p) => !applied.consumed.has(p)), ...applied.plain])]
+    }
     // A mount boundary is out of scope even when the host's ignore set has not
     // caught up yet (a peer sees the mount entry before it has a desc): the
     // subtree is another session's business, never ours (N1, shaping A2).
-    ev = { paths: ev.paths.filter((p) => !this.underMount(p)) }
-    if (ev.paths.length === 0) return
-    const known = ev.paths.filter((p) => this.pathToGuid.has(p))
-    if (known.length > this.ctx.thresholds.massChangePaths) {
+    paths = paths.filter((p) => !this.underMount(p))
+    if (paths.length === 0) return
+    // Moved paths count too (nextcloud-build R1 #6): ransomware or a `git checkout`
+    // through the desktop client renames AND rewrites hundreds of notes in
+    // one walk. The rebinding above is harmless and has happened; the content
+    // ingest behind it is what the breaker holds.
+    const known = paths.filter((p) => this.pathToGuid.has(p))
+    // New paths count toward the breaker only when they would be enrolled: a
+    // host without live membership ignores them, as it always has.
+    const fresh = paths.filter((p) => this.isEnrollable(p))
+    const counted = [...known, ...fresh]
+    if (counted.length > this.ctx.thresholds.massChangePaths) {
       this.paused = true
-      for (const p of known) this.queuedPaths.add(p)
-      this.events.onBreaker?.(known)
+      for (const p of counted) this.queuedPaths.add(p)
+      this.events.onBreaker?.(counted)
       return
     }
-    for (const path of ev.paths) {
+    for (const path of paths) {
       if (this.paused) {
         this.queuedPaths.add(path)
         continue
       }
       this.quiesceThenReconcile(path)
+    }
+  }
+
+  /**
+   * Rebind guids for renames the WATCHER saw (`WatchEvent.moves`, decision
+   * 11). The move already happened on disk, so this is `renameFile`/`renameDir`
+   * WITHOUT the disk step: the folder-map key moves (delete old + set new, one
+   * transaction, origin 'disk'), the journal history and the LCA path follow,
+   * and `onPathsRenamed` fires so hosts re-key their records. A directory move
+   * rebinds every key at or under it; a child the adapter ALSO reports on its
+   * own is then simply unmapped at its `from` and already mapped at its `to`.
+   *
+   * Refused (reported on `onError`): a `to` that is unsafe, reserved, under a
+   * mount boundary or already a live key; a move of a mount entry or of a
+   * subtree holding one. The `from` of a refused move is returned in `plain`
+   * — a plain change (a vanished file, if it is gone). A move whose `from` is
+   * not mapped is a create at `to` (also `plain`: the enrol-on-create rules
+   * decide). The map, path bookkeeping and the event are synchronous; the
+   * journal and LCA writes run in each doc's exclusive queue, so any
+   * reconcile of a moved doc runs after its LCA names the new path.
+   */
+  applyMoves(moves: readonly { from: string; to: string }[]): {
+    /** Paths whose keys moved away (every `from`, incl. directory children). */
+    consumed: Set<string>
+    /** The new paths of everything that moved. */
+    movedTo: Set<string>
+    /** Paths to treat as plain changes. */
+    plain: string[]
+  } {
+    const consumed = new Set<string>()
+    const movedTo = new Set<string>()
+    const plain: string[] = []
+    const renamed: { from: string; to: string }[] = []
+    /** Report a refused move; `keep` (the source keys) become plain changes. */
+    const refuse = (from: string, to: string, why: string, keep: readonly string[]): void => {
+      this.events.onError?.(new Error(`refused watched move ${JSON.stringify(from)} → ${JSON.stringify(to)}: ${why}`))
+      plain.push(...keep)
+    }
+    this.refreshMountRoots()
+    for (const { from, to } of moves) {
+      if (from === to) continue
+      if (this.underMount(from)) {
+        // Another session's file left its subtree: to us, a create at `to`.
+        if (!this.underMount(to)) plain.push(to)
+        continue
+      }
+      const map = this.folderDoc.getMap()
+      const entry = map.get(from)
+      const live = entry && !entry.deleted ? entry : null
+      const prefix = `${from}/`
+      const keys =
+        live && live.kind !== 'dir'
+          ? [from]
+          : map
+              .entries()
+              .filter(([p, e]) => !e.deleted && (p === from || p.startsWith(prefix)))
+              .map(([p]) => p)
+      if (keys.length === 0) {
+        // Never mapped (or its subtree is empty in the map): a create at `to`.
+        plain.push(to)
+        continue
+      }
+      if (!isSafeVaultPath(to) || this.underMount(to)) {
+        refuse(from, to, 'unsafe or out-of-scope destination', keys)
+        continue
+      }
+      if (live?.kind === 'mount' || this.containsMount(from)) {
+        refuse(from, to, 'a shared folder boundary moves only through its own session', keys)
+        continue
+      }
+      if (to.startsWith(prefix)) {
+        refuse(from, to, 'cannot move into itself', keys)
+        continue
+      }
+      const pairs = keys.map((p) => ({ from: p, to: to + p.slice(from.length) }))
+      const moving = new Set(keys)
+      const clash = pairs.find(({ to: np }) => {
+        const e = map.get(np)
+        return e && !e.deleted && !moving.has(np)
+      })
+      if (clash || pairs.some(({ to: np }) => !isSafeVaultPath(np))) {
+        refuse(from, to, clash ? `'${clash.to}' is already in the vault` : 'unsafe destination', [...keys, ...(clash ? [clash.to] : [])])
+        continue
+      }
+      const entries = new Map(pairs.map(({ from: p }) => [p, map.get(p)!]))
+      this.folderDoc.transactMap((m) => {
+        for (const { from: p } of pairs) m.delete(p)
+        for (const { from: p, to: np } of pairs) m.set(np, entries.get(p)!)
+      }, 'disk')
+      // History follows the file (M10), prefix-wise for a directory.
+      const journaled = this.ctx.journal.rename(from, to)
+      for (const { from: p, to: np } of pairs) {
+        const e = entries.get(p)!
+        this.lastEntries.delete(p)
+        this.lastEntries.set(np, e)
+        const guid = e.kind === 'text' ? (this.pathToGuid.get(p) ?? e.guid) : null
+        this.rekeyPath(p, np, guid)
+        consumed.add(p)
+        movedTo.add(np)
+        renamed.push({ from: p, to: np })
+        if (guid === null) continue
+        void this.runExclusive(guid, async () => {
+          await journaled
+          const lca = await this.lcaStore.get(guid)
+          if (lca && lca.path !== np) await this.lcaStore.put({ ...lca, path: np })
+        }).catch((err) => this.events.onError?.(err))
+      }
+      void journaled.catch((err) => this.events.onError?.(err))
+    }
+    if (renamed.length > 0) this.events.onPathsRenamed?.(renamed)
+    return { consumed, movedTo, plain }
+  }
+
+  /**
+   * Would a watch event at `path` enrol it (decision 11)? Only with a host
+   * hook, only for a vault path that is safe, not reserved, not a temp name,
+   * not under a mount boundary, and not a live key of any kind — a binary,
+   * dir or mount already in the map is never re-enrolled.
+   */
+  private isEnrollable(path: string): boolean {
+    if (!this.enrollUnmapped || this.pathToGuid.has(path)) return false
+    if (!isSafeVaultPath(path) || isTempName(path.slice(path.lastIndexOf('/') + 1))) return false
+    if (this.underMount(path)) return false
+    const entry = this.folderDoc.getMap().get(path)
+    return !entry || entry.deleted === true
+  }
+
+  /** Enrol one unmapped path through the host, then bind it in this session. */
+  private async enrollNew(path: string): Promise<void> {
+    if (this.enrolling.has(path)) {
+      this.enrolling.set(path, true) // changed again mid-enrol: reconcile after
+      return
+    }
+    this.enrolling.set(path, false)
+    try {
+      const guid = await this.enrollUnmapped!(path)
+      if (this.disposed || !guid) return
+      const entry = this.folderDoc.getMap().get(path)
+      if (!entry || entry.deleted || entry.guid !== guid) return
+      this.pathToGuid.set(path, guid)
+      this.lastEntries.set(path, entry)
+      const doc = this.docs.get(guid)
+      if (doc) this.subscribeDoc(guid, doc)
+      this.events.onActivity?.(guid, 'enrolled')
+      if (this.enrolling.get(path)) this.scheduleReconcile(guid)
+    } catch (err) {
+      this.events.onError?.(err)
+    } finally {
+      this.enrolling.delete(path)
     }
   }
 
@@ -365,8 +552,11 @@ export class VaultSession {
 
   private async reconcilePath(path: string): Promise<void> {
     const guid = this.pathToGuid.get(path)
-    if (!guid) return // unknown path: V1 ignores out-of-map files (enroll-on-create is a UI action)
-    await this.reconcile(guid)
+    if (guid) return this.reconcile(guid)
+    // Unknown path: enrolled live when the host opted in (decision 11) —
+    // re-checked here, after the quiesce, because the map may have moved on —
+    // and otherwise ignored (enrol-on-create is then a UI action).
+    if (this.isEnrollable(path)) await this.enrollNew(path)
   }
 
   /**
@@ -432,6 +622,10 @@ export class VaultSession {
     const doc = this.docs.get(guid)
     const lca = await this.lcaStore.get(guid)
     if (!doc || !lca) return
+    // The last gate before disk (decision 12): an LCA a host wrote for a
+    // peer's unsafe key — an adopted remote entry carries one — is never
+    // materialized, whichever path bound it.
+    if (this.refuseUnsafeKey(lca.path)) return
     try {
       const result = await reconcileFile(this.ctx, doc, lca)
       if (result.review) {
@@ -507,9 +701,29 @@ export class VaultSession {
     for (const p of losers) current.delete(p)
   }
 
+  /**
+   * Is `key` unsafe as a vault path? Reported on `onError` the first time a
+   * session meets it, whichever path (boot or live) met it first.
+   */
+  private refuseUnsafeKey(key: string): boolean {
+    if (isSafeVaultPath(key)) return false
+    if (!this.refusedKeys.has(key)) {
+      this.refusedKeys.add(key)
+      this.events.onError?.(new Error(`refused unsafe folder-map key: ${JSON.stringify(key)}`))
+    }
+    return true
+  }
+
   /** Remote folder-map changes → local disk effects (create/rename/delete). */
   private async onRemoteMapChange(): Promise<void> {
     const current = new Map(this.folderDoc.getMap().entries())
+    // The map is client-writable CRDT state (shaping D4): a peer can put ANY
+    // key in it. A key that could escape the vault, land in an ignored
+    // directory or name the reserved marker is dropped here — before any
+    // disk effect — and reported once (nextcloud-build decision 12).
+    for (const key of current.keys()) {
+      if (this.refuseUnsafeKey(key)) current.delete(key)
+    }
     // Before anything is compared against `previous`: collapse a guid that a
     // concurrent rename left at two keys, so the passes below see one path
     // per guid and both devices see the SAME one (crasher 0004).
