@@ -529,6 +529,7 @@ Settings › AI, as `inspector` draws nothing while developer tools are off.
 - `help`
 - `last-agent-write`
 - `session`
+- `files`
 - `note.pill`
 - `people`
 <!-- /generated -->

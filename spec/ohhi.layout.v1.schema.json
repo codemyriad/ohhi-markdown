@@ -111,6 +111,7 @@
               "help",
               "last-agent-write",
               "session",
+              "files",
               "note.pill",
               "people",
               "+nav",
@@ -130,6 +131,7 @@
               "+help",
               "+last-agent-write",
               "+session",
+              "+files",
               "+note.pill",
               "+people",
               "-nav",
@@ -149,6 +151,7 @@
               "-help",
               "-last-agent-write",
               "-session",
+              "-files",
               "-note.pill",
               "-people"
             ]
@@ -180,6 +183,7 @@
               "help",
               "last-agent-write",
               "session",
+              "files",
               "note.pill",
               "people",
               "+nav",
@@ -199,6 +203,7 @@
               "+help",
               "+last-agent-write",
               "+session",
+              "+files",
               "+note.pill",
               "+people",
               "-nav",
@@ -218,6 +223,7 @@
               "-help",
               "-last-agent-write",
               "-session",
+              "-files",
               "-note.pill",
               "-people"
             ]
@@ -249,6 +255,7 @@
               "help",
               "last-agent-write",
               "session",
+              "files",
               "note.pill",
               "people",
               "+nav",
@@ -268,6 +275,7 @@
               "+help",
               "+last-agent-write",
               "+session",
+              "+files",
               "+note.pill",
               "+people",
               "-nav",
@@ -287,6 +295,7 @@
               "-help",
               "-last-agent-write",
               "-session",
+              "-files",
               "-note.pill",
               "-people"
             ]
@@ -1170,6 +1179,7 @@
               "help",
               "last-agent-write",
               "session",
+              "files",
               "note.pill",
               "people",
               "+nav",
@@ -1189,6 +1199,7 @@
               "+help",
               "+last-agent-write",
               "+session",
+              "+files",
               "+note.pill",
               "+people",
               "-nav",
@@ -1208,6 +1219,7 @@
               "-help",
               "-last-agent-write",
               "-session",
+              "-files",
               "-note.pill",
               "-people"
             ]
@@ -1239,6 +1251,7 @@
               "help",
               "last-agent-write",
               "session",
+              "files",
               "note.pill",
               "people",
               "+nav",
@@ -1258,6 +1271,7 @@
               "+help",
               "+last-agent-write",
               "+session",
+              "+files",
               "+note.pill",
               "+people",
               "-nav",
@@ -1277,6 +1291,7 @@
               "-help",
               "-last-agent-write",
               "-session",
+              "-files",
               "-note.pill",
               "-people"
             ]

@@ -39,5 +39,6 @@ export async function configForSession(desc: SessionDesc, user: string): Promise
     room: desc.room,
     firstJoin: desc.firstJoin === true || Boolean(desc.relay),
     relay: desc.relay,
+    ...(desc.readOnly === true ? { readOnly: true } : {}),
   }
 }

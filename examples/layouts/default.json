@@ -17,6 +17,7 @@
     "toolbar.center": [],
     "toolbar.right": [
       "sync",
+      "files",
       "drawer",
       "session",
       "inspector",

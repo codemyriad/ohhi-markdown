@@ -39,7 +39,8 @@ import { newFolderGuid } from './boot.js'
 import { samePath } from './fs-access.js'
 import type { Session } from './session.svelte.js'
 import { decodeShareLink, folderNameOfLabel, shareLinkErrorText } from './share-link.js'
-import type { MountDesc } from '@ohhi/vault'
+import { OHHI_HOST_MARKER, parseHostMarker, type MountDesc, type VaultAdapter } from '@ohhi/vault'
+import type { RelayConfig } from '@ohhi/workspace'
 import { readVaultFacts, type VaultFacts } from './vault-facts.js'
 
 /** What the manager needs from the platform. */
@@ -69,6 +70,46 @@ export interface ManagerHost {
    * facts (first-run B1). Absent → no facts: every row says "—".
    */
   readMounts?(entry: VaultEntry): Promise<MountDesc[]>
+  /**
+   * The vault adapter over a picked desktop folder, for the host-marker check
+   * (nextcloud-build decision 13). Absent → no check (a browser host).
+   */
+  adapterFor?(path: string): Promise<VaultAdapter>
+}
+
+/**
+ * The room named by a folder's Nextcloud host marker (`ohhi-host.md` at its
+ * root, decision 13), '' for a marker without one, null when there is no
+ * marker. Read with `adapter.read`, which — unlike `list` — does not filter
+ * the reserved name.
+ */
+export async function hostMarkerRoom(adapter: Pick<VaultAdapter, 'read'>): Promise<string | null> {
+  const bytes = await adapter.read(OHHI_HOST_MARKER)
+  return bytes === null ? null : (parseHostMarker(bytes)?.room ?? '')
+}
+
+/**
+ * A browser vault that joins a room (the join path's shape): an OPFS peer
+ * keyed by the room, connected to `relay`. The share-link join and the
+ * Nextcloud host's server-granted open (`nextcloud/vaults.svelte.ts`) both
+ * build their entry here.
+ */
+export function joinTargetEntry(target: {
+  name: string
+  room: string
+  relay: RelayConfig
+  firstJoin: boolean
+  /** A host's read-only grant (Nextcloud): every editor of the vault opens read-only. */
+  readOnly?: boolean
+}): VaultEntry {
+  return {
+    name: target.name,
+    vault: { kind: 'opfs', id: target.room },
+    room: target.room,
+    relay: target.relay,
+    firstJoin: target.firstJoin,
+    ...(target.readOnly === true ? { readOnly: true } : {}),
+  }
 }
 
 export interface Manager {
@@ -183,6 +224,18 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     return vault.kind === 'tauri' ? vault.path : getLL().web.manager.browser_vault()
   }
 
+  /**
+   * A desktop folder held by Oh Hi in Nextcloud is refused (decision 13): its
+   * custodian is the writer there, and a second CRDT here would duplicate
+   * every edit. Resolves with the refusal's words, or null to go ahead.
+   */
+  async function refuseMarked(path: string): Promise<string | null> {
+    if (!host.adapterFor) return null
+    const room = await hostMarkerRoom(await host.adapterFor(path))
+    if (room === null) return null
+    return getLL().web.nextcloud.host.marked_folder({ room: room || '?' })
+  }
+
   async function openFolder(name: string): Promise<void> {
     saveUser(name)
     session.failure = null
@@ -190,6 +243,12 @@ export function createManager(session: Session, host: ManagerHost): Manager {
     try {
       const path = await host.pickFolder()
       if (!path) {
+        session.busy = false
+        return
+      }
+      const refused = await refuseMarked(path)
+      if (refused) {
+        session.failure = { room: null, message: refused }
         session.busy = false
         return
       }
@@ -287,6 +346,12 @@ export function createManager(session: Session, host: ManagerHost): Manager {
           session.busy = false
           return 'cancelled'
         }
+        const refused = await refuseMarked(path)
+        if (refused) {
+          session.failure = { room: null, message: refused }
+          session.busy = false
+          return 'done'
+        }
         entry = {
           name: deriveVaultName({ kind: 'tauri', path }),
           vault: { kind: 'tauri', path },
@@ -295,13 +360,12 @@ export function createManager(session: Session, host: ManagerHost): Manager {
           firstJoin: true,
         }
       } else {
-        entry = {
+        entry = joinTargetEntry({
           name: joinedVaultName(target),
-          vault: { kind: 'opfs', id: target.room },
           room: target.room,
           relay: { url: target.relay, token: target.token },
           firstJoin: true,
-        }
+        })
       }
       upsertVault(entry)
       // The root's token is a FOLDER share's: what tells the shell, on every

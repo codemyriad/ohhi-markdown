@@ -24,6 +24,9 @@
       // initTheme). RETIRED lists the built-ins that moved into the vault
       // (RETIRED_THEMES): a preference stored as `nord-dark` is the vault
       // theme `custom:nord-dark` now.
+      //
+      // In Nextcloud the key is per-uid (`nextcloud-build` decision 16) and the
+      // uid is unknown here: main.ts corrects it.
       ;(function () {
         var DARK = ['editor-dark', 'graphite-dark', 'fjord-dark', 'iris-dark']
         var RETIRED = ['nord-light', 'nord-dark']

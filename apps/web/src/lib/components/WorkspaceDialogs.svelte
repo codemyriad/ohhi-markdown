@@ -22,6 +22,8 @@
   import ReviewModal from './ReviewModal.svelte'
   import ShareSheet from './ShareSheet.svelte'
   import TreeOpDialog from './TreeOpDialog.svelte'
+  import Dialog from '../ui/Dialog.svelte'
+  import { detectHost } from '../host.js'
 
   interface Props {
     workspace: Workspace
@@ -62,6 +64,11 @@
   }: Props = $props()
 
   const activeReview = $derived(workspace.ui.reviews[0] ?? null)
+
+  function closeNextcloudShare(): void {
+    sharing.folderSharePath = null
+    sharing.touch()
+  }
 </script>
 
 {#if activeReview}
@@ -169,7 +176,27 @@
   />
 {/if}
 
-{#if sharing.folderSharePath}
+{#if sharing.folderSharePath && detectHost().kind === 'nextcloud'}
+  <!-- Inside Nextcloud no link is minted here: Files' sharing decides who gets in (decisions 4–5). -->
+  <Dialog
+    title={$LL.web.nextcloud.host.share_title({ name: sharing.folderSharePath.split('/').pop() || vaultName })}
+    description={$LL.web.nextcloud.host.share_body()}
+    width="sm"
+    testid="share-nextcloud"
+    onClose={closeNextcloudShare}
+  >
+    <div class="flex justify-end">
+      <button
+        type="button"
+        data-testid="share-nextcloud-close"
+        onclick={closeNextcloudShare}
+        class="rounded border border-base-300 px-3 py-1 text-xs hover:bg-base-200 focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        {$LL.common.close()}
+      </button>
+    </div>
+  </Dialog>
+{:else if sharing.folderSharePath}
   <ShareSheet
     path={sharing.folderSharePath}
     mount={sharing.folderShareMount}

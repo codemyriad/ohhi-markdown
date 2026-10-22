@@ -528,7 +528,10 @@
   /** The desktop app: the launcher's *Connect an agent* (settings-shaping ST6) — a browser vault is out of an agent's reach. */
   const desktop = isDesktop()
   // A collection's Source view has no inline title: its name is not a heading of a note.
-  const titled = $derived(inlineTitle && !!doc && !!path && !!shell && !isCollectionPath(path))
+  // A read-only grant renames nothing (the relay would drop it): no editable title either.
+  const titled = $derived(
+    inlineTitle && !!doc && !!path && !!shell && !isCollectionPath(path) && workspace.ui.readOnly !== true,
+  )
   $effect(() => {
     const view = handle?.view
     if (!view || !titled) return
@@ -687,6 +690,7 @@
             {awareness}
             {undoManager}
             user={workspace.user}
+            readOnly={workspace.ui.readOnly === true}
             {mode}
             {dark}
             {typewriter}

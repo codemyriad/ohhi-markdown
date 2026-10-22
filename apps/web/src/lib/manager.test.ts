@@ -21,7 +21,8 @@ import {
   upsertVault,
   type VaultEntry,
 } from './config.js'
-import { createManager, type Manager, type ManagerHost } from './manager.svelte.js'
+import { createManager, hostMarkerRoom, joinTargetEntry, type Manager, type ManagerHost } from './manager.svelte.js'
+import { formatHostMarker, MemVaultAdapter, OHHI_HOST_MARKER } from '@ohhi/vault'
 import type { Session } from './session.svelte.js'
 import { encodeDeviceLink, encodeShareLink } from './share-link.js'
 import { dropStorage, useMemStorage } from './storage.fixture.js'
@@ -377,5 +378,45 @@ describe('createManager', () => {
       expect(session.failure).toEqual(REFUSED)
       expect(session.busy).toBe(false)
     })
+  })
+})
+
+describe('a folder held by Oh Hi in Nextcloud (decision 13)', () => {
+  const holding = (bytes: Uint8Array): MemVaultAdapter => {
+    const adapter = new MemVaultAdapter()
+    void adapter.writeAtomic(OHHI_HOST_MARKER, bytes)
+    return adapter
+  }
+  const marker = (room: string): MemVaultAdapter =>
+    holding(formatHostMarker({ room, vault: 'v1', epoch: 2, instance: 'i1', heartbeat: '' }))
+
+  it('reads the marker room through adapter.read, which list() hides', async () => {
+    const adapter = marker('0f0f-room')
+    expect((await adapter.list()).map((f) => f.path)).not.toContain(OHHI_HOST_MARKER)
+    expect(await hostMarkerRoom(adapter)).toBe('0f0f-room')
+    expect(await hostMarkerRoom(new MemVaultAdapter())).toBeNull()
+    expect(await hostMarkerRoom(holding(new TextEncoder().encode('no frontmatter')))).toBe('')
+  })
+
+  it('openFolder refuses a marked folder with the room named, and registers nothing', async () => {
+    const adapter = marker('0f0f-room')
+    manager = createManager(session, { ...host, adapterFor: async () => adapter })
+    await manager.openFolder('notes')
+    expect(session.booted).toEqual([])
+    expect(listVaults()).toEqual([])
+    expect(session.busy).toBe(false)
+    expect(session.failure?.message).toBe(getLL().web.nextcloud.host.marked_folder({ room: '0f0f-room' }))
+  })
+
+  it('an unmarked folder opens as before', async () => {
+    manager = createManager(session, { ...host, adapterFor: async () => new MemVaultAdapter() })
+    await manager.openFolder('notes')
+    expect(session.booted).toHaveLength(1)
+  })
+
+  it('joinTargetEntry is the join path’s browser entry, relay passed through whole', () => {
+    const refreshToken = async () => 't2'
+    const entry = joinTargetEntry({ name: 'Notes', room: 'r', relay: { url: RELAY, token: 't1', refreshToken }, firstJoin: false })
+    expect(entry).toEqual({ name: 'Notes', vault: { kind: 'opfs', id: 'r' }, room: 'r', relay: { url: RELAY, token: 't1', refreshToken }, firstJoin: false })
   })
 })

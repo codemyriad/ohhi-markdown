@@ -61,8 +61,11 @@
   const t = $derived($LL.web.presence)
   const words = $derived(status ? vaultLabel(status) : $LL.web.shell.nothing_shared())
   const said = $derived(peers.length ? t.sync.with_people({ status: words, count: peers.length }) : words)
-  const label = $derived($LL.web.shared.door.aria({ status: said }))
-  const title = $derived(status ? (note ? pillTitle(status) : vaultTitle(status)) : said)
+  /** A host's read-only grant (Nextcloud): every reading of the state says so. */
+  const readOnly = $derived(ctx.workspace.ui.readOnly === true)
+  const ro = (s: string): string => (readOnly ? $LL.web.pill.read_only({ state: s }) : s)
+  const label = $derived($LL.web.shared.door.aria({ status: ro(said) }))
+  const title = $derived(ro(status ? (note ? pillTitle(status) : vaultTitle(status)) : said))
 
   let open = $state(false)
   let host = $state<HTMLElement>()
@@ -136,6 +139,7 @@
       icon={VIEWS.shared.icon}
       testid={testid}
       data-status={status}
+      data-read-only={readOnly ? '' : undefined}
       title={hasCard ? undefined : title}
       tooltip={false}
       class="ed-sync-host"

@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Oh Hi runs inside Nextcloud: open it from the Nextcloud menu or from a folder in Files, see whether your notes match their files (the Files readout), answer changes made in Files that need a look, and edit with the rights the folder was shared with \u2014 read-only shares open read-only.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

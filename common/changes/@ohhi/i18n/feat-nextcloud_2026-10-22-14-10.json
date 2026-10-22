@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "The words for Oh Hi inside Nextcloud: the vault list, enrolling a folder, changes waiting for review and the Files readout.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}
