@@ -53,7 +53,7 @@ describe('describeEvent: the words come from the code, at render time', () => {
 
   it('words a relay refusal through i18n, in terms of links — never tokens or CLI words', () => {
     const e = one({ kind: 'relay.state', level: 'error', actor: { kind: 'relay' }, payload: { to: 'refused', reason: 'permission-denied' } })
-    expect(describeEvent(e, LL)).toContain('The relay refused the link for this folder (permission-denied)')
+    expect(describeEvent(e, LL)).toContain('The relay refused this folder (permission-denied)')
     expect(describeEvent(e, LL)).not.toMatch(/token|SEED_SHARE|CLI/)
   })
 

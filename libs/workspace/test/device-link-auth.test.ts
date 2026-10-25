@@ -37,7 +37,9 @@ const FILES: Record<string, string> = {
 }
 
 /** The rejection `reportAuthFailure` turns a permission-denied into. */
-const REFUSED = /relay rejected this token \(permission-denied\)/
+// The relay names its reason since it learnt to: a token it does not know, a
+// document outside the share, or the generic refusal for anything else.
+const REFUSED = /relay rejected this token \((permission-denied|unknown_token|out_of_scope)\)/
 
 describe('R5: a folder token never grants the vault, and a refusal is permanent', () => {
   let relay: TestRelay
