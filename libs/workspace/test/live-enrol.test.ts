@@ -41,6 +41,8 @@ async function boot(
   const errors: unknown[] = []
   const records = new Map<string, SyncRecordFields>()
   const changed: string[] = []
+  /** Every [guid, path] a content listener heard of. */
+  const seen: [string, string][] = []
   const session = await MountSession.create({
     engine,
     adapter,
@@ -62,12 +64,15 @@ async function boot(
     makeShareLink: (relay, room) => `link:${relay.url}:${room}`,
     events: {
       onError: (err) => errors.push(err),
-      onDocChanged: (_guid, path) => changed.push(path),
+      onDocChanged: (guid, path) => {
+        changed.push(path)
+        seen.push([guid, path])
+      },
       ...(opts.onBreaker ? { onBreaker: opts.onBreaker } : {}),
       ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
     },
   })
-  return { session, clock, errors, changed }
+  return { session, clock, errors, changed, seen }
 }
 
 /**
@@ -416,6 +421,77 @@ describe('live enrol-on-create — a held or dismissed boot batch', () => {
     await settle(clock)
     expect(raised).toHaveLength(1)
     expect(textPaths(session)).toEqual(['keep.md'])
+    session.dispose()
+  })
+})
+
+/** The memfs adapter whose next read of one path waits for a release (a slow read on disk). */
+function slowRead(base: MemVaultAdapter): { adapter: VaultAdapter; hold: (path: string) => () => void } {
+  let held: { path: string; gate: Promise<void> } | null = null
+  const adapter = new Proxy(base, {
+    get(target, key) {
+      if (key === 'read') {
+        return async (p: string) => {
+          if (held && held.path === p) {
+            const { gate } = held
+            held = null
+            await gate
+          }
+          return target.read(p)
+        }
+      }
+      const value = Reflect.get(target, key, target) as unknown
+      return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value
+    },
+  })
+  const hold = (path: string): (() => void) => {
+    let release = (): void => {}
+    held = { path, gate: new Promise<void>((r) => (release = r)) }
+    return release
+  }
+  return { adapter, hold }
+}
+
+/**
+ * The app's create and import race a live enrol of the same path: whichever
+ * commits, the map ends with ONE entry whose guid is the doc everyone holds —
+ * never a second guid written over the first, which would leave the first
+ * tracked with a doc and an index entry but no map key.
+ */
+describe('live enrol-on-create — the app’s own create or import of the same path', () => {
+  async function race(act: (s: MountSession) => Promise<unknown>) {
+    const base = new MemVaultAdapter()
+    const { adapter, hold } = slowRead(base)
+    const booted = await boot(adapter)
+    base.externalWrite('n.md', enc.encode('outside\n'))
+    await settle() // listed; the quiesce has read once and waits on the clock
+    const release = hold('n.md') // the app's own read of the path is slow
+    const acting = act(booted.session)
+    await settle(booted.clock) // the live enrol's quiesce completes meanwhile
+    release()
+    await acting
+    await settle(booted.clock)
+    return booted
+  }
+  const guidsFor = (s: MountSession, path: string) => s.mapEntries().filter(([p]) => p === path).map(([, e]) => e.guid)
+
+  it('createFile: one entry, and no doc minted for the path is left without it', async () => {
+    const { session, seen, errors } = await race((s) => s.createFile('', 'n'))
+    const [guid] = guidsFor(session, 'n.md')
+    expect(guidsFor(session, 'n.md')).toHaveLength(1)
+    expect(session.docForPath('n.md')?.getText()).toBe('outside\n')
+    for (const [g, p] of seen) if (p === 'n.md') expect(g).toBe(guid)
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('importFile: one entry, and no doc minted for the path is left without it', async () => {
+    const { session, seen, errors } = await race((s) => s.importFile('n.md', enc.encode('imported\n')))
+    const [guid] = guidsFor(session, 'n.md')
+    expect(guidsFor(session, 'n.md')).toHaveLength(1)
+    expect(session.docForPath('n.md')?.getText()).toBe('imported\n')
+    for (const [g, p] of seen) if (p === 'n.md') expect(g).toBe(guid)
+    expect(errors).toEqual([])
     session.dispose()
   })
 })
