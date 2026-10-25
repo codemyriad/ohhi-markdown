@@ -2974,13 +2974,20 @@ export class MountSession {
       if (diskHash !== lca.contentHash) changed.push(path)
     }
 
-    // Directory delta (M3): dir map-adds and mkdirs carry no content risk, so
-    // they apply immediately and never count toward the mass-change breaker.
-    await this.syncDirs()
-
     const threshold = this.cfg.thresholds?.massChangePaths ?? DEFAULT_THRESHOLDS.massChangePaths
     const touched = [...additions.map((s) => s.path), ...changed]
-    if (touched.length > threshold) {
+    const held = touched.length > threshold
+
+    // Directory delta (M3): mkdirs and dir map-adds never count toward the
+    // breaker. But a HELD batch's new folders are part of the batch: enrolled
+    // now, they would sync to every peer empty, and a dismissed batch would
+    // leave them behind. So while a batch is held, a folder that holds (or
+    // sits under one that holds) a held addition waits for the confirm; a new
+    // folder with no held file in it enrols at once, as before.
+    this.heldDirs = held ? this.dirsOf(additions.map((s) => s.path)) : null
+    await this.syncDirs()
+
+    if (held) {
       this.pendingBootBatch = { additions: additions.map((s) => s.path), changed }
       this.holdBatch('boot', touched)
       // Unchanged docs still reconcile below (doc-ahead-of-LCA is our own
@@ -3008,6 +3015,7 @@ export class MountSession {
       const mountRoots = this.mountRoots()
       const onDisk = new Set(await this.adapter.listDirs())
       for (const dir of onDisk) {
+        if (this.dirHeld(dir, mapPaths)) continue
         if (!mapPaths.has(dir) && !this.underMount(dir, mountRoots)) {
           this.folderDoc.transactMap(
             (m) => m.set(dir, { guid: crypto.randomUUID(), kind: 'dir' }),
@@ -3041,6 +3049,40 @@ export class MountSession {
   /** Held boot batch, if the mass-change breaker tripped during bootScan. */
   private pendingBootBatch: { additions: string[]; changed: string[] } | null = null
 
+  /**
+   * The new folders of a held (or dismissed) boot batch: `syncDirs` leaves
+   * them out of the map until the batch is confirmed. Kept after a dismiss —
+   * the batch's files wait for the next boot scan, and so do their folders.
+   */
+  private heldDirs: Set<string> | null = null
+
+  /** Every ancestor folder of the given file paths. */
+  private dirsOf(paths: string[]): Set<string> {
+    const dirs = new Set<string>()
+    for (const p of paths) {
+      for (let i = p.indexOf('/'); i !== -1; i = p.indexOf('/', i + 1)) dirs.add(p.slice(0, i))
+    }
+    return dirs
+  }
+
+  /**
+   * Whether `dir` waits for a held boot batch: it, or a folder above it,
+   * holds a held addition — unless something enrolled since lives under it
+   * (a note the person made there through the app), which needs its folder.
+   */
+  private dirHeld(dir: string, mapPaths: Set<string>): boolean {
+    const held = this.heldDirs
+    if (!held || held.size === 0) return false
+    let covered = held.has(dir)
+    for (let i = dir.indexOf('/'); !covered && i !== -1; i = dir.indexOf('/', i + 1)) {
+      covered = held.has(dir.slice(0, i))
+    }
+    if (!covered) return false
+    const prefix = `${dir}/`
+    for (const p of mapPaths) if (p.startsWith(prefix)) return false
+    return true
+  }
+
   /** Process a held boot batch: enroll additions, reconcile changed files. */
   async confirmBootBatch(): Promise<void> {
     const batch = this.pendingBootBatch
@@ -3051,6 +3093,10 @@ export class MountSession {
     // into a subtree whose authority has since moved (N1).
     const mountRoots = this.mountRoots()
     const additions = batch.additions.filter((p) => !this.underMount(p, mountRoots))
+    // The batch's folders first, so its files never land in a folder the map
+    // does not know.
+    this.heldDirs = null
+    await this.syncDirs()
     for (const path of additions) await this.enrollOne(path)
     if (additions.length > 0) await this.restartSession()
     for (const path of batch.changed) {
