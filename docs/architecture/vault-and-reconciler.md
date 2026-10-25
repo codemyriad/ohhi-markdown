@@ -32,7 +32,9 @@ switch, and a single save can produce several events. The adapter layer normaliz
 - **Quiesce = double-read-same-hash.** A changed file is read, hashed, and re-read
   after a short injected-clock delay; only when two consecutive reads hash identically
   is the content considered settled and handed to the reconciler. This is the defense
-  against partial writes from non-atomic external writers.
+  against partial writes from non-atomic external writers. A *new* file goes through
+  the same double read before it is enrolled (see below); one that vanishes between
+  the two reads is dropped without a word.
 - **Ignore list:** `libs/vault`'s `IGNORED_DIRS` — `.git/`, `.obsidian/`, `.ohhi/`, `.ohhi-cache/`, `.trash/`, `node_modules/`, plus the pre-rename `.editor/` and `.editor-cache/`.
 
 ## The reconciler: classification matrix
@@ -154,6 +156,26 @@ as "only remote moved" and overwrites it.
 4. **Binary detection** → exclude from enrollment entirely + "not synced" badge in the
    tree (shaping D2f). V2 brings content-addressed blob sync; V1 just refuses to lie.
 
+### Files that appear while the app runs
+
+A file another writer puts in the vault while the app is running (an agent, git, another
+editor, a sync client) is enrolled on the spot, by the same rules the boot scan uses, so
+it shows up in the tree and syncs without a relaunch. `VaultSession` hands the watch
+paths the folder map does not know (in any kind: a known attachment or folder never
+counts) to the host's `LiveEnroller`: the host lists the vault once for that batch, keeps
+the files the boot scan would enrol (not ignored, not a `writeAtomic` temp name, not
+under a mount boundary, not already in the map, not one of the app's own writes in
+flight), and a directory path stands for every file under it, because Linux reports a
+populated folder moved in as one event. Each new file is quiesced, then enrolled (map
+entry, doc, LCA) and tracked by the running session, with no restart.
+
+Live enrolment also skips other tools' scratch files, `isScratchName` in
+`libs/vault/src/enrollment.ts`: a basename starting with a dot (vim's `.note.md.swp`,
+Syncthing's `.syncthing.note.md.tmp`, `.DS_Store`), a trailing `~` (backups), and the
+suffixes `.swp`, `.swx`, `.tmp`, `.part`, `.partial`, `.crdownload`. The boot scan does
+not apply this rule; a file with such a name that is still there at the next launch is
+enrolled then, as before.
+
 Create/rename/delete flow through the folder doc both directions: a local rename updates
 the path binding (same GUID — content history survives renames); a remote map change
 renames on disk through the same journaled, atomic write path.
@@ -179,9 +201,13 @@ possible but *suspicious* (shaping D2, D2d):
   flushed escalates instead of ingesting — the stale-editor-buffer signature (Obsidian's
   autosave echoing old content). A small ring of recently-flushed content hashes backs
   the check; its sufficiency against Obsidian's real autosave loop is **Spike S6**.
-- **Mass-change circuit breaker:** many files changing within one quiesce window (a git
+- **Mass-change circuit breaker:** many files changing within one watch batch (a git
   branch switch, `git checkout .`) pauses reconciliation folder-wide and asks for
-  confirmation rather than ingesting a storm of "external edits".
+  confirmation rather than ingesting a storm of "external edits". The count is changed
+  known notes plus new files: twenty-one notes an agent drops in at once are as much a
+  mass change as a branch switch rewriting twenty-one old ones. Confirm enrols the new
+  files and reconciles the changed ones; dismiss leaves both (the new files wait for the
+  next launch's scan).
 
 Thresholds are pure, clock-injected functions — unit-tested directly, with interleaving
 explored by the L1 fuzzer ([testing.md](testing.md)).

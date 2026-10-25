@@ -70,9 +70,16 @@ async function boot(
   return { session, clock, errors, changed }
 }
 
-/** Let the watch chain (listing, enrolment) run to the end. */
-async function settle(): Promise<void> {
-  for (let i = 0; i < 10; i++) await yieldMacro()
+/**
+ * Let the watch chain (listing, enrolment) run to the end. With the clock,
+ * time moves too: a new file is quiesced (read, wait, read again) before it
+ * is enrolled, and the wait is on the injected clock.
+ */
+async function settle(clock?: SimClock): Promise<void> {
+  for (let i = 0; i < 10; i++) {
+    await yieldMacro()
+    clock?.advance(40)
+  }
 }
 
 const textPaths = (s: MountSession) => s.files().filter((r) => r.kind === 'text').map((r) => r.path).sort()
@@ -99,10 +106,10 @@ describe('live enrol-on-create', () => {
   it('a new note written from outside is enrolled, its doc holding the disk text', async () => {
     const adapter = new MemVaultAdapter()
     await adapter.writeAtomic('keep.md', enc.encode('kept\n'))
-    const { session, errors, changed } = await boot(adapter)
+    const { session, clock, errors, changed } = await boot(adapter)
 
     adapter.externalWrite('agent-note.md', enc.encode('# From an agent\n\nbody\n'))
-    await settle()
+    await settle(clock)
 
     expect(textPaths(session)).toEqual(['agent-note.md', 'keep.md'])
     expect(session.docForPath('agent-note.md')?.getText()).toBe('# From an agent\n\nbody\n')
@@ -116,7 +123,7 @@ describe('live enrol-on-create', () => {
     const adapter = new MemVaultAdapter()
     const { session, clock, errors } = await boot(adapter)
     adapter.externalWrite('n.md', enc.encode('one\n'))
-    await settle()
+    await settle(clock)
     adapter.externalWrite('n.md', enc.encode('one\ntwo\n'))
     await settle()
     // The quiesce double-read runs on the injected clock.
@@ -130,14 +137,14 @@ describe('live enrol-on-create', () => {
   it('a populated folder moved in (one directory event) has every note enrolled', async () => {
     const adapter = new MemVaultAdapter()
     await adapter.writeAtomic('keep.md', enc.encode('kept\n'))
-    const { session, errors } = await boot(adapter)
+    const { session, clock, errors } = await boot(adapter)
 
     // inotify reports a moved-in folder as ONE event, nothing for its files.
     adapter.autoEmit = false
     for (const n of ['a', 'b', 'c']) await adapter.writeAtomic(`moved/${n}.md`, enc.encode(`${n}\n`))
     adapter.autoEmit = true
     adapter.emitBatch(['moved'])
-    await settle()
+    await settle(clock)
 
     expect(textPaths(session)).toEqual(['keep.md', 'moved/a.md', 'moved/b.md', 'moved/c.md'])
     expect(session.files().find((r) => r.path === 'moved')?.kind).toBe('dir')
@@ -148,13 +155,13 @@ describe('live enrol-on-create', () => {
 
   it('skips what the boot scan skips: ignored folders and temp names', async () => {
     const adapter = new MemVaultAdapter()
-    const { session } = await boot(adapter)
+    const { session, clock } = await boot(adapter)
     adapter.autoEmit = false
     await adapter.writeAtomic('.ohhi/layouts/x.json', enc.encode('{}'))
     await adapter.writeAtomic('n.md.ohhi-tmp-123', enc.encode('partial'))
     adapter.autoEmit = true
     adapter.emitBatch(['.ohhi/layouts/x.json', 'n.md.ohhi-tmp-123'])
-    await settle()
+    await settle(clock)
     expect(session.files()).toEqual([])
     session.dispose()
   })
@@ -172,12 +179,60 @@ describe('live enrol-on-create', () => {
   })
 })
 
+describe('live enrol-on-create — a new file is quiesced, and scratch files are skipped', () => {
+  it('a file still being written is enrolled once it holds still, with its final bytes', async () => {
+    const adapter = new MemVaultAdapter()
+    const { session, clock, errors } = await boot(adapter)
+    // A writer that is not atomic: the first half lands, then the rest.
+    adapter.externalWrite('slow.md', enc.encode('# Half'))
+    await settle()
+    expect(textPaths(session)).toEqual([]) // nothing enrolled on the first read
+    adapter.autoEmit = false
+    adapter.externalWrite('slow.md', enc.encode('# Half and the rest\n'))
+    adapter.autoEmit = true
+    await settle(clock)
+    expect(textPaths(session)).toEqual(['slow.md'])
+    expect(session.docForPath('slow.md')?.getText()).toBe('# Half and the rest\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('a file that vanishes before the second read is dropped, silently', async () => {
+    const adapter = new MemVaultAdapter()
+    const { session, clock, errors } = await boot(adapter)
+    adapter.externalWrite('gone.md', enc.encode('brief\n'))
+    await settle()
+    adapter.autoEmit = false
+    await adapter.remove('gone.md')
+    adapter.autoEmit = true
+    await settle(clock)
+    expect(session.files()).toEqual([])
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('another tool’s swap, partial and backup files are never enrolled', async () => {
+    const adapter = new MemVaultAdapter()
+    const { session, clock, errors } = await boot(adapter)
+    const scratch = ['.n.md.swp', 'n.md~', '.DS_Store', 'dl/n.md.part', '.syncthing.n.md.tmp', 'n.md.crdownload']
+    adapter.autoEmit = false
+    for (const p of [...scratch, 'dl/real.md']) await adapter.writeAtomic(p, enc.encode('x\n'))
+    adapter.autoEmit = true
+    adapter.emitBatch(scratch)
+    adapter.emitBatch(['dl'])
+    await settle(clock)
+    expect(textPaths(session)).toEqual(['dl/real.md'])
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+})
+
 describe('live enrol-on-create — only a path the map does not know is listed for', () => {
   it('an attachment the app writes and a known folder’s mkdir cause no listing', async () => {
     const base = new MemVaultAdapter()
     await base.writeAtomic('docs/a.md', enc.encode('a\n'))
     const { adapter, lists } = countingLists(base)
-    const { session, errors } = await boot(adapter)
+    const { session, clock, errors } = await boot(adapter)
     expect(session.files().find((r) => r.path === 'docs')?.kind).toBe('dir')
     const before = lists()
 
@@ -187,7 +242,7 @@ describe('live enrol-on-create — only a path the map does not know is listed f
     // The attachment is in the map now; writing it again names a known path.
     base.externalWrite('docs/pic.png', png)
     await base.mkdir('docs')
-    await settle()
+    await settle(clock)
 
     expect(lists()).toBe(before)
     expect(errors).toEqual([])
@@ -219,9 +274,9 @@ describe('live enrol-on-create — the watch breaker counts new files', () => {
   })
 
   it('confirm enrols them', async () => {
-    const { session, errors } = await held()
+    const { session, clock, errors } = await held()
     await session.confirmBreaker()
-    await settle()
+    await settle(clock)
     expect(textPaths(session)).toEqual(['keep.md', ...batch].sort())
     expect(session.docForPath('drop/n7.md')?.getText()).toBe('drop/n7.md\n')
     expect(errors).toEqual([])

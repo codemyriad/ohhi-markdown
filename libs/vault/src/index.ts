@@ -14,6 +14,7 @@ export {
 } from './stores.js'
 export {
   enrollFolder,
+  isScratchName,
   joinFolder,
   looksBinary,
   NEVER_ON_DISK,
