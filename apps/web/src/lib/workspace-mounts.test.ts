@@ -13,6 +13,8 @@ import { useMemStorage } from './storage.fixture.js'
 import {
   docBlobName,
   FOLDER_DOC_KEY,
+  hashText,
+  JsonFileLcaStore,
   MemStoreDir,
   MemVaultAdapter,
   MountsFile,
@@ -286,5 +288,104 @@ describe('unshare / unmount clear the room’s credential (A4)', () => {
     expect(ws.ui.mounts).toEqual([])
     // The content folded back into the vault, as unshare always does.
     expect(ws.ui.files.map((r) => r.path)).toContain('team/plan.md')
+  })
+})
+
+/**
+ * A mount's own boot can trip the mass-change breaker (more than 20 files
+ * written into the shared folder while the app was closed — an agent's batch).
+ * The batch is held by the MOUNT's session, raised from inside
+ * `MountSession.create` before the shim registers it, so Apply must reach that
+ * session — not fall through to the root, which holds no batch (a silent
+ * no-op that brought the same dialog back on every launch).
+ */
+describe('a breaker raised by a mount’s boot is applied by that mount', () => {
+  it('enrols every held file on Apply, and the tree shows them', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const seed = engine.createDoc('breaker-test-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await scopedStoreDir(storeDir, `${ROOM}/`)
+      .io(docBlobName(FOLDER_DOC_KEY))
+      .writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    // 21 notes the mount has never seen: one over the threshold.
+    const added = Array.from({ length: 21 }, (_, i) => `team/new/note-${i}.md`)
+    for (const p of added) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    expect(ws.ui.breaker?.paths).toEqual(expect.arrayContaining(added))
+    expect(ws.ui.files.map((r) => r.path)).not.toContain(added[0])
+
+    await ws.confirmBreaker()
+
+    expect(ws.ui.breaker).toBeNull()
+    const paths = ws.ui.files.map((r) => r.path)
+    for (const p of added) expect(paths).toContain(p)
+    expect(ws.docForPath(added[0]!)?.getText()).toBe(`${added[0]}\n`)
+  })
+})
+
+/**
+ * The same owner question for a REVIEW. A note whose disk copy moved past
+ * the ingest ratio while the app was closed is raised from inside
+ * `MountSession.create` too, and resolving it must reach the mount's
+ * session: the root holds no doc for the guid, and routing it there threw
+ * `resolveReview: unknown doc` behind a modal that cannot be dismissed
+ * (dogfood 2026-10-23).
+ */
+describe('a review raised by a mount’s boot is resolved by that mount', () => {
+  it('routes resolveReview to the mount, and the chosen text lands in the doc and on disk', async () => {
+    const base = `# Plan\n\n${'a line of the shared plan, as this device last saw it\n'.repeat(6)}`
+    const rewritten = `# Plan, rewritten\n\n${'an agent replaced every line while the app was closed\n'.repeat(10)}`
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode(rewritten))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const mountDir = scopedStoreDir(storeDir, `${ROOM}/`)
+    const seed = engine.createDoc('review-test-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await mountDir.io(docBlobName(FOLDER_DOC_KEY)).writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    // The note's durable state as the last boot left it: a doc holding the
+    // base, and an LCA saying disk held the base too.
+    const note = engine.createDoc(PLAN_GUID)
+    note.transact((t) => t.insert(0, base), 'seed')
+    await mountDir.io(docBlobName(PLAN_GUID)).writeAtomic(engine.encodeUpdateSince(note, null))
+    await new JsonFileLcaStore(mountDir.io('lca.json')).put({
+      guid: PLAN_GUID,
+      path: 'plan.md',
+      baseText: base,
+      contentHash: hashText(base),
+      heads: engine.encodeHeads(engine.heads(note)),
+      eol: 'lf',
+      bom: false,
+    })
+    note.destroy()
+
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    const review = ws.ui.reviews.find((r) => r.guid === PLAN_GUID)
+    expect(review?.reason).toBe('ratio-threshold')
+    expect(review?.theirs).toBe(rewritten)
+
+    await ws.resolveReview(PLAN_GUID, rewritten)
+
+    expect(ws.ui.reviews).toEqual([])
+    expect(ws.docForPath('team/plan.md')?.getText()).toBe(rewritten)
+    expect(new TextDecoder().decode((await adapter.read('team/plan.md'))!)).toBe(rewritten)
   })
 })
