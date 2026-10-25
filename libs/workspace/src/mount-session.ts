@@ -803,6 +803,11 @@ export class MountSession {
         while (taken.has(`${base}untitled-${n}.md`)) n++
         path = `${base}untitled-${n}.md`
       }
+      // Ours from the moment the name is picked, before any await: a live
+      // enrol committing the path during the read below would otherwise be
+      // overwritten by this create's entry, its guid orphaned.
+      writing = path
+      this.appWrites.add(path)
       // A map miss is NOT evidence the path is free: a note another writer
       // (Obsidian, git, an agent) put on disk moments ago may not be enrolled
       // yet — live enrol-on-create runs behind the watcher, and a dismissed
@@ -816,9 +821,6 @@ export class MountSession {
       const decoded = onDisk !== null ? decodeFile(onDisk) : null
       const seedText = decoded ? decoded.text : text
       const bytes = onDisk ?? new TextEncoder().encode(text)
-      // Ours, not an outside writer's: live enrol-on-create keeps off it.
-      writing = path
-      this.appWrites.add(path)
       if (onDisk === null) {
         // Journal before every Editor-initiated write, exactly as importFile
         // does — a pre-image of null still records that we created the path.
@@ -839,6 +841,16 @@ export class MountSession {
         eol: decoded ? decoded.eol : 'lf',
         bom: decoded ? decoded.bom : false,
       })
+      // The map, re-read right before the commit: an entry that landed during
+      // the awaits above (a peer's note at the same name) is adopted, never
+      // overwritten — overwriting would strand its guid with a doc, a
+      // provider and an index entry but no map key.
+      const claimed = this.folderDoc.getMap().get(path)
+      if (claimed && !claimed.deleted) {
+        await this.discardDoc(guid, doc)
+        this.refreshFiles()
+        return path
+      }
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
       // A nested name (`[[Projects/2026/Roadmap]]`) implies directories that
@@ -1291,11 +1303,15 @@ export class MountSession {
       // Overwriting would orphan the existing entry's guid — a silent loss.
       throw new Error(`'${rel}' already exists in the destination`)
     }
-    const pre = await this.adapter.read(rel)
-    await this.journal.record(rel, pre)
+    // Ours before the first await: a live enrol must not commit the path
+    // between this check and the enrolment below.
     this.appWrites.add(rel)
     try {
+      const pre = await this.adapter.read(rel)
+      await this.journal.record(rel, pre)
       await this.adapter.writeAtomic(rel, bytes)
+      // enrollOne re-checks the map before it commits, and adopts an entry
+      // that landed meanwhile rather than overwrite it.
       await this.enrollOne(rel)
     } finally {
       this.appWrites.delete(rel)
@@ -2233,7 +2249,7 @@ export class MountSession {
    * `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`).
    */
   async reenrollPath(path: string): Promise<void> {
-    await this.enrollOne(path)
+    await this.enrollOne(path, { replace: true })
     await this.restartSession()
     this.refreshFiles()
   }
@@ -3290,13 +3306,17 @@ export class MountSession {
   }
 
   /** Enroll one on-disk file that is not in the folder map (boot delta scan). */
-  private async enrollOne(path: string, opts: { live?: boolean } = {}): Promise<void> {
-    // A live enrol runs beside the app's own writes: a path the map (or an
-    // app write in flight) has claimed by the time a step lands is not ours.
+  private async enrollOne(path: string, opts: { live?: boolean; replace?: boolean } = {}): Promise<void> {
+    // Enrolment runs beside the app's own writes and a peer's map changes: a
+    // path the map has claimed by the time a step lands is not ours to
+    // overwrite (adopt it) — unless replacing that entry is the point
+    // (`replace`: a move-out re-enrols over a key that names the mount's
+    // guid) — and a live enrol also leaves an app write in flight to the
+    // write that made it.
     const claimed = (): boolean => {
-      if (!opts.live) return false
       const e = this.folderDoc.getMap().get(path)
-      return (e !== undefined && !e.deleted) || this.appWrites.has(path)
+      if (e !== undefined && !e.deleted && opts.replace !== true) return true
+      return opts.live === true && this.appWrites.has(path)
     }
     try {
       const bytes = await this.adapter.read(path)
@@ -3325,11 +3345,7 @@ export class MountSession {
       })
       if (claimed()) {
         // Lost the race to the map: undo this attempt, leave theirs alone.
-        this.docs.delete(guid)
-        this.cfg.docStore?.untrack(guid)
-        await this.cfg.docStore?.remove(guid)
-        await this.lcaStore.remove(guid)
-        doc.destroy()
+        await this.discardDoc(guid, doc)
         return
       }
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
@@ -3337,6 +3353,15 @@ export class MountSession {
     } catch (err) {
       this.pushError(err)
     }
+  }
+
+  /** Undo a doc minted for a path that someone else's entry claimed first. */
+  private async discardDoc(guid: string, doc: EngineDoc): Promise<void> {
+    this.docs.delete(guid)
+    this.cfg.docStore?.untrack(guid)
+    await this.cfg.docStore?.remove(guid)
+    await this.lcaStore.remove(guid)
+    doc.destroy()
   }
 
   /**
