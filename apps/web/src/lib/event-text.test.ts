@@ -14,6 +14,7 @@ function refused(mount: string, reason?: string): AppEvent<'relay.state'> {
     kind: 'relay.state',
     scope: { room: 'room-x', mount, ...(mount ? { path: mount } : {}) },
     actor: { kind: 'relay', name: 'relay.example' },
+    count: 1,
     payload: { to: 'refused', ...(reason ? { reason } : {}) },
   }
 }
@@ -51,6 +52,7 @@ describe('the mass-change breaker', () => {
       kind: 'breaker.dismissed',
       scope: { room: 'room-x', mount: '' },
       actor: { kind: 'disk' },
+      count: 1,
       payload: { count: 21 },
     }
     expect(describeEvent(e, LL)).toBe(LL.web.notices.breaker_dismissed({ count: 21 }))
