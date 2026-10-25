@@ -87,6 +87,7 @@ import {
   roomRelay,
   roomToken,
   roomTokenKind,
+  rootShareKind,
   setRoomToken,
 } from './config.js'
 import { renamedNote, type DockNote } from './dock-note.js'
@@ -977,6 +978,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: MountProvenance
     relay?: RelayConfig
     firstJoin?: boolean
+    /** A root whose room is a folder share opened as a vault (`MountSessionConfig.joinedShare`). */
+    joinedShare?: boolean
     /**
      * Boot with an empty map and no delta scan: a mount this device has never
      * held and has no key for. Its files stay on disk, untouched and
@@ -1042,6 +1045,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       mountsFile,
       mountPath: opts.path,
       provenance: opts.provenance,
+      joinedShare: opts.joinedShare,
       // Folder records are per mount; every other key is a globally unique guid.
       recordFor: (key) => recordFor(key === FOLDER_RECORD_KEY ? `//folder:${opts.room}` : key),
       makeShareLink: (relay, room) => encodeShareLink({ relay: relay.url, room, token: relay.token }),
@@ -1283,6 +1287,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: 'local',
     relay: rootRelay,
     firstJoin: cfg.firstJoin,
+    // A folder share opened as a vault of its own: a refusal of its room is
+    // the link's, not this device's (the words of `relay.state` refused).
+    joinedShare: rootShareKind(cfg.room, true) === 'joined',
     onShared: () => (ui.linked = true),
   })
   registry.add('', rootSession)
@@ -1687,6 +1694,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       path: '',
       provenance: 'local',
       ...(rootRelay ? { relay: rootRelay } : {}),
+      joinedShare: rootShareKind(cfg.room, true) === 'joined',
       onShared: () => (ui.linked = true),
     })
     registry.add('', rootSession)

@@ -82,7 +82,7 @@ describe('the plain-text report', () => {
   })
 
   it('a refusal is advised by its reason and by whose room it is', () => {
-    const refused = (mount: string, reason?: string): AppEvent => ({
+    const refused = (mount: string, reason?: string, joined?: boolean): AppEvent => ({
       id: 'r',
       at: NOW,
       level: 'error',
@@ -90,8 +90,12 @@ describe('the plain-text report', () => {
       scope: { room: 'room-x', mount, ...(mount ? { path: mount } : {}) },
       actor: { kind: 'relay' },
       count: 1,
-      payload: { to: 'refused', ...(reason ? { reason } : {}) },
+      payload: { to: 'refused', ...(reason ? { reason } : {}), ...(joined !== undefined ? { joined } : {}) },
     })
+    // A folder share opened as a vault of its own: its room is the root, and
+    // the dead token is the link's — never "link this device again".
+    expect(eventHint(refused('', 'unknown_token', true), LL)).toBe(LL.web.log.hints.relay_refused_link())
+    expect(eventHint(refused('', 'unknown_token', false), LL)).toBe(LL.web.log.hints.relay_refused_device())
     // A dead link on a joined folder: ask whoever shared it.
     expect(eventHint(refused('team', 'unknown_token'), LL)).toBe(LL.web.log.hints.relay_refused_link())
     // A dead token on the vault's own room: link this device again.

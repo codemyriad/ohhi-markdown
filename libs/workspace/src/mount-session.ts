@@ -156,6 +156,14 @@ export interface MountSessionConfig {
   /** Recorded in the mount desc; default: 'joined' when firstJoin, else 'local'. */
   provenance?: MountProvenance
   /**
+   * The room is a share someone else made, joined here — set by the host for
+   * a ROOT opened from a folder share (its provenance stays 'local': it is
+   * this device's vault, whose room happens to be a share). A joined mount
+   * says so through `provenance` already. Only the words of a relay refusal
+   * read it (`relay.state` → `joined`).
+   */
+  joinedShare?: boolean
+  /**
    * This device has never held the room's content and has no credential for
    * it yet (`MountDesc.neverHeld`, spike S10 Q2 + N3's empty-adopt finding).
    * Boot with an EMPTY map and no delta scan: the files under the mount root
@@ -1919,8 +1927,18 @@ export class MountSession {
       level: to === 'refused' ? 'error' : 'info',
       scope: this.scopeFor(),
       actor: this.relayActor(),
-      payload: { to, ...(to === 'refused' && reason !== undefined ? { reason } : {}) },
+      payload: {
+        to,
+        ...(to === 'refused' && reason !== undefined ? { reason } : {}),
+        ...(to === 'refused' ? { joined: this.isJoinedShare() } : {}),
+      },
     })
+  }
+
+  /** Is this room a share someone else made, joined on this device? */
+  private isJoinedShare(): boolean {
+    if (this.cfg.joinedShare === true) return true
+    return (this.cfg.provenance ?? (this.cfg.firstJoin ? 'joined' : 'local')) === 'joined'
   }
 
   // ---- internals ----
