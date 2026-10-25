@@ -282,3 +282,56 @@ describe('boot machine — mass-change breaker (L1 fixture 8)', () => {
     b2.session.dispose()
   })
 })
+
+/**
+ * A held boot batch's new folders belong to the batch: enrolled before the
+ * threshold check, they synced to every peer empty, and a dismissed batch
+ * left them in the map. Folders with no held file in them still enrol at once.
+ */
+describe('boot machine — a held batch does not enrol its folders', () => {
+  async function heldBoot() {
+    const adapter = await seedVault({ 'keep.md': 'kept\n' })
+    const store = new MemStoreDir()
+    const b1 = await boot(adapter, store)
+    b1.session.dispose()
+    // While closed: 21 notes in two new folders (one nested), and a new empty folder.
+    const added = Array.from({ length: 21 }, (_, i) => (i < 10 ? `batch/n${i}.md` : `batch/deep/n${i}.md`))
+    for (const p of added) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+    await adapter.mkdir('batch/deep/empty')
+    await adapter.mkdir('lone')
+    let breakerPaths: string[] | null = null
+    const b2 = await boot(adapter, store, { onBreaker: (paths) => (breakerPaths = paths) })
+    expect(breakerPaths).toHaveLength(21)
+    return { adapter, b2, added }
+  }
+  const dirs = (session: MountSession) =>
+    session.files().filter((r) => r.kind === 'dir').map((r) => r.path).sort()
+
+  it('holds the batch’s folders out of the map; an unrelated empty folder enrols', async () => {
+    const { b2 } = await heldBoot()
+    expect(dirs(b2.session)).toEqual(['lone'])
+    b2.session.dispose()
+  })
+
+  it('confirm enrols the folders, then the files', async () => {
+    const { b2, added } = await heldBoot()
+    await b2.session.confirmBootBatch()
+    expect(dirs(b2.session)).toEqual(['batch', 'batch/deep', 'batch/deep/empty', 'lone'])
+    for (const p of added) expect(b2.session.docForPath(p)?.getText()).toBe(`${p}\n`)
+    expect(b2.errors).toEqual([])
+    b2.session.dispose()
+  })
+
+  it('dismiss enrols neither, and a later folder sync does not sneak them in', async () => {
+    const { adapter, b2, added } = await heldBoot()
+    b2.session.dismissBootBatch()
+    // Any app action that syncs folders (a note made elsewhere) must not
+    // enrol the dismissed batch's folders behind the person's back.
+    await b2.session.importFile('other/x.md', enc.encode('x\n'))
+    expect(dirs(b2.session)).toEqual(['lone', 'other'])
+    const files = b2.session.files().map((r) => r.path)
+    for (const p of added) expect(files).not.toContain(p)
+    expect(await adapter.read(added[0]!)).not.toBeNull() // disk untouched
+    b2.session.dispose()
+  })
+})
