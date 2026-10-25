@@ -18,6 +18,7 @@ import {
   MemVaultAdapter,
   MountsFile,
   scopedStoreDir,
+  type VaultAdapter,
 } from '@ohhi/vault'
 import { SimClock } from '@ohhi/testkit'
 import type { AppEvent } from '../src/events.js'
@@ -29,7 +30,7 @@ const enc = new TextEncoder()
 const ROOM = 'room-live'
 
 async function boot(
-  adapter: MemVaultAdapter,
+  adapter: VaultAdapter,
   opts: { onBreaker?: (paths: string[]) => void; onEvent?: (e: AppEvent) => void } = {}
 ) {
   const engine = createYjsEngine()
@@ -75,6 +76,24 @@ async function settle(): Promise<void> {
 }
 
 const textPaths = (s: MountSession) => s.files().filter((r) => r.kind === 'text').map((r) => r.path).sort()
+
+/** The memfs adapter with its `list()` calls counted (each is a full recursive listing on disk). */
+function countingLists(base: MemVaultAdapter): { adapter: VaultAdapter; lists: () => number } {
+  let lists = 0
+  const adapter = new Proxy(base, {
+    get(target, key) {
+      if (key === 'list') {
+        return () => {
+          lists++
+          return target.list()
+        }
+      }
+      const value = Reflect.get(target, key, target) as unknown
+      return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value
+    },
+  })
+  return { adapter, lists: () => lists }
+}
 
 describe('live enrol-on-create', () => {
   it('a new note written from outside is enrolled, its doc holding the disk text', async () => {
@@ -148,6 +167,29 @@ describe('live enrol-on-create', () => {
     expect(path).toBe('made.md')
     expect(session.mapEntries().filter(([p]) => p === 'made.md')).toHaveLength(1)
     expect(session.docForPath('made.md')?.getText()).toBe('hello\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+})
+
+describe('live enrol-on-create — only a path the map does not know is listed for', () => {
+  it('an attachment the app writes and a known folder’s mkdir cause no listing', async () => {
+    const base = new MemVaultAdapter()
+    await base.writeAtomic('docs/a.md', enc.encode('a\n'))
+    const { adapter, lists } = countingLists(base)
+    const { session, errors } = await boot(adapter)
+    expect(session.files().find((r) => r.path === 'docs')?.kind).toBe('dir')
+    const before = lists()
+
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0])
+    expect(await session.writeAttachment('docs/pic.png', png)).toBe('docs/pic.png')
+    await settle()
+    // The attachment is in the map now; writing it again names a known path.
+    base.externalWrite('docs/pic.png', png)
+    await base.mkdir('docs')
+    await settle()
+
+    expect(lists()).toBe(before)
     expect(errors).toEqual([])
     session.dispose()
   })
