@@ -29,6 +29,7 @@ export {
 export {
   VaultSession,
   type Clock,
+  type LiveEnroller,
   type SessionEvents,
   type VaultSessionOptions,
 } from './session.js'
