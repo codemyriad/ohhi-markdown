@@ -21,7 +21,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-fs = "2"
+# `watch` is a cargo feature of the fs plugin (notify behind it): without it the
+# plugin has no `watch` command and the vault watcher never starts.
+tauri-plugin-fs = { version = "2", features = ["watch"] }
 tauri-plugin-dialog = "2"
 # generate_context! emits serde_json for the `plugins` block of tauri.conf.json.
 serde_json = "1"
