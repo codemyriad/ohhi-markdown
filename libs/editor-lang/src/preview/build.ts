@@ -97,12 +97,59 @@ const LIST_NUM = mark('cm-list-num')
  * and the depth guides — computed from the tree, never from the DOM. Built on
  * first use and kept: the vault nests eleven deep, and a Decoration is reused.
  */
-const LIST_LINE: Decoration[] = []
-const listLine = (depth: number): Decoration =>
-  (LIST_LINE[depth] ??= Decoration.line({
-    class: cls.LIST_LINE,
-    attributes: { style: `--cm-list-depth: ${depth}` },
-  }))
+const LIST_LINE = new Map<string, Decoration>()
+/**
+ * What sits before a list line's text, for its hanging indent, as counts the
+ * theme turns into a width (a wrapped line starts there, under the text after
+ * the marker): leading tabs (one `--ed-list-indent` each) and spaces; the
+ * bullet or task column (drawn exactly one `--ed-list-indent` wide — the
+ * bullet widget and the checkbox are sized to it); and an ordered marker,
+ * which stays text — its digits (a `1` is narrower than the rest in the prose
+ * face, so it is counted apart), its `.` or `)`, and the spaces after it
+ * (counted with `spaces`). Counted from the document, never measured.
+ */
+export interface ListHang {
+  tabs: number
+  spaces: number
+  bullet: number
+  digits: number
+  ones: number
+  delim: number
+}
+const NO_HANG: ListHang = { tabs: 0, spaces: 0, bullet: 0, digits: 0, ones: 0, delim: 0 }
+const HANG_PROPS: [keyof ListHang, string][] = [
+  ['tabs', '--cm-list-tabs'],
+  ['spaces', '--cm-list-spaces'],
+  ['bullet', '--cm-list-bullet'],
+  ['digits', '--cm-list-digits'],
+  ['ones', '--cm-list-ones'],
+  ['delim', '--cm-list-delim'],
+]
+/** The style a list line carries: its depth, then only the hang counts that are not zero. */
+export function listLineStyle(depth: number, hang: ListHang = NO_HANG): string {
+  const parts = [`--cm-list-depth: ${depth}`]
+  for (const [key, prop] of HANG_PROPS) if (hang[key]) parts.push(`${prop}: ${hang[key]}`)
+  return parts.join('; ')
+}
+const listLine = (depth: number, hang: ListHang): Decoration => {
+  const style = listLineStyle(depth, hang)
+  let deco = LIST_LINE.get(style)
+  if (!deco) LIST_LINE.set(style, (deco = Decoration.line({ class: cls.LIST_LINE, attributes: { style } })))
+  return deco
+}
+/** A quote's `>` run before a list in a quote: hidden or hung by the quote's own rule, so not counted. */
+const QUOTE_PREFIX = /^[ \t]*(?:>[ \t]?)+/
+function leadingHang(prefix: string): ListHang {
+  const lead = prefix.replace(QUOTE_PREFIX, '')
+  let tabs = 0
+  let spaces = 0
+  for (const ch of lead) {
+    if (ch === '\t') tabs++
+    else if (ch === ' ') spaces++
+    else break
+  }
+  return { ...NO_HANG, tabs, spaces }
+}
 const HTML_MARK = mark('cm-html')
 const BLOCK_ID = mark('cm-block-id')
 const TABLE_PIPE = mark('cm-table-pipe')
@@ -563,12 +610,38 @@ class Builder {
     const from = Math.max(node.from, this.range.from)
     const to = Math.min(node.to, this.range.to)
     if (to < from) return
-    const deco = listLine(depth)
+    const head = this.doc.lineAt(node.from).number
     const last = this.doc.lineAt(to).number
     for (let n = this.doc.lineAt(from).number; n <= last; n++) {
       if (nested.some(([a, b]) => n >= a && n <= b)) continue
-      this.line(this.doc.line(n), deco)
+      const line = this.doc.line(n)
+      this.line(line, listLine(depth, n === head ? this.markerHang(node, line) : this.leadHang(line)))
     }
+  }
+
+  /** A continuation line's hang: only its own leading whitespace. */
+  private leadHang(line: Line): ListHang {
+    const text = line.text
+    return leadingHang(text.slice(0, text.length - text.trimStart().length))
+  }
+
+  /** The item's first line: the indent before the marker, then the marker itself. */
+  private markerHang(node: SyntaxNodeRef, line: Line): ListHang {
+    const hang = leadingHang(this.doc.sliceString(line.from, node.from))
+    const mark = node.node.getChild('ListMark')
+    if (!mark) return hang
+    const ordered = node.node.parent?.name === 'OrderedList'
+    // A bullet is one column, and so is a task's checkbox, which replaces it
+    // (or follows an ordered marker).
+    if (!ordered || node.node.getChild('Task')) hang.bullet = 1
+    if (ordered) {
+      const digits = this.doc.sliceString(mark.from, mark.to - 1)
+      hang.ones = digits.split('1').length - 1
+      hang.digits = digits.length - hang.ones
+      hang.delim = 1
+      hang.spaces += this.skipSpace(mark.to, line.to) - mark.to
+    }
+    return hang
   }
 
   /**
