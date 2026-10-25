@@ -151,14 +151,18 @@ export function actorsText(actors: readonly Actor[], LL: TranslationFunctions): 
  * hint. The relay names a token it does not know (`unknown_token`); every
  * other refusal (a document outside the share, a failure the relay does not
  * name) is `other`, and its words say nothing about links. A dead token is
- * this device's own access when the room is the vault's root (`mount: ''`),
- * else the link of a folder someone shared.
+ * the link's when the room is a share this device joined (the event says so,
+ * `joined` — a folder share opened as a vault of its own has its room at the
+ * root), else this device's own access. An event without the field (logged
+ * before it existed) falls back to the room's place: the root (`mount: ''`)
+ * is this device's, a folder is a share.
  */
 export type RefusalCase = 'device' | 'link' | 'other'
 
 export function refusalCase(e: AppEvent<'relay.state'>): RefusalCase {
   if (e.payload.reason !== 'unknown_token') return 'other'
-  return e.scope.mount === '' ? 'device' : 'link'
+  const joined = e.payload.joined ?? e.scope.mount !== ''
+  return joined ? 'link' : 'device'
 }
 
 /** The words for one event, in the active locale. */

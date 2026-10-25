@@ -67,7 +67,17 @@ export interface EventPayloads {
    * `RELAY_OFFLINE_MS` (or never, since boot); `refused` carries the relay's
    * reason.
    */
-  'relay.state': { to: 'connected' | 'reconnecting' | 'offline' | 'refused'; reason?: string }
+  'relay.state': {
+    to: 'connected' | 'reconnecting' | 'offline' | 'refused'
+    reason?: string
+    /**
+     * On `refused`: whether the room is a share someone else made and this
+     * device joined (a joined mount, or a folder share opened as a vault of
+     * its own, whose room is then the root). A dead token there is the
+     * link's, not this device's. Absent on events logged before it existed.
+     */
+    joined?: boolean
+  }
   'mount.changed': { what: AdoptNoticeKind | 'status'; from?: MountStatus; to?: MountStatus }
   'review.opened': { guid: string; reason: DivergenceReview['reason'] }
   'breaker.held': { count: number }
