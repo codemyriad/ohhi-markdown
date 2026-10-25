@@ -83,6 +83,19 @@ function handleHealthRequest(
   return true
 }
 
+/**
+ * Why the relay refused a connection, as the client reads it. Hocuspocus
+ * answers every throw in `onAuthenticate` with `permission-denied` unless
+ * the thrown value carries a `reason`, which it forwards verbatim — so the
+ * two refusals the client can word usefully say which they are. Anything
+ * else (a database failure) stays the default.
+ */
+export type RefusalReason = 'unknown_token' | 'out_of_scope'
+
+function refusal(reason: RefusalReason, message: string): Error & { reason: RefusalReason } {
+  return Object.assign(new Error(message), { reason })
+}
+
 export function createRelay(opts: RelayOptions): Relay {
   const db = new RelayDb(opts.dbPath)
 
@@ -105,7 +118,7 @@ export function createRelay(opts: RelayOptions): Relay {
 
     async onAuthenticate({ token, documentName, connectionConfig }) {
       const share = db.getShare(token)
-      if (!share) throw new Error('unknown share token')
+      if (!share) throw refusal('unknown_token', 'unknown share token')
       // One prefix, every doc of the room — the folder doc
       // (`<guid>/folder`) is just another name under it.
       const inScope = documentName.startsWith(`${share.folderGuid}/`)
@@ -116,7 +129,7 @@ export function createRelay(opts: RelayOptions): Relay {
         !inScope &&
         share.kind === 'device' &&
         db.ancestorsOf(documentName.split('/')[0] ?? '').includes(share.folderGuid)
-      if (!inScope && !viaAncestry) throw new Error('document outside share scope')
+      if (!inScope && !viaAncestry) throw refusal('out_of_scope', 'document outside share scope')
       if (share.readOnly) connectionConfig.readOnly = true
       return { folderGuid: share.folderGuid, readOnly: share.readOnly, kind: share.kind }
     },

@@ -56,8 +56,17 @@ const notices = {
    * their surface (the no-link warning, the mounts reasons) points there
    * rather than repeating them here.
    */
-  /** Words for a person: the developer detail (room, token, seeding) stays in the console (`MountSession.authFailure`). */
-  relay_refused: 'The relay refused the link for this folder ({reason:string}).',
+  /**
+   * Words for a person: the developer detail (room, token, seeding) stays in
+   * the console (`MountSession.authFailure`). Worded by the relay's reason and
+   * by whose room it is (`refusalCase`, apps/web/src/lib/event-text.ts): a
+   * link the relay no longer knows, on a joined folder or on this vault's own
+   * room, and any other refusal, which says nothing about links.
+   */
+  relay_refused: 'The relay refused this folder ({reason:string}).',
+  relay_refused_vault: 'The relay refused this vault ({reason:string}).',
+  relay_refused_link: 'The relay no longer accepts the link for this folder.',
+  relay_refused_device: 'The relay no longer accepts this device for this vault.',
   /** *Stop sharing*'s opt-in revoke failed AFTER the folder was unshared. */
   revoke_failed: 'The folder is no longer shared, but its links on {host:string} could not be revoked: {message:string}',
   /** Adopt outcomes that were silently dropped before S22; logged at info, never toasted. */
@@ -794,7 +803,9 @@ const log = {
   },
   /** What to do next, shown under an error row that has one. */
   hints: {
-    relay_refused: 'Ask whoever shared the folder for a new link, then add it from the folder’s menu.',
+    relay_refused_link: 'Ask whoever shared the folder for a new link, then add it from the folder’s menu.',
+    relay_refused_device:
+      'This device’s access was refused. Link it again from a device that still has access, in Settings › Sync & devices.',
     no_token: 'Add a link for this folder from its menu, or forget it on this device.',
   },
 }

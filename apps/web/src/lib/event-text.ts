@@ -146,6 +146,21 @@ export function actorsText(actors: readonly Actor[], LL: TranslationFunctions): 
   return g.many({ a: names[0]!, b: names[1]!, count: names.length - 2 })
 }
 
+/**
+ * Which refusal a `relay.state` → `refused` event is, for its words and its
+ * hint. The relay names a token it does not know (`unknown_token`); every
+ * other refusal (a document outside the share, a failure the relay does not
+ * name) is `other`, and its words say nothing about links. A dead token is
+ * this device's own access when the room is the vault's root (`mount: ''`),
+ * else the link of a folder someone shared.
+ */
+export type RefusalCase = 'device' | 'link' | 'other'
+
+export function refusalCase(e: AppEvent<'relay.state'>): RefusalCase {
+  if (e.payload.reason !== 'unknown_token') return 'other'
+  return e.scope.mount === '' ? 'device' : 'link'
+}
+
 /** The words for one event, in the active locale. */
 export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
   switch (e.kind) {
@@ -157,8 +172,19 @@ export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
       const p = (e as AppEvent<'relay.state'>).payload
       const host = e.actor.name ?? LL.web.shared.relay.unknown_host()
       switch (p.to) {
-        case 'refused':
-          return LL.web.notices.relay_refused({ reason: p.reason ?? '' })
+        case 'refused': {
+          const n = LL.web.notices
+          switch (refusalCase(e as AppEvent<'relay.state'>)) {
+            case 'device':
+              return n.relay_refused_device()
+            case 'link':
+              return n.relay_refused_link()
+            default:
+              return e.scope.mount === ''
+                ? n.relay_refused_vault({ reason: p.reason ?? '' })
+                : n.relay_refused({ reason: p.reason ?? '' })
+          }
+        }
         case 'connected':
           return LL.web.notices.relay_connected({ host })
         case 'reconnecting':

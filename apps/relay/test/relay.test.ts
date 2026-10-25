@@ -89,11 +89,12 @@ describe('relay integration', () => {
     expect(c2.doc.getText('content').toString()).toBe('hello from c1')
   })
 
-  it('rejects a connection with an unknown token', async () => {
+  it('rejects a connection with an unknown token, saying so', async () => {
     const bad = connect(relay.port, DOC, 'not-a-real-token')
 
     await until(() => bad.authFailedReason() !== null, 'authentication failure')
-    expect(bad.authFailedReason()).toBe('permission-denied')
+    // The reason reaches the client, so it can tell a dead link from a scope refusal.
+    expect(bad.authFailedReason()).toBe('unknown_token')
     expect(bad.provider.isAuthenticated).toBe(false)
   })
 
