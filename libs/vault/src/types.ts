@@ -119,8 +119,15 @@ export interface VaultAdapter {
   removeDir(path: string): Promise<void>
   /** Move a directory and everything under it (copy+delete where the platform has no rename). */
   renameDir(from: string, to: string): Promise<void>
-  /** Raw change notifications; QuiescedWatcher turns these into stable events. */
-  watch(cb: (ev: WatchEvent) => void): () => void
+  /**
+   * Raw change notifications; QuiescedWatcher turns these into stable events.
+   *
+   * `onError` hears a watcher that failed to start or died: a vault with no
+   * watcher silently stops ingesting outside edits, which is an error the app
+   * must report, never swallow (golden rule 4 in spirit). An adapter that has
+   * nothing to watch by design (OPFS: the app is the only writer) never calls it.
+   */
+  watch(cb: (ev: WatchEvent) => void, onError?: (err: unknown) => void): () => void
   /**
    * The files directly inside one IGNORED app directory (`.ohhi/layouts`),
    * as vault-relative paths; `[]` when it does not exist. `list()` never sees
