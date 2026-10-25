@@ -217,6 +217,45 @@ describe('Backspace from the start of the text', () => {
   })
 })
 
+/** The style every list line carries, by the line's text. */
+function lineStyles(state: EditorState): Record<string, string> {
+  const out: Record<string, string> = {}
+  buildPreview(state).decorations.between(0, state.doc.length, (from, to, deco) => {
+    const spec = deco.spec as { class?: string; attributes?: { style?: string } }
+    if (from !== to || spec.class !== 'cm-list-line') return
+    out[state.doc.lineAt(from).text] = spec.attributes?.style ?? ''
+  })
+  return out
+}
+
+describe('the hanging indent (a wrapped item lines up with its text)', () => {
+  it('counts what precedes the text on every marker shape', () => {
+    const note = ['- dash', '* star', '1. one', '10. ten', '- [ ] task', '\t- nested', '\t\t1. deep', '  - spaced', ''].join(
+      '\n'
+    )
+    expect(lineStyles(makeState(note, { at: note.length }))).toEqual({
+      // A bullet (either character) is one column, drawn by the widget.
+      '- dash': '--cm-list-depth: 0; --cm-list-bullet: 1',
+      '* star': '--cm-list-depth: 0; --cm-list-bullet: 1',
+      // An ordered marker is text: digits (a `1` apart), the `.`, the space.
+      '1. one': '--cm-list-depth: 0; --cm-list-spaces: 1; --cm-list-ones: 1; --cm-list-delim: 1',
+      '10. ten': '--cm-list-depth: 0; --cm-list-spaces: 1; --cm-list-digits: 1; --cm-list-ones: 1; --cm-list-delim: 1',
+      // A task's checkbox takes the bullet's column.
+      '- [ ] task': '--cm-list-depth: 0; --cm-list-bullet: 1',
+      // The indent before the marker counts too, tabs and spaces apart.
+      '\t- nested': '--cm-list-depth: 1; --cm-list-tabs: 1; --cm-list-bullet: 1',
+      '\t\t1. deep': '--cm-list-depth: 2; --cm-list-tabs: 2; --cm-list-spaces: 1; --cm-list-ones: 1; --cm-list-delim: 1',
+      '  - spaced': '--cm-list-depth: 1; --cm-list-spaces: 2; --cm-list-bullet: 1',
+    })
+  })
+
+  it('is the same with the caret on the line, and a continuation line hangs at its own indent', () => {
+    const note = '- a\n\tmore a\n'
+    expect(lineStyles(makeState(note, { at: 2 }))['- a']).toBe('--cm-list-depth: 0; --cm-list-bullet: 1')
+    expect(lineStyles(makeState(note, { at: 0 }))['\tmore a']).toBe('--cm-list-depth: 0; --cm-list-tabs: 1')
+  })
+})
+
 describe('depth', () => {
   const note = '- a\n\t- b\n\t\t- c\n\t\tmore c\n\t- d\n1. one\n\t1. two\n'
 
