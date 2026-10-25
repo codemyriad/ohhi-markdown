@@ -151,7 +151,14 @@ export class VaultSession {
         this.pathToGuid.set(path, entry.guid)
       }
     }
-    this.subscriptions.push(this.adapter.watch((ev) => this.onWatch(ev)))
+    this.subscriptions.push(
+      this.adapter.watch(
+        (ev) => this.onWatch(ev),
+        (err) => {
+          if (!this.disposed) this.events.onError?.(err)
+        }
+      )
+    )
     this.subscriptions.push(
       this.folderDoc.getMap().observe((origin) => {
         this.refreshMountRoots()
