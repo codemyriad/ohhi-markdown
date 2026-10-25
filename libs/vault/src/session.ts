@@ -376,6 +376,21 @@ export class VaultSession {
     return true
   }
 
+  /**
+   * Move a held watch batch (the breaker's pause and its queues) to the
+   * session replacing this one, so the host's confirm or dismiss still finds
+   * it after a restart. Call before `next.start()`.
+   */
+  handOverHeld(next: VaultSession): void {
+    if (!this.paused && this.queuedPaths.size === 0 && this.queuedNew.size === 0) return
+    next.paused = next.paused || this.paused
+    for (const p of this.queuedPaths) next.queuedPaths.add(p)
+    for (const p of this.queuedNew) next.queuedNew.add(p)
+    this.paused = false
+    this.queuedPaths.clear()
+    this.queuedNew.clear()
+  }
+
   /** Is a watch batch still listing or enrolling? A host restarting the session waits for it. */
   watchBusy(): boolean {
     return this.watchPending > 0

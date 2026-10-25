@@ -2546,8 +2546,9 @@ export class MountSession {
           await this.enrolNew(paths)
         },
         // The app's own create, attachment and import writes reach the
-        // watcher before their map entry: no listing for those.
-        ignores: (path) => this.appWrites.has(path),
+        // watcher before their map entry: no listing for those. Nor for a
+        // file of a held or dismissed boot batch, which waits for its dialog.
+        ignores: (path) => this.appWrites.has(path) || this.bootHeld(path),
       },
       events: {
         onReview: (review) => {
@@ -2615,15 +2616,30 @@ export class MountSession {
 
   // ---- mass-change breaker (M3): one held batch, watch- or boot-shaped ----
 
-  /** Which machinery holds the current batch (null = nothing held). */
-  private pendingBatchKind: 'watch' | 'boot' | 'ghost' | null = null
+  /**
+   * Which machinery holds what is behind the dialog (empty = nothing held).
+   * More than one when a batch arrived while another was held: it joins the
+   * held one rather than raising a second dialog over it, and the one confirm
+   * or dismiss covers every kind here.
+   */
+  private heldKinds = new Set<'watch' | 'boot' | 'ghost'>()
   /** The held ghost-replay batch's work (N1) — see replayDeletes. */
   private pendingGhostBatch: (() => Promise<void>) | null = null
-  /** How many paths the held batch has — what a dismissal logs. */
+  /** How many paths are held, every joined batch included — what a dismissal logs. */
   private pendingBatchCount = 0
 
   private holdBatch(kind: 'watch' | 'boot' | 'ghost', paths: string[], apply?: () => Promise<void>): void {
-    if (kind === 'ghost') this.pendingGhostBatch = apply ?? null
+    if (kind === 'ghost') {
+      const before = this.pendingGhostBatch
+      const next = apply ?? null
+      this.pendingGhostBatch =
+        before && next
+          ? async () => {
+              await before()
+              await next()
+            }
+          : (next ?? before)
+    }
     // Held behind BreakerDialog (its own surface), so info, like reviews.
     this.logEvent({
       kind: 'breaker.held',
@@ -2633,9 +2649,12 @@ export class MountSession {
       payload: { count: paths.length },
     })
     if (this.events.onBreaker) {
-      this.pendingBatchKind = kind
-      this.pendingBatchCount = paths.length
-      this.events.onBreaker(paths)
+      const raised = this.heldKinds.size > 0
+      this.heldKinds.add(kind)
+      this.pendingBatchCount += paths.length
+      // One dialog at a time: a second batch is never raised over the first
+      // (which would also strand the first's kind, and its confirm with it).
+      if (!raised) this.events.onBreaker(paths)
     } else {
       // No host affordance (headless/tests): keep the historical auto-confirm.
       console.warn('[workspace] mass-change breaker tripped — auto-confirming', paths)
@@ -2645,36 +2664,38 @@ export class MountSession {
     }
   }
 
-  /** Apply the held batch (host confirm affordance). */
+  /** Apply everything held (host confirm affordance). */
   async confirmBreaker(): Promise<void> {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
-    if (kind === 'watch') await this.sessionRef?.confirmPendingBatch()
-    else if (kind === 'boot') await this.confirmBootBatch()
-    else if (kind === 'ghost') await this.confirmGhostBatch()
+    const kinds = new Set(this.heldKinds)
+    this.heldKinds.clear()
+    this.pendingBatchCount = 0
+    // The watch queue first: confirming a boot batch restarts the session.
+    if (kinds.has('watch')) await this.sessionRef?.confirmPendingBatch()
+    if (kinds.has('ghost')) await this.confirmGhostBatch()
+    if (kinds.has('boot')) await this.confirmBootBatch()
   }
 
-  /** Drop the held batch: nothing is enrolled, ingested, or reconciled. */
+  /** Drop everything held: nothing is enrolled, ingested, or reconciled. */
   dismissBreaker(): void {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
+    const kinds = new Set(this.heldKinds)
+    this.heldKinds.clear()
     // The log keeps what the dialog's "Not now" let go of (info, like the
     // hold: the dialog was its surface).
-    if (kind !== null) {
+    if (kinds.size > 0) {
       this.logEvent({
         kind: 'breaker.dismissed',
         level: 'info',
         scope: this.scopeFor(),
-        actor: { kind: kind === 'ghost' ? 'app' : 'disk' },
+        actor: { kind: kinds.size === 1 && kinds.has('ghost') ? 'app' : 'disk' },
         payload: { count: this.pendingBatchCount },
       })
     }
     this.pendingBatchCount = 0
-    if (kind === 'watch') this.sessionRef?.dismissPendingBatch()
-    else if (kind === 'boot') this.dismissBootBatch()
+    if (kinds.has('watch')) this.sessionRef?.dismissPendingBatch()
+    if (kinds.has('boot')) this.dismissBootBatch()
     // Dismissing a ghost batch keeps the mount's files: the parent keys were
     // hard-deleted either way, so the two maps still agree (S10 Q5 row 9).
-    else if (kind === 'ghost') this.pendingGhostBatch = null
+    if (kinds.has('ghost')) this.pendingGhostBatch = null
   }
 
   private async confirmGhostBatch(): Promise<void> {
@@ -2695,8 +2716,13 @@ export class MountSession {
       await cur.watchSettled()
     }
     if (waited && this.stopped) return
-    this.sessionRef?.dispose()
+    const old = this.sessionRef
+    old?.dispose()
     this.sessionRef = this.makeSession()
+    // A watch batch held behind the dialog belongs to the vault, not to one
+    // session instance: the new session holds it, so the dialog's confirm or
+    // dismiss still reaches it.
+    old?.handOverHeld(this.sessionRef)
     await this.sessionRef.start()
     // The new VaultSession starts with an empty ctx.openPaths — re-mark every
     // path a view still holds, or the first foreign update materializes over
@@ -3039,6 +3065,7 @@ export class MountSession {
 
     if (held) {
       this.pendingBootBatch = { additions: additions.map((s) => s.path), changed }
+      this.pendingBootAdditions = new Set(this.pendingBootBatch.additions)
       this.holdBatch('boot', touched)
       // Unchanged docs still reconcile below (doc-ahead-of-LCA is our own
       // durable state, not an external change — safe while the batch is held).
@@ -3105,6 +3132,18 @@ export class MountSession {
 
   /** Held boot batch, if the mass-change breaker tripped during bootScan. */
   private pendingBootBatch: { additions: string[]; changed: string[] } | null = null
+  /** The held boot batch's additions, for the live-enrol check. */
+  private pendingBootAdditions: ReadonlySet<string> = new Set()
+  /**
+   * Additions of a boot batch dismissed this session ("Not now"): they wait
+   * for the next launch's scan, so live enrolment leaves them alone too.
+   */
+  private readonly bootDismissed = new Set<string>()
+
+  /** Does `path` belong to a held boot batch, or to one dismissed this session? */
+  private bootHeld(path: string): boolean {
+    return this.pendingBootAdditions.has(path) || this.bootDismissed.has(path)
+  }
 
   /**
    * The new folders of a held (or dismissed) boot batch: `syncDirs` leaves
@@ -3145,12 +3184,13 @@ export class MountSession {
     const batch = this.pendingBootBatch
     if (!batch) return
     this.pendingBootBatch = null
+    this.pendingBootAdditions = new Set()
     // Re-derive the boundaries: a mount entry can have arrived while the batch
     // sat waiting for a human, and a held batch must not enrol or reconcile
     // into a subtree whose authority has since moved (N1).
     const mountRoots = this.mountRoots()
     this.heldDirs = null
-    const enrolled = await this.enrolNew(batch.additions)
+    const enrolled = await this.enrolNew(batch.additions, { batch: true })
     if (enrolled.length > 0) await this.restartSession()
     for (const path of batch.changed) {
       if (this.underMount(path, mountRoots)) continue
@@ -3185,6 +3225,7 @@ export class MountSession {
         (p) =>
           !live.has(p) &&
           !this.appWrites.has(p) &&
+          !this.bootHeld(p) &&
           !isScratchName(p) &&
           !this.underMount(p, mountRoots) &&
           (asked.has(p) || under.some((d) => p.startsWith(d)))
@@ -3199,16 +3240,25 @@ export class MountSession {
    * is skipped (a held batch can sit for a long time). Returns what enrolled.
    * The caller makes the VaultSession track them.
    */
-  private async enrolNew(paths: readonly string[]): Promise<string[]> {
+  private async enrolNew(paths: readonly string[], opts: { batch?: boolean } = {}): Promise<string[]> {
     if (this.stopped) return []
     const mountRoots = this.mountRoots()
     const map = this.folderDoc.getMap()
     const todo = paths.filter((p) => {
       const e = map.get(p)
-      return (!e || e.deleted) && !this.underMount(p, mountRoots) && !this.appWrites.has(p)
+      return (
+        (!e || e.deleted) &&
+        !this.underMount(p, mountRoots) &&
+        !this.appWrites.has(p) &&
+        // A held or dismissed boot batch's file waits for its own confirm (or
+        // the next launch); only that confirm enrols it.
+        (opts.batch === true || !this.bootHeld(p))
+      )
     })
     if (todo.length === 0) return []
-    // These files' own folders are no longer a held batch's to keep out.
+    // These files' own folders are no longer a held batch's to keep out —
+    // none of them is a held file, so no held batch's folder is released
+    // on a live enrol's account unless something new really lives in it.
     if (this.heldDirs) for (const d of this.dirsOf(todo)) this.heldDirs.delete(d)
     await this.syncDirs()
     const enrolled: string[] = []
@@ -3229,9 +3279,14 @@ export class MountSession {
     return enrolled
   }
 
-  /** Drop a held boot batch: nothing is enrolled or reconciled. */
+  /**
+   * Drop a held boot batch: nothing is enrolled or reconciled, and its new
+   * files stay out until the next launch's scan, live enrolment included.
+   */
   dismissBootBatch(): void {
+    for (const p of this.pendingBootBatch?.additions ?? []) this.bootDismissed.add(p)
     this.pendingBootBatch = null
+    this.pendingBootAdditions = new Set()
   }
 
   /** Enroll one on-disk file that is not in the folder map (boot delta scan). */
