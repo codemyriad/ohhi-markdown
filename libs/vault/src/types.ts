@@ -156,6 +156,14 @@ export interface VaultAdapter {
    * nothing but the app writes there.
    */
   watchAppDir?(dir: string, cb: (paths: string[]) => void): () => void
+  /**
+   * True for a path this view hides NOW (`ignoringAdapter`: at or under a
+   * mount root another session manages). Synchronous and live, so a caller
+   * that listed a while ago can re-check a path at the moment it commits it
+   * (a carve can hide a subtree in between). Optional: a view that hides
+   * nothing omits it.
+   */
+  hides?(path: string): boolean
 }
 
 export type EolFlavor = 'lf' | 'crlf' | 'raw'

@@ -2021,6 +2021,16 @@ export class MountSession {
     return false
   }
 
+  /**
+   * Is `path` another session's, as of now? Under a mount boundary in this
+   * map, or hidden by the adapter's live ignore set (`VaultAdapter.hides`) —
+   * the only boundary a private vault's carve leaves, since it writes no
+   * mount entry. Enrolment re-checks this at commit time.
+   */
+  private outOfReach(path: string, roots = this.mountRoots()): boolean {
+    return this.underMount(path, roots) || this.adapter.hides?.(path) === true
+  }
+
   /** The current `kind:'mount'` entries, sorted by path. */
   mountEntries(): MountEntryInfo[] {
     return this.folderDoc
@@ -3243,7 +3253,7 @@ export class MountSession {
           !this.appWrites.has(p) &&
           !this.bootHeld(p) &&
           !isScratchName(p) &&
-          !this.underMount(p, mountRoots) &&
+          !this.outOfReach(p, mountRoots) &&
           (asked.has(p) || under.some((d) => p.startsWith(d)))
       )
   }
@@ -3264,7 +3274,7 @@ export class MountSession {
       const e = map.get(p)
       return (
         (!e || e.deleted) &&
-        !this.underMount(p, mountRoots) &&
+        !this.outOfReach(p, mountRoots) &&
         !this.appWrites.has(p) &&
         // A held or dismissed boot batch's file waits for its own confirm (or
         // the next launch); only that confirm enrols it.
@@ -3316,6 +3326,10 @@ export class MountSession {
     const claimed = (): boolean => {
       const e = this.folderDoc.getMap().get(path)
       if (e !== undefined && !e.deleted && opts.replace !== true) return true
+      // Another session's now: a carve that started after this enrol listed
+      // the path (a private vault's carve writes no mount entry, so the
+      // adapter's live ignore set is the only boundary there).
+      if (this.outOfReach(path)) return true
       return opts.live === true && this.appWrites.has(path)
     }
     try {

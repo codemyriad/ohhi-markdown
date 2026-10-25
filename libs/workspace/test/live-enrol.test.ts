@@ -12,6 +12,7 @@ import { createYjsEngine } from '@ohhi/sync'
 import {
   BlobDocStore,
   FileJournal,
+  ignoringAdapter,
   JsonFileLcaStore,
   lcaGuard,
   MemStoreDir,
@@ -491,6 +492,32 @@ describe('live enrol-on-create — the app’s own create or import of the same 
     expect(guidsFor(session, 'n.md')).toHaveLength(1)
     expect(session.docForPath('n.md')?.getText()).toBe('imported\n')
     for (const [g, p] of seen) if (p === 'n.md') expect(g).toBe(guid)
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+})
+
+/**
+ * A carve in a PRIVATE vault writes no mount entry: the root's only guard is
+ * the live ignore set the carve extends just before it detaches the subtree.
+ * A live enrol that listed the path before that must re-check at commit time.
+ */
+describe('live enrol-on-create — a carve that starts while a new file settles', () => {
+  it('the root does not enrol a file under the folder being carved', async () => {
+    const base = new MemVaultAdapter()
+    await base.writeAtomic('keep.md', enc.encode('kept\n'))
+    const ignore = new Set<string>()
+    const adapter = ignoringAdapter(base, ignore)
+    const { session, clock, errors } = await boot(adapter)
+
+    base.externalWrite('team/new.md', enc.encode('new\n'))
+    await settle() // listed while 'team' was still the root's; the quiesce waits
+    ignore.add('team') // the carve's addIgnore, just before its detach
+    expect(adapter.hides?.('team/new.md')).toBe(true)
+    await settle(clock)
+
+    expect(session.mapEntries().map(([p]) => p).filter((p) => p.startsWith('team'))).toEqual([])
+    expect(textPaths(session)).toEqual(['keep.md'])
     expect(errors).toEqual([])
     session.dispose()
   })

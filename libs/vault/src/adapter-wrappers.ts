@@ -50,6 +50,7 @@ export function ignoringAdapter(base: VaultAdapter, ignored: ReadonlySet<string>
     return false
   }
   return {
+    hides: hidden,
     list: async () => (await base.list()).filter((s) => !hidden(s.path)),
     listDirs: async () => (await base.listDirs()).filter((d) => !hidden(d)),
     read: (path) => base.read(path),
