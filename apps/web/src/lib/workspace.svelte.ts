@@ -795,9 +795,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   /** Copyable link per room, kept across mount-list rebuilds. */
   const linkByRoom = new Map<string, string>()
   /** Which session owns a review's doc (resolveReview routing). */
-  const reviewOwner = new Map<string, MountSession>()
+  const reviewOwner = new Map<string, Promise<MountSession>>()
   /** Which session raised the held breaker batch. */
-  let breakerOwner: MountSession | null = null
+  let breakerOwner: Promise<MountSession> | null = null
   /** Per-room presence, published as ui.presenceByRoom. */
   const presenceByRoom = new Map<string, string[]>()
   /** Per-doc presence by guid (rename-stable), mapped to paths through the rows. */
@@ -1017,6 +1017,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // replaced by id (a fold re-reports its id)…
     const roomLog = new Map<string, AppEvent>()
     roomEvents.set(opts.room, roomLog)
+    // The session a held batch or a review belongs to. A mount's boot raises
+    // both from inside `MountSession.create`, before the session is in the
+    // registry, so `sessionOf` misses it there: fall back to the instance
+    // being built, never the root, which holds neither (a lost Apply).
+    // `create` awaits the room log before booting, so `session` is set by then.
+    const owner = (): Promise<MountSession> => {
+      const registered = sessionOf(opts.room)
+      return registered ? Promise.resolve(registered) : session
+    }
     const session = MountSession.create({
       engine,
       adapter,
@@ -1056,7 +1065,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           cfg.onPathsRenamed?.(full)
         },
         onBreaker: (paths) => {
-          breakerOwner = sessionOf(opts.room)
+          breakerOwner = owner()
           ui.breaker = {
             paths: opts.path === '' ? paths : paths.map((p) => `${opts.path}/${p}`),
           }
@@ -1072,8 +1081,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           refreshPresenceByPath()
         },
         onReview: (review) => {
-          const owner = sessionOf(opts.room)
-          if (owner) reviewOwner.set(review.guid, owner)
+          reviewOwner.set(review.guid, owner())
           ui.reviews = [...ui.reviews.filter((r) => r.guid !== review.guid), review]
         },
         onReviewCleared: (guid) => {
@@ -2056,10 +2064,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       if (r) await r.session.restorePreImage(r.rel, seq)
     },
-    resolveReview: (guid, mergedText) =>
-      (reviewOwner.get(guid) ?? rootSession!).resolveReview(guid, mergedText),
-    resolveVanished: (guid, action) =>
-      (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
+    resolveReview: async (guid, mergedText) =>
+      (await (reviewOwner.get(guid) ?? rootSession!)).resolveReview(guid, mergedText),
+    resolveVanished: async (guid, action) =>
+      (await (reviewOwner.get(guid) ?? rootSession!)).resolveVanished(guid, action),
     addShareMount: (link, dir) => duringSurgery(() => doJoinMount(link, dir)),
     // Every mount surgery is bracketed HERE rather than inside each machine:
     // one place, and `ui.settling` cannot be left true by an early return
@@ -2071,13 +2079,20 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     linkDevice: doLinkDevice,
     confirmBreaker: async () => {
       ui.breaker = null
-      await (breakerOwner ?? rootSession!).confirmBreaker()
+      const owner = breakerOwner ?? rootSession!
       breakerOwner = null
+      await (await owner).confirmBreaker()
     },
     dismissBreaker: () => {
       ui.breaker = null
-      ;(breakerOwner ?? rootSession!).dismissBreaker()
+      const owner = breakerOwner ?? rootSession!
       breakerOwner = null
+      // The owner may still be booting (a mount's boot raised it); a boot
+      // that failed has nothing to dismiss, and its error is reported there.
+      void Promise.resolve(owner).then(
+        (s) => s.dismissBreaker(),
+        (err: unknown) => console.error('[workspace] dismissBreaker', err)
+      )
     },
     inspect: async (path) => {
       const r = registry.resolve(path)
