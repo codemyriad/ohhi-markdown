@@ -20,6 +20,7 @@ import {
   scopedStoreDir,
 } from '@ohhi/vault'
 import { SimClock } from '@ohhi/testkit'
+import type { AppEvent } from '../src/events.js'
 import { MountSession } from '../src/mount-session.js'
 import type { SyncRecordFields } from '../src/types.js'
 import { yieldMacro } from './fixture.js'
@@ -27,7 +28,10 @@ import { yieldMacro } from './fixture.js'
 const enc = new TextEncoder()
 const ROOM = 'room-live'
 
-async function boot(adapter: MemVaultAdapter, opts: { onBreaker?: (paths: string[]) => void } = {}) {
+async function boot(
+  adapter: MemVaultAdapter,
+  opts: { onBreaker?: (paths: string[]) => void; onEvent?: (e: AppEvent) => void } = {}
+) {
   const engine = createYjsEngine()
   const clock = new SimClock()
   const storeDir = new MemStoreDir()
@@ -59,6 +63,7 @@ async function boot(adapter: MemVaultAdapter, opts: { onBreaker?: (paths: string
       onError: (err) => errors.push(err),
       onDocChanged: (_guid, path) => changed.push(path),
       ...(opts.onBreaker ? { onBreaker: opts.onBreaker } : {}),
+      ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
     },
   })
   return { session, clock, errors, changed }
@@ -154,13 +159,14 @@ describe('live enrol-on-create — the watch breaker counts new files', () => {
     const adapter = new MemVaultAdapter()
     await adapter.writeAtomic('keep.md', enc.encode('kept\n'))
     let breaker: string[] | null = null
-    const booted = await boot(adapter, { onBreaker: (paths) => (breaker = paths) })
+    const events: AppEvent[] = []
+    const booted = await boot(adapter, { onBreaker: (paths) => (breaker = paths), onEvent: (e) => events.push(e) })
     adapter.autoEmit = false
     for (const p of batch) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
     adapter.autoEmit = true
     adapter.emitBatch(batch)
     await settle()
-    return { ...booted, breaker: () => breaker }
+    return { ...booted, breaker: () => breaker, events }
   }
 
   it('21 new files in one event trip the breaker, and nothing enrols while held', async () => {
@@ -180,11 +186,17 @@ describe('live enrol-on-create — the watch breaker counts new files', () => {
     session.dispose()
   })
 
-  it('dismiss enrols none', async () => {
-    const { session } = await held()
+  it('dismiss enrols none, and the log records what was let go', async () => {
+    const { session, events } = await held()
+    expect(events.filter((e) => e.kind === 'breaker.dismissed')).toEqual([])
     session.dismissBreaker()
     await settle()
     expect(textPaths(session)).toEqual(['keep.md'])
+    const dismissed = events.filter((e) => e.kind === 'breaker.dismissed')
+    expect(dismissed.map((e) => e.payload)).toEqual([{ count: 21 }])
+    // A second dismiss with nothing held logs nothing.
+    session.dismissBreaker()
+    expect(events.filter((e) => e.kind === 'breaker.dismissed')).toHaveLength(1)
     session.dispose()
   })
 })

@@ -71,6 +71,8 @@ export interface EventPayloads {
   'mount.changed': { what: AdoptNoticeKind | 'status'; from?: MountStatus; to?: MountStatus }
   'review.opened': { guid: string; reason: DivergenceReview['reason'] }
   'breaker.held': { count: number }
+  /** The held batch was dropped ("Not now"): nothing in it was applied. */
+  'breaker.dismissed': { count: number }
   /** The app's own complaints: a code the host maps to words, plus its arguments. */
   notice: { code: string; params?: Record<string, EventParam> }
 }
@@ -88,6 +90,7 @@ export const EVENT_KINDS = [
   'mount.changed',
   'review.opened',
   'breaker.held',
+  'breaker.dismissed',
   'notice',
 ] as const satisfies readonly EventKind[]
 
