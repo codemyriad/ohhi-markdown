@@ -65,6 +65,12 @@ export interface LiveEnroller {
    * enrolled path; the session then tracks it like one it started with.
    */
   enrol(paths: readonly string[]): Promise<void>
+  /**
+   * Paths the host keeps off live enrolment whatever the listing says — its
+   * own writes in flight, for one. Synchronous, so a watch event naming only
+   * such paths never costs a listing.
+   */
+  ignores?(path: string): boolean
 }
 
 export interface VaultSessionOptions {
@@ -112,9 +118,11 @@ export class VaultSession {
   /** New files held with a tripped breaker: enrolled on confirm, dropped on dismiss. */
   private queuedNew = new Set<string>()
   /**
-   * Watch batches waiting on the enroller, in arrival order. A batch with
-   * nothing unknown runs at once when this is idle (the common case stays
-   * synchronous); otherwise it queues behind, so batches never reorder.
+   * Watch batches waiting on the enroller's listing, in arrival order. A
+   * batch with nothing unknown to the map runs at once and never waits here
+   * (the common case stays synchronous, and an outside edit to a known note
+   * is not held behind someone else's listing); one with unknown paths
+   * queues, so new-file batches never reorder among themselves.
    */
   private watchChain: Promise<void> = Promise.resolve()
   private watchPending = 0
@@ -366,20 +374,33 @@ export class VaultSession {
     const paths = ev.paths.filter((p) => !this.underMount(p))
     if (paths.length === 0) return
     const known = paths.filter((p) => this.pathToGuid.has(p))
-    const unknown = this.enroller ? paths.filter((p) => !this.pathToGuid.has(p)) : []
-    if (unknown.length === 0 && this.watchPending === 0) {
-      void this.handleWatch(paths, known, []).catch((err) => this.events.onError?.(err))
+    // Unknown means unknown to the folder MAP, in any kind: an attachment, a
+    // folder or a note the map already holds needs no listing — only a path
+    // nobody has enrolled can be a new file (or a folder of them).
+    const map = this.folderDoc.getMap()
+    const enroller = this.enroller
+    const unknown = enroller
+      ? paths.filter((p) => {
+          if (this.pathToGuid.has(p)) return false
+          const entry = map.get(p)
+          if (entry && !entry.deleted) return false
+          return !enroller.ignores?.(p)
+        })
+      : []
+    if (unknown.length === 0) {
+      // Nothing to list: handled at once, never queued behind a listing.
+      void this.handleWatch(known, []).catch((err) => this.events.onError?.(err))
       return
     }
     this.watchPending++
     this.watchChain = this.watchChain
       .then(async () => {
-        const fresh = unknown.length > 0 ? await this.enroller!.candidates(unknown) : []
+        const fresh = await enroller!.candidates(unknown)
         if (this.disposed) return
         // Re-split: a batch queued behind an enrolment may name a path that
         // enrolment just made known.
         const nowKnown = paths.filter((p) => this.pathToGuid.has(p))
-        await this.handleWatch(paths, nowKnown, fresh.filter((p) => !this.pathToGuid.has(p)))
+        await this.handleWatch(nowKnown, fresh.filter((p) => !this.pathToGuid.has(p)))
       })
       .catch((err) => this.events.onError?.(err))
       .finally(() => {
@@ -392,7 +413,7 @@ export class VaultSession {
    * enrolled. The breaker counts both — an agent's 21 new notes are as much a
    * mass change as a branch switch rewriting 21 old ones.
    */
-  private async handleWatch(paths: string[], known: string[], fresh: string[]): Promise<void> {
+  private async handleWatch(known: string[], fresh: string[]): Promise<void> {
     if (known.length + fresh.length > this.ctx.thresholds.massChangePaths) {
       this.paused = true
       for (const p of known) this.queuedPaths.add(p)
@@ -400,17 +421,16 @@ export class VaultSession {
       this.events.onBreaker?.([...known, ...fresh])
       return
     }
-    const freshSet = new Set(fresh)
-    const rest = fresh.length > 0 ? paths.filter((p) => !freshSet.has(p)) : paths
     if (this.paused) {
-      for (const p of rest) this.queuedPaths.add(p)
+      for (const p of known) this.queuedPaths.add(p)
       for (const p of fresh) this.queuedNew.add(p)
       return
     }
     if (fresh.length > 0) await this.enrolLive(fresh)
-    // An unknown path that is not a candidate (a deletion of a file we never
-    // knew, a folder event) is a no-op in reconcilePath, as before.
-    for (const path of rest) this.quiesceThenReconcile(path)
+    // Only a tracked note has anything to reconcile: a path the map holds as
+    // an attachment or a folder, or one that is neither known nor a candidate
+    // (a deletion of a file we never knew), is nothing to read.
+    for (const path of known) this.quiesceThenReconcile(path)
   }
 
   /**

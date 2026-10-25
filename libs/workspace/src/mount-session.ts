@@ -2544,6 +2544,9 @@ export class MountSession {
         enrol: async (paths) => {
           await this.enrolNew(paths)
         },
+        // The app's own create, attachment and import writes reach the
+        // watcher before their map entry: no listing for those.
+        ignores: (path) => this.appWrites.has(path),
       },
       events: {
         onReview: (review) => {
