@@ -91,6 +91,7 @@ const notices = {
   peer_left: '{name:string} went offline',
   review_opened: '{path:string} changed in two places at once and needs your review.',
   breaker_held: '{count:number} change{{s}} arrived at once and wait{{s|}} for you to confirm.',
+  breaker_dismissed: '{count:number} change{{s}} that arrived at once {{was|were}} not applied.',
   relay_connected: 'Connected to {host:string}.',
   relay_reconnecting: 'Lost {host:string} — reconnecting. Your edits are safe on this device.',
   relay_offline: 'Offline from {host:string}. Your edits are safe on this device.',

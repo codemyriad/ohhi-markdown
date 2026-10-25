@@ -259,6 +259,11 @@ export type NamespaceWebTranslation = {
 		 */
 		breaker_held: RequiredParams<'count'>
 		/**
+		 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}​ ​t​h​a​t​ ​a​r​r​i​v​e​d​ ​a​t​ ​o​n​c​e​ ​{​{​w​a​s​|​w​e​r​e​}​}​ ​n​o​t​ ​a​p​p​l​i​e​d​.
+		 * @param {number} count
+		 */
+		breaker_dismissed: RequiredParams<'count'>
+		/**
 		 * C​o​n​n​e​c​t​e​d​ ​t​o​ ​{​h​o​s​t​}​.
 		 * @param {string} host
 		 */
@@ -9483,6 +9488,10 @@ export type TranslationFunctions = {
 			 * {count} change{{s}} arrived at once and wait{{s|}} for you to confirm.
 			 */
 			breaker_held: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} change{{s}} that arrived at once {{was|were}} not applied.
+			 */
+			breaker_dismissed: (arg: { count: number }) => LocalizedString
 			/**
 			 * Connected to {host}.
 			 */

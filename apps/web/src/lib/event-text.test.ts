@@ -41,3 +41,19 @@ describe('a relay refusal, worded by reason and by whose room it is', () => {
     expect(describeEvent(refused('team'), LL)).toBe(LL.web.notices.relay_refused({ reason: '' }))
   })
 })
+
+describe('the mass-change breaker', () => {
+  it('a dismissed batch is worded with its count', () => {
+    const e: AppEvent<'breaker.dismissed'> = {
+      id: 'b',
+      at: 0,
+      level: 'info',
+      kind: 'breaker.dismissed',
+      scope: { room: 'room-x', mount: '' },
+      actor: { kind: 'disk' },
+      payload: { count: 21 },
+    }
+    expect(describeEvent(e, LL)).toBe(LL.web.notices.breaker_dismissed({ count: 21 }))
+    expect(describeEvent(e, LL)).toContain('21')
+  })
+})

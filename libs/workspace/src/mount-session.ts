@@ -2615,6 +2615,8 @@ export class MountSession {
   private pendingBatchKind: 'watch' | 'boot' | 'ghost' | null = null
   /** The held ghost-replay batch's work (N1) — see replayDeletes. */
   private pendingGhostBatch: (() => Promise<void>) | null = null
+  /** How many paths the held batch has — what a dismissal logs. */
+  private pendingBatchCount = 0
 
   private holdBatch(kind: 'watch' | 'boot' | 'ghost', paths: string[], apply?: () => Promise<void>): void {
     if (kind === 'ghost') this.pendingGhostBatch = apply ?? null
@@ -2628,6 +2630,7 @@ export class MountSession {
     })
     if (this.events.onBreaker) {
       this.pendingBatchKind = kind
+      this.pendingBatchCount = paths.length
       this.events.onBreaker(paths)
     } else {
       // No host affordance (headless/tests): keep the historical auto-confirm.
@@ -2651,6 +2654,18 @@ export class MountSession {
   dismissBreaker(): void {
     const kind = this.pendingBatchKind
     this.pendingBatchKind = null
+    // The log keeps what the dialog's "Not now" let go of (info, like the
+    // hold: the dialog was its surface).
+    if (kind !== null) {
+      this.logEvent({
+        kind: 'breaker.dismissed',
+        level: 'info',
+        scope: this.scopeFor(),
+        actor: { kind: kind === 'ghost' ? 'app' : 'disk' },
+        payload: { count: this.pendingBatchCount },
+      })
+    }
+    this.pendingBatchCount = 0
     if (kind === 'watch') this.sessionRef?.dismissPendingBatch()
     else if (kind === 'boot') this.dismissBootBatch()
     // Dismissing a ghost batch keeps the mount's files: the parent keys were

@@ -215,6 +215,8 @@ export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
       return LL.web.notices.review_opened({ path: e.scope.path ?? '' })
     case 'breaker.held':
       return LL.web.notices.breaker_held({ count: (e as AppEvent<'breaker.held'>).payload.count })
+    case 'breaker.dismissed':
+      return LL.web.notices.breaker_dismissed({ count: (e as AppEvent<'breaker.dismissed'>).payload.count })
     case 'mount.changed': {
       const { what } = (e as AppEvent<'mount.changed'>).payload
       const path = e.scope.path ?? ''
