@@ -777,6 +777,7 @@ export class MountSession {
    * "create the note this link points at" must be idempotent.
    */
   async createFile(dir = '', name?: string, text = ''): Promise<string | null> {
+    let writing: string | null = null
     try {
       const base = dir ? `${dir}/` : ''
       const taken = new Set(this.folderDoc.getMap().entries().map(([p]) => p))
@@ -801,10 +802,10 @@ export class MountSession {
         while (taken.has(`${base}untitled-${n}.md`)) n++
         path = `${base}untitled-${n}.md`
       }
-      // A map miss is NOT evidence the path is free: VaultSession's watcher
-      // deliberately ignores out-of-map disk files for the whole session, so
-      // a note Obsidian/git/Claude Code wrote while we were running is
-      // invisible to the check above. NEVER overwrite bytes Editor did not
+      // A map miss is NOT evidence the path is free: a note another writer
+      // (Obsidian, git, an agent) put on disk moments ago may not be enrolled
+      // yet — live enrol-on-create runs behind the watcher, and a dismissed
+      // watch batch leaves its files out until the next boot scan. NEVER overwrite bytes Editor did not
       // write (golden rule 1) — adopt them instead, which is also what "open
       // the note this link points at" should do.
       const onDisk = await this.adapter.read(path)
@@ -814,6 +815,9 @@ export class MountSession {
       const decoded = onDisk !== null ? decodeFile(onDisk) : null
       const seedText = decoded ? decoded.text : text
       const bytes = onDisk ?? new TextEncoder().encode(text)
+      // Ours, not an outside writer's: live enrol-on-create keeps off it.
+      writing = path
+      this.appWrites.add(path)
       if (onDisk === null) {
         // Journal before every Editor-initiated write, exactly as importFile
         // does — a pre-image of null still records that we created the path.
@@ -846,6 +850,8 @@ export class MountSession {
     } catch (err) {
       this.pushError(err)
       return null
+    } finally {
+      if (writing !== null) this.appWrites.delete(writing)
     }
   }
 
@@ -909,11 +915,13 @@ export class MountSession {
         const candidate = nameFor(n)
         if (await taken(candidate)) continue
         await this.journal.record(candidate, null)
+        this.appWrites.add(candidate)
         try {
           // Must-not-exist: the adapter re-checks as late as it can (just
           // before the rename), closing the window `taken` leaves open.
           await this.adapter.writeAtomic(candidate, bytes, { expectHash: '' })
         } catch (err) {
+          this.appWrites.delete(candidate)
           if (err instanceof WriteConflictError) continue
           throw err
         }
@@ -924,6 +932,7 @@ export class MountSession {
         (m) => m.set(target, { guid: crypto.randomUUID(), kind: 'binary' }),
         'local'
       )
+      this.appWrites.delete(target)
       // A new folder (`Attachments/`) must be a map entry too, or the tree can
       // draw it while rename and delete cannot find it (M3).
       if (target.includes('/')) await this.syncDirs()
@@ -1283,8 +1292,13 @@ export class MountSession {
     }
     const pre = await this.adapter.read(rel)
     await this.journal.record(rel, pre)
-    await this.adapter.writeAtomic(rel, bytes)
-    await this.enrollOne(rel)
+    this.appWrites.add(rel)
+    try {
+      await this.adapter.writeAtomic(rel, bytes)
+      await this.enrollOne(rel)
+    } finally {
+      this.appWrites.delete(rel)
+    }
     await this.syncDirs()
     await this.restartSession()
     this.refreshFiles()
@@ -2525,6 +2539,12 @@ export class MountSession {
       folderDoc: this.folderDoc,
       docs: this.docs,
       thresholds: this.cfg.thresholds,
+      enroller: {
+        candidates: (paths) => this.liveCandidates(paths),
+        enrol: async (paths) => {
+          await this.enrolNew(paths)
+        },
+      },
       events: {
         onReview: (review) => {
           // An EMPTY doc's file vanishing is a deletion with nothing at
@@ -3046,6 +3066,13 @@ export class MountSession {
     }
   }
 
+  /**
+   * Paths this session is writing to disk ahead of their map entry (a new
+   * note, an attachment, an import). Its own watcher reports them as unknown;
+   * live enrol-on-create must leave them to the write that made them.
+   */
+  private readonly appWrites = new Set<string>()
+
   /** Held boot batch, if the mass-change breaker tripped during bootScan. */
   private pendingBootBatch: { additions: string[]; changed: string[] } | null = null
 
@@ -3092,13 +3119,9 @@ export class MountSession {
     // sat waiting for a human, and a held batch must not enrol or reconcile
     // into a subtree whose authority has since moved (N1).
     const mountRoots = this.mountRoots()
-    const additions = batch.additions.filter((p) => !this.underMount(p, mountRoots))
-    // The batch's folders first, so its files never land in a folder the map
-    // does not know.
     this.heldDirs = null
-    await this.syncDirs()
-    for (const path of additions) await this.enrollOne(path)
-    if (additions.length > 0) await this.restartSession()
+    const enrolled = await this.enrolNew(batch.additions)
+    if (enrolled.length > 0) await this.restartSession()
     for (const path of batch.changed) {
       if (this.underMount(path, mountRoots)) continue
       const guid = this.guidFor(path)
@@ -3107,16 +3130,86 @@ export class MountSession {
     this.refreshFiles()
   }
 
+  /**
+   * The files the boot scan would enrol for these watch paths (live
+   * enrol-on-create, `LiveEnroller.candidates`): the same listing — so the
+   * adapter's ignore set and temp-name rule apply — minus anything the map
+   * already holds and anything under a mount boundary. A directory path
+   * yields every file under it: inotify reports a populated folder moved in
+   * as one event.
+   */
+  private async liveCandidates(paths: readonly string[]): Promise<string[]> {
+    const listed = await this.adapter.list()
+    // The map AFTER the listing: an app rename or create that wrote disk just
+    // before its map transaction has landed it by now.
+    const live = new Set(
+      this.folderDoc.getMap().entries().filter(([, e]) => !e.deleted).map(([p]) => p)
+    )
+    const asked = new Set(paths)
+    const under = paths.map((p) => `${p}/`)
+    const mountRoots = this.mountRoots()
+    return listed
+      .map((s) => s.path)
+      .filter(
+        (p) =>
+          !live.has(p) &&
+          !this.appWrites.has(p) &&
+          !this.underMount(p, mountRoots) &&
+          (asked.has(p) || under.some((d) => p.startsWith(d)))
+      )
+  }
+
+  /**
+   * Enrol on-disk files that are not in the map — a confirmed boot batch, or
+   * files that appeared while running (`LiveEnroller.enrol`). Their folders
+   * first, so no file lands in a folder the map does not know; a path the map
+   * gained meanwhile, or one under a mount boundary that arrived meanwhile,
+   * is skipped (a held batch can sit for a long time). Returns what enrolled.
+   * The caller makes the VaultSession track them.
+   */
+  private async enrolNew(paths: readonly string[]): Promise<string[]> {
+    const mountRoots = this.mountRoots()
+    const map = this.folderDoc.getMap()
+    const todo = paths.filter((p) => {
+      const e = map.get(p)
+      return (!e || e.deleted) && !this.underMount(p, mountRoots) && !this.appWrites.has(p)
+    })
+    if (todo.length === 0) return []
+    // These files' own folders are no longer a held batch's to keep out.
+    if (this.heldDirs) for (const d of this.dirsOf(todo)) this.heldDirs.delete(d)
+    await this.syncDirs()
+    const enrolled: string[] = []
+    for (const path of todo) {
+      if (this.appWrites.has(path)) continue
+      await this.enrollOne(path, { live: true })
+      const entry = map.get(path)
+      if (!entry || entry.deleted) continue
+      enrolled.push(path)
+      // A content listener (the index) learns the note as it would from a
+      // boot: the seed transaction ran before the doc was tracked.
+      if (entry.kind === 'text') this.emitDocChanged(entry.guid, path, 'seed')
+    }
+    this.refreshFiles()
+    return enrolled
+  }
+
   /** Drop a held boot batch: nothing is enrolled or reconciled. */
   dismissBootBatch(): void {
     this.pendingBootBatch = null
   }
 
   /** Enroll one on-disk file that is not in the folder map (boot delta scan). */
-  private async enrollOne(path: string): Promise<void> {
+  private async enrollOne(path: string, opts: { live?: boolean } = {}): Promise<void> {
+    // A live enrol runs beside the app's own writes: a path the map (or an
+    // app write in flight) has claimed by the time a step lands is not ours.
+    const claimed = (): boolean => {
+      if (!opts.live) return false
+      const e = this.folderDoc.getMap().get(path)
+      return (e !== undefined && !e.deleted) || this.appWrites.has(path)
+    }
     try {
       const bytes = await this.adapter.read(path)
-      if (bytes === null) return
+      if (bytes === null || claimed()) return
       if (looksBinary(path, bytes)) {
         this.folderDoc.transactMap(
           (m) => m.set(path, { guid: crypto.randomUUID(), kind: 'binary' }),
@@ -3139,6 +3232,15 @@ export class MountSession {
         eol: decoded.eol,
         bom: decoded.bom,
       })
+      if (claimed()) {
+        // Lost the race to the map: undo this attempt, leave theirs alone.
+        this.docs.delete(guid)
+        this.cfg.docStore?.untrack(guid)
+        await this.cfg.docStore?.remove(guid)
+        await this.lcaStore.remove(guid)
+        doc.destroy()
+        return
+      }
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
     } catch (err) {

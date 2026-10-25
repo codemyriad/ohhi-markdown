@@ -389,3 +389,38 @@ describe('a review raised by a mount’s boot is resolved by that mount', () => 
     expect(new TextDecoder().decode((await adapter.read('team/plan.md'))!)).toBe(rewritten)
   })
 })
+
+/**
+ * Live enrol-on-create through the host (agents are first-class writers,
+ * `agent-surface-shaping`): a note written into a mount's folder from outside
+ * while the workspace runs appears in the tree at once — owned by the mount,
+ * not also by the root — instead of after the next launch.
+ */
+describe('a file written into a mount’s folder while running shows up in the tree', () => {
+  it('enrols it in the mount, once', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const seed = engine.createDoc('live-enrol-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await scopedStoreDir(storeDir, `${ROOM}/`)
+      .io(docBlobName(FOLDER_DOC_KEY))
+      .writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    adapter.externalWrite('team/from-agent.md', enc.encode('written by an agent\n'))
+    for (let i = 0; i < 50 && !ws.ui.files.some((r) => r.path === 'team/from-agent.md'); i++) {
+      await new Promise((r) => setTimeout(r, 5))
+    }
+
+    expect(ws.ui.files.filter((r) => r.path === 'team/from-agent.md')).toHaveLength(1)
+    expect(ws.docForPath('team/from-agent.md')?.getText()).toBe('written by an agent\n')
+  })
+})
