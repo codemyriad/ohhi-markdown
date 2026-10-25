@@ -141,6 +141,9 @@ describe('unmount — drop a mount, files become local', () => {
       mount,
       removeIgnore: (p) => vault.ignore.delete(p),
     })
+    // The shim re-reads mounts.json before the rescan (`reloadMounts`): with a
+    // stale mirror the next ignore refresh hides the folder again mid-scan.
+    await vault.refreshDescs()
     await vault.root.rescan()
 
     expect(await diskSnapshot(base)).toEqual(before) // files stayed
