@@ -250,6 +250,82 @@ describe('live enrol-on-create — only a path the map does not know is listed f
   })
 })
 
+/**
+ * The memfs adapter with `list()` held at a gate: `hold()` makes the next
+ * listing wait until the returned release is called (a slow listing on disk).
+ */
+function slowLists(base: MemVaultAdapter): { adapter: VaultAdapter; hold: () => () => void } {
+  let gate: Promise<void> | null = null
+  const adapter = new Proxy(base, {
+    get(target, key) {
+      if (key === 'list') {
+        return async () => {
+          if (gate) await gate
+          return target.list()
+        }
+      }
+      const value = Reflect.get(target, key, target) as unknown
+      return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value
+    },
+  })
+  const hold = (): (() => void) => {
+    let release = (): void => {}
+    gate = new Promise<void>((r) => (release = r))
+    return () => {
+      gate = null
+      release()
+    }
+  }
+  return { adapter, hold }
+}
+
+/**
+ * Every `createFile` and `importFile` restarts the session. A restart that
+ * lands while a live enrol is listing, or while its new file settles, must not
+ * drop the file nor leave it in the map with no session tracking it.
+ */
+describe('live enrol-on-create — a session restart in the middle', () => {
+  it('a restart during the listing waits for it: the new file is enrolled and tracked', async () => {
+    const base = new MemVaultAdapter()
+    const { adapter, hold } = slowLists(base)
+    const { session, clock, errors } = await boot(adapter)
+
+    const release = hold()
+    base.externalWrite('agent.md', enc.encode('one\n'))
+    await settle() // the batch is now waiting on the listing
+    const made = session.createFile('', 'made', 'mine\n')
+    await settle()
+    release()
+    expect(await made).toBe('made.md')
+    await settle(clock)
+    expect(session.docForPath('agent.md')?.getText()).toBe('one\n')
+
+    // Tracked by the session running now: an outside edit is ingested.
+    base.externalWrite('agent.md', enc.encode('one\ntwo\n'))
+    await settle(clock)
+    expect(session.docForPath('agent.md')?.getText()).toBe('one\ntwo\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('a restart while the new file settles: the current session tracks it', async () => {
+    const adapter = new MemVaultAdapter()
+    const { session, clock, errors } = await boot(adapter)
+
+    adapter.externalWrite('agent.md', enc.encode('one\n'))
+    await settle() // listed; the quiesce waits on the clock
+    expect(await session.createFile('', 'made', 'mine\n')).toBe('made.md')
+    await settle(clock)
+    expect(session.docForPath('agent.md')?.getText()).toBe('one\n')
+
+    adapter.externalWrite('agent.md', enc.encode('one\ntwo\n'))
+    await settle(clock)
+    expect(session.docForPath('agent.md')?.getText()).toBe('one\ntwo\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+})
+
 describe('live enrol-on-create — the watch breaker counts new files', () => {
   const batch = Array.from({ length: 21 }, (_, i) => `drop/n${i}.md`)
   async function held() {

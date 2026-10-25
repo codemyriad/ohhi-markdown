@@ -2684,6 +2684,17 @@ export class MountSession {
   }
 
   private async restartSession(): Promise<void> {
+    // A watch batch still listing or enrolling on the current session runs to
+    // the end first: disposed under it, its new files would be dropped (the
+    // batch bails) or land in the map untracked (the new session's start()
+    // predates the entry). The chain holds only listings and enrolments,
+    // never a clock wait, so this is bounded; the quiesce runs off it.
+    let waited = false
+    for (let cur = this.sessionRef; cur?.watchBusy(); cur = this.sessionRef) {
+      waited = true
+      await cur.watchSettled()
+    }
+    if (waited && this.stopped) return
     this.sessionRef?.dispose()
     this.sessionRef = this.makeSession()
     await this.sessionRef.start()
@@ -3189,6 +3200,7 @@ export class MountSession {
    * The caller makes the VaultSession track them.
    */
   private async enrolNew(paths: readonly string[]): Promise<string[]> {
+    if (this.stopped) return []
     const mountRoots = this.mountRoots()
     const map = this.folderDoc.getMap()
     const todo = paths.filter((p) => {
@@ -3206,6 +3218,9 @@ export class MountSession {
       const entry = map.get(path)
       if (!entry || entry.deleted) continue
       enrolled.push(path)
+      // The session running NOW tracks it — which may not be the one whose
+      // watcher saw the file, if a restart landed meanwhile (idempotent).
+      this.sessionRef?.track(path)
       // A content listener (the index) learns the note as it would from a
       // boot: the seed transaction ran before the doc was tracked.
       if (entry.kind === 'text') this.emitDocChanged(entry.guid, path, 'seed')

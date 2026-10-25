@@ -62,7 +62,10 @@ export interface LiveEnroller {
   candidates(paths: readonly string[]): Promise<string[]>
   /**
    * Enrol them (map entry, doc, LCA). On return the folder map holds each
-   * enrolled path; the session then tracks it like one it started with.
+   * enrolled path; the session then tracks it like one it started with. May
+   * be called by a session the host has since replaced (a restart landed
+   * while the files settled): the host makes its CURRENT session `track`
+   * what it enrols, so nothing ends up in the map untracked.
    */
   enrol(paths: readonly string[]): Promise<void>
   /**
@@ -354,6 +357,35 @@ export class VaultSession {
     this.queuedNew.clear()
   }
 
+  /**
+   * Track a path the host enrolled while this session ran (live
+   * enrol-on-create): the per-path half of `start()`. Idempotent, and a no-op
+   * once disposed or when the map holds no live text entry with a doc for
+   * it. True when the path was newly tracked as a note.
+   */
+  track(path: string): boolean {
+    if (this.disposed) return false
+    const entry = this.folderDoc.getMap().get(path)
+    if (!entry || entry.deleted || this.underMount(path)) return false
+    this.lastEntries.set(path, entry)
+    if (entry.kind !== 'text' || this.pathToGuid.has(path)) return false
+    const doc = this.docs.get(entry.guid)
+    if (!doc) return false
+    this.pathToGuid.set(path, entry.guid)
+    this.subscribeDoc(entry.guid, doc)
+    return true
+  }
+
+  /** Is a watch batch still listing or enrolling? A host restarting the session waits for it. */
+  watchBusy(): boolean {
+    return this.watchPending > 0
+  }
+
+  /** Resolves when the watch batches queued so far have run (never rejects). */
+  watchSettled(): Promise<void> {
+    return this.watchChain
+  }
+
   dispose(): void {
     this.disposed = true
     for (const off of this.subscriptions) off()
@@ -442,18 +474,13 @@ export class VaultSession {
    * marks) is needed for a file that appeared while the session ran.
    */
   private async enrolLive(paths: string[]): Promise<void> {
-    if (!this.enroller || this.disposed) return
+    if (!this.enroller) return
+    // Even when this session was disposed while the files settled (a restart):
+    // the host enrols them and its current session tracks them. Bailing here
+    // would drop them until the next launch.
     await this.enroller.enrol(paths)
-    if (this.disposed) return
     for (const path of paths) {
-      const entry = this.folderDoc.getMap().get(path)
-      if (!entry || entry.deleted || this.underMount(path)) continue
-      this.lastEntries.set(path, entry)
-      if (entry.kind !== 'text' || this.pathToGuid.has(path)) continue
-      const doc = this.docs.get(entry.guid)
-      if (!doc) continue
-      this.pathToGuid.set(path, entry.guid)
-      this.subscribeDoc(entry.guid, doc)
+      if (!this.track(path)) continue
       // A write that landed while the file was being enrolled named a path
       // nobody tracked yet: one reconcile catches the doc up with the disk
       // (a no-op when the bytes are the ones enrolled).
