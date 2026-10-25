@@ -176,6 +176,10 @@ suffixes `.swp`, `.swx`, `.tmp`, `.part`, `.partial`, `.crdownload`. The boot sc
 not apply this rule; a file with such a name that is still there at the next launch is
 enrolled then, as before.
 
+While a boot batch is held behind the mass-change breaker, or after it was dismissed
+("Not now"), its files and the folders that hold them are not enrolled live either: they
+wait for the confirm, or for the next launch.
+
 Create/rename/delete flow through the folder doc both directions: a local rename updates
 the path binding (same GUID — content history survives renames); a remote map change
 renames on disk through the same journaled, atomic write path.
@@ -207,7 +211,9 @@ possible but *suspicious* (shaping D2, D2d):
   known notes plus new files: twenty-one notes an agent drops in at once are as much a
   mass change as a branch switch rewriting twenty-one old ones. Confirm enrols the new
   files and reconciles the changed ones; dismiss leaves both (the new files wait for the
-  next launch's scan).
+  next launch's scan). One dialog at a time: a batch that arrives while another is held
+  joins it, and the one confirm or dismiss covers both. A held batch survives a session
+  restart (the app creating a note restarts its session).
 
 Thresholds are pure, clock-injected functions — unit-tested directly, with interleaving
 explored by the L1 fuzzer ([testing.md](testing.md)).

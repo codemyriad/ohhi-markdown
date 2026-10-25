@@ -31,11 +31,11 @@ const ROOM = 'room-live'
 
 async function boot(
   adapter: VaultAdapter,
-  opts: { onBreaker?: (paths: string[]) => void; onEvent?: (e: AppEvent) => void } = {}
+  opts: { onBreaker?: (paths: string[]) => void; onEvent?: (e: AppEvent) => void; storeDir?: MemStoreDir } = {}
 ) {
   const engine = createYjsEngine()
   const clock = new SimClock()
-  const storeDir = new MemStoreDir()
+  const storeDir = opts.storeDir ?? new MemStoreDir()
   const mountDir = scopedStoreDir(storeDir, `${ROOM}/`)
   const docStore = new BlobDocStore(engine, mountDir, clock)
   const errors: unknown[] = []
@@ -326,6 +326,100 @@ describe('live enrol-on-create — a session restart in the middle', () => {
   })
 })
 
+/**
+ * A boot batch held behind the breaker (or dismissed with "Not now") is the
+ * dialog's to apply: its files, and the folders that hold them, are not
+ * enrolled live behind it. And one dialog covers everything held.
+ */
+describe('live enrol-on-create — a held or dismissed boot batch', () => {
+  const added = Array.from({ length: 21 }, (_, i) => `batch/n${i}.md`)
+  const dirs = (s: MountSession) => s.files().filter((r) => r.kind === 'dir').map((r) => r.path).sort()
+
+  async function heldBoot() {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('kept\n'))
+    const storeDir = new MemStoreDir()
+    const first = await boot(adapter, { storeDir })
+    first.session.dispose()
+    // While the app was closed: 21 new notes in a new folder.
+    for (const p of added) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+    const raised: string[][] = []
+    const booted = await boot(adapter, { storeDir, onBreaker: (paths) => raised.push(paths) })
+    expect(raised).toHaveLength(1)
+    expect(textPaths(booted.session)).toEqual(['keep.md'])
+    return { adapter, raised, ...booted }
+  }
+
+  /** An outside writer touches one of the batch's files, and the folder over them. */
+  async function touchBatch(adapter: MemVaultAdapter, clock: SimClock): Promise<void> {
+    adapter.externalWrite('batch/n3.md', enc.encode('batch/n3.md\nedited\n'))
+    await settle(clock)
+    adapter.emitBatch(['batch'])
+    await settle(clock)
+  }
+
+  it('while held, a watch event naming its file or its folder enrols neither', async () => {
+    const { adapter, session, clock, errors } = await heldBoot()
+    await touchBatch(adapter, clock)
+    expect(textPaths(session)).toEqual(['keep.md'])
+    expect(dirs(session)).toEqual([])
+    // Confirm still applies the whole batch, the edited file with its new bytes.
+    await session.confirmBreaker()
+    expect(textPaths(session)).toEqual(['keep.md', ...added].sort())
+    expect(dirs(session)).toEqual(['batch'])
+    expect(session.docForPath('batch/n3.md')?.getText()).toBe('batch/n3.md\nedited\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('after "Not now", they wait for the next launch: no live enrol either', async () => {
+    const { adapter, session, clock, errors } = await heldBoot()
+    session.dismissBreaker()
+    await touchBatch(adapter, clock)
+    expect(textPaths(session)).toEqual(['keep.md'])
+    expect(dirs(session)).toEqual([])
+    // A file that is not the batch's still enrols live.
+    adapter.externalWrite('other.md', enc.encode('other\n'))
+    await settle(clock)
+    expect(textPaths(session)).toEqual(['keep.md', 'other.md'])
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('a 21-file watch batch while it is held joins it: one dialog, and confirm applies both', async () => {
+    const { adapter, session, clock, raised, errors } = await heldBoot()
+    const drop = Array.from({ length: 21 }, (_, i) => `drop/m${i}.md`)
+    adapter.autoEmit = false
+    for (const p of drop) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+    adapter.autoEmit = true
+    adapter.emitBatch(drop)
+    await settle(clock)
+    expect(raised).toHaveLength(1)
+    expect(textPaths(session)).toEqual(['keep.md'])
+
+    await session.confirmBreaker()
+    await settle(clock)
+    expect(textPaths(session)).toEqual(['keep.md', ...added, ...drop].sort())
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('a 21-file watch batch while it is held is dropped with it on "Not now"', async () => {
+    const { adapter, session, clock, raised } = await heldBoot()
+    const drop = Array.from({ length: 21 }, (_, i) => `drop/m${i}.md`)
+    adapter.autoEmit = false
+    for (const p of drop) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+    adapter.autoEmit = true
+    adapter.emitBatch(drop)
+    await settle(clock)
+    session.dismissBreaker()
+    await settle(clock)
+    expect(raised).toHaveLength(1)
+    expect(textPaths(session)).toEqual(['keep.md'])
+    session.dispose()
+  })
+})
+
 describe('live enrol-on-create — the watch breaker counts new files', () => {
   const batch = Array.from({ length: 21 }, (_, i) => `drop/n${i}.md`)
   async function held() {
@@ -355,6 +449,16 @@ describe('live enrol-on-create — the watch breaker counts new files', () => {
     await settle(clock)
     expect(textPaths(session)).toEqual(['keep.md', ...batch].sort())
     expect(session.docForPath('drop/n7.md')?.getText()).toBe('drop/n7.md\n')
+    expect(errors).toEqual([])
+    session.dispose()
+  })
+
+  it('a session restart while held (the app makes a note) keeps the batch for the confirm', async () => {
+    const { session, clock, errors } = await held()
+    expect(await session.createFile('', 'made', 'mine\n')).toBe('made.md')
+    await session.confirmBreaker()
+    await settle(clock)
+    expect(textPaths(session)).toEqual(['keep.md', 'made.md', ...batch].sort())
     expect(errors).toEqual([])
     session.dispose()
   })
