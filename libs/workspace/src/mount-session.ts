@@ -69,6 +69,7 @@ import {
   FOLDER_DOC_KEY,
   hashBytes,
   IGNORED_DIRS,
+  isScratchName,
   joinFolder,
   JsonFileLcaStore,
   looksBinary,
@@ -3152,7 +3153,8 @@ export class MountSession {
    * The files the boot scan would enrol for these watch paths (live
    * enrol-on-create, `LiveEnroller.candidates`): the same listing — so the
    * adapter's ignore set and temp-name rule apply — minus anything the map
-   * already holds and anything under a mount boundary. A directory path
+   * already holds, other tools' scratch files (`isScratchName`, a rule the
+   * boot scan does not apply) and anything under a mount boundary. A directory path
    * yields every file under it: inotify reports a populated folder moved in
    * as one event.
    */
@@ -3172,6 +3174,7 @@ export class MountSession {
         (p) =>
           !live.has(p) &&
           !this.appWrites.has(p) &&
+          !isScratchName(p) &&
           !this.underMount(p, mountRoots) &&
           (asked.has(p) || under.some((d) => p.startsWith(d)))
       )

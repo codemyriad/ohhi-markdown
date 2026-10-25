@@ -12,7 +12,7 @@ import {
 } from './reconciler.js'
 import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
-import { NEVER_ON_DISK } from './enrollment.js'
+import { isScratchName, NEVER_ON_DISK } from './enrollment.js'
 import { mountRootsFrom } from './mounts-file.js'
 import {
   DEFAULT_THRESHOLDS,
@@ -384,7 +384,8 @@ export class VaultSession {
           if (this.pathToGuid.has(p)) return false
           const entry = map.get(p)
           if (entry && !entry.deleted) return false
-          return !enroller.ignores?.(p)
+          // Another tool's swap, partial or backup file is never a new note.
+          return !isScratchName(p) && !enroller.ignores?.(p)
         })
       : []
     if (unknown.length === 0) {
@@ -426,7 +427,9 @@ export class VaultSession {
       for (const p of fresh) this.queuedNew.add(p)
       return
     }
-    if (fresh.length > 0) await this.enrolLive(fresh)
+    // A new file is quiesced like a known one before it is enrolled: a writer
+    // that is not atomic must not have its first half synced to every peer.
+    if (fresh.length > 0) this.quiesceThenEnrol(fresh)
     // Only a tracked note has anything to reconcile: a path the map holds as
     // an attachment or a folder, or one that is neither known nor a candidate
     // (a deletion of a file we never knew), is nothing to read.
@@ -451,7 +454,35 @@ export class VaultSession {
       if (!doc) continue
       this.pathToGuid.set(path, entry.guid)
       this.subscribeDoc(entry.guid, doc)
+      // A write that landed while the file was being enrolled named a path
+      // nobody tracked yet: one reconcile catches the doc up with the disk
+      // (a no-op when the bytes are the ones enrolled).
+      void this.reconcilePath(path).catch((err) => this.events.onError?.(err))
     }
+  }
+
+  /**
+   * The double-read-same-hash quiesce for files that are not enrolled yet:
+   * read each, wait, read again; a file whose bytes held still is enrolled, a
+   * file still being written is tried again, and one that vanished in the
+   * meantime (a temp file renamed away, a download cancelled) is dropped.
+   */
+  private quiesceThenEnrol(paths: string[]): void {
+    const hashOf = (b: Uint8Array | null): string | null => (b ? hashBytes(b) : null)
+    void (async () => {
+      const first = await Promise.all(paths.map(async (p) => hashOf(await this.adapter.read(p))))
+      await new Promise<void>((resolve) => this.clock.schedule(resolve, this.quiesceMs))
+      const second = await Promise.all(paths.map(async (p) => hashOf(await this.adapter.read(p))))
+      const still: string[] = []
+      const moving: string[] = []
+      paths.forEach((p, i) => {
+        if (first[i] === null || second[i] === null) return
+        if (first[i] === second[i]) still.push(p)
+        else moving.push(p)
+      })
+      if (still.length > 0) await this.enrolLive(still)
+      if (moving.length > 0) this.quiesceThenEnrol(moving)
+    })().catch((err) => this.events.onError?.(err))
   }
 
   /** Double-read-same-hash quiesce before acting on a watch event. */
@@ -485,7 +516,7 @@ export class VaultSession {
 
   private async reconcilePath(path: string): Promise<void> {
     const guid = this.pathToGuid.get(path)
-    if (!guid) return // unknown path: V1 ignores out-of-map files (enroll-on-create is a UI action)
+    if (!guid) return // not a tracked note: new files are enrolled by the watch path, not here
     await this.reconcile(guid)
   }
 

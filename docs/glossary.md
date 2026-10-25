@@ -114,7 +114,7 @@ A bounded-retention snapshot of a file's content taken before *every* Editor-ini
 The client-side connector between a local Y.Doc and a sync server: speaks the sync protocol, tracks connection state, reconnects with backoff. Ours is `syncProvider` (a Hocuspocus client per doc + folder doc). See [primer 05](primers/05-sync-and-relay.md).
 
 ### Quiesce
-The watcher's settle rule: a file change is only classified after two consecutive reads return the same content hash, so partial writes and editor save-storms are never processed mid-flight. See [primer 03](primers/03-lca-reconciliation.md#escalation-when-not-to-auto-merge).
+The watcher's settle rule: a file change is only classified, and a new file only enrolled, after two consecutive reads return the same content hash, so partial writes and editor save-storms are never processed mid-flight. See [primer 03](primers/03-lca-reconciliation.md#escalation-when-not-to-auto-merge).
 
 ### Reconciler
 The `libs/vault` service that keeps disk and CRDT truthful with each other: classifies changes against the [LCA](#lca-last-common-ancestor), ingests external edits via [dmp](#diff-match-patch-dmp), materializes CRDT state, and escalates true divergence to review. The subject of [primer 03](primers/03-lca-reconciliation.md).
