@@ -819,9 +819,9 @@ export class MountSession {
       // A map miss is NOT evidence the path is free: a note another writer
       // (Obsidian, git, an agent) put on disk moments ago may not be enrolled
       // yet — live enrol-on-create runs behind the watcher, and a dismissed
-      // watch batch leaves its files out until the next boot scan. NEVER overwrite bytes Editor did not
-      // write (golden rule 1) — adopt them instead, which is also what "open
-      // the note this link points at" should do.
+      // batch leaves its files out until the next boot scan. NEVER overwrite
+      // bytes Editor did not write (golden rule 1) — adopt them instead,
+      // which is also what "open the note this link points at" should do.
       const onDisk = await this.adapter.read(path)
       if (onDisk !== null && looksBinary(path, onDisk)) {
         throw new Error(`'${path}' already exists and is not a text file`)
@@ -883,9 +883,10 @@ export class MountSession {
    * reason pushed as an error.
    *
    * Never an overwrite: a name the map does not know can still be a file
-   * Obsidian or an agent wrote while we ran (the watcher ignores out-of-map
-   * files), so the disk is asked too, and a taken name moves aside rather than
-   * replacing bytes Editor did not write (golden rule 1). The create is
+   * Obsidian or an agent wrote while we ran (live enrol-on-create runs behind
+   * the watcher, after a quiesce, and skips scratch names and a held or
+   * dismissed batch), so the disk is asked too, and a taken name moves aside
+   * rather than replacing bytes Editor did not write (golden rule 1). The create is
    * journaled (a pre-image of null) and goes through the atomic write as a
    * compare-and-swap that must find NO file there (`expectHash: ''`): a file
    * that appears between the check and the rename refuses the write, and the
