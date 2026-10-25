@@ -3706,6 +3706,26 @@ export type NamespaceWebTranslation = {
 			 * @param {string} key
 			 */
 			default_mode_hint: RequiredParams<'key'>
+			/**
+			 * T​y​p​i​n​g
+			 */
+			typing: string
+			/**
+			 * C​h​e​c​k​ ​s​p​e​l​l​i​n​g
+			 */
+			spellcheck: string
+			/**
+			 * A​u​t​o​c​o​r​r​e​c​t
+			 */
+			autocorrect: string
+			/**
+			 * C​a​p​i​t​a​l​i​s​e​ ​s​e​n​t​e​n​c​e​s
+			 */
+			autocapitalize: string
+			/**
+			 * U​s​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​’​s​ ​o​w​n​ ​d​i​c​t​i​o​n​a​r​y​ ​a​n​d​ ​k​e​y​b​o​a​r​d​.​ ​A​u​t​o​c​o​r​r​e​c​t​ ​a​n​d​ ​c​a​p​i​t​a​l​s​ ​d​e​p​e​n​d​ ​o​n​ ​t​h​e​ ​k​e​y​b​o​a​r​d​ ​a​n​d​ ​b​r​o​w​s​e​r​.
+			 */
+			typing_hint: string
 		}
 		appearance: {
 			/**
@@ -12736,6 +12756,26 @@ export type TranslationFunctions = {
 				 * Applies to any tab you have not given a view of its own. {key} switches one tab between editing and reading.
 				 */
 				default_mode_hint: (arg: { key: string }) => LocalizedString
+				/**
+				 * Typing
+				 */
+				typing: () => LocalizedString
+				/**
+				 * Check spelling
+				 */
+				spellcheck: () => LocalizedString
+				/**
+				 * Autocorrect
+				 */
+				autocorrect: () => LocalizedString
+				/**
+				 * Capitalise sentences
+				 */
+				autocapitalize: () => LocalizedString
+				/**
+				 * Uses this device’s own dictionary and keyboard. Autocorrect and capitals depend on the keyboard and browser.
+				 */
+				typing_hint: () => LocalizedString
 			}
 			appearance: {
 				/**

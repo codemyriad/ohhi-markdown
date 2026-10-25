@@ -1355,6 +1355,12 @@ const settings = {
     default_mode: 'Default view for new tabs',
     default_mode_hint:
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
+    /** The platform's typing aids on the editing surface; each applies to open notes at once. */
+    typing: 'Typing',
+    spellcheck: 'Check spelling',
+    autocorrect: 'Autocorrect',
+    autocapitalize: 'Capitalise sentences',
+    typing_hint: 'Uses this device’s own dictionary and keyboard. Autocorrect and capitals depend on the keyboard and browser.',
   },
   appearance: {
     lede: 'How the app looks on this device. A theme of your own lives in this vault.',

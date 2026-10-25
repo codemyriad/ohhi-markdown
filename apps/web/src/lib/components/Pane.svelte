@@ -40,6 +40,7 @@
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
   import { editorLabels, loadRemoteImage, openExternal } from '../read.svelte.js'
+  import { typingState } from '../typing.svelte.js'
   import { createAttachmentHost } from '../attachment-host.js'
   import { noteStatus } from '../readout-state.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
@@ -690,6 +691,7 @@
             {mode}
             {dark}
             {typewriter}
+            typing={typingState.aids}
             {extensions}
             reveal={focused ? reveal : null}
             onhandle={(h) => onHandle(held, h)}

@@ -5,6 +5,7 @@
   import type { Awareness } from 'y-protocols/awareness'
   import type { ViewMode } from '@ohhi/editor-lang'
   import { createMarkdownEditor, type MarkdownEditorHandle } from './markdown-editor.js'
+  import { TYPING_DEFAULTS, type TypingAids } from './typing.js'
   import type { CollabUndoManager, CollabUser } from './binding.js'
 
   interface Props {
@@ -44,6 +45,8 @@
     onhandle?: (handle: MarkdownEditorHandle | null) => void
     /** Typewriter scrolling (the layout's `editor.typewriter`), applied by reconfigure. */
     typewriter?: boolean
+    /** Spell checking, autocorrect, capitalisation (Settings › Editor), applied by reconfigure. */
+    typing?: TypingAids
   }
 
   let {
@@ -58,6 +61,7 @@
     undoManager = null,
     onhandle,
     typewriter = false,
+    typing = TYPING_DEFAULTS,
   }: Props = $props()
 
   let host = $state<HTMLDivElement>()
@@ -78,6 +82,7 @@
       readOnly,
       mode: untrack(() => mode),
       typewriter: untrack(() => typewriter),
+      typing: untrack(() => typing),
       dark: untrack(() => dark),
       extensions: untrack(() => extensions),
       ...(manager ? { undoManager: manager } : {}),
@@ -102,6 +107,10 @@
 
   $effect(() => {
     handle?.setTypewriter(typewriter)
+  })
+
+  $effect(() => {
+    handle?.setTyping(typing)
   })
 
   $effect(() => {

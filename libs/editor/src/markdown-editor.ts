@@ -37,6 +37,7 @@ import { createCollabExtensions, type CollabUndoManager, type CollabUser } from 
 import { editorKeymap, FORMAT_COMMANDS, type EditorKey, type FormatBindings } from './format.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 import { typewriterCompartment, typewriterExtension } from './typewriter.js'
+import { sameTypingAids, TYPING_DEFAULTS, typingCompartment, typingExtension, type TypingAids } from './typing.js'
 
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
 const hostCompartment = new Compartment()
@@ -108,6 +109,11 @@ export interface MarkdownEditorOptions {
    * Decision 5, the layout's `editor.typewriter`); `setTypewriter` toggles it.
    */
   typewriter?: boolean
+  /**
+   * Spell checking, autocorrect and sentence capitalisation (Settings ›
+   * Editor); `setTyping` changes them in place. Default: all on.
+   */
+  typing?: TypingAids
 }
 
 /**
@@ -131,6 +137,8 @@ export interface MarkdownEditorHandle {
   setMode(mode: ViewMode): void
   /** Typewriter scrolling on or off — one dispatch, no rebuild. */
   setTypewriter(on: boolean): void
+  /** Spell checking, autocorrect and capitalisation — one dispatch, no rebuild. */
+  setTyping(aids: TypingAids): void
   /** Re-key the format commands (quiet-shell F10) — one dispatch. */
   setFormatBindings(bindings: FormatBindings): void
   /**
@@ -162,6 +170,7 @@ export function createMarkdownEditor(
     hostCompartment.of(opts.extensions ?? []),
     modeCompartment.of(modeExtensions(opts.mode ?? 'live')),
     typewriterCompartment.of(typewriterExtension(opts.typewriter ?? false)),
+    typingCompartment.of(typingExtension(opts.typing ?? TYPING_DEFAULTS)),
     // The format keys (Mod-b/i/k) live here too, so they work in any host
     // that mounts this editor. In the shell the registry's capture-phase
     // handler sees the chord first and stops it, so it never fires twice;
@@ -226,6 +235,7 @@ export function createMarkdownEditor(
   // every view would reconfigure itself once for the mode it already has.
   let current = opts.mode ?? 'live'
   let typewriter = opts.typewriter ?? false
+  let typing = opts.typing ?? TYPING_DEFAULTS
   return {
     view,
     setDark(dark) {
@@ -243,6 +253,11 @@ export function createMarkdownEditor(
       if (on === typewriter) return
       typewriter = on
       view.dispatch({ effects: typewriterCompartment.reconfigure(typewriterExtension(on)) })
+    },
+    setTyping(aids) {
+      if (sameTypingAids(aids, typing)) return
+      typing = { ...aids }
+      view.dispatch({ effects: typingCompartment.reconfigure(typingExtension(typing)) })
     },
     setMode(mode) {
       if (mode === current) return
