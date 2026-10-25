@@ -89,6 +89,7 @@ describe('the plain-text report', () => {
       kind: 'relay.state',
       scope: { room: 'room-x', mount, ...(mount ? { path: mount } : {}) },
       actor: { kind: 'relay' },
+      count: 1,
       payload: { to: 'refused', ...(reason ? { reason } : {}) },
     })
     // A dead link on a joined folder: ask whoever shared it.
