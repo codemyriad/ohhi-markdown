@@ -158,10 +158,23 @@ export type NamespaceWebTranslation = {
 			info: string
 		}
 		/**
-		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​{​r​e​a​s​o​n​}​)​.
+		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​{​r​e​a​s​o​n​}​)​.
 		 * @param {string} reason
 		 */
 		relay_refused: RequiredParams<'reason'>
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​i​s​ ​v​a​u​l​t​ ​(​{​r​e​a​s​o​n​}​)​.
+		 * @param {string} reason
+		 */
+		relay_refused_vault: RequiredParams<'reason'>
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​n​o​ ​l​o​n​g​e​r​ ​a​c​c​e​p​t​s​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​.
+		 */
+		relay_refused_link: string
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​n​o​ ​l​o​n​g​e​r​ ​a​c​c​e​p​t​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t​.
+		 */
+		relay_refused_device: string
 		/**
 		 * T​h​e​ ​f​o​l​d​e​r​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​s​h​a​r​e​d​,​ ​b​u​t​ ​i​t​s​ ​l​i​n​k​s​ ​o​n​ ​{​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​v​o​k​e​d​:​ ​{​m​e​s​s​a​g​e​}
 		 * @param {string} host
@@ -2207,7 +2220,11 @@ export type NamespaceWebTranslation = {
 			/**
 			 * A​s​k​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​k​,​ ​t​h​e​n​ ​a​d​d​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​m​e​n​u​.
 			 */
-			relay_refused: string
+			relay_refused_link: string
+			/**
+			 * T​h​i​s​ ​d​e​v​i​c​e​’​s​ ​a​c​c​e​s​s​ ​w​a​s​ ​r​e​f​u​s​e​d​.​ ​L​i​n​k​ ​i​t​ ​a​g​a​i​n​ ​f​r​o​m​ ​a​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​s​t​i​l​l​ ​h​a​s​ ​a​c​c​e​s​s​,​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​.
+			 */
+			relay_refused_device: string
 			/**
 			 * A​d​d​ ​a​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​i​t​s​ ​m​e​n​u​,​ ​o​r​ ​f​o​r​g​e​t​ ​i​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 			 */
@@ -9369,9 +9386,21 @@ export type TranslationFunctions = {
 				info: () => LocalizedString
 			}
 			/**
-			 * The relay refused the link for this folder ({reason}).
+			 * The relay refused this folder ({reason}).
 			 */
 			relay_refused: (arg: { reason: string }) => LocalizedString
+			/**
+			 * The relay refused this vault ({reason}).
+			 */
+			relay_refused_vault: (arg: { reason: string }) => LocalizedString
+			/**
+			 * The relay no longer accepts the link for this folder.
+			 */
+			relay_refused_link: () => LocalizedString
+			/**
+			 * The relay no longer accepts this device for this vault.
+			 */
+			relay_refused_device: () => LocalizedString
 			/**
 			 * The folder is no longer shared, but its links on {host} could not be revoked: {message}
 			 */
@@ -11308,7 +11337,11 @@ export type TranslationFunctions = {
 				/**
 				 * Ask whoever shared the folder for a new link, then add it from the folder’s menu.
 				 */
-				relay_refused: () => LocalizedString
+				relay_refused_link: () => LocalizedString
+				/**
+				 * This device’s access was refused. Link it again from a device that still has access, in Settings › Sync & devices.
+				 */
+				relay_refused_device: () => LocalizedString
 				/**
 				 * Add a link for this folder from its menu, or forget it on this device.
 				 */
