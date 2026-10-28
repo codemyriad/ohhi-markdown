@@ -56,6 +56,7 @@
   import PaneTree, { type PaneRender } from './PaneTree.svelte'
   import StripGroupsMenu from './StripGroupsMenu.svelte'
   import TabGroupMenuItems from './TabGroupMenuItems.svelte'
+  import { trackVisualViewport } from '../ui/visual-viewport.js'
 
   interface Props {
     workspace: Workspace
@@ -113,6 +114,14 @@
    * control. Zero when no strip floats there.
    */
   const dockClear = $derived(floatingDock && onNote && layout?.spec.dock.position === 'top-right' ? DOCK_CLEAR_PX : 0)
+
+  /**
+   * The floating bars and the dock follow the visible area, not the layout
+   * viewport (Firefox's sliding toolbar, iOS Safari's keyboard and address
+   * bar): `--vv-top` / `--vv-bottom` on the document root
+   * (`ui/visual-viewport.ts`), 0 where there is no `visualViewport`.
+   */
+  $effect(() => trackVisualViewport(document.documentElement))
 
   /** The pane container the layer floats in, and what it must clear at its edges. */
   let stage = $state<HTMLElement | null>(null)
@@ -369,7 +378,7 @@
           class="pointer-events-none absolute z-10 flex justify-center px-2 @container"
           style:left="{frame?.left ?? 0}px"
           style:width={frame ? `${frame.width}px` : '100%'}
-          style:top="{(frame?.top ?? 0) + clearTop + GAP_PX}px"
+          style:top="calc({(frame?.top ?? 0) + clearTop + GAP_PX}px + var(--vv-top, 0px))"
         >
           <div bind:clientHeight={topH} class="flex min-w-0 justify-center {screen.small ? 'flex-1' : ''}">
             <FormatBar ids={layout!.spec.bars.format} edge="top" ctx={topCtx} registry={nav.registry} fill={screen.small} />
@@ -390,7 +399,7 @@
           class="pointer-events-none absolute z-10 px-2 @container"
           style:left="{frame?.left ?? 0}px"
           style:width={frame ? `${frame.width}px` : '100%'}
-          style:bottom="{(frame?.bottom ?? 0) + clearBottom + GAP_PX}px"
+          style:bottom="calc({(frame?.bottom ?? 0) + clearBottom + GAP_PX}px + var(--vv-bottom, 0px))"
         >
           <!-- A small screen (QA round 1): one flex row — the bar takes all
                of it but the count chip at its right end, and scrolls. -->
