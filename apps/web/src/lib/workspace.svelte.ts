@@ -50,6 +50,7 @@ import {
   resolveRoomRelay,
   roomRelayUrl,
   FOLDER_RECORD_KEY,
+  announceMounts,
   joinMount,
   mountInvariants,
   MountRegistry,
@@ -1573,6 +1574,25 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (!rootSession!.isShared()) {
       rootSession!.enableSharing(relay)
       ui.linked = true
+      // A share joined, or a folder carved, while the vault was private was
+      // never announced in the root map (there were no peers to tell): the
+      // grant would ride in the link and no folder would appear on the other
+      // device. Announce every running mount the map does not name yet.
+      await announceMounts(
+        rootSession!,
+        registry
+          .all()
+          .filter((h) => h.mountPath !== '')
+          .map((h) => {
+            const relayUrl = descs.find((d) => d.room === h.session.room)?.relay?.url
+            return {
+              path: h.mountPath,
+              room: h.session.room,
+              ...(relayUrl ? { relay: relayUrl } : {}),
+              session: h.session,
+            }
+          })
+      )
     }
     // The next boot reads the root's relay off the VAULT ENTRY (boot.ts), not
     // off mounts.json — without this the link works for one session and the

@@ -191,7 +191,11 @@ boundary, not a file: enrollment, the delta scan and the reconciler never look a
 under it, because those paths belong to another mount session on this device. It is also
 the announcement channel — a peer of the parent room learns from that one entry that the
 subtree moved, and adopts it (spike S10 Q1). Advisory as ever: the entry carries the
-room and the relay, never a token.
+room and the relay, never a token. A private root has no peers, so a share joined or a
+folder carved while the vault was private writes no entry; when the root goes shared
+(*Link a device*), `announceMounts` back-fills one for every running mount the map does
+not name yet, seeded with the mount's folder state, so the linked device finds the
+folder as well as its grant.
 
 ## Escalation thresholds
 
