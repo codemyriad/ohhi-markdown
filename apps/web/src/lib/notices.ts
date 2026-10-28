@@ -17,6 +17,7 @@
 import { CHANGE_KINDS, type AppEvent, type EventLevel, type EventParam } from '@ohhi/workspace'
 import { writable } from 'svelte/store'
 import type { NoticeCode } from './event-text.js'
+import { realClock } from './real-clock.js'
 
 export type NoticeLevel = EventLevel
 
@@ -106,19 +107,26 @@ export function unclearedEvents<E extends Pick<AppEvent, 'id' | 'at' | 'kind' | 
   return events.filter((e) => !isCleared(e, c))
 }
 
-/**
- * *Clear all*: everything logged so far. The mark is the newest event's own
- * time, not the clock's — a peer's event can carry a time ahead of this
- * device's, and it is cleared too.
- */
-export function clearAll(events: readonly Pick<AppEvent, 'at'>[], c: ClearedNotices): ClearedNotices {
-  const at = events.reduce((max, e) => Math.max(max, e.at), c.at)
-  return { at, events: {}, notes: {} }
-}
-
 const capped = (map: Record<string, number>): Record<string, number> => {
   const entries = Object.entries(map)
   return entries.length <= CLEARED_LIMIT ? map : Object.fromEntries(entries.sort((a, b) => b[1] - a[1]).slice(0, CLEARED_LIMIT))
+}
+
+/**
+ * *Clear all*: everything logged so far, as of `now` (the clock's). The mark
+ * never passes `now`: a peer's event can carry a time ahead of this device's,
+ * and a mark at that time would hide every error logged here until the clock
+ * caught up with it. Such an event is dismissed by id instead (a folded repeat
+ * moves its time, so it comes back when it happens again).
+ */
+export function clearAll(events: readonly Pick<AppEvent, 'id' | 'at'>[], c: ClearedNotices, now: number): ClearedNotices {
+  let at = Math.min(c.at, now)
+  const ahead: Record<string, number> = {}
+  for (const e of events) {
+    if (e.at <= now) at = Math.max(at, e.at)
+    else ahead[e.id] = Math.max(ahead[e.id] ?? -Infinity, e.at)
+  }
+  return { at, events: capped(ahead), notes: {} }
 }
 
 /** Dismiss one error or warning, as it stands now. */
@@ -184,7 +192,11 @@ export function updateCleared(room: string, change: (c: ClearedNotices) => Clear
   })
 }
 
-/** *Clear all* in one vault — the drawer's button and the `app.clear-notifications` command. */
-export function clearNotices(room: string, events: readonly Pick<AppEvent, 'at'>[]): void {
-  updateCleared(room, (c) => clearAll(events, c))
+/**
+ * *Clear all* in one vault — the drawer's button and the
+ * `app.clear-notifications` command. `now` is the shell's clock unless the
+ * caller hands one in.
+ */
+export function clearNotices(room: string, events: readonly Pick<AppEvent, 'id' | 'at'>[], now: number = realClock.now()): void {
+  updateCleared(room, (c) => clearAll(events, c, now))
 }
