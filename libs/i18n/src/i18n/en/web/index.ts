@@ -67,6 +67,14 @@ const notices = {
   relay_refused_vault: 'The relay refused this vault ({reason:string}).',
   relay_refused_link: 'The relay no longer accepts the link for this folder.',
   relay_refused_device: 'The relay no longer accepts this device for this vault.',
+  /**
+   * A refusal the mount is RETRYING (`retrying` on the event,
+   * `MountSession.retryRefusal`): the relay could not open one of the room's
+   * documents just now. A transient the app is already handling, logged at
+   * info — nothing about links or devices, nothing for the person to do.
+   */
+  relay_refused_retrying: '{host:string} could not open a document in this folder — retrying. Your edits are safe on this device.',
+  relay_refused_retrying_vault: '{host:string} could not open a document in this vault — retrying. Your edits are safe on this device.',
   /** *Stop sharing*'s opt-in revoke failed AFTER the folder was unshared. */
   revoke_failed: 'The folder is no longer shared, but its links on {host:string} could not be revoked: {message:string}',
   /** Adopt outcomes that were silently dropped before S22; logged at info, never toasted. */

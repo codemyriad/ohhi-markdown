@@ -61,6 +61,30 @@ describe('a relay refusal, worded by reason and by whose room it is', () => {
   })
 })
 
+describe('a refusal the mount is retrying', () => {
+  /** What the mount logs for the first refusal of a retry run: info, `retrying`. */
+  const retrying = (mount: string): AppEvent<'relay.state'> => ({
+    ...refused(mount, 'permission-denied', false),
+    level: 'info',
+    payload: { to: 'refused', reason: 'permission-denied', joined: false, retrying: true },
+  })
+
+  it('says the relay could not open a document and the app is retrying — not that the device must be linked again', () => {
+    const vault = describeEvent(retrying(''), LL)
+    expect(vault).toBe(LL.web.notices.relay_refused_retrying_vault({ host: 'relay.example' }))
+    expect(vault).not.toBe(LL.web.notices.relay_refused_device())
+    expect(vault).not.toBe(LL.web.notices.relay_refused_vault({ reason: 'permission-denied' }))
+    expect(describeEvent(retrying('team'), LL)).toBe(LL.web.notices.relay_refused_retrying({ host: 'relay.example' }))
+  })
+
+  it('once the retries run out, the final refusal reads as a refusal again', () => {
+    // The mount's final refusal after `REFUSAL_RETRY_LIMIT`: error, no `retrying`.
+    expect(describeEvent(refused('', 'permission-denied', false), LL)).toBe(
+      LL.web.notices.relay_refused_vault({ reason: 'permission-denied' })
+    )
+  })
+})
+
 describe('the mass-change breaker', () => {
   it('a dismissed batch is worded with its count', () => {
     const e: AppEvent<'breaker.dismissed'> = {
