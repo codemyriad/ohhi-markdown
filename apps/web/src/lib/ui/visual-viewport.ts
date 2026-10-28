@@ -13,7 +13,10 @@
  *   top (px, never negative) — the format bar at the top moves down by it;
  * - `--vv-bottom`: how far the visible area ends above the layout viewport's
  *   bottom (px; negative when the visible area reaches past it) — the bars
- *   along the bottom move up by it;
+ *   along the bottom move up by it. The shell already sits the safe-area
+ *   bottom inset above that edge (the body's padding, `app.css`), so a lift
+ *   (a keyboard) is less that inset: the bars stand on the keyboard, not an
+ *   inset above it;
  * - `--vv-height`: the visible height (px).
  *
  * A browser without `visualViewport` gets nothing written, and every reader
@@ -41,12 +44,31 @@ export interface ViewportInsets {
 
 export const NO_INSETS: ViewportInsets = { top: 0, bottom: 0, height: null }
 
-/** The insets of the visible area within a layout viewport `layoutHeight` tall. Pure. */
-export function viewportInsets(vv: ViewportBox | null | undefined, layoutHeight: number): ViewportInsets {
+/**
+ * The insets of the visible area within a layout viewport `layoutHeight`
+ * tall, for a shell that sits `safeBottom` px above that viewport's bottom
+ * (the safe-area inset). Pure.
+ */
+export function viewportInsets(vv: ViewportBox | null | undefined, layoutHeight: number, safeBottom = 0): ViewportInsets {
   if (!vv || !(vv.height > 0)) return NO_INSETS
   const top = Math.max(0, Math.round(vv.offsetTop))
-  const bottom = Math.round(layoutHeight - vv.offsetTop - vv.height)
+  const raw = Math.round(layoutHeight - vv.offsetTop - vv.height)
+  // Covered from below (a keyboard): the shell's own inset already lifts the
+  // bars that far, so only the rest moves them.
+  const bottom = raw > 0 ? Math.max(0, raw - Math.round(Math.max(0, safeBottom))) : raw
   return { top, bottom: Object.is(bottom, -0) ? 0 : bottom, height: Math.round(vv.height) }
+}
+
+/**
+ * The safe-area bottom inset as the shell applies it: the body's computed
+ * bottom padding (`env(safe-area-inset-bottom)` in `app.css`), so the lift
+ * and the padding cannot disagree. 0 where there is no body.
+ */
+export function bodySafeBottom(): number {
+  const body = globalThis.document?.body
+  if (!body) return 0
+  const px = parseFloat(getComputedStyle(body).paddingBottom)
+  return Number.isFinite(px) ? px : 0
 }
 
 let current: ViewportInsets = NO_INSETS
@@ -64,16 +86,18 @@ const VARS = ['--vv-top', '--vv-bottom', '--vv-height'] as const
 
 /**
  * Follow the visual viewport until the returned function is called. `layout`
- * reads the layout viewport's height (the document root's `clientHeight`).
+ * reads the layout viewport's height (the document root's `clientHeight`);
+ * `safeBottom` the safe-area bottom inset the shell sits above it by.
  */
 export function trackVisualViewport(
   target: HTMLElement,
   vv: VisualViewportLike | null | undefined = globalThis.visualViewport,
-  layout: () => number = () => document.documentElement.clientHeight
+  layout: () => number = () => document.documentElement.clientHeight,
+  safeBottom: () => number = bodySafeBottom
 ): () => void {
   if (!vv) return () => {}
   const apply = (): void => {
-    const next = viewportInsets(vv, layout())
+    const next = viewportInsets(vv, layout(), safeBottom())
     if (next.top === current.top && next.bottom === current.bottom && next.height === current.height) return
     current = next
     target.style.setProperty('--vv-top', `${next.top}px`)
