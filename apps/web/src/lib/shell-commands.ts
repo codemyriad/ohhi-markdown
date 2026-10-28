@@ -227,7 +227,7 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       run: () => reloadResources(),
     })
   }
-  // Clear the notification drawer (dogfood round 2): the drawer's own
+  // Clear the notification drawer: the drawer's own
   // *Clear all*, for the palette and a key.
   const notices = deps.notices
   if (notices) {
