@@ -77,6 +77,13 @@ export interface EventPayloads {
      * link's, not this device's. Absent on events logged before it existed.
      */
     joined?: boolean
+    /**
+     * On `refused`: the refusal is not about the credential and the mount is
+     * retrying it (`MountSession.retryRefusal`) — the relay could not open a
+     * document right now. Logged at `info`; if the retries run out, a final
+     * `refused` without it follows at `error`.
+     */
+    retrying?: boolean
   }
   'mount.changed': { what: AdoptNoticeKind | 'status'; from?: MountStatus; to?: MountStatus }
   'review.opened': { guid: string; reason: DivergenceReview['reason'] }

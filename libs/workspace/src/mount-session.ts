@@ -130,6 +130,13 @@ export const PEER_SETTLE_MS = 3_000
  */
 const PERMANENT_REFUSALS: ReadonlySet<string> = new Set(['unknown_token', 'out_of_scope'])
 
+/** Take one kept awareness out of a teardown's map (`dropRelayConnections`). */
+function takeKept(kept: Map<string, Awareness>, key: string): Awareness | undefined {
+  const awareness = kept.get(key)
+  kept.delete(key)
+  return awareness
+}
+
 /** Whether a relay refusal is about the credential (final) or not (retried). */
 export function isPermanentRefusal(reason: string): boolean {
   return PERMANENT_REFUSALS.has(reason)
@@ -146,6 +153,20 @@ export const REFUSAL_RETRY_MAX_MS = 60_000
  * relay took them".
  */
 export const REFUSAL_SETTLE_MS = 3_000
+/**
+ * Retries in one run of retryable refusals before the mount gives up and
+ * treats the refusal as final (`reportAuthFailure`'s credential path:
+ * `refused` at error level, `RelayRefusedError`, an adopted mount to
+ * `needs-token`). Ten waits on the backoff above come to about five minutes.
+ *
+ * Why a cap at all: a relay that predates the refusal reasons answers a token
+ * it does not know with the same bare `permission-denied` it uses for a
+ * document it could not open. Without a cap that dead token would be retried
+ * every minute forever and never reported as one. Relays are meant to carry
+ * the reasons (docs/architecture/relay.md); the cap is what keeps an old one
+ * honest.
+ */
+export const REFUSAL_RETRY_LIMIT = 10
 
 /** An agent's edit to one note (mount-relative path). The seam's one home: `@ohhi/harness` re-exports it. */
 export interface ProposeEditInput {
@@ -466,6 +487,14 @@ export class MountSession {
   private refusalRetries = 0
   /** Pending end of a retry's settle window (`REFUSAL_SETTLE_MS`). */
   private cancelRefusalSettle: (() => void) | null = null
+  /** The logged `refused` is a retryable one (worded "retrying", not an error). */
+  private relayRefusedRetrying = false
+  /**
+   * Our own listeners on each connection's awareness, by doc guid (and
+   * `FOLDER_RECORD_KEY`): a teardown that keeps an awareness for the next
+   * connection must take them off, or every reconnect would add another set.
+   */
+  private readonly awarenessOffs = new Map<string, () => void>()
   /** Our folder connection is up: peer joins/leaves are only believed while it is. */
   private folderConnected = false
   /** Pending end of the post-connect settle window (`PEER_SETTLE_MS`); null when settled. */
@@ -499,7 +528,20 @@ export class MountSession {
     const session = new MountSession(cfg)
     // The stored history first, so a boot's own events land after it.
     await session.roomLog.load()
-    await session.boot()
+    try {
+      await session.boot()
+    } catch (err) {
+      // A boot that failed (a first join's pull refused or timed out) leaves
+      // a session nobody holds: shut it down here, awaited, or its sockets
+      // and retry timers go on in the background — and a late flush could
+      // write into the namespace the caller is about to roll back.
+      try {
+        await session.shutdown()
+      } catch (cleanup) {
+        session.pushError(cleanup)
+      }
+      throw err
+    }
     session.fileView = session.currentFileView()
     session.fileViewReady = true
     return session
@@ -1273,6 +1315,8 @@ export class MountSession {
       this.debounces.delete(guid)
       if (this.conns.has(guid)) {
         this.dropAgentPresence(guid)
+        this.awarenessOffs.get(guid)?.()
+        this.awarenessOffs.delete(guid)
         this.conns.get(guid)?.destroy()
         this.conns.delete(guid)
         this.events.onDocPresence?.(guid, [])
@@ -1548,8 +1592,10 @@ export class MountSession {
     // supplied, while its desc read `active`. "Shared, not syncing", forever
     // (golden rule 4). Tearing the old ones down first is what makes a paste
     // mean something.
+    let kept = new Map<string, Awareness>()
     if (this.relay) {
-      this.dropRelayConnections()
+      // The awarenesses survive the re-key: an open note keeps its cursors.
+      kept = this.dropRelayConnections({ keepAwareness: true })
       this.authFailure = null
       // A new credential starts a new relay story: the refusal no longer holds.
       this.cancelOffline?.()
@@ -1557,10 +1603,13 @@ export class MountSession {
       this.cancelRetries()
       this.relayState = null
       this.relayRefusedReason = null
+      this.relayRefusedRetrying = false
     }
     this.relay = newRelay
-    this.connectFolder() // sets sharedLink + fires onShared, wires presence
-    this.attachAllProviders()
+    // Sets sharedLink + fires onShared, wires presence.
+    this.connectFolder({ awareness: takeKept(kept, FOLDER_RECORD_KEY) })
+    this.attachAllProviders(kept)
+    this.destroyUnclaimed(kept)
     // Remember the relay in the mount desc so a reopen reconnects it.
     void this.writeMountDesc().catch((err) => this.pushError(err))
     return { link: this.sharedLink! }
@@ -1898,9 +1947,15 @@ export class MountSession {
    * a previous connection's verdict. The relay story (`relayState`) is the
    * caller's to keep or reset.
    */
-  private dropRelayConnections(): void {
-    this.destroyConns()
-    this.folderConn?.destroy()
+  private dropRelayConnections(opts: { keepAwareness?: boolean } = {}): Map<string, Awareness> {
+    const kept = new Map<string, Awareness>()
+    this.destroyConns(opts.keepAwareness ? kept : undefined)
+    if (this.folderConn) {
+      this.awarenessOffs.get(FOLDER_RECORD_KEY)?.()
+      this.awarenessOffs.delete(FOLDER_RECORD_KEY)
+      if (opts.keepAwareness) kept.set(FOLDER_RECORD_KEY, this.folderConn.awareness)
+      this.folderConn.destroy({ keepAwareness: opts.keepAwareness === true })
+    }
     this.folderConn = null
     this.roomSocket?.destroy() // after the per-doc detaches, never before
     this.roomSocket = null
@@ -1915,14 +1970,25 @@ export class MountSession {
       rec.connected = false
       rec.synced = false
     }
+    return kept
   }
 
-  /** Attach a provider for every doc that has a path (no-op without a relay). */
-  private attachAllProviders(): void {
+  /**
+   * Attach a provider for every doc that has a path (no-op without a relay),
+   * reusing the awareness a teardown kept for it (`dropRelayConnections`).
+   * A reused one is taken out of `kept`.
+   */
+  private attachAllProviders(kept?: Map<string, Awareness>): void {
     for (const guid of this.docs.keys()) {
       const path = this.pathForGuid(guid)
-      if (path) this.attachProvider(guid, path)
+      if (path) this.attachProvider(guid, path, kept)
     }
+  }
+
+  /** The kept awarenesses no new connection took (a doc gone meanwhile): destroy them. */
+  private destroyUnclaimed(kept: Map<string, Awareness>): void {
+    for (const awareness of kept.values()) awareness.destroy()
+    kept.clear()
   }
 
   private cancelRetries(): void {
@@ -1953,18 +2019,25 @@ export class MountSession {
     this.cancelRefusalSettle?.()
     this.cancelRefusalSettle = null
     if (this.cancelRefusalRetry) return
+    // A run that has not recovered after this many retries is not a relay
+    // hiccup: give up and say so, as for a credential (`REFUSAL_RETRY_LIMIT`).
+    if (this.refusalRetries >= REFUSAL_RETRY_LIMIT) return this.refuseFinally(reason)
     // The first refusal of a run is history; a retry that is refused again
     // is still the same retry in progress (`reconnecting`), not news.
-    if (this.refusalRetries === 0) this.setRelayState('refused', reason)
+    if (this.refusalRetries === 0) this.setRelayState('refused', reason, { retrying: true })
     const wait = Math.min(REFUSAL_RETRY_MAX_MS, REFUSAL_RETRY_MIN_MS * 2 ** this.refusalRetries)
     this.refusalRetries++
     this.cancelRefusalRetry = this.clock.schedule(() => {
       this.cancelRefusalRetry = null
       if (this.stopped || !this.relay) return
       this.setRelayState('reconnecting')
-      this.dropRelayConnections()
-      this.connectFolder({ announce: false })
-      this.attachAllProviders()
+      // Every awareness survives the rebuild: an editor bound to one keeps
+      // its remote cursors and keeps sending its own, and the host is never
+      // handed a new awareness for a doc that did not change.
+      const kept = this.dropRelayConnections({ keepAwareness: true })
+      this.connectFolder({ announce: false, awareness: takeKept(kept, FOLDER_RECORD_KEY) })
+      this.attachAllProviders(kept)
+      this.destroyUnclaimed(kept)
     }, wait)
   }
 
@@ -1981,7 +2054,11 @@ export class MountSession {
       this.folderConnected = true
       this.cancelOffline?.()
       this.cancelOffline = null
-      if (this.refusalRetries > 0) {
+      if (this.cancelRefusalRetry) {
+        // The socket a pending retry is about to replace came back (a network
+        // blip during the backoff): nothing is settled by it. The room stays
+        // as the run left it, and the retry still runs.
+      } else if (this.refusalRetries > 0) {
         // A retry's socket: `connected` only once the relay has had time to
         // answer every document without refusing one (`retryRefusal`).
         this.cancelRefusalSettle?.()
@@ -2025,23 +2102,45 @@ export class MountSession {
     }, RELAY_OFFLINE_MS)
   }
 
-  private setRelayState(to: 'connected' | 'reconnecting' | 'offline' | 'refused', reason?: string): void {
-    if (to === this.relayState && (to !== 'refused' || reason === this.relayRefusedReason)) return
+  /**
+   * `retrying` marks a refusal the mount is retrying (`retryRefusal`): the
+   * room still reads `refused` (golden rule 4 — the relay did refuse), but
+   * the event is `info`, not `error`. It is a transient the mount is already
+   * handling, most often gone within seconds, and an error toast and badge
+   * for it would ask the person to act when there is nothing to do. If the
+   * run does not recover it ends in a final refusal (`REFUSAL_RETRY_LIMIT`),
+   * which is an error. The pill is unaffected either way: it reads the
+   * records, which say "not connected" for as long as it lasts.
+   */
+  private setRelayState(
+    to: 'connected' | 'reconnecting' | 'offline' | 'refused',
+    reason?: string,
+    opts: { retrying?: boolean } = {}
+  ): void {
+    const retrying = to === 'refused' && opts.retrying === true
+    if (
+      to === this.relayState &&
+      (to !== 'refused' || (reason === this.relayRefusedReason && retrying === this.relayRefusedRetrying))
+    ) {
+      return
+    }
     this.relayState = to
     this.relayRefusedReason = to === 'refused' ? (reason ?? null) : null
+    this.relayRefusedRetrying = retrying
     if (to === 'refused') {
       this.cancelOffline?.()
       this.cancelOffline = null
     }
     this.logEvent({
       kind: 'relay.state',
-      level: to === 'refused' ? 'error' : 'info',
+      level: to === 'refused' && !retrying ? 'error' : 'info',
       scope: this.scopeFor(),
       actor: this.relayActor(),
       payload: {
         to,
         ...(to === 'refused' && reason !== undefined ? { reason } : {}),
         ...(to === 'refused' ? { joined: this.isJoinedShare() } : {}),
+        ...(retrying ? { retrying: true } : {}),
       },
     })
   }
@@ -2542,11 +2641,13 @@ export class MountSession {
   }
 
   /** Connect a relay provider for one doc. No-op without a relay. */
-  private attachProvider(guid: string, path: string): void {
+  private attachProvider(guid: string, path: string, kept?: Map<string, Awareness>): void {
     if (!this.relay || this.conns.has(guid)) return
     const doc = this.docs.get(guid)
     if (!doc) return
     const socket = this.ensureSocket()
+    const awareness = kept?.get(guid)
+    kept?.delete(guid)
     this.conns.set(
       guid,
       connectDoc({
@@ -2557,11 +2658,17 @@ export class MountSession {
         user: this.user,
         record: this.recordFor(guid),
         onAuthFailed: (reason) => this.reportAuthFailure(reason),
+        ...(awareness ? { awareness } : {}),
         ...(socket ? { socket } : {}),
       })
     )
     const conn = this.conns.get(guid)!
-    conn.awareness.on('change', () => this.reportDocPresence(guid))
+    // A kept awareness this connection did not take (another doc instance by
+    // now) is the teardown's to destroy, not ours.
+    if (awareness && conn.awareness !== awareness) awareness.destroy()
+    const onPresence = (): void => this.reportDocPresence(guid)
+    conn.awareness.on('change', onPresence)
+    this.awarenessOffs.set(guid, () => conn.awareness.off('change', onPresence))
     this.syncHere()
     this.reportDocPresence(guid)
   }
@@ -2607,11 +2714,18 @@ export class MountSession {
     this.events.onDocPresence?.(guid, peers)
   }
 
-  /** Destroy every doc connection, telling the host nobody is in them any more. */
-  private destroyConns(): void {
+  /**
+   * Destroy every doc connection, telling the host nobody is in them any
+   * more. With `keep`, each connection's awareness survives into it, by
+   * guid, for the next connection of the same doc.
+   */
+  private destroyConns(keep?: Map<string, Awareness>): void {
     for (const [guid, conn] of this.conns) {
       this.dropAgentPresence(guid)
-      conn.destroy()
+      this.awarenessOffs.get(guid)?.()
+      this.awarenessOffs.delete(guid)
+      if (keep) keep.set(guid, conn.awareness)
+      conn.destroy({ keepAwareness: keep !== undefined })
       this.events.onDocPresence?.(guid, [])
     }
     this.conns.clear()
@@ -2891,7 +3005,22 @@ export class MountSession {
 
   private reportAuthFailure(reason: string): void {
     if (this.stopped) return
-    if (!isPermanentRefusal(reason)) return this.retryRefusal(reason)
+    if (!isPermanentRefusal(reason)) {
+      // A final refusal already stands: retrying cannot lift it, and a retry
+      // run on top would rebuild the room every few seconds, logging the
+      // same refusal again each time. It holds until a new credential.
+      if (this.authFailure !== null) return
+      // A pull in progress (a first join, a device link's or an add-link's)
+      // waits on the providers it started with; a retry would destroy them
+      // under it and leave it waiting on dead objects until it times out.
+      // There, any refusal fails the pull at once and the caller rolls back.
+      if (this.pullPhase === null) return this.retryRefusal(reason)
+    }
+    this.refuseFinally(reason)
+  }
+
+  /** A refusal that holds until a new credential: logged, raised, never retried. */
+  private refuseFinally(reason: string): void {
     this.cancelRetries()
     // The message is a developer-facing diagnostic (it also rejects a join's
     // `whenSynced`); what a person reads comes from the host's i18n, keyed on
@@ -2925,7 +3054,7 @@ export class MountSession {
    * without a relay. `announce: false` (a retry's reconnect) keeps the link
    * the host already has instead of announcing the share again.
    */
-  private connectFolder(opts: { announce?: boolean } = {}): DocConnection | null {
+  private connectFolder(opts: { announce?: boolean; awareness?: Awareness } = {}): DocConnection | null {
     if (this.folderConn || !this.relay) return this.folderConn
     const socket = this.ensureSocket()
     this.folderConn = connectDoc({
@@ -2937,13 +3066,20 @@ export class MountSession {
       record: this.recordFor(FOLDER_RECORD_KEY),
       onAuthFailed: (reason) => this.reportAuthFailure(reason),
       onStatus: (status) => this.noteRelayStatus(status),
+      ...(opts.awareness ? { awareness: opts.awareness } : {}),
       ...(socket ? { socket } : {}),
     })
     // A shared socket that is already open never re-announces its status.
     if (this.recordFor(FOLDER_RECORD_KEY).connected) this.noteRelayStatus('connected')
     else this.armOffline()
-    this.folderConn.awareness.on('change', () => this.updatePresence())
-    this.folderConn.awareness.on('update', () => this.updatePresence())
+    const folderAwareness = this.folderConn.awareness
+    const onPresence = (): void => this.updatePresence()
+    folderAwareness.on('change', onPresence)
+    folderAwareness.on('update', onPresence)
+    this.awarenessOffs.set(FOLDER_RECORD_KEY, () => {
+      folderAwareness.off('change', onPresence)
+      folderAwareness.off('update', onPresence)
+    })
     this.updatePresence()
     if (opts.announce === false && this.sharedLink) return this.folderConn
     this.sharedLink = this.cfg.makeShareLink(this.relay, this.room)

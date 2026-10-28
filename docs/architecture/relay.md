@@ -189,6 +189,27 @@ Two consequences worth stating:
   same socket replays the queued CLOSE into the new connection — authenticated and
   silently dead. A fresh socket is what a relaunch gave; before this, a relaunch was the
   only cure (`libs/workspace/test/relay-refusal-retry.test.ts`).
+  The rules of a retry run:
+  - The first `refused` of a run carries `retrying: true` and is logged at **info**, not
+    error: it is a transient the mount is already handling, and the host words it as
+    "the relay could not open a document; retrying" with no toast. The pill does not
+    change for it — it reads the records, which say "not connected" while it lasts.
+  - Each doc's **awareness survives the rebuild** (`DocConnection.destroy({ keepAwareness })`,
+    handed to the next `connectDoc`), so an open editor keeps its remote cursors and keeps
+    sending its own, and the host never sees a new awareness for a doc that did not
+    change. A re-key through `enableSharing` keeps them the same way.
+  - A blip on the old socket while a retry waits settles nothing; the retry still runs.
+  - A final refusal stands: once a credential refusal is in, a retryable one starts no run.
+  - During a **pull** (a first join, a device link's, an add-link's) every refusal is
+    final: the pull waits on the connections it started with, so it fails at once and
+    the caller rolls back, and a session whose boot failed is shut down.
+  - The run is **capped** (`REFUSAL_RETRY_LIMIT`, ten retries, about five minutes): then the
+    refusal is treated as final, at error level, and raised as `RelayRefusedError`.
+- **Relays must carry the refusal reasons.** A relay that predates them answers a token it
+  does not know with the same bare `permission-denied`, which this client retries; the cap
+  is what turns a dead token on such a relay into a stated refusal, five minutes late.
+  Deploy a relay with the reasons (`apps/relay`'s `refusal(...)` in `onAuthenticate`)
+  before a client with the retry ships against it.
 
 ## What the relay can and cannot read
 
