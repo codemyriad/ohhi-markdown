@@ -10,8 +10,14 @@
 
   interface Props {
     doc: EngineDoc
+    /**
+     * The doc's awareness (remote cursors). Swapped in place, never by
+     * rebuilding: a host can hand a new one for the same doc (a connection
+     * that came up later) and the caret, the scroll and the undo stack stay.
+     */
     awareness?: Awareness | null
     user: CollabUser
+    /** Applied by reconfigure, never by rebuilding (a surgery holds the view still). */
     readOnly?: boolean
     /**
      * Live / Source / Reading. Applied by reconfigure, never by rebuilding:
@@ -68,18 +74,19 @@
   let handle = $state.raw<MarkdownEditorHandle | null>(null)
 
   // CM6 owns everything inside `host`; Svelte never renders in there.
-  // Lifecycle depends on doc/awareness/user only — `dark` and `extensions`
-  // are read untracked and applied by reconfigure below, so neither a theme
-  // flip nor a new extension set rebinds the Y.Text.
+  // Lifecycle depends on doc/user only — everything else (`awareness`,
+  // `readOnly`, `dark`, `extensions`, …) is read untracked and applied by
+  // reconfigure below, so none of them rebinds the Y.Text or rebuilds the
+  // view under the caret.
   $effect(() => {
     if (!host) return
     const manager = untrack(() => undoManager)
     const report = untrack(() => onhandle)
     const h = createMarkdownEditor(host, {
       doc,
-      awareness,
+      awareness: untrack(() => awareness),
       user,
-      readOnly,
+      readOnly: untrack(() => readOnly),
       mode: untrack(() => mode),
       typewriter: untrack(() => typewriter),
       typing: untrack(() => typing),
@@ -95,6 +102,14 @@
       h.destroy()
       handle = null
     }
+  })
+
+  $effect(() => {
+    handle?.setAwareness(awareness)
+  })
+
+  $effect(() => {
+    handle?.setReadOnly(readOnly)
   })
 
   $effect(() => {

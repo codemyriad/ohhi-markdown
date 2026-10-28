@@ -266,8 +266,10 @@ export interface WorkspaceUi {
    * with the new mount's instance, and the old one is destroyed — a view that
    * kept it typed into a doc no session syncs. A view reads this when it
    * resolves its doc, so it re-resolves after every surgery (and remounts
-   * only if the instance actually changed). Optional so a fake workspace
-   * need not carry it.
+   * only if the instance actually changed). Also bumped when a doc's
+   * connections first come up (a private vault linked to a device), so an open
+   * note picks up its awareness — swapped in place, never a rebuild. Optional
+   * so a fake workspace need not carry it.
    */
   docsEpoch?: number
   /**
@@ -1620,6 +1622,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (!rootSession!.isShared()) {
       rootSession!.enableSharing(relay)
       ui.linked = true
+      // The root's docs have connections now: an open note picks up its
+      // awareness (swapped in place — the doc instance did not change).
+      ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
       // A share joined, or a folder carved, while the vault was private was
       // never announced in the root map (there were no peers to tell): the
       // grant would ride in the link and no folder would appear on the other
@@ -1945,6 +1950,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       // mount to hold them — put them back, and the next thing that resolves
       // them re-marks them (C1).
       if (held.length > 0) reapplyLiveViews(held)
+      // The merge branch kept the session and its docs but gave them their
+      // first connections: an open note picks up its awareness in place.
+      else ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
       await reloadMounts()
       refreshTree()
     }

@@ -21,6 +21,7 @@ import { applyLinkEdits, MemoryIndex } from '@ohhi/index'
 import { planCollectionMoves } from '@ohhi/collections'
 import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
 import { SimClock } from '@ohhi/testkit'
+import { Awareness } from 'y-protocols/awareness'
 import { createMembership } from '../collection-membership.svelte.js'
 import { DENSE_CHROME } from '../pane-chrome.js'
 import { newTab, type Pane as PaneNode } from '../panes.js'
@@ -285,5 +286,32 @@ describe('Pane — a surgery that replaces the doc behind an open note', () => {
     ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
     flushSync()
     expect(document.querySelector('.cm-editor')).toBe(editor)
+  })
+})
+
+describe('Pane — what a new connection must not rebuild', () => {
+  it('swaps a new awareness for the same doc into the editor in place', async () => {
+    const v = vault({ 'n.md': 'one two three\n' })
+    const doc = v.docs.get('n.md')!
+    const raw = doc.raw() as ConstructorParameters<typeof Awareness>[0]
+    let current = new Awareness(raw)
+    ;(v.workspace as { awarenessForPath: () => Awareness | null }).awarenessForPath = () => current
+    mountPane(v, 'n.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    const editor = document.querySelector('.cm-editor')
+
+    // The doc's connection came up later (a vault linked to a device): a new
+    // awareness, the same doc instance, and the epoch moves.
+    const first = current
+    current = new Awareness(raw)
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+
+    // The same view — caret and scroll intact — with its cursor layer on the
+    // new awareness: this device's name is in it.
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+    expect((current.getLocalState() as { user?: { name?: string } } | null)?.user?.name).toBe('Test')
+    first.destroy()
+    current.destroy()
   })
 })
