@@ -93,12 +93,27 @@ describe('clearing the drawer: rows leave it, the log keeps them', () => {
 
   it('Clear all hides everything logged so far, up to the newest event’s own time', () => {
     const events = [ev('a', 300), peer('b', 900, 'x.md'), ev('c', 100)]
-    const c = clearAll(events, NOTHING_CLEARED)
+    const c = clearAll(events, NOTHING_CLEARED, 1_000)
     expect(c.at).toBe(900)
     expect(unclearedEvents(events, c)).toEqual([])
     // What comes after is shown; the list handed in is never changed.
     expect(unclearedEvents([ev('d', 901), ...events], c).map((e) => e.id)).toEqual(['d'])
     expect(events.map((e) => e.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('a peer’s event stamped ahead of this clock is cleared by id; what happens here after the clear still shows', () => {
+    // This device's clock reads 1 000; a peer's clock runs ahead.
+    const events = [ev('a', 300), peer('ahead', 5_000, 'x.md')]
+    const c = clearAll(events, NOTHING_CLEARED, 1_000)
+    expect(c.at).toBe(300)
+    expect(unclearedEvents(events, c)).toEqual([])
+    // An error logged here after the clear is in the drawer, as the bell counts it.
+    const later = ev('later', 1_200, { level: 'error' })
+    expect(unclearedEvents([later, ...events], c).map((e) => e.id)).toEqual(['later'])
+    // The peer's event comes back when it happens again (a folded repeat moves its time).
+    expect(isCleared({ ...events[1], at: 5_100 }, c)).toBe(false)
+    // A mark an earlier clear left ahead of the clock is pulled back to it.
+    expect(clearAll([], { at: 5_000, events: {}, notes: {} }, 1_000).at).toBe(1_000)
   })
 
   it('a dismissed warning comes back when it happens again (a folded repeat moves its time)', () => {
@@ -123,14 +138,14 @@ describe('clearing the drawer: rows leave it, the log keeps them', () => {
     for (let i = 0; i < CLEARED_LIMIT + 5; i++) c = dismissEvent(ev(`e${i}`, i + 1), c)
     expect(Object.keys(c.events)).toHaveLength(CLEARED_LIMIT)
     expect(c.events.e0).toBeUndefined()
-    expect(clearAll([], c)).toEqual({ at: 0, events: {}, notes: {} })
+    expect(clearAll([], c, 1_000)).toEqual({ at: 0, events: {}, notes: {} })
   })
 
   it('the store clears one vault, keeps it on the device, and leaves other vaults alone', () => {
     useMemStorage()
     try {
       clearedNotices.set({})
-      clearNotices('vault-a', [ev('a', 300)])
+      clearNotices('vault-a', [ev('a', 300)], 1_000)
       expect(clearedFor(get(clearedNotices), 'vault-a').at).toBe(300)
       expect(clearedFor(get(clearedNotices), 'vault-b')).toBe(NOTHING_CLEARED)
       expect(JSON.parse(localStorage.getItem('editor:notices-cleared') ?? '{}')['vault-a'].at).toBe(300)
