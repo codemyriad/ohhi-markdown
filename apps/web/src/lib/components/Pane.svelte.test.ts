@@ -295,7 +295,7 @@ describe('Pane — what a surgery or a new connection must not rebuild', () => {
     const doc = v.docs.get('n.md')!
     const raw = doc.raw() as ConstructorParameters<typeof Awareness>[0]
     let current = new Awareness(raw)
-    ;(v.workspace as { awarenessForPath: () => Awareness | null }).awarenessForPath = () => current
+    ;(v.workspace as { awarenessForPath: (path: string) => Awareness | null }).awarenessForPath = () => current
     mountPane(v, 'n.md')
     await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
     const editor = document.querySelector('.cm-editor')
