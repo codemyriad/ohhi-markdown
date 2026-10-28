@@ -458,6 +458,22 @@ describe('a file written into a mount’s folder while running shows up in the t
   })
 })
 
+/** Run `work`, noting every value `look` takes while it runs (microtask by microtask). */
+async function watchWhile<T>(work: Promise<unknown>, look: () => T): Promise<T[]> {
+  const seen: T[] = []
+  let done = false
+  void work.finally(() => (done = true)).catch(() => {})
+  for (let turn = 0; !done; turn++) {
+    seen.push(look())
+    // Mostly microtasks (the surgery's own awaits), and now and then a task,
+    // so a wait on real I/O is not starved.
+    if (turn % 50 === 49) await new Promise((r) => setTimeout(r, 0))
+    else await Promise.resolve()
+  }
+  await work
+  return seen
+}
+
 describe('a note open while its folder is shared (carve)', () => {
   it('resolves to the new mount’s doc, and tells the views to re-resolve', async () => {
     const adapter = new MemVaultAdapter()
@@ -483,5 +499,26 @@ describe('a note open while its folder is shared (carve)', () => {
     expect(after?.getText()).toBe('shared plan\n')
     expect(ws.ui.docsEpoch).toBeGreaterThan(epoch)
     expect(ws.ui.mounts.map((m) => m.path)).toEqual(['team'])
+  })
+
+  it('holds the subtree’s open notes read-only while the carve replaces their docs', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    setOperatorSecret('operator-secret')
+    setDefaultRelay(RELAY)
+    const ws = await setupWorkspace({ adapter, storeDir: new MemStoreDir(), user: 'T', room: 'root-room' })
+    open = ws
+    ws.setLiveViews(new Set(['team/plan.md', 'keep.md']))
+
+    const seen = await watchWhile(ws.carveFolder('team'), () => [...(ws.ui.frozen ?? [])])
+
+    // The pane on team/plan.md still shows the root's instance, which the
+    // carve flushes and destroys: anything typed into it then would be gone
+    // at the remount, so the view is read-only for the surgery — and only the
+    // surgery's subtree, and only until it is over.
+    expect(seen.some((f) => f.includes('team'))).toBe(true)
+    expect(seen.every((f) => f.every((p) => p === 'team'))).toBe(true)
+    expect(ws.ui.frozen).toEqual([])
   })
 })

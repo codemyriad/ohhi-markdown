@@ -109,7 +109,15 @@ and a pane resolves its doc (and awareness, and undo stack) under it and keys it
 on the doc instance — a new instance remounts the editor, an unchanged one keeps it. The
 adopt machine's hooks (a peer's carve or unshare arriving, a root rebuild) go through the
 same re-apply, dropping the undo stacks bound to the old instances
-(`e2e/share-open-note.spec.ts`). While any of those
+(`e2e/share-open-note.spec.ts`); and `undoManagerFor` never hands out a stack recorded on
+an instance that is gone (an unshare rebuilds every root doc, not only the folder's).
+Only the doc instance remounts the editor: a new awareness for the same doc (its
+connection came up later) and the read-only switch go through compartments in the
+editor, so neither moves the caret or the scroll. **While** a surgery runs (a carve,
+an unshare or unmount, an add-link's rebuild, a root rebuild) the views it is about to
+replace are read-only (`ui.frozen`, taken before the views are released): they still
+show the old instance, and text typed into it after the surgery has flushed and
+destroyed it would be gone at the remount — refused instead of lost. While any of those
 surgeries is in flight the shell sees `ui.settling === true` — `ui.files` is a partial
 picture mid-surgery, so anything that *deletes* state derived from it (the tab prune)
 waits for it to go false.
