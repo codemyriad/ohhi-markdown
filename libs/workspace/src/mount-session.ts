@@ -119,6 +119,34 @@ export const RELAY_OFFLINE_MS = 30_000
  */
 export const PEER_SETTLE_MS = 3_000
 
+/**
+ * The refusals that are about the CREDENTIAL (`apps/relay` names them: a
+ * token it does not know, a document outside the share). Retrying cannot
+ * change either, so they stay `refused` until a new credential arrives.
+ * Anything else — a bare `permission-denied` above all, which is how
+ * Hocuspocus answers ANY throw while it sets a document up, its load
+ * included — says the relay could not open a document right now, and is
+ * retried.
+ */
+const PERMANENT_REFUSALS: ReadonlySet<string> = new Set(['unknown_token', 'out_of_scope'])
+
+/** Whether a relay refusal is about the credential (final) or not (retried). */
+export function isPermanentRefusal(reason: string): boolean {
+  return PERMANENT_REFUSALS.has(reason)
+}
+
+/** First wait before a retryable refusal is retried; doubles per attempt… */
+export const REFUSAL_RETRY_MIN_MS = 1_000
+/** …up to this. */
+export const REFUSAL_RETRY_MAX_MS = 60_000
+/**
+ * A retry's connection must hold this long without a new refusal before the
+ * room reads `connected` again: the socket opens before the relay has
+ * answered every document's auth, so "the socket is up" is not yet "the
+ * relay took them".
+ */
+export const REFUSAL_SETTLE_MS = 3_000
+
 /** An agent's edit to one note (mount-relative path). The seam's one home: `@ohhi/harness` re-exports it. */
 export interface ProposeEditInput {
   path: string
@@ -432,6 +460,12 @@ export class MountSession {
   private relayState: 'connected' | 'reconnecting' | 'offline' | 'refused' | null = null
   private relayRefusedReason: string | null = null
   private cancelOffline: (() => void) | null = null
+  /** The pending retry after a retryable refusal (`retryRefusal`); null when none. */
+  private cancelRefusalRetry: (() => void) | null = null
+  /** Retries in the current run of retryable refusals; 0 when the room is settled. */
+  private refusalRetries = 0
+  /** Pending end of a retry's settle window (`REFUSAL_SETTLE_MS`). */
+  private cancelRefusalSettle: (() => void) | null = null
   /** Our folder connection is up: peer joins/leaves are only believed while it is. */
   private folderConnected = false
   /** Pending end of the post-connect settle window (`PEER_SETTLE_MS`); null when settled. */
@@ -1515,37 +1549,18 @@ export class MountSession {
     // (golden rule 4). Tearing the old ones down first is what makes a paste
     // mean something.
     if (this.relay) {
-      this.destroyConns()
-      this.folderConn?.destroy()
-      this.folderConn = null
-      this.roomSocket?.destroy() // after the per-doc detaches, never before
-      this.roomSocket = null
+      this.dropRelayConnections()
       this.authFailure = null
       // A new credential starts a new relay story: the refusal no longer holds.
       this.cancelOffline?.()
       this.cancelOffline = null
+      this.cancelRetries()
       this.relayState = null
       this.relayRefusedReason = null
-      this.folderConnected = false
-      this.cancelPeerSettle?.()
-      this.cancelPeerSettle = null
-      // Every record goes back to "not connected" until the NEW provider says
-      // otherwise: the pill must never carry a previous credential's verdict.
-      const folder = this.recordFor(FOLDER_RECORD_KEY)
-      folder.connected = false
-      folder.synced = false
-      for (const guid of this.docs.keys()) {
-        const rec = this.recordFor(guid)
-        rec.connected = false
-        rec.synced = false
-      }
     }
     this.relay = newRelay
     this.connectFolder() // sets sharedLink + fires onShared, wires presence
-    for (const guid of this.docs.keys()) {
-      const path = this.pathForGuid(guid)
-      if (path) this.attachProvider(guid, path)
-    }
+    this.attachAllProviders()
     // Remember the relay in the mount desc so a reopen reconnects it.
     void this.writeMountDesc().catch((err) => this.pushError(err))
     return { link: this.sharedLink! }
@@ -1560,6 +1575,7 @@ export class MountSession {
     this.cancelOffline = null
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
+    this.cancelRetries()
     for (const { store } of this.suggestionStores.values()) store.destroy()
     this.suggestionStores.clear()
     this.agentRuns.destroy()
@@ -1632,6 +1648,7 @@ export class MountSession {
     this.cancelOffline = null
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
+    this.cancelRetries()
     // The debounced tail of the event log, durably (sharing E3).
     await this.roomLog.flush()
     this.roomLog.dispose()
@@ -1874,6 +1891,83 @@ export class MountSession {
     this.presentPeers = peers
   }
 
+  /**
+   * Tear down every relay connection of this room — each doc's provider, the
+   * folder's, then the shared socket — and put every record back to "not
+   * connected" until a NEW provider says otherwise: the pill must never carry
+   * a previous connection's verdict. The relay story (`relayState`) is the
+   * caller's to keep or reset.
+   */
+  private dropRelayConnections(): void {
+    this.destroyConns()
+    this.folderConn?.destroy()
+    this.folderConn = null
+    this.roomSocket?.destroy() // after the per-doc detaches, never before
+    this.roomSocket = null
+    this.folderConnected = false
+    this.cancelPeerSettle?.()
+    this.cancelPeerSettle = null
+    const folder = this.recordFor(FOLDER_RECORD_KEY)
+    folder.connected = false
+    folder.synced = false
+    for (const guid of this.docs.keys()) {
+      const rec = this.recordFor(guid)
+      rec.connected = false
+      rec.synced = false
+    }
+  }
+
+  /** Attach a provider for every doc that has a path (no-op without a relay). */
+  private attachAllProviders(): void {
+    for (const guid of this.docs.keys()) {
+      const path = this.pathForGuid(guid)
+      if (path) this.attachProvider(guid, path)
+    }
+  }
+
+  private cancelRetries(): void {
+    this.cancelRefusalRetry?.()
+    this.cancelRefusalRetry = null
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    this.refusalRetries = 0
+  }
+
+  /**
+   * The relay refused a document for a reason retrying CAN change (see
+   * `isPermanentRefusal`). Log it once, then rebuild the room's connections
+   * after a capped backoff on the injected clock — while one is pending,
+   * further refusals ride it.
+   *
+   * Why the whole room, on a fresh socket, and not the one document again:
+   * a refused provider stays attached and keeps sending (awareness, updates),
+   * which Hocuspocus 4.1.2 queues server-side for that document name as a
+   * not-yet-authenticated connection. Detaching it queues a CLOSE behind
+   * them, and re-attaching on the same socket authenticates and then replays
+   * that queue — the CLOSE included — into the new connection: authenticated,
+   * "synced", and silently never syncing again. A fresh socket is a fresh
+   * server-side connection with no queue, which is also exactly what a
+   * relaunch gave, and what made a relaunch the only cure.
+   */
+  private retryRefusal(reason: string): void {
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    if (this.cancelRefusalRetry) return
+    // The first refusal of a run is history; a retry that is refused again
+    // is still the same retry in progress (`reconnecting`), not news.
+    if (this.refusalRetries === 0) this.setRelayState('refused', reason)
+    const wait = Math.min(REFUSAL_RETRY_MAX_MS, REFUSAL_RETRY_MIN_MS * 2 ** this.refusalRetries)
+    this.refusalRetries++
+    this.cancelRefusalRetry = this.clock.schedule(() => {
+      this.cancelRefusalRetry = null
+      if (this.stopped || !this.relay) return
+      this.setRelayState('reconnecting')
+      this.dropRelayConnections()
+      this.connectFolder({ announce: false })
+      this.attachAllProviders()
+    }, wait)
+  }
+
   private relayActor(): Actor {
     const name = relayHost(this.relay?.url)
     return { kind: 'relay', ...(name ? { name } : {}) }
@@ -1887,7 +1981,19 @@ export class MountSession {
       this.folderConnected = true
       this.cancelOffline?.()
       this.cancelOffline = null
-      this.setRelayState('connected')
+      if (this.refusalRetries > 0) {
+        // A retry's socket: `connected` only once the relay has had time to
+        // answer every document without refusing one (`retryRefusal`).
+        this.cancelRefusalSettle?.()
+        this.cancelRefusalSettle = this.clock.schedule(() => {
+          this.cancelRefusalSettle = null
+          if (this.stopped || !this.folderConnected) return
+          this.refusalRetries = 0
+          this.setRelayState('connected')
+        }, REFUSAL_SETTLE_MS)
+      } else {
+        this.setRelayState('connected')
+      }
       // Presence was frozen while we were down: diff it once the peers'
       // awareness has had time to arrive, never at the connect itself.
       this.cancelPeerSettle?.()
@@ -1900,7 +2006,11 @@ export class MountSession {
     this.folderConnected = false
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
-    if (this.relayState === 'refused') return // retrying will not change a refusal
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    // A credential refusal: retrying will not change it. (A retryable one has
+    // its own retry pending — `retryRefusal` — and reads `refused` until then.)
+    if (this.relayState === 'refused') return
     if (this.relayState === 'connected') this.setRelayState('reconnecting')
     this.armOffline()
   }
@@ -2780,6 +2890,9 @@ export class MountSession {
   // ---- relay / presence (only when a relay is attached) ----
 
   private reportAuthFailure(reason: string): void {
+    if (this.stopped) return
+    if (!isPermanentRefusal(reason)) return this.retryRefusal(reason)
+    this.cancelRetries()
     // The message is a developer-facing diagnostic (it also rejects a join's
     // `whenSynced`); what a person reads comes from the host's i18n, keyed on
     // the error's type and `reason` (spike S22: a `relay.state` refused event).
@@ -2807,8 +2920,12 @@ export class MountSession {
     this.events.onPresence?.([...names].sort())
   }
 
-  /** Create the folder-doc provider + presence wiring. Idempotent; no-op without a relay. */
-  private connectFolder(): DocConnection | null {
+  /**
+   * Create the folder-doc provider + presence wiring. Idempotent; no-op
+   * without a relay. `announce: false` (a retry's reconnect) keeps the link
+   * the host already has instead of announcing the share again.
+   */
+  private connectFolder(opts: { announce?: boolean } = {}): DocConnection | null {
     if (this.folderConn || !this.relay) return this.folderConn
     const socket = this.ensureSocket()
     this.folderConn = connectDoc({
@@ -2828,6 +2945,7 @@ export class MountSession {
     this.folderConn.awareness.on('change', () => this.updatePresence())
     this.folderConn.awareness.on('update', () => this.updatePresence())
     this.updatePresence()
+    if (opts.announce === false && this.sharedLink) return this.folderConn
     this.sharedLink = this.cfg.makeShareLink(this.relay, this.room)
     this.events.onShared?.(this.sharedLink)
     return this.folderConn

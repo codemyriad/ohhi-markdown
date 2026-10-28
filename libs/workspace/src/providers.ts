@@ -121,7 +121,11 @@ export interface ConnectDocOptions {
   user: CollabUser
   /** Reactive record this provider keeps honest. */
   record: SyncRecordFields
-  /** Auth rejection is permanent — surface it instead of retrying silently. */
+  /**
+   * The relay refused this doc, with its reason — surface it instead of
+   * retrying silently. The provider never asks again on this socket; whether
+   * the refusal is final is the caller's call (`isPermanentRefusal`).
+   */
   onAuthFailed?: (reason: string) => void
   /**
    * The socket's status transitions as the provider reports them
