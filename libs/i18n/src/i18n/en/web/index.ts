@@ -845,7 +845,7 @@ const drawer = {
   problems: 'Errors and warnings',
   changes: 'Changes by others',
   /**
-   * Clearing (dogfood round 2): rows leave the drawer, never the log — the Log
+   * Clearing: rows leave the drawer, never the log — the Log
    * view still lists them.
    */
   clear_all: 'Clear all',
