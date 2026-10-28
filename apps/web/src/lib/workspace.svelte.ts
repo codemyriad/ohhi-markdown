@@ -42,7 +42,7 @@ import {
 } from '@ohhi/vault'
 import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
 import type { Awareness } from 'y-protocols/awareness'
-import { createUndoManager, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
+import { createUndoManager, undoManagerFits, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
 import {
   activateMount,
   bootFlagsFor,
@@ -1450,6 +1450,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const doc = resolved ? resolved.session.docForPath(resolved.rel) : null
     if (!doc) return null
     let manager = undoManagers.get(doc.guid)
+    // A surgery that rebuilt this doc (an unshare rebuilds every root doc)
+    // leaves a manager bound to the destroyed instance under the same guid:
+    // undo through it changes nothing anyone sees. The stack goes with the
+    // instance it was recorded on.
+    if (manager && !undoManagerFits(manager, doc)) {
+      manager.destroy()
+      manager = undefined
+    }
     if (!manager) {
       manager = createUndoManager(doc)
       undoManagers.set(doc.guid, manager)

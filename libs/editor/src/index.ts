@@ -8,6 +8,7 @@
 export {
   createCollabExtensions,
   createUndoManager,
+  undoManagerFits,
   type CollabUndoManager,
   type CollabUser,
 } from './binding.js'
