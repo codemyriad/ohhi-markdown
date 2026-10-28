@@ -178,6 +178,13 @@ export function describeEvent(e: AppEvent, LL: TranslationFunctions): string {
       switch (p.to) {
         case 'refused': {
           const n = LL.web.notices
+          // One the mount is retrying: the relay could not open a document
+          // just now — never advice about links or devices.
+          if (p.retrying) {
+            return e.scope.mount === ''
+              ? n.relay_refused_retrying_vault({ host })
+              : n.relay_refused_retrying({ host })
+          }
           switch (refusalCase(e as AppEvent<'relay.state'>)) {
             case 'device':
               return n.relay_refused_device()

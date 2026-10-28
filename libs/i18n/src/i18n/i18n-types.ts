@@ -176,6 +176,16 @@ export type NamespaceWebTranslation = {
 		 */
 		relay_refused_device: string
 		/**
+		 * {​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​o​p​e​n​ ​a​ ​d​o​c​u​m​e​n​t​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​—​ ​r​e​t​r​y​i​n​g​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_refused_retrying: RequiredParams<'host'>
+		/**
+		 * {​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​o​p​e​n​ ​a​ ​d​o​c​u​m​e​n​t​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​—​ ​r​e​t​r​y​i​n​g​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_refused_retrying_vault: RequiredParams<'host'>
+		/**
 		 * T​h​e​ ​f​o​l​d​e​r​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​s​h​a​r​e​d​,​ ​b​u​t​ ​i​t​s​ ​l​i​n​k​s​ ​o​n​ ​{​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​v​o​k​e​d​:​ ​{​m​e​s​s​a​g​e​}
 		 * @param {string} host
 		 * @param {string} message
@@ -9447,6 +9457,14 @@ export type TranslationFunctions = {
 			 * The relay no longer accepts this device for this vault.
 			 */
 			relay_refused_device: () => LocalizedString
+			/**
+			 * {host} could not open a document in this folder — retrying. Your edits are safe on this device.
+			 */
+			relay_refused_retrying: (arg: { host: string }) => LocalizedString
+			/**
+			 * {host} could not open a document in this vault — retrying. Your edits are safe on this device.
+			 */
+			relay_refused_retrying_vault: (arg: { host: string }) => LocalizedString
 			/**
 			 * The folder is no longer shared, but its links on {host} could not be revoked: {message}
 			 */
