@@ -149,6 +149,11 @@
     void workspace.ui.docsEpoch
     return path ? workspace.docForPath(path) : null
   })
+  /**
+   * Re-resolved under the same epoch; a new awareness for the SAME doc (its
+   * connection came up after the note opened) is swapped into the editor in
+   * place, never by remounting it.
+   */
   const awareness = $derived.by(() => {
     void workspace.ui.docsEpoch
     return path ? workspace.awarenessForPath(path) : null
