@@ -39,6 +39,15 @@ import { editorTheme, themeModeCompartment } from './theme.js'
 import { typewriterCompartment, typewriterExtension } from './typewriter.js'
 import { sameTypingAids, TYPING_DEFAULTS, typingCompartment, typingExtension, type TypingAids } from './typing.js'
 
+/**
+ * The fenced-code grammars, less the one that evaluates code: the legacy Pug
+ * mode test-compiles attribute values with `Function(…)`, which the Content
+ * Security Policy forbids (no 'unsafe-eval'; docs/desktop-builds.md), so a
+ * ```pug fence logged a CSP violation on every highlight. A Pug fence is
+ * plain code now.
+ */
+const CODE_LANGUAGES = languages.filter((l) => l.name !== 'Pug')
+
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
 const hostCompartment = new Compartment()
 
@@ -196,11 +205,11 @@ export function createMarkdownEditor(
       extensions: [WikiLink, Tag, Highlight, Frontmatter],
       // Lazy-loaded grammars for fenced code: js/rust/bash/jsx/ts alone are
       // 369 of the vault's 527 fences.
-      codeLanguages: languages,
+      codeLanguages: CODE_LANGUAGES,
     }),
     // The same list names a fence's language in completion and on the code
     // card's chip (E3): name + aliases, the two fields completion reads.
-    fenceLanguages.of(languages.map((l) => ({ name: l.name, alias: l.alias }))),
+    fenceLanguages.of(CODE_LANGUAGES.map((l) => ({ name: l.name, alias: l.alias }))),
     // The vault indents lists with tabs and reads them at four columns, and a
     // rendered bullet has to sit where the tab put it (read-shaping B1).
     EditorState.tabSize.of(4),

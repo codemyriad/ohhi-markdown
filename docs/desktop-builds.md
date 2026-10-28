@@ -363,8 +363,16 @@ updater's own requests come from Rust, outside the webview's CSP.
   the real Tauri WebKitGTK webview (vault manager → browser or memory vault →
   new note → typing with a `[[wikilink]]` → Settings → theme switch → command
   palette → quick open → reload). The only violation was zod 4's eval probe
-  (`new Function("")` on first parse), since skipped by `z.config({ jitless:
-  true })` in `apps/web/src/main.ts`. Refused, as intended: an injected inline
+  (`new Function("")`, run as each object schema is built), skipped by
+  `z.config({ jitless: true })` — which must run before any schema module
+  loads, so it is `apps/web/src/lib/zod-jitless.ts`, imported first by
+  `main.ts` (a call in `main.ts`'s own body ran after its imports, and
+  Firefox kept reporting the probe until 2026-10-28). The legacy Pug grammar,
+  which compiled attribute values with `Function(…)` while highlighting a
+  ```` ```pug ```` fence, is left out of the fence grammars
+  (`libs/editor/src/markdown-editor.ts`). `apps/web/e2e/csp.spec.ts` boots the
+  built app under the `_headers` policy and fails on any
+  `securitypolicyviolation`. Refused, as intended: an injected inline
   `<script>`, an `onerror=` handler, a `javascript:` URL, a remote image or CSS
   beacon, plain-`http:`/`ws:` to a remote host, a cross-origin iframe, a form
   post and an `<object>`. Removing the theme hash from the web policy blocks
