@@ -3,8 +3,8 @@
  * sliding toolbar, iOS Safari's keyboard and address bar), driven by a fake
  * `visualViewport` — the browsers that move it are not in the e2e lanes.
  */
-import { afterEach, describe, expect, it } from 'vitest'
-import { currentInsets, NO_INSETS, trackVisualViewport, viewportInsets, type VisualViewportLike } from './visual-viewport.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { bodySafeBottom, currentInsets, NO_INSETS, trackVisualViewport, viewportInsets, type VisualViewportLike } from './visual-viewport.js'
 
 function fakeViewport(height: number, offsetTop = 0) {
   const listeners = new Map<string, Set<() => void>>()
@@ -50,6 +50,15 @@ describe('viewportInsets', () => {
     // Sub-pixel values round; a top above the page never pushes the bar up.
     expect(viewportInsets({ height: 799.6, offsetTop: -0.4 }, 800)).toEqual({ top: 0, bottom: 1, height: 800 })
   })
+
+  it('takes the safe-area bottom inset out of a lift: the bars stand on the keyboard, not an inset above it', () => {
+    // The shell sits 34 px above the layout viewport's bottom (the home indicator).
+    expect(viewportInsets({ height: 500, offsetTop: 0 }, 800, 34)).toEqual({ top: 0, bottom: 266, height: 500 })
+    // A lift smaller than the inset leaves the bars where the inset put them.
+    expect(viewportInsets({ height: 790, offsetTop: 0 }, 800, 34)).toEqual({ top: 0, bottom: 0, height: 790 })
+    // A visible area reaching past the bottom is not a lift: the inset does not change it.
+    expect(viewportInsets({ height: 850, offsetTop: 0 }, 800, 34)).toEqual({ top: 0, bottom: -50, height: 850 })
+  })
 })
 
 describe('trackVisualViewport', () => {
@@ -81,5 +90,28 @@ describe('trackVisualViewport', () => {
     expect(props.size).toBe(0)
     expect(fake.count()).toBe(0)
     expect(currentInsets()).toEqual(NO_INSETS)
+  })
+
+  it('reads the safe-area inset the shell applies, so the keyboard lift matches the padding', () => {
+    const fake = fakeViewport(800)
+    const { el, props } = fakeTarget()
+    stop = trackVisualViewport(el, fake.vv, () => 800, () => 34)
+    // A keyboard covers 320 px; the shell already sits 34 px up.
+    fake.set(480)
+    fake.fire('resize')
+    expect(props.get('--vv-bottom')).toBe('286px')
+    expect(currentInsets().bottom).toBe(286)
+  })
+
+  it('reads the inset from the body’s bottom padding (what app.css sets), 0 without a body', () => {
+    expect(bodySafeBottom()).toBe(0)
+    const body = {}
+    vi.stubGlobal('document', { body })
+    vi.stubGlobal('getComputedStyle', (el: unknown) => ({ paddingBottom: el === body ? '21px' : '0px' }))
+    try {
+      expect(bodySafeBottom()).toBe(21)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
