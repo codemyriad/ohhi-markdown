@@ -101,7 +101,15 @@ released, the surgery runs, and `reapplyLiveViews(held)` re-tells every mount �
 replacements included, whose open sets start empty. Dropping without re-applying leaves a
 pane rendering a buffer the vault believes is closed, which is the reconciler free to
 materialize over it (golden rule 1); the facade's `workspace-live-views.test.ts` is the
-guard. A session already out of the registry is never spoken to again. While any of those
+guard. A session already out of the registry is never spoken to again. Re-marking is
+half of it: the surgery also **replaces the doc instances** behind paths that do not
+change, and destroys the old ones, so a pane that kept the instance it resolved before
+typed into a doc no session synced. `reapplyLiveViews` therefore bumps `ui.docsEpoch`,
+and a pane resolves its doc (and awareness, and undo stack) under it and keys its editor
+on the doc instance — a new instance remounts the editor, an unchanged one keeps it. The
+adopt machine's hooks (a peer's carve or unshare arriving, a root rebuild) go through the
+same re-apply, dropping the undo stacks bound to the old instances
+(`e2e/share-open-note.spec.ts`). While any of those
 surgeries is in flight the shell sees `ui.settling === true` — `ui.files` is a partial
 picture mid-surgery, so anything that *deletes* state derived from it (the tab prune)
 waits for it to go false.

@@ -260,6 +260,17 @@ export interface WorkspaceUi {
    */
   settling: boolean
   /**
+   * Bumped every time a surgery may have REPLACED the doc instances behind
+   * open paths: a carve, an unshare/unmount, an add-link, an adopt, a root
+   * rebuild. The path a view shows is unchanged, but `docForPath` now answers
+   * with the new mount's instance, and the old one is destroyed — a view that
+   * kept it typed into a doc no session syncs. A view reads this when it
+   * resolves its doc, so it re-resolves after every surgery (and remounts
+   * only if the instance actually changed). Optional so a fake workspace
+   * need not carry it.
+   */
+  docsEpoch?: number
+  /**
    * The session's event log, newest first (spike S22, Stage 4a): every notice
    * the shell raises and every mount/relay change it reports, as codes +
    * params on the injected clock — the words come at render time
@@ -669,6 +680,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const ui = $state<WorkspaceUi>({
     phase: 'connecting',
     settling: true,
+    docsEpoch: 0,
     events: [],
     flashes: [],
     files: [],
@@ -1192,6 +1204,14 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     })
   }
 
+  /**
+   * The adopt machine replaced the doc instances under `under` (null: all of
+   * them, a root rebuild). Assigned once the live-view machinery below
+   * exists; until then — the boot pass — no view is open and there is
+   * nothing to redo.
+   */
+  let docsReplaced = (_under: string | null): void => {}
+
   const adoptContext = (): AdoptContext => ({
     vaultDir: cfg.storeDir,
     mountsFile,
@@ -1222,6 +1242,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       }),
     attachMount: (path, session) => {
       registry.add(path, session)
+      // A peer's carve or unshare moved this subtree's docs into another
+      // session: the views re-resolve (`docsReplaced`).
+      docsReplaced(path)
       refreshTree()
     },
     detachMount: (path) => {
@@ -1235,6 +1258,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       await rootSession!.shutdown()
       await fn()
       await rebuildRoot()
+      docsReplaced(null) // every root doc is a new instance now
     },
     refreshIgnore: reloadMounts,
     notify: adoptNotice,
@@ -1411,6 +1435,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const reapplyLiveViews = (held: readonly string[] = []): void => {
     liveByMount = new Map()
     setLiveViews(new Set([...liveViews, ...held]))
+    // The surgery replaced doc instances: every view re-resolves its doc.
+    ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
   }
 
   /**
@@ -1438,6 +1464,18 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       undoManagers.get(row.guid)?.destroy()
       undoManagers.delete(row.guid)
     }
+  }
+
+  docsReplaced = (under) => {
+    // The undo stacks bound to the old instances go, the open paths are
+    // re-marked on the sessions that hold them now, and the views re-resolve.
+    if (under === null) {
+      for (const manager of undoManagers.values()) manager.destroy()
+      undoManagers.clear()
+    } else {
+      releaseUndoManagersUnder(under)
+    }
+    reapplyLiveViews()
   }
 
   /**

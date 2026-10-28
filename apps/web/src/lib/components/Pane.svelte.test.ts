@@ -255,3 +255,35 @@ describe('Pane — collections across renames', () => {
     })
   }
 })
+
+describe('Pane — a surgery that replaces the doc behind an open note', () => {
+  it('re-resolves the doc after `docsEpoch` moves, and the editor shows the new instance', async () => {
+    const v = vault({ 'team/plan.md': '# Plan\n\nbefore the share\n' })
+    mountPane(v, 'team/plan.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('before the share'))
+
+    // A carve: same path, a NEW doc instance in the new mount; the old one is
+    // destroyed. The host bumps the epoch once the views are re-marked.
+    const replacement = createYjsEngine().createDoc('carved')
+    replacement.transact((t) => t.insert(0, '# Plan\n\nin the shared folder\n'), 'local')
+    const old = v.docs.get('team/plan.md')!
+    v.docs.set('team/plan.md', replacement)
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+
+    await waitFor(() =>
+      expect(document.querySelector('.cm-content')?.textContent).toContain('in the shared folder')
+    )
+    expect(old.getText()).toContain('before the share')
+  })
+
+  it('keeps the editor when the epoch moves but the instance did not change', async () => {
+    const v = vault({ 'n.md': 'unchanged\n' })
+    mountPane(v, 'n.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    const editor = document.querySelector('.cm-editor')
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+  })
+})
