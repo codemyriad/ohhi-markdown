@@ -105,7 +105,7 @@ describe('clearing the drawer: rows leave it, the log keeps them', () => {
     const w = ev('w', 500)
     const c = dismissEvent(w, NOTHING_CLEARED)
     expect(isCleared(w, c)).toBe(true)
-    expect(isCleared({ ...w, at: 600, count: 2 }, c)).toBe(false)
+    expect(isCleared({ ...w, at: 600 }, c)).toBe(false)
     expect(isCleared(ev('other', 400), c)).toBe(false)
   })
 
