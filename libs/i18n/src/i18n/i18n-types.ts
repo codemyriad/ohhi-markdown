@@ -1981,6 +1981,10 @@ export type NamespaceWebTranslation = {
 		 * T​o​g​g​l​e​ ​F​o​c​u​s​ ​m​o​d​e
 		 */
 		focus_mode: string
+		/**
+		 * C​l​e​a​r​ ​n​o​t​i​f​i​c​a​t​i​o​n​s
+		 */
+		clear_notifications: string
 	}
 	daily: {
 		/**
@@ -2309,6 +2313,23 @@ export type NamespaceWebTranslation = {
 		 * C​h​a​n​g​e​s​ ​b​y​ ​o​t​h​e​r​s
 		 */
 		changes: string
+		/**
+		 * C​l​e​a​r​ ​a​l​l
+		 */
+		clear_all: string
+		/**
+		 * N​o​t​h​i​n​g​ ​n​e​w​ ​s​i​n​c​e​ ​y​o​u​ ​c​l​e​a​r​e​d​ ​i​t​.​ ​T​h​e​ ​L​o​g​ ​k​e​e​p​s​ ​e​v​e​r​y​t​h​i​n​g​.
+		 */
+		empty_cleared: string
+		/**
+		 * D​i​s​m​i​s​s
+		 */
+		dismiss: string
+		/**
+		 * D​i​s​m​i​s​s​ ​c​h​a​n​g​e​s​ ​t​o​ ​{​n​o​t​e​}
+		 * @param {string} note
+		 */
+		dismiss_note: RequiredParams<'note'>
 		group: {
 			/**
 			 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}
@@ -11138,6 +11159,10 @@ export type TranslationFunctions = {
 			 * Toggle Focus mode
 			 */
 			focus_mode: () => LocalizedString
+			/**
+			 * Clear notifications
+			 */
+			clear_notifications: () => LocalizedString
 		}
 		daily: {
 			/**
@@ -11442,6 +11467,22 @@ export type TranslationFunctions = {
 			 * Changes by others
 			 */
 			changes: () => LocalizedString
+			/**
+			 * Clear all
+			 */
+			clear_all: () => LocalizedString
+			/**
+			 * Nothing new since you cleared it. The Log keeps everything.
+			 */
+			empty_cleared: () => LocalizedString
+			/**
+			 * Dismiss
+			 */
+			dismiss: () => LocalizedString
+			/**
+			 * Dismiss changes to {note}
+			 */
+			dismiss_note: (arg: { note: string }) => LocalizedString
 			group: {
 				/**
 				 * {count} change{{s}}

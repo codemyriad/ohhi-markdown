@@ -377,6 +377,7 @@ Every key in a keymap's `bindings`, and every entry of a layout's
 - `template.insert`
 - `layout.use-file`
 - `app.desktop-download`
+- `app.clear-notifications`
 - `help.menu`
 - `help.start`
 - `help.shortcuts`
