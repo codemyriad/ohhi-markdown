@@ -140,9 +140,38 @@
   const index = $derived(panes.paneIndex(pane.id))
   const tab = $derived(activeTab(pane))
   const path = $derived(tab?.path ?? null)
-  const doc = $derived(path ? workspace.docForPath(path) : null)
-  const awareness = $derived(path ? workspace.awarenessForPath(path) : null)
-  const undoManager = $derived(path ? workspace.undoManagerFor(path) : null)
+  /**
+   * Re-resolved after every surgery (`ui.docsEpoch`): a carve, an unshare or
+   * an adopt keeps the PATH and replaces the doc instance behind it, and the
+   * one a view held is destroyed — typing into it reached nobody.
+   */
+  const doc = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.docForPath(path) : null
+  })
+  const awareness = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.awarenessForPath(path) : null
+  })
+  const undoManager = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.undoManagerFor(path) : null
+  })
+  /**
+   * The editor is keyed on the doc INSTANCE as well as the path, so a new
+   * instance remounts it (the old binding cannot be repointed) while a
+   * surgery that left this note's doc alone keeps the editor as it is.
+   */
+  const instanceIds = new WeakMap<object, number>()
+  let nextInstanceId = 0
+  const instanceOf = (d: object): number => {
+    let id = instanceIds.get(d)
+    if (id === undefined) {
+      id = nextInstanceId++
+      instanceIds.set(d, id)
+    }
+    return id
+  }
   /** This tab's view mode, or the Settings default when it has none (B3). */
   const mode = $derived<ViewMode>(panes.modeOf(tab))
 
@@ -681,7 +710,7 @@
           <CollectionView {workspace} {path} />
         {/key}
       {:else if doc && path}
-        {#key `${pane.id}:${path}`}
+        {#key `${pane.id}:${path}:${instanceOf(doc)}`}
           {@const held = tab.id}
           <MarkdownEditor
             {doc}

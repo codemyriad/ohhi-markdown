@@ -8,7 +8,7 @@
  * is attached to the root: the peer-side machines themselves are covered by
  * libs/workspace's `nested.test.ts` against two devices.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMemStorage } from './storage.fixture.js'
 import {
   docBlobName,
@@ -27,7 +27,19 @@ import {
   setupWorkspace,
   type Workspace,
 } from './workspace.svelte.js'
-import { roomRelay, roomToken, setRoomToken } from './config.js'
+import { roomRelay, roomToken, setDefaultRelay, setOperatorSecret, setRoomToken } from './config.js'
+
+// A carve mints its share on the relay first; here the mint answers locally.
+vi.mock('./relay-admin.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./relay-admin.js')>()),
+  mintShare: async (_relay: string, _secret: string, body: { folderGuid: string }) => ({
+    token: `minted-${body.folderGuid}`,
+    folderGuid: body.folderGuid,
+    readOnly: false,
+    label: null,
+    kind: 'folder',
+  }),
+}))
 import { encodeDeviceLink, encodeShareLink } from './share-link.js'
 
 beforeEach(() => useMemStorage())
@@ -422,5 +434,33 @@ describe('a file written into a mount’s folder while running shows up in the t
 
     expect(ws.ui.files.filter((r) => r.path === 'team/from-agent.md')).toHaveLength(1)
     expect(ws.docForPath('team/from-agent.md')?.getText()).toBe('written by an agent\n')
+  })
+})
+
+describe('a note open while its folder is shared (carve)', () => {
+  it('resolves to the new mount’s doc, and tells the views to re-resolve', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    setOperatorSecret('operator-secret')
+    // Nothing listens there: the new mount's socket just keeps retrying.
+    setDefaultRelay(RELAY)
+    const ws = await setupWorkspace({ adapter, storeDir: new MemStoreDir(), user: 'T', room: 'root-room' })
+    open = ws
+    ws.setLiveViews(new Set(['team/plan.md']))
+    const before = ws.docForPath('team/plan.md')
+    expect(before?.getText()).toBe('shared plan\n')
+    const epoch = ws.ui.docsEpoch ?? 0
+
+    await ws.carveFolder('team')
+
+    const after = ws.docForPath('team/plan.md')
+    // The path is the same; the doc is the NEW mount's instance, and a view
+    // still holding `before` would type into a doc nobody syncs.
+    expect(after).not.toBeNull()
+    expect(after).not.toBe(before)
+    expect(after?.getText()).toBe('shared plan\n')
+    expect(ws.ui.docsEpoch).toBeGreaterThan(epoch)
+    expect(ws.ui.mounts.map((m) => m.path)).toEqual(['team'])
   })
 })
