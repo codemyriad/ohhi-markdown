@@ -2,7 +2,23 @@ import { getLL } from '@ohhi/i18n'
 import { EventLog, type AppEvent, type EventInput } from '@ohhi/workspace'
 import { describe, expect, it } from 'vitest'
 import { describeEvent, NOTICE_TEXT, toastsWhenLogged } from './event-text.js'
-import { FLASH_LIMIT, appendFlash, type Flash } from './notices.js'
+import { get } from 'svelte/store'
+import {
+  CLEARED_LIMIT,
+  FLASH_LIMIT,
+  NOTHING_CLEARED,
+  appendFlash,
+  clearAll,
+  clearedFor,
+  clearedNotices,
+  clearNotices,
+  dismissEvent,
+  dismissNote,
+  isCleared,
+  unclearedEvents,
+  type Flash,
+} from './notices.js'
+import { dropStorage, useMemStorage } from './storage.fixture.js'
 
 const clock = { now: () => 1_000, schedule: () => () => {} }
 const one = (input: EventInput): AppEvent => new EventLog({ clock }).append(input)
@@ -66,5 +82,60 @@ describe('describeEvent: the words come from the code, at render time', () => {
     expect(toastsWhenLogged(one({ kind: 'notice', level: 'warn', payload: { code: 'no_token' } }))).toBe(true)
     expect(toastsWhenLogged(one({ kind: 'mount.changed', level: 'info', payload: { what: 'adopted' } }))).toBe(false)
     expect(toastsWhenLogged(one({ kind: 'notice', level: 'error', payload: { code: 'add_link_failed' } }))).toBe(false)
+  })
+})
+
+describe('clearing the drawer: rows leave it, the log keeps them', () => {
+  const ev = (id: string, at: number, over: Partial<AppEvent> = {}): AppEvent =>
+    ({ id, at, level: 'warn', kind: 'notice', scope: {}, actor: { kind: 'app' }, count: 1, payload: { code: 'no_token' }, ...over }) as AppEvent
+  const peer = (id: string, at: number, path: string): AppEvent =>
+    ev(id, at, { kind: 'doc.changed', level: 'info', scope: { path }, actor: { kind: 'peer', name: 'Sam' }, payload: { guid: 'g', added: 1, removed: 0 } })
+
+  it('Clear all hides everything logged so far, up to the newest event’s own time', () => {
+    const events = [ev('a', 300), peer('b', 900, 'x.md'), ev('c', 100)]
+    const c = clearAll(events, NOTHING_CLEARED)
+    expect(c.at).toBe(900)
+    expect(unclearedEvents(events, c)).toEqual([])
+    // What comes after is shown; the list handed in is never changed.
+    expect(unclearedEvents([ev('d', 901), ...events], c).map((e) => e.id)).toEqual(['d'])
+    expect(events.map((e) => e.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('a dismissed warning comes back when it happens again (a folded repeat moves its time)', () => {
+    const w = ev('w', 500)
+    const c = dismissEvent(w, NOTHING_CLEARED)
+    expect(isCleared(w, c)).toBe(true)
+    expect(isCleared({ ...w, at: 600, count: 2 }, c)).toBe(false)
+    expect(isCleared(ev('other', 400), c)).toBe(false)
+  })
+
+  it('dismissing a note’s changes hides that note’s changes by others up to then, nothing else', () => {
+    const c = dismissNote('x.md', 900, NOTHING_CLEARED)
+    expect(isCleared(peer('b', 900, 'x.md'), c)).toBe(true)
+    expect(isCleared(peer('b2', 901, 'x.md'), c)).toBe(false)
+    expect(isCleared(peer('y', 800, 'y.md'), c)).toBe(false)
+    // A warning about the same note is not a change by others.
+    expect(isCleared(ev('w', 800, { scope: { path: 'x.md' } }), c)).toBe(false)
+  })
+
+  it('keeps at most CLEARED_LIMIT dismissals, dropping the oldest; Clear all drops them all', () => {
+    let c = NOTHING_CLEARED
+    for (let i = 0; i < CLEARED_LIMIT + 5; i++) c = dismissEvent(ev(`e${i}`, i + 1), c)
+    expect(Object.keys(c.events)).toHaveLength(CLEARED_LIMIT)
+    expect(c.events.e0).toBeUndefined()
+    expect(clearAll([], c)).toEqual({ at: 0, events: {}, notes: {} })
+  })
+
+  it('the store clears one vault, keeps it on the device, and leaves other vaults alone', () => {
+    useMemStorage()
+    try {
+      clearedNotices.set({})
+      clearNotices('vault-a', [ev('a', 300)])
+      expect(clearedFor(get(clearedNotices), 'vault-a').at).toBe(300)
+      expect(clearedFor(get(clearedNotices), 'vault-b')).toBe(NOTHING_CLEARED)
+      expect(JSON.parse(localStorage.getItem('editor:notices-cleared') ?? '{}')['vault-a'].at).toBe(300)
+    } finally {
+      dropStorage()
+    }
   })
 })

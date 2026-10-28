@@ -708,6 +708,8 @@ const commands = {
   layout_use_file: 'Use layout file…',
   /** quiet-shell F7: hide every region the layout does not keep; Escape leaves. */
   focus_mode: 'Toggle Focus mode',
+  /** The drawer's *Clear all* as a command: rows leave the drawer, never the log. */
+  clear_notifications: 'Clear notifications',
 }
 
 /**
@@ -842,6 +844,17 @@ const drawer = {
   },
   problems: 'Errors and warnings',
   changes: 'Changes by others',
+  /**
+   * Clearing (dogfood round 2): rows leave the drawer, never the log — the Log
+   * view still lists them.
+   */
+  clear_all: 'Clear all',
+  /** The drawer after a clear, when the log still holds what was cleared. */
+  empty_cleared: 'Nothing new since you cleared it. The Log keeps everything.',
+  /** A row's dismiss button: one error or warning. */
+  dismiss: 'Dismiss',
+  /** A row's dismiss button: one note's changes by others. */
+  dismiss_note: 'Dismiss changes to {note:string}',
   /** One note's changes: "Cynthia · Raft · 3 changes · 2 min ago". */
   group: {
     count: '{count:number} change{{s}}',
