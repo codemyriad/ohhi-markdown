@@ -33,6 +33,7 @@ import {
   encodeDeviceLink,
   encodeShareLink,
   joinOn,
+  linkDeviceOn,
   memDir,
   mintShare,
   mountSynced,
@@ -305,6 +306,104 @@ describe('device links: own-device grants, bundles and paste-once', () => {
         return Object.entries(design(DESIGN_FILES)).every(([p, text]) => disk[p] === text)
       })
       expect(b.errors).toEqual([])
+      checkInvariants(b)
+    },
+    90_000
+  )
+
+  it(
+    'A4-B, private first: a share joined and a folder carved while the vault was private follow the link',
+    async () => {
+      const vault = crypto.randomUUID()
+      const designRoom = crypto.randomUUID()
+      const teamRoom = crypto.randomUUID()
+      const designShare = await mintShare(foreignRelay, { folderGuid: designRoom, label: 'design' })
+      const designLink = encodeShareLink({
+        relay: foreignRelay.url,
+        room: designRoom,
+        token: designShare.token,
+      })
+      const designTokens = new TokenStore(foreignRelay.url)
+      designTokens.set(designRoom, designShare.token, foreignRelay.url, 'folder')
+      const owner = await bootDevice({
+        id: 'C',
+        adapter: await seedAdapter(DESIGN_FILES),
+        vaultDir: memDir(),
+        rootRoom: designRoom,
+        relayUrl: foreignRelay.url,
+        tokens: designTokens,
+      })
+      await until('the owner acked the design folder', () => mountSynced(owner, ''))
+      await owner.shutdown()
+
+      // Device A: a PRIVATE vault (no token for its own room yet). It joins
+      // the foreign share and carves team/ — neither announced in the root
+      // map, because a private root has nobody to tell.
+      const a = await bootDevice({
+        id: 'A',
+        adapter: await seedAdapter(VAULT_FILES),
+        vaultDir: memDir(),
+        rootRoom: vault,
+        relayUrl: relay.url,
+        tokens: new TokenStore(relay.url),
+      })
+      devices.push(a)
+      expect(a.root.isShared()).toBe(false)
+      await joinOn(a, { dest: 'design', link: designLink })
+      await until('A pulled the design folder', () => rowsOf(a, 'design').length === 2)
+      const teamShare = await mintShare(relay, { folderGuid: teamRoom, parent: vault })
+      await carveOn(a, { path: 'team', room: teamRoom, token: teamShare.token })
+      expect(a.root.mountEntries()).toEqual([])
+
+      // Link a device: the root goes shared, and both mounts are announced.
+      const link = await mintShare(relay, { folderGuid: vault, kind: 'device' })
+      expect((await linkDeviceOn(a, link.token)).sort()).toEqual(['design', 'team'])
+      expect(a.root.mountEntries().map((e) => [e.path, e.room]).sort()).toEqual([
+        ['design', designRoom],
+        ['team', teamRoom],
+      ])
+      // Announcing twice is a no-op.
+      expect(await linkDeviceOn(a, link.token)).toEqual([])
+      await until('A acked the vault', () => mountSynced(a, ''))
+
+      const bundle = decodeShareLink(
+        encodeDeviceLink({
+          relay: relay.url,
+          room: vault,
+          token: link.token,
+          grants: a.tokens.grantsForBundle(),
+        })
+      )
+      const tokensB = new TokenStore(relay.url)
+      tokensB.set(bundle.room, bundle.token, bundle.relay, bundle.kind)
+      tokensB.mergeGrants(bundle.grants)
+      const b = await bootDevice({
+        id: 'B',
+        adapter: new MemVaultAdapter(),
+        vaultDir: memDir(),
+        rootRoom: vault,
+        relayUrl: relay.url,
+        tokens: tokensB,
+        firstJoin: true,
+      })
+      devices.push(b)
+
+      // Both folders appear on the linked device, connected, with their content.
+      await until('B adopted both mounts', () => b.mounts.has('design') && b.mounts.has('team'))
+      await until('B pulled the design folder', () => rowsOf(b, 'design').length === 2)
+      await until('B holds team/', () => rowsOf(b, 'team').length === 2)
+      await until('…onto B’s vault', async () => {
+        const disk = await diskSnapshot(b)
+        return (
+          Object.entries(design(DESIGN_FILES)).every(([p, text]) => disk[p] === text) &&
+          disk['team/plan.md'] === VAULT_FILES['team/plan.md']
+        )
+      })
+      expect(b.notices.filter((n) => n.kind === 'needs-token')).toEqual([])
+      await until('B synced the design room', () => mountSynced(b, 'design'))
+      await until('B synced the team room', () => mountSynced(b, 'team'))
+      expect(b.errors).toEqual([])
+      checkInvariants(a)
       checkInvariants(b)
     },
     90_000

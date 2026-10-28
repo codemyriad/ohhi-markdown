@@ -65,7 +65,7 @@ import {
 import { activateMount } from '../src/activate.js'
 import { resolveRoomRelay } from '../src/resolve-relay.js'
 import { carveFolder } from '../src/carve.js'
-import { joinMount } from '../src/join.js'
+import { announceMounts, joinMount } from '../src/join.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
 import {
@@ -692,6 +692,29 @@ export async function joinOn(dev: Device, opts: { dest: string; link: string }):
   dev.attach(opts.dest, session)
   await dev.refreshDescs()
   return session
+}
+
+/**
+ * `doLinkDevice`'s promotion of a PRIVATE vault: the root goes relay-attached
+ * on the vault's device token, and every mount the root map does not name yet
+ * — joined or carved while the vault was private, when there were no peers
+ * to announce it to — is announced, so the linked device learns about it.
+ */
+export async function linkDeviceOn(dev: Device, token: string): Promise<string[]> {
+  dev.tokens.set(dev.rootRoom, token, dev.relayUrl, 'device')
+  if (!dev.root.isShared()) dev.root.enableSharing({ url: dev.relayUrl, token })
+  return announceMounts(
+    dev.root,
+    dev
+      .descs()
+      .filter((d) => d.path !== '' && dev.mounts.has(d.path))
+      .map((d) => ({
+        path: d.path,
+        room: d.room,
+        ...(d.relay?.url ? { relay: d.relay.url } : {}),
+        session: dev.mounts.get(d.path)!,
+      }))
+  )
 }
 
 /**
