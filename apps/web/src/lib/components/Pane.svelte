@@ -158,6 +158,15 @@
     void workspace.ui.docsEpoch
     return path ? workspace.awarenessForPath(path) : null
   })
+  /**
+   * A surgery is replacing this note's doc right now (`ui.frozen`): the view
+   * still shows the old instance, so it holds still — what is typed into it
+   * would be gone at the remount. Through the editor's compartment, no rebuild.
+   */
+  const frozen = $derived(
+    path !== null &&
+      (workspace.ui.frozen ?? []).some((p) => p === '' || path === p || path.startsWith(`${p}/`))
+  )
   const undoManager = $derived.by(() => {
     void workspace.ui.docsEpoch
     return path ? workspace.undoManagerFor(path) : null
@@ -720,6 +729,7 @@
           <MarkdownEditor
             {doc}
             {awareness}
+            readOnly={frozen}
             {undoManager}
             user={workspace.user}
             {mode}
