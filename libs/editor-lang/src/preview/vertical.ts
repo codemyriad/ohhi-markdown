@@ -20,6 +20,7 @@
  * `blockLineStep` is the decision, pure over the state; `blockLineKeymap`
  * binds it with the move CM6 would make (which needs the view's layout).
  */
+import { completionStatus } from '@codemirror/autocomplete'
 import { Prec, type EditorState, type Extension } from '@codemirror/state'
 import { keymap, type Command, type EditorView } from '@codemirror/view'
 import { previewMode } from '../read-host.js'
@@ -64,6 +65,9 @@ function step(dir: 1 | -1): Command {
     const range = state.selection.main
     if (state.selection.ranges.length !== 1 || !range.empty) return false
     if (state.facet(previewMode) !== 'live') return false
+    // An open completion (the link popover, a tag, a fence language) owns the
+    // arrows — also while a source is still pending behind a list on screen.
+    if (completionStatus(state) !== null) return false
     const moved = view.moveVertically(range, dir === 1)
     const to = blockLineStep(state, range.head, moved.head, dir)
     if (to === null) return false
