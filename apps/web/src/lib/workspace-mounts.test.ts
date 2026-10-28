@@ -301,6 +301,27 @@ describe('unshare / unmount clear the room’s credential (A4)', () => {
     // The content folded back into the vault, as unshare always does.
     expect(ws.ui.files.map((r) => r.path)).toContain('team/plan.md')
   })
+
+  it('unshare rebuilds every root note’s doc, and their undo stacks follow the new instances', async () => {
+    const ws = await bootWithNeedsToken()
+    ws.setLiveViews(new Set(['keep.md']))
+    const before = ws.undoManagerFor('keep.md')!
+    expect(before.doc).toBe(ws.docForPath('keep.md')!.raw())
+
+    await ws.unshare('team')
+
+    // keep.md is outside the unshared folder, but the root was rebuilt: a new
+    // doc instance under the same guid. Its undo manager must record THAT
+    // doc — one bound to the destroyed instance undoes nothing anyone sees.
+    const doc = ws.docForPath('keep.md')!
+    const after = ws.undoManagerFor('keep.md')!
+    expect(after.doc).toBe(doc.raw())
+    const text = (doc.raw() as { getText(name: string): { insert(at: number, s: string): void } }).getText('content')
+    text.insert(0, 'typed ')
+    expect(doc.getText()).toBe('typed root note\n')
+    after.undo()
+    expect(doc.getText()).toBe('root note\n')
+  })
 })
 
 /**
