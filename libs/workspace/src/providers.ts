@@ -108,8 +108,12 @@ export interface DocConnection {
   awareness: Awareness
   /** True when this doc rides a caller-owned `RoomSocket`. */
   readonly shared: boolean
-  /** Detaches this doc. Never closes a shared socket — that is `RoomSocket`'s. */
-  destroy(): void
+  /**
+   * Detaches this doc. Never closes a shared socket — that is `RoomSocket`'s.
+   * `keepAwareness` leaves the awareness alive, with this device's state in
+   * it, for the next connection of the same doc (`ConnectDocOptions.awareness`).
+   */
+  destroy(opts?: { keepAwareness?: boolean }): void
 }
 
 export interface ConnectDocOptions {
@@ -134,6 +138,13 @@ export interface ConnectDocOptions {
    * throw.
    */
   onStatus?: (status: string) => void
+  /**
+   * The awareness a previous connection of THIS doc left alive
+   * (`destroy({ keepAwareness: true })`): a reconnect reuses it, so an editor
+   * bound to it keeps its remote cursors and keeps sending its own. Ignored
+   * when it belongs to another doc instance.
+   */
+  awareness?: Awareness
   /** Non-browser hosts (headless peer, tests) pass their WebSocket impl. */
   webSocketPolyfill?: unknown
   /**
@@ -152,7 +163,7 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
     )
   }
   const ydoc = opts.doc.raw() as Y.Doc
-  const awareness = new Awareness(ydoc)
+  const awareness = opts.awareness && opts.awareness.doc === ydoc ? opts.awareness : new Awareness(ydoc)
   awareness.setLocalStateField('user', { name: opts.user.name, color: opts.user.color })
 
   const shared = {
@@ -180,31 +191,47 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
     },
   }
 
+  // Every listener the provider puts on the awareness, so a teardown that
+  // keeps the awareness can take them off again: two of them are anonymous
+  // and `provider.destroy()` never removes those, and a kept awareness would
+  // otherwise collect a dead provider's listeners on every reconnect.
+  const providerListeners: [string, (...args: never[]) => void][] = []
+  const on = awareness.on.bind(awareness)
+  awareness.on = ((name: string, f: (...args: never[]) => void) => {
+    providerListeners.push([name, f])
+    return on(name as never, f as never)
+  }) as typeof awareness.on
+
   let provider: HocuspocusProvider
   // The socket this connection OWNS (and must therefore close). A shared
   // RoomSocket is never ours: detaching the doc is the whole teardown.
   let ownedSocket: HocuspocusProviderWebsocket | null = null
-  if (opts.socket) {
-    provider = new HocuspocusProvider({ ...shared, websocketProvider: opts.socket.websocket })
-    provider.attach()
-    // Hocuspocus emits `status` on the SOCKET's transitions only. A doc that
-    // attaches to an ALREADY-OPEN socket is handed `onOpen` (so it syncs at
-    // once) but never a status event — `HocuspocusProviderWebsocket.attach`,
-    // 4.1.2 — so its record would sit at connected:false while the doc is
-    // plainly live. That is golden rule 4 in reverse: a pill reading
-    // "offline" about a doc that is syncing. Seed it from the socket instead.
-    // (Only reachable with a shared socket: a managed one is created here and
-    // is never already open.)
-    if (opts.socket.websocket.status === WebSocketStatus.Connected) opts.record.connected = true
-  } else if (opts.webSocketPolyfill) {
-    ownedSocket = new HocuspocusProviderWebsocket({
-      url: opts.relay,
-      WebSocketPolyfill: opts.webSocketPolyfill as typeof WebSocket,
-    })
-    provider = new HocuspocusProvider({ ...shared, websocketProvider: ownedSocket })
-    provider.attach()
-  } else {
-    provider = new HocuspocusProvider({ ...shared, url: opts.relay })
+  try {
+    if (opts.socket) {
+      provider = new HocuspocusProvider({ ...shared, websocketProvider: opts.socket.websocket })
+      provider.attach()
+      // Hocuspocus emits `status` on the SOCKET's transitions only. A doc that
+      // attaches to an ALREADY-OPEN socket is handed `onOpen` (so it syncs at
+      // once) but never a status event — `HocuspocusProviderWebsocket.attach`,
+      // 4.1.2 — so its record would sit at connected:false while the doc is
+      // plainly live. That is golden rule 4 in reverse: a pill reading
+      // "offline" about a doc that is syncing. Seed it from the socket instead.
+      // (Only reachable with a shared socket: a managed one is created here and
+      // is never already open.)
+      if (opts.socket.websocket.status === WebSocketStatus.Connected) opts.record.connected = true
+    } else if (opts.webSocketPolyfill) {
+      ownedSocket = new HocuspocusProviderWebsocket({
+        url: opts.relay,
+        WebSocketPolyfill: opts.webSocketPolyfill as typeof WebSocket,
+      })
+      provider = new HocuspocusProvider({ ...shared, websocketProvider: ownedSocket })
+      provider.attach()
+    } else {
+      provider = new HocuspocusProvider({ ...shared, url: opts.relay })
+    }
+  } finally {
+    // Back to the prototype's `on`: only the provider's construction is tracked.
+    delete (awareness as { on?: unknown }).on
   }
 
   return {
@@ -215,7 +242,16 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
     // detaches from whatever socket it is on (sending a per-doc CLOSE so the
     // relay unloads just this document); an explicitly-created socket is ours
     // to close, a shared one never is.
-    destroy: () => {
+    //
+    // Keeping the awareness: the provider's listeners come off it first, then
+    // the provider is told it has none, so its destroy neither nulls this
+    // device's state in it nor destroys it (4.1.2 does both, and a destroyed
+    // awareness stops renewing its state — peers drop us 30 s later).
+    destroy: (o = {}) => {
+      if (o.keepAwareness) {
+        for (const [name, f] of providerListeners.splice(0)) awareness.off(name as never, f as never)
+        provider.configuration.awareness = null
+      }
       provider.destroy()
       ownedSocket?.destroy()
     },
