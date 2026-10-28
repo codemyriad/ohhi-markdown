@@ -15,13 +15,15 @@
  * line next to it, and a block widget draws that next line, the caret goes
  * onto that line instead (same column, clamped) — one line, as the key says —
  * and the active-region rule shows its source. A move inside a wrapped line,
- * or one that already lands on the next line, is CM6's own.
+ * or one that already lands on the next line, is CM6's own. The step keeps
+ * the goal column CM6's move carried, so after a short widget line (a fence's
+ * three backticks) the next arrow returns to the column the caret started at.
  *
  * `blockLineStep` is the decision, pure over the state; `blockLineKeymap`
  * binds it with the move CM6 would make (which needs the view's layout).
  */
 import { completionStatus } from '@codemirror/autocomplete'
-import { Prec, type EditorState, type Extension } from '@codemirror/state'
+import { EditorSelection, Prec, type EditorState, type Extension } from '@codemirror/state'
 import { keymap, type Command, type EditorView } from '@codemirror/view'
 import { previewMode } from '../read-host.js'
 import { blockPreviewField } from './index.js'
@@ -71,7 +73,12 @@ function step(dir: 1 | -1): Command {
     const moved = view.moveVertically(range, dir === 1)
     const to = blockLineStep(state, range.head, moved.head, dir)
     if (to === null) return false
-    view.dispatch({ selection: { anchor: to }, scrollIntoView: true, userEvent: 'select' })
+    const goal = moved.goalColumn ?? range.goalColumn
+    view.dispatch({
+      selection: EditorSelection.create([EditorSelection.cursor(to, 0, undefined, goal)]),
+      scrollIntoView: true,
+      userEvent: 'select',
+    })
     return true
   }
 }

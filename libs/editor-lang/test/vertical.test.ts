@@ -7,8 +7,10 @@
  * with Playwright in chromium and webkit) and assert where the caret goes
  * instead. The key in a real editor is in apps/web/e2e/editing.spec.ts.
  */
+import { EditorSelection, type EditorState, type SelectionRange, type TransactionSpec } from '@codemirror/state'
+import type { EditorView } from '@codemirror/view'
 import { describe, expect, it } from 'vitest'
-import { blockDrawsLine, blockLineStep } from '../src/preview/vertical.js'
+import { blockDrawsLine, blockLineDown, blockLineStep, blockLineUp } from '../src/preview/vertical.js'
 import { makeState } from './support.js'
 
 const lineStart = (doc: string, n: number): number => doc.split('\n').slice(0, n - 1).join('\n').length + (n > 1 ? 1 : 0)
@@ -73,5 +75,69 @@ describe('blockLineStep: one line, even when a block widget draws it', () => {
     const state = makeState(doc, { at, mode: 'source' })
     expect(blockDrawsLine(state, 4)).toBe(false)
     expect(blockLineStep(state, at, doc.indexOf('let'), -1)).toBe(null)
+  })
+})
+
+/**
+ * A stand-in for the view the commands need: its `moveVertically` is CM6's in
+ * miniature (one column per pixel, the goal column carried on the range, block
+ * widget lines stepped over), and `dispatch` applies the spec to the state.
+ */
+function fakeView(start: EditorState) {
+  let state = start
+  const moveVertically = (range: SelectionRange, forward: boolean): SelectionRange => {
+    const line = state.doc.lineAt(range.head)
+    const goal = range.goalColumn ?? range.head - line.from
+    let n = line.number + (forward ? 1 : -1)
+    while (n >= 1 && n <= state.doc.lines && blockDrawsLine(state, n)) n += forward ? 1 : -1
+    if (n < 1) return EditorSelection.cursor(0, 0, undefined, goal)
+    if (n > state.doc.lines) return EditorSelection.cursor(state.doc.length, 0, undefined, goal)
+    const target = state.doc.line(n)
+    return EditorSelection.cursor(target.from + Math.min(goal, target.length), 0, undefined, goal)
+  }
+  const view = {
+    get state() {
+      return state
+    },
+    moveVertically,
+    dispatch(spec: TransactionSpec) {
+      state = state.update(spec).state
+    },
+  }
+  /** The key: the widget-line step first, CM6's own move when it declines. */
+  const press = (dir: 'up' | 'down'): void => {
+    const ran = (dir === 'up' ? blockLineUp : blockLineDown)(view as unknown as EditorView)
+    if (!ran) {
+      const moved = moveVertically(state.selection.main, dir === 'down')
+      state = state.update({ selection: EditorSelection.create([moved]) }).state
+    }
+  }
+  const caret = (): { line: number; col: number } => {
+    const head = state.selection.main.head
+    const line = state.doc.lineAt(head)
+    return { line: line.number, col: head - line.from }
+  }
+  return { press, caret }
+}
+
+describe('the goal column across a widget line', () => {
+  it('ArrowUp over a fence’s closing edge returns to the starting column on the lines above', () => {
+    const doc = 'a long first line\n```js\nlet value = 12345\n```\nthe line after it'
+    const at = doc.indexOf('the line after') + 10
+    const { press, caret } = fakeView(makeState(doc, { at }))
+    press('up')
+    // Onto the fence's three backticks, clamped.
+    expect(caret()).toEqual({ line: 4, col: 3 })
+    press('up')
+    expect(caret()).toEqual({ line: 3, col: 10 })
+  })
+
+  it('ArrowDown over a fence’s opening edge returns to the starting column on the lines below', () => {
+    const doc = 'a long first line\n```\nlet value = 12345\n```\nthe line after it'
+    const { press, caret } = fakeView(makeState(doc, { at: 12 }))
+    press('down')
+    expect(caret()).toEqual({ line: 2, col: 3 })
+    press('down')
+    expect(caret()).toEqual({ line: 3, col: 12 })
   })
 })
