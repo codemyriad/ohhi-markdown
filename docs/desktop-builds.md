@@ -47,8 +47,28 @@ soon as the upload has finished.
   like a push. On any other branch it makes a **draft** prerelease that is
   uploaded nowhere, for trying a build by hand.
 
-**Two flavours.** *Run workflow* has a **channel** input: `public` (the
-default, and what a push to `release` builds) or `team`. A public build has
+**The nightly channel** is for running the tip without waiting for a
+release. Every day at 03:15 UTC the workflow builds `main`, and builds
+nothing when `main` has not moved since the last nightly; *Run workflow* ›
+channel `nightly` builds any branch the same way, for living on a branch for
+a day. A nightly is a public-flavour **Linux AppImage** under its own app
+identifier (`md.ohhi.nightly`, product name `ohhi-nightly`, window title
+"Oh Hi markdown (nightly)"), published as the prerelease
+`nightly-v<version>` and uploaded to `dist.ohhi.md/nightly/`, from where
+installed nightlies update themselves. There is no macOS nightly and no
+`.deb`. The newest seven nightly releases stay on GitHub; older ones are
+deleted with their tags, and their files stay in the bucket (immutable keys)
+until someone prunes them by hand. Installing one is under [Linux](#linux)
+below. The schedule runs from the default branch only, and GitHub disables
+the whole workflow in a public repository after sixty days without activity;
+re-enable it under Actions › Desktop release (`gh workflow enable
+desktop-release.yml`). The schedule builds only what the feed does not have
+yet (it reads `nightly/latest.json` and compares that build's commit with
+`main`), so a nightly whose upload failed is rebuilt the next night.
+
+**Three channel inputs.** *Run workflow* has a **channel** input: `public`
+(the default, and what a push to `release` builds), `nightly` (above) or
+`team`. A public build has
 no pin, no relay and no team sentences, updates from
 `https://dist.ohhi.md/stable/latest.json`, and is tagged `public-v<version>`,
 which a team host never deploys. Run on `release` it is published and the
@@ -77,8 +97,8 @@ marks a milestone; it is not the update channel.
 | `TEAM_SECRET_HINT` | repository variable | One sentence saying where this deployment keeps the operator secret, e.g. `the team password manager, under ohhi relay` — never the secret. Baked in as `VITE_TEAM_SECRET_HINT`, for the secret field's *Where do I get this?*. Unset → the app says nothing about where. |
 | `TEAM_NETWORK_NOTE` | repository variable | One sentence about reaching the relay, e.g. `Shares work only while you are on the office network.` Baked in as `VITE_TEAM_NETWORK_NOTE`. Unset → nothing is said. |
 | `VITE_TEAM_HOST` | web build env (from `TEAM_HOST`) | Not a repo variable of its own: the release workflow passes `TEAM_HOST` to the web build as `VITE_TEAM_HOST`, the bare host the CSP is pinned to. Set → the app offers no other relay (no *Use another…* / *Change…*, the relay field in Settings › Sync & devices read-only) and says "This build syncs through <host> only." Unset → a generic build where any relay may be chosen. |
-| `PUBLIC_WEB_HOST`, `PUBLIC_DIST_HOST` | repository variables | Public channel only, both optional: the public web app's host (default `app.ohhi.md`, where a public desktop build points its share links) and the download host (default `dist.ohhi.md`: the update feed, `downloads.json` and the R2 keys' URLs). Defaults live in `apps/web/scripts/flavour.mjs`. |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | secrets | Public channel's `dist` job (R2: Edit) and the Web deploy workflow (Pages: Edit). Unset → both skip the upload with a warning. |
+| `PUBLIC_WEB_HOST`, `PUBLIC_DIST_HOST` | repository variables | Public and nightly channels only, both optional: the public web app's host (default `app.ohhi.md`, where a public desktop build points its share links) and the download host (default `dist.ohhi.md`: the update feed, `downloads.json` and the R2 keys' URLs). Defaults live in `apps/web/scripts/flavour.mjs`. |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | secrets | The public and nightly channels' `dist` job (R2: Edit) and the Web deploy workflow (Pages: Edit). Unset → both skip the upload with a warning. |
 | `TAURI_SIGNING_PRIVATE_KEY` | secret | The updater's minisign key (no password). Unset → the build still succeeds, but without updater bundles. The public key is in `tauri.conf.json`. Losing the private key means every installed app has to be reinstalled by hand, so it also lives in the password manager. |
 
 A relay saved in Settings › Sync & devices always wins over the build's default. The
@@ -100,9 +120,13 @@ Each release carries, flat:
 | `ohhi_<version>_universal.app.tar.gz` | macOS updater bundle (the bundler's `ohhi.app.tar.gz`, renamed) |
 | `ohhi_<version>_universal.app.tar.gz.sig` | its updater signature |
 | `web.tar.gz` | the web app's `dist/`, with `index.html` and `_headers` at the archive root (as `./…`) |
-| `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set (team) or for a public build; its URLs point at `https://<host>/updates/<tag>/<file>` (team) or `https://dist.ohhi.md/<version>/<file>` (public) |
-| `downloads.json` | the installers (`.dmg`, `.AppImage`, `.deb`) with URL, size and sha256, at the same base as `latest.json`: what Settings › About's *Get the desktop app* reads (`apps/web/scripts/downloads-manifest.mjs`). A team host serves it as `/updates/downloads.json`, R2 as `stable/downloads.json` |
+| `latest.json` | the updater manifest (Tauri v2 static format), only when `TEAM_HOST` is set (team) or for a public build; its URLs point at `https://<host>/updates/<tag>/<file>` (team), `https://dist.ohhi.md/<version>/<file>` (public) or `https://dist.ohhi.md/nightly/<version>/<file>` (nightly) |
+| `downloads.json` | the installers (`.dmg`, `.AppImage`, `.deb`) with URL, size and sha256, at the same base as `latest.json`: what Settings › About's *Get the desktop app* reads (`apps/web/scripts/downloads-manifest.mjs`). A team host serves it as `/updates/downloads.json`, R2 as `stable/downloads.json` (a nightly: `nightly/downloads.json`) |
 | `SHA256SUMS.txt` | checksums of all the above |
+
+A **nightly** carries the AppImage and its signature only, named
+`ohhi-nightly_<version>_amd64.AppImage`, with `web.tar.gz`, both manifests
+and the checksums.
 
 The build artifacts also stay in the workflow run for 14 days. There are no
 Windows or Linux arm64 builds. macOS is one universal build so nobody downloads
@@ -120,7 +144,8 @@ match the public key it was built with.
 
 On launch and every 6 hours, installed apps check
 `https://<team host>/updates/latest.json` (a public build:
-`https://dist.ohhi.md/stable/latest.json`) (Settings › About shows the version
+`https://dist.ohhi.md/stable/latest.json`; a nightly:
+`https://dist.ohhi.md/nightly/latest.json`) (Settings › About shows the version
 you're running and the last check's outcome). A newer build downloads and installs in the background, then a
 toast offers **Restart** and **What changed**. *What changed* opens the
 `changes` guide page in a guide window: on a team build it is read from
@@ -164,6 +189,14 @@ sha256sum -c SHA256SUMS.txt --ignore-missing      # macOS: shasum -a 256 -c SHA2
   `sudo apt install libfuse2t64`.
 - **.deb:** `sudo apt install ./ohhi_*_amd64.deb` installs the package `ohhi`
   (`sudo apt remove ohhi`) with an "ohhi" menu entry.
+- **Nightly:** `ohhi-nightly_*_amd64.AppImage` from the newest `nightly-v…`
+  release, or `https://dist.ohhi.md/nightly/latest/ohhi-nightly_amd64.AppImage`
+  (its `SHA256SUMS.txt` sits beside it). It is a second app with its own
+  data folder, so it sits beside the stable one: open the vault and link the
+  device once more, and keep the stable app installed. Run one of them over
+  a vault at a time: each is a device of its own, and two apps writing the
+  same folder on one disk is not something the app arbitrates. It updates
+  itself from the nightly feed; `--appimage-extract` is never needed.
 
 ### macOS
 
