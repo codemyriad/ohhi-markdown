@@ -10,6 +10,19 @@ import { appUrl, openByQuickOpen } from './fixtures.js'
 const content = (page: Page) => page.locator('[data-testid="editor-pane"] .cm-content')
 const popover = (page: Page) => page.locator('.cm-tooltip-autocomplete.cm-link-popover')
 
+/**
+ * The popover takes a key only once every source has answered (while one is
+ * still pending the list is drawn disabled, `cm-tooltip-autocomplete-disabled`,
+ * and Tab or an arrow falls through to the editor) and 75 ms after it first
+ * opened (`interactionDelay`, a timestamp the DOM does not show). A slow
+ * machine reaches the key press inside both windows.
+ */
+async function keyReady(page: Page) {
+  await expect(popover(page)).toBeVisible()
+  await expect(popover(page)).not.toHaveClass(/cm-tooltip-autocomplete-disabled/)
+  await page.waitForTimeout(100)
+}
+
 test('the popover ranks, shows its hints, and Tab writes a closed link', async ({ page }) => {
   await page.goto(appUrl({ room: 'link-popover', layout: null }))
   await expect(page.getByTestId('editor-area')).toBeVisible({ timeout: 15_000 })
@@ -27,6 +40,7 @@ test('the popover ranks, shows its hints, and Tab writes a closed link', async (
   expect(row.height).toBeLessThan(26)
   await expect(popover(page).locator('.cm-link-footer')).toContainText('link')
 
+  await keyReady(page)
   await page.keyboard.press('Tab')
   await expect(popover(page)).toHaveCount(0)
   await page.keyboard.type('!')
@@ -70,6 +84,7 @@ test('with the popover open over a code fence, ArrowDown moves through the popov
   const rows = popover(page).locator('li[role="option"]')
   await expect.poll(() => rows.count()).toBeGreaterThan(1)
   await expect(rows.nth(0)).toHaveAttribute('aria-selected', 'true')
+  await keyReady(page)
   await page.keyboard.press('ArrowDown')
   await expect(rows.nth(1)).toHaveAttribute('aria-selected', 'true')
   expect(await caretLine()).toBe(1)
