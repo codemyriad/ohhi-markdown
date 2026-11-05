@@ -15,6 +15,12 @@
 //! the next launch tries again. The old folder is never deleted or changed:
 //! an older build still opens it, and it is the fallback if the copy is
 //! wrong. See docs/desktop-builds.md (What lands where).
+//!
+//! Only the identifier that replaced the old one carries the folders over.
+//! A build under any other identifier (the nightly channel's
+//! `md.ohhi.nightly`) is a separate app and starts with its own, empty
+//! folders: copying the old ones there would hand it a stale vault list and
+//! stale tokens.
 
 use std::fs;
 use std::io;
@@ -26,6 +32,14 @@ use tauri::{Manager, Runtime};
 
 /// The identifier every desktop build before 2026-10-16 used.
 pub const OLD_IDENTIFIER: &str = "md.ohhi.desktop";
+
+/// The identifier that replaced it: the only one the old folders move to.
+pub const NEW_IDENTIFIER: &str = "md.ohhi";
+
+/// Whether a build with this identifier carries the old folders over.
+pub fn applies_to(identifier: &str) -> bool {
+    identifier == NEW_IDENTIFIER
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
@@ -134,7 +148,7 @@ fn folder_pairs<R: Runtime>(app: &tauri::AppHandle<R>) -> Vec<(PathBuf, PathBuf)
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("app-id-migration")
         .setup(|app, _api| {
-            if app.config().identifier == OLD_IDENTIFIER {
+            if !applies_to(&app.config().identifier) {
                 return Ok(());
             }
             for (old, new) in folder_pairs(app) {
@@ -224,6 +238,13 @@ mod tests {
         assert_eq!(migrate_dir(&root.join(OLD_IDENTIFIER), &new).unwrap(), Outcome::NoOld);
         assert!(!new.exists());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn only_the_identifier_that_replaced_the_old_one_migrates() {
+        assert!(applies_to(NEW_IDENTIFIER));
+        assert!(!applies_to(OLD_IDENTIFIER));
+        assert!(!applies_to("md.ohhi.nightly"));
     }
 
     #[test]
