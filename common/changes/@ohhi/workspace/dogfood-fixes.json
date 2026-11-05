@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/workspace",
+      "comment": "Folders written from outside are enrolled while the app runs; a held boot batch stays held; a refusal the relay can take back is retried with backoff and capped; a device link announces every mount; carving a folder in a private vault leaves no stray root entry.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/workspace"
+}
