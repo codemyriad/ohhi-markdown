@@ -372,8 +372,7 @@ describe('a breaker raised by a mount’s boot is applied by that mount', () => 
  * the ingest ratio while the app was closed is raised from inside
  * `MountSession.create` too, and resolving it must reach the mount's
  * session: the root holds no doc for the guid, and routing it there threw
- * `resolveReview: unknown doc` behind a modal that cannot be dismissed
- * (dogfood 2026-10-23).
+ * `resolveReview: unknown doc` behind a modal that cannot be dismissed.
  */
 describe('a review raised by a mount’s boot is resolved by that mount', () => {
   it('routes resolveReview to the mount, and the chosen text lands in the doc and on disk', async () => {
