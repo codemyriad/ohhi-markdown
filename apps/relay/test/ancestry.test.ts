@@ -125,16 +125,16 @@ describe('device tokens + room ancestry', () => {
   it('a folder token stays exact-match: refused on the parent vault and on a sibling', async () => {
     expect((await authOutcome(`${TEAM}/d1`, TEAM_TOKEN)).failure).toBeNull()
     // R5: the folder share never grants the vault it was carved out of…
-    expect((await authOutcome(`${VAULT}/folder`, TEAM_TOKEN)).failure).toBe('permission-denied')
+    expect((await authOutcome(`${VAULT}/folder`, TEAM_TOKEN)).failure).toBe('out_of_scope')
     // …nor a sibling carve of that same vault.
-    expect((await authOutcome(`${CREW}/d1`, TEAM_TOKEN)).failure).toBe('permission-denied')
+    expect((await authOutcome(`${CREW}/d1`, TEAM_TOKEN)).failure).toBe('out_of_scope')
   })
 
   it('a device token is refused on a room whose ancestry does not reach it', async () => {
     // Carved out of someone else's vault…
-    expect((await authOutcome(`${FOREIGN}/d1`, DEVICE_TOKEN)).failure).toBe('permission-denied')
+    expect((await authOutcome(`${FOREIGN}/d1`, DEVICE_TOKEN)).failure).toBe('out_of_scope')
     // …and a room with no ancestry recorded at all.
-    expect((await authOutcome('strayR/d1', DEVICE_TOKEN)).failure).toBe('permission-denied')
+    expect((await authOutcome('strayR/d1', DEVICE_TOKEN)).failure).toBe('out_of_scope')
   })
 
   it('a read-only device token is read-only everywhere it reaches', async () => {
@@ -172,7 +172,7 @@ describe('device tokens + room ancestry', () => {
     expect((await authOutcome('freshTeam/d1', device.token)).failure).toBeNull()
     // …while the carve's own token still cannot reach the vault.
     expect((await authOutcome('freshVault/folder', carved.token)).failure).toBe(
-      'permission-denied'
+      'out_of_scope'
     )
 
     const listed = (await (await call('GET', '/shares?folder=freshTeam', { secret: SECRET })).json()) as {
@@ -212,7 +212,7 @@ describe('device tokens + room ancestry', () => {
 
     // …so a device token for the would-be new parent still cannot reach it.
     relay.db.addShare({ token: 'attacker-device', folderGuid: 'attackers-vault', kind: 'device' })
-    expect((await authOutcome(`${TEAM}/d1`, 'attacker-device')).failure).toBe('permission-denied')
+    expect((await authOutcome(`${TEAM}/d1`, 'attacker-device')).failure).toBe('out_of_scope')
   })
 
   it('setRoomParent itself never re-points an edge', () => {

@@ -59,10 +59,10 @@ describe('the plain-text report', () => {
       at: NOW - H,
       level: 'error',
       kind: 'relay.state',
-      scope: { room: 'room-team' },
+      scope: { room: 'room-team', mount: 'team', path: 'team' },
       actor: { kind: 'relay' },
       count: 3,
-      payload: { to: 'refused', reason: 'expired' },
+      payload: { to: 'refused', reason: 'unknown_token' },
     }
     const text = logReport([refused, ev('w', NOW - 2 * H, 'warn', { path: 'a.md' })], NOW, LL)
     const lines = text.split('\n')
@@ -71,14 +71,39 @@ describe('the plain-text report', () => {
       [
         new Date(NOW - H).toISOString(),
         'error',
-        'room room-team',
-        LL.web.notices.relay_refused({ reason: 'expired' }),
+        'team',
+        LL.web.notices.relay_refused_link(),
         '×3',
       ].join('  ')
     )
-    expect(lines[2]).toBe(`    hint: ${LL.web.log.hints.relay_refused()}`)
+    expect(lines[2]).toBe(`    hint: ${LL.web.log.hints.relay_refused_link()}`)
     expect(lines[3]).toBe([new Date(NOW - 2 * H).toISOString(), 'warning', 'a.md', 'msg w'].join('  '))
     expect(lines).toHaveLength(4)
+  })
+
+  it('a refusal is advised by its reason and by whose room it is', () => {
+    const refused = (mount: string, reason?: string, joined?: boolean): AppEvent => ({
+      id: 'r',
+      at: NOW,
+      level: 'error',
+      kind: 'relay.state',
+      scope: { room: 'room-x', mount, ...(mount ? { path: mount } : {}) },
+      actor: { kind: 'relay' },
+      count: 1,
+      payload: { to: 'refused', ...(reason ? { reason } : {}), ...(joined !== undefined ? { joined } : {}) },
+    })
+    // A folder share opened as a vault of its own: its room is the root, and
+    // the dead token is the link's — never "link this device again".
+    expect(eventHint(refused('', 'unknown_token', true), LL)).toBe(LL.web.log.hints.relay_refused_link())
+    expect(eventHint(refused('', 'unknown_token', false), LL)).toBe(LL.web.log.hints.relay_refused_device())
+    // A dead link on a joined folder: ask whoever shared it.
+    expect(eventHint(refused('team', 'unknown_token'), LL)).toBe(LL.web.log.hints.relay_refused_link())
+    // A dead token on the vault's own room: link this device again.
+    expect(eventHint(refused('', 'unknown_token'), LL)).toBe(LL.web.log.hints.relay_refused_device())
+    // Anything else says nothing about links.
+    expect(eventHint(refused('team', 'out_of_scope'), LL)).toBeNull()
+    expect(eventHint(refused('', 'permission-denied'), LL)).toBeNull()
+    expect(eventHint(refused('team'), LL)).toBeNull()
   })
 
   it('a hint only for a complaint the app knows how to help with, never for info', () => {

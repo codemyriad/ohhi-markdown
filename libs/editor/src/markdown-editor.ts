@@ -33,13 +33,48 @@ import {
   wikiLinkExtensions,
 } from '@ohhi/editor-lang'
 import { attachmentDrop } from './attachments.js'
-import { createCollabExtensions, type CollabUndoManager, type CollabUser } from './binding.js'
+import {
+  createCollabExtensions,
+  createUndoManager,
+  localAwareness,
+  type CollabUndoManager,
+  type CollabUser,
+} from './binding.js'
 import { editorKeymap, FORMAT_COMMANDS, type EditorKey, type FormatBindings } from './format.js'
 import { editorTheme, themeModeCompartment } from './theme.js'
 import { typewriterCompartment, typewriterExtension } from './typewriter.js'
+import { sameTypingAids, TYPING_DEFAULTS, typingCompartment, typingExtension, type TypingAids } from './typing.js'
+
+/**
+ * The fenced-code grammars, less the one that evaluates code: the legacy Pug
+ * mode test-compiles attribute values with `Function(…)`, which the Content
+ * Security Policy forbids (no 'unsafe-eval'; docs/desktop-builds.md), so a
+ * ```pug fence logged a CSP violation on every highlight. A Pug fence is
+ * plain code now.
+ */
+const CODE_LANGUAGES = languages.filter((l) => l.name !== 'Pug')
 
 /** Host-supplied extensions (wikilinks, completion, …), swappable at runtime. */
 const hostCompartment = new Compartment()
+
+/**
+ * The Y.Text binding and its remote cursors, reconfigured when the doc's
+ * awareness changes (`setAwareness`) so a new awareness for the SAME doc never
+ * costs the view: a rebuild puts the caret at 0 and the scroll at the top.
+ */
+const collabCompartment = new Compartment()
+
+/**
+ * The host's read-only switch (`setReadOnly`), apart from Reading mode's: a
+ * surgery that moves the note's doc holds the view still without rebuilding it.
+ */
+const readOnlyCompartment = new Compartment()
+
+function readOnlyExtension(on: boolean): Extension[] {
+  // Only ever `true` facets: both combine first-value-wins, so a `false` here
+  // would override Reading mode's `true`.
+  return on ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []
+}
 
 /**
  * The editor's own keys (`Mod-l` + the format table), reconfigured when the
@@ -95,7 +130,7 @@ export interface MarkdownEditorOptions {
   /**
    * The doc's undo manager, owned by the host so the stack outlives this view
    * (tab-groups B2: a tab switch destroys the view, not the history). Omit it
-   * and yCollab mints a view-lifetime one, as before.
+   * and the view makes a view-lifetime one.
    */
   undoManager?: CollabUndoManager
   /**
@@ -108,6 +143,11 @@ export interface MarkdownEditorOptions {
    * Decision 5, the layout's `editor.typewriter`); `setTypewriter` toggles it.
    */
   typewriter?: boolean
+  /**
+   * Spell checking, autocorrect and sentence capitalisation (Settings ›
+   * Editor); `setTyping` changes them in place. Default: all on.
+   */
+  typing?: TypingAids
 }
 
 /**
@@ -123,6 +163,14 @@ export interface EditorResumeState {
 
 export interface MarkdownEditorHandle {
   view: EditorView
+  /**
+   * Bind the remote cursors to another awareness of the same doc (null: a
+   * local one) — the Y.Text binding, the caret, the scroll and the undo stack
+   * stay as they are.
+   */
+  setAwareness(awareness: Awareness | null): void
+  /** The host's read-only switch — one dispatch, no rebuild. */
+  setReadOnly(on: boolean): void
   /** One dispatch: no teardown, no Y.Text rebind. */
   setDark(dark: boolean): void
   /** Swap the host extension set in place. */
@@ -131,6 +179,8 @@ export interface MarkdownEditorHandle {
   setMode(mode: ViewMode): void
   /** Typewriter scrolling on or off — one dispatch, no rebuild. */
   setTypewriter(on: boolean): void
+  /** Spell checking, autocorrect and capitalisation — one dispatch, no rebuild. */
+  setTyping(aids: TypingAids): void
   /** Re-key the format commands (quiet-shell F10) — one dispatch. */
   setFormatBindings(bindings: FormatBindings): void
   /**
@@ -153,15 +203,28 @@ export function createMarkdownEditor(
   parent: HTMLElement,
   opts: MarkdownEditorOptions
 ): MarkdownEditorHandle {
+  // The awareness the cursors are bound to; `own` is the local one this view
+  // made when the host had none, and is this view's to destroy.
+  let awareness = opts.awareness
+  let own: Awareness | null = null
+  // The undo manager outlives an awareness swap: without the host's, one is
+  // made here once, rather than yCollab minting a new one per binding.
+  const undoManager = opts.undoManager ?? createUndoManager(opts.doc)
+  const collab = (aw: Awareness | null): Extension[] => {
+    own?.destroy()
+    own = aw ? null : localAwareness(opts.doc)
+    return createCollabExtensions(opts.doc, aw ?? own, opts.user, undoManager)
+  }
   const extensions = [
     // Collab FIRST: in CM6 earlier array entries have HIGHER precedence, so
     // this is what actually makes yUndo win over @codemirror/commands' undo.
     // (It also works today only because history() is not installed; do not
     // rely on position alone when adding keymaps — use Prec.high.)
-    ...createCollabExtensions(opts.doc, opts.awareness, opts.user, opts.undoManager),
+    collabCompartment.of(collab(opts.awareness)),
     hostCompartment.of(opts.extensions ?? []),
     modeCompartment.of(modeExtensions(opts.mode ?? 'live')),
     typewriterCompartment.of(typewriterExtension(opts.typewriter ?? false)),
+    typingCompartment.of(typingExtension(opts.typing ?? TYPING_DEFAULTS)),
     // The format keys (Mod-b/i/k) live here too, so they work in any host
     // that mounts this editor. In the shell the registry's capture-phase
     // handler sees the chord first and stops it, so it never fires twice;
@@ -187,11 +250,11 @@ export function createMarkdownEditor(
       extensions: [WikiLink, Tag, Highlight, Frontmatter],
       // Lazy-loaded grammars for fenced code: js/rust/bash/jsx/ts alone are
       // 369 of the vault's 527 fences.
-      codeLanguages: languages,
+      codeLanguages: CODE_LANGUAGES,
     }),
     // The same list names a fence's language in completion and on the code
     // card's chip (E3): name + aliases, the two fields completion reads.
-    fenceLanguages.of(languages.map((l) => ({ name: l.name, alias: l.alias }))),
+    fenceLanguages.of(CODE_LANGUAGES.map((l) => ({ name: l.name, alias: l.alias }))),
     // The vault indents lists with tabs and reads them at four columns, and a
     // rendered bullet has to sit where the tab put it (read-shaping B1).
     EditorState.tabSize.of(4),
@@ -213,9 +276,7 @@ export function createMarkdownEditor(
     EditorView.contentAttributes.of({ 'aria-label': 'Note text' }),
     editorTheme(opts.dark ?? false),
   ]
-  if (opts.readOnly) {
-    extensions.push(EditorState.readOnly.of(true), EditorView.editable.of(false))
-  }
+  extensions.push(readOnlyCompartment.of(readOnlyExtension(opts.readOnly ?? false)))
   const view = new EditorView({
     // Initial doc must mirror the Y.Text — ySync only relays subsequent deltas.
     state: EditorState.create({ doc: opts.doc.getText(), extensions }),
@@ -226,8 +287,29 @@ export function createMarkdownEditor(
   // every view would reconfigure itself once for the mode it already has.
   let current = opts.mode ?? 'live'
   let typewriter = opts.typewriter ?? false
+  let typing = opts.typing ?? TYPING_DEFAULTS
+  let readOnly = opts.readOnly ?? false
   return {
     view,
+    setAwareness(next) {
+      if (next === awareness) return
+      const previous = awareness
+      awareness = next
+      // Two steps. CM6 keeps a plugin instance across a reconfigure that still
+      // lists it, and y-codemirror's plugins read their awareness once, when
+      // they are constructed: emptying the compartment first is what makes
+      // the second step construct them over the new one. Both dispatches are
+      // synchronous, so no Y.Text change can fall between them.
+      view.dispatch({ effects: collabCompartment.reconfigure([]) })
+      view.dispatch({ effects: collabCompartment.reconfigure(collab(next)) })
+      // Our caret is not in the old one any more (a destroyed one has no state).
+      if (previous?.getLocalState()) previous.setLocalStateField('cursor', null)
+    },
+    setReadOnly(on) {
+      if (on === readOnly) return
+      readOnly = on
+      view.dispatch({ effects: readOnlyCompartment.reconfigure(readOnlyExtension(on)) })
+    },
     setDark(dark) {
       view.dispatch({
         effects: themeModeCompartment.reconfigure(EditorView.darkTheme.of(dark)),
@@ -243,6 +325,11 @@ export function createMarkdownEditor(
       if (on === typewriter) return
       typewriter = on
       view.dispatch({ effects: typewriterCompartment.reconfigure(typewriterExtension(on)) })
+    },
+    setTyping(aids) {
+      if (sameTypingAids(aids, typing)) return
+      typing = { ...aids }
+      view.dispatch({ effects: typingCompartment.reconfigure(typingExtension(typing)) })
     },
     setMode(mode) {
       if (mode === current) return
@@ -280,6 +367,11 @@ export function createMarkdownEditor(
         },
       })
     },
-    destroy: () => view.destroy(),
+    destroy: () => {
+      view.destroy()
+      own?.destroy()
+      own = null
+      if (!opts.undoManager) undoManager.destroy()
+    },
   }
 }

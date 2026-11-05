@@ -171,11 +171,45 @@ Two consequences worth stating:
 
 - A **device** token is checked once per document it opens, so the ancestry walk runs on
   every doc of every carved room — hence the bound and the index on `rooms(child_guid)`.
-- A refusal is **permanent, not a reconnect loop**: the client surfaces it through
-  `reportAuthFailure` as a stated error ("the relay rejected this token"), and a mount
-  that has no credential at all is not connected at all — it runs provider-less in the
+- A **credential** refusal is **permanent, not a reconnect loop**: the relay names it
+  (`unknown_token`, `out_of_scope`), the client surfaces it through `reportAuthFailure`
+  as a stated error ("the relay rejected this token"), and a mount that has no
+  credential at all is not connected at all — it runs provider-less in the
   `needs-token` state rather than pretending to be offline (spike S10 Q2, golden
   rule 4).
+- **Any other refusal is retried.** Hocuspocus answers any throw while it sets a
+  document up — its load included — with a bare `permission-denied` for that document,
+  so that one means "the relay could not open this document right now". The relay logs
+  the failure with the document's name; the mount logs `refused` once, then rebuilds the
+  room's connections on a fresh socket after a capped backoff on the injected clock
+  (1 s doubling to 60 s), reading `reconnecting` while it does and `connected` only once
+  a retry has held without a new refusal (`MountSession.retryRefusal`). Why a fresh
+  socket rather than the one document again: a refused provider keeps sending, the
+  server queues that as an unauthenticated connection, and a detach + re-attach on the
+  same socket replays the queued CLOSE into the new connection — authenticated and
+  silently dead. A fresh socket is what a relaunch gave; before this, a relaunch was the
+  only cure (`libs/workspace/test/relay-refusal-retry.test.ts`).
+  The rules of a retry run:
+  - The first `refused` of a run carries `retrying: true` and is logged at **info**, not
+    error: it is a transient the mount is already handling, and the host words it as
+    "the relay could not open a document; retrying" with no toast. The pill does not
+    change for it — it reads the records, which say "not connected" while it lasts.
+  - Each doc's **awareness survives the rebuild** (`DocConnection.destroy({ keepAwareness })`,
+    handed to the next `connectDoc`), so an open editor keeps its remote cursors and keeps
+    sending its own, and the host never sees a new awareness for a doc that did not
+    change. A re-key through `enableSharing` keeps them the same way.
+  - A blip on the old socket while a retry waits settles nothing; the retry still runs.
+  - A final refusal stands: once a credential refusal is in, a retryable one starts no run.
+  - During a **pull** (a first join, a device link's, an add-link's) every refusal is
+    final: the pull waits on the connections it started with, so it fails at once and
+    the caller rolls back, and a session whose boot failed is shut down.
+  - The run is **capped** (`REFUSAL_RETRY_LIMIT`, ten retries, about five minutes): then the
+    refusal is treated as final, at error level, and raised as `RelayRefusedError`.
+- **Relays must carry the refusal reasons.** A relay that predates them answers a token it
+  does not know with the same bare `permission-denied`, which this client retries; the cap
+  is what turns a dead token on such a relay into a stated refusal, five minutes late.
+  Deploy a relay with the reasons (`apps/relay`'s `refusal(...)` in `onAuthenticate`)
+  before a client with the retry ships against it.
 
 ## What the relay can and cannot read
 

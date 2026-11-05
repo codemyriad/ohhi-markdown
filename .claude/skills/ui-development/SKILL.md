@@ -100,7 +100,10 @@ ids** rendered as buttons from the registry, folding into a *Format* menu at
 narrow widths; a pill **floating inside the editor area** — bottom centre,
 or under the header for `top` — in `EditorArea`'s floating layer, whose
 height pads every CM6 scroller through `--ed-float-bottom` / `--ed-float-top`
-so it never covers the last line); `components/CornerStatus.svelte`
+so it never covers the last line; the layer and the dock also follow the
+**visual viewport** — `lib/ui/visual-viewport.ts` writes `--vv-top` /
+`--vv-bottom` / `--vv-height` on the root from `window.visualViewport`, so
+a phone keyboard or a browser's own toolbar never covers them); `components/CornerStatus.svelte`
 (`bars.status`, by default `words` and `chars` — `note-count.svelte.ts`,
 the note or the selection — floating bottom right in the same layer); the
 mode menu is **not** a toolbar readout any more: the tab strip's own control

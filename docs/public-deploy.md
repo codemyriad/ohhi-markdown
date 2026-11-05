@@ -134,12 +134,19 @@ someone pushes it to the branch that ships.
   *Run workflow* on any other branch builds a public draft that uploads
   nothing. *Run workflow* › channel `team` builds the retired team flavour
   ([desktop-builds.md](desktop-builds.md)); nothing deploys it any more.
+- **The nightly channel** (the daily schedule on `main`, or *Run workflow* ›
+  channel `nightly` on any branch; [desktop-builds.md](desktop-builds.md)):
+  the same upload one level down, `nightly/<version>/<file>`,
+  `nightly/latest/ohhi-nightly_amd64.AppImage` with its `SHA256SUMS.txt`,
+  `nightly/downloads.json` and `nightly/latest.json`, the feed installed
+  nightlies update from. Linux only, and nothing on the landing page links
+  it.
 
 The **web app** and the **landing page** go live when someone pushes to
 `production` or `site`; `main` only ever makes previews. The **public desktop
 builds** ship only on a push to `release`, because of Actions minutes (macOS
 is billed at a multiple). Installed public apps update from
-`stable/latest.json`.
+`stable/latest.json`, nightlies from `nightly/latest.json`.
 
 Each Pages project's production branch in Cloudflare is the git branch that
 ships it: `production` for `ohhi-web`, `site` for `ohhi-site` (changed from

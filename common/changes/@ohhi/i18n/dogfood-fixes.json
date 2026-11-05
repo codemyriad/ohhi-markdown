@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/i18n",
+      "comment": "Strings for Clear all in the notification drawer, the retrying refusal and the typing options.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/i18n"
+}

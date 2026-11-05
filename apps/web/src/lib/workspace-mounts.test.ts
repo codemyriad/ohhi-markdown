@@ -8,11 +8,13 @@
  * is attached to the root: the peer-side machines themselves are covered by
  * libs/workspace's `nested.test.ts` against two devices.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMemStorage } from './storage.fixture.js'
 import {
   docBlobName,
   FOLDER_DOC_KEY,
+  hashText,
+  JsonFileLcaStore,
   MemStoreDir,
   MemVaultAdapter,
   MountsFile,
@@ -25,7 +27,19 @@ import {
   setupWorkspace,
   type Workspace,
 } from './workspace.svelte.js'
-import { roomRelay, roomToken, setRoomToken } from './config.js'
+import { roomRelay, roomToken, setDefaultRelay, setOperatorSecret, setRoomToken } from './config.js'
+
+// A carve mints its share on the relay first; here the mint answers locally.
+vi.mock('./relay-admin.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./relay-admin.js')>()),
+  mintShare: async (_relay: string, _secret: string, body: { folderGuid: string }) => ({
+    token: `minted-${body.folderGuid}`,
+    folderGuid: body.folderGuid,
+    readOnly: false,
+    label: null,
+    kind: 'folder',
+  }),
+}))
 import { encodeDeviceLink, encodeShareLink } from './share-link.js'
 
 beforeEach(() => useMemStorage())
@@ -286,5 +300,224 @@ describe('unshare / unmount clear the room’s credential (A4)', () => {
     expect(ws.ui.mounts).toEqual([])
     // The content folded back into the vault, as unshare always does.
     expect(ws.ui.files.map((r) => r.path)).toContain('team/plan.md')
+  })
+
+  it('unshare rebuilds every root note’s doc, and their undo stacks follow the new instances', async () => {
+    const ws = await bootWithNeedsToken()
+    ws.setLiveViews(new Set(['keep.md']))
+    const before = ws.undoManagerFor('keep.md')!
+    expect(before.doc).toBe(ws.docForPath('keep.md')!.raw())
+
+    await ws.unshare('team')
+
+    // keep.md is outside the unshared folder, but the root was rebuilt: a new
+    // doc instance under the same guid. Its undo manager must record THAT
+    // doc — one bound to the destroyed instance undoes nothing anyone sees.
+    const doc = ws.docForPath('keep.md')!
+    const after = ws.undoManagerFor('keep.md')!
+    expect(after.doc).toBe(doc.raw())
+    const text = (doc.raw() as { getText(name: string): { insert(at: number, s: string): void } }).getText('content')
+    text.insert(0, 'typed ')
+    expect(doc.getText()).toBe('typed root note\n')
+    after.undo()
+    expect(doc.getText()).toBe('root note\n')
+  })
+})
+
+/**
+ * A mount's own boot can trip the mass-change breaker (more than 20 files
+ * written into the shared folder while the app was closed — an agent's batch).
+ * The batch is held by the MOUNT's session, raised from inside
+ * `MountSession.create` before the shim registers it, so Apply must reach that
+ * session — not fall through to the root, which holds no batch (a silent
+ * no-op that brought the same dialog back on every launch).
+ */
+describe('a breaker raised by a mount’s boot is applied by that mount', () => {
+  it('enrols every held file on Apply, and the tree shows them', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const seed = engine.createDoc('breaker-test-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await scopedStoreDir(storeDir, `${ROOM}/`)
+      .io(docBlobName(FOLDER_DOC_KEY))
+      .writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    // 21 notes the mount has never seen: one over the threshold.
+    const added = Array.from({ length: 21 }, (_, i) => `team/new/note-${i}.md`)
+    for (const p of added) await adapter.writeAtomic(p, enc.encode(`${p}\n`))
+
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    expect(ws.ui.breaker?.paths).toEqual(expect.arrayContaining(added))
+    expect(ws.ui.files.map((r) => r.path)).not.toContain(added[0])
+
+    await ws.confirmBreaker()
+
+    expect(ws.ui.breaker).toBeNull()
+    const paths = ws.ui.files.map((r) => r.path)
+    for (const p of added) expect(paths).toContain(p)
+    expect(ws.docForPath(added[0]!)?.getText()).toBe(`${added[0]}\n`)
+  })
+})
+
+/**
+ * The same owner question for a REVIEW. A note whose disk copy moved past
+ * the ingest ratio while the app was closed is raised from inside
+ * `MountSession.create` too, and resolving it must reach the mount's
+ * session: the root holds no doc for the guid, and routing it there threw
+ * `resolveReview: unknown doc` behind a modal that cannot be dismissed.
+ */
+describe('a review raised by a mount’s boot is resolved by that mount', () => {
+  it('routes resolveReview to the mount, and the chosen text lands in the doc and on disk', async () => {
+    const base = `# Plan\n\n${'a line of the shared plan, as this device last saw it\n'.repeat(6)}`
+    const rewritten = `# Plan, rewritten\n\n${'an agent replaced every line while the app was closed\n'.repeat(10)}`
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode(rewritten))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const mountDir = scopedStoreDir(storeDir, `${ROOM}/`)
+    const seed = engine.createDoc('review-test-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await mountDir.io(docBlobName(FOLDER_DOC_KEY)).writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    // The note's durable state as the last boot left it: a doc holding the
+    // base, and an LCA saying disk held the base too.
+    const note = engine.createDoc(PLAN_GUID)
+    note.transact((t) => t.insert(0, base), 'seed')
+    await mountDir.io(docBlobName(PLAN_GUID)).writeAtomic(engine.encodeUpdateSince(note, null))
+    await new JsonFileLcaStore(mountDir.io('lca.json')).put({
+      guid: PLAN_GUID,
+      path: 'plan.md',
+      baseText: base,
+      contentHash: hashText(base),
+      heads: engine.encodeHeads(engine.heads(note)),
+      eol: 'lf',
+      bom: false,
+    })
+    note.destroy()
+
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    const review = ws.ui.reviews.find((r) => r.guid === PLAN_GUID)
+    expect(review?.reason).toBe('ratio-threshold')
+    expect(review?.theirs).toBe(rewritten)
+
+    await ws.resolveReview(PLAN_GUID, rewritten)
+
+    expect(ws.ui.reviews).toEqual([])
+    expect(ws.docForPath('team/plan.md')?.getText()).toBe(rewritten)
+    expect(new TextDecoder().decode((await adapter.read('team/plan.md'))!)).toBe(rewritten)
+  })
+})
+
+/**
+ * Live enrol-on-create through the host (agents are first-class writers,
+ * `agent-surface-shaping`): a note written into a mount's folder from outside
+ * while the workspace runs appears in the tree at once — owned by the mount,
+ * not also by the root — instead of after the next launch.
+ */
+describe('a file written into a mount’s folder while running shows up in the tree', () => {
+  it('enrols it in the mount, once', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    const storeDir = new MemStoreDir()
+    await new MountsFile(storeDir.io('mounts.json')).save([
+      { room: ROOM, path: 'team', provenance: 'adopted', relay: { url: RELAY }, status: 'needs-token' },
+    ])
+    const engine = createYjsEngine()
+    const seed = engine.createDoc('live-enrol-seed')
+    seed.transactMap((m) => m.set('plan.md', { guid: PLAN_GUID, kind: 'text' }), 'seed')
+    await scopedStoreDir(storeDir, `${ROOM}/`)
+      .io(docBlobName(FOLDER_DOC_KEY))
+      .writeAtomic(engine.encodeUpdateSince(seed, null))
+    seed.destroy()
+    const ws = await setupWorkspace({ adapter, storeDir, user: 'T', room: 'root-room' })
+    open = ws
+
+    adapter.externalWrite('team/from-agent.md', enc.encode('written by an agent\n'))
+    for (let i = 0; i < 50 && !ws.ui.files.some((r) => r.path === 'team/from-agent.md'); i++) {
+      await new Promise((r) => setTimeout(r, 5))
+    }
+
+    expect(ws.ui.files.filter((r) => r.path === 'team/from-agent.md')).toHaveLength(1)
+    expect(ws.docForPath('team/from-agent.md')?.getText()).toBe('written by an agent\n')
+  })
+})
+
+/** Run `work`, noting every value `look` takes while it runs (microtask by microtask). */
+async function watchWhile<T>(work: Promise<unknown>, look: () => T): Promise<T[]> {
+  const seen: T[] = []
+  let done = false
+  void work.finally(() => (done = true)).catch(() => {})
+  for (let turn = 0; !done; turn++) {
+    seen.push(look())
+    // Mostly microtasks (the surgery's own awaits), and now and then a task,
+    // so a wait on real I/O is not starved.
+    if (turn % 50 === 49) await new Promise((r) => setTimeout(r, 0))
+    else await Promise.resolve()
+  }
+  await work
+  return seen
+}
+
+describe('a note open while its folder is shared (carve)', () => {
+  it('resolves to the new mount’s doc, and tells the views to re-resolve', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    setOperatorSecret('operator-secret')
+    // Nothing listens there: the new mount's socket just keeps retrying.
+    setDefaultRelay(RELAY)
+    const ws = await setupWorkspace({ adapter, storeDir: new MemStoreDir(), user: 'T', room: 'root-room' })
+    open = ws
+    ws.setLiveViews(new Set(['team/plan.md']))
+    const before = ws.docForPath('team/plan.md')
+    expect(before?.getText()).toBe('shared plan\n')
+    const epoch = ws.ui.docsEpoch ?? 0
+
+    await ws.carveFolder('team')
+
+    const after = ws.docForPath('team/plan.md')
+    // The path is the same; the doc is the NEW mount's instance, and a view
+    // still holding `before` would type into a doc nobody syncs.
+    expect(after).not.toBeNull()
+    expect(after).not.toBe(before)
+    expect(after?.getText()).toBe('shared plan\n')
+    expect(ws.ui.docsEpoch).toBeGreaterThan(epoch)
+    expect(ws.ui.mounts.map((m) => m.path)).toEqual(['team'])
+  })
+
+  it('holds the subtree’s open notes read-only while the carve replaces their docs', async () => {
+    const adapter = new MemVaultAdapter()
+    await adapter.writeAtomic('keep.md', enc.encode('root note\n'))
+    await adapter.writeAtomic('team/plan.md', enc.encode('shared plan\n'))
+    setOperatorSecret('operator-secret')
+    setDefaultRelay(RELAY)
+    const ws = await setupWorkspace({ adapter, storeDir: new MemStoreDir(), user: 'T', room: 'root-room' })
+    open = ws
+    ws.setLiveViews(new Set(['team/plan.md', 'keep.md']))
+
+    const seen = await watchWhile(ws.carveFolder('team'), () => [...(ws.ui.frozen ?? [])])
+
+    // The pane on team/plan.md still shows the root's instance, which the
+    // carve flushes and destroys: anything typed into it then would be gone
+    // at the remount, so the view is read-only for the surgery — and only the
+    // surgery's subtree, and only until it is over.
+    expect(seen.some((f) => f.includes('team'))).toBe(true)
+    expect(seen.every((f) => f.every((p) => p === 'team'))).toBe(true)
+    expect(ws.ui.frozen).toEqual([])
   })
 })

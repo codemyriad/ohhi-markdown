@@ -67,10 +67,29 @@ export interface EventPayloads {
    * `RELAY_OFFLINE_MS` (or never, since boot); `refused` carries the relay's
    * reason.
    */
-  'relay.state': { to: 'connected' | 'reconnecting' | 'offline' | 'refused'; reason?: string }
+  'relay.state': {
+    to: 'connected' | 'reconnecting' | 'offline' | 'refused'
+    reason?: string
+    /**
+     * On `refused`: whether the room is a share someone else made and this
+     * device joined (a joined mount, or a folder share opened as a vault of
+     * its own, whose room is then the root). A dead token there is the
+     * link's, not this device's. Absent on events logged before it existed.
+     */
+    joined?: boolean
+    /**
+     * On `refused`: the refusal is not about the credential and the mount is
+     * retrying it (`MountSession.retryRefusal`) — the relay could not open a
+     * document right now. Logged at `info`; if the retries run out, a final
+     * `refused` without it follows at `error`.
+     */
+    retrying?: boolean
+  }
   'mount.changed': { what: AdoptNoticeKind | 'status'; from?: MountStatus; to?: MountStatus }
   'review.opened': { guid: string; reason: DivergenceReview['reason'] }
   'breaker.held': { count: number }
+  /** The held batch was dropped ("Not now"): nothing in it was applied. */
+  'breaker.dismissed': { count: number }
   /** The app's own complaints: a code the host maps to words, plus its arguments. */
   notice: { code: string; params?: Record<string, EventParam> }
 }
@@ -88,6 +107,7 @@ export const EVENT_KINDS = [
   'mount.changed',
   'review.opened',
   'breaker.held',
+  'breaker.dismissed',
   'notice',
 ] as const satisfies readonly EventKind[]
 

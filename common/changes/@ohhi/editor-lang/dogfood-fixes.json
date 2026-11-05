@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor-lang",
+      "comment": "ArrowUp and ArrowDown move one line next to a line live preview draws (frontmatter, a fence edge, a callout title), keep the goal column, and leave an open completion its keys.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/editor-lang"
+}

@@ -29,11 +29,12 @@ export function scopedAdapter(base: VaultAdapter, prefix: string): VaultAdapter 
     mkdir: (path) => base.mkdir(toAbs(path)),
     removeDir: (path) => base.removeDir(toAbs(path)),
     renameDir: (from, to) => base.renameDir(toAbs(from), toAbs(to)),
-    watch: (cb) =>
+    // `onError` is forwarded too: a wrapper that drops it hides a dead watcher.
+    watch: (cb, onError) =>
       base.watch((ev: WatchEvent) => {
         const paths = ev.paths.filter(inside).map(toRel)
         if (paths.length > 0) cb({ paths })
-      }),
+      }, onError),
   }
 }
 
@@ -49,6 +50,7 @@ export function ignoringAdapter(base: VaultAdapter, ignored: ReadonlySet<string>
     return false
   }
   return {
+    hides: hidden,
     list: async () => (await base.list()).filter((s) => !hidden(s.path)),
     listDirs: async () => (await base.listDirs()).filter((d) => !hidden(d)),
     read: (path) => base.read(path),
@@ -58,10 +60,10 @@ export function ignoringAdapter(base: VaultAdapter, ignored: ReadonlySet<string>
     mkdir: (path) => base.mkdir(path),
     removeDir: (path) => base.removeDir(path),
     renameDir: (from, to) => base.renameDir(from, to),
-    watch: (cb) =>
+    watch: (cb, onError) =>
       base.watch((ev: WatchEvent) => {
         const paths = ev.paths.filter((p) => !hidden(p))
         if (paths.length > 0) cb({ paths })
-      }),
+      }, onError),
   }
 }

@@ -7,21 +7,24 @@
    * with — what to do next. The glyph takes the semantic level colour; the
    * text stays on base-content so it holds the contrast floor on every theme.
    */
-  import { CircleAlert, Info, TriangleAlert } from '@lucide/svelte'
+  import { CircleAlert, Info, TriangleAlert, X } from '@lucide/svelte'
   import { LL } from '@ohhi/i18n/i18n-svelte'
   import type { AppEvent } from '@ohhi/workspace'
   import { describeEvent } from '../event-text.js'
   import { eventHint, eventWhere } from '../log-view.js'
   import { relativeTime } from '../relative-time.js'
+  import IconButton from '../ui/IconButton.svelte'
 
   interface Props {
     event: AppEvent
     /** The clock's now, re-read on a tick by the host. */
     now: number
     onOpenPath?: (path: string) => void
+    /** The drawer's per-row dismiss (the row leaves the drawer, never the log); absent in the Log view. */
+    onDismiss?: () => void
   }
 
-  let { event, now, onOpenPath }: Props = $props()
+  let { event, now, onOpenPath, onDismiss }: Props = $props()
 
   const ICON = { error: CircleAlert, warn: TriangleAlert, info: Info } as const
   const TONE = { error: 'text-error', warn: 'text-warning', info: 'text-info' } as const
@@ -69,4 +72,7 @@
       {/if}
     </p>
   </div>
+  {#if onDismiss}
+    <IconButton label={$LL.web.drawer.dismiss()} icon={X} testid="event-dismiss" data-dismiss class="-my-1 -mr-1 shrink-0" onclick={onDismiss} />
+  {/if}
 </li>

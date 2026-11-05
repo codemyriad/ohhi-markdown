@@ -28,9 +28,11 @@
  * `relayForRoom`, i.e. spike S10 Q2's lookup order. Where this harness differs
  * from the shim, it says so at the point of difference.
  */
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect } from 'vitest'
 import { createYjsEngine, type SyncEngine } from '@ohhi/sync'
 import { RealClock } from '@ohhi/testkit'
@@ -63,7 +65,7 @@ import {
 import { activateMount } from '../src/activate.js'
 import { resolveRoomRelay } from '../src/resolve-relay.js'
 import { carveFolder } from '../src/carve.js'
-import { joinMount } from '../src/join.js'
+import { announceMounts, joinMount } from '../src/join.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
 import { recoverMounts } from '../src/vault-boot.js'
 import {
@@ -86,6 +88,8 @@ export interface TestRelay {
   url: string
   /** `http://127.0.0.1:<port>` — the admin API (admin.ts). */
   adminUrl: string
+  /** The relay's throwaway DATA_DIR (`relay.db` lives in it). */
+  dataDir: string
   stop(): Promise<void>
 }
 
@@ -105,11 +109,41 @@ export async function startTestRelay(label: string): Promise<TestRelay> {
   return {
     url: handle.url,
     adminUrl: handle.url.replace(/^ws/, 'http'),
+    dataDir,
     stop: async () => {
       await handle.stop()
       rmSync(dataDir, { recursive: true, force: true })
     },
   }
+}
+
+const RELAY_DIR = join(fileURLToPath(new URL('.', import.meta.url)), '../../../apps/relay')
+
+/**
+ * Write (or, with `null`, delete) one document's stored state in a running
+ * relay's database, behind its back — the way to make the relay fail to set
+ * a document up (`state` that is not a Yjs update) and then stop failing.
+ * Runs in a child `node` from `apps/relay`, whose `better-sqlite3` this
+ * package does not depend on (and must not). The relay holds the database in
+ * WAL mode, so a second writer is safe; the change is seen on the next LOAD
+ * of the document, i.e. while no client holds it open.
+ */
+export function putRelayDocState(relay: TestRelay, name: string, state: Uint8Array | null): void {
+  const script = `
+    const Database = require('better-sqlite3')
+    const db = new Database(process.argv[1])
+    const [name, hex] = [process.argv[2], process.argv[3]]
+    if (hex === '-') db.prepare('DELETE FROM docs WHERE name = ?').run(name)
+    else db.prepare('INSERT OR REPLACE INTO docs (name, state, updated_at) VALUES (?, ?, ?)')
+      .run(name, Buffer.from(hex, 'hex'), new Date().toISOString())
+    db.close()
+  `
+  const hex = state === null ? '-' : Buffer.from(state).toString('hex')
+  const res = spawnSync('node', ['-e', script, join(relay.dataDir, 'relay.db'), name, hex], {
+    cwd: RELAY_DIR,
+    encoding: 'utf8',
+  })
+  if (res.status !== 0) throw new Error(`putRelayDocState failed: ${res.stderr}`)
 }
 
 export interface MintedShare {
@@ -658,6 +692,29 @@ export async function joinOn(dev: Device, opts: { dest: string; link: string }):
   dev.attach(opts.dest, session)
   await dev.refreshDescs()
   return session
+}
+
+/**
+ * `doLinkDevice`'s promotion of a PRIVATE vault: the root goes relay-attached
+ * on the vault's device token, and every mount the root map does not name yet
+ * — joined or carved while the vault was private, when there were no peers
+ * to announce it to — is announced, so the linked device learns about it.
+ */
+export async function linkDeviceOn(dev: Device, token: string): Promise<string[]> {
+  dev.tokens.set(dev.rootRoom, token, dev.relayUrl, 'device')
+  if (!dev.root.isShared()) dev.root.enableSharing({ url: dev.relayUrl, token })
+  return announceMounts(
+    dev.root,
+    dev
+      .descs()
+      .filter((d) => d.path !== '' && dev.mounts.has(d.path))
+      .map((d) => ({
+        path: d.path,
+        room: d.room,
+        ...(d.relay?.url ? { relay: d.relay.url } : {}),
+        session: dev.mounts.get(d.path)!,
+      }))
+  )
 }
 
 /**

@@ -149,14 +149,25 @@ export class NodeVaultAdapter implements VaultAdapter {
     await rm(this.abs(path), { force: true })
   }
 
-  watch(cb: (ev: WatchEvent) => void): () => void {
-    const watcher = watch(this.root, { recursive: true }, (_event, filename) => {
-      if (!filename) return
-      // Ignored dirs and temp names never reach `cb`; a path under a
-      // `watchAppDir` directory goes to that listener instead (S20 Q1).
-      const paths = this.appDirs.route([filename.split(sep).join('/')])
-      if (paths.length) cb({ paths })
-    })
+  watch(cb: (ev: WatchEvent) => void, onError?: (err: unknown) => void): () => void {
+    let watcher: ReturnType<typeof watch>
+    try {
+      watcher = watch(this.root, { recursive: true }, (_event, filename) => {
+        if (!filename) return
+        // Ignored dirs and temp names never reach `cb`; a path under a
+        // `watchAppDir` directory goes to that listener instead (S20 Q1).
+        const paths = this.appDirs.route([filename.split(sep).join('/')])
+        if (paths.length) cb({ paths })
+      })
+    } catch (err) {
+      // No listener: the historical throw, so a caller that never asked still hears it.
+      if (!onError) throw err
+      onError(err)
+      return () => {}
+    }
+    // A watcher that dies later (the root removed, a platform limit hit)
+    // emits 'error'; reported, rather than thrown out of the event loop.
+    if (onError) watcher.on('error', onError)
     return () => watcher.close()
   }
 

@@ -32,7 +32,9 @@ switch, and a single save can produce several events. The adapter layer normaliz
 - **Quiesce = double-read-same-hash.** A changed file is read, hashed, and re-read
   after a short injected-clock delay; only when two consecutive reads hash identically
   is the content considered settled and handed to the reconciler. This is the defense
-  against partial writes from non-atomic external writers.
+  against partial writes from non-atomic external writers. A *new* file goes through
+  the same double read before it is enrolled (see below); one that vanishes between
+  the two reads is dropped without a word.
 - **Ignore list:** `libs/vault`'s `IGNORED_DIRS` — `.git/`, `.obsidian/`, `.ohhi/`, `.ohhi-cache/`, `.trash/`, `node_modules/`, plus the pre-rename `.editor/` and `.editor-cache/`.
 
 ## The reconciler: classification matrix
@@ -99,7 +101,23 @@ released, the surgery runs, and `reapplyLiveViews(held)` re-tells every mount �
 replacements included, whose open sets start empty. Dropping without re-applying leaves a
 pane rendering a buffer the vault believes is closed, which is the reconciler free to
 materialize over it (golden rule 1); the facade's `workspace-live-views.test.ts` is the
-guard. A session already out of the registry is never spoken to again. While any of those
+guard. A session already out of the registry is never spoken to again. Re-marking is
+half of it: the surgery also **replaces the doc instances** behind paths that do not
+change, and destroys the old ones, so a pane that kept the instance it resolved before
+typed into a doc no session synced. `reapplyLiveViews` therefore bumps `ui.docsEpoch`,
+and a pane resolves its doc (and awareness, and undo stack) under it and keys its editor
+on the doc instance — a new instance remounts the editor, an unchanged one keeps it. The
+adopt machine's hooks (a peer's carve or unshare arriving, a root rebuild) go through the
+same re-apply, dropping the undo stacks bound to the old instances
+(`e2e/share-open-note.spec.ts`); and `undoManagerFor` never hands out a stack recorded on
+an instance that is gone (an unshare rebuilds every root doc, not only the folder's).
+Only the doc instance remounts the editor: a new awareness for the same doc (its
+connection came up later) and the read-only switch go through compartments in the
+editor, so neither moves the caret or the scroll. **While** a surgery runs (a carve,
+an unshare or unmount, an add-link's rebuild, a root rebuild) the views it is about to
+replace are read-only (`ui.frozen`, taken before the views are released): they still
+show the old instance, and text typed into it after the surgery has flushed and
+destroyed it would be gone at the remount — refused instead of lost. While any of those
 surgeries is in flight the shell sees `ui.settling === true` — `ui.files` is a partial
 picture mid-surgery, so anything that *deletes* state derived from it (the tab prune)
 waits for it to go false.
@@ -154,6 +172,30 @@ as "only remote moved" and overwrites it.
 4. **Binary detection** → exclude from enrollment entirely + "not synced" badge in the
    tree (shaping D2f). V2 brings content-addressed blob sync; V1 just refuses to lie.
 
+### Files that appear while the app runs
+
+A file another writer puts in the vault while the app is running (an agent, git, another
+editor, a sync client) is enrolled on the spot, by the same rules the boot scan uses, so
+it shows up in the tree and syncs without a relaunch. `VaultSession` hands the watch
+paths the folder map does not know (in any kind: a known attachment or folder never
+counts) to the host's `LiveEnroller`: the host lists the vault once for that batch, keeps
+the files the boot scan would enrol (not ignored, not a `writeAtomic` temp name, not
+under a mount boundary, not already in the map, not one of the app's own writes in
+flight), and a directory path stands for every file under it, because Linux reports a
+populated folder moved in as one event. Each new file is quiesced, then enrolled (map
+entry, doc, LCA) and tracked by the running session, with no restart.
+
+Live enrolment also skips other tools' scratch files, `isScratchName` in
+`libs/vault/src/enrollment.ts`: a basename starting with a dot (vim's `.note.md.swp`,
+Syncthing's `.syncthing.note.md.tmp`, `.DS_Store`), a trailing `~` (backups), and the
+suffixes `.swp`, `.swx`, `.tmp`, `.part`, `.partial`, `.crdownload`. The boot scan does
+not apply this rule; a file with such a name that is still there at the next launch is
+enrolled then, as before.
+
+While a boot batch is held behind the mass-change breaker, or after it was dismissed
+("Not now"), its files and the folders that hold them are not enrolled live either: they
+wait for the confirm, or for the next launch.
+
 Create/rename/delete flow through the folder doc both directions: a local rename updates
 the path binding (same GUID — content history survives renames); a remote map change
 renames on disk through the same journaled, atomic write path.
@@ -165,7 +207,11 @@ boundary, not a file: enrollment, the delta scan and the reconciler never look a
 under it, because those paths belong to another mount session on this device. It is also
 the announcement channel — a peer of the parent room learns from that one entry that the
 subtree moved, and adopts it (spike S10 Q1). Advisory as ever: the entry carries the
-room and the relay, never a token.
+room and the relay, never a token. A private root has no peers, so a share joined or a
+folder carved while the vault was private writes no entry; when the root goes shared
+(*Link a device*), `announceMounts` back-fills one for every running mount the map does
+not name yet, seeded with the mount's folder state, so the linked device finds the
+folder as well as its grant.
 
 ## Escalation thresholds
 
@@ -179,9 +225,15 @@ possible but *suspicious* (shaping D2, D2d):
   flushed escalates instead of ingesting — the stale-editor-buffer signature (Obsidian's
   autosave echoing old content). A small ring of recently-flushed content hashes backs
   the check; its sufficiency against Obsidian's real autosave loop is **Spike S6**.
-- **Mass-change circuit breaker:** many files changing within one quiesce window (a git
+- **Mass-change circuit breaker:** many files changing within one watch batch (a git
   branch switch, `git checkout .`) pauses reconciliation folder-wide and asks for
-  confirmation rather than ingesting a storm of "external edits".
+  confirmation rather than ingesting a storm of "external edits". The count is changed
+  known notes plus new files: twenty-one notes an agent drops in at once are as much a
+  mass change as a branch switch rewriting twenty-one old ones. Confirm enrols the new
+  files and reconciles the changed ones; dismiss leaves both (the new files wait for the
+  next launch's scan). One dialog at a time: a batch that arrives while another is held
+  joins it, and the one confirm or dismiss covers both. A held batch survives a session
+  restart (the app creating a note restarts its session).
 
 Thresholds are pure, clock-injected functions — unit-tested directly, with interleaving
 explored by the L1 fuzzer ([testing.md](testing.md)).

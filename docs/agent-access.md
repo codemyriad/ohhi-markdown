@@ -797,8 +797,9 @@ follow: the file itself is sitting in `.trash/` where a user can drag it back,
 and `ohhi restore <the original path>` puts it back where it was.
 
 **More than 20 files needs `--yes`** (`mv` too). This is the *only* guard on a
-burst: the app's mass-change breaker counts known paths **per watch event**, and
-Node's recursive watcher delivers one path per event, so a CLI writing 25 files
+burst: the app's mass-change breaker counts paths **per watch event** (changed
+notes it knows plus new files), and Node's recursive watcher delivers one path
+per event, so a CLI writing 25 files
 produces 25 batches of one and never reaches it (Spike S11-Q5, finding F4).
 Anything claiming Editor's breaker catches a big CLI batch is wrong.
 
@@ -874,6 +875,18 @@ it code that already exists for git and Obsidian:
    blind write. Resolving the review writes once and journals the agent's bytes
    it replaces, so the agent's version stays recoverable.
 
+**A new note appears in a running app the same way.** When `ohhi` (or any other
+writer) creates a file the app has never seen, the watcher reports a path the
+folder map does not know; the app quiesces it like any change (so a file still
+being written is not taken half-done), then enrols it by the same rules the
+launch-time scan uses: it gets its own doc, shows up in the tree and syncs, with
+no relaunch. A folder of notes moved in at once is enrolled whole. Names that
+are another tool's scratch files are skipped while the app runs: a basename
+starting with a dot, ending in `~`, or ending in `.swp`, `.swx`, `.tmp`,
+`.part`, `.partial` or `.crdownload`. Write notes under their real names (`ohhi`
+always does; its temp files are the app's own `.ohhi-tmp-` names, which nothing
+enrols).
+
 No lock, no handshake, no "please close the editor". The agent does not need to
 know whether the app is running.
 
@@ -891,10 +904,10 @@ Three consequences worth knowing before they surprise someone:
   Nothing is lost either way. Expect it; do not retry. It is best-effort: the
   ring is in memory and is thrown away by an app restart or a session restart
   (finding F2), so the same restore may apply silently instead.
-- **A big batch is not caught by the app.** The mass-change breaker counts known
-  paths per watch *event*, and Node's watcher emits one path per event, so a CLI
-  burst never reaches it (finding F4). `ohhi`'s own `--yes` rule at 20 files is
-  the guard.
+- **A big batch is not caught by the app.** The mass-change breaker counts paths
+  per watch *event* (changed notes and new files alike), and Node's watcher
+  emits one path per event, so a CLI burst never reaches it (finding F4).
+  `ohhi`'s own `--yes` rule at 20 files is the guard.
 
 **Editor's own write is a compare-and-swap too** (finding F1, fixed) — the
 mirror of the rule in §7. Editor's

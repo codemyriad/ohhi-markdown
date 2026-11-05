@@ -77,6 +77,23 @@ export function createCollabExtensions(
 
 
 /**
+ * Whether `manager` records `doc`'s text — false once the doc behind a guid
+ * was rebuilt (a new instance) and the manager still holds the old one.
+ */
+export function undoManagerFits(manager: CollabUndoManager, doc: EngineDoc): boolean {
+  return manager.doc === doc.raw()
+}
+
+/**
+ * A local awareness over `doc`, for a view that has no relay connection: the
+ * cursor layer works the same, nothing is sent. The caller destroys it with
+ * the view (an awareness renews its own state on a timer until destroyed).
+ */
+export function localAwareness(doc: EngineDoc): Awareness {
+  return new Awareness(doc.raw() as Y.Doc)
+}
+
+/**
  * The doc's undo and redo as commands — the Y.UndoManager's, never CM6's
  * history — for a surface that takes the keys itself (the properties form
  * inside a widget ignores every event, so Mod+Z inside it has to be handed

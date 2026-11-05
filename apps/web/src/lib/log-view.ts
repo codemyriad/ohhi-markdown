@@ -7,7 +7,7 @@
  */
 import { getLL, type TranslationFunctions } from '@ohhi/i18n'
 import type { AppEvent, EventKind, EventLevel } from '@ohhi/workspace'
-import { describeEvent } from './event-text.js'
+import { describeEvent, refusalCase } from './event-text.js'
 import { localDay, shiftDays } from './relative-time.js'
 
 export const LOG_LEVELS: readonly EventLevel[] = ['error', 'warn', 'info']
@@ -126,7 +126,12 @@ export function filterLog(
 export function eventHint(e: AppEvent, LL: TranslationFunctions = getLL()): string | null {
   if (e.level === 'info') return null
   if (e.kind === 'relay.state' && (e as AppEvent<'relay.state'>).payload.to === 'refused') {
-    return LL.web.log.hints.relay_refused()
+    // Advice about links only when the relay said the link is what it
+    // does not know; any other refusal has nothing better than its words.
+    const which = refusalCase(e as AppEvent<'relay.state'>)
+    if (which === 'device') return LL.web.log.hints.relay_refused_device()
+    if (which === 'link') return LL.web.log.hints.relay_refused_link()
+    return null
   }
   if (e.kind === 'notice' && (e as AppEvent<'notice'>).payload.code === 'no_token') return LL.web.log.hints.no_token()
   return null

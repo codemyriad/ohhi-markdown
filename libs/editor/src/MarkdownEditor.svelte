@@ -5,12 +5,19 @@
   import type { Awareness } from 'y-protocols/awareness'
   import type { ViewMode } from '@ohhi/editor-lang'
   import { createMarkdownEditor, type MarkdownEditorHandle } from './markdown-editor.js'
+  import { TYPING_DEFAULTS, type TypingAids } from './typing.js'
   import type { CollabUndoManager, CollabUser } from './binding.js'
 
   interface Props {
     doc: EngineDoc
+    /**
+     * The doc's awareness (remote cursors). Swapped in place, never by
+     * rebuilding: a host can hand a new one for the same doc (a connection
+     * that came up later) and the caret, the scroll and the undo stack stay.
+     */
     awareness?: Awareness | null
     user: CollabUser
+    /** Applied by reconfigure, never by rebuilding (a surgery holds the view still). */
     readOnly?: boolean
     /**
      * Live / Source / Reading. Applied by reconfigure, never by rebuilding:
@@ -44,6 +51,8 @@
     onhandle?: (handle: MarkdownEditorHandle | null) => void
     /** Typewriter scrolling (the layout's `editor.typewriter`), applied by reconfigure. */
     typewriter?: boolean
+    /** Spell checking, autocorrect, capitalisation (Settings › Editor), applied by reconfigure. */
+    typing?: TypingAids
   }
 
   let {
@@ -58,26 +67,29 @@
     undoManager = null,
     onhandle,
     typewriter = false,
+    typing = TYPING_DEFAULTS,
   }: Props = $props()
 
   let host = $state<HTMLDivElement>()
   let handle = $state.raw<MarkdownEditorHandle | null>(null)
 
   // CM6 owns everything inside `host`; Svelte never renders in there.
-  // Lifecycle depends on doc/awareness/user only — `dark` and `extensions`
-  // are read untracked and applied by reconfigure below, so neither a theme
-  // flip nor a new extension set rebinds the Y.Text.
+  // Lifecycle depends on doc/user only — everything else (`awareness`,
+  // `readOnly`, `dark`, `extensions`, …) is read untracked and applied by
+  // reconfigure below, so none of them rebinds the Y.Text or rebuilds the
+  // view under the caret.
   $effect(() => {
     if (!host) return
     const manager = untrack(() => undoManager)
     const report = untrack(() => onhandle)
     const h = createMarkdownEditor(host, {
       doc,
-      awareness,
+      awareness: untrack(() => awareness),
       user,
-      readOnly,
+      readOnly: untrack(() => readOnly),
       mode: untrack(() => mode),
       typewriter: untrack(() => typewriter),
+      typing: untrack(() => typing),
       dark: untrack(() => dark),
       extensions: untrack(() => extensions),
       ...(manager ? { undoManager: manager } : {}),
@@ -93,6 +105,14 @@
   })
 
   $effect(() => {
+    handle?.setAwareness(awareness)
+  })
+
+  $effect(() => {
+    handle?.setReadOnly(readOnly)
+  })
+
+  $effect(() => {
     handle?.setDark(dark)
   })
 
@@ -102,6 +122,10 @@
 
   $effect(() => {
     handle?.setTypewriter(typewriter)
+  })
+
+  $effect(() => {
+    handle?.setTyping(typing)
   })
 
   $effect(() => {

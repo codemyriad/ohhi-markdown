@@ -64,6 +64,11 @@ export interface ShellCommandDeps {
   /** `app.reload-resources` (quiet-shell F9): re-read the resource roots and re-apply the layout. */
   reloadResources?(): void
   /**
+   * `app.clear-notifications`: the drawer's *Clear all* — every row leaves the
+   * drawer (the log keeps them) and the bell reads as seen. Absent → no command.
+   */
+  notices?: { clear(): void }
+  /**
    * Focus mode (quiet-shell F7): `view.focus` toggles it and `Escape` leaves
    * it. Absent → no command and no Escape handling.
    */
@@ -220,6 +225,19 @@ export function installShellCommands(deps: ShellCommandDeps): ShellCommands {
       title: t.reload_resources(),
       group: t.groups.app(),
       run: () => reloadResources(),
+    })
+  }
+  // Clear the notification drawer: the drawer's own
+  // *Clear all*, for the palette and a key.
+  const notices = deps.notices
+  if (notices) {
+    const t = getLL().web.commands
+    registry.register({
+      id: 'app.clear-notifications',
+      title: t.clear_notifications(),
+      group: t.groups.app(),
+      when: () => deps.hasWorkspace(),
+      run: () => notices.clear(),
     })
   }
   // *Use layout file…* (round 3, Q6): the one place a layout FILE is chosen —

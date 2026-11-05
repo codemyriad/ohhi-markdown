@@ -42,7 +42,7 @@ import {
 } from '@ohhi/vault'
 import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
 import type { Awareness } from 'y-protocols/awareness'
-import { createUndoManager, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
+import { createUndoManager, undoManagerFits, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
 import {
   activateMount,
   bootFlagsFor,
@@ -50,6 +50,7 @@ import {
   resolveRoomRelay,
   roomRelayUrl,
   FOLDER_RECORD_KEY,
+  announceMounts,
   joinMount,
   mountInvariants,
   MountRegistry,
@@ -87,6 +88,7 @@ import {
   roomRelay,
   roomToken,
   roomTokenKind,
+  rootShareKind,
   setRoomToken,
 } from './config.js'
 import { renamedNote, type DockNote } from './dock-note.js'
@@ -257,6 +259,28 @@ export interface WorkspaceUi {
    * surgery machines rebuild sessions one at a time.
    */
   settling: boolean
+  /**
+   * Bumped every time a surgery may have REPLACED the doc instances behind
+   * open paths: a carve, an unshare/unmount, an add-link, an adopt, a root
+   * rebuild. The path a view shows is unchanged, but `docForPath` now answers
+   * with the new mount's instance, and the old one is destroyed — a view that
+   * kept it typed into a doc no session syncs. A view reads this when it
+   * resolves its doc, so it re-resolves after every surgery (and remounts
+   * only if the instance actually changed). Also bumped when a doc's
+   * connections first come up (a private vault linked to a device), so an open
+   * note picks up its awareness — swapped in place, never a rebuild. Optional
+   * so a fake workspace need not carry it.
+   */
+  docsEpoch?: number
+  /**
+   * Paths under a surgery that is replacing their doc instances right now
+   * (`''`: every path), one entry per surgery in flight. A view at or under
+   * one holds its note READ-ONLY until the surgery ends: it still shows the
+   * old instance, and anything typed into it after the surgery has flushed
+   * and destroyed it would be gone at the remount. Refused, not lost.
+   * Optional so a fake workspace need not carry it.
+   */
+  frozen?: string[]
   /**
    * The session's event log, newest first (spike S22, Stage 4a): every notice
    * the shell raises and every mount/relay change it reports, as codes +
@@ -667,6 +691,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const ui = $state<WorkspaceUi>({
     phase: 'connecting',
     settling: true,
+    docsEpoch: 0,
+    frozen: [],
     events: [],
     flashes: [],
     files: [],
@@ -795,9 +821,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   /** Copyable link per room, kept across mount-list rebuilds. */
   const linkByRoom = new Map<string, string>()
   /** Which session owns a review's doc (resolveReview routing). */
-  const reviewOwner = new Map<string, MountSession>()
+  const reviewOwner = new Map<string, Promise<MountSession>>()
   /** Which session raised the held breaker batch. */
-  let breakerOwner: MountSession | null = null
+  let breakerOwner: Promise<MountSession> | null = null
   /** Per-room presence, published as ui.presenceByRoom. */
   const presenceByRoom = new Map<string, string[]>()
   /** Per-doc presence by guid (rename-stable), mapped to paths through the rows. */
@@ -977,6 +1003,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: MountProvenance
     relay?: RelayConfig
     firstJoin?: boolean
+    /** A root whose room is a folder share opened as a vault (`MountSessionConfig.joinedShare`). */
+    joinedShare?: boolean
     /**
      * Boot with an empty map and no delta scan: a mount this device has never
      * held and has no key for. Its files stay on disk, untouched and
@@ -1017,6 +1045,15 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     // replaced by id (a fold re-reports its id)…
     const roomLog = new Map<string, AppEvent>()
     roomEvents.set(opts.room, roomLog)
+    // The session a held batch or a review belongs to. A mount's boot raises
+    // both from inside `MountSession.create`, before the session is in the
+    // registry, so `sessionOf` misses it there: fall back to the instance
+    // being built, never the root, which holds neither (a lost Apply).
+    // `create` awaits the room log before booting, so `session` is set by then.
+    const owner = (): Promise<MountSession> => {
+      const registered = sessionOf(opts.room)
+      return registered ? Promise.resolve(registered) : session
+    }
     const session = MountSession.create({
       engine,
       adapter,
@@ -1033,6 +1070,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       mountsFile,
       mountPath: opts.path,
       provenance: opts.provenance,
+      joinedShare: opts.joinedShare,
       // Folder records are per mount; every other key is a globally unique guid.
       recordFor: (key) => recordFor(key === FOLDER_RECORD_KEY ? `//folder:${opts.room}` : key),
       makeShareLink: (relay, room) => encodeShareLink({ relay: relay.url, room, token: relay.token }),
@@ -1056,7 +1094,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           cfg.onPathsRenamed?.(full)
         },
         onBreaker: (paths) => {
-          breakerOwner = sessionOf(opts.room)
+          breakerOwner = owner()
           ui.breaker = {
             paths: opts.path === '' ? paths : paths.map((p) => `${opts.path}/${p}`),
           }
@@ -1072,8 +1110,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           refreshPresenceByPath()
         },
         onReview: (review) => {
-          const owner = sessionOf(opts.room)
-          if (owner) reviewOwner.set(review.guid, owner)
+          reviewOwner.set(review.guid, owner())
           ui.reviews = [...ui.reviews.filter((r) => r.guid !== review.guid), review]
         },
         onReviewCleared: (guid) => {
@@ -1179,6 +1216,30 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     })
   }
 
+  /**
+   * The adopt machine replaced the doc instances under `under` (null: all of
+   * them, a root rebuild). Assigned once the live-view machinery below
+   * exists; until then — the boot pass — no view is open and there is
+   * nothing to redo.
+   */
+  let docsReplaced = (_under: string | null): void => {}
+
+  /**
+   * Hold the views at or under `prefix` read-only (`ui.frozen`) while a
+   * surgery replaces their docs; the returned thaw ends it. Taken BEFORE the
+   * views are released, synchronously, so no keystroke lands in between.
+   */
+  const freezeUnder = (prefix: string): (() => void) => {
+    ui.frozen = [...(ui.frozen ?? []), prefix]
+    let thawed = false
+    return () => {
+      if (thawed) return
+      thawed = true
+      const at = (ui.frozen ?? []).indexOf(prefix)
+      if (at >= 0) ui.frozen = (ui.frozen ?? []).filter((_, i) => i !== at)
+    }
+  }
+
   const adoptContext = (): AdoptContext => ({
     vaultDir: cfg.storeDir,
     mountsFile,
@@ -1209,6 +1270,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       }),
     attachMount: (path, session) => {
       registry.add(path, session)
+      // A peer's carve or unshare moved this subtree's docs into another
+      // session: the views re-resolve (`docsReplaced`).
+      docsReplaced(path)
       refreshTree()
     },
     detachMount: (path) => {
@@ -1218,10 +1282,17 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       return session
     },
     withRootDown: async (fn) => {
-      registry.remove('')
-      await rootSession!.shutdown()
-      await fn()
-      await rebuildRoot()
+      // Every root doc is replaced: every view holds still until it is over.
+      const thaw = freezeUnder('')
+      try {
+        registry.remove('')
+        await rootSession!.shutdown()
+        await fn()
+        await rebuildRoot()
+        docsReplaced(null) // every root doc is a new instance now
+      } finally {
+        thaw()
+      }
     },
     refreshIgnore: reloadMounts,
     notify: adoptNotice,
@@ -1275,6 +1346,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     provenance: 'local',
     relay: rootRelay,
     firstJoin: cfg.firstJoin,
+    // A folder share opened as a vault of its own: a refusal of its room is
+    // the link's, not this device's (the words of `relay.state` refused).
+    joinedShare: rootShareKind(cfg.room, true) === 'joined',
     onShared: () => (ui.linked = true),
   })
   registry.add('', rootSession)
@@ -1395,6 +1469,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   const reapplyLiveViews = (held: readonly string[] = []): void => {
     liveByMount = new Map()
     setLiveViews(new Set([...liveViews, ...held]))
+    // The surgery replaced doc instances: every view re-resolves its doc.
+    ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
   }
 
   /**
@@ -1408,12 +1484,21 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     const doc = resolved ? resolved.session.docForPath(resolved.rel) : null
     if (!doc) return null
     let manager = undoManagers.get(doc.guid)
+    // A surgery that rebuilt this doc (an unshare rebuilds every root doc)
+    // leaves a manager bound to the destroyed instance under the same guid:
+    // undo through it changes nothing anyone sees. The stack goes with the
+    // instance it was recorded on.
+    if (manager && !undoManagerFits(manager, doc)) {
+      manager.destroy()
+      manager = undefined
+    }
     if (!manager) {
       manager = createUndoManager(doc)
       undoManagers.set(doc.guid, manager)
     }
     return manager
   }
+
 
   /** Drop the managers for a subtree whose doc instances are about to die. */
   const releaseUndoManagersUnder = (prefix: string): void => {
@@ -1422,6 +1507,18 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       undoManagers.get(row.guid)?.destroy()
       undoManagers.delete(row.guid)
     }
+  }
+
+  docsReplaced = (under) => {
+    // The undo stacks bound to the old instances go, the open paths are
+    // re-marked on the sessions that hold them now, and the views re-resolve.
+    if (under === null) {
+      for (const manager of undoManagers.values()) manager.destroy()
+      undoManagers.clear()
+    } else {
+      releaseUndoManagersUnder(under)
+    }
+    reapplyLiveViews()
   }
 
   /**
@@ -1495,35 +1592,43 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       ui.selectedPath && (ui.selectedPath === path || ui.selectedPath.startsWith(`${path}/`))
         ? ui.selectedPath
         : null
-    const held = dropLiveViewsUnder(path)
+    // From here until the new mount holds them, the subtree's open notes are
+    // read-only: their views still show the root's instances, which the
+    // carve flushes and destroys (`ui.frozen`).
+    const thaw = freezeUnder(path)
+    try {
+      const held = dropLiveViewsUnder(path)
 
-    await runCarve({
-      root: rootSession!,
-      vaultDir: cfg.storeDir,
-      mountsFile,
-      mountPath: path,
-      room,
-      relayUrl,
-      addIgnore: (prefix) => ignoreSet.add(prefix),
-    })
+      await runCarve({
+        root: rootSession!,
+        vaultDir: cfg.storeDir,
+        mountsFile,
+        mountPath: path,
+        room,
+        relayUrl,
+        addIgnore: (prefix) => ignoreSet.add(prefix),
+      })
 
-    await reloadMounts()
-    const session = await buildMount({
-      room,
-      path,
-      provenance: 'carved',
-      relay: { url: relayUrl, token: minted.token },
-      onShared: (link) => {
-        linkByRoom.set(room, link)
-        refreshMounts()
-      },
-    })
-    registry.add(path, session)
-    await reloadMounts()
-    refreshTree()
-    reapplyLiveViews(held) // the subtree's docs live in the NEW mount now
-    if (reselect) ui.selectedPath = reselect
-    return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
+      await reloadMounts()
+      const session = await buildMount({
+        room,
+        path,
+        provenance: 'carved',
+        relay: { url: relayUrl, token: minted.token },
+        onShared: (link) => {
+          linkByRoom.set(room, link)
+          refreshMounts()
+        },
+      })
+      registry.add(path, session)
+      await reloadMounts()
+      refreshTree()
+      reapplyLiveViews(held) // the subtree's docs live in the NEW mount now
+      if (reselect) ui.selectedPath = reselect
+      return session.shareLink() ?? encodeShareLink({ relay: relayUrl, room, token: minted.token })
+    } finally {
+      thaw()
+    }
   }
 
   /**
@@ -1558,6 +1663,28 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     if (!rootSession!.isShared()) {
       rootSession!.enableSharing(relay)
       ui.linked = true
+      // The root's docs have connections now: an open note picks up its
+      // awareness (swapped in place — the doc instance did not change).
+      ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
+      // A share joined, or a folder carved, while the vault was private was
+      // never announced in the root map (there were no peers to tell): the
+      // grant would ride in the link and no folder would appear on the other
+      // device. Announce every running mount the map does not name yet.
+      await announceMounts(
+        rootSession!,
+        registry
+          .all()
+          .filter((h) => h.mountPath !== '')
+          .map((h) => {
+            const relayUrl = descs.find((d) => d.room === h.session.room)?.relay?.url
+            return {
+              path: h.mountPath,
+              room: h.session.room,
+              ...(relayUrl ? { relay: relayUrl } : {}),
+              session: h.session,
+            }
+          })
+      )
     }
     // The next boot reads the root's relay off the VAULT ENTRY (boot.ts), not
     // off mounts.json — without this the link works for one session and the
@@ -1679,6 +1806,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       path: '',
       provenance: 'local',
       ...(rootRelay ? { relay: rootRelay } : {}),
+      joinedShare: rootShareKind(cfg.room, true) === 'joined',
       onShared: () => (ui.linked = true),
     })
     registry.add('', rootSession)
@@ -1704,31 +1832,40 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
    */
   const doUnshare = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    // Captured, not discarded (C1): these notes are still open in their panes,
-    // and the root this surgery rebuilds starts knowing nothing about them.
-    const held = dropLiveViewsUnder(path)
-    const mount = registry.resolve(path)!.session
-    // Both sessions leave the registry before the stop-the-world surgery.
-    registry.remove(path)
-    registry.remove('')
-    await unshareMount({
-      vaultDir: cfg.storeDir,
-      mountsFile,
-      engine,
-      rootRoom: cfg.room,
-      desc: { room: info.room, path },
-      mount,
-      root: rootSession!,
-      removeIgnore: (p) => ignoreSet.delete(p),
-    })
-    purgeRooms([info.room])
-    linkByRoom.delete(info.room)
-    await rebuildRoot()
-    await reloadMounts()
-    refreshTree()
-    // The root is a NEW session: views elsewhere still hold it, and the
-    // unshared subtree's notes are its files now.
-    reapplyLiveViews(held)
+    // The root is rebuilt too, so EVERY root note's doc is replaced, not
+    // only the unshared folder's: every view holds still until it is over.
+    const thaw = freezeUnder('')
+    try {
+      // Captured, not discarded (C1): these notes are still open in their panes,
+      // and the root this surgery rebuilds starts knowing nothing about them.
+      const held = dropLiveViewsUnder(path)
+      const mount = registry.resolve(path)!.session
+      // Both sessions leave the registry before the stop-the-world surgery.
+      registry.remove(path)
+      registry.remove('')
+      await unshareMount({
+        vaultDir: cfg.storeDir,
+        mountsFile,
+        engine,
+        rootRoom: cfg.room,
+        desc: { room: info.room, path },
+        mount,
+        root: rootSession!,
+        removeIgnore: (p) => ignoreSet.delete(p),
+      })
+      purgeRooms([info.room])
+      linkByRoom.delete(info.room)
+      await rebuildRoot()
+      await reloadMounts()
+      refreshTree()
+      // The root is a NEW session: views elsewhere still hold it, and the
+      // unshared subtree's notes are its files now. Every root doc is a new
+      // instance, so the undo stacks bound to the old ones are replaced as
+      // the views ask for them again (`undoManagerFor`).
+      reapplyLiveViews(held)
+    } finally {
+      thaw()
+    }
   }
 
   /**
@@ -1741,28 +1878,33 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
    */
   const doUnmount = async (path: string): Promise<void> => {
     const info = mountAt(path)
-    // The files stay on disk and the root re-enrols them below, so the views
-    // that were released are re-opened against the root (C1).
-    const held = dropLiveViewsUnder(path)
-    const mount = registry.resolve(path)!.session
-    registry.remove(path)
-    await unmountMount({
-      vaultDir: cfg.storeDir,
-      mountsFile,
-      engine,
-      rootRoom: cfg.room,
-      desc: { room: info.room, path },
-      mount,
-      removeIgnore: (p) => ignoreSet.delete(p),
-    })
-    purgeRooms([info.room])
-    linkByRoom.delete(info.room)
-    await reloadMounts()
-    // The files are on disk and newly visible to the root — enroll them now
-    // (a big folder legitimately trips the breaker dialog here).
-    await rootSession!.rescan()
-    refreshTree()
-    reapplyLiveViews(held)
+    const thaw = freezeUnder(path)
+    try {
+      // The files stay on disk and the root re-enrols them below, so the views
+      // that were released are re-opened against the root (C1).
+      const held = dropLiveViewsUnder(path)
+      const mount = registry.resolve(path)!.session
+      registry.remove(path)
+      await unmountMount({
+        vaultDir: cfg.storeDir,
+        mountsFile,
+        engine,
+        rootRoom: cfg.room,
+        desc: { room: info.room, path },
+        mount,
+        removeIgnore: (p) => ignoreSet.delete(p),
+      })
+      purgeRooms([info.room])
+      linkByRoom.delete(info.room)
+      await reloadMounts()
+      // The files are on disk and newly visible to the root — enroll them now
+      // (a big folder legitimately trips the breaker dialog here).
+      await rootSession!.rescan()
+      refreshTree()
+      reapplyLiveViews(held)
+    } finally {
+      thaw()
+    }
   }
 
   /**
@@ -1818,6 +1960,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
      * same guids, and a note open in a pane is never disturbed.
      */
     let held: string[] = []
+    /** The freeze a detach took (`ui.frozen`), until the attach — or the end. */
+    const surgery: { thaw: (() => void) | null } = { thaw: null }
 
     try {
       await activateMount({
@@ -1841,6 +1985,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
             },
           }),
         detachMount: (p) => {
+          surgery.thaw ??= freezeUnder(p)
           registry.remove(p)
           held = dropLiveViewsUnder(p)
         },
@@ -1848,6 +1993,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           registry.add(p, next)
           reapplyLiveViews(held)
           held = []
+          surgery.thaw?.()
+          surgery.thaw = null
         },
         // The pull is awaited and can take a while on a real vault (spike S10
         // Q4), so it gets the same two-phase line a whole-vault link gets.
@@ -1863,6 +2010,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       // mount to hold them — put them back, and the next thing that resolves
       // them re-marks them (C1).
       if (held.length > 0) reapplyLiveViews(held)
+      // The merge branch kept the session and its docs but gave them their
+      // first connections: an open note picks up its awareness in place.
+      else ui.docsEpoch = (ui.docsEpoch ?? 0) + 1
+      surgery.thaw?.()
       await reloadMounts()
       refreshTree()
     }
@@ -2056,10 +2207,10 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
       const r = registry.resolve(path)
       if (r) await r.session.restorePreImage(r.rel, seq)
     },
-    resolveReview: (guid, mergedText) =>
-      (reviewOwner.get(guid) ?? rootSession!).resolveReview(guid, mergedText),
-    resolveVanished: (guid, action) =>
-      (reviewOwner.get(guid) ?? rootSession!).resolveVanished(guid, action),
+    resolveReview: async (guid, mergedText) =>
+      (await (reviewOwner.get(guid) ?? rootSession!)).resolveReview(guid, mergedText),
+    resolveVanished: async (guid, action) =>
+      (await (reviewOwner.get(guid) ?? rootSession!)).resolveVanished(guid, action),
     addShareMount: (link, dir) => duringSurgery(() => doJoinMount(link, dir)),
     // Every mount surgery is bracketed HERE rather than inside each machine:
     // one place, and `ui.settling` cannot be left true by an early return
@@ -2071,13 +2222,20 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     linkDevice: doLinkDevice,
     confirmBreaker: async () => {
       ui.breaker = null
-      await (breakerOwner ?? rootSession!).confirmBreaker()
+      const owner = breakerOwner ?? rootSession!
       breakerOwner = null
+      await (await owner).confirmBreaker()
     },
     dismissBreaker: () => {
       ui.breaker = null
-      ;(breakerOwner ?? rootSession!).dismissBreaker()
+      const owner = breakerOwner ?? rootSession!
       breakerOwner = null
+      // The owner may still be booting (a mount's boot raised it); a boot
+      // that failed has nothing to dismiss, and its error is reported there.
+      void Promise.resolve(owner).then(
+        (s) => s.dismissBreaker(),
+        (err: unknown) => console.error('[workspace] dismissBreaker', err)
+      )
     },
     inspect: async (path) => {
       const r = registry.resolve(path)
