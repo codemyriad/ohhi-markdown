@@ -61,5 +61,5 @@ headers (a CSP with no script source, since the site has none).
 `.github/workflows/site-deploy.yml` deploys it to the Pages project
 `ohhi-site`: a push to the `site` branch (`git push origin main:site`) is the
 production deploy of ohhi.md, and a push to `main` makes a preview at
-`preview-main.ohhi-site.pages.dev`. Both only when the push touches the site
+`main.ohhi-site.pages.dev`. Both only when the push touches the site
 or the `@ohhi/ui` styles it reads (`docs/public-deploy.md`).

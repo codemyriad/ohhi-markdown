@@ -105,9 +105,9 @@ someone pushes it to the branch that ships.
   `libs`, `docs/guide`, `examples/themes`, the dependency set): the **Web
   deploy** workflow builds with `VITE_FLAVOUR=public`, runs the CSP guard and
   deploys `dist/` to Pages as a **preview**, at
-  `preview-main.ohhi-web.pages.dev`. One that touches the landing page
+  `main.ohhi-web.pages.dev`. One that touches the landing page
   (`apps/site`, the `@ohhi/ui` styles it reads) does the same for the site,
-  at `preview-main.ohhi-site.pages.dev`.
+  at `main.ohhi-site.pages.dev`.
 - **Push to `production`** (`git push origin main:production`) with the same
   paths: the production deploy of `app.ohhi.md`.
 - **Push to `site`** (`git push origin main:site`): the production deploy of
@@ -141,11 +141,11 @@ builds** ship only on a push to `release`, because of Actions minutes (macOS
 is billed at a multiple). Installed public apps update from
 `stable/latest.json`.
 
-The Pages projects' production branch is `main` in Cloudflare (step 2
-above), so the workflows map git branches onto Pages branches
-(`PAGES_PRODUCTION_BRANCH`): git `production` (or `site`) deploys as Pages'
-`main`, git `main` as `preview-main`, and any other branch under its own
-name.
+Each Pages project's production branch in Cloudflare is the git branch that
+ships it: `production` for `ohhi-web`, `site` for `ohhi-site` (changed from
+`main` on 2026-11-05). Every other branch deploys as a preview under its own
+name; the workflows' `PAGES_PRODUCTION_BRANCH` names the production branch,
+and a deploy job never sends any other ref under that name.
 
 ## *Get the desktop app*
 
@@ -229,11 +229,5 @@ repository whose pushes deploy needs these settings, and this is why:
   dist.ohhi.md, and their tags differ. A teammate who installs the public
   build gets public updates (no pin, no team relay). That is a different app
   in all but name, so the two should not be mixed on one machine.
-- **The Pages production branch.** Both Pages projects (`ohhi-web`,
-  `ohhi-site`) still have `main` as their production branch in Cloudflare;
-  the workflows map git `production` and `site` onto it. Switching the
-  Cloudflare setting to `production` (and `site`) and setting
-  `PAGES_PRODUCTION_BRANCH` to match in each workflow is an optional
-  tidy-up that turns the mapping into the identity.
 - **The join page's Download link** still goes to the guide's install
   section. It could link the right file from the same `downloads.json`.

@@ -8,7 +8,7 @@
 #   production deploy of app.ohhi.md. Shipping is one push:
 #   `git push origin main:production`.
 # - push to `main` touching the same: a Pages PREVIEW deploy
-#   (preview-main.ohhi-web.pages.dev, see PAGES_PRODUCTION_BRANCH below), so
+#   (main.ohhi-web.pages.dev), so
 #   every merge gets a URL to look at and nothing goes live by accident.
 # - Run workflow: on `production`, the production deploy; on any other
 #   branch, a preview (<branch>.ohhi-web.pages.dev), never the custom domain.
@@ -45,11 +45,12 @@ on:
   workflow_dispatch:
 
 # The branch name the Pages project treats as production, as configured in
-# Cloudflare; the git branch that ships is `production`. The "Pages branch" step
-# maps one onto the other. If the Cloudflare setting is later changed to
-# `production`, this becomes `production` and the mapping is the identity.
+# Cloudflare (set to `production` on 2026-11-05, the git branch that ships). The
+# "Pages branch" step deploys git `production` under this name; any other ref whose
+# name equals it would deploy as `preview-<name>`, so nothing but `production` can
+# reach the custom domains.
 env:
-  PAGES_PRODUCTION_BRANCH: main
+  PAGES_PRODUCTION_BRANCH: production
 
 permissions:
   contents: read
@@ -86,7 +87,7 @@ jobs:
       # downloads list (dist.ohhi.md) and the web origin from PUBLIC_WEB_HOST,
       # and fails the build if dist/_headers is pinned. VERSION is what the
       # Help menu and Settings › About show: <major>.<minor>-web.<run>+<sha>
-      # (e.g. 0.1-web.57+4208dff), never mistaken for a desktop release's
+      # (e.g. 0.2-web.12+4208dff), never mistaken for a desktop release's
       # semver; the build metadata names the commit, so a preview and the
       # production deploy of the same commit read alike.
       - name: Build web app

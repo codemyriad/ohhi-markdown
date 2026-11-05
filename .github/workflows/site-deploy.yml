@@ -8,7 +8,7 @@
 #   this workflow: the production deploy of ohhi.md. Shipping is one push:
 #   `git push origin main:site`.
 # - push to `main` touching the same: a Pages PREVIEW deploy
-#   (preview-main.ohhi-site.pages.dev, see PAGES_PRODUCTION_BRANCH below), so
+#   (main.ohhi-site.pages.dev), so
 #   nothing goes live by accident.
 # - Run workflow: on `site`, the production deploy; on any other branch, a
 #   preview (<branch>.ohhi-site.pages.dev), never the custom domains.
@@ -36,11 +36,12 @@ on:
   workflow_dispatch:
 
 # The branch name the Pages project treats as production, as configured in
-# Cloudflare; the git branch that ships is `site`. The "Pages branch" step
-# maps one onto the other. If the Cloudflare setting is later changed to
-# `site`, this becomes `site` and the mapping is the identity.
+# Cloudflare (set to `site` on 2026-11-05, the git branch that ships). The
+# "Pages branch" step deploys git `site` under this name; any other ref whose
+# name equals it would deploy as `preview-<name>`, so nothing but `site` can
+# reach the custom domains.
 env:
-  PAGES_PRODUCTION_BRANCH: main
+  PAGES_PRODUCTION_BRANCH: site
 
 permissions:
   contents: read
