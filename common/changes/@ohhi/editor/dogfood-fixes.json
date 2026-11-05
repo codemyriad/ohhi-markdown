@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/editor",
+      "comment": "A wrapped list item hangs under its text, not its marker; bolding a list line selected from its start keeps the bullet; a note's collaboration state is swapped in place when its folder is shared, never rebuilding the editor; the Pug fence grammar is dropped (it needed eval).",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/editor"
+}
