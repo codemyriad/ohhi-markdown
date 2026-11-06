@@ -7,7 +7,7 @@
 import type { EngineDoc, SyncEngine } from '@ohhi/sync'
 import { decodeFile } from './eol.js'
 import { hashBytes } from './hash.js'
-import type { LcaStore, VaultAdapter } from './types.js'
+import { isSafeVaultPath, type LcaStore, type VaultAdapter } from './types.js'
 
 const BINARY_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'svg', 'ico', 'pdf', 'zip', 'gz',
@@ -101,6 +101,11 @@ export async function joinFolder(
   const problems: JoinProblem[] = []
   for (const [path, entry] of folderDoc.getMap().entries()) {
     if (entry.kind !== 'text' || entry.deleted) continue
+    // A key a peer put in the room that could escape the vault, land in an
+    // ignored directory or name the reserved marker gets no LCA, so nothing
+    // ever materializes it (decision 12). The session that starts next
+    // reports it, once.
+    if (!isSafeVaultPath(path)) continue
     const doc = docs.get(entry.guid)
     if (!doc) continue
     const diskBytes = await adapter.read(path)

@@ -1,0 +1,32 @@
+{
+  "name": "@ohhi/nextcloud",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --banner:js=\"import { createRequire as __ohhiCreateRequire } from 'node:module'; const require = __ohhiCreateRequire(import.meta.url);\" --external:better-sqlite3 --outfile=dist/server.mjs --log-level=warning",
+    "start": "node dist/server.mjs",
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ohhi/relay": "workspace:*",
+    "@ohhi/sync": "workspace:*",
+    "@ohhi/vault": "workspace:*",
+    "@ohhi/workspace": "workspace:*",
+    "@hocuspocus/provider": "^4.0.0",
+    "@hocuspocus/server": "^4.0.0",
+    "better-sqlite3": "^12.0.0",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
+  },
+  "devDependencies": {
+    "@ohhi/testkit": "workspace:*",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.27.7",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}

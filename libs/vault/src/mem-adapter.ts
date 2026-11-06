@@ -4,6 +4,7 @@
  */
 import {
   IGNORED_DIRS,
+  isReservedFile,
   WriteConflictError,
   type FileStat,
   type VaultAdapter,
@@ -13,9 +14,9 @@ import {
 import { hashBytes } from './hash.js'
 import { AppDirListeners } from './app-dir.js'
 
-/** Does any segment of `path` name an ignored directory? */
+/** Does any segment of `path` name an ignored directory, or is it a reserved root file? */
 function ignored(path: string): boolean {
-  return path.split('/').some((seg) => IGNORED_DIRS.has(seg))
+  return isReservedFile(path) || path.split('/').some((seg) => IGNORED_DIRS.has(seg))
 }
 
 export class MemVaultAdapter implements VaultAdapter {

@@ -68,6 +68,26 @@
   import { attachWritingHarness } from './lib/skills.svelte.js'
   import { setReadoutContext, type ReadoutContext } from './lib/readouts.js'
   import { LL } from '@ohhi/i18n/i18n-svelte'
+  import { untrack } from 'svelte'
+  import { openStoreDirIfExists } from './lib/vault-adapter.js'
+  import { detectHost } from './lib/host.js'
+  import { nextcloudHost } from './lib/nextcloud/host-boot.js'
+  import { createNcVaults } from './lib/nextcloud/vaults.svelte.js'
+  import { createHoldsPoll } from './lib/nextcloud/holds.svelte.js'
+  import NextcloudVaults from './lib/components/NextcloudVaults.svelte'
+  import HoldsNotice from './lib/components/HoldsNotice.svelte'
+  import EnrollingNotice from './lib/components/EnrollingNotice.svelte'
+  import { enrollingProgress } from './lib/nextcloud/files-status.js'
+
+  /**
+   * The Nextcloud host (nextcloud-build decisions 1–4), booted by `main.ts`
+   * before this component loaded; null in every other host. Inside it the
+   * manager is `NextcloudVaults`, vaults open through the ExApp's API, and
+   * nothing that mints links, names a relay, holds a secret or links a
+   * device is offered — Nextcloud's sharing and sign-in do those.
+   */
+  const ncHost = nextcloudHost()
+  const inNextcloud = ncHost !== null
 
   const url = new URLSearchParams(location.search)
   const memConfig = parseAppConfig(url)
@@ -207,7 +227,8 @@
       for (const { from, to } of moves) membership.renamed(from, to)
       panes.onRenamed(moves)
     },
-    userName: () => loadUser() ?? 'Anonymous',
+    // Inside Nextcloud the collaborator's name is their Nextcloud display name.
+    userName: () => ncHost?.me?.displayName ?? loadUser() ?? 'Anonymous',
     lastVault,
     onOpened: (ws, entry) => {
       manager.refresh()
@@ -246,7 +267,22 @@
     cleanUrl,
     onDeviceLinked: () => (linkDeviceOpen = false),
     readMounts: readMountTable,
+    // The desktop refuses a folder Oh Hi in Nextcloud holds (decision 13).
+    adapterFor: (path) => buildAdapter({ kind: 'tauri', path }),
   })
+  /** The Nextcloud vault list and open flow, and the held-changes poll; null elsewhere. */
+  const nc = ncHost
+    ? createNcVaults({
+        api: ncHost.api,
+        session,
+        // The store namespace is per uid (decision 16): look for it under the same id buildStoreDir uses.
+        storeExists: async (room) => (await openStoreDirIfExists({ kind: 'opfs', id: room }, room)) !== null,
+        openNote: (path) => openPath(path),
+        cleanUrl: () => cleanUrl(),
+        relayUrl: detectHost().relayUrl ?? '',
+      })
+    : null
+  const holds = ncHost ? createHoldsPoll(ncHost.api, realClock) : null
   /** The two things the whole shell reads, aliased so the reads stay short. */
   const workspace = $derived(session.workspace)
   const view = $derived(session.view)
@@ -421,7 +457,9 @@
     openSettings: (section) => openSettings(section),
     shareFolder: (path) => (sharing.folderSharePath = path),
     addSharedFolder: (dir = '') => (sharing.addShareOpen = { dir }),
-    linkDevice: () => (deviceLinkOpen = true),
+    linkDevice: () => {
+      if (!inNextcloud) deviceLinkOpen = true
+    },
     revealFolder: (path) => layout.revealInTree(path),
     relayUrl: () => manager.relayDefault,
     secret: () => manager.opSecret,
@@ -473,7 +511,9 @@
     hasWorkspace: () => workspace !== null,
     inWorkspace: () => view === 'workspace',
     claimed: keyboardClaimed,
-    openDeviceLink: () => (deviceLinkOpen = true),
+    openDeviceLink: () => {
+      if (!inNextcloud) deviceLinkOpen = true
+    },
     openView: (id, arg) => openView(id, arg),
     devtools: () => devtools,
     reloadResources: () => customise.reloadAll(),
@@ -491,6 +531,7 @@
   const currentVaultName = $derived(
     // Through the manager's mirror, so a Rename in the manager reaches the header.
     (workspace ? (manager.vaults.find((v) => v.room === workspace!.room) ?? getVault(workspace.room))?.name : undefined) ??
+      (workspace && nc?.current?.room === workspace.room ? nc.current.name : undefined) ??
       $LL.web.shell.unnamed_vault()
   )
   /**
@@ -572,7 +613,7 @@
       return settingsRelays
     },
     get onLinkDevice() {
-      return workspace
+      return workspace && !inNextcloud
         ? () => {
             manager.refresh()
             deviceLinkOpen = true
@@ -600,7 +641,23 @@
   // The join page counts as a deep link: the manager waits behind it rather
   // than the last vault reopening under a page about another folder.
   // svelte-ignore state_referenced_locally -- the initial values are the point: this routes the launch once
-  session.start(memConfig, prefillLink !== '' || joinLink !== null)
+  session.start(memConfig, prefillLink !== '' || joinLink !== null || inNextcloud)
+  // Nextcloud: the list first (a Files-menu folder already enrolled opens without a confirm), then the launch.
+  if (nc && ncHost) void nc.load().then(() => nc.launch(ncHost.launch))
+
+  // Held changes are polled while a Nextcloud vault is open (decision 7), and only then.
+  $effect(() => {
+    if (!nc || !holds) return
+    const cur = nc.current
+    const open = view === 'workspace' && workspace !== null && cur !== null && workspace.room === cur.room
+    untrack(() => (open && cur ? holds.start(cur.vaultId) : holds.stop()))
+  })
+  // The custodian announces its hold count on the folder awareness: a change reads the status at once.
+  $effect(() => {
+    if (!holds) return
+    const count = workspace?.ui.custodian?.holds ?? null
+    untrack(() => holds.noteHolds(count))
+  })
 </script>
 
 <svelte:window onkeydowncapture={commands.onKeydown} />
@@ -640,6 +697,16 @@
       managerSettings = null
       manager.refresh()
     }}
+  />
+{:else if view === 'manager' && nc}
+  <NextcloudVaults
+    {nc}
+    me={ncHost?.me ?? null}
+    meError={ncHost?.error ?? null}
+    failure={session.failure}
+    busy={session.busy}
+    canGoBack={workspace !== null}
+    onBack={() => session.showWorkspace()}
   />
 {:else if view === 'manager'}
   <VaultManager
@@ -776,6 +843,16 @@
   {/if}
 
   <DropZones {panes} />
+  {#if nc?.current && holds && nc.current.room === workspace.room}
+    <EnrollingNotice progress={enrollingProgress(holds.status)} />
+    <HoldsNotice
+      holds={holds.holds}
+      canResolve={!nc.current.readOnly}
+      busy={holds.busy}
+      error={holds.error}
+      onResolve={(holdId, action) => void holds.resolve(holdId, action)}
+    />
+  {/if}
   <GroupOverlays {panes} {groups} now={() => realClock.now()} />
 
 {/if}

@@ -26,7 +26,7 @@ import {
   writeFile,
   type UnwatchFn,
 } from '@tauri-apps/plugin-fs'
-import { AppDirListeners, hashBytes, IGNORED_DIRS, isTempName, TEMP_INFIX, WriteConflictError } from '@ohhi/vault'
+import { AppDirListeners, hashBytes, IGNORED_DIRS, IGNORED_FILES, isTempName, TEMP_INFIX, WriteConflictError } from '@ohhi/vault'
 import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
 /** Shared with every other adapter — see IGNORED_DIRS in @ohhi/vault. */
@@ -97,6 +97,8 @@ export class TauriVaultAdapter implements VaultAdapter {
         // A crash can leave a writeAtomic temp behind; it must never enroll as
         // a note (the watcher below and the node adapter skip it too).
         if (isTempName(entry.name)) continue
+        // A reserved root file (the custodian's marker) is never a note.
+        if (!relDir && !entry.isDirectory && IGNORED_FILES.has(entry.name)) continue
         const relPath = relDir ? `${relDir}/${entry.name}` : entry.name
         if (entry.isDirectory) {
           await walk(relPath)

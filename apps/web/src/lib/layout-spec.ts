@@ -57,6 +57,12 @@ export const READOUT_IDS = [
   'last-agent-write',
   /** Chris, 2026-10-15: the Session view's door, right after the shares drawer's — drawn only while a provider exists. */
   'session',
+  /**
+   * Nextcloud (`nextcloud-build` decision 8): whether the notes' files in
+   * Nextcloud Files match — *In Files* / *N waiting* / *Blocked (423)* — from
+   * the vault's custodian; drawn only while one is present.
+   */
+  'files',
   'note.pill',
   'people',
 ] as const

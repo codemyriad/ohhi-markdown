@@ -351,6 +351,7 @@
     { "packageName": "@ohhi/harness", "projectFolder": "libs/harness" },
     { "packageName": "@ohhi/relay", "projectFolder": "apps/relay" },
     { "packageName": "@ohhi/cli", "projectFolder": "apps/cli" },
+    { "packageName": "@ohhi/nextcloud", "projectFolder": "apps/nextcloud" },
     { "packageName": "@ohhi/web", "projectFolder": "apps/web" },
     { "packageName": "@ohhi/desktop", "projectFolder": "apps/desktop" },
     { "packageName": "@ohhi/site", "projectFolder": "apps/site" }

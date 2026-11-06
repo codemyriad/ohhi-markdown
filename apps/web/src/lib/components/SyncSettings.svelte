@@ -45,6 +45,7 @@
   import RelayCard from './RelayCard.svelte'
   import RelaySecretField from './RelaySecretField.svelte'
   import SecretHelp from './SecretHelp.svelte'
+  import { detectHost } from '../host.js'
 
   interface Props {
     /** The open vault's relays, from the Shared view's snapshot (the card reads "Connected" from them). */
@@ -72,6 +73,12 @@
     teamRelay?: string
     networkNote?: string
     secretHint?: string
+    /**
+     * Inside Nextcloud (nextcloud-build decision 1) the relay is the ExApp's
+     * own and tokens come from the server: no relay card, no secret, no
+     * device links, no relay of your own.
+     */
+    nextcloud?: boolean
   }
 
   let {
@@ -88,6 +95,7 @@
     teamRelay = DEFAULT_RELAY_CONFIGURED ? DEFAULT_RELAY : '',
     networkNote = TEAM_NETWORK_NOTE,
     secretHint,
+    nextcloud = detectHost().kind === 'nextcloud',
   }: Props = $props()
 
   const t = $derived($LL.web.settings)
@@ -234,6 +242,9 @@
   </p>
 </div>
 
+{#if nextcloud}
+  <p class="{GROUP} text-sm text-base-content/80" data-testid="settings-sync-nextcloud">{$LL.web.nextcloud.host.sync_managed()}</p>
+{:else}
 <div class="{GROUP} space-y-3">
   <div class="space-y-1.5" data-testid="settings-relay-card">
     <h3 class={EYEBROW}>{$LL.web.relay_card.label()}</h3>
@@ -324,6 +335,8 @@
     >
   {/if}
 </section>
+
+{/if}
 
 <!-- Vaults & shares moved to the manager (Fork 3): one door to it. -->
 <section class={GROUP} data-testid="settings-vaults">

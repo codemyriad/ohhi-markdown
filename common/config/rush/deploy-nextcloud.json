@@ -1,0 +1,8 @@
+/**
+ * "rush deploy" scenario for the Nextcloud ExApp image (apps/nextcloud/Dockerfile).
+ */
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/deploy-scenario.schema.json",
+  "deploymentProjectNames": ["@ohhi/nextcloud"],
+  "projectSettings": []
+}

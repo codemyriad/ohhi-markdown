@@ -7,7 +7,7 @@
  * directories on write. Same contract/semantics as MemVaultAdapter and
  * NodeVaultAdapter (see @ohhi/vault) — mirror them when in doubt.
  */
-import { hashBytes, IGNORED_DIRS, isTempName, WriteConflictError } from '@ohhi/vault'
+import { hashBytes, IGNORED_DIRS, IGNORED_FILES, isTempName, WriteConflictError } from '@ohhi/vault'
 import type { FileStat, VaultAdapter, WatchEvent, WriteOptions } from '@ohhi/vault'
 
 /** Container dir (under the OPFS root) that holds one subdirectory per vault. */
@@ -79,6 +79,8 @@ export class OpfsVaultAdapter implements VaultAdapter {
       // narrow the union — cast to the concrete handle per entry.
       for await (const entry of dir.values()) {
         if (IGNORED_DIRS.has(entry.name)) continue
+        // A reserved root file (the custodian's marker) is never a note.
+        if (!prefix && entry.kind !== 'directory' && IGNORED_FILES.has(entry.name)) continue
         const path = prefix ? `${prefix}/${entry.name}` : entry.name
         if (entry.kind === 'directory') {
           await walk(entry as FileSystemDirectoryHandle, path)

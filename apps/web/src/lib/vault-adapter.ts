@@ -14,6 +14,7 @@ import {
   type VaultAdapter,
 } from '@ohhi/vault'
 import type { VaultEntry, VaultSourceDesc } from './config.js'
+import { nsId } from './host.js'
 
 export async function buildAdapter(source: VaultSourceDesc): Promise<VaultAdapter> {
   switch (source.kind) {
@@ -25,7 +26,7 @@ export async function buildAdapter(source: VaultSourceDesc): Promise<VaultAdapte
     }
     case 'opfs': {
       const { createOpfsVaultAdapter } = await import('./adapters/opfs-vault-adapter.js')
-      return await createOpfsVaultAdapter(source.id)
+      return await createOpfsVaultAdapter(nsId(source.id))
     }
   }
 }
@@ -45,7 +46,7 @@ export async function buildStoreDir(source: VaultSourceDesc, room: string): Prom
     }
     case 'opfs': {
       const { createOpfsStoreDir } = await import('./store-dirs/opfs-store-dir.js')
-      return await createOpfsStoreDir(room)
+      return await createOpfsStoreDir(nsId(room))
     }
   }
 }
@@ -68,7 +69,7 @@ export async function openStoreDirIfExists(source: VaultSourceDesc, room: string
     }
     case 'opfs': {
       const { openOpfsStoreDirIfExists } = await import('./store-dirs/opfs-store-dir.js')
-      return await openOpfsStoreDirIfExists(room)
+      return await openOpfsStoreDirIfExists(nsId(room))
     }
   }
 }
@@ -105,9 +106,9 @@ export async function forgetVaultState(entry: VaultEntry): Promise<string[]> {
     await destroyTauriStoreDir(entry.room)
   } else if (entry.vault.kind === 'opfs') {
     const { destroyOpfsStoreDir } = await import('./store-dirs/opfs-store-dir.js')
-    await destroyOpfsStoreDir(entry.room)
+    await destroyOpfsStoreDir(nsId(entry.room))
     const { removeOpfsVaultContent } = await import('./adapters/opfs-vault-adapter.js')
-    await removeOpfsVaultContent(entry.vault.id)
+    await removeOpfsVaultContent(nsId(entry.vault.id))
   }
   return rooms
 }

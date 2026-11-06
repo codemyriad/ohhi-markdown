@@ -13,7 +13,7 @@
   "bars": {
     "toolbar.left": ["nav"],
     "toolbar.center": [],
-    "toolbar.right": ["sync", "drawer", "session", "inspector", "help"],
+    "toolbar.right": ["sync", "files", "drawer", "session", "inspector", "help"],
     "format": [
       "format.paragraph-style",
       "|",

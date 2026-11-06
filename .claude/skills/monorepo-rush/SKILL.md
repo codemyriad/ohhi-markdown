@@ -57,6 +57,7 @@ If a task is about *project structure*, *dependency management*, or *scripts* ra
 | `libs/agent` | `@ohhi/agent` — the host-neutral command core behind the agent surface: `VaultBackend`, vault selection, and the 17 ops declared in `src/contract.ts` | G1 |
 | `libs/harness` | `@ohhi/harness` — the writing harness's runtime core over the AI SDK: the seams every host shares (`src/types.ts`: providers, references, sessions, suggestions, comments, skills, `AgentHost`) and the runtime API (`createModel`, `toolsFromContract`, `systemPrompt`, `createHarnessAgent`); clock- and `fetch`-injected | H1 |
 | `apps/cli` | `@ohhi/cli` — the **`ohhi`** binary (`bin.ohhi` → `bin/ohhi.mjs`) plus `ohhi mcp`. `rushx build` bundles `src/main.ts` to `dist/ohhi.mjs` with esbuild; `rushx gen-schemas` regenerates the op schemas in `spec/` | G1 |
+| `apps/nextcloud` | `@ohhi/nextcloud` — the Nextcloud ExApp (app id `ohhi`): one Node process with the relay in-process, the router and a headless custodian per enrolled Files folder. `rushx build` bundles `dist/server.mjs` with esbuild (`better-sqlite3` external); the image is `apps/nextcloud/Dockerfile` over `rush deploy --scenario nextcloud`; the web build it serves is `cd apps/web && rushx build:nextcloud` (+ `build:embed`). Install into a local Nextcloud: `apps/nextcloud/scripts/nc-dev-install.sh` — see `docs/nextcloud.md` | NC1 |
 
 `apps/agentd` is still split-on-demand — it is created by its V3 slice, not before (see `slices`).
 

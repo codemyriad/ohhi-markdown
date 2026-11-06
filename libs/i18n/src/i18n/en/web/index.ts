@@ -461,6 +461,8 @@ const pill = {
     red: 'Diverged',
     offline: 'Offline',
   },
+  /** The note pill's title and label in a vault the host granted read-only (a Nextcloud read-only share). */
+  read_only: '{state:string} · Read-only share',
   vault_title: {
     green: 'This vault: synced (relay)',
     yellow: 'This vault: working — ops or disk flush in flight',
@@ -3130,6 +3132,103 @@ const collections = {
   embed_view_missing: 'No view called {view:string}; showing {shown:string}.',
 }
 
+/**
+ * The Nextcloud ExApp host (`nextcloud-build`). One subtree per surface:
+ * `host` (the iframe-hosted shell), `manager` (vault list / open / enrol), `holds` (the
+ * held-batch notice, decision 7), `files` (the Files readout, decision 8).
+ */
+const nextcloud = {
+  host: {
+    /** The desktop manager refusing a folder carrying `ohhi-host.md` (decision 13). */
+    marked_folder:
+      'This folder is managed by Oh Hi in Nextcloud (room {room:string}). Open it there, or edit it with another editor; opening it here too would duplicate edits.',
+    /** Settings › Sync & devices inside Nextcloud: no relay, secret or device links to set. */
+    sync_managed: 'Sync runs through Oh Hi in this Nextcloud. There is no relay to choose and no secret to enter here.',
+    /** The share sheet's stand-in inside Nextcloud. */
+    share_title: 'Share {name:string}',
+    share_body:
+      'In Nextcloud, share the folder from Files. People you share it with open it from the folder’s menu, read-only or with edit rights as you shared it.',
+    /** Signed out, or `/api/me` failed: the manager says so above the list. */
+    me_failed: 'Could not tell who is signed in: {message:string}',
+    /** While the server is enrolling the open vault's folder (`custodian: 'enrolling'`). */
+    enrolling: 'Enrolling… {done:number} of {total:number}',
+    enrolling_start: 'Enrolling…',
+  },
+  manager: {
+    /** The vault list's call to action when nothing is open yet. */
+    open_from_files: 'Open a folder from Files',
+    heading: 'Your notes in Nextcloud',
+    signed_in_as: 'Signed in as {name:string}',
+    own: 'Your vaults',
+    recent: 'Opened before',
+    empty_own: 'No folder is set up for Oh Hi yet. Open one from Files to start.',
+    empty_recent: 'Folders shared with you appear here once you open them from Files.',
+    loading: 'Loading your vaults…',
+    open: 'Open',
+    open_named: 'Open {name:string}',
+    opening: 'Opening…',
+    owner: 'Shared by {owner:string}',
+    /** The file-id form under *Open a folder from Files*. */
+    file_id_label: 'Folder’s file id',
+    file_id_hint: 'In Files, a folder’s id is the number after /f/ in its link. The folder’s menu has Open in Oh Hi too.',
+    file_id_invalid: 'A file id is a number, like 1234.',
+    /** The one-line confirm before a Files-menu folder is enrolled (`?fileIds=`). */
+    enrol_title: 'Enrol this folder for Oh Hi?',
+    enrol_body: 'Oh Hi keeps the folder’s notes and its files in step. Your files stay where they are.',
+    enrol_confirm: 'Enrol and open',
+    unnamed: 'Nextcloud folder',
+    status: {
+      'needs-operator': 'Needs an administrator',
+      'lease-lost': 'Held by another server',
+      paused: 'Paused',
+    },
+    /** A row's machine reason, shown instead of its status when there is one. */
+    reasons: {
+      'folder-gone': 'Folder not found in Files',
+    },
+    /** *Remove from Oh Hi* on a vault you own (DELETE /api/vaults/:id). */
+    remove: 'Remove from Oh Hi',
+    remove_named: 'Remove {name:string} from Oh Hi',
+    remove_title: 'Remove {name:string} from Oh Hi?',
+    remove_body:
+      'Oh Hi stops keeping this folder and forgets its copy on the server. The folder and its files stay in Nextcloud, untouched; only the ohhi-host.md marker is deleted. People it is shared with can no longer open it in Oh Hi.',
+    remove_confirm: 'Remove',
+    remove_failed: 'Could not remove it: {message:string}',
+    errors: {
+      unreachable: 'Oh Hi’s server in Nextcloud could not be reached. Check your connection and try again.',
+      signed_out: 'You are signed out of Nextcloud. Reload the page to sign in again.',
+      forbidden: 'You do not have access to this folder.',
+      not_found: 'That folder or vault no longer exists.',
+      refused: 'This folder cannot be set up for Oh Hi.',
+      refused_reason: 'This folder cannot be set up for Oh Hi: {reason:string}',
+      not_ready: 'Oh Hi’s server in Nextcloud is not ready for this yet.',
+      server: 'Oh Hi’s server in Nextcloud answered with an error ({status:number}).',
+      unexpected: 'Something went wrong: {message:string}',
+    },
+  },
+  holds: {
+    /** Heading of the notice listing batches held for a writable user's review. */
+    title: 'Changes waiting for review',
+    breaker: 'Many files changed in Files at once',
+    review: 'A note and its file disagree',
+    keep_files: 'Keep files',
+    keep_note: 'Keep note',
+    read_only: 'Someone who can edit this folder needs to answer this.',
+    failed: 'That did not go through: {message:string}',
+  },
+  files: {
+    /** The `files` readout when every note matches its file in Nextcloud Files. */
+    in_sync: 'In Files',
+    waiting: '{count:number} waiting',
+    blocked: 'Blocked ({status:number})',
+    blocked_unknown: 'Blocked',
+    /** The readout's accessible description. */
+    in_sync_hint: 'Every note matches its file in Nextcloud Files.',
+    waiting_hint: '{count:number} note{{s}} not written to Files yet.',
+    blocked_hint: '{count:number} file{{s}} could not be written in Files.',
+  },
+}
+
 const web = {
   shell,
   notices,
@@ -3184,6 +3283,7 @@ const web = {
   attachments,
   ai,
   collections,
+  nextcloud,
 } satisfies BaseTranslation
 
 export default web

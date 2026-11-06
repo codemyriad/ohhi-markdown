@@ -7,13 +7,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createYjsEngine } from '@ohhi/sync'
-import { SimClock } from '@ohhi/testkit'
+import { createWebDavFake, SimClock } from '@ohhi/testkit'
 import { AppDirListeners } from '../src/app-dir.js'
 import { enrollFolder } from '../src/enrollment.js'
 import { hashBytes } from '../src/hash.js'
 import { MemVaultAdapter } from '../src/mem-adapter.js'
 import { NodeVaultAdapter } from '../src/node-adapter.js'
 import { VaultSession } from '../src/session.js'
+import { WebDavVaultAdapter } from '../src/webdav/index.js'
 import { MemJournal, MemLcaStore } from '../src/stores.js'
 import {
   IGNORED_DIRS,
@@ -100,6 +101,7 @@ describe('writeAtomic compare-and-swap', () => {
         return Object.assign(new NodeVaultAdapter(root), { root })
       },
     ],
+    ['WebDavVaultAdapter', async () => new WebDavVaultAdapter({ baseUrl: (await createWebDavFake({ owner: 'u' })).url, headers: () => ({}), clock: new SimClock(), owner: 'u' })],
   ]
 
   for (const [name, make] of adapters) {

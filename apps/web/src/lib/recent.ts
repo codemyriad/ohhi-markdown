@@ -10,6 +10,9 @@
  * Lives in localStorage beside the rest of the shell config, guarded the same
  * way — losing it costs nothing.
  */
+import { nsKey } from './host.js'
+
+/** Per Nextcloud user inside that host (decision 16, `nsKey`); `editor:recent` everywhere else. */
 const KEY = 'editor:recent'
 const LIMIT = 30
 
@@ -17,7 +20,7 @@ type Store = Record<string, string[]>
 
 function read(): Store {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(nsKey(KEY))
     const parsed: unknown = raw ? JSON.parse(raw) : null
     return parsed && typeof parsed === 'object' ? (parsed as Store) : {}
   } catch {
@@ -27,7 +30,7 @@ function read(): Store {
 
 function write(store: Store): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(store))
+    localStorage.setItem(nsKey(KEY), JSON.stringify(store))
   } catch {
     // Private mode / disabled storage: recency degrades to "nothing remembered".
   }

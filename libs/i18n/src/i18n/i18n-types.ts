@@ -1240,6 +1240,11 @@ export type NamespaceWebTranslation = {
 			 */
 			offline: string
 		}
+		/**
+		 * {​s​t​a​t​e​}​ ​·​ ​R​e​a​d​-​o​n​l​y​ ​s​h​a​r​e
+		 * @param {string} state
+		 */
+		read_only: RequiredParams<'state'>
 		vault_title: {
 			/**
 			 * T​h​i​s​ ​v​a​u​l​t​:​ ​s​y​n​c​e​d​ ​(​r​e​l​a​y​)
@@ -9216,6 +9221,277 @@ export type NamespaceWebTranslation = {
 		 */
 		embed_view_missing: RequiredParams<'shown' | 'view'>
 	}
+	nextcloud: {
+		host: {
+			/**
+			 * T​h​i​s​ ​f​o​l​d​e​r​ ​i​s​ ​m​a​n​a​g​e​d​ ​b​y​ ​O​h​ ​H​i​ ​i​n​ ​N​e​x​t​c​l​o​u​d​ ​(​r​o​o​m​ ​{​r​o​o​m​}​)​.​ ​O​p​e​n​ ​i​t​ ​t​h​e​r​e​,​ ​o​r​ ​e​d​i​t​ ​i​t​ ​w​i​t​h​ ​a​n​o​t​h​e​r​ ​e​d​i​t​o​r​;​ ​o​p​e​n​i​n​g​ ​i​t​ ​h​e​r​e​ ​t​o​o​ ​w​o​u​l​d​ ​d​u​p​l​i​c​a​t​e​ ​e​d​i​t​s​.
+			 * @param {string} room
+			 */
+			marked_folder: RequiredParams<'room'>
+			/**
+			 * S​y​n​c​ ​r​u​n​s​ ​t​h​r​o​u​g​h​ ​O​h​ ​H​i​ ​i​n​ ​t​h​i​s​ ​N​e​x​t​c​l​o​u​d​.​ ​T​h​e​r​e​ ​i​s​ ​n​o​ ​r​e​l​a​y​ ​t​o​ ​c​h​o​o​s​e​ ​a​n​d​ ​n​o​ ​s​e​c​r​e​t​ ​t​o​ ​e​n​t​e​r​ ​h​e​r​e​.
+			 */
+			sync_managed: string
+			/**
+			 * S​h​a​r​e​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			share_title: RequiredParams<'name'>
+			/**
+			 * I​n​ ​N​e​x​t​c​l​o​u​d​,​ ​s​h​a​r​e​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​F​i​l​e​s​.​ ​P​e​o​p​l​e​ ​y​o​u​ ​s​h​a​r​e​ ​i​t​ ​w​i​t​h​ ​o​p​e​n​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​m​e​n​u​,​ ​r​e​a​d​-​o​n​l​y​ ​o​r​ ​w​i​t​h​ ​e​d​i​t​ ​r​i​g​h​t​s​ ​a​s​ ​y​o​u​ ​s​h​a​r​e​d​ ​i​t​.
+			 */
+			share_body: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​t​e​l​l​ ​w​h​o​ ​i​s​ ​s​i​g​n​e​d​ ​i​n​:​ ​{​m​e​s​s​a​g​e​}
+			 * @param {string} message
+			 */
+			me_failed: RequiredParams<'message'>
+			/**
+			 * E​n​r​o​l​l​i​n​g​…​ ​{​d​o​n​e​}​ ​o​f​ ​{​t​o​t​a​l​}
+			 * @param {number} done
+			 * @param {number} total
+			 */
+			enrolling: RequiredParams<'done' | 'total'>
+			/**
+			 * E​n​r​o​l​l​i​n​g​…
+			 */
+			enrolling_start: string
+		}
+		manager: {
+			/**
+			 * O​p​e​n​ ​a​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​F​i​l​e​s
+			 */
+			open_from_files: string
+			/**
+			 * Y​o​u​r​ ​n​o​t​e​s​ ​i​n​ ​N​e​x​t​c​l​o​u​d
+			 */
+			heading: string
+			/**
+			 * S​i​g​n​e​d​ ​i​n​ ​a​s​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			signed_in_as: RequiredParams<'name'>
+			/**
+			 * Y​o​u​r​ ​v​a​u​l​t​s
+			 */
+			own: string
+			/**
+			 * O​p​e​n​e​d​ ​b​e​f​o​r​e
+			 */
+			recent: string
+			/**
+			 * N​o​ ​f​o​l​d​e​r​ ​i​s​ ​s​e​t​ ​u​p​ ​f​o​r​ ​O​h​ ​H​i​ ​y​e​t​.​ ​O​p​e​n​ ​o​n​e​ ​f​r​o​m​ ​F​i​l​e​s​ ​t​o​ ​s​t​a​r​t​.
+			 */
+			empty_own: string
+			/**
+			 * F​o​l​d​e​r​s​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​y​o​u​ ​a​p​p​e​a​r​ ​h​e​r​e​ ​o​n​c​e​ ​y​o​u​ ​o​p​e​n​ ​t​h​e​m​ ​f​r​o​m​ ​F​i​l​e​s​.
+			 */
+			empty_recent: string
+			/**
+			 * L​o​a​d​i​n​g​ ​y​o​u​r​ ​v​a​u​l​t​s​…
+			 */
+			loading: string
+			/**
+			 * O​p​e​n
+			 */
+			open: string
+			/**
+			 * O​p​e​n​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			open_named: RequiredParams<'name'>
+			/**
+			 * O​p​e​n​i​n​g​…
+			 */
+			opening: string
+			/**
+			 * S​h​a​r​e​d​ ​b​y​ ​{​o​w​n​e​r​}
+			 * @param {string} owner
+			 */
+			owner: RequiredParams<'owner'>
+			/**
+			 * F​o​l​d​e​r​’​s​ ​f​i​l​e​ ​i​d
+			 */
+			file_id_label: string
+			/**
+			 * I​n​ ​F​i​l​e​s​,​ ​a​ ​f​o​l​d​e​r​’​s​ ​i​d​ ​i​s​ ​t​h​e​ ​n​u​m​b​e​r​ ​a​f​t​e​r​ ​/​f​/​ ​i​n​ ​i​t​s​ ​l​i​n​k​.​ ​T​h​e​ ​f​o​l​d​e​r​’​s​ ​m​e​n​u​ ​h​a​s​ ​O​p​e​n​ ​i​n​ ​O​h​ ​H​i​ ​t​o​o​.
+			 */
+			file_id_hint: string
+			/**
+			 * A​ ​f​i​l​e​ ​i​d​ ​i​s​ ​a​ ​n​u​m​b​e​r​,​ ​l​i​k​e​ ​1​2​3​4​.
+			 */
+			file_id_invalid: string
+			/**
+			 * E​n​r​o​l​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​f​o​r​ ​O​h​ ​H​i​?
+			 */
+			enrol_title: string
+			/**
+			 * O​h​ ​H​i​ ​k​e​e​p​s​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​n​o​t​e​s​ ​a​n​d​ ​i​t​s​ ​f​i​l​e​s​ ​i​n​ ​s​t​e​p​.​ ​Y​o​u​r​ ​f​i​l​e​s​ ​s​t​a​y​ ​w​h​e​r​e​ ​t​h​e​y​ ​a​r​e​.
+			 */
+			enrol_body: string
+			/**
+			 * E​n​r​o​l​ ​a​n​d​ ​o​p​e​n
+			 */
+			enrol_confirm: string
+			/**
+			 * N​e​x​t​c​l​o​u​d​ ​f​o​l​d​e​r
+			 */
+			unnamed: string
+			status: {
+				/**
+				 * N​e​e​d​s​ ​a​n​ ​a​d​m​i​n​i​s​t​r​a​t​o​r
+				 */
+				'needs-operator': string
+				/**
+				 * H​e​l​d​ ​b​y​ ​a​n​o​t​h​e​r​ ​s​e​r​v​e​r
+				 */
+				'lease-lost': string
+				/**
+				 * P​a​u​s​e​d
+				 */
+				paused: string
+			}
+			reasons: {
+				/**
+				 * F​o​l​d​e​r​ ​n​o​t​ ​f​o​u​n​d​ ​i​n​ ​F​i​l​e​s
+				 */
+				'folder-gone': string
+			}
+			/**
+			 * R​e​m​o​v​e​ ​f​r​o​m​ ​O​h​ ​H​i
+			 */
+			remove: string
+			/**
+			 * R​e​m​o​v​e​ ​{​n​a​m​e​}​ ​f​r​o​m​ ​O​h​ ​H​i
+			 * @param {string} name
+			 */
+			remove_named: RequiredParams<'name'>
+			/**
+			 * R​e​m​o​v​e​ ​{​n​a​m​e​}​ ​f​r​o​m​ ​O​h​ ​H​i​?
+			 * @param {string} name
+			 */
+			remove_title: RequiredParams<'name'>
+			/**
+			 * O​h​ ​H​i​ ​s​t​o​p​s​ ​k​e​e​p​i​n​g​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​a​n​d​ ​f​o​r​g​e​t​s​ ​i​t​s​ ​c​o​p​y​ ​o​n​ ​t​h​e​ ​s​e​r​v​e​r​.​ ​T​h​e​ ​f​o​l​d​e​r​ ​a​n​d​ ​i​t​s​ ​f​i​l​e​s​ ​s​t​a​y​ ​i​n​ ​N​e​x​t​c​l​o​u​d​,​ ​u​n​t​o​u​c​h​e​d​;​ ​o​n​l​y​ ​t​h​e​ ​o​h​h​i​-​h​o​s​t​.​m​d​ ​m​a​r​k​e​r​ ​i​s​ ​d​e​l​e​t​e​d​.​ ​P​e​o​p​l​e​ ​i​t​ ​i​s​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​c​a​n​ ​n​o​ ​l​o​n​g​e​r​ ​o​p​e​n​ ​i​t​ ​i​n​ ​O​h​ ​H​i​.
+			 */
+			remove_body: string
+			/**
+			 * R​e​m​o​v​e
+			 */
+			remove_confirm: string
+			/**
+			 * C​o​u​l​d​ ​n​o​t​ ​r​e​m​o​v​e​ ​i​t​:​ ​{​m​e​s​s​a​g​e​}
+			 * @param {string} message
+			 */
+			remove_failed: RequiredParams<'message'>
+			errors: {
+				/**
+				 * O​h​ ​H​i​’​s​ ​s​e​r​v​e​r​ ​i​n​ ​N​e​x​t​c​l​o​u​d​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​a​c​h​e​d​.​ ​C​h​e​c​k​ ​y​o​u​r​ ​c​o​n​n​e​c​t​i​o​n​ ​a​n​d​ ​t​r​y​ ​a​g​a​i​n​.
+				 */
+				unreachable: string
+				/**
+				 * Y​o​u​ ​a​r​e​ ​s​i​g​n​e​d​ ​o​u​t​ ​o​f​ ​N​e​x​t​c​l​o​u​d​.​ ​R​e​l​o​a​d​ ​t​h​e​ ​p​a​g​e​ ​t​o​ ​s​i​g​n​ ​i​n​ ​a​g​a​i​n​.
+				 */
+				signed_out: string
+				/**
+				 * Y​o​u​ ​d​o​ ​n​o​t​ ​h​a​v​e​ ​a​c​c​e​s​s​ ​t​o​ ​t​h​i​s​ ​f​o​l​d​e​r​.
+				 */
+				forbidden: string
+				/**
+				 * T​h​a​t​ ​f​o​l​d​e​r​ ​o​r​ ​v​a​u​l​t​ ​n​o​ ​l​o​n​g​e​r​ ​e​x​i​s​t​s​.
+				 */
+				not_found: string
+				/**
+				 * T​h​i​s​ ​f​o​l​d​e​r​ ​c​a​n​n​o​t​ ​b​e​ ​s​e​t​ ​u​p​ ​f​o​r​ ​O​h​ ​H​i​.
+				 */
+				refused: string
+				/**
+				 * T​h​i​s​ ​f​o​l​d​e​r​ ​c​a​n​n​o​t​ ​b​e​ ​s​e​t​ ​u​p​ ​f​o​r​ ​O​h​ ​H​i​:​ ​{​r​e​a​s​o​n​}
+				 * @param {string} reason
+				 */
+				refused_reason: RequiredParams<'reason'>
+				/**
+				 * O​h​ ​H​i​’​s​ ​s​e​r​v​e​r​ ​i​n​ ​N​e​x​t​c​l​o​u​d​ ​i​s​ ​n​o​t​ ​r​e​a​d​y​ ​f​o​r​ ​t​h​i​s​ ​y​e​t​.
+				 */
+				not_ready: string
+				/**
+				 * O​h​ ​H​i​’​s​ ​s​e​r​v​e​r​ ​i​n​ ​N​e​x​t​c​l​o​u​d​ ​a​n​s​w​e​r​e​d​ ​w​i​t​h​ ​a​n​ ​e​r​r​o​r​ ​(​{​s​t​a​t​u​s​}​)​.
+				 * @param {number} status
+				 */
+				server: RequiredParams<'status'>
+				/**
+				 * S​o​m​e​t​h​i​n​g​ ​w​e​n​t​ ​w​r​o​n​g​:​ ​{​m​e​s​s​a​g​e​}
+				 * @param {string} message
+				 */
+				unexpected: RequiredParams<'message'>
+			}
+		}
+		holds: {
+			/**
+			 * C​h​a​n​g​e​s​ ​w​a​i​t​i​n​g​ ​f​o​r​ ​r​e​v​i​e​w
+			 */
+			title: string
+			/**
+			 * M​a​n​y​ ​f​i​l​e​s​ ​c​h​a​n​g​e​d​ ​i​n​ ​F​i​l​e​s​ ​a​t​ ​o​n​c​e
+			 */
+			breaker: string
+			/**
+			 * A​ ​n​o​t​e​ ​a​n​d​ ​i​t​s​ ​f​i​l​e​ ​d​i​s​a​g​r​e​e
+			 */
+			review: string
+			/**
+			 * K​e​e​p​ ​f​i​l​e​s
+			 */
+			keep_files: string
+			/**
+			 * K​e​e​p​ ​n​o​t​e
+			 */
+			keep_note: string
+			/**
+			 * S​o​m​e​o​n​e​ ​w​h​o​ ​c​a​n​ ​e​d​i​t​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​n​e​e​d​s​ ​t​o​ ​a​n​s​w​e​r​ ​t​h​i​s​.
+			 */
+			read_only: string
+			/**
+			 * T​h​a​t​ ​d​i​d​ ​n​o​t​ ​g​o​ ​t​h​r​o​u​g​h​:​ ​{​m​e​s​s​a​g​e​}
+			 * @param {string} message
+			 */
+			failed: RequiredParams<'message'>
+		}
+		files: {
+			/**
+			 * I​n​ ​F​i​l​e​s
+			 */
+			in_sync: string
+			/**
+			 * {​c​o​u​n​t​}​ ​w​a​i​t​i​n​g
+			 * @param {number} count
+			 */
+			waiting: RequiredParams<'count'>
+			/**
+			 * B​l​o​c​k​e​d​ ​(​{​s​t​a​t​u​s​}​)
+			 * @param {number} status
+			 */
+			blocked: RequiredParams<'status'>
+			/**
+			 * B​l​o​c​k​e​d
+			 */
+			blocked_unknown: string
+			/**
+			 * E​v​e​r​y​ ​n​o​t​e​ ​m​a​t​c​h​e​s​ ​i​t​s​ ​f​i​l​e​ ​i​n​ ​N​e​x​t​c​l​o​u​d​ ​F​i​l​e​s​.
+			 */
+			in_sync_hint: string
+			/**
+			 * {​c​o​u​n​t​}​ ​n​o​t​e​{​{​s​}​}​ ​n​o​t​ ​w​r​i​t​t​e​n​ ​t​o​ ​F​i​l​e​s​ ​y​e​t​.
+			 * @param {number} count
+			 */
+			waiting_hint: RequiredParams<'count'>
+			/**
+			 * {​c​o​u​n​t​}​ ​f​i​l​e​{​{​s​}​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​w​r​i​t​t​e​n​ ​i​n​ ​F​i​l​e​s​.
+			 * @param {number} count
+			 */
+			blocked_hint: RequiredParams<'count'>
+		}
+	}
 }
 
 export type Namespaces =
@@ -10384,6 +10660,10 @@ export type TranslationFunctions = {
 				 */
 				offline: () => LocalizedString
 			}
+			/**
+			 * {state} · Read-only share
+			 */
+			read_only: (arg: { state: string }) => LocalizedString
 			vault_title: {
 				/**
 				 * This vault: synced (relay)
@@ -17818,6 +18098,258 @@ export type TranslationFunctions = {
 			 * No view called {view}; showing {shown}.
 			 */
 			embed_view_missing: (arg: { shown: string, view: string }) => LocalizedString
+		}
+		nextcloud: {
+			host: {
+				/**
+				 * This folder is managed by Oh Hi in Nextcloud (room {room}). Open it there, or edit it with another editor; opening it here too would duplicate edits.
+				 */
+				marked_folder: (arg: { room: string }) => LocalizedString
+				/**
+				 * Sync runs through Oh Hi in this Nextcloud. There is no relay to choose and no secret to enter here.
+				 */
+				sync_managed: () => LocalizedString
+				/**
+				 * Share {name}
+				 */
+				share_title: (arg: { name: string }) => LocalizedString
+				/**
+				 * In Nextcloud, share the folder from Files. People you share it with open it from the folder’s menu, read-only or with edit rights as you shared it.
+				 */
+				share_body: () => LocalizedString
+				/**
+				 * Could not tell who is signed in: {message}
+				 */
+				me_failed: (arg: { message: string }) => LocalizedString
+				/**
+				 * Enrolling… {done} of {total}
+				 */
+				enrolling: (arg: { done: number, total: number }) => LocalizedString
+				/**
+				 * Enrolling…
+				 */
+				enrolling_start: () => LocalizedString
+			}
+			manager: {
+				/**
+				 * Open a folder from Files
+				 */
+				open_from_files: () => LocalizedString
+				/**
+				 * Your notes in Nextcloud
+				 */
+				heading: () => LocalizedString
+				/**
+				 * Signed in as {name}
+				 */
+				signed_in_as: (arg: { name: string }) => LocalizedString
+				/**
+				 * Your vaults
+				 */
+				own: () => LocalizedString
+				/**
+				 * Opened before
+				 */
+				recent: () => LocalizedString
+				/**
+				 * No folder is set up for Oh Hi yet. Open one from Files to start.
+				 */
+				empty_own: () => LocalizedString
+				/**
+				 * Folders shared with you appear here once you open them from Files.
+				 */
+				empty_recent: () => LocalizedString
+				/**
+				 * Loading your vaults…
+				 */
+				loading: () => LocalizedString
+				/**
+				 * Open
+				 */
+				open: () => LocalizedString
+				/**
+				 * Open {name}
+				 */
+				open_named: (arg: { name: string }) => LocalizedString
+				/**
+				 * Opening…
+				 */
+				opening: () => LocalizedString
+				/**
+				 * Shared by {owner}
+				 */
+				owner: (arg: { owner: string }) => LocalizedString
+				/**
+				 * Folder’s file id
+				 */
+				file_id_label: () => LocalizedString
+				/**
+				 * In Files, a folder’s id is the number after /f/ in its link. The folder’s menu has Open in Oh Hi too.
+				 */
+				file_id_hint: () => LocalizedString
+				/**
+				 * A file id is a number, like 1234.
+				 */
+				file_id_invalid: () => LocalizedString
+				/**
+				 * Enrol this folder for Oh Hi?
+				 */
+				enrol_title: () => LocalizedString
+				/**
+				 * Oh Hi keeps the folder’s notes and its files in step. Your files stay where they are.
+				 */
+				enrol_body: () => LocalizedString
+				/**
+				 * Enrol and open
+				 */
+				enrol_confirm: () => LocalizedString
+				/**
+				 * Nextcloud folder
+				 */
+				unnamed: () => LocalizedString
+				status: {
+					/**
+					 * Needs an administrator
+					 */
+					'needs-operator': () => LocalizedString
+					/**
+					 * Held by another server
+					 */
+					'lease-lost': () => LocalizedString
+					/**
+					 * Paused
+					 */
+					paused: () => LocalizedString
+				}
+				reasons: {
+					/**
+					 * Folder not found in Files
+					 */
+					'folder-gone': () => LocalizedString
+				}
+				/**
+				 * Remove from Oh Hi
+				 */
+				remove: () => LocalizedString
+				/**
+				 * Remove {name} from Oh Hi
+				 */
+				remove_named: (arg: { name: string }) => LocalizedString
+				/**
+				 * Remove {name} from Oh Hi?
+				 */
+				remove_title: (arg: { name: string }) => LocalizedString
+				/**
+				 * Oh Hi stops keeping this folder and forgets its copy on the server. The folder and its files stay in Nextcloud, untouched; only the ohhi-host.md marker is deleted. People it is shared with can no longer open it in Oh Hi.
+				 */
+				remove_body: () => LocalizedString
+				/**
+				 * Remove
+				 */
+				remove_confirm: () => LocalizedString
+				/**
+				 * Could not remove it: {message}
+				 */
+				remove_failed: (arg: { message: string }) => LocalizedString
+				errors: {
+					/**
+					 * Oh Hi’s server in Nextcloud could not be reached. Check your connection and try again.
+					 */
+					unreachable: () => LocalizedString
+					/**
+					 * You are signed out of Nextcloud. Reload the page to sign in again.
+					 */
+					signed_out: () => LocalizedString
+					/**
+					 * You do not have access to this folder.
+					 */
+					forbidden: () => LocalizedString
+					/**
+					 * That folder or vault no longer exists.
+					 */
+					not_found: () => LocalizedString
+					/**
+					 * This folder cannot be set up for Oh Hi.
+					 */
+					refused: () => LocalizedString
+					/**
+					 * This folder cannot be set up for Oh Hi: {reason}
+					 */
+					refused_reason: (arg: { reason: string }) => LocalizedString
+					/**
+					 * Oh Hi’s server in Nextcloud is not ready for this yet.
+					 */
+					not_ready: () => LocalizedString
+					/**
+					 * Oh Hi’s server in Nextcloud answered with an error ({status}).
+					 */
+					server: (arg: { status: number }) => LocalizedString
+					/**
+					 * Something went wrong: {message}
+					 */
+					unexpected: (arg: { message: string }) => LocalizedString
+				}
+			}
+			holds: {
+				/**
+				 * Changes waiting for review
+				 */
+				title: () => LocalizedString
+				/**
+				 * Many files changed in Files at once
+				 */
+				breaker: () => LocalizedString
+				/**
+				 * A note and its file disagree
+				 */
+				review: () => LocalizedString
+				/**
+				 * Keep files
+				 */
+				keep_files: () => LocalizedString
+				/**
+				 * Keep note
+				 */
+				keep_note: () => LocalizedString
+				/**
+				 * Someone who can edit this folder needs to answer this.
+				 */
+				read_only: () => LocalizedString
+				/**
+				 * That did not go through: {message}
+				 */
+				failed: (arg: { message: string }) => LocalizedString
+			}
+			files: {
+				/**
+				 * In Files
+				 */
+				in_sync: () => LocalizedString
+				/**
+				 * {count} waiting
+				 */
+				waiting: (arg: { count: number }) => LocalizedString
+				/**
+				 * Blocked ({status})
+				 */
+				blocked: (arg: { status: number }) => LocalizedString
+				/**
+				 * Blocked
+				 */
+				blocked_unknown: () => LocalizedString
+				/**
+				 * Every note matches its file in Nextcloud Files.
+				 */
+				in_sync_hint: () => LocalizedString
+				/**
+				 * {count} note{{s}} not written to Files yet.
+				 */
+				waiting_hint: (arg: { count: number }) => LocalizedString
+				/**
+				 * {count} file{{s}} could not be written in Files.
+				 */
+				blocked_hint: (arg: { count: number }) => LocalizedString
+			}
 		}
 	}
 }

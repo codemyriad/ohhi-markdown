@@ -117,6 +117,8 @@ export interface ConnectDocOptions {
   /** Relay doc name: `${room}/folder` or `${room}/${guid}`. */
   name: string
   token: string
+  /** See `RelayConfig.refreshToken`: called on every (re)connect when present. */
+  refreshToken?: () => Promise<string>
   doc: EngineDoc
   user: CollabUser
   /** Reactive record this provider keeps honest. */
@@ -153,7 +155,7 @@ export function connectDoc(opts: ConnectDocOptions): DocConnection {
 
   const shared = {
     name: opts.name,
-    token: opts.token,
+    token: opts.refreshToken ?? opts.token,
     document: ydoc,
     awareness,
     onStatus: ({ status }: { status: string }) => {

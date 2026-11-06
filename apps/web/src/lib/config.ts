@@ -20,6 +20,7 @@ import type { ShareGrant, ShareKind } from './share-link.js'
 import { RETIRED_THEMES, type BuiltinTheme } from '@ohhi/ui/tokens'
 import type { AiConfig, ProviderConfig, ProviderView } from '@ohhi/harness'
 import { normalizeAiConfig } from '@ohhi/harness/config'
+import { detectHost, nsKey } from './host.js'
 
 /** How to (re)build the VaultAdapter for a session. */
 export type VaultSourceDesc =
@@ -36,6 +37,11 @@ export interface SessionDesc {
   relay?: { url: string; token: string }
   /** Pending first join: no durable/local state yet, must pull the relay. */
   firstJoin?: boolean
+  /**
+   * The host granted this room read-only (Nextcloud): the editors open
+   * read-only. Never stored — a host-booted entry is not registered.
+   */
+  readOnly?: boolean
 }
 
 /** A vault the manager lists: a bootable session plus its display metadata. */
@@ -323,7 +329,7 @@ function store(): Storage | null {
 export function readJson<T>(key: string): T | null {
   const s = store()
   if (!s) return null
-  const raw = s.getItem(key)
+  const raw = s.getItem(nsKey(key))
   if (raw === null) return null
   try {
     return JSON.parse(raw) as T
@@ -336,7 +342,7 @@ export function writeJson(key: string, value: unknown): void {
   const s = store()
   if (!s) return
   try {
-    s.setItem(key, JSON.stringify(value))
+    s.setItem(nsKey(key), JSON.stringify(value))
   } catch {
     /* quota / private mode — remembering is best-effort */
   }
@@ -345,7 +351,7 @@ export function writeJson(key: string, value: unknown): void {
 // ---- user name (own key; healed) ----
 
 export function loadUser(): string | null {
-  let name = store()?.getItem(K_USER) ?? ''
+  let name = store()?.getItem(nsKey(K_USER)) ?? ''
   // Heal values stored by earlier builds, where saveUser JSON-encoded but
   // loadUser read raw — each save added a quoting layer ("\"Chris\"", …).
   while (name.startsWith('"') && name.endsWith('"')) {
@@ -363,7 +369,7 @@ export function saveUser(name: string): void {
   const trimmed = name.trim()
   if (!trimmed) return
   try {
-    store()?.setItem(K_USER, trimmed)
+    store()?.setItem(nsKey(K_USER), trimmed)
   } catch {
     /* quota / private mode — remembering is best-effort */
   }
@@ -554,6 +560,10 @@ function usableSaved(saved: string, teamHost: string): string {
 
 /** The relay new shares are minted on: the user's choice, else this build's default. */
 export function defaultRelay(teamHost: string = TEAM_HOST): string {
+  // Inside Nextcloud the relay is the ExApp's own socket and nothing else
+  // (nextcloud-build decision 1); a saved relay is ignored there.
+  const host = detectHost()
+  if (host.relayUrl) return host.relayUrl
   return usableSaved(loadConfig().defaultRelay, teamHost) || DEFAULT_RELAY
 }
 
@@ -574,6 +584,7 @@ export function ignoredSavedRelay(teamHost: string = TEAM_HOST): string {
  * (first-run-shaping D3: the Shared view's empty state says so).
  */
 export function relayKnown(teamHost: string = TEAM_HOST): boolean {
+  if (detectHost().relayUrl) return true
   return usableSaved(loadConfig().defaultRelay, teamHost) !== '' || DEFAULT_RELAY_CONFIGURED
 }
 
@@ -669,16 +680,21 @@ export function setThemePref(pref: ThemePref): void {
   cfg.theme = pref
   save(cfg)
   try {
-    store()?.setItem(K_THEME, pref)
+    store()?.setItem(nsKey(K_THEME), pref)
   } catch {
     // Mirror is best-effort; a miss costs one frame of the default theme.
   }
 }
 
-/** Mirror the resolved polarity for the pre-paint script (K_POLARITY). */
+/**
+ * Mirror the resolved polarity for the pre-paint script (K_POLARITY). Per-uid
+ * inside Nextcloud like the theme mirror (`nextcloud-build` decision 16): the
+ * pre-paint script cannot know the uid, so there it falls back to the OS's
+ * polarity for one frame and the theme module corrects it.
+ */
 export function setPolarityMirror(polarity: 'light' | 'dark'): void {
   try {
-    store()?.setItem(K_POLARITY, polarity)
+    store()?.setItem(nsKey(K_POLARITY), polarity)
   } catch {
     // Best-effort; a miss costs one frame of the OS polarity's sync colours.
   }

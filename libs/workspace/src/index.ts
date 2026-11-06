@@ -1,6 +1,8 @@
 export {
   FOLDER_RECORD_KEY,
   type CollabUser,
+  type CustodianState,
+  type DiskState,
   type DocPeer,
   type FileRow,
   type MountEntryInfo,
@@ -40,6 +42,7 @@ export {
   type SeedOptions,
   type SeedResult,
 } from './mount-session.js'
+export { createMountStores, type MountStores } from './mount-stores.js'
 export { MountRegistry, type MountHandle, type ResolvedPath } from './registry.js'
 export {
   absorbMount,
@@ -81,6 +84,7 @@ export {
   EVENT_LOG_CAP,
   EventLog,
   RelayRefusedError,
+  RoomWaitError,
   countUnread,
   filterEvents,
   mergeNewestFirst,

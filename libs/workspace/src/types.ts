@@ -12,9 +12,40 @@ export interface CollabUser {
   color: string
 }
 
+/** One doc's file on the custodian's backend, as `CustodianState.disk` reports it. */
+export type DiskState = 'match' | 'behind' | 'blocked'
+
+/**
+ * What a headless custodian announces on the folder-doc awareness under the
+ * `custodian` field (nextcloud-build decision 8). Per doc guid: `match` when
+ * the bytes behind the room equal the doc, `behind` while a write is pending
+ * or retrying, `blocked` when the backend refused it (`blocked` carries the
+ * HTTP status). Ephemeral by design: a custodian that is gone takes its claim
+ * with it.
+ */
+export interface CustodianState {
+  type: 'custodian'
+  instance: string
+  disk: Record<string, DiskState>
+  blocked: Record<string, number>
+  /**
+   * How many changes the custodian is holding for a person to answer
+   * (nextcloud-build decision 7). The shell fetches the vault's status the
+   * moment this moves, instead of finding out on a blind poll.
+   */
+  holds: number
+}
+
 export interface RelayConfig {
   url: string
   token: string
+  /**
+   * Fetch a fresh token for every (re)connect (nextcloud-build decision 4):
+   * a host whose tokens are short-lived passes this and the provider calls
+   * it on each handshake; `token` stays the first value, for the places that
+   * compare or encode a token as a string (a share link, a socket identity).
+   */
+  refreshToken?: () => Promise<string>
 }
 
 /**
@@ -123,6 +154,13 @@ export interface MountEvents {
   onMapChanged?: () => void
   /** Sorted unique presence names from the folder-doc awareness. */
   onPresence?: (names: string[]) => void
+  /**
+   * A headless custodian's state, read off the folder-doc awareness
+   * (nextcloud-build decision 8): what it has written to the files behind the
+   * room and what it could not. `null` when no custodian is present — an
+   * honest "nothing is keeping files up to date" rather than a stale map.
+   */
+  onCustodianState?: (state: CustodianState | null) => void
   /**
    * Who is IN one doc (sharing E1): the peers whose awareness on this doc's
    * provider says `here: true` — set by their session while a view holds the

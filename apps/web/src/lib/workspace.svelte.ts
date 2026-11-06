@@ -26,12 +26,9 @@
 import { getLL } from '@ohhi/i18n'
 import type { DivergenceReview, PreImageJournal, StoreDir, VaultAdapter } from '@ohhi/vault'
 import {
-  BlobDocStore,
   FileJournal,
   ignoringAdapter,
   isRecoverable,
-  JsonFileLcaStore,
-  lcaGuard,
   MountsFile,
   mountRootsFrom,
   scopedAdapter,
@@ -45,6 +42,7 @@ import type { Awareness } from 'y-protocols/awareness'
 import { createUndoManager, type CollabUndoManager, type CollabUser } from '@ohhi/editor'
 import {
   activateMount,
+  createMountStores,
   bootFlagsFor,
   carveFolder as runCarve,
   resolveRoomRelay,
@@ -76,6 +74,7 @@ import {
   type PullProgress,
   type RelayConfig,
   type DocPeer,
+  type CustodianState,
 } from '@ohhi/workspace'
 import {
   defaultRelay,
@@ -139,6 +138,8 @@ export interface WorkspaceConfig {
   firstJoin?: boolean
   /** Present → connect the ROOT mount to the relay (background, except a firstJoin pull). */
   relay?: RelayConfig
+  /** The host's grant is read-only (`WorkspaceUi.readOnly`): the editors open read-only. */
+  readOnly?: boolean
   /** Seed demo notes before enrolling — memory demo / e2e only. */
   seedDemo?: boolean
   /**
@@ -311,6 +312,21 @@ export interface WorkspaceUi {
   mounts: MountInfo[]
   /** Held mass-change batch awaiting confirm/dismiss (M3), else null. */
   breaker: { paths: string[] } | null
+  /**
+   * The ROOT room's headless custodian, as it announces itself on the folder
+   * doc's awareness (nextcloud-build decision 8): which docs' files in
+   * Nextcloud match. null when no custodian is present — the `files` readout
+   * then shows nothing rather than a stale claim. Per path through the file
+   * rows' guids: `nextcloud/files-status.ts`.
+   */
+  custodian: CustodianState | null
+  /**
+   * The host granted this room read-only (a Nextcloud read-only share): every
+   * editor opens with `readOnly`, so nothing is typed that the relay would
+   * drop, and the pill and notices say why. Absent = writable. The host may
+   * flip it live (a re-granted token that changed).
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -680,6 +696,8 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
     pull: null,
     mounts: [],
     breaker: null,
+    custodian: null,
+    readOnly: cfg.readOnly === true,
   })
 
   // ---- the event log (spike S22, Stage 4a): one writer path, the injected clock ----
@@ -1002,10 +1020,7 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
   }
 
   const buildMountInner = (opts: MountOpts): Promise<MountSession> => {
-    const mountDir = scopedStoreDir(cfg.storeDir, `${opts.room}/`)
-    const docStore = new BlobDocStore(engine, mountDir, realClock)
-    const lcaStore = lcaGuard(docStore, new JsonFileLcaStore(mountDir.io('lca.json')))
-    const journal = new FileJournal(mountDir, { now: () => realClock.now() })
+    const { mountDir, docStore, lcaStore, journal } = createMountStores(engine, cfg.storeDir, opts.room, realClock)
     journals.set(opts.room, journal)
     const adapter =
       opts.path === ''
@@ -1065,6 +1080,9 @@ export async function setupWorkspace(cfg: WorkspaceConfig): Promise<Workspace> {
           presenceByRoom.set(opts.room, names)
           refreshPresence()
         },
+        // The root room's custodian is the vault's (decision 8); a nested
+        // mount's would be another vault's, and this build has none.
+        ...(opts.path === '' ? { onCustodianState: (state: CustodianState | null) => (ui.custodian = state) } : {}),
         onDocPresence: (guid, peers) => {
           if (peers.length === 0 && !docPresence.has(guid)) return
           if (peers.length === 0) docPresence.delete(guid)

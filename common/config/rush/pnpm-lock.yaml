@@ -50,6 +50,55 @@ importers:
         specifier: ^2.12.3
         version: 2.12.3
 
+  ../../apps/nextcloud:
+    dependencies:
+      '@hocuspocus/provider':
+        specifier: ^4.0.0
+        version: 4.1.2(y-protocols@1.0.7(yjs@13.6.31))(yjs@13.6.31)
+      '@hocuspocus/server':
+        specifier: ^4.0.0
+        version: 4.1.2(y-protocols@1.0.7(yjs@13.6.31))(yjs@13.6.31)
+      '@ohhi/relay':
+        specifier: workspace:*
+        version: link:../relay
+      '@ohhi/sync':
+        specifier: workspace:*
+        version: link:../../libs/sync
+      '@ohhi/vault':
+        specifier: workspace:*
+        version: link:../../libs/vault
+      '@ohhi/workspace':
+        specifier: workspace:*
+        version: link:../../libs/workspace
+      better-sqlite3:
+        specifier: ^12.0.0
+        version: 12.10.0
+      y-protocols:
+        specifier: ^1.0.6
+        version: 1.0.7(yjs@13.6.31)
+      yjs:
+        specifier: ^13.6.27
+        version: 13.6.31
+    devDependencies:
+      '@ohhi/testkit':
+        specifier: workspace:*
+        version: link:../../libs/testkit
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      esbuild:
+        specifier: ^0.27.7
+        version: 0.27.7
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/debug@4.1.13)(@types/node@22.19.21)(jiti@2.7.0)(jsdom@28.1.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(yaml@2.9.1)
+
   ../../apps/relay:
     dependencies:
       '@hocuspocus/server':

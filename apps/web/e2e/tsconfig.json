@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "include": [".", "../playwright.config.ts"],
+  "compilerOptions": {
+    "types": ["node"],
+    "typeRoots": ["../../../libs/vault/node_modules/@types"],
+    "noEmit": true
+  }
+}

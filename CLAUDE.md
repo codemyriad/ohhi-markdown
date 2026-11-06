@@ -48,6 +48,22 @@ key — see `.claude/skills/ui-development`). The shell's component
 primitives (Melt UI + lucide: `Dialog`, menus, `Tooltip`, `IconButton`,
 `Tabs`, `Toaster`, `Popover`, form fields) live in `apps/web/src/lib/ui/` (chrome U1).
 
+`apps/nextcloud` is **`@ohhi/nextcloud`, the Nextcloud ExApp** (NC1–NC3 of
+`nextcloud-shaping`, a third host beside the browser and the desktop): one Node
+process behind AppAPI and HaRP holding the relay (through `createRelay`'s
+`authenticate` / `onRequest` hooks), the JSON API, the iframe-embedded web
+build (`apps/web`'s `rushx build:nextcloud`), and a headless custodian per
+enrolled Files folder that runs `libs/vault`'s reconciler over the
+`WebDavVaultAdapter`. Nextcloud's own permissions are the ACL: each session
+gets a short-lived relay token minted from the user's grant on the folder. No
+Svelte; its `src/` is under the clock lint (golden rule 5) and its disk writes
+go through the same stores and journal as every other host
+(`libs/workspace`'s `createMountStores`). **Every `<url>` in
+`apps/nextcloud/appinfo/info.xml` is written `^\/?…$`** — HaRP matches the path
+with its leading slash, AppAPI's PHP proxy without; `test/exapp.test.ts` holds
+the manifest to that and to `ROUTES`. The operator guide (install, the local
+stack, the live e2e) is `docs/nextcloud.md`.
+
 `apps/site` is the **`ohhi.md` landing page** (Astro, static, no client
 script): the apex names the web app at `app.ohhi.md` and the desktop
 downloads at `dist.ohhi.md`, every outbound URL in `src/links.ts`. Its colours
@@ -84,7 +100,7 @@ Toolchain: Rush 5.153.0, pnpm 10.17.0, Node 22.12 (`.nvmrc`). Use `rush install`
 2. **Never reserialize what you didn't change.** Frontmatter edits are surgical byte-preserving patches (parse-only YAML); untouched bytes stay untouched — no spurious git diffs.
 3. **Always-on CRDT for enrolled docs; no CRDT at all for tracked (never-shared) files.** There is no "dormant" mode — that was adversarially proven to lose data (see Decision log, Offline/collab seam).
 4. **Sync state never lies.** The pill is a pure `f(syncRecord)`; green requires durable (fsynced) relay ack — that is the target (`shaping` D4a); **today green means the relay has received every edit** (`apps/web/src/lib/pill-status.ts`), and every surface words it that way ("in sync with the relay", never "durable"). Tested under partition in the harness.
-5. **Injected clock/scheduler in all Editor-owned sync, reconciler and index code** (lint-enforced across `libs/sync`, `libs/vault`, `libs/index`, `libs/agent`, `libs/harness` and `libs/workspace` — the event log included; a documented `clock-exempt` marker covers diagnostics that schedule nothing) — deterministic simulation is the foundation of the test harness.
+5. **Injected clock/scheduler in all Editor-owned sync, reconciler and index code** (lint-enforced across `libs/sync`, `libs/vault`, `libs/index`, `libs/agent`, `libs/harness` and `libs/workspace` — the event log included — and `apps/nextcloud/src`, the headless custodian host; a documented `clock-exempt` marker covers diagnostics that schedule nothing) — deterministic simulation is the foundation of the test harness.
 6. **Collab correctness is tested, not hoped:** L0 fast-check model tests, L1 reconciler fuzz (memfs, `fuzz-crashers/` corpus), L2 two-context Playwright smoke. See `.claude/skills/testing`.
 7. **The UI renders through design tokens, never raw palette utilities.** One token layer drives the Svelte chrome and the CodeMirror surface alike; the sync-honesty tokens are unlayered so no user theme can repaint the pill (golden rule 4, expressed in the cascade). `scripts/check-design-tokens.sh` is a build gate, and `apps/web/e2e/a11y.spec.ts` (axe over every shell surface) gates accessibility the same way — no overlay, menu or icon control outside `apps/web/src/lib/ui/`. **The shell's bars are data, too: every toolbar and format-bar item is a registry command id; every bar readout is a catalogue id** (`READOUT_IDS` / `READOUTS`, drawn through one `BarItems.svelte`) — never a button written into a host, and the layout schema refuses a spec that would hide the `sync` readout (the open note's sync state; `note.pill` is its old alias). See `docs/theming.md` and `.claude/skills/ui-development`.
 8. **The index is derived, never a system of record.** Droppable by construction: losing it costs a rebuild, never data. One writer path, and every query is Promise-returning + paged so the SQLite backend behind `v2-shaping` Fork 1's trigger stays a swap.

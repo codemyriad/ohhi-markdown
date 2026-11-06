@@ -30,6 +30,7 @@ import Breadcrumb from './components/readouts/BreadcrumbReadout.svelte'
 import Chars from './components/readouts/Chars.svelte'
 import DailyNav from './components/readouts/DailyNav.svelte'
 import Drawer from './components/readouts/Drawer.svelte'
+import Files from './components/readouts/Files.svelte'
 import Inspector from './components/readouts/Inspector.svelte'
 import Help from './components/readouts/Help.svelte'
 import LastAgentWrite from './components/readouts/LastAgentWrite.svelte'
@@ -174,5 +175,7 @@ export const READOUTS: Record<ReadoutId, Readout> = {
   'last-agent-write': LastAgentWrite,
   // Chris, 2026-10-15: the Session view's door, between the inspector's and Help; nothing without a provider.
   session: Session,
+  // nextcloud-build decision 8: the files behind the room, from its custodian; nothing without one.
+  files: Files,
   people: Sync,
 }

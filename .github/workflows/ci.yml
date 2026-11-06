@@ -23,7 +23,7 @@ jobs:
       - name: Typecheck all packages
         run: |
           for pkg in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/frontmatter libs/index \
-                     libs/agent libs/harness libs/editor-lang libs/editor apps/relay apps/cli apps/web apps/site; do
+                     libs/agent libs/harness libs/editor-lang libs/editor apps/relay apps/cli apps/nextcloud apps/web apps/site; do
             echo "::group::check $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js check)
             echo "::endgroup::"
@@ -35,7 +35,7 @@ jobs:
       - name: Unit + property tests (L0, L1 bounded, relay integration)
         run: |
           for pkg in libs/i18n libs/sync libs/testkit libs/vault libs/workspace libs/ui libs/frontmatter libs/index \
-                     libs/agent libs/harness libs/editor-lang apps/relay apps/cli apps/web; do
+                     libs/agent libs/harness libs/editor-lang apps/relay apps/cli apps/nextcloud apps/web; do
             echo "::group::test $pkg"
             (cd "$pkg" && node ../../common/scripts/install-run-rushx.js test)
             echo "::endgroup::"

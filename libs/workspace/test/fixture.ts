@@ -17,18 +17,13 @@
  */
 import { createYjsEngine, type EngineDoc, type FileEntry, type SyncEngine } from '@ohhi/sync'
 import {
-  BlobDocStore,
-  FileJournal,
   ignoringAdapter,
   isRecoverable,
-  JsonFileLcaStore,
-  lcaGuard,
   MemStoreDir,
   MemVaultAdapter,
   MountsFile,
   mountRootsFrom,
   scopedAdapter,
-  scopedStoreDir,
   type MountDesc,
   type StoreDir,
   type StoreIo,
@@ -39,6 +34,7 @@ import { SimClock } from '@ohhi/testkit'
 import { expect } from 'vitest'
 import { carveFolder } from '../src/carve.js'
 import { MountSession, type MountSessionConfig } from '../src/mount-session.js'
+import { createMountStores } from '../src/mount-stores.js'
 import { recoverMounts } from '../src/vault-boot.js'
 import {
   bootFlagsFor,
@@ -551,17 +547,16 @@ export async function bootVault(
     mountPath: string,
     extra?: Partial<MountSessionConfig>
   ): Promise<MountSession> => {
-    const dir = scopedStoreDir(vaultDir, `${room}/`)
     const roomEngine = engineFor(room)
-    const docStore = new BlobDocStore(roomEngine, dir, clock)
+    const { docStore, lcaStore, journal } = createMountStores(roomEngine, vaultDir, room, clock)
     return MountSession.create({
       engine: roomEngine,
       adapter,
       user: { name: deviceId, color: '#000' },
       room,
       clock,
-      lcaStore: lcaGuard(docStore, new JsonFileLcaStore(dir.io('lca.json'))),
-      journal: new FileJournal(dir, { now: () => clock.now() }),
+      lcaStore,
+      journal,
       docStore,
       mountsFile,
       mountPath,

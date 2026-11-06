@@ -32,7 +32,17 @@ export function scopedAdapter(base: VaultAdapter, prefix: string): VaultAdapter 
     watch: (cb) =>
       base.watch((ev: WatchEvent) => {
         const paths = ev.paths.filter(inside).map(toRel)
-        if (paths.length > 0) cb({ paths })
+        // A move is a move only when both ends are inside the scope; one end
+        // outside is a create or a vanish as far as this scope can tell.
+        const moves: { from: string; to: string }[] = []
+        for (const m of ev.moves ?? []) {
+          const fromIn = inside(m.from)
+          const toIn = inside(m.to)
+          if (fromIn && toIn) moves.push({ from: toRel(m.from), to: toRel(m.to) })
+          else if (toIn) paths.push(toRel(m.to))
+          else if (fromIn) paths.push(toRel(m.from))
+        }
+        if (paths.length > 0 || moves.length > 0) cb(moves.length > 0 ? { paths, moves } : { paths })
       }),
   }
 }
@@ -61,7 +71,17 @@ export function ignoringAdapter(base: VaultAdapter, ignored: ReadonlySet<string>
     watch: (cb) =>
       base.watch((ev: WatchEvent) => {
         const paths = ev.paths.filter((p) => !hidden(p))
-        if (paths.length > 0) cb({ paths })
+        // Same rule as scopedAdapter: a move into or out of a hidden subtree
+        // is a create or a vanish on the visible side.
+        const moves: { from: string; to: string }[] = []
+        for (const m of ev.moves ?? []) {
+          const fromHidden = hidden(m.from)
+          const toHidden = hidden(m.to)
+          if (!fromHidden && !toHidden) moves.push(m)
+          else if (!toHidden) paths.push(m.to)
+          else if (!fromHidden) paths.push(m.from)
+        }
+        if (paths.length > 0 || moves.length > 0) cb(moves.length > 0 ? { paths, moves } : { paths })
       }),
   }
 }

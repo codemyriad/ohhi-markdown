@@ -10,7 +10,7 @@
 # editing that script, `rushx build` in apps/web, then `check-csp.mjs --print`.
 # A stale hash only blocks that script (a flash of the wrong theme).
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-hmCtceMjA9yLAXXRVsslVfJQ0lilMQtwHmXEWSIOPoA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-nLU8Un7I1hkLe0mU6tAXqDyYRpp78qQqQcwDSAfhUfY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss: https: ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer

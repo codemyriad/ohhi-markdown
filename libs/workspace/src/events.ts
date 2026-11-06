@@ -373,6 +373,20 @@ export class EventLog {
  * developer-facing diagnostic (console, the join promise) — no user reads it
  * from the log.
  */
+/**
+ * A durable reopen asked to wait for its room (`awaitRoomOnReopen`) and the
+ * room did not answer in time (or refused). The session falls through to the
+ * ordinary reopen and reports this on `onError`; a host for which that is not
+ * safe (the Nextcloud custodian) tells it apart by type and stops.
+ */
+export class RoomWaitError extends Error {
+  readonly code = 'room.wait' as const
+  constructor(readonly cause: unknown) {
+    super(`the room did not answer before the boot scan: ${cause instanceof Error ? cause.message : String(cause)}`)
+    this.name = 'RoomWaitError'
+  }
+}
+
 export class RelayRefusedError extends Error {
   readonly code = 'relay.refused' as const
   readonly reason: string

@@ -360,15 +360,25 @@ cd apps/web && SHOT_DIR=/tmp/shots ./node_modules/.bin/playwright test e2e/shots
 (It is excluded from the default project via `testIgnore`, so `rushx e2e` and
 CI never run it.)
 
+`e2e/nextcloud-live.spec.ts` drives a real Nextcloud with the ExApp installed
+(two users, a real Files folder); `playwright.config.ts` ignores it unless
+`OHHI_NC_E2E=1`, and then runs only it, without the e2e relay or the preview
+build. Its header and `apps/nextcloud/README.md` (§Live e2e) have the run line.
+
 ### Type checks
 
 ```sh
-cd apps/web && rushx check       # svelte-check
+cd apps/web && rushx check       # svelte-check over src/, then tsc -p e2e/tsconfig.json over the specs
 cd apps/relay && rushx check     # tsc --noEmit
 cd apps/cli && rushx check       # tsc --noEmit
 cd libs/agent && rushx check     # tsc --noEmit
 cd libs/i18n && rushx check      # regenerates the typesafe-i18n output, then tsc --noEmit
 ```
+
+`apps/web`'s Playwright specs (`e2e/*.ts`, `playwright.config.ts`) are Node
+code and are checked by their own `e2e/tsconfig.json`, which borrows
+`@types/node` from `libs/vault` (`typeRoots`) — `apps/web` itself declares no
+Node types, so none leak into the shell's `src/`.
 
 ### The dictionaries (typesafe-i18n)
 

@@ -1,0 +1,153 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+  <id>ohhi</id>
+  <name>Oh Hi</name>
+  <summary>Collaborative markdown notes over your Nextcloud Files folders.</summary>
+  <description><![CDATA[Oh Hi is a collaborative markdown editor. Open it from the Nextcloud menu, or
+choose "Open in Oh Hi" on a folder in Files: the folder becomes a vault of
+plain markdown notes that several people can edit at once. The files in
+Nextcloud stay the source of truth — every edit lands back in the folder as an
+ordinary file, with Nextcloud's versions kept — and who may read or write is
+whatever the folder's Nextcloud sharing says.
+
+Data processing: everything runs inside this app's container on your own
+server. Notes are read and written over Nextcloud's own WebDAV as the folder's
+owner, and the live-editing relay runs in the same container. Nothing is sent
+to any third party.]]></description>
+  <version>0.1.0</version>
+  <licence>agpl</licence>
+  <author>codemyriad</author>
+  <namespace>Ohhi</namespace>
+  <category>office</category>
+  <category>tools</category>
+  <website>https://github.com/codemyriad/ohhi-markdown</website>
+  <bugs>https://github.com/codemyriad/ohhi-markdown/issues</bugs>
+  <repository>https://github.com/codemyriad/ohhi-markdown</repository>
+  <dependencies>
+    <!-- HaRP (the AppAPI deploy daemon this app is built for) needs NC 32+. -->
+    <nextcloud min-version="32" max-version="36"/>
+  </dependencies>
+  <external-app>
+    <docker-install>
+      <registry>ghcr.io</registry>
+      <image>codemyriad/ohhi-nextcloud</image>
+      <!-- Pinned to <version>: AppAPI pulls exactly this build. Bump both together. -->
+      <image-tag>0.1.0</image-tag>
+    </docker-install>
+    <environment-variables>
+      <variable>
+        <name>OHHI_PUBLIC_ORIGINS</name>
+        <display-name>Public origins</display-name>
+        <description>Comma-separated origins (e.g. https://cloud.example.org) your users reach Nextcloud at. Only needed when a proxy rewrites the Host header; the request's own host and NEXTCLOUD_URL's are always accepted.</description>
+        <default></default>
+      </variable>
+      <variable>
+        <name>OHHI_LOG_LEVEL</name>
+        <display-name>Log level</display-name>
+        <description>info (default) or debug: debug adds one line per folder walk with its cost in WebDAV requests.</description>
+        <default>info</default>
+      </variable>
+    </environment-variables>
+    <!--
+      Routes AppAPI (PHP proxy) and HaRP forward to the container. Kept equal to
+      src/http.ts ROUTES (+ FILES_ACTION_ROUTE) by test/exapp.test.ts.
+        - Every pattern starts `^\/?`: HaRP matches the path WITH its leading
+          slash, the PHP proxy without it (spike S16-Q1).
+        - Every `/` is escaped: AppAPI wraps the pattern in `/…/i` delimiters.
+      Lifecycle endpoints (/heartbeat, /init, /enabled) are AppAPI-direct and
+      deliberately undeclared.
+    -->
+    <routes>
+      <!-- The shell (iframe document, assets) and the embedded page's bootstrap script -->
+      <route>
+        <url>^\/?ui\/.*$</url>
+        <verb>GET,HEAD</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <!-- Navigation and Files-menu icon -->
+      <route>
+        <url>^\/?img\/app\.svg$</url>
+        <verb>GET</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <!-- The relay: Hocuspocus WebSocket upgrade -->
+      <route>
+        <url>^\/?ws$</url>
+        <verb>GET</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?api\/me$</url>
+        <verb>GET</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?api\/session$</url>
+        <verb>POST</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?api\/vaults$</url>
+        <verb>GET,POST</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <!-- Unenrol (owner only) -->
+      <route>
+        <url>^\/?api\/vaults\/[0-9a-f-]{36}$</url>
+        <verb>DELETE</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?api\/vaults\/[0-9a-f-]{36}\/status$</url>
+        <verb>GET</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?api\/vaults\/[0-9a-f-]{36}\/holds\/[^\/]+$</url>
+        <verb>POST</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <!-- Files menu "Open in Oh Hi" handler (AppAPI FileActionsMenu v2) -->
+      <route>
+        <url>^\/?api\/files-action$</url>
+        <verb>POST</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?healthz$</url>
+        <verb>GET</verb>
+        <access_level>USER</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+      <route>
+        <url>^\/?admin\/status$</url>
+        <verb>GET</verb>
+        <access_level>ADMIN</access_level>
+        <headers_to_exclude>[]</headers_to_exclude>
+        <bruteforce_protection>[401, 500]</bruteforce_protection>
+      </route>
+    </routes>
+  </external-app>
+</info>

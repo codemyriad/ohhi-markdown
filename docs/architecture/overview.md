@@ -71,6 +71,7 @@ Rush monorepo, packages named `@ohhi/<name>`, created per-slice (shaping D10).
 | `libs/testkit` | Injected clock/scheduler + lint rule, TestNetwork (seeded PRNG, partition/heal), memfs fuzz driver with crash injection, `fuzz-crashers/` corpus, git-audit script. See [testing.md](testing.md). |
 | `libs/agent` | The **agent surface's command core** (G1): `VaultBackend` over `@ohhi/vault`'s Node adapter + `libs/index` + a CLI-owned pre-image journal, and the 17 ops — `ls`, `read`, `search`, `links`, `backlinks`, `unresolved`, `tags`, `resolve`, `stats`, `changes`, `write`, `patch`, `append`, `fm`, `mv`, `rm`, `restore` — declared once in `src/contract.ts`. Host-neutral: no process, no terminal, no transport. See [agent-access.md](../agent-access.md). |
 | `apps/cli` | The **`ohhi`** binary: `run(argv, io) => exit code`, text for humans and `--json` for machines, plus `ohhi mcp` (a stdio MCP server) and `gen-schemas` (writes the op schemas in `spec/`; the two resource schemas there are `apps/web`'s). esbuild-bundled so a cold invocation beats ~500 ms. A thin adapter over `libs/agent` — it holds no vocabulary of its own. |
+| `apps/nextcloud` | The **Nextcloud ExApp** (`@ohhi/nextcloud`, app id `ohhi`): one Node process deployed by AppAPI behind HaRP — the relay in-process (via `createRelay`'s hooks), a router for the session, vault and status API, the static shell for an iframe on AppAPI's embedded page, and one headless custodian per enrolled Files folder over `libs/vault`'s `WebDavVaultAdapter`. No Svelte. See [The Nextcloud host](#the-nextcloud-host) and [nextcloud.md](../nextcloud.md). |
 
 Split-on-demand later: `apps/agentd` (V3). Don't reference it before its slice
 creates it. `libs/agent` arrived early, with the agent surface (G1), for the
@@ -161,6 +162,82 @@ From `slices`, Wiring, in dataflow order:
    editor owns the file while open, with a debounced flush on idle/close.
 5. The sync pill renders a pure `f(syncRecord)` — it can be wrong only if the record is.
 6. `libs/testkit` drives the same reconciler and sync code under injected clocks in CI.
+
+## The Nextcloud host
+
+A third host beside the Tauri desktop and the browser, built 2026-10-11
+(`nextcloud-shaping` NC1–NC3, brief `nextcloud-build`):
+Oh Hi as a Nextcloud **ExApp**, deployed by AppAPI behind HaRP, over a vault
+that is an ordinary folder in Nextcloud Files. It is the same packages behind
+the same seams — `VaultAdapter`, `MountSession`, the relay's hooks — with the
+Nextcloud-specific code in one package, `apps/nextcloud`. Operator guide:
+[nextcloud.md](../nextcloud.md).
+
+```mermaid
+flowchart LR
+    subgraph browser["Browser — signed in to Nextcloud"]
+        page["AppAPI embedded page<br/>ui/embed.js"]
+        frame["iframe: the web build at /exapps/ohhi/ui/<br/>(our CSP, connect-src 'self')"]
+        opfs[("OPFS copy of the vault<br/>per-uid namespace")]
+        page --> frame
+        frame --> opfs
+    end
+    harp["HaRP<br/>/exapps/ohhi/… → frp tunnel<br/>adds AUTHORIZATION-APP-API (uid)"]
+    subgraph exapp["ExApp container — one Node process, one port"]
+        router["router<br/>api/session · api/vaults · holds · status"]
+        relay["Hocuspocus relay (apps/relay)<br/>authenticate hook: token + uid + Origin"]
+        recheck["permission re-check<br/>every 60 s, closes lost grants"]
+        cust["custodian per vault<br/>MountSession over WebDavVaultAdapter"]
+        store[("APP_PERSISTENT_STORAGE<br/>vault rows · relay.db · LCA, journal, doc blobs")]
+    end
+    files[("Nextcloud Files<br/>the vault folder — canonical<br/>ohhi-host.md marker + lease")]
+
+    frame -- "POST /api/session → token (≤10 min, uid-bound)" --> harp
+    frame -- "/ws, one socket per room" --> harp
+    harp --> router
+    harp --> relay
+    relay <-->|"loopback, device token;<br/>CustodianState awareness"| cust
+    router -- "oc:permissions as the caller" --> files
+    recheck -- "PROPFIND as each live user" --> files
+    recheck -. "close socket (4403)" .-> relay
+    cust -- "WebDAV as the owner:<br/>CAS PUT · ETag walk · MOVE" --> files
+    cust --> store
+    relay --> store
+```
+
+- **The browser** is today's OPFS peer, unchanged: it joins the vault's room
+  with a grant from `POST /api/session` and keeps its own copy, so offline
+  editing works and its reconciler owns only that copy. The shell runs in a
+  same-origin iframe on AppAPI's embedded page; the host is detected by path
+  (`apps/web/src/lib/host.ts`), and browser storage is namespaced per
+  Nextcloud uid.
+- **The custodian** is one `MountSession` per enrolled folder, whose disk is
+  the folder in Files read and written over WebDAV as the folder's owner
+  (`libs/vault/src/webdav/`). It is the one reconciler over that copy. Its
+  marker `ohhi-host.md` (a reserved name no adapter lists) is a lease renewed
+  with `If-Match`; a lease taken by another instance stops it.
+- **Access** is Nextcloud's: the session token is minted from the folder's
+  `oc:permissions` as the caller (`G` = read; `C K N V D` = write), bound to
+  the uid HaRP puts on the upgrade, and re-checked every 60 s; a lost grant
+  closes the user's sockets. See [relay.md](relay.md#hosts-and-the-nextcloud-token-source).
+
+Three invariants hold this host to the golden rules:
+
+1. **The custodian is never `'local'`.** It enrols disk only when a folder is
+   enrolled. A restart reopens from its durable stores after the room has
+   synced, with the marker's epoch equal to the store's; with no stores it
+   pulls from the room (`firstJoin`); anything else is `needs-operator`, and
+   the custodian stays idle rather than guess.
+2. **Hold, never confirm.** A mass change in Files (the breaker) or a
+   disagreement between a note and its file (a review) is held and shown on
+   the vault's status; a user who can write the folder confirms or discards
+   it. Nothing headless answers its own question.
+3. **The `files` status is honest.** The custodian publishes one
+   `CustodianState` on the folder doc's awareness — per note `match`,
+   `behind` or `blocked` (with the HTTP status of a refused write) — and the
+   shell's `files` readout is a pure function of it, shown only when a
+   custodian is present. A refused write is retried on the clock and stays
+   `blocked` until it lands, never a silent stall.
 
 ## Golden rules (summary)
 

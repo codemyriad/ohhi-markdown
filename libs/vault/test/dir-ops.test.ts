@@ -9,13 +9,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
-import { SimClock, TestNetwork } from '@ohhi/testkit'
+import { createWebDavFake, SimClock, TestNetwork } from '@ohhi/testkit'
 import { enrollFolder, joinFolder } from '../src/enrollment.js'
 import { MemVaultAdapter } from '../src/mem-adapter.js'
 import { NodeVaultAdapter } from '../src/node-adapter.js'
 import { MemJournal, MemLcaStore } from '../src/stores.js'
 import { VaultSession } from '../src/session.js'
 import type { VaultAdapter } from '../src/types.js'
+import { WebDavVaultAdapter } from '../src/webdav/index.js'
 
 const enc = (s: string) => new TextEncoder().encode(s)
 const settle = () => new Promise<void>((r) => setTimeout(r, 0))
@@ -33,6 +34,7 @@ async function adapters(): Promise<[string, VaultAdapter][]> {
   return [
     ['mem', new MemVaultAdapter()],
     ['node', new NodeVaultAdapter(root)],
+    ['webdav', new WebDavVaultAdapter({ baseUrl: (await createWebDavFake({ owner: 'u' })).url, headers: () => ({}), clock: new SimClock(), owner: 'u' })],
   ]
 }
 
