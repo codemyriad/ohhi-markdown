@@ -8,6 +8,7 @@
 export {
   createCollabExtensions,
   createUndoManager,
+  undoManagerFits,
   type CollabUndoManager,
   type CollabUser,
 } from './binding.js'
@@ -111,6 +112,14 @@ export {
   typewriterScrolling,
   type TypewriterInput,
 } from './typewriter.js'
+export {
+  sameTypingAids,
+  TYPING_DEFAULTS,
+  typingAttributes,
+  typingCompartment,
+  typingExtension,
+  type TypingAids,
+} from './typing.js'
 export type { ViewMode } from '@ohhi/editor-lang'
 export {
   commentRanges,

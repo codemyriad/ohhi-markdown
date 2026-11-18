@@ -139,6 +139,6 @@ describe('relay admin API', () => {
 
     expect(await connectOnce()).toBeNull() // authenticates while the share exists
     await call('DELETE', `/shares/${minted.token}`, { secret: SECRET })
-    expect(await connectOnce()).toBe('permission-denied') // blocked on the NEXT connection
+    expect(await connectOnce()).toBe('unknown_token') // blocked on the NEXT connection
   })
 })

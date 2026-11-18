@@ -59,6 +59,7 @@
   import type { Navigation } from '../navigation.svelte.js'
   import type { ShellLayout } from '../shell-layout.svelte.js'
   import IconButton from '../ui/IconButton.svelte'
+  import { currentInsets } from '../ui/visual-viewport.js'
   import type { Workspace } from '../workspace.svelte.js'
   import DockPanel, { DOCK_ICONS } from './DockPanel.svelte'
 
@@ -173,6 +174,14 @@
     }
   }
 
+  /**
+   * Floating, the dock follows the visible area as the format bar does
+   * (`ui/visual-viewport.ts`): its offsets are measured in the layout
+   * viewport, and the CSS adds the visual viewport's insets.
+   */
+  const vvTop = (px: number): string => `calc(${px}px + var(--vv-top, 0px))`
+  const vvBottom = (px: number): string => `calc(${px}px + var(--vv-bottom, 0px))`
+
   /** What else floats along the editor's bottom edge (`EditorArea`'s layer): the corner, the format bar. */
   const BOTTOM_FLOATS = '[data-testid="float-bottom"] [data-testid="corner-status"], [data-testid="float-bottom"] [data-testid="format-bar"]'
 
@@ -190,7 +199,9 @@
     for (const el of area?.querySelectorAll<HTMLElement>(BOTTOM_FLOATS) ?? []) {
       const r = el.getBoundingClientRect()
       if (r.height === 0 || r.right <= left || r.left >= right) continue
-      bottom = Math.max(bottom, box.bottom - r.top)
+      // The bar is drawn lifted by the visual viewport's bottom inset, which
+      // this strip's own CSS adds again: measure where it stands in the layout.
+      bottom = Math.max(bottom, box.bottom - (r.top + currentInsets().bottom))
     }
     return bottom
   }
@@ -330,8 +341,8 @@
     aria-label={t.label()}
     class="absolute z-20 flex flex-col rounded-lg border border-base-300 bg-base-100
       {open ? 'w-[min(20rem,calc(100%-2rem))] overflow-hidden shadow-lg' : 'shadow-sm'}"
-    style:top={open ? `${place.panelTop + GAP_PX}px` : position === 'top-right' ? `${place.top + GAP_PX}px` : undefined}
-    style:bottom={open ? `${place.panelBottom + GAP_PX}px` : position === 'bottom-right' ? `${place.bottom + GAP_PX}px` : undefined}
+    style:top={open ? vvTop(place.panelTop + GAP_PX) : position === 'top-right' ? vvTop(place.top + GAP_PX) : undefined}
+    style:bottom={open ? vvBottom(place.panelBottom + GAP_PX) : position === 'bottom-right' ? vvBottom(place.bottom + GAP_PX) : undefined}
     style:right="{open ? GAP_PX : place.right + GAP_PX}px"
   >
     {#if open}

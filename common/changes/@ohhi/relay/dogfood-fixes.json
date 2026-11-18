@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/relay",
+      "comment": "A refusal names its reason (unknown_token or out_of_scope) so a client can tell a dead link from a folder outside the share, and a document that cannot be loaded, stored or authenticated is logged by name.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/relay"
+}

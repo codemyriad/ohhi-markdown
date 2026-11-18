@@ -116,7 +116,7 @@ Auto-ingest is for edits that look like edits. Three tripwires route to review o
 - **Revert-of-recently-flushed-spans.** If an external write *undoes* spans Editor flushed moments ago, it's likely a stale editor buffer (Obsidian autosaving an old copy) — auto-ingesting it would revert teammates' edits. A ring of recently-flushed content hashes detects the echo; such writes always escalate (Spike S6 hardens this against Obsidian's real autosave behavior).
 - **Mass-change circuit breaker.** The watcher seeing *many* files change near-simultaneously means a vault-level event — a git branch switch, a restore, a bulk script. Per-file auto-merge across hundreds of files is how a tool shreds a vault in one second. The breaker pauses reconciliation and asks one question ("branch switch detected — re-sync N files?") before proceeding.
 
-Underneath all of it, the watcher trusts only **content hashes** (never mtime alone), and treats a file as settled only after **quiesce** — two reads yielding the same hash — so partial writes and save-storms never get classified mid-flight.
+Underneath all of it, the watcher trusts only **content hashes** (never mtime alone), and treats a file as settled only after **quiesce** — two reads yielding the same hash — so partial writes and save-storms never get classified mid-flight. The same rule holds for a file that is new: one another writer creates while the app runs is enrolled only once it has held still, so a half-written file is never seeded into its CRDT (and synced) as if it were whole.
 
 ## The safety net under the safety net
 

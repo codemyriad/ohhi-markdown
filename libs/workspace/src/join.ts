@@ -128,3 +128,50 @@ export async function joinMount(opts: JoinMountOptions): Promise<MountSession> {
     throw err
   }
 }
+
+/** One mount this device runs, as `announceMounts` needs it. */
+export interface RunningMount {
+  /** Workspace-relative mount root. */
+  path: string
+  room: string
+  /** The relay carrying the mount's room (not a secret; the token never travels). */
+  relay?: string
+  /** The live mount session: its folder state is the entry's seed. */
+  session: MountSession
+}
+
+/**
+ * Back-fill the root map's `kind:'mount'` entries when a private root goes
+ * relay-attached (`enableSharing`, reached from *Link a device*).
+ *
+ * `joinMount` and `carveFolder` announce a mount in the root map only when
+ * the root is ALREADY shared — a private vault has no peers to tell. So a
+ * share joined (or a folder carved) while the vault was private had no entry,
+ * and linking a device afterwards carried the room's grant in the link while
+ * the other device, reading the root map, never learnt a folder lived there.
+ *
+ * For every running mount the root map does not name, this writes the entry
+ * exactly as an announcing join does: `detachSubtree` with the mount, which
+ * clears any residue under the root and sets the entry in ONE transaction,
+ * seeded with the mount's current folder state so every peer builds the
+ * identical history (spike S10 Q1). A mount the map already names is left
+ * alone. Returns the paths announced.
+ */
+export async function announceMounts(
+  root: MountSession,
+  mounts: readonly RunningMount[]
+): Promise<string[]> {
+  if (!root.isShared()) return []
+  const named = new Set(root.mountEntries().map((e) => `${e.path}\u0000${e.room}`))
+  const announced: string[] = []
+  for (const m of mounts) {
+    if (!m.path || named.has(`${m.path}\u0000${m.room}`)) continue
+    await root.detachSubtree(m.path, {
+      room: m.room,
+      ...(m.relay ? { relay: m.relay } : {}),
+      seed: m.session.folderState(),
+    })
+    announced.push(m.path)
+  }
+  return announced
+}

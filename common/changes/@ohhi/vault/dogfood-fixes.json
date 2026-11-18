@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "A watcher that fails to start is reported, never swallowed; a new file is quiesced before it is enrolled and scratch files are skipped; a live enrol that overlaps a session restart is neither dropped nor left untracked.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

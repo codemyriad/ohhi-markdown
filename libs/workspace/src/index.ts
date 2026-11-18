@@ -28,6 +28,11 @@ export {
   MountSession,
   PEER_SETTLE_MS,
   RELAY_OFFLINE_MS,
+  REFUSAL_RETRY_MAX_MS,
+  REFUSAL_RETRY_LIMIT,
+  REFUSAL_RETRY_MIN_MS,
+  REFUSAL_SETTLE_MS,
+  isPermanentRefusal,
   type ProposeEditInput,
   type DetachOptions,
   type DocInspection,
@@ -61,7 +66,7 @@ export {
 export { activateMount, type ActivateMountOptions } from './activate.js'
 export { resolveRoomRelay, roomRelayUrl, sameRelay, type TokenKind } from './resolve-relay.js'
 export { carveFolder, type CarveOptions } from './carve.js'
-export { joinMount, type JoinMountOptions } from './join.js'
+export { announceMounts, joinMount, type JoinMountOptions, type RunningMount } from './join.js'
 export { unmountMount, unshareMount, type UnshareOptions } from './unshare.js'
 export {
   EVENT_LOG_MAX_AGE_MS,

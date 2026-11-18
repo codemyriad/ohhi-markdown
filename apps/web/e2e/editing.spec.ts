@@ -15,7 +15,7 @@ import { expectAccessible, paneContent as content, seedReadNote } from './fixtur
 type View = {
   state: {
     selection: { main: { head: number } }
-    doc: { length: number; toString(): string; lineAt(p: number): { from: number } }
+    doc: { length: number; toString(): string; lineAt(p: number): { from: number; number: number } }
   }
   dispatch(spec: { changes: { from: number; to: number; insert: string }; selection: { anchor: number } }): void
   focus(): void
@@ -259,4 +259,46 @@ test('a task box is the measured native box, and its text lines up with a bullet
   const checked = editor.locator('input.cm-task').nth(1)
   expect(await checked.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
   await expectAccessible(page, 'tasks in Live')
+})
+
+test('ArrowUp and ArrowDown move one line, onto lines a block widget draws', async ({ page }) => {
+  // CM6's vertical motion steps over block widgets; Live draws a fence's
+  // edges, a callout's title and the frontmatter as block widgets, so the
+  // arrow used to land two lines up — and over the frontmatter, on line 1.
+  await seedReadNote(page, 'edit-arrows', 'x')
+  const doc = [
+    '---',
+    'status: draft',
+    'tags: [a]',
+    '---',
+    'First body line',
+    '',
+    '> [!note] A title',
+    '> the body',
+    '',
+    '```js',
+    'let x = 1',
+    '```',
+    'last line',
+  ].join('\n')
+  await setDoc(page, doc)
+  const caretLine = () =>
+    content(page).evaluate((el) => {
+      const view = (el as unknown as { cmTile: { root: { view: View } } }).cmTile.root.view
+      return view.state.doc.lineAt(view.state.selection.main.head).number
+    })
+  expect(await caretLine()).toBe(13)
+  const up: number[] = []
+  for (let i = 0; i < 9; i++) {
+    await page.keyboard.press('ArrowUp')
+    up.push(await caretLine())
+  }
+  expect(up).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4])
+  // The frontmatter's own lines are text now, and Down walks back out of it.
+  const down: number[] = []
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press('ArrowDown')
+    down.push(await caretLine())
+  }
+  expect(down).toEqual([5, 6, 7, 8])
 })

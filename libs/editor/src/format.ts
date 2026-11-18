@@ -21,6 +21,7 @@ import {
   EditorSelection,
   type ChangeSpec,
   type EditorState,
+  type Line,
   type SelectionRange,
   type Text,
 } from '@codemirror/state'
@@ -112,6 +113,11 @@ const HIGHLIGHT: InlineSpec = { mark: '==', node: 'Highlight', markNode: 'Highli
 const LINE_LEAD =
   /^(?:[ \t]{0,3}>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])(?:[ \t]+|$)(?:\[[ xX]\](?:[ \t]+|$))?)?(?:#{1,6}(?:[ \t]+|$))?/
 
+/** Where a line's content starts (`LINE_LEAD`), as a document position. */
+function contentStart(line: Line): number {
+  return line.from + (LINE_LEAD.exec(line.text)?.[0].length ?? 0)
+}
+
 /** The nearest ancestor-or-self of `spec.node` that contains [from, to]. */
 function enclosing(tree: Tree, spec: InlineSpec, from: number, to: number): Node | null {
   for (const side of [1, -1] as const) {
@@ -187,12 +193,17 @@ function segments(state: EditorState, range: SelectionRange): { from: number; to
   const first = doc.lineAt(range.from)
   const last = doc.lineAt(range.to)
   if (first.number === last.number) {
+    // Never before the line's content: a selection that starts on the list
+    // marker (the whole `- item` line selected from its start, by drag,
+    // Shift+Home or a selection handle) wraps the item's text, not the
+    // marker — `**- item**` is a paragraph, not a bullet.
+    const from = Math.max(range.from, contentStart(first))
     // Trim, so the marker hugs the text: `**word **` is not bold.
-    const text = doc.sliceString(range.from, range.to)
+    const text = doc.sliceString(from, range.to)
     const lead = text.length - text.trimStart().length
     const trail = text.length - text.trimEnd().length
     if (lead === text.length) return []
-    return [{ from: range.from + lead, to: range.to - trail }]
+    return [{ from: from + lead, to: range.to - trail }]
   }
   // Across lines (two paragraphs, a list): each line is wrapped on its own,
   // since emphasis cannot cross a block boundary and `**a\n\nb**` renders as
@@ -200,8 +211,7 @@ function segments(state: EditorState, range: SelectionRange): { from: number; to
   const out: { from: number; to: number }[] = []
   for (let n = first.number; n <= last.number; n++) {
     const line = doc.line(n)
-    const lead = LINE_LEAD.exec(line.text)?.[0].length ?? 0
-    let from = Math.max(line.from + lead, range.from)
+    let from = Math.max(contentStart(line), range.from)
     let to = Math.min(line.to, range.to)
     while (from < to && /\s/.test(doc.sliceString(from, from + 1))) from++
     while (to > from && /\s/.test(doc.sliceString(to - 1, to))) to--

@@ -4,7 +4,13 @@
 // flattened assets folder; see docs/desktop-builds.md ("Updates").
 //
 //   node updater-manifest.mjs --dir assets --version 0.1.42 \
-//     --base-url https://ohhi.example.com/updates/v0.1.42 [--notes "…"] [--out assets/latest.json]
+//     --base-url https://ohhi.example.com/updates/v0.1.42 [--notes "…"] [--out assets/latest.json] \
+//     [--platforms linux,darwin]
+//
+// --platforms names which of linux and darwin the release carries (default:
+// both). A Linux-only release (the nightly channel) passes `linux`, and the
+// manifest then has no darwin keys instead of failing for a missing
+// .app.tar.gz; whatever is named must be there.
 //
 // Platforms: linux-x86_64 and linux-x86_64-appimage → the one *.AppImage;
 // linux-x86_64-deb → the one *.deb, only when its .sig exists (the updater
@@ -26,6 +32,7 @@ const { values: opt } = parseArgs({
     'base-url': { type: 'string' },
     notes: { type: 'string', default: '' },
     out: { type: 'string' },
+    platforms: { type: 'string', default: 'linux,darwin' },
     'pub-date': { type: 'string' }, // for tests; defaults to now
   },
 })
@@ -51,21 +58,29 @@ function artifact(suffix, label) {
   return { signature, url: `${base}/${encodeURIComponent(name)}` }
 }
 
-const linux = artifact('.AppImage', 'Linux')
-const mac = artifact('.app.tar.gz', 'macOS universal')
-const debs = files.filter((f) => f.endsWith('.deb'))
-const deb = debs.length === 1 && files.includes(`${debs[0]}.sig`) ? artifact('.deb', 'Linux .deb') : null
+const KNOWN_PLATFORMS = ['linux', 'darwin']
+const want = opt.platforms.split(',').map((p) => p.trim()).filter(Boolean)
+for (const p of want) if (!KNOWN_PLATFORMS.includes(p)) fail(`unknown platform "${p}" in --platforms (${KNOWN_PLATFORMS.join(', ')})`)
+if (!want.length) fail('--platforms names no platform')
+const platforms = {}
+if (want.includes('linux')) {
+  const linux = artifact('.AppImage', 'Linux')
+  const debs = files.filter((f) => f.endsWith('.deb'))
+  const deb = debs.length === 1 && files.includes(`${debs[0]}.sig`) ? artifact('.deb', 'Linux .deb') : null
+  platforms['linux-x86_64'] = linux
+  platforms['linux-x86_64-appimage'] = linux
+  if (deb) platforms['linux-x86_64-deb'] = deb
+}
+if (want.includes('darwin')) {
+  const mac = artifact('.app.tar.gz', 'macOS universal')
+  platforms['darwin-aarch64'] = mac
+  platforms['darwin-x86_64'] = mac
+}
 const manifest = {
   version: opt.version,
   notes: opt.notes,
   pub_date: opt['pub-date'] ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-  platforms: {
-    'linux-x86_64': linux,
-    'linux-x86_64-appimage': linux,
-    ...(deb ? { 'linux-x86_64-deb': deb } : {}),
-    'darwin-aarch64': mac,
-    'darwin-x86_64': mac,
-  },
+  platforms,
 }
 const out = opt.out ?? join(opt.dir, 'latest.json')
 writeFileSync(out, `${JSON.stringify(manifest, null, 2)}\n`)

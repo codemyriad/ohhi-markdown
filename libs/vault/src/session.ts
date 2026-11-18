@@ -12,7 +12,7 @@ import {
 } from './reconciler.js'
 import { decodeFile, renderFile } from './eol.js'
 import { hashBytes } from './hash.js'
-import { NEVER_ON_DISK } from './enrollment.js'
+import { isScratchName, NEVER_ON_DISK } from './enrollment.js'
 import { mountRootsFrom } from './mounts-file.js'
 import {
   DEFAULT_THRESHOLDS,
@@ -45,6 +45,37 @@ export interface SessionEvents {
   onError?: (err: unknown) => void
 }
 
+/**
+ * Live enrol-on-create (`agent-surface-shaping`: agents are first-class
+ * writers): the host's answer to a watch event naming paths this session does
+ * not know. The session never enrols on its own — it holds no enrolment
+ * policy (ignore set, mount table, binary rule); the host applies the boot
+ * scan's rules and the session counts the result toward the breaker.
+ */
+export interface LiveEnroller {
+  /**
+   * The files the host would enrol for these unknown watch paths: a file
+   * path itself, or every file under a directory path (a populated folder
+   * moved in arrives as ONE event). Paths the boot scan would skip are
+   * left out.
+   */
+  candidates(paths: readonly string[]): Promise<string[]>
+  /**
+   * Enrol them (map entry, doc, LCA). On return the folder map holds each
+   * enrolled path; the session then tracks it like one it started with. May
+   * be called by a session the host has since replaced (a restart landed
+   * while the files settled): the host makes its CURRENT session `track`
+   * what it enrols, so nothing ends up in the map untracked.
+   */
+  enrol(paths: readonly string[]): Promise<void>
+  /**
+   * Paths the host keeps off live enrolment whatever the listing says — its
+   * own writes in flight, for one. Synchronous, so a watch event naming only
+   * such paths never costs a listing.
+   */
+  ignores?(path: string): boolean
+}
+
 export interface VaultSessionOptions {
   engine: SyncEngine
   adapter: VaultAdapter
@@ -57,6 +88,8 @@ export interface VaultSessionOptions {
   events?: SessionEvents
   /** Quiesce delay between double reads, ms. */
   quiesceMs?: number
+  /** Without one, out-of-map paths are ignored until the next boot scan. */
+  enroller?: LiveEnroller
 }
 
 export class VaultSession {
@@ -69,6 +102,7 @@ export class VaultSession {
   private readonly events: SessionEvents
   private readonly quiesceMs: number
   private readonly ctx: ReconcileContext
+  private readonly enroller: LiveEnroller | null
 
   private pathToGuid = new Map<string, string>()
   private lastEntries = new Map<string, FileEntry>()
@@ -84,6 +118,17 @@ export class VaultSession {
   private subscriptions: (() => void)[] = []
   private paused = false
   private queuedPaths = new Set<string>()
+  /** New files held with a tripped breaker: enrolled on confirm, dropped on dismiss. */
+  private queuedNew = new Set<string>()
+  /**
+   * Watch batches waiting on the enroller's listing, in arrival order. A
+   * batch with nothing unknown to the map runs at once and never waits here
+   * (the common case stays synchronous, and an outside edit to a known note
+   * is not held behind someone else's listing); one with unknown paths
+   * queues, so new-file batches never reorder among themselves.
+   */
+  private watchChain: Promise<void> = Promise.resolve()
+  private watchPending = 0
   private reconcileScheduled = new Set<string>()
   private docQueues = new Map<string, Promise<unknown>>()
   private disposed = false
@@ -97,6 +142,7 @@ export class VaultSession {
     this.docs = opts.docs
     this.events = opts.events ?? {}
     this.quiesceMs = opts.quiesceMs ?? 30
+    this.enroller = opts.enroller ?? null
     this.ctx = {
       engine: opts.engine,
       adapter: opts.adapter,
@@ -116,7 +162,14 @@ export class VaultSession {
         this.pathToGuid.set(path, entry.guid)
       }
     }
-    this.subscriptions.push(this.adapter.watch((ev) => this.onWatch(ev)))
+    this.subscriptions.push(
+      this.adapter.watch(
+        (ev) => this.onWatch(ev),
+        (err) => {
+          if (!this.disposed) this.events.onError?.(err)
+        }
+      )
+    )
     this.subscriptions.push(
       this.folderDoc.getMap().observe((origin) => {
         this.refreshMountRoots()
@@ -290,13 +343,62 @@ export class VaultSession {
   async confirmPendingBatch(): Promise<void> {
     this.paused = false
     const paths = [...this.queuedPaths]
+    const fresh = [...this.queuedNew]
     this.queuedPaths.clear()
+    this.queuedNew.clear()
+    if (fresh.length > 0) await this.enrolLive(fresh)
     for (const path of paths) await this.reconcilePath(path)
   }
 
+  /** Drop the held batch: the known paths go unreconciled, the new files wait for the next boot scan. */
   dismissPendingBatch(): void {
     this.paused = false
     this.queuedPaths.clear()
+    this.queuedNew.clear()
+  }
+
+  /**
+   * Track a path the host enrolled while this session ran (live
+   * enrol-on-create): the per-path half of `start()`. Idempotent, and a no-op
+   * once disposed or when the map holds no live text entry with a doc for
+   * it. True when the path was newly tracked as a note.
+   */
+  track(path: string): boolean {
+    if (this.disposed) return false
+    const entry = this.folderDoc.getMap().get(path)
+    if (!entry || entry.deleted || this.underMount(path)) return false
+    this.lastEntries.set(path, entry)
+    if (entry.kind !== 'text' || this.pathToGuid.has(path)) return false
+    const doc = this.docs.get(entry.guid)
+    if (!doc) return false
+    this.pathToGuid.set(path, entry.guid)
+    this.subscribeDoc(entry.guid, doc)
+    return true
+  }
+
+  /**
+   * Move a held watch batch (the breaker's pause and its queues) to the
+   * session replacing this one, so the host's confirm or dismiss still finds
+   * it after a restart. Call before `next.start()`.
+   */
+  handOverHeld(next: VaultSession): void {
+    if (!this.paused && this.queuedPaths.size === 0 && this.queuedNew.size === 0) return
+    next.paused = next.paused || this.paused
+    for (const p of this.queuedPaths) next.queuedPaths.add(p)
+    for (const p of this.queuedNew) next.queuedNew.add(p)
+    this.paused = false
+    this.queuedPaths.clear()
+    this.queuedNew.clear()
+  }
+
+  /** Is a watch batch still listing or enrolling? A host restarting the session waits for it. */
+  watchBusy(): boolean {
+    return this.watchPending > 0
+  }
+
+  /** Resolves when the watch batches queued so far have run (never rejects). */
+  watchSettled(): Promise<void> {
+    return this.watchChain
   }
 
   dispose(): void {
@@ -316,22 +418,113 @@ export class VaultSession {
     // A mount boundary is out of scope even when the host's ignore set has not
     // caught up yet (a peer sees the mount entry before it has a desc): the
     // subtree is another session's business, never ours (N1, shaping A2).
-    ev = { paths: ev.paths.filter((p) => !this.underMount(p)) }
-    if (ev.paths.length === 0) return
-    const known = ev.paths.filter((p) => this.pathToGuid.has(p))
-    if (known.length > this.ctx.thresholds.massChangePaths) {
-      this.paused = true
-      for (const p of known) this.queuedPaths.add(p)
-      this.events.onBreaker?.(known)
+    const paths = ev.paths.filter((p) => !this.underMount(p))
+    if (paths.length === 0) return
+    const known = paths.filter((p) => this.pathToGuid.has(p))
+    // Unknown means unknown to the folder MAP, in any kind: an attachment, a
+    // folder or a note the map already holds needs no listing — only a path
+    // nobody has enrolled can be a new file (or a folder of them).
+    const map = this.folderDoc.getMap()
+    const enroller = this.enroller
+    const unknown = enroller
+      ? paths.filter((p) => {
+          if (this.pathToGuid.has(p)) return false
+          const entry = map.get(p)
+          if (entry && !entry.deleted) return false
+          // Another tool's swap, partial or backup file is never a new note.
+          return !isScratchName(p) && !enroller.ignores?.(p)
+        })
+      : []
+    if (unknown.length === 0) {
+      // Nothing to list: handled at once, never queued behind a listing.
+      void this.handleWatch(known, []).catch((err) => this.events.onError?.(err))
       return
     }
-    for (const path of ev.paths) {
-      if (this.paused) {
-        this.queuedPaths.add(path)
-        continue
-      }
-      this.quiesceThenReconcile(path)
+    this.watchPending++
+    this.watchChain = this.watchChain
+      .then(async () => {
+        const fresh = await enroller!.candidates(unknown)
+        if (this.disposed) return
+        // Re-split: a batch queued behind an enrolment may name a path that
+        // enrolment just made known.
+        const nowKnown = paths.filter((p) => this.pathToGuid.has(p))
+        await this.handleWatch(nowKnown, fresh.filter((p) => !this.pathToGuid.has(p)))
+      })
+      .catch((err) => this.events.onError?.(err))
+      .finally(() => {
+        this.watchPending--
+      })
+  }
+
+  /**
+   * One watch batch, split: `known` paths are reconciled, `fresh` files are
+   * enrolled. The breaker counts both — an agent's 21 new notes are as much a
+   * mass change as a branch switch rewriting 21 old ones.
+   */
+  private async handleWatch(known: string[], fresh: string[]): Promise<void> {
+    if (known.length + fresh.length > this.ctx.thresholds.massChangePaths) {
+      this.paused = true
+      for (const p of known) this.queuedPaths.add(p)
+      for (const p of fresh) this.queuedNew.add(p)
+      this.events.onBreaker?.([...known, ...fresh])
+      return
     }
+    if (this.paused) {
+      for (const p of known) this.queuedPaths.add(p)
+      for (const p of fresh) this.queuedNew.add(p)
+      return
+    }
+    // A new file is quiesced like a known one before it is enrolled: a writer
+    // that is not atomic must not have its first half synced to every peer.
+    if (fresh.length > 0) this.quiesceThenEnrol(fresh)
+    // Only a tracked note has anything to reconcile: a path the map holds as
+    // an attachment or a folder, or one that is neither known nor a candidate
+    // (a deletion of a file we never knew), is nothing to read.
+    for (const path of known) this.quiesceThenReconcile(path)
+  }
+
+  /**
+   * Hand new files to the host's enroller, then track what it put in the map —
+   * the per-path half of `start()`, so no restart (and no lost open-path
+   * marks) is needed for a file that appeared while the session ran.
+   */
+  private async enrolLive(paths: string[]): Promise<void> {
+    if (!this.enroller) return
+    // Even when this session was disposed while the files settled (a restart):
+    // the host enrols them and its current session tracks them. Bailing here
+    // would drop them until the next launch.
+    await this.enroller.enrol(paths)
+    for (const path of paths) {
+      if (!this.track(path)) continue
+      // A write that landed while the file was being enrolled named a path
+      // nobody tracked yet: one reconcile catches the doc up with the disk
+      // (a no-op when the bytes are the ones enrolled).
+      void this.reconcilePath(path).catch((err) => this.events.onError?.(err))
+    }
+  }
+
+  /**
+   * The double-read-same-hash quiesce for files that are not enrolled yet:
+   * read each, wait, read again; a file whose bytes held still is enrolled, a
+   * file still being written is tried again, and one that vanished in the
+   * meantime (a temp file renamed away, a download cancelled) is dropped.
+   */
+  private quiesceThenEnrol(paths: string[]): void {
+    const hashOf = (b: Uint8Array | null): string | null => (b ? hashBytes(b) : null)
+    void (async () => {
+      const first = await Promise.all(paths.map(async (p) => hashOf(await this.adapter.read(p))))
+      await new Promise<void>((resolve) => this.clock.schedule(resolve, this.quiesceMs))
+      const second = await Promise.all(paths.map(async (p) => hashOf(await this.adapter.read(p))))
+      const still: string[] = []
+      const moving: string[] = []
+      paths.forEach((p, i) => {
+        if (first[i] === null || second[i] === null) return
+        if (first[i] === second[i]) still.push(p)
+        else moving.push(p)
+      })
+      if (still.length > 0) await this.enrolLive(still)
+      if (moving.length > 0) this.quiesceThenEnrol(moving)
+    })().catch((err) => this.events.onError?.(err))
   }
 
   /** Double-read-same-hash quiesce before acting on a watch event. */
@@ -365,7 +558,7 @@ export class VaultSession {
 
   private async reconcilePath(path: string): Promise<void> {
     const guid = this.pathToGuid.get(path)
-    if (!guid) return // unknown path: V1 ignores out-of-map files (enroll-on-create is a UI action)
+    if (!guid) return // not a tracked note: new files are enrolled by the watch path, not here
     await this.reconcile(guid)
   }
 

@@ -47,6 +47,7 @@ function shellRegistry(mac = false): CommandRegistry {
     openView: vi.fn(),
     devtools: () => true,
     reloadResources: vi.fn(),
+    notices: { clear: vi.fn() },
     focusMode: { active: () => false, toggle: vi.fn(), leave: vi.fn() },
     templates: { commands: () => [] },
     help: { run: vi.fn(), menuMounted: () => true },

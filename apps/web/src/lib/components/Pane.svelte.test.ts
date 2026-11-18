@@ -21,6 +21,7 @@ import { applyLinkEdits, MemoryIndex } from '@ohhi/index'
 import { planCollectionMoves } from '@ohhi/collections'
 import { createYjsEngine, type EngineDoc } from '@ohhi/sync'
 import { SimClock } from '@ohhi/testkit'
+import { Awareness } from 'y-protocols/awareness'
 import { createMembership } from '../collection-membership.svelte.js'
 import { DENSE_CHROME } from '../pane-chrome.js'
 import { newTab, type Pane as PaneNode } from '../panes.js'
@@ -254,4 +255,92 @@ describe('Pane — collections across renames', () => {
       expect(pane.tabs[0].cursor).toEqual({ anchor: text.length + 2, head: text.length + 2 })
     })
   }
+})
+
+describe('Pane — a surgery that replaces the doc behind an open note', () => {
+  it('re-resolves the doc after `docsEpoch` moves, and the editor shows the new instance', async () => {
+    const v = vault({ 'team/plan.md': '# Plan\n\nbefore the share\n' })
+    mountPane(v, 'team/plan.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')?.textContent).toContain('before the share'))
+
+    // A carve: same path, a NEW doc instance in the new mount; the old one is
+    // destroyed. The host bumps the epoch once the views are re-marked.
+    const replacement = createYjsEngine().createDoc('carved')
+    replacement.transact((t) => t.insert(0, '# Plan\n\nin the shared folder\n'), 'local')
+    const old = v.docs.get('team/plan.md')!
+    v.docs.set('team/plan.md', replacement)
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+
+    await waitFor(() =>
+      expect(document.querySelector('.cm-content')?.textContent).toContain('in the shared folder')
+    )
+    expect(old.getText()).toContain('before the share')
+  })
+
+  it('keeps the editor when the epoch moves but the instance did not change', async () => {
+    const v = vault({ 'n.md': 'unchanged\n' })
+    mountPane(v, 'n.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    const editor = document.querySelector('.cm-editor')
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+  })
+})
+
+describe('Pane — what a surgery or a new connection must not rebuild', () => {
+  it('swaps a new awareness for the same doc into the editor in place', async () => {
+    const v = vault({ 'n.md': 'one two three\n' })
+    const doc = v.docs.get('n.md')!
+    const raw = doc.raw() as ConstructorParameters<typeof Awareness>[0]
+    let current = new Awareness(raw)
+    ;(v.workspace as { awarenessForPath: (path: string) => Awareness | null }).awarenessForPath = () => current
+    mountPane(v, 'n.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    const editor = document.querySelector('.cm-editor')
+
+    // The doc's connection came up later (a vault linked to a device): a new
+    // awareness, the same doc instance, and the epoch moves.
+    const first = current
+    current = new Awareness(raw)
+    ;(v.ui as { docsEpoch?: number }).docsEpoch = 1
+    flushSync()
+
+    // The same view — caret and scroll intact — with its cursor layer on the
+    // new awareness: this device's name is in it.
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+    expect((current.getLocalState() as { user?: { name?: string } } | null)?.user?.name).toBe('Test')
+    first.destroy()
+    current.destroy()
+  })
+
+  it('holds a note read-only while a surgery replaces its doc, without rebuilding the view', async () => {
+    const v = vault({ 'team/plan.md': 'the plan\n', 'inbox.md': 'elsewhere\n' })
+    mountPane(v, 'team/plan.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    const editor = document.querySelector('.cm-editor')
+    expect(document.querySelector('.cm-content')?.getAttribute('contenteditable')).toBe('true')
+
+    // A carve of `team` is under way.
+    ;(v.ui as { frozen?: string[] }).frozen = ['team']
+    flushSync()
+    expect(document.querySelector('.cm-content')?.getAttribute('contenteditable')).toBe('false')
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+
+    // Over.
+    ;(v.ui as { frozen?: string[] }).frozen = []
+    flushSync()
+    expect(document.querySelector('.cm-content')?.getAttribute('contenteditable')).toBe('true')
+    expect(document.querySelector('.cm-editor')).toBe(editor)
+  })
+
+  it('leaves a note outside the surgery editable', async () => {
+    const v = vault({ 'team/plan.md': 'the plan\n', 'inbox.md': 'elsewhere\n' })
+    mountPane(v, 'inbox.md')
+    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
+    ;(v.ui as { frozen?: string[] }).frozen = ['team']
+    flushSync()
+    expect(document.querySelector('.cm-content')?.getAttribute('contenteditable')).toBe('true')
+  })
 })

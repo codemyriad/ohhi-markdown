@@ -117,7 +117,8 @@ export class MemVaultAdapter implements VaultAdapter {
     this.emit([path])
   }
 
-  watch(cb: (ev: WatchEvent) => void): () => void {
+  /** In memory a watch cannot fail to start, so `onError` is never called. */
+  watch(cb: (ev: WatchEvent) => void, _onError?: (err: unknown) => void): () => void {
     this.watchers.add(cb)
     return () => this.watchers.delete(cb)
   }

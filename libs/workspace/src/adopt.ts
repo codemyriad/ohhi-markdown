@@ -846,6 +846,9 @@ export async function sweepGhosts(ctx: AdoptContext): Promise<void> {
       continue
     }
     if (entry.kind !== 'text' && entry.kind !== 'binary') continue // a stray dir key
+    // The mount enrolled the file itself already — live enrol-on-create saw
+    // it land on disk, with a fresh guid of the mount's own: nothing to import.
+    if (session.mapEntries().some(([p]) => p === rel)) continue
     const bytes = await session.readFileBytes(rel)
     // Unknown guid with bytes on disk: import into the mount with a FRESH guid
     // — content identity never crosses rooms (spike S8 Q5).

@@ -243,6 +243,12 @@ interface AppConfigV2 {
    * before this shipped simply has none.
    */
   read?: Partial<ReadPrefs>
+  /**
+   * The platform's typing aids in the editor (Settings › Editor): spell
+   * checking, autocorrect, sentence capitalisation. Device-level — they are
+   * about this keyboard and this OS's dictionary — and additive on read.
+   */
+  typing?: Partial<TypingPrefs>
   /** The browser-storage note was dismissed. Device-level: the grant is per browser profile. */
   storageNoticeDismissed?: boolean
   /**
@@ -279,6 +285,17 @@ export interface ReadPrefs {
 }
 
 export const READ_DEFAULTS: ReadPrefs = { defaultMode: 'live' }
+
+/** Device-level typing aids; one boolean per content attribute the editor sets. */
+export interface TypingPrefs {
+  spellcheck: boolean
+  autocorrect: boolean
+  /** Capitalise the first letter of a sentence. */
+  autocapitalize: boolean
+}
+
+/** All on, as a text field behaves everywhere else on the device. */
+export const TYPING_PREFS_DEFAULTS: TypingPrefs = { spellcheck: true, autocorrect: true, autocapitalize: true }
 
 /**
  * `system` is a preference, not a theme — it resolves to a built-in at boot
@@ -755,6 +772,26 @@ export function readPrefs(): ReadPrefs {
 export function setReadPrefs(patch: Partial<ReadPrefs>): void {
   const cfg = loadConfig()
   cfg.read = { ...normalizeRead(cfg.read), ...patch }
+  save(cfg)
+}
+
+// ---- typing aids (Settings › Editor) ----
+
+/** Tolerant read: a missing or non-boolean field is its default. */
+function normalizeTyping(raw: unknown): TypingPrefs {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof TypingPrefs, unknown>>
+  const flag = (key: keyof TypingPrefs): boolean =>
+    typeof r[key] === 'boolean' ? (r[key] as boolean) : TYPING_PREFS_DEFAULTS[key]
+  return { spellcheck: flag('spellcheck'), autocorrect: flag('autocorrect'), autocapitalize: flag('autocapitalize') }
+}
+
+export function typingPrefs(): TypingPrefs {
+  return normalizeTyping(loadConfig().typing)
+}
+
+export function setTypingPrefs(patch: Partial<TypingPrefs>): void {
+  const cfg = loadConfig()
+  cfg.typing = { ...normalizeTyping(cfg.typing), ...patch }
   save(cfg)
 }
 

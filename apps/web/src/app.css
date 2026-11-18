@@ -12,7 +12,10 @@
  * home indicator: the body keeps the shell inside the safe area, and every
  * page fills #app rather than the raw viewport (`h-full`, not `h-screen`).
  * Everywhere else the insets are 0: a desktop, a browser tab, and the
- * Android app, whose MainActivity already pads the webview natively. */
+ * Android app, whose MainActivity already pads the webview natively.
+ * `ui/visual-viewport.ts` reads the body's bottom padding back as the inset
+ * it takes out of a keyboard's lift, so the floating bars stand on the
+ * keyboard rather than an inset above it: keep the inset on the body. */
 @layer base {
   body {
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)

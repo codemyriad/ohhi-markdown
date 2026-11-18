@@ -68,6 +68,9 @@ export class TauriVaultAdapter implements VaultAdapter {
   /** `watchAppDir` listeners: fed from the ONE native watcher below (S20 Q1). */
   private readonly appDirs = new AppDirListeners()
 
+  /** A watch failure has been reported to a listener already (see `watch`). */
+  private watchFailureReported = false
+
   constructor(private root: string) {
     this.rootAbs = normalizePosix(toPosix(root))
   }
@@ -190,9 +193,10 @@ export class TauriVaultAdapter implements VaultAdapter {
     if (await exists(full)) await fsRemove(full)
   }
 
-  watch(cb: (ev: WatchEvent) => void): () => void {
+  watch(cb: (ev: WatchEvent) => void, onError?: (err: unknown) => void): () => void {
     let unwatch: UnwatchFn | null = null
     let disposed = false
+    const root = this.root
 
     // watchImmediate is async; kick it off and capture the unwatch fn. The
     // disposer we return is synchronous: it unwatches if already resolved, and
@@ -214,11 +218,31 @@ export class TauriVaultAdapter implements VaultAdapter {
       { recursive: true },
     ).then(
       (fn) => {
-        if (disposed) fn()
-        else unwatch = fn
+        if (disposed) {
+          fn()
+          return
+        }
+        unwatch = fn
+        // One line, so a dev build shows whether the watcher is running.
+        console.info('[vault] watching', root)
       },
-      () => {
-        /* watch failed to start; nothing to unwatch */
+      (err: unknown) => {
+        // A vault with no watcher never ingests an outside edit, and said
+        // nothing about it: report the failure instead (golden rule 4 in spirit).
+        if (disposed) return
+        const failure = new Error(
+          `the file watcher did not start, so changes made outside the app will not be picked up: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          { cause: err },
+        )
+        // Once per vault: every session restart (a note created, a folder
+        // shared) watches again, and one dead watcher is one error, not a
+        // toast per restart. Repeats still reach the console.
+        if (onError && !this.watchFailureReported) {
+          this.watchFailureReported = true
+          onError(failure)
+        } else console.error('[vault]', failure)
       },
     )
 

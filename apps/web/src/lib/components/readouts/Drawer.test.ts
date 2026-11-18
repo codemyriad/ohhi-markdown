@@ -5,6 +5,7 @@ import { cleanup, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { flushSync } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { clearedNotices } from '../../notices.js'
 import { event, fakeViewShell, notice } from '../../readouts.fixture.js'
 import { box, withActions, type ActionsHarness } from '../../shell-actions.fixture.svelte.js'
 import { createShellLayout, type ShellLayout } from '../../shell-layout.svelte.js'
@@ -24,6 +25,7 @@ let now: number
 
 beforeEach(() => {
   useMemStorage()
+  clearedNotices.set({})
   now = NOW
 })
 afterEach(() => {
@@ -48,7 +50,7 @@ function setup(list: AppEvent[]) {
   const shell = fakeViewShell()
   shell.clock = { now: () => now, schedule: () => () => {} }
   const ctx = {
-    workspace: { ui: { events: list } } as unknown as Workspace,
+    workspace: { room: 'vault-r', ui: { events: list } } as unknown as Workspace,
     layout: harness.actions,
   }
   render(Drawer, { props: { ctx }, context: viewShellContext(shell) })
@@ -136,5 +138,32 @@ describe('the drawer readout', () => {
     expect(screen.getByRole('button', { name: t.label() })).toBeInTheDocument()
     await user.click(screen.getByTestId('drawer-bell'))
     expect(await screen.findByTestId('drawer-empty')).toHaveTextContent(t.empty())
+  })
+
+  it('Clear all empties the drawer and the bell, and never the log', async () => {
+    const list = [ev('w', NOW - 1_000, 'warn'), ev('e', NOW - 3_000, 'error')]
+    const { layout, user } = setup(list)
+    await user.click(screen.getByTestId('drawer-bell'))
+    const drawer = await screen.findByRole('dialog', { name: t.title() })
+    await user.click(within(drawer).getByRole('button', { name: t.clear_all() }))
+    expect(await screen.findByTestId('drawer-empty')).toHaveTextContent(t.empty_cleared())
+    // Focus stays in the drawer, on its one remaining control.
+    expect(document.activeElement).toBe(screen.getByTestId('drawer-open-log'))
+    // The log is history: both events are still in it.
+    expect(list.map((e) => e.id)).toEqual(['w', 'e'])
+    expect(layout.unread).toBe(0)
+  })
+
+  it('a row’s dismiss takes that row out, and focus moves to the next row’s dismiss', async () => {
+    const peer = (id: string, at: number, path: string): AppEvent =>
+      event({ id, kind: 'doc.changed', at, scope: { room: 'cs', path }, actor: { kind: 'peer', name: 'Sam' }, payload: CHANGE })
+    const { user } = setup([ev('w', NOW - 1_000, 'warn'), ev('e', NOW - 2_000, 'error'), peer('c', NOW - 3_000, 'CS/Raft.md')])
+    await user.click(screen.getByTestId('drawer-bell'))
+    const drawer = await screen.findByRole('dialog', { name: t.title() })
+    await user.click(within(within(drawer).getByTestId('event:w')).getByRole('button', { name: t.dismiss() }))
+    expect(within(drawer).getAllByRole('listitem').map((li) => li.dataset.testid)).toEqual(['event:e', 'drawer-change:CS/Raft.md'])
+    expect(document.activeElement).toBe(within(within(drawer).getByTestId('event:e')).getByRole('button', { name: t.dismiss() }))
+    await user.click(within(drawer).getByRole('button', { name: t.dismiss_note({ note: 'Raft' }) }))
+    expect(within(drawer).getAllByRole('listitem').map((li) => li.dataset.testid)).toEqual(['event:e'])
   })
 })

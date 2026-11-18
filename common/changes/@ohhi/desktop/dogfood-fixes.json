@@ -1,0 +1,15 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "The vault watcher is compiled in, so files written from outside the app show up while it runs.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/desktop",
+      "comment": "A nightly channel: every day a Linux AppImage of main is published under its own app identifier, so it installs beside the stable app and updates from dist.ohhi.md/nightly.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/desktop"
+}

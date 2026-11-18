@@ -55,6 +55,9 @@ import {
   setOperatorSecret,
   setPaneHints,
   setReadPrefs,
+  setTypingPrefs,
+  TYPING_PREFS_DEFAULTS,
+  typingPrefs,
   setRoomToken,
   touchVault,
   upsertVault,
@@ -241,6 +244,27 @@ describe('reading preferences (read-shaping B3)', () => {
   it('a stored mode that is not a mode reads as the default, never as a crash', () => {
     seed('editor:config', { ...loadConfig(), read: { defaultMode: 'preview' } })
     expect(readPrefs().defaultMode).toBe('live')
+  })
+})
+
+describe('typing aids (Settings › Editor)', () => {
+  it('default to all on', () => {
+    expect(typingPrefs()).toEqual({ spellcheck: true, autocorrect: true, autocapitalize: true })
+    expect(TYPING_PREFS_DEFAULTS).toEqual(typingPrefs())
+  })
+
+  it('round-trip one at a time, additively — nothing else is disturbed', () => {
+    setReadPrefs({ defaultMode: 'reading' })
+    setTypingPrefs({ spellcheck: false })
+    setTypingPrefs({ autocapitalize: false })
+    expect(typingPrefs()).toEqual({ spellcheck: false, autocorrect: true, autocapitalize: false })
+    expect(readPrefs().defaultMode).toBe('reading')
+    expect(loadConfig().typing).toEqual({ spellcheck: false, autocorrect: true, autocapitalize: false })
+  })
+
+  it('a stored value that is not a boolean reads as the default, never as a crash', () => {
+    seed('editor:config', { ...loadConfig(), typing: { spellcheck: 'no', autocorrect: false } })
+    expect(typingPrefs()).toEqual({ spellcheck: true, autocorrect: false, autocapitalize: true })
   })
 })
 

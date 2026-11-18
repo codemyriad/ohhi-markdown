@@ -45,6 +45,7 @@
           "template.insert",
           "layout.use-file",
           "app.desktop-download",
+          "app.clear-notifications",
           "help.menu",
           "help.start",
           "help.shortcuts",

@@ -158,10 +158,33 @@ export type NamespaceWebTranslation = {
 			info: string
 		}
 		/**
-		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​{​r​e​a​s​o​n​}​)​.
+		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​(​{​r​e​a​s​o​n​}​)​.
 		 * @param {string} reason
 		 */
 		relay_refused: RequiredParams<'reason'>
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​r​e​f​u​s​e​d​ ​t​h​i​s​ ​v​a​u​l​t​ ​(​{​r​e​a​s​o​n​}​)​.
+		 * @param {string} reason
+		 */
+		relay_refused_vault: RequiredParams<'reason'>
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​n​o​ ​l​o​n​g​e​r​ ​a​c​c​e​p​t​s​ ​t​h​e​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​.
+		 */
+		relay_refused_link: string
+		/**
+		 * T​h​e​ ​r​e​l​a​y​ ​n​o​ ​l​o​n​g​e​r​ ​a​c​c​e​p​t​s​ ​t​h​i​s​ ​d​e​v​i​c​e​ ​f​o​r​ ​t​h​i​s​ ​v​a​u​l​t​.
+		 */
+		relay_refused_device: string
+		/**
+		 * {​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​o​p​e​n​ ​a​ ​d​o​c​u​m​e​n​t​ ​i​n​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​—​ ​r​e​t​r​y​i​n​g​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_refused_retrying: RequiredParams<'host'>
+		/**
+		 * {​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​o​p​e​n​ ​a​ ​d​o​c​u​m​e​n​t​ ​i​n​ ​t​h​i​s​ ​v​a​u​l​t​ ​—​ ​r​e​t​r​y​i​n​g​.​ ​Y​o​u​r​ ​e​d​i​t​s​ ​a​r​e​ ​s​a​f​e​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
+		 * @param {string} host
+		 */
+		relay_refused_retrying_vault: RequiredParams<'host'>
 		/**
 		 * T​h​e​ ​f​o​l​d​e​r​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​s​h​a​r​e​d​,​ ​b​u​t​ ​i​t​s​ ​l​i​n​k​s​ ​o​n​ ​{​h​o​s​t​}​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​r​e​v​o​k​e​d​:​ ​{​m​e​s​s​a​g​e​}
 		 * @param {string} host
@@ -245,6 +268,11 @@ export type NamespaceWebTranslation = {
 		 * @param {number} count
 		 */
 		breaker_held: RequiredParams<'count'>
+		/**
+		 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}​ ​t​h​a​t​ ​a​r​r​i​v​e​d​ ​a​t​ ​o​n​c​e​ ​{​{​w​a​s​|​w​e​r​e​}​}​ ​n​o​t​ ​a​p​p​l​i​e​d​.
+		 * @param {number} count
+		 */
+		breaker_dismissed: RequiredParams<'count'>
 		/**
 		 * C​o​n​n​e​c​t​e​d​ ​t​o​ ​{​h​o​s​t​}​.
 		 * @param {string} host
@@ -1963,6 +1991,10 @@ export type NamespaceWebTranslation = {
 		 * T​o​g​g​l​e​ ​F​o​c​u​s​ ​m​o​d​e
 		 */
 		focus_mode: string
+		/**
+		 * C​l​e​a​r​ ​n​o​t​i​f​i​c​a​t​i​o​n​s
+		 */
+		clear_notifications: string
 	}
 	daily: {
 		/**
@@ -2207,7 +2239,11 @@ export type NamespaceWebTranslation = {
 			/**
 			 * A​s​k​ ​w​h​o​e​v​e​r​ ​s​h​a​r​e​d​ ​t​h​e​ ​f​o​l​d​e​r​ ​f​o​r​ ​a​ ​n​e​w​ ​l​i​n​k​,​ ​t​h​e​n​ ​a​d​d​ ​i​t​ ​f​r​o​m​ ​t​h​e​ ​f​o​l​d​e​r​’​s​ ​m​e​n​u​.
 			 */
-			relay_refused: string
+			relay_refused_link: string
+			/**
+			 * T​h​i​s​ ​d​e​v​i​c​e​’​s​ ​a​c​c​e​s​s​ ​w​a​s​ ​r​e​f​u​s​e​d​.​ ​L​i​n​k​ ​i​t​ ​a​g​a​i​n​ ​f​r​o​m​ ​a​ ​d​e​v​i​c​e​ ​t​h​a​t​ ​s​t​i​l​l​ ​h​a​s​ ​a​c​c​e​s​s​,​ ​i​n​ ​S​e​t​t​i​n​g​s​ ​›​ ​S​y​n​c​ ​&​ ​d​e​v​i​c​e​s​.
+			 */
+			relay_refused_device: string
 			/**
 			 * A​d​d​ ​a​ ​l​i​n​k​ ​f​o​r​ ​t​h​i​s​ ​f​o​l​d​e​r​ ​f​r​o​m​ ​i​t​s​ ​m​e​n​u​,​ ​o​r​ ​f​o​r​g​e​t​ ​i​t​ ​o​n​ ​t​h​i​s​ ​d​e​v​i​c​e​.
 			 */
@@ -2287,6 +2323,23 @@ export type NamespaceWebTranslation = {
 		 * C​h​a​n​g​e​s​ ​b​y​ ​o​t​h​e​r​s
 		 */
 		changes: string
+		/**
+		 * C​l​e​a​r​ ​a​l​l
+		 */
+		clear_all: string
+		/**
+		 * N​o​t​h​i​n​g​ ​n​e​w​ ​s​i​n​c​e​ ​y​o​u​ ​c​l​e​a​r​e​d​ ​i​t​.​ ​T​h​e​ ​L​o​g​ ​k​e​e​p​s​ ​e​v​e​r​y​t​h​i​n​g​.
+		 */
+		empty_cleared: string
+		/**
+		 * D​i​s​m​i​s​s
+		 */
+		dismiss: string
+		/**
+		 * D​i​s​m​i​s​s​ ​c​h​a​n​g​e​s​ ​t​o​ ​{​n​o​t​e​}
+		 * @param {string} note
+		 */
+		dismiss_note: RequiredParams<'note'>
 		group: {
 			/**
 			 * {​c​o​u​n​t​}​ ​c​h​a​n​g​e​{​{​s​}​}
@@ -3689,6 +3742,26 @@ export type NamespaceWebTranslation = {
 			 * @param {string} key
 			 */
 			default_mode_hint: RequiredParams<'key'>
+			/**
+			 * T​y​p​i​n​g
+			 */
+			typing: string
+			/**
+			 * C​h​e​c​k​ ​s​p​e​l​l​i​n​g
+			 */
+			spellcheck: string
+			/**
+			 * A​u​t​o​c​o​r​r​e​c​t
+			 */
+			autocorrect: string
+			/**
+			 * C​a​p​i​t​a​l​i​s​e​ ​s​e​n​t​e​n​c​e​s
+			 */
+			autocapitalize: string
+			/**
+			 * U​s​e​s​ ​t​h​i​s​ ​d​e​v​i​c​e​’​s​ ​o​w​n​ ​d​i​c​t​i​o​n​a​r​y​ ​a​n​d​ ​k​e​y​b​o​a​r​d​.​ ​A​u​t​o​c​o​r​r​e​c​t​ ​a​n​d​ ​c​a​p​i​t​a​l​s​ ​d​e​p​e​n​d​ ​o​n​ ​t​h​e​ ​k​e​y​b​o​a​r​d​ ​a​n​d​ ​b​r​o​w​s​e​r​.
+			 */
+			typing_hint: string
 		}
 		appearance: {
 			/**
@@ -9369,9 +9442,29 @@ export type TranslationFunctions = {
 				info: () => LocalizedString
 			}
 			/**
-			 * The relay refused the link for this folder ({reason}).
+			 * The relay refused this folder ({reason}).
 			 */
 			relay_refused: (arg: { reason: string }) => LocalizedString
+			/**
+			 * The relay refused this vault ({reason}).
+			 */
+			relay_refused_vault: (arg: { reason: string }) => LocalizedString
+			/**
+			 * The relay no longer accepts the link for this folder.
+			 */
+			relay_refused_link: () => LocalizedString
+			/**
+			 * The relay no longer accepts this device for this vault.
+			 */
+			relay_refused_device: () => LocalizedString
+			/**
+			 * {host} could not open a document in this folder — retrying. Your edits are safe on this device.
+			 */
+			relay_refused_retrying: (arg: { host: string }) => LocalizedString
+			/**
+			 * {host} could not open a document in this vault — retrying. Your edits are safe on this device.
+			 */
+			relay_refused_retrying_vault: (arg: { host: string }) => LocalizedString
 			/**
 			 * The folder is no longer shared, but its links on {host} could not be revoked: {message}
 			 */
@@ -9434,6 +9527,10 @@ export type TranslationFunctions = {
 			 * {count} change{{s}} arrived at once and wait{{s|}} for you to confirm.
 			 */
 			breaker_held: (arg: { count: number }) => LocalizedString
+			/**
+			 * {count} change{{s}} that arrived at once {{was|were}} not applied.
+			 */
+			breaker_dismissed: (arg: { count: number }) => LocalizedString
 			/**
 			 * Connected to {host}.
 			 */
@@ -11080,6 +11177,10 @@ export type TranslationFunctions = {
 			 * Toggle Focus mode
 			 */
 			focus_mode: () => LocalizedString
+			/**
+			 * Clear notifications
+			 */
+			clear_notifications: () => LocalizedString
 		}
 		daily: {
 			/**
@@ -11308,7 +11409,11 @@ export type TranslationFunctions = {
 				/**
 				 * Ask whoever shared the folder for a new link, then add it from the folder’s menu.
 				 */
-				relay_refused: () => LocalizedString
+				relay_refused_link: () => LocalizedString
+				/**
+				 * This device’s access was refused. Link it again from a device that still has access, in Settings › Sync & devices.
+				 */
+				relay_refused_device: () => LocalizedString
 				/**
 				 * Add a link for this folder from its menu, or forget it on this device.
 				 */
@@ -11380,6 +11485,22 @@ export type TranslationFunctions = {
 			 * Changes by others
 			 */
 			changes: () => LocalizedString
+			/**
+			 * Clear all
+			 */
+			clear_all: () => LocalizedString
+			/**
+			 * Nothing new since you cleared it. The Log keeps everything.
+			 */
+			empty_cleared: () => LocalizedString
+			/**
+			 * Dismiss
+			 */
+			dismiss: () => LocalizedString
+			/**
+			 * Dismiss changes to {note}
+			 */
+			dismiss_note: (arg: { note: string }) => LocalizedString
 			group: {
 				/**
 				 * {count} change{{s}}
@@ -12703,6 +12824,26 @@ export type TranslationFunctions = {
 				 * Applies to any tab you have not given a view of its own. {key} switches one tab between editing and reading.
 				 */
 				default_mode_hint: (arg: { key: string }) => LocalizedString
+				/**
+				 * Typing
+				 */
+				typing: () => LocalizedString
+				/**
+				 * Check spelling
+				 */
+				spellcheck: () => LocalizedString
+				/**
+				 * Autocorrect
+				 */
+				autocorrect: () => LocalizedString
+				/**
+				 * Capitalise sentences
+				 */
+				autocapitalize: () => LocalizedString
+				/**
+				 * Uses this device’s own dictionary and keyboard. Autocorrect and capitals depend on the keyboard and browser.
+				 */
+				typing_hint: () => LocalizedString
 			}
 			appearance: {
 				/**

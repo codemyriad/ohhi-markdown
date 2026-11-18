@@ -221,10 +221,10 @@ describe('provider layer: one socket per room', () => {
       ])
       const rejected = outcomes[3]!
       expect(rejected.status).toBe('rejected')
-      expect(String((rejected as PromiseRejectedResult).reason)).toContain('permission-denied')
+      expect(String((rejected as PromiseRejectedResult).reason)).toContain('out_of_scope')
 
-      // `reportAuthFailure`'s input still arrives, per doc.
-      expect(reason).toBe('permission-denied')
+      // `reportAuthFailure`'s input still arrives, per doc — and says why: a document outside the share.
+      expect(reason).toBe('out_of_scope')
       // …and the sync record for that doc tells the truth (golden rule 4).
       expect(bad.record.synced).toBe(false)
       expect(bad.record.connected).toBe(false)

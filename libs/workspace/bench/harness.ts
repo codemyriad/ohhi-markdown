@@ -99,7 +99,8 @@ function countingAdapter(inner: VaultAdapter, probe: Probe): VaultAdapter {
     mkdir: (p) => inner.mkdir(p),
     removeDir: (p) => inner.removeDir(p),
     renameDir: (a, b) => inner.renameDir(a, b),
-    watch: (cb: (ev: WatchEvent) => void) => inner.watch(cb),
+    // `onError` is forwarded: a wrapper that drops it hides a dead watcher.
+    watch: (cb: (ev: WatchEvent) => void, onError?: (err: unknown) => void) => inner.watch(cb, onError),
   }
 }
 

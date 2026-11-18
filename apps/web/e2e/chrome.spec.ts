@@ -323,10 +323,12 @@ test('the breadcrumb and the Shared view say where the open note lives (This not
 test('a workspace error toasts once, badges the drawer until it is opened, and stays in the Log view with its scope; devtools toggle in Settings', async ({
   page,
 }) => {
-  // An unseeded room: the relay rejects the token, which is a real error the
-  // workspace raises — exactly what used to be one truncated header string.
+  // An unseeded room opened with another room's token: the relay refuses it
+  // as out of scope (a known token, a document outside its share), a real
+  // error the workspace raises — exactly what used to be one truncated
+  // header string. Only an unknown token on a joined folder blames the link.
   await openApp(page, 'chrome-notice')
-  await expect(page.getByTestId('toast')).toContainText('The relay refused the link for this folder')
+  await expect(page.getByTestId('toast')).toContainText('The relay refused this vault (out_of_scope)')
   await expect(page.getByTestId('toast')).toHaveCount(1)
 
   // The drawer (quiet-shell F13): the bell carries the unread count until opened.
@@ -337,7 +339,7 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
   await expect(bell).toHaveAccessibleName('Notifications, 1 unread')
   await bell.click()
   const drawer = page.getByTestId('drawer')
-  await expect(drawer).toContainText('The relay refused the link for this folder')
+  await expect(drawer).toContainText('The relay refused this vault (out_of_scope)')
   await expect(page.getByTestId('drawer-badge')).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(drawer).toHaveCount(0)
@@ -351,7 +353,7 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
   const log = page.getByTestId('log-view')
   await expect(log).toBeVisible()
   const row = log.locator('[data-testid^="event:"]').first()
-  await expect(row).toContainText('The relay refused the link for this folder')
+  await expect(row).toContainText('The relay refused this vault (out_of_scope)')
   await expect(row.getByTestId('event-where')).toContainText('room')
   await expect(row.locator('time')).toHaveCount(1)
   // One per pane: opening it again focuses the one already there.
@@ -366,7 +368,7 @@ test('a workspace error toasts once, badges the drawer until it is opened, and s
   await expect(log.getByTestId('log-level:warn')).toHaveAttribute('aria-pressed', 'true')
   await log.getByTestId('log-level:warn').click()
   await expect(log.getByTestId('log-level:warn')).toHaveAttribute('aria-pressed', 'false')
-  await expect(log.locator('[data-testid^="event:"]').first()).toContainText('The relay refused the link for this folder')
+  await expect(log.locator('[data-testid^="event:"]').first()).toContainText('The relay refused this vault (out_of_scope)')
   await log.getByTestId('log-level:error').click()
   await expect(log.getByTestId('log-empty')).toContainText('Nothing matches')
   for (const level of ['error', 'warn', 'info']) await log.getByTestId(`log-level:${level}`).click()

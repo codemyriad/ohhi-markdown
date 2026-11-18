@@ -187,6 +187,35 @@ describe('inline toggles', () => {
     expect(run(toggleBold, '‹- one\n- two›')).toBe('‹- **one**\n- **two›**')
   })
 
+  describe('a whole list line, marker included, stays a list item', () => {
+    // Whatever the selection's shape, the markers go after the list marker
+    // (and the task box), never around it: `**- item**` is not a bullet.
+    const bolded = (marked: string): string => run(toggleBold, marked).replace(/[‹›‸]/g, '')
+    it('one line selected from its start, marker and all', () => {
+      expect(bolded('‹- item›')).toBe('- **item**')
+      expect(bolded('‹- item›\nafter')).toBe('- **item**\nafter')
+    })
+    it('a triple-click: the line plus its newline, ending at the next line’s start', () => {
+      expect(bolded('‹- item\n›after')).toBe('- **item**\nafter')
+    })
+    it('from the line start to mid-text', () => {
+      expect(bolded('‹- it›em')).toBe('- **it**em')
+    })
+    it('a task item, an ordered item, a nested item, the last line', () => {
+      expect(bolded('‹- [ ] task›')).toBe('- [ ] **task**')
+      expect(bolded('‹1. first›')).toBe('1. **first**')
+      expect(bolded('- top\n‹\t- nested›')).toBe('- top\n\t- **nested**')
+      expect(bolded('para\n\n‹- last›')).toBe('para\n\n- **last**')
+    })
+    it('a quoted item and a heading, the other line leads', () => {
+      expect(bolded('‹> - quoted›')).toBe('> - **quoted**')
+      expect(bolded('‹## Title›')).toBe('## **Title**')
+    })
+    it('and toggling again takes the bold off, leaving the item', () => {
+      expect(bolded('‹- **item**›')).toBe('- item')
+    })
+  })
+
   it('code: a backtick inside gets a longer fence', () => {
     expect(run(toggleInlineCode, '‹a`b›')).toBe('``‹a`b›``')
     expect(run(toggleInlineCode, '‹`x›')).toBe('`` ‹`x› ``')

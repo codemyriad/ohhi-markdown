@@ -184,8 +184,10 @@ Capture the problem *before* you fix it. Fixing it destroys the evidence.
    bell at the toolbar's right end with *Open the Log*, or with *Open log* in
    the command palette. It keeps every error, warning and notice from the
    session — and each shared folder's changes and connection history across
-   restarts — even after the toast has gone. *Copy as text* puts the whole
-   list on the clipboard.
+   restarts — even after the toast has gone, and even after you clear the
+   bell's list (*Clear all*, a row's ×, or *Clear notifications* in the
+   command palette): clearing takes rows out of the bell, never out of the
+   Log. *Copy as text* puts the whole list on the clipboard.
 5. **The sync inspector for the affected note**, if you are asked for it. Turn
    developer tools on in *Settings › Developer*, then open the inspector:
    *Open inspector* in the command palette, or the bug icon at the toolbar's

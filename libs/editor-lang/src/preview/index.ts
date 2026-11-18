@@ -29,6 +29,7 @@ import { selectListMarker } from './commands.js'
 import { calloutFolds } from './callout-fold.js'
 import { fenceKeymap } from './fence-edit.js'
 import { tableKeymap } from './table-commands.js'
+import { blockLineKeymap } from './vertical.js'
 import { tableHint } from './table-hint.js'
 import { linkCard, pointerKind } from './link-tap.js'
 
@@ -122,6 +123,9 @@ export function livePreview(): Extension[] {
     // Tables (E4): Tab / Shift-Tab / Enter inside one, and the hint bar.
     tableKeymap(),
     tableHint,
+    // ArrowUp / ArrowDown onto a line a block widget draws (a fence edge, a
+    // callout title, the frontmatter…), which CM6's vertical motion skips.
+    blockLineKeymap(),
   ]
 }
 

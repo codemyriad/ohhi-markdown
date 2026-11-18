@@ -24,6 +24,26 @@ export function looksBinary(path: string, bytes: Uint8Array): boolean {
   return probe.includes(0)
 }
 
+/** Suffixes other tools give the files they are still writing or keep beside one. */
+const SCRATCH_SUFFIXES = ['.swp', '.swx', '.tmp', '.part', '.partial', '.crdownload']
+
+/**
+ * A name another tool uses for a file it is still writing, or keeps beside
+ * the real one: an editor's swap file (`.note.md.swp`), a sync client's or
+ * browser's partial download (`.syncthing.note.md.tmp`, `note.md.part`,
+ * `x.crdownload`), a backup (`note.md~`), Finder's `.DS_Store`. Live
+ * enrol-on-create skips these: a note that appears while the app runs is
+ * enrolled from the watcher, and enrolling a scratch file would sync it to
+ * every peer. A dot-prefixed basename counts as scratch, a dot-prefixed
+ * folder above it does not. The boot scan does not apply this rule.
+ */
+export function isScratchName(path: string): boolean {
+  const base = path.slice(path.lastIndexOf('/') + 1)
+  if (base.startsWith('.') || base.endsWith('~')) return true
+  const lower = base.toLowerCase()
+  return SCRATCH_SUFFIXES.some((s) => lower.endsWith(s))
+}
+
 export interface EnrollResult {
   docs: Map<string, EngineDoc>
   /** Paths detected as binary: excluded from sync, badged in the UI (D2f). */

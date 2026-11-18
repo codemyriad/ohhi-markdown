@@ -497,7 +497,21 @@ const editorBaseTheme = EditorView.theme({
   // on the dot of each ancestor (line padding 1rem + the dot's centre, 0.43em:
   // its 0.25em lead plus half its 0.36em width — keep the three in step).
   // Source has no list-line class, so it keeps the four-column tabs.
+  //
+  // A long item wraps under its text, not under its marker: build.ts counts
+  // what precedes the text (`--cm-list-tabs`, `-spaces`, `-bullet`, and an
+  // ordered marker's `-digits`, `-ones`, `-delim`) and the hanging indent is
+  // their width. `hanging` indents every line BUT the first, so the first
+  // line — its tabs, its tab stops, the bullet, the guides — is drawn exactly
+  // as before. The bullet and the task box are one `--ed-list-indent` by
+  // construction; an ordered marker is text, so its advances are Public
+  // Sans' (a digit 0.6em, a `1` 0.41em, the `.` 0.23em, a space 0.24em) and a
+  // theme with another prose face is off by the difference, on wrapped
+  // ordered items only.
   '.cm-list-line': {
+    '--cm-list-hang':
+      'calc((var(--cm-list-tabs, 0) + var(--cm-list-bullet, 0)) * var(--ed-list-indent) + var(--cm-list-spaces, 0) * 0.24em + var(--cm-list-digits, 0) * 0.6em + var(--cm-list-ones, 0) * 0.41em + var(--cm-list-delim, 0) * 0.23em)',
+    textIndent: 'var(--cm-list-hang) hanging',
     tabSize: 'var(--ed-list-indent)',
     backgroundImage:
       'repeating-linear-gradient(to right, var(--ed-list-guide) 0 1px, transparent 1px var(--ed-list-indent))',
@@ -505,6 +519,9 @@ const editorBaseTheme = EditorView.theme({
     backgroundPosition: 'calc(1rem + 0.43em - 0.5px) 0',
     backgroundRepeat: 'no-repeat',
   },
+  // text-indent inherits: an inline-block inside the line (an image, an
+  // embed's box) would indent its own first line by the hang.
+  '.cm-list-line *': { textIndent: '0' },
   // The bullet's box is a plain INLINE span on the text baseline — never an
   // inline-block. CM6 draws a caret beside a widget from the widget's client
   // rect, and an inline-block's rect is its whole line box (line-height tall),

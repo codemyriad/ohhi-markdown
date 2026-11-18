@@ -56,8 +56,25 @@ const notices = {
    * their surface (the no-link warning, the mounts reasons) points there
    * rather than repeating them here.
    */
-  /** Words for a person: the developer detail (room, token, seeding) stays in the console (`MountSession.authFailure`). */
-  relay_refused: 'The relay refused the link for this folder ({reason:string}).',
+  /**
+   * Words for a person: the developer detail (room, token, seeding) stays in
+   * the console (`MountSession.authFailure`). Worded by the relay's reason and
+   * by whose room it is (`refusalCase`, apps/web/src/lib/event-text.ts): a
+   * link the relay no longer knows, on a joined folder or on this vault's own
+   * room, and any other refusal, which says nothing about links.
+   */
+  relay_refused: 'The relay refused this folder ({reason:string}).',
+  relay_refused_vault: 'The relay refused this vault ({reason:string}).',
+  relay_refused_link: 'The relay no longer accepts the link for this folder.',
+  relay_refused_device: 'The relay no longer accepts this device for this vault.',
+  /**
+   * A refusal the mount is RETRYING (`retrying` on the event,
+   * `MountSession.retryRefusal`): the relay could not open one of the room's
+   * documents just now. A transient the app is already handling, logged at
+   * info — nothing about links or devices, nothing for the person to do.
+   */
+  relay_refused_retrying: '{host:string} could not open a document in this folder — retrying. Your edits are safe on this device.',
+  relay_refused_retrying_vault: '{host:string} could not open a document in this vault — retrying. Your edits are safe on this device.',
   /** *Stop sharing*'s opt-in revoke failed AFTER the folder was unshared. */
   revoke_failed: 'The folder is no longer shared, but its links on {host:string} could not be revoked: {message:string}',
   /** Adopt outcomes that were silently dropped before S22; logged at info, never toasted. */
@@ -82,6 +99,7 @@ const notices = {
   peer_left: '{name:string} went offline',
   review_opened: '{path:string} changed in two places at once and needs your review.',
   breaker_held: '{count:number} change{{s}} arrived at once and wait{{s|}} for you to confirm.',
+  breaker_dismissed: '{count:number} change{{s}} that arrived at once {{was|were}} not applied.',
   relay_connected: 'Connected to {host:string}.',
   relay_reconnecting: 'Lost {host:string} — reconnecting. Your edits are safe on this device.',
   relay_offline: 'Offline from {host:string}. Your edits are safe on this device.',
@@ -698,6 +716,8 @@ const commands = {
   layout_use_file: 'Use layout file…',
   /** quiet-shell F7: hide every region the layout does not keep; Escape leaves. */
   focus_mode: 'Toggle Focus mode',
+  /** The drawer's *Clear all* as a command: rows leave the drawer, never the log. */
+  clear_notifications: 'Clear notifications',
 }
 
 /**
@@ -794,7 +814,9 @@ const log = {
   },
   /** What to do next, shown under an error row that has one. */
   hints: {
-    relay_refused: 'Ask whoever shared the folder for a new link, then add it from the folder’s menu.',
+    relay_refused_link: 'Ask whoever shared the folder for a new link, then add it from the folder’s menu.',
+    relay_refused_device:
+      'This device’s access was refused. Link it again from a device that still has access, in Settings › Sync & devices.',
     no_token: 'Add a link for this folder from its menu, or forget it on this device.',
   },
 }
@@ -830,6 +852,17 @@ const drawer = {
   },
   problems: 'Errors and warnings',
   changes: 'Changes by others',
+  /**
+   * Clearing: rows leave the drawer, never the log — the Log
+   * view still lists them.
+   */
+  clear_all: 'Clear all',
+  /** The drawer after a clear, when the log still holds what was cleared. */
+  empty_cleared: 'Nothing new since you cleared it. The Log keeps everything.',
+  /** A row's dismiss button: one error or warning. */
+  dismiss: 'Dismiss',
+  /** A row's dismiss button: one note's changes by others. */
+  dismiss_note: 'Dismiss changes to {note:string}',
   /** One note's changes: "Cynthia · Raft · 3 changes · 2 min ago". */
   group: {
     count: '{count:number} change{{s}}',
@@ -1344,6 +1377,12 @@ const settings = {
     default_mode: 'Default view for new tabs',
     default_mode_hint:
       'Applies to any tab you have not given a view of its own. {key:string} switches one tab between editing and reading.',
+    /** The platform's typing aids on the editing surface; each applies to open notes at once. */
+    typing: 'Typing',
+    spellcheck: 'Check spelling',
+    autocorrect: 'Autocorrect',
+    autocapitalize: 'Capitalise sentences',
+    typing_hint: 'Uses this device’s own dictionary and keyboard. Autocorrect and capitals depend on the keyboard and browser.',
   },
   appearance: {
     lede: 'How the app looks on this device. A theme of your own lives in this vault.',

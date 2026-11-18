@@ -53,6 +53,7 @@
   import { createFileActions } from './lib/file-actions.svelte.js'
   import { createShellLayout } from './lib/shell-layout.svelte.js'
   import { installShellCommands, layoutFileSource } from './lib/shell-commands.js'
+  import { clearNotices } from './lib/notices.js'
   import { realClock } from './lib/real-clock.js'
   import { screen } from './lib/small-screen.svelte.js'
   import { createSharedFeed, snapshotInput } from './lib/shared.svelte.js'
@@ -477,6 +478,13 @@
     openView: (id, arg) => openView(id, arg),
     devtools: () => devtools,
     reloadResources: () => customise.reloadAll(),
+    notices: {
+      clear: () => {
+        if (!workspace) return
+        clearNotices(workspace.room, workspace.ui.events)
+        layout.markSeen()
+      },
+    },
     flash: (input) => workspace?.flash(input),
     templates,
     help: { run: runHelp, menuMounted: () => help.menus > 0 },

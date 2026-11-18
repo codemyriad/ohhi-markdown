@@ -40,6 +40,7 @@
   import { DENSE_CHROME, showsFocusEdge, showsStrip, showsSyncDot, type PaneChrome } from '../pane-chrome.js'
   import { pillTitle } from '../pill-status.js'
   import { editorLabels, loadRemoteImage, openExternal } from '../read.svelte.js'
+  import { typingState } from '../typing.svelte.js'
   import { createAttachmentHost } from '../attachment-host.js'
   import { noteStatus } from '../readout-state.js'
   import type { MenuItemAttrs, MenuSeparatorAttrs } from '../ui/DropdownMenu.svelte'
@@ -139,9 +140,52 @@
   const index = $derived(panes.paneIndex(pane.id))
   const tab = $derived(activeTab(pane))
   const path = $derived(tab?.path ?? null)
-  const doc = $derived(path ? workspace.docForPath(path) : null)
-  const awareness = $derived(path ? workspace.awarenessForPath(path) : null)
-  const undoManager = $derived(path ? workspace.undoManagerFor(path) : null)
+  /**
+   * Re-resolved after every surgery (`ui.docsEpoch`): a carve, an unshare or
+   * an adopt keeps the PATH and replaces the doc instance behind it, and the
+   * one a view held is destroyed — typing into it reached nobody.
+   */
+  const doc = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.docForPath(path) : null
+  })
+  /**
+   * Re-resolved under the same epoch; a new awareness for the SAME doc (its
+   * connection came up after the note opened) is swapped into the editor in
+   * place, never by remounting it.
+   */
+  const awareness = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.awarenessForPath(path) : null
+  })
+  /**
+   * A surgery is replacing this note's doc right now (`ui.frozen`): the view
+   * still shows the old instance, so it holds still — what is typed into it
+   * would be gone at the remount. Through the editor's compartment, no rebuild.
+   */
+  const frozen = $derived(
+    path !== null &&
+      (workspace.ui.frozen ?? []).some((p) => p === '' || path === p || path.startsWith(`${p}/`))
+  )
+  const undoManager = $derived.by(() => {
+    void workspace.ui.docsEpoch
+    return path ? workspace.undoManagerFor(path) : null
+  })
+  /**
+   * The editor is keyed on the doc INSTANCE as well as the path, so a new
+   * instance remounts it (the old binding cannot be repointed) while a
+   * surgery that left this note's doc alone keeps the editor as it is.
+   */
+  const instanceIds = new WeakMap<object, number>()
+  let nextInstanceId = 0
+  const instanceOf = (d: object): number => {
+    let id = instanceIds.get(d)
+    if (id === undefined) {
+      id = nextInstanceId++
+      instanceIds.set(d, id)
+    }
+    return id
+  }
   /** This tab's view mode, or the Settings default when it has none (B3). */
   const mode = $derived<ViewMode>(panes.modeOf(tab))
 
@@ -680,16 +724,18 @@
           <CollectionView {workspace} {path} />
         {/key}
       {:else if doc && path}
-        {#key `${pane.id}:${path}`}
+        {#key `${pane.id}:${path}:${instanceOf(doc)}`}
           {@const held = tab.id}
           <MarkdownEditor
             {doc}
             {awareness}
+            readOnly={frozen}
             {undoManager}
             user={workspace.user}
             {mode}
             {dark}
             {typewriter}
+            typing={typingState.aids}
             {extensions}
             reveal={focused ? reveal : null}
             onhandle={(h) => onHandle(held, h)}

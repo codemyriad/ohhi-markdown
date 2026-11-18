@@ -69,6 +69,7 @@ import {
   FOLDER_DOC_KEY,
   hashBytes,
   IGNORED_DIRS,
+  isScratchName,
   joinFolder,
   JsonFileLcaStore,
   looksBinary,
@@ -118,6 +119,55 @@ export const RELAY_OFFLINE_MS = 30_000
  */
 export const PEER_SETTLE_MS = 3_000
 
+/**
+ * The refusals that are about the CREDENTIAL (`apps/relay` names them: a
+ * token it does not know, a document outside the share). Retrying cannot
+ * change either, so they stay `refused` until a new credential arrives.
+ * Anything else — a bare `permission-denied` above all, which is how
+ * Hocuspocus answers ANY throw while it sets a document up, its load
+ * included — says the relay could not open a document right now, and is
+ * retried.
+ */
+const PERMANENT_REFUSALS: ReadonlySet<string> = new Set(['unknown_token', 'out_of_scope'])
+
+/** Take one kept awareness out of a teardown's map (`dropRelayConnections`). */
+function takeKept(kept: Map<string, Awareness>, key: string): Awareness | undefined {
+  const awareness = kept.get(key)
+  kept.delete(key)
+  return awareness
+}
+
+/** Whether a relay refusal is about the credential (final) or not (retried). */
+export function isPermanentRefusal(reason: string): boolean {
+  return PERMANENT_REFUSALS.has(reason)
+}
+
+/** First wait before a retryable refusal is retried; doubles per attempt… */
+export const REFUSAL_RETRY_MIN_MS = 1_000
+/** …up to this. */
+export const REFUSAL_RETRY_MAX_MS = 60_000
+/**
+ * A retry's connection must hold this long without a new refusal before the
+ * room reads `connected` again: the socket opens before the relay has
+ * answered every document's auth, so "the socket is up" is not yet "the
+ * relay took them".
+ */
+export const REFUSAL_SETTLE_MS = 3_000
+/**
+ * Retries in one run of retryable refusals before the mount gives up and
+ * treats the refusal as final (`reportAuthFailure`'s credential path:
+ * `refused` at error level, `RelayRefusedError`, an adopted mount to
+ * `needs-token`). Ten waits on the backoff above come to about five minutes.
+ *
+ * Why a cap at all: a relay that predates the refusal reasons answers a token
+ * it does not know with the same bare `permission-denied` it uses for a
+ * document it could not open. Without a cap that dead token would be retried
+ * every minute forever and never reported as one. Relays are meant to carry
+ * the reasons (docs/architecture/relay.md); the cap is what keeps an old one
+ * honest.
+ */
+export const REFUSAL_RETRY_LIMIT = 10
+
 /** An agent's edit to one note (mount-relative path). The seam's one home: `@ohhi/harness` re-exports it. */
 export interface ProposeEditInput {
   path: string
@@ -154,6 +204,14 @@ export interface MountSessionConfig {
   mountPath?: string
   /** Recorded in the mount desc; default: 'joined' when firstJoin, else 'local'. */
   provenance?: MountProvenance
+  /**
+   * The room is a share someone else made, joined here — set by the host for
+   * a ROOT opened from a folder share (its provenance stays 'local': it is
+   * this device's vault, whose room happens to be a share). A joined mount
+   * says so through `provenance` already. Only the words of a relay refusal
+   * read it (`relay.state` → `joined`).
+   */
+  joinedShare?: boolean
   /**
    * This device has never held the room's content and has no credential for
    * it yet (`MountDesc.neverHeld`, spike S10 Q2 + N3's empty-adopt finding).
@@ -423,6 +481,20 @@ export class MountSession {
   private relayState: 'connected' | 'reconnecting' | 'offline' | 'refused' | null = null
   private relayRefusedReason: string | null = null
   private cancelOffline: (() => void) | null = null
+  /** The pending retry after a retryable refusal (`retryRefusal`); null when none. */
+  private cancelRefusalRetry: (() => void) | null = null
+  /** Retries in the current run of retryable refusals; 0 when the room is settled. */
+  private refusalRetries = 0
+  /** Pending end of a retry's settle window (`REFUSAL_SETTLE_MS`). */
+  private cancelRefusalSettle: (() => void) | null = null
+  /** The logged `refused` is a retryable one (worded "retrying", not an error). */
+  private relayRefusedRetrying = false
+  /**
+   * Our own listeners on each connection's awareness, by doc guid (and
+   * `FOLDER_RECORD_KEY`): a teardown that keeps an awareness for the next
+   * connection must take them off, or every reconnect would add another set.
+   */
+  private readonly awarenessOffs = new Map<string, () => void>()
   /** Our folder connection is up: peer joins/leaves are only believed while it is. */
   private folderConnected = false
   /** Pending end of the post-connect settle window (`PEER_SETTLE_MS`); null when settled. */
@@ -456,7 +528,20 @@ export class MountSession {
     const session = new MountSession(cfg)
     // The stored history first, so a boot's own events land after it.
     await session.roomLog.load()
-    await session.boot()
+    try {
+      await session.boot()
+    } catch (err) {
+      // A boot that failed (a first join's pull refused or timed out) leaves
+      // a session nobody holds: shut it down here, awaited, or its sockets
+      // and retry timers go on in the background — and a late flush could
+      // write into the namespace the caller is about to roll back.
+      try {
+        await session.shutdown()
+      } catch (cleanup) {
+        session.pushError(cleanup)
+      }
+      throw err
+    }
     session.fileView = session.currentFileView()
     session.fileViewReady = true
     return session
@@ -777,6 +862,7 @@ export class MountSession {
    * "create the note this link points at" must be idempotent.
    */
   async createFile(dir = '', name?: string, text = ''): Promise<string | null> {
+    let writing: string | null = null
     try {
       const base = dir ? `${dir}/` : ''
       const taken = new Set(this.folderDoc.getMap().entries().map(([p]) => p))
@@ -801,12 +887,17 @@ export class MountSession {
         while (taken.has(`${base}untitled-${n}.md`)) n++
         path = `${base}untitled-${n}.md`
       }
-      // A map miss is NOT evidence the path is free: VaultSession's watcher
-      // deliberately ignores out-of-map disk files for the whole session, so
-      // a note Obsidian/git/Claude Code wrote while we were running is
-      // invisible to the check above. NEVER overwrite bytes Editor did not
-      // write (golden rule 1) — adopt them instead, which is also what "open
-      // the note this link points at" should do.
+      // Ours from the moment the name is picked, before any await: a live
+      // enrol committing the path during the read below would otherwise be
+      // overwritten by this create's entry, its guid orphaned.
+      writing = path
+      this.appWrites.add(path)
+      // A map miss is NOT evidence the path is free: a note another writer
+      // (Obsidian, git, an agent) put on disk moments ago may not be enrolled
+      // yet — live enrol-on-create runs behind the watcher, and a dismissed
+      // batch leaves its files out until the next boot scan. NEVER overwrite
+      // bytes Editor did not write (golden rule 1) — adopt them instead,
+      // which is also what "open the note this link points at" should do.
       const onDisk = await this.adapter.read(path)
       if (onDisk !== null && looksBinary(path, onDisk)) {
         throw new Error(`'${path}' already exists and is not a text file`)
@@ -834,6 +925,16 @@ export class MountSession {
         eol: decoded ? decoded.eol : 'lf',
         bom: decoded ? decoded.bom : false,
       })
+      // The map, re-read right before the commit: an entry that landed during
+      // the awaits above (a peer's note at the same name) is adopted, never
+      // overwritten — overwriting would strand its guid with a doc, a
+      // provider and an index entry but no map key.
+      const claimed = this.folderDoc.getMap().get(path)
+      if (claimed && !claimed.deleted) {
+        await this.discardDoc(guid, doc)
+        this.refreshFiles()
+        return path
+      }
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
       // A nested name (`[[Projects/2026/Roadmap]]`) implies directories that
@@ -846,6 +947,8 @@ export class MountSession {
     } catch (err) {
       this.pushError(err)
       return null
+    } finally {
+      if (writing !== null) this.appWrites.delete(writing)
     }
   }
 
@@ -856,9 +959,10 @@ export class MountSession {
    * reason pushed as an error.
    *
    * Never an overwrite: a name the map does not know can still be a file
-   * Obsidian or an agent wrote while we ran (the watcher ignores out-of-map
-   * files), so the disk is asked too, and a taken name moves aside rather than
-   * replacing bytes Editor did not write (golden rule 1). The create is
+   * Obsidian or an agent wrote while we ran (live enrol-on-create runs behind
+   * the watcher, after a quiesce, and skips scratch names and a held or
+   * dismissed batch), so the disk is asked too, and a taken name moves aside
+   * rather than replacing bytes Editor did not write (golden rule 1). The create is
    * journaled (a pre-image of null) and goes through the atomic write as a
    * compare-and-swap that must find NO file there (`expectHash: ''`): a file
    * that appears between the check and the rename refuses the write, and the
@@ -909,11 +1013,13 @@ export class MountSession {
         const candidate = nameFor(n)
         if (await taken(candidate)) continue
         await this.journal.record(candidate, null)
+        this.appWrites.add(candidate)
         try {
           // Must-not-exist: the adapter re-checks as late as it can (just
           // before the rename), closing the window `taken` leaves open.
           await this.adapter.writeAtomic(candidate, bytes, { expectHash: '' })
         } catch (err) {
+          this.appWrites.delete(candidate)
           if (err instanceof WriteConflictError) continue
           throw err
         }
@@ -924,6 +1030,7 @@ export class MountSession {
         (m) => m.set(target, { guid: crypto.randomUUID(), kind: 'binary' }),
         'local'
       )
+      this.appWrites.delete(target)
       // A new folder (`Attachments/`) must be a map entry too, or the tree can
       // draw it while rename and delete cannot find it (M3).
       if (target.includes('/')) await this.syncDirs()
@@ -1208,6 +1315,8 @@ export class MountSession {
       this.debounces.delete(guid)
       if (this.conns.has(guid)) {
         this.dropAgentPresence(guid)
+        this.awarenessOffs.get(guid)?.()
+        this.awarenessOffs.delete(guid)
         this.conns.get(guid)?.destroy()
         this.conns.delete(guid)
         this.events.onDocPresence?.(guid, [])
@@ -1281,10 +1390,19 @@ export class MountSession {
       // Overwriting would orphan the existing entry's guid — a silent loss.
       throw new Error(`'${rel}' already exists in the destination`)
     }
-    const pre = await this.adapter.read(rel)
-    await this.journal.record(rel, pre)
-    await this.adapter.writeAtomic(rel, bytes)
-    await this.enrollOne(rel)
+    // Ours before the first await: a live enrol must not commit the path
+    // between this check and the enrolment below.
+    this.appWrites.add(rel)
+    try {
+      const pre = await this.adapter.read(rel)
+      await this.journal.record(rel, pre)
+      await this.adapter.writeAtomic(rel, bytes)
+      // enrollOne re-checks the map before it commits, and adopts an entry
+      // that landed meanwhile rather than overwrite it.
+      await this.enrollOne(rel)
+    } finally {
+      this.appWrites.delete(rel)
+    }
     await this.syncDirs()
     await this.restartSession()
     this.refreshFiles()
@@ -1474,38 +1592,24 @@ export class MountSession {
     // supplied, while its desc read `active`. "Shared, not syncing", forever
     // (golden rule 4). Tearing the old ones down first is what makes a paste
     // mean something.
+    let kept = new Map<string, Awareness>()
     if (this.relay) {
-      this.destroyConns()
-      this.folderConn?.destroy()
-      this.folderConn = null
-      this.roomSocket?.destroy() // after the per-doc detaches, never before
-      this.roomSocket = null
+      // The awarenesses survive the re-key: an open note keeps its cursors.
+      kept = this.dropRelayConnections({ keepAwareness: true })
       this.authFailure = null
       // A new credential starts a new relay story: the refusal no longer holds.
       this.cancelOffline?.()
       this.cancelOffline = null
+      this.cancelRetries()
       this.relayState = null
       this.relayRefusedReason = null
-      this.folderConnected = false
-      this.cancelPeerSettle?.()
-      this.cancelPeerSettle = null
-      // Every record goes back to "not connected" until the NEW provider says
-      // otherwise: the pill must never carry a previous credential's verdict.
-      const folder = this.recordFor(FOLDER_RECORD_KEY)
-      folder.connected = false
-      folder.synced = false
-      for (const guid of this.docs.keys()) {
-        const rec = this.recordFor(guid)
-        rec.connected = false
-        rec.synced = false
-      }
+      this.relayRefusedRetrying = false
     }
     this.relay = newRelay
-    this.connectFolder() // sets sharedLink + fires onShared, wires presence
-    for (const guid of this.docs.keys()) {
-      const path = this.pathForGuid(guid)
-      if (path) this.attachProvider(guid, path)
-    }
+    // Sets sharedLink + fires onShared, wires presence.
+    this.connectFolder({ awareness: takeKept(kept, FOLDER_RECORD_KEY) })
+    this.attachAllProviders(kept)
+    this.destroyUnclaimed(kept)
     // Remember the relay in the mount desc so a reopen reconnects it.
     void this.writeMountDesc().catch((err) => this.pushError(err))
     return { link: this.sharedLink! }
@@ -1520,6 +1624,7 @@ export class MountSession {
     this.cancelOffline = null
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
+    this.cancelRetries()
     for (const { store } of this.suggestionStores.values()) store.destroy()
     this.suggestionStores.clear()
     this.agentRuns.destroy()
@@ -1592,6 +1697,7 @@ export class MountSession {
     this.cancelOffline = null
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
+    this.cancelRetries()
     // The debounced tail of the event log, durably (sharing E3).
     await this.roomLog.flush()
     this.roomLog.dispose()
@@ -1834,6 +1940,107 @@ export class MountSession {
     this.presentPeers = peers
   }
 
+  /**
+   * Tear down every relay connection of this room — each doc's provider, the
+   * folder's, then the shared socket — and put every record back to "not
+   * connected" until a NEW provider says otherwise: the pill must never carry
+   * a previous connection's verdict. The relay story (`relayState`) is the
+   * caller's to keep or reset.
+   */
+  private dropRelayConnections(opts: { keepAwareness?: boolean } = {}): Map<string, Awareness> {
+    const kept = new Map<string, Awareness>()
+    this.destroyConns(opts.keepAwareness ? kept : undefined)
+    if (this.folderConn) {
+      this.awarenessOffs.get(FOLDER_RECORD_KEY)?.()
+      this.awarenessOffs.delete(FOLDER_RECORD_KEY)
+      if (opts.keepAwareness) kept.set(FOLDER_RECORD_KEY, this.folderConn.awareness)
+      this.folderConn.destroy({ keepAwareness: opts.keepAwareness === true })
+    }
+    this.folderConn = null
+    this.roomSocket?.destroy() // after the per-doc detaches, never before
+    this.roomSocket = null
+    this.folderConnected = false
+    this.cancelPeerSettle?.()
+    this.cancelPeerSettle = null
+    const folder = this.recordFor(FOLDER_RECORD_KEY)
+    folder.connected = false
+    folder.synced = false
+    for (const guid of this.docs.keys()) {
+      const rec = this.recordFor(guid)
+      rec.connected = false
+      rec.synced = false
+    }
+    return kept
+  }
+
+  /**
+   * Attach a provider for every doc that has a path (no-op without a relay),
+   * reusing the awareness a teardown kept for it (`dropRelayConnections`).
+   * A reused one is taken out of `kept`.
+   */
+  private attachAllProviders(kept?: Map<string, Awareness>): void {
+    for (const guid of this.docs.keys()) {
+      const path = this.pathForGuid(guid)
+      if (path) this.attachProvider(guid, path, kept)
+    }
+  }
+
+  /** The kept awarenesses no new connection took (a doc gone meanwhile): destroy them. */
+  private destroyUnclaimed(kept: Map<string, Awareness>): void {
+    for (const awareness of kept.values()) awareness.destroy()
+    kept.clear()
+  }
+
+  private cancelRetries(): void {
+    this.cancelRefusalRetry?.()
+    this.cancelRefusalRetry = null
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    this.refusalRetries = 0
+  }
+
+  /**
+   * The relay refused a document for a reason retrying CAN change (see
+   * `isPermanentRefusal`). Log it once, then rebuild the room's connections
+   * after a capped backoff on the injected clock — while one is pending,
+   * further refusals ride it.
+   *
+   * Why the whole room, on a fresh socket, and not the one document again:
+   * a refused provider stays attached and keeps sending (awareness, updates),
+   * which Hocuspocus 4.1.2 queues server-side for that document name as a
+   * not-yet-authenticated connection. Detaching it queues a CLOSE behind
+   * them, and re-attaching on the same socket authenticates and then replays
+   * that queue — the CLOSE included — into the new connection: authenticated,
+   * "synced", and silently never syncing again. A fresh socket is a fresh
+   * server-side connection with no queue, which is also exactly what a
+   * relaunch gave, and what made a relaunch the only cure.
+   */
+  private retryRefusal(reason: string): void {
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    if (this.cancelRefusalRetry) return
+    // A run that has not recovered after this many retries is not a relay
+    // hiccup: give up and say so, as for a credential (`REFUSAL_RETRY_LIMIT`).
+    if (this.refusalRetries >= REFUSAL_RETRY_LIMIT) return this.refuseFinally(reason)
+    // The first refusal of a run is history; a retry that is refused again
+    // is still the same retry in progress (`reconnecting`), not news.
+    if (this.refusalRetries === 0) this.setRelayState('refused', reason, { retrying: true })
+    const wait = Math.min(REFUSAL_RETRY_MAX_MS, REFUSAL_RETRY_MIN_MS * 2 ** this.refusalRetries)
+    this.refusalRetries++
+    this.cancelRefusalRetry = this.clock.schedule(() => {
+      this.cancelRefusalRetry = null
+      if (this.stopped || !this.relay) return
+      this.setRelayState('reconnecting')
+      // Every awareness survives the rebuild: an editor bound to one keeps
+      // its remote cursors and keeps sending its own, and the host is never
+      // handed a new awareness for a doc that did not change.
+      const kept = this.dropRelayConnections({ keepAwareness: true })
+      this.connectFolder({ announce: false, awareness: takeKept(kept, FOLDER_RECORD_KEY) })
+      this.attachAllProviders(kept)
+      this.destroyUnclaimed(kept)
+    }, wait)
+  }
+
   private relayActor(): Actor {
     const name = relayHost(this.relay?.url)
     return { kind: 'relay', ...(name ? { name } : {}) }
@@ -1847,7 +2054,23 @@ export class MountSession {
       this.folderConnected = true
       this.cancelOffline?.()
       this.cancelOffline = null
-      this.setRelayState('connected')
+      if (this.cancelRefusalRetry) {
+        // The socket a pending retry is about to replace came back (a network
+        // blip during the backoff): nothing is settled by it. The room stays
+        // as the run left it, and the retry still runs.
+      } else if (this.refusalRetries > 0) {
+        // A retry's socket: `connected` only once the relay has had time to
+        // answer every document without refusing one (`retryRefusal`).
+        this.cancelRefusalSettle?.()
+        this.cancelRefusalSettle = this.clock.schedule(() => {
+          this.cancelRefusalSettle = null
+          if (this.stopped || !this.folderConnected) return
+          this.refusalRetries = 0
+          this.setRelayState('connected')
+        }, REFUSAL_SETTLE_MS)
+      } else {
+        this.setRelayState('connected')
+      }
       // Presence was frozen while we were down: diff it once the peers'
       // awareness has had time to arrive, never at the connect itself.
       this.cancelPeerSettle?.()
@@ -1860,7 +2083,11 @@ export class MountSession {
     this.folderConnected = false
     this.cancelPeerSettle?.()
     this.cancelPeerSettle = null
-    if (this.relayState === 'refused') return // retrying will not change a refusal
+    this.cancelRefusalSettle?.()
+    this.cancelRefusalSettle = null
+    // A credential refusal: retrying will not change it. (A retryable one has
+    // its own retry pending — `retryRefusal` — and reads `refused` until then.)
+    if (this.relayState === 'refused') return
     if (this.relayState === 'connected') this.setRelayState('reconnecting')
     this.armOffline()
   }
@@ -1875,21 +2102,53 @@ export class MountSession {
     }, RELAY_OFFLINE_MS)
   }
 
-  private setRelayState(to: 'connected' | 'reconnecting' | 'offline' | 'refused', reason?: string): void {
-    if (to === this.relayState && (to !== 'refused' || reason === this.relayRefusedReason)) return
+  /**
+   * `retrying` marks a refusal the mount is retrying (`retryRefusal`): the
+   * room still reads `refused` (golden rule 4 — the relay did refuse), but
+   * the event is `info`, not `error`. It is a transient the mount is already
+   * handling, most often gone within seconds, and an error toast and badge
+   * for it would ask the person to act when there is nothing to do. If the
+   * run does not recover it ends in a final refusal (`REFUSAL_RETRY_LIMIT`),
+   * which is an error. The pill is unaffected either way: it reads the
+   * records, which say "not connected" for as long as it lasts.
+   */
+  private setRelayState(
+    to: 'connected' | 'reconnecting' | 'offline' | 'refused',
+    reason?: string,
+    opts: { retrying?: boolean } = {}
+  ): void {
+    const retrying = to === 'refused' && opts.retrying === true
+    if (
+      to === this.relayState &&
+      (to !== 'refused' || (reason === this.relayRefusedReason && retrying === this.relayRefusedRetrying))
+    ) {
+      return
+    }
     this.relayState = to
     this.relayRefusedReason = to === 'refused' ? (reason ?? null) : null
+    this.relayRefusedRetrying = retrying
     if (to === 'refused') {
       this.cancelOffline?.()
       this.cancelOffline = null
     }
     this.logEvent({
       kind: 'relay.state',
-      level: to === 'refused' ? 'error' : 'info',
+      level: to === 'refused' && !retrying ? 'error' : 'info',
       scope: this.scopeFor(),
       actor: this.relayActor(),
-      payload: { to, ...(to === 'refused' && reason !== undefined ? { reason } : {}) },
+      payload: {
+        to,
+        ...(to === 'refused' && reason !== undefined ? { reason } : {}),
+        ...(to === 'refused' ? { joined: this.isJoinedShare() } : {}),
+        ...(retrying ? { retrying: true } : {}),
+      },
     })
+  }
+
+  /** Is this room a share someone else made, joined on this device? */
+  private isJoinedShare(): boolean {
+    if (this.cfg.joinedShare === true) return true
+    return (this.cfg.provenance ?? (this.cfg.firstJoin ? 'joined' : 'local')) === 'joined'
   }
 
   // ---- internals ----
@@ -1988,6 +2247,16 @@ export class MountSession {
       if (path === root || path.startsWith(`${root}/`)) return true
     }
     return false
+  }
+
+  /**
+   * Is `path` another session's, as of now? Under a mount boundary in this
+   * map, or hidden by the adapter's live ignore set (`VaultAdapter.hides`) —
+   * the only boundary a private vault's carve leaves, since it writes no
+   * mount entry. Enrolment re-checks this at commit time.
+   */
+  private outOfReach(path: string, roots = this.mountRoots()): boolean {
+    return this.underMount(path, roots) || this.adapter.hides?.(path) === true
   }
 
   /** The current `kind:'mount'` entries, sorted by path. */
@@ -2218,7 +2487,7 @@ export class MountSession {
    * `fuzz-crashers/0001-move-out-on-a-peer.spec.ts`).
    */
   async reenrollPath(path: string): Promise<void> {
-    await this.enrollOne(path)
+    await this.enrollOne(path, { replace: true })
     await this.restartSession()
     this.refreshFiles()
   }
@@ -2372,11 +2641,13 @@ export class MountSession {
   }
 
   /** Connect a relay provider for one doc. No-op without a relay. */
-  private attachProvider(guid: string, path: string): void {
+  private attachProvider(guid: string, path: string, kept?: Map<string, Awareness>): void {
     if (!this.relay || this.conns.has(guid)) return
     const doc = this.docs.get(guid)
     if (!doc) return
     const socket = this.ensureSocket()
+    const awareness = kept?.get(guid)
+    kept?.delete(guid)
     this.conns.set(
       guid,
       connectDoc({
@@ -2387,11 +2658,17 @@ export class MountSession {
         user: this.user,
         record: this.recordFor(guid),
         onAuthFailed: (reason) => this.reportAuthFailure(reason),
+        ...(awareness ? { awareness } : {}),
         ...(socket ? { socket } : {}),
       })
     )
     const conn = this.conns.get(guid)!
-    conn.awareness.on('change', () => this.reportDocPresence(guid))
+    // A kept awareness this connection did not take (another doc instance by
+    // now) is the teardown's to destroy, not ours.
+    if (awareness && conn.awareness !== awareness) awareness.destroy()
+    const onPresence = (): void => this.reportDocPresence(guid)
+    conn.awareness.on('change', onPresence)
+    this.awarenessOffs.set(guid, () => conn.awareness.off('change', onPresence))
     this.syncHere()
     this.reportDocPresence(guid)
   }
@@ -2437,11 +2714,18 @@ export class MountSession {
     this.events.onDocPresence?.(guid, peers)
   }
 
-  /** Destroy every doc connection, telling the host nobody is in them any more. */
-  private destroyConns(): void {
+  /**
+   * Destroy every doc connection, telling the host nobody is in them any
+   * more. With `keep`, each connection's awareness survives into it, by
+   * guid, for the next connection of the same doc.
+   */
+  private destroyConns(keep?: Map<string, Awareness>): void {
     for (const [guid, conn] of this.conns) {
       this.dropAgentPresence(guid)
-      conn.destroy()
+      this.awarenessOffs.get(guid)?.()
+      this.awarenessOffs.delete(guid)
+      if (keep) keep.set(guid, conn.awareness)
+      conn.destroy({ keepAwareness: keep !== undefined })
       this.events.onDocPresence?.(guid, [])
     }
     this.conns.clear()
@@ -2525,6 +2809,16 @@ export class MountSession {
       folderDoc: this.folderDoc,
       docs: this.docs,
       thresholds: this.cfg.thresholds,
+      enroller: {
+        candidates: (paths) => this.liveCandidates(paths),
+        enrol: async (paths) => {
+          await this.enrolNew(paths)
+        },
+        // The app's own create, attachment and import writes reach the
+        // watcher before their map entry: no listing for those. Nor for a
+        // file of a held or dismissed boot batch, which waits for its dialog.
+        ignores: (path) => this.appWrites.has(path) || this.bootHeld(path),
+      },
       events: {
         onReview: (review) => {
           // An EMPTY doc's file vanishing is a deletion with nothing at
@@ -2591,13 +2885,30 @@ export class MountSession {
 
   // ---- mass-change breaker (M3): one held batch, watch- or boot-shaped ----
 
-  /** Which machinery holds the current batch (null = nothing held). */
-  private pendingBatchKind: 'watch' | 'boot' | 'ghost' | null = null
+  /**
+   * Which machinery holds what is behind the dialog (empty = nothing held).
+   * More than one when a batch arrived while another was held: it joins the
+   * held one rather than raising a second dialog over it, and the one confirm
+   * or dismiss covers every kind here.
+   */
+  private heldKinds = new Set<'watch' | 'boot' | 'ghost'>()
   /** The held ghost-replay batch's work (N1) — see replayDeletes. */
   private pendingGhostBatch: (() => Promise<void>) | null = null
+  /** How many paths are held, every joined batch included — what a dismissal logs. */
+  private pendingBatchCount = 0
 
   private holdBatch(kind: 'watch' | 'boot' | 'ghost', paths: string[], apply?: () => Promise<void>): void {
-    if (kind === 'ghost') this.pendingGhostBatch = apply ?? null
+    if (kind === 'ghost') {
+      const before = this.pendingGhostBatch
+      const next = apply ?? null
+      this.pendingGhostBatch =
+        before && next
+          ? async () => {
+              await before()
+              await next()
+            }
+          : (next ?? before)
+    }
     // Held behind BreakerDialog (its own surface), so info, like reviews.
     this.logEvent({
       kind: 'breaker.held',
@@ -2607,8 +2918,12 @@ export class MountSession {
       payload: { count: paths.length },
     })
     if (this.events.onBreaker) {
-      this.pendingBatchKind = kind
-      this.events.onBreaker(paths)
+      const raised = this.heldKinds.size > 0
+      this.heldKinds.add(kind)
+      this.pendingBatchCount += paths.length
+      // One dialog at a time: a second batch is never raised over the first
+      // (which would also strand the first's kind, and its confirm with it).
+      if (!raised) this.events.onBreaker(paths)
     } else {
       // No host affordance (headless/tests): keep the historical auto-confirm.
       console.warn('[workspace] mass-change breaker tripped — auto-confirming', paths)
@@ -2618,24 +2933,38 @@ export class MountSession {
     }
   }
 
-  /** Apply the held batch (host confirm affordance). */
+  /** Apply everything held (host confirm affordance). */
   async confirmBreaker(): Promise<void> {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
-    if (kind === 'watch') await this.sessionRef?.confirmPendingBatch()
-    else if (kind === 'boot') await this.confirmBootBatch()
-    else if (kind === 'ghost') await this.confirmGhostBatch()
+    const kinds = new Set(this.heldKinds)
+    this.heldKinds.clear()
+    this.pendingBatchCount = 0
+    // The watch queue first: confirming a boot batch restarts the session.
+    if (kinds.has('watch')) await this.sessionRef?.confirmPendingBatch()
+    if (kinds.has('ghost')) await this.confirmGhostBatch()
+    if (kinds.has('boot')) await this.confirmBootBatch()
   }
 
-  /** Drop the held batch: nothing is enrolled, ingested, or reconciled. */
+  /** Drop everything held: nothing is enrolled, ingested, or reconciled. */
   dismissBreaker(): void {
-    const kind = this.pendingBatchKind
-    this.pendingBatchKind = null
-    if (kind === 'watch') this.sessionRef?.dismissPendingBatch()
-    else if (kind === 'boot') this.dismissBootBatch()
+    const kinds = new Set(this.heldKinds)
+    this.heldKinds.clear()
+    // The log keeps what the dialog's "Not now" let go of (info, like the
+    // hold: the dialog was its surface).
+    if (kinds.size > 0) {
+      this.logEvent({
+        kind: 'breaker.dismissed',
+        level: 'info',
+        scope: this.scopeFor(),
+        actor: { kind: kinds.size === 1 && kinds.has('ghost') ? 'app' : 'disk' },
+        payload: { count: this.pendingBatchCount },
+      })
+    }
+    this.pendingBatchCount = 0
+    if (kinds.has('watch')) this.sessionRef?.dismissPendingBatch()
+    if (kinds.has('boot')) this.dismissBootBatch()
     // Dismissing a ghost batch keeps the mount's files: the parent keys were
     // hard-deleted either way, so the two maps still agree (S10 Q5 row 9).
-    else if (kind === 'ghost') this.pendingGhostBatch = null
+    if (kinds.has('ghost')) this.pendingGhostBatch = null
   }
 
   private async confirmGhostBatch(): Promise<void> {
@@ -2645,8 +2974,24 @@ export class MountSession {
   }
 
   private async restartSession(): Promise<void> {
-    this.sessionRef?.dispose()
+    // A watch batch still listing or enrolling on the current session runs to
+    // the end first: disposed under it, its new files would be dropped (the
+    // batch bails) or land in the map untracked (the new session's start()
+    // predates the entry). The chain holds only listings and enrolments,
+    // never a clock wait, so this is bounded; the quiesce runs off it.
+    let waited = false
+    for (let cur = this.sessionRef; cur?.watchBusy(); cur = this.sessionRef) {
+      waited = true
+      await cur.watchSettled()
+    }
+    if (waited && this.stopped) return
+    const old = this.sessionRef
+    old?.dispose()
     this.sessionRef = this.makeSession()
+    // A watch batch held behind the dialog belongs to the vault, not to one
+    // session instance: the new session holds it, so the dialog's confirm or
+    // dismiss still reaches it.
+    old?.handOverHeld(this.sessionRef)
     await this.sessionRef.start()
     // The new VaultSession starts with an empty ctx.openPaths — re-mark every
     // path a view still holds, or the first foreign update materializes over
@@ -2659,6 +3004,24 @@ export class MountSession {
   // ---- relay / presence (only when a relay is attached) ----
 
   private reportAuthFailure(reason: string): void {
+    if (this.stopped) return
+    if (!isPermanentRefusal(reason)) {
+      // A final refusal already stands: retrying cannot lift it, and a retry
+      // run on top would rebuild the room every few seconds, logging the
+      // same refusal again each time. It holds until a new credential.
+      if (this.authFailure !== null) return
+      // A pull in progress (a first join, a device link's or an add-link's)
+      // waits on the providers it started with; a retry would destroy them
+      // under it and leave it waiting on dead objects until it times out.
+      // There, any refusal fails the pull at once and the caller rolls back.
+      if (this.pullPhase === null) return this.retryRefusal(reason)
+    }
+    this.refuseFinally(reason)
+  }
+
+  /** A refusal that holds until a new credential: logged, raised, never retried. */
+  private refuseFinally(reason: string): void {
+    this.cancelRetries()
     // The message is a developer-facing diagnostic (it also rejects a join's
     // `whenSynced`); what a person reads comes from the host's i18n, keyed on
     // the error's type and `reason` (spike S22: a `relay.state` refused event).
@@ -2686,8 +3049,12 @@ export class MountSession {
     this.events.onPresence?.([...names].sort())
   }
 
-  /** Create the folder-doc provider + presence wiring. Idempotent; no-op without a relay. */
-  private connectFolder(): DocConnection | null {
+  /**
+   * Create the folder-doc provider + presence wiring. Idempotent; no-op
+   * without a relay. `announce: false` (a retry's reconnect) keeps the link
+   * the host already has instead of announcing the share again.
+   */
+  private connectFolder(opts: { announce?: boolean; awareness?: Awareness } = {}): DocConnection | null {
     if (this.folderConn || !this.relay) return this.folderConn
     const socket = this.ensureSocket()
     this.folderConn = connectDoc({
@@ -2699,14 +3066,22 @@ export class MountSession {
       record: this.recordFor(FOLDER_RECORD_KEY),
       onAuthFailed: (reason) => this.reportAuthFailure(reason),
       onStatus: (status) => this.noteRelayStatus(status),
+      ...(opts.awareness ? { awareness: opts.awareness } : {}),
       ...(socket ? { socket } : {}),
     })
     // A shared socket that is already open never re-announces its status.
     if (this.recordFor(FOLDER_RECORD_KEY).connected) this.noteRelayStatus('connected')
     else this.armOffline()
-    this.folderConn.awareness.on('change', () => this.updatePresence())
-    this.folderConn.awareness.on('update', () => this.updatePresence())
+    const folderAwareness = this.folderConn.awareness
+    const onPresence = (): void => this.updatePresence()
+    folderAwareness.on('change', onPresence)
+    folderAwareness.on('update', onPresence)
+    this.awarenessOffs.set(FOLDER_RECORD_KEY, () => {
+      folderAwareness.off('change', onPresence)
+      folderAwareness.off('update', onPresence)
+    })
     this.updatePresence()
+    if (opts.announce === false && this.sharedLink) return this.folderConn
     this.sharedLink = this.cfg.makeShareLink(this.relay, this.room)
     this.events.onShared?.(this.sharedLink)
     return this.folderConn
@@ -2974,14 +3349,22 @@ export class MountSession {
       if (diskHash !== lca.contentHash) changed.push(path)
     }
 
-    // Directory delta (M3): dir map-adds and mkdirs carry no content risk, so
-    // they apply immediately and never count toward the mass-change breaker.
-    await this.syncDirs()
-
     const threshold = this.cfg.thresholds?.massChangePaths ?? DEFAULT_THRESHOLDS.massChangePaths
     const touched = [...additions.map((s) => s.path), ...changed]
-    if (touched.length > threshold) {
+    const held = touched.length > threshold
+
+    // Directory delta (M3): mkdirs and dir map-adds never count toward the
+    // breaker. But a HELD batch's new folders are part of the batch: enrolled
+    // now, they would sync to every peer empty, and a dismissed batch would
+    // leave them behind. So while a batch is held, a folder that holds (or
+    // sits under one that holds) a held addition waits for the confirm; a new
+    // folder with no held file in it enrols at once, as before.
+    this.heldDirs = held ? this.dirsOf(additions.map((s) => s.path)) : null
+    await this.syncDirs()
+
+    if (held) {
       this.pendingBootBatch = { additions: additions.map((s) => s.path), changed }
+      this.pendingBootAdditions = new Set(this.pendingBootBatch.additions)
       this.holdBatch('boot', touched)
       // Unchanged docs still reconcile below (doc-ahead-of-LCA is our own
       // durable state, not an external change — safe while the batch is held).
@@ -3008,6 +3391,7 @@ export class MountSession {
       const mountRoots = this.mountRoots()
       const onDisk = new Set(await this.adapter.listDirs())
       for (const dir of onDisk) {
+        if (this.dirHeld(dir, mapPaths)) continue
         if (!mapPaths.has(dir) && !this.underMount(dir, mountRoots)) {
           this.folderDoc.transactMap(
             (m) => m.set(dir, { guid: crypto.randomUUID(), kind: 'dir' }),
@@ -3038,21 +3422,75 @@ export class MountSession {
     }
   }
 
+  /**
+   * Paths this session is writing to disk ahead of their map entry (a new
+   * note, an attachment, an import). Its own watcher reports them as unknown;
+   * live enrol-on-create must leave them to the write that made them.
+   */
+  private readonly appWrites = new Set<string>()
+
   /** Held boot batch, if the mass-change breaker tripped during bootScan. */
   private pendingBootBatch: { additions: string[]; changed: string[] } | null = null
+  /** The held boot batch's additions, for the live-enrol check. */
+  private pendingBootAdditions: ReadonlySet<string> = new Set()
+  /**
+   * Additions of a boot batch dismissed this session ("Not now"): they wait
+   * for the next launch's scan, so live enrolment leaves them alone too.
+   */
+  private readonly bootDismissed = new Set<string>()
+
+  /** Does `path` belong to a held boot batch, or to one dismissed this session? */
+  private bootHeld(path: string): boolean {
+    return this.pendingBootAdditions.has(path) || this.bootDismissed.has(path)
+  }
+
+  /**
+   * The new folders of a held (or dismissed) boot batch: `syncDirs` leaves
+   * them out of the map until the batch is confirmed. Kept after a dismiss —
+   * the batch's files wait for the next boot scan, and so do their folders.
+   */
+  private heldDirs: Set<string> | null = null
+
+  /** Every ancestor folder of the given file paths. */
+  private dirsOf(paths: string[]): Set<string> {
+    const dirs = new Set<string>()
+    for (const p of paths) {
+      for (let i = p.indexOf('/'); i !== -1; i = p.indexOf('/', i + 1)) dirs.add(p.slice(0, i))
+    }
+    return dirs
+  }
+
+  /**
+   * Whether `dir` waits for a held boot batch: it, or a folder above it,
+   * holds a held addition — unless something enrolled since lives under it
+   * (a note the person made there through the app), which needs its folder.
+   */
+  private dirHeld(dir: string, mapPaths: Set<string>): boolean {
+    const held = this.heldDirs
+    if (!held || held.size === 0) return false
+    let covered = held.has(dir)
+    for (let i = dir.indexOf('/'); !covered && i !== -1; i = dir.indexOf('/', i + 1)) {
+      covered = held.has(dir.slice(0, i))
+    }
+    if (!covered) return false
+    const prefix = `${dir}/`
+    for (const p of mapPaths) if (p.startsWith(prefix)) return false
+    return true
+  }
 
   /** Process a held boot batch: enroll additions, reconcile changed files. */
   async confirmBootBatch(): Promise<void> {
     const batch = this.pendingBootBatch
     if (!batch) return
     this.pendingBootBatch = null
+    this.pendingBootAdditions = new Set()
     // Re-derive the boundaries: a mount entry can have arrived while the batch
     // sat waiting for a human, and a held batch must not enrol or reconcile
     // into a subtree whose authority has since moved (N1).
     const mountRoots = this.mountRoots()
-    const additions = batch.additions.filter((p) => !this.underMount(p, mountRoots))
-    for (const path of additions) await this.enrollOne(path)
-    if (additions.length > 0) await this.restartSession()
+    this.heldDirs = null
+    const enrolled = await this.enrolNew(batch.additions, { batch: true })
+    if (enrolled.length > 0) await this.restartSession()
     for (const path of batch.changed) {
       if (this.underMount(path, mountRoots)) continue
       const guid = this.guidFor(path)
@@ -3061,16 +3499,115 @@ export class MountSession {
     this.refreshFiles()
   }
 
-  /** Drop a held boot batch: nothing is enrolled or reconciled. */
+  /**
+   * The files the boot scan would enrol for these watch paths (live
+   * enrol-on-create, `LiveEnroller.candidates`): the same listing — so the
+   * adapter's ignore set and temp-name rule apply — minus anything the map
+   * already holds, other tools' scratch files (`isScratchName`, a rule the
+   * boot scan does not apply) and anything under a mount boundary. A directory path
+   * yields every file under it: inotify reports a populated folder moved in
+   * as one event.
+   */
+  private async liveCandidates(paths: readonly string[]): Promise<string[]> {
+    const listed = await this.adapter.list()
+    // The map AFTER the listing: an app rename or create that wrote disk just
+    // before its map transaction has landed it by now.
+    const live = new Set(
+      this.folderDoc.getMap().entries().filter(([, e]) => !e.deleted).map(([p]) => p)
+    )
+    const asked = new Set(paths)
+    const under = paths.map((p) => `${p}/`)
+    const mountRoots = this.mountRoots()
+    return listed
+      .map((s) => s.path)
+      .filter(
+        (p) =>
+          !live.has(p) &&
+          !this.appWrites.has(p) &&
+          !this.bootHeld(p) &&
+          !isScratchName(p) &&
+          !this.outOfReach(p, mountRoots) &&
+          (asked.has(p) || under.some((d) => p.startsWith(d)))
+      )
+  }
+
+  /**
+   * Enrol on-disk files that are not in the map — a confirmed boot batch, or
+   * files that appeared while running (`LiveEnroller.enrol`). Their folders
+   * first, so no file lands in a folder the map does not know; a path the map
+   * gained meanwhile, or one under a mount boundary that arrived meanwhile,
+   * is skipped (a held batch can sit for a long time). Returns what enrolled.
+   * The caller makes the VaultSession track them.
+   */
+  private async enrolNew(paths: readonly string[], opts: { batch?: boolean } = {}): Promise<string[]> {
+    if (this.stopped) return []
+    const mountRoots = this.mountRoots()
+    const map = this.folderDoc.getMap()
+    const todo = paths.filter((p) => {
+      const e = map.get(p)
+      return (
+        (!e || e.deleted) &&
+        !this.outOfReach(p, mountRoots) &&
+        !this.appWrites.has(p) &&
+        // A held or dismissed boot batch's file waits for its own confirm (or
+        // the next launch); only that confirm enrols it.
+        (opts.batch === true || !this.bootHeld(p))
+      )
+    })
+    if (todo.length === 0) return []
+    // These files' own folders are no longer a held batch's to keep out —
+    // none of them is a held file, so no held batch's folder is released
+    // on a live enrol's account unless something new really lives in it.
+    if (this.heldDirs) for (const d of this.dirsOf(todo)) this.heldDirs.delete(d)
+    await this.syncDirs()
+    const enrolled: string[] = []
+    for (const path of todo) {
+      if (this.appWrites.has(path)) continue
+      await this.enrollOne(path, { live: true })
+      const entry = map.get(path)
+      if (!entry || entry.deleted) continue
+      enrolled.push(path)
+      // The session running NOW tracks it — which may not be the one whose
+      // watcher saw the file, if a restart landed meanwhile (idempotent).
+      this.sessionRef?.track(path)
+      // A content listener (the index) learns the note as it would from a
+      // boot: the seed transaction ran before the doc was tracked.
+      if (entry.kind === 'text') this.emitDocChanged(entry.guid, path, 'seed')
+    }
+    this.refreshFiles()
+    return enrolled
+  }
+
+  /**
+   * Drop a held boot batch: nothing is enrolled or reconciled, and its new
+   * files stay out until the next launch's scan, live enrolment included.
+   */
   dismissBootBatch(): void {
+    for (const p of this.pendingBootBatch?.additions ?? []) this.bootDismissed.add(p)
     this.pendingBootBatch = null
+    this.pendingBootAdditions = new Set()
   }
 
   /** Enroll one on-disk file that is not in the folder map (boot delta scan). */
-  private async enrollOne(path: string): Promise<void> {
+  private async enrollOne(path: string, opts: { live?: boolean; replace?: boolean } = {}): Promise<void> {
+    // Enrolment runs beside the app's own writes and a peer's map changes: a
+    // path the map has claimed by the time a step lands is not ours to
+    // overwrite (adopt it) — unless replacing that entry is the point
+    // (`replace`: a move-out re-enrols over a key that names the mount's
+    // guid) — and a live enrol also leaves an app write in flight to the
+    // write that made it.
+    const claimed = (): boolean => {
+      const e = this.folderDoc.getMap().get(path)
+      if (e !== undefined && !e.deleted && opts.replace !== true) return true
+      // Another session's now: a carve that started after this enrol listed
+      // the path (a private vault's carve writes no mount entry, so the
+      // adapter's live ignore set is the only boundary there).
+      if (this.outOfReach(path)) return true
+      return opts.live === true && this.appWrites.has(path)
+    }
     try {
       const bytes = await this.adapter.read(path)
-      if (bytes === null) return
+      if (bytes === null || claimed()) return
       if (looksBinary(path, bytes)) {
         this.folderDoc.transactMap(
           (m) => m.set(path, { guid: crypto.randomUUID(), kind: 'binary' }),
@@ -3093,11 +3630,25 @@ export class MountSession {
         eol: decoded.eol,
         bom: decoded.bom,
       })
+      if (claimed()) {
+        // Lost the race to the map: undo this attempt, leave theirs alone.
+        await this.discardDoc(guid, doc)
+        return
+      }
       this.folderDoc.transactMap((m) => m.set(path, { guid, kind: 'text' }), 'local')
       this.trackDoc(guid, path)
     } catch (err) {
       this.pushError(err)
     }
+  }
+
+  /** Undo a doc minted for a path that someone else's entry claimed first. */
+  private async discardDoc(guid: string, doc: EngineDoc): Promise<void> {
+    this.docs.delete(guid)
+    this.cfg.docStore?.untrack(guid)
+    await this.cfg.docStore?.remove(guid)
+    await this.lcaStore.remove(guid)
+    doc.destroy()
   }
 
   /**

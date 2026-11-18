@@ -1,0 +1,45 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Files written into an open vault from outside the app (an agent, a script, another editor) appear as they land instead of at the next launch. When many land at once the app holds them for review: one dialog covers everything held, Apply works inside shared folders too, and dismissing it is logged.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A shared folder stuck on \"refused\" recovers on its own: a refusal the relay can take back is retried on a fresh connection, with backoff, and the drawer says the app is retrying rather than asking you to link the device again. A refusal names its reason, and only a dead link is blamed on the link.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Linking a device carries every shared folder, including the ones joined or carved while the vault was private.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "A note that is open while its folder is shared keeps syncing what you type after the share; undo keeps working in every note after Stop sharing; a note is read-only for the moment its folder is being shared or unshared.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The notification drawer can be cleared, all at once (Clear all) or one row at a time.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Error and warning toasts sit on an opaque surface, and the floating bars and the dock follow the on-screen keyboard and the visual viewport in Firefox and on phones.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "Settings › Editor has options for spelling, autocorrect and sentence capitals.",
+      "type": "minor"
+    },
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The app runs under its strict Content Security Policy in Firefox again: nothing evaluates code.",
+      "type": "minor"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

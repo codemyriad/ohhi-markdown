@@ -199,7 +199,7 @@ export class OpfsVaultAdapter implements VaultAdapter {
     }
   }
 
-  watch(_cb: (ev: WatchEvent) => void): () => void {
+  watch(_cb: (ev: WatchEvent) => void, _onError?: (err: unknown) => void): () => void {
     // OPFS emits no change notifications, and this adapter is the ONLY writer to
     // its vault — no external editors, agents, or sync processes ever touch the
     // OPFS bytes directly. So there is nothing to observe and the reconciler's

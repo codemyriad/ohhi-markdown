@@ -133,8 +133,8 @@ describe('EventLog (spike S22 Q3)', () => {
     expect(log.append(notice('a')).id).toBe('app:2')
   })
 
-  it('names eleven kinds, four of them changes', () => {
-    expect(EVENT_KINDS).toHaveLength(11)
+  it('names twelve kinds, four of them changes', () => {
+    expect(EVENT_KINDS).toHaveLength(12)
     expect([...CHANGE_KINDS].every((k) => (EVENT_KINDS as readonly string[]).includes(k))).toBe(true)
     expect(CHANGE_KINDS.size).toBe(4)
   })
