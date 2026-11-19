@@ -105,22 +105,54 @@ describe('TauriVaultAdapter watch', () => {
     error.mockRestore()
   })
 
-  it('says once that it is watching, and hands on vault-relative paths', async () => {
-    let native: ((ev: { paths: string[] }) => void) | null = null
-    watchImmediate.mockImplementation(async (_root: string, cb: (ev: { paths: string[] }) => void) => {
+  type NativeEvent = { type: unknown; paths: string[] }
+
+  /** Starts the watcher and returns the native callback the plugin would call. */
+  async function watching(onEvent: (paths: string[]) => void, onError?: (err: unknown) => void) {
+    let native: ((ev: NativeEvent) => void) | null = null
+    watchImmediate.mockImplementation(async (_root: string, cb: (ev: NativeEvent) => void) => {
       native = cb
       return () => {}
     })
     const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    new TauriVaultAdapter('/home/user/vault').watch((ev) => onEvent(ev.paths), onError)
+    await settle()
+    return { native: native!, info }
+  }
+
+  it('says once that it is watching, and hands on vault-relative paths', async () => {
     const seen: string[][] = []
     const onError = vi.fn()
-    new TauriVaultAdapter('/home/user/vault').watch((ev) => seen.push(ev.paths), onError)
-    await settle()
+    const { native, info } = await watching((paths) => seen.push(paths), onError)
     expect(info).toHaveBeenCalledTimes(1)
     expect(info.mock.calls[0]).toContain('/home/user/vault')
-    native!({ paths: ['/home/user/vault/notes/a.md', '/home/user/vault/.git/index', '/elsewhere/x.md'] })
+    native({
+      type: 'any',
+      paths: ['/home/user/vault/notes/a.md', '/home/user/vault/.git/index', '/elsewhere/x.md'],
+    })
     expect(seen).toEqual([['notes/a.md']])
     expect(onError).not.toHaveBeenCalled()
+    info.mockRestore()
+  })
+
+  /**
+   * The Linux backend reports a file being opened as an `access` event — every
+   * read this app makes. Treating that as a change read the file again, which
+   * reported again: the app spun at full CPU over a resumed vault.
+   */
+  it('a read is not a change: access and other events are dropped, create/modify/remove/any pass', async () => {
+    const seen: string[][] = []
+    const { native, info } = await watching((paths) => seen.push(paths))
+    const at = (type: unknown) => native({ type, paths: ['/home/user/vault/notes/a.md'] })
+    at({ access: { kind: 'open', mode: 'any' } })
+    at({ access: { kind: 'close', mode: 'read' } })
+    at('other')
+    expect(seen).toEqual([])
+    at({ create: { kind: 'file' } })
+    at({ modify: { kind: 'data', mode: 'any' } })
+    at({ remove: { kind: 'file' } })
+    at('any')
+    expect(seen).toEqual([['notes/a.md'], ['notes/a.md'], ['notes/a.md'], ['notes/a.md']])
     info.mockRestore()
   })
 
