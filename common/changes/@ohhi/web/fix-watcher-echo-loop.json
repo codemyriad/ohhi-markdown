@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/web",
+      "comment": "The desktop app no longer freezes at full CPU when a vault is opened for a second time: the file watcher's report of the app's own reads is no longer mistaken for a change to your notes.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/web"
+}

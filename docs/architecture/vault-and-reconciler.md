@@ -25,6 +25,13 @@ ingest data loss (shaping decision log) — not by any external implementation's
 useless as-is: editors write via temp+rename, git touches hundreds of files per branch
 switch, and a single save can produce several events. The adapter layer normalizes:
 
+- **Only a change is a change.** The Linux backend (notify over inotify) also reports
+  a file being *opened*, as an `access` event — that is every read the app makes. The
+  adapter drops `access` and `other` events and acts on create, modify, remove and
+  `any`; acting on a read would read the file again, which reports again, and the
+  app was seen spinning that way over a resumed vault. As a second guard the session
+  keeps one quiesce in flight per path: an event that lands meanwhile buys one more
+  round, never a parallel read pair.
 - **Content-hash change detection.** An event only becomes a reconciler input if the
   file's content hash actually differs from the last known hash. Timestamp churn,
   metadata-only writes, and our own just-flushed writes (hash matches what we wrote)
