@@ -49,7 +49,10 @@ jobs:
 
   e2e:
     name: L2 two-context smoke (Chromium)
-    runs-on: ubuntu-latest
+    # Pinned: `ubuntu-latest` moved to 26.04, for which Playwright 1.60 ships
+    # no Chromium dependencies (`playwright install --with-deps` refuses).
+    # Lift the pin when the Playwright in use lists the image.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
