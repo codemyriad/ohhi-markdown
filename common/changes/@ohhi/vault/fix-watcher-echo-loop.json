@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@ohhi/vault",
+      "comment": "A burst of watcher events for one file is read once, not once per event, so a watcher that echoes reads can no longer keep the app busy.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "@ohhi/vault"
+}

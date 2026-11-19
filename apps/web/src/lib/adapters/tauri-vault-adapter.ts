@@ -35,6 +35,22 @@ const IGNORED = IGNORED_DIRS
 /** Counter for unique temp names within a single ms tick. */
 let tmpCounter = 0
 
+/**
+ * Whether a native watcher event means the tree changed. The Linux backend
+ * (notify over inotify) also reports a file being OPENED, as an `access`
+ * event — and that is every read this app makes. Acting on one reads the
+ * file again, which reports again, and so on: the desktop app was seen
+ * spinning at full CPU over a resumed vault, reading a handful of notes
+ * hundreds of times a second, until the window stopped responding. A change
+ * is a create, modify or remove, or the backend's own "something happened"
+ * (`any`); `other` is backend chatter with nothing to act on.
+ */
+function isChange(kind: unknown): boolean {
+  if (kind === 'any') return true
+  if (typeof kind !== 'object' || kind === null) return false
+  return 'create' in kind || 'modify' in kind || 'remove' in kind
+}
+
 /** Convert native separators to POSIX '/'. */
 function toPosix(p: string): string {
   return p.replace(/\\/g, '/')
@@ -205,6 +221,7 @@ export class TauriVaultAdapter implements VaultAdapter {
     void watchImmediate(
       this.root,
       (event) => {
+        if (!isChange(event.type)) return
         const rels: string[] = []
         for (const abs of event.paths) {
           const rel = this.toRelative(abs)

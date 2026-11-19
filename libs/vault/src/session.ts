@@ -130,6 +130,8 @@ export class VaultSession {
   private watchChain: Promise<void> = Promise.resolve()
   private watchPending = 0
   private reconcileScheduled = new Set<string>()
+  /** Paths with a quiesce in flight; true once another event landed meanwhile. */
+  private quiescing = new Map<string, boolean>()
   private docQueues = new Map<string, Promise<unknown>>()
   private disposed = false
 
@@ -527,8 +529,25 @@ export class VaultSession {
     })().catch((err) => this.events.onError?.(err))
   }
 
-  /** Double-read-same-hash quiesce before acting on a watch event. */
+  /**
+   * Double-read-same-hash quiesce before acting on a watch event. One in
+   * flight per path: an event that lands while the path is quiescing marks it
+   * to go round once more when this round settles, instead of starting a
+   * second read pair. A watcher that reports reads as events (the Linux
+   * backend reports a file being opened) would otherwise double the reads
+   * with every event, until nothing else ran.
+   */
   private quiesceThenReconcile(path: string): void {
+    if (this.quiescing.has(path)) {
+      this.quiescing.set(path, true)
+      return
+    }
+    this.quiescing.set(path, false)
+    const settle = (again: boolean): void => {
+      const eventMeanwhile = this.quiescing.get(path) === true
+      this.quiescing.delete(path)
+      if (again || eventMeanwhile) this.quiesceThenReconcile(path)
+    }
     void this.adapter
       .read(path)
       .then((first) => {
@@ -538,13 +557,21 @@ export class VaultSession {
             .read(path)
             .then((second) => {
               const secondHash = second ? hashBytes(second) : null
-              if (firstHash === secondHash) void this.reconcilePath(path)
-              else this.quiesceThenReconcile(path) // still being written; retry
+              if (firstHash === secondHash) {
+                void this.reconcilePath(path)
+                settle(false)
+              } else settle(true) // still being written; retry
             })
-            .catch((err) => this.events.onError?.(err))
+            .catch((err) => {
+              settle(false)
+              this.events.onError?.(err)
+            })
         }, this.quiesceMs)
       })
-      .catch((err) => this.events.onError?.(err))
+      .catch((err) => {
+        settle(false)
+        this.events.onError?.(err)
+      })
   }
 
   private scheduleReconcile(guid: string): void {
